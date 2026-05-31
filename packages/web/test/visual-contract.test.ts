@@ -33,11 +33,27 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('--folder-card-min: 370px');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*var\(--folder-card-min\)\),\s*1fr\)\)/);
+    expect(css).toContain('--folder-card-width: 445px');
+    expect(css).toContain('max-width: 2048px');
+    expect(css).toContain('gap: 38px 32px');
+    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*var\(--folder-card-width\)\)/);
+    expect(css).toContain('justify-content: center');
     expect(css).not.toContain('25vw');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     expect(folderCardSource).toContain('content-visibility: auto');
+  });
+
+  it('keeps each large folder to three bookmark columns with overflow scrolling after fifteen items', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+
+    expect(source).toContain('grid-template-rows: 38px 308px');
+    expect(source).toContain('height: 356px');
+    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(source).toContain('grid-auto-rows: 34px');
+    expect(source).toContain('height: 308px');
+    expect(source).toContain('overflow-y: auto');
   });
 
   it('makes the folder expand control interactive', async () => {

@@ -35,11 +35,11 @@ defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 .large-folder {
   display: grid;
   gap: 10px;
-  grid-template-rows: 38px 260px;
-  height: 308px;
+  grid-template-rows: 38px 308px;
+  height: 356px;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 420px 308px;
+  contain-intrinsic-size: 445px 356px;
   content-visibility: auto;
 }
 
@@ -81,12 +81,15 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 24px;
   display: grid;
-  gap: 12px 28px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 10px;
   grid-auto-rows: 34px;
-  height: 260px;
-  overflow: hidden;
-  padding: 26px 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 308px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 26px 18px;
+  scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+  scrollbar-width: thin;
 }
 
 .large-link,

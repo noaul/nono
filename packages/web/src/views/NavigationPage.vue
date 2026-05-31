@@ -142,11 +142,11 @@ watch(username, load);
 }
 
 .nav-content {
-  --folder-card-min: 370px;
+  --folder-card-width: 445px;
   display: grid;
   gap: 24px;
   margin: 0 auto;
-  max-width: 1920px;
+  max-width: 2048px;
   padding: 0 40px;
 }
 
@@ -207,8 +207,9 @@ h1 {
 .adaptive-folder-grid {
   align-items: stretch;
   display: grid;
-  gap: 28px 20px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--folder-card-min)), 1fr));
+  gap: 38px 32px;
+  grid-template-columns: repeat(auto-fit, var(--folder-card-width));
+  justify-content: center;
 }
 
 .folder-expand-backdrop {
@@ -378,8 +379,12 @@ h1 {
   }
 
   .nav-content {
-    --folder-card-min: 280px;
+    --folder-card-width: min(100%, 445px);
     padding: 0 10px;
+  }
+
+  .adaptive-folder-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .nav-header {
