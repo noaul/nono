@@ -1,4 +1,5 @@
 import type { FolderRecord, LinkRecord, Repository } from './repository.js';
+import { createSortOrder } from '../utils/sort-order.js';
 
 export function parseBookmarksHtml(html: string) {
   const folders: Array<{ tempId: string; parentTempId: string | null; name: string }> = [];
@@ -36,7 +37,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   const links = await repo.listLinks(userId);
   const existingUrls = new Set(links.map((link) => link.url.toLowerCase()));
   const tempToId = new Map<string, number>();
-  const summary = { addedFolders: 0, addedLinks: 0, skippedDuplicates: 0 };
+  const summary = { addedFolders: 0, addedLinks: 0, skippedDuplicates: 0, skippedInvalid: 0 };
 
   for (const item of parsed.folders) {
     const folder = await repo.createFolder({
@@ -45,7 +46,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       name: item.name,
       icon: '',
       description: '',
-      sortOrder: Date.now() + summary.addedFolders,
+      sortOrder: createSortOrder(summary.addedFolders),
       passwordHash: null,
       passwordHint: null,
     });
@@ -64,7 +65,11 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   }
 
   for (const item of parsed.links) {
-    const normalizedUrl = normalizeUrl(item.url);
+    const normalizedUrl = tryNormalizeUrl(item.url);
+    if (!normalizedUrl) {
+      summary.skippedInvalid += 1;
+      continue;
+    }
     const key = normalizedUrl.toLowerCase();
     if (existingUrls.has(key)) {
       summary.skippedDuplicates += 1;
@@ -75,9 +80,9 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       folderId: item.folderTempId ? tempToId.get(item.folderTempId) || fallbackFolderId : fallbackFolderId,
       name: item.name,
       url: normalizedUrl,
-      icon: item.icon || '',
+      icon: normalizeImportedIcon(item.icon),
       description: '',
-      sortOrder: Date.now() + summary.addedLinks,
+      sortOrder: createSortOrder(summary.addedLinks),
     });
     existingUrls.add(key);
     summary.addedLinks += 1;
@@ -90,6 +95,20 @@ export function normalizeUrl(value: string) {
   const url = new URL(String(value || '').trim());
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw Object.assign(new Error('URL must start with http:// or https://'), { statusCode: 400 });
   return url.href;
+}
+
+function tryNormalizeUrl(value: string) {
+  try {
+    return normalizeUrl(value);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeImportedIcon(value: string | undefined) {
+  const icon = String(value || '').trim();
+  if (!icon || icon.length > 512 || icon.toLowerCase().startsWith('data:')) return '';
+  return icon;
 }
 
 function appendFolderLevel(lines: string[], folders: FolderRecord[], links: LinkRecord[], parentId: number | null, depth: number) {

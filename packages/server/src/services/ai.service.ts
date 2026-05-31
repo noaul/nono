@@ -1,5 +1,6 @@
 import type { AppServices, AuthUser } from '../types.js';
 import { decryptSecret } from '../utils/crypto.js';
+import { createSortOrder } from '../utils/sort-order.js';
 import { normalizeUrl } from './bookmark.service.js';
 
 export interface AnalyzeInput {
@@ -41,7 +42,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
 export async function saveAnalyzedBookmark(services: AppServices, user: AuthUser, input: AnalyzeInput & { folderId?: number; folderName?: string; name?: string; description?: string }) {
   let folderId = input.folderId;
   if (!folderId && input.folderName) {
-    const folder = await services.repo.createFolder({ userId: user.id, parentId: null, name: input.folderName, icon: 'sparkles', description: 'AI 自动创建', sortOrder: Date.now(), passwordHash: null, passwordHint: null });
+    const folder = await services.repo.createFolder({ userId: user.id, parentId: null, name: input.folderName, icon: 'sparkles', description: 'AI 自动创建', sortOrder: createSortOrder(), passwordHash: null, passwordHint: null });
     folderId = folder.id;
   }
   if (!folderId) {
@@ -55,7 +56,7 @@ export async function saveAnalyzedBookmark(services: AppServices, user: AuthUser
     url: normalizeUrl(input.url),
     icon: '',
     description: input.description || String(input.content || '').slice(0, 120),
-    sortOrder: Date.now(),
+    sortOrder: createSortOrder(),
   });
 }
 

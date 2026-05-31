@@ -3,6 +3,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
+import { createSortOrder } from '../../utils/sort-order.js';
 
 export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/links', async (request, reply) => {
@@ -17,7 +18,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const body = request.body as any;
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
-    return sendOk(reply, await services.repo.createLink({ folderId: folder.id, name: body.name, url: normalizeUrl(body.url), icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || Date.now()) }));
+    return sendOk(reply, await services.repo.createLink({ folderId: folder.id, name: body.name, url: normalizeUrl(body.url), icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()) }));
   });
 
   app.put('/api/admin/links/reorder', async (request, reply) => {

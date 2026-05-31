@@ -27,11 +27,12 @@ async function importBookmarks() {
     return;
   }
   try {
-    const result = await apiRequest<{ addedFolders: number; addedLinks: number; skippedDuplicates: number }>('/api/admin/bookmarks/import', {
+    const result = await apiRequest<{ addedFolders: number; addedLinks: number; skippedDuplicates: number; skippedInvalid?: number }>('/api/admin/bookmarks/import', {
       method: 'POST',
       body: jsonBody({ html: html.value }),
     });
-    message.value = `导入 ${result.addedFolders} 个文件夹、${result.addedLinks} 个链接，跳过 ${result.skippedDuplicates} 个重复链接。`;
+    const skippedInvalid = result.skippedInvalid || 0;
+    message.value = `导入 ${result.addedFolders} 个文件夹、${result.addedLinks} 个链接，跳过 ${result.skippedDuplicates} 个重复链接、${skippedInvalid} 个不可导入链接。`;
   } catch (event) {
     error.value = event instanceof Error ? event.message : '导入失败';
   }

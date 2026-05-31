@@ -113,6 +113,49 @@ describe('Nono Fastify app', () => {
     expect(exported.body).toContain('https://github.com/');
   });
 
+  it('uses PostgreSQL-safe sort order values when importing bookmarks', async () => {
+    const cookie = await setupAdmin();
+    const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Tools</H3><DL><p><DT><A HREF="https://example.com/">Example</A></DL><p></DL><p>';
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+    expect(imported.statusCode).toBe(200);
+
+    const [folder] = await repo.listFolders(1);
+    const [link] = await repo.listLinks(1);
+    expect(folder.sortOrder).toBeLessThanOrEqual(2_147_483_647);
+    expect(link.sortOrder).toBeLessThanOrEqual(2_147_483_647);
+  });
+
+  it('skips browser-only bookmark URLs and data icons during import', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>',
+      '<DT><H3>Chrome Export</H3><DL><p>',
+      '<DT><A HREF="https://example.com/article" ICON="data:image/png;base64,abc123">Article</A>',
+      '<DT><A HREF="chrome://bookmarks/">Bookmarks</A>',
+      '<DT><A HREF="javascript:alert(1)">Bookmarklet</A>',
+      '</DL><p></DL><p>',
+    ].join('');
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    expect(imported.json().data).toMatchObject({ addedFolders: 1, addedLinks: 1, skippedDuplicates: 0, skippedInvalid: 2 });
+    const links = await repo.listLinks(1);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ name: 'Article', url: 'https://example.com/article', icon: '' });
+  });
+
   it('persists manual link sorting within a folder', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Manual' } });

@@ -3,6 +3,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { hashPassword } from '../../utils/crypto.js';
+import { createSortOrder } from '../../utils/sort-order.js';
 
 export async function folderRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/folders', async (request, reply) => {
@@ -15,7 +16,7 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body = request.body as any;
-    return sendOk(reply, await services.repo.createFolder({ userId: user.id, parentId: body.parentId || null, name: body.name, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || Date.now()), passwordHash: body.password ? await hashPassword(body.password) : null, passwordHint: body.passwordHint || '' }));
+    return sendOk(reply, await services.repo.createFolder({ userId: user.id, parentId: body.parentId || null, name: body.name, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()), passwordHash: body.password ? await hashPassword(body.password) : null, passwordHint: body.passwordHint || '' }));
   });
 
   app.put('/api/admin/folders/reorder', async (request, reply) => {
