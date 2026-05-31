@@ -20,6 +20,16 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, await services.repo.createLink({ folderId: folder.id, name: body.name, url: normalizeUrl(body.url), icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || Date.now()) }));
   });
 
+  app.put('/api/admin/links/reorder', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const ids = (request.body as any).ids || [];
+    for (let index = 0; index < ids.length; index += 1) {
+      await services.repo.updateLink(user.id, Number(ids[index]), { sortOrder: (ids.length - index) * 10 });
+    }
+    return sendOk(reply, { ok: true });
+  });
+
   app.put('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;

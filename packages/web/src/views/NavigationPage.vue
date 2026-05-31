@@ -25,6 +25,7 @@ const shownFolders = computed(() => {
     links: (folder.links || []).filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)),
   }));
 });
+const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !query.value.trim()));
 
 async function load() {
   await navigation.load(username.value);
@@ -82,8 +83,12 @@ watch(username, load);
         <RouterLink class="button secondary" to="/admin">后台</RouterLink>
       </header>
       <SearchBar v-model="query" @submit="submitSearch" />
-      <div class="folder-grid">
-        <FolderCard v-for="folder in shownFolders" :key="folder.id" :folder="folder" @verify="verifying = $event" />
+      <div class="trace-link">我的足迹 ^</div>
+      <nav class="folder-tabs" aria-label="文件夹">
+        <a v-for="folder in payload?.folders || []" :key="folder.id" :href="`#folder-${folder.id}`">{{ folder.name }}</a>
+      </nav>
+      <div class="adaptive-folder-grid">
+        <FolderCard v-for="folder in foldersWithLinks" :key="folder.id" :folder="folder" @verify="verifying = $event" />
       </div>
     </div>
 
@@ -110,27 +115,28 @@ watch(username, load);
   background-position: center;
   background-size: cover;
   min-height: 100vh;
-  padding: 28px;
+  padding: 32px 0 64px;
 }
 
 .nav-content {
   display: grid;
-  gap: 18px;
+  gap: 24px;
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 1920px;
+  padding: 0 40px;
 }
 
 .nav-header {
-  align-items: end;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  justify-items: center;
   gap: 14px;
-  min-height: 28vh;
+  min-height: 200px;
+  text-align: center;
 }
 
 h1 {
-  font-size: clamp(42px, 8vw, 88px);
-  line-height: 0.95;
+  font-size: clamp(38px, 6vw, 64px);
+  line-height: 1;
   margin: 0;
 }
 
@@ -141,10 +147,43 @@ h1 {
   max-width: 640px;
 }
 
-.folder-grid {
+.trace-link {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  justify-self: end;
+  margin: 18px 10% 8px 0;
+}
+
+.folder-tabs {
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-left: 0;
+  border-radius: 0;
+  border-right: 0;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-left: -40px;
+  margin-right: -40px;
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.folder-tabs a {
+  border-radius: 6px;
+  flex: 0 0 auto;
+  padding: 6px 14px;
+}
+
+.folder-tabs a:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.adaptive-folder-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 28px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, 25vw)), 1fr));
 }
 
 .modal-backdrop {
@@ -174,13 +213,22 @@ h1 {
 
 @media (max-width: 640px) {
   .nav-page {
-    padding: 18px;
+    padding: 36px 12px;
+  }
+
+  .nav-content {
+    padding: 0 10px;
   }
 
   .nav-header {
-    align-items: flex-start;
-    flex-direction: column;
+    justify-items: stretch;
     min-height: 18vh;
+    text-align: left;
+  }
+
+  .folder-tabs {
+    margin-left: -10px;
+    margin-right: -10px;
   }
 }
 </style>

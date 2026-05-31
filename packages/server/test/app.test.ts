@@ -113,6 +113,26 @@ describe('Nono Fastify app', () => {
     expect(exported.body).toContain('https://github.com/');
   });
 
+  it('persists manual link sorting within a folder', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Manual' } });
+    const folderId = folder.json().data.id;
+    const first = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'First', url: 'https://first.example/' } });
+    const second = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Second', url: 'https://second.example/' } });
+    const third = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Third', url: 'https://third.example/' } });
+
+    const reorder = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/links/reorder',
+      headers: { cookie },
+      payload: { ids: [second.json().data.id, first.json().data.id, third.json().data.id] },
+    });
+
+    expect(reorder.statusCode).toBe(200);
+    const links = await repo.listLinks(1);
+    expect(links.map((link) => link.name)).toEqual(['Second', 'First', 'Third']);
+  });
+
   it('falls back when LLM is not configured and saves the confirmed bookmark', async () => {
     const cookie = await setupAdmin();
     await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading' } });

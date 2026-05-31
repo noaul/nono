@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
-import { Plus, Save, Trash2 } from 'lucide-vue-next';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { FolderPlus, MoveDown, MoveUp, Trash2 } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Folder } from '@/api/types';
 
 const folders = ref<Folder[]>([]);
-const form = reactive({ id: 0, parentId: null as number | null, name: '', icon: 'folder', description: '', password: '', passwordHint: '' });
+const form = reactive({ id: 0, parentId: null as number | null, name: '', icon: '', description: '', password: '', passwordHint: '' });
 const message = ref('');
 const error = ref('');
+const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 
 async function load() {
   folders.value = await apiRequest<Folder[]>('/api/admin/folders');
@@ -19,16 +20,16 @@ function edit(folder: Folder) {
 }
 
 function reset() {
-  Object.assign(form, { id: 0, parentId: null, name: '', icon: 'folder', description: '', password: '', passwordHint: '' });
+  Object.assign(form, { id: 0, parentId: null, name: '', icon: '', description: '', password: '', passwordHint: '' });
 }
 
 async function save() {
   error.value = '';
-  const body = jsonBody(form);
+  message.value = '';
   try {
-    if (form.id) await apiRequest<Folder>(`/api/admin/folders/${form.id}`, { method: 'PUT', body });
-    else await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body });
-    message.value = '已保存';
+    if (form.id) await apiRequest<Folder>(`/api/admin/folders/${form.id}`, { method: 'PUT', body: jsonBody(form) });
+    else await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(form) });
+    message.value = form.id ? '文件夹已更新' : '文件夹已新增';
     reset();
     await load();
   } catch (event) {
@@ -42,12 +43,12 @@ async function remove(folder: Folder) {
 }
 
 async function move(folder: Folder, direction: -1 | 1) {
-  const index = folders.value.findIndex((item) => item.id === folder.id);
-  const target = folders.value[index + direction];
-  if (!target) return;
-  const ids = [...folders.value];
-  [ids[index], ids[index + direction]] = [ids[index + direction], ids[index]];
-  await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids: ids.map((item) => item.id) }) });
+  const ids = sortedFolders.value.map((item) => item.id);
+  const index = ids.indexOf(folder.id);
+  const next = index + direction;
+  if (index < 0 || next < 0 || next >= ids.length) return;
+  [ids[index], ids[next]] = [ids[next], ids[index]];
+  await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids }) });
   await load();
 }
 
@@ -56,33 +57,50 @@ onMounted(load);
 
 <template>
   <AdminLayout title="文件夹">
-    <div class="grid two">
-      <form class="panel grid" @submit.prevent="save">
-        <p v-if="message" class="notice">{{ message }}</p>
-        <p v-if="error" class="error">{{ error }}</p>
-        <div class="field"><label>名称</label><input v-model="form.name" required /></div>
-        <div class="field"><label>父文件夹</label><select v-model="form.parentId"><option :value="null">顶层</option><option v-for="folder in folders.filter((item) => item.id !== form.id)" :key="folder.id" :value="folder.id">{{ folder.name }}</option></select></div>
-        <div class="field"><label>图标</label><input v-model="form.icon" /></div>
-        <div class="field"><label>描述</label><textarea v-model="form.description" /></div>
-        <div class="field"><label>密码</label><input v-model="form.password" type="password" /></div>
-        <div class="field"><label>密码提示</label><input v-model="form.passwordHint" /></div>
-        <div class="toolbar">
-          <button class="button" type="submit"><Save :size="17" /> 保存</button>
-          <button class="button secondary" type="button" @click="reset"><Plus :size="17" /> 新建</button>
+    <section class="admin-card">
+      <div class="admin-card-head">
+        <div>
+          <h2>新增文件夹</h2>
+          <p>用于组织你的导航分类，可选图标、访问密码和引导语。</p>
         </div>
+        <button class="button" type="button" @click="save"><FolderPlus :size="18" /> {{ form.id ? '保存文件夹' : '新增文件夹' }}</button>
+      </div>
+      <p v-if="message" class="notice">{{ message }}</p>
+      <p v-if="error" class="error">{{ error }}</p>
+      <form class="admin-form-grid" @submit.prevent="save">
+        <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="如 link" /><button type="button" title="图标">☝</button></div></div>
+        <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
+        <div class="field"><label>密码</label><input v-model="form.password" type="password" /></div>
+        <div class="field"><label>引导语</label><input v-model="form.passwordHint" maxlength="30" placeholder="密码文件夹的提示语" /></div>
       </form>
-      <section class="panel list">
-        <article v-for="folder in folders" :key="folder.id" class="row">
-          <button class="button secondary" type="button" @click="edit(folder)">
-            <span>{{ folder.name }}</span>
-          </button>
-          <div class="toolbar">
-            <button class="icon-button secondary" title="上移" @click="move(folder, -1)">↑</button>
-            <button class="icon-button secondary" title="下移" @click="move(folder, 1)">↓</button>
-            <button class="icon-button danger" title="删除" @click="remove(folder)"><Trash2 :size="17" /></button>
-          </div>
+    </section>
+
+    <section class="admin-card">
+      <div class="admin-card-head">
+        <div>
+          <h2>文件夹管理</h2>
+          <p>管理分类、访问密码、引导语和展示顺序。</p>
+        </div>
+        <button class="button secondary" type="button" @click="reset">清空表单</button>
+      </div>
+      <div class="admin-table folder-table">
+        <div class="admin-table-head">
+          <span>图标</span>
+          <span>名称</span>
+          <span>引导语</span>
+          <span>操作</span>
+        </div>
+        <article v-for="(folder, index) in sortedFolders" :key="folder.id" class="admin-table-row">
+          <span>{{ folder.icon || '□' }}</span>
+          <button class="text-button" type="button" @click="edit(folder)">{{ folder.name }}</button>
+          <span>{{ folder.passwordHint || folder.description || '-' }}</span>
+          <span class="row-actions">
+            <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="move(folder, -1)"><MoveUp :size="16" /></button>
+            <button class="icon-button secondary" title="下移" :disabled="index === sortedFolders.length - 1" @click="move(folder, 1)"><MoveDown :size="16" /></button>
+            <button class="icon-button danger" title="删除" @click="remove(folder)"><Trash2 :size="16" /></button>
+          </span>
         </article>
-      </section>
-    </div>
+      </div>
+    </section>
   </AdminLayout>
 </template>
