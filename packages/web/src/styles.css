@@ -1,0 +1,283 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --bg: #111318;
+  --panel: #181c23;
+  --panel-2: #202632;
+  --line: #303846;
+  --text: #eef2f6;
+  --muted: #9aa7b6;
+  --accent: #4cc9a7;
+  --accent-2: #f2b84b;
+  --danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.button,
+.icon-button {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  color: #06110e;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.button.secondary,
+.icon-button.secondary {
+  background: #2b3442;
+  color: var(--text);
+}
+
+.button.danger,
+.icon-button.danger {
+  background: rgba(255, 107, 107, 0.16);
+  color: #ffb1b1;
+}
+
+.icon-button {
+  aspect-ratio: 1;
+  padding: 0;
+  width: 38px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field input,
+.field textarea,
+.field select {
+  background: #10141b;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 40px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.notice {
+  background: rgba(76, 201, 167, 0.12);
+  border: 1px solid rgba(76, 201, 167, 0.28);
+  border-radius: 8px;
+  color: #b8f2df;
+  padding: 11px 12px;
+}
+
+.error {
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.28);
+  border-radius: 8px;
+  color: #ffc7c7;
+  padding: 11px 12px;
+}
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  background: #0d1016;
+  border-right: 1px solid var(--line);
+  padding: 22px 16px;
+}
+
+.admin-brand {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 22px;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-nav a,
+.admin-user {
+  align-items: center;
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.admin-nav a.router-link-active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.admin-main {
+  min-width: 0;
+  padding: 26px;
+}
+
+.admin-topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.admin-topbar h1 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  align-items: center;
+  background: #121721;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.row-title {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.row-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-page {
+  align-items: center;
+  background: #111318;
+  display: grid;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.auth-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin: 0 auto;
+  max-width: 420px;
+  padding: 22px;
+  width: 100%;
+}
+
+.auth-card h1 {
+  font-size: 25px;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+  }
+
+  .admin-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+}

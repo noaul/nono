@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nono</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header>
+        <strong>Nono</strong>
+        <button id="settingsButton" title="设置">⚙</button>
+      </header>
+
+      <section id="settings" class="panel hidden">
+        <label>服务地址<input id="serverUrl" placeholder="http://127.0.0.1:3000" /></label>
+        <label>API Token<input id="token" type="password" placeholder="nono_..." /></label>
+        <button id="saveSettings">保存设置</button>
+      </section>
+
+      <section id="workflow" class="panel">
+        <p id="status">准备分析当前网页。</p>
+        <div id="result" class="hidden">
+          <label>标题<input id="name" /></label>
+          <label>描述<textarea id="description"></textarea></label>
+          <label>文件夹<input id="folderName" /></label>
+          <button id="saveBookmark">确认保存</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,58 @@
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  displayName: string;
+  role: 'admin' | 'user';
+  llmProvider?: string | null;
+  llmModel?: string | null;
+  hasLlmApiKey?: boolean;
+}
+
+export interface Site {
+  id: number;
+  userId: number;
+  name: string;
+  description: string;
+  slug: string;
+  backgroundImage?: string | null;
+  backgroundColor: string;
+  fontColor: string;
+  searchUrlTemplate: string;
+  localSearchFirst: boolean;
+  settings?: Record<string, unknown>;
+}
+
+export interface Folder {
+  id: number;
+  userId: number;
+  parentId?: number | null;
+  name: string;
+  icon?: string | null;
+  description?: string | null;
+  sortOrder: number;
+  passwordHint?: string | null;
+  locked?: boolean;
+  links?: Link[];
+}
+
+export interface Link {
+  id: number;
+  folderId: number;
+  name: string;
+  url: string;
+  icon?: string | null;
+  description?: string | null;
+  sortOrder: number;
+}
+
+export interface NavigationPayload {
+  site: Site & { user?: User };
+  folders: Folder[];
+}
+
+export interface SessionPayload {
+  authenticated: boolean;
+  setupRequired: boolean;
+  user: User | null;
+}

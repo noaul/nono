@@ -1,13 +1,26 @@
 {
   "name": "nono",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/server",
+    "packages/web",
+    "packages/extension"
+  ],
   "scripts": {
-    "start": "node src/server.js",
-    "test": "node test/server.test.js"
+    "dev": "npm run dev -w packages/server",
+    "dev:web": "npm run dev -w packages/web",
+    "build": "npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/extension",
+    "start": "npm run start -w packages/server",
+    "test": "npm run test -w packages/server && npm run test -w packages/web && npm run test -w packages/extension",
+    "prisma:generate": "npm run prisma:generate -w packages/server",
+    "prisma:migrate": "npm run prisma:migrate -w packages/server",
+    "prisma:deploy": "npm run prisma:deploy -w packages/server",
+    "seed": "npm run seed -w packages/server",
+    "migrate:json": "npm run migrate:json -w packages/server"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

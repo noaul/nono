@@ -1,94 +1,81 @@
 # Nono
 
-Nono 是一个可自托管的网址导航主页和轻量后台管理工具。它保留“背景图 + 白字 + 毛玻璃 + 高密度链接卡片”的公开导航形态，同时提供本地后台来管理站点配置、文件夹、书签，以及浏览器书签 HTML 的导入导出。
+Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工具。当前版本已经从零依赖单体 Node.js 应用重构为 monorepo：
+
+- `packages/server`：Fastify + Prisma + PostgreSQL API
+- `packages/web`：Vue 3 + Vite + Pinia + Vue Router
+- `packages/extension`：Chrome Manifest V3 一键收藏插件
 
 ## 功能
 
-- 公开导航页：`/` 或 `/:username`
-- 后台管理：`/admin`
-- 聚合接口：`GET /api/v1/allsiteandlinks/:username`
-- 默认账号数据：`admin`
-- 默认搜索：Google，站内无命中时跳转 `https://www.google.com/search?q={query}`
-- 数据持久化：`data/nono.json`
-- 浏览器书签双向兼容：导入/导出 Netscape Bookmark HTML，适配 Chrome、Edge、Firefox 常见书签文件
-- Docker / Docker Compose 部署
+- 多用户认证：Cookie session + Bearer API Token
+- 管理后台：站点配置、文件夹、链接、用户、Token、LLM 设置
+- 浏览器书签：Netscape Bookmark HTML 导入和导出
+- AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
+- 公开导航：`/:username`，默认搜索为 Google
+- 统一 API 响应：`{ code, data, message }`
+- 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
+- Docker Compose：应用 + PostgreSQL
 
-## 本地运行
+## 本地开发
 
 ```bash
-npm test
-npm start
+npm install
+cp .env.example .env
+docker compose up -d postgres
+npm run prisma:generate
+npm run prisma:migrate
+npm run seed
+npm run dev
 ```
 
-访问：
+前端开发服务：
+
+```bash
+npm run dev:web
+```
+
+默认访问：
 
 ```text
 http://127.0.0.1:3000/
 http://127.0.0.1:3000/admin
-http://127.0.0.1:3000/api/v1/allsiteandlinks/admin
 ```
 
-首次打开 `/admin` 会要求初始化管理员账号。初始化后即可进入控制台。
+## 生产构建
+
+```bash
+npm run build
+npm start
+```
+
+生产模式下 Fastify 会托管 `packages/web/dist`，并对非 API 路由提供 SPA fallback。
 
 ## Docker 部署
 
 ```bash
+cp .env.example .env
 docker compose up -d --build
 ```
 
-默认端口是 `3000`。如需改宿主机端口：
+请先修改 `.env` 里的 `SESSION_SECRET` 和 `ENCRYPTION_KEY`。Compose 会启动 PostgreSQL，并在应用启动前运行 Prisma migration。
+
+## 旧数据迁移
+
+旧版 `data/nono.json` 可以迁移到 PostgreSQL：
 
 ```bash
-PORT=8080 docker compose up -d --build
+npm run migrate:json -w packages/server -- data/nono.json
 ```
 
-Compose 会把本地 `./data` 挂载到容器 `/app/data`，导航数据保存在 `data/nono.json`，重建镜像不会丢失。
+旧版密码哈希不可逆，迁移脚本会为迁移用户设置临时密码，默认是 `Password2026!`。可以通过 `MIGRATED_ADMIN_PASSWORD` 覆盖。
 
-## 后台管理
+## 浏览器插件
 
-后台页面：
+构建插件：
 
-```text
-http://127.0.0.1:3000/admin
+```bash
+npm run build -w packages/extension
 ```
 
-可管理：
-
-- 总览统计：文件夹、书签、加密文件夹数量
-- 导航配置：站点名、简介、背景图、背景色、字体颜色、发布地址、搜索模板
-- 文件夹：新增、编辑、删除、排序
-- 书签：新增、编辑、迁移文件夹、预览、删除、排序
-- 导入导出：上传浏览器书签 HTML，或导出 `nono-bookmarks.html`
-- 账户：修改管理员密码
-
-## 浏览器书签导入导出
-
-### 从浏览器导入到 Nono
-
-1. 在 Chrome / Edge / Firefox 里导出书签 HTML。
-2. 打开 Nono 后台 `/admin`。
-3. 进入“导入导出”。
-4. 选择 `.html` 文件并导入。
-
-导入规则：
-
-- 顶层 `<H3>` 变成文件夹。
-- 嵌套文件夹会保留层级关系。
-- `<A HREF>` 变成书签。
-- 重复 URL 会跳过，并在结果里提示数量。
-
-### 从 Nono 导出到浏览器
-
-1. 打开后台“导入导出”。
-2. 点击“下载 nono-bookmarks.html”。
-3. 在浏览器书签管理器中导入该 HTML。
-
-## 配置搜索
-
-默认搜索模板是：
-
-```text
-https://www.google.com/search?q={query}
-```
-
-公开页会先做站内链接搜索；没有命中时，把关键词替换到 `{query}` 并跳转。你可以在后台“导航配置”中修改模板。
+在 Chrome 扩展管理页加载 `packages/extension/dist`，填入服务地址和后台创建的 API Token，即可一键分析当前网页并确认保存。

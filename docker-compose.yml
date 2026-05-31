@@ -1,19 +1,43 @@
 services:
-  nono:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nono-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nono
+      POSTGRES_USER: nono
+      POSTGRES_PASSWORD: nono
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - nono_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nono -d nono"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
     build: .
     container_name: nono
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - APP_DATA_DIR=/app/data
-    volumes:
-      - ./data:/app/data
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://nono:nono@postgres:5432/nono?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+volumes:
+  nono_pg_data:

@@ -1,6 +1,9 @@
 node_modules/
-data/
+dist/
 .env
+.env.local
 npm-debug.log*
 coverage/
+data/
 .DS_Store
+packages/server/prisma/migrations/dev.db*

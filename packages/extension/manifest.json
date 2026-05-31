@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Nono Smart Bookmark",
+  "version": "0.2.0",
+  "description": "一键分析当前网页并保存到 Nono。",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "Save to Nono",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
