@@ -51,16 +51,16 @@ function exportBookmarks() {
           <p>支持 Chrome、Edge、Firefox 等浏览器导出的 Netscape Bookmark HTML。</p>
         </div>
         <div class="toolbar">
-          <span class="file-picker">
-            <input class="file-picker-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
-            <span class="button secondary file-picker-display" aria-hidden="true"><Upload :size="17" /> 选择 HTML</span>
-          </span>
           <button class="button" type="button" @click="importBookmarks"><Upload :size="17" /> 导入</button>
           <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> 导出</button>
         </div>
       </div>
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
+      <div class="field">
+        <label for="bookmark-html-file">选择 HTML</label>
+        <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
+      </div>
       <p class="row-subtitle">{{ fileName ? `已选择：${fileName}` : '还没有选择文件，也可以直接把书签 HTML 粘贴到下方。' }}</p>
       <div class="field">
         <label>Netscape Bookmark HTML</label>
@@ -71,23 +71,21 @@ function exportBookmarks() {
 </template>
 
 <style scoped>
-.file-picker {
-  display: inline-flex;
-  min-height: 38px;
-  position: relative;
-}
-
-.file-picker-input {
+.native-file-input {
   cursor: pointer;
-  height: 100%;
-  inset: 0;
-  opacity: 0;
-  position: absolute;
-  width: 100%;
-  z-index: 1;
+  padding: 8px;
 }
 
-.file-picker-display {
-  pointer-events: none;
+.native-file-input::file-selector-button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  margin-right: 12px;
+  min-height: 34px;
+  padding: 0 12px;
 }
 </style>
