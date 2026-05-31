@@ -5,14 +5,9 @@ import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 
 const html = ref('');
-const fileInput = ref<HTMLInputElement | null>(null);
 const fileName = ref('');
 const message = ref('');
 const error = ref('');
-
-function openFilePicker() {
-  fileInput.value?.click();
-}
 
 async function pickFile(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
@@ -56,14 +51,16 @@ function exportBookmarks() {
           <p>支持 Chrome、Edge、Firefox 等浏览器导出的 Netscape Bookmark HTML。</p>
         </div>
         <div class="toolbar">
-          <button class="button secondary" type="button" @click="openFilePicker"><Upload :size="17" /> 选择 HTML</button>
+          <span class="file-picker">
+            <input class="file-picker-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
+            <span class="button secondary file-picker-display" aria-hidden="true"><Upload :size="17" /> 选择 HTML</span>
+          </span>
           <button class="button" type="button" @click="importBookmarks"><Upload :size="17" /> 导入</button>
           <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> 导出</button>
         </div>
       </div>
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
-      <input ref="fileInput" type="file" accept=".html,.htm,text/html" hidden @change="pickFile" />
       <p class="row-subtitle">{{ fileName ? `已选择：${fileName}` : '还没有选择文件，也可以直接把书签 HTML 粘贴到下方。' }}</p>
       <div class="field">
         <label>Netscape Bookmark HTML</label>
@@ -72,3 +69,25 @@ function exportBookmarks() {
     </section>
   </AdminLayout>
 </template>
+
+<style scoped>
+.file-picker {
+  display: inline-flex;
+  min-height: 38px;
+  position: relative;
+}
+
+.file-picker-input {
+  cursor: pointer;
+  height: 100%;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+.file-picker-display {
+  pointer-events: none;
+}
+</style>

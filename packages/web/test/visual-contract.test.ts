@@ -46,15 +46,16 @@ describe('visual contracts', () => {
     expect(source).toContain('to="/admin/bookmarks"');
   });
 
-  it('uses an explicit file picker button for bookmark imports', async () => {
+  it('uses a directly clickable native file input for bookmark imports', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/BookmarksView.vue'), 'utf8');
 
-    expect(source).toContain('const fileInput = ref<HTMLInputElement | null>(null)');
-    expect(source).toContain('function openFilePicker()');
-    expect(source).toContain('@click="openFilePicker"');
-    expect(source).toContain('ref="fileInput"');
+    expect(source).toContain('class="file-picker"');
+    expect(source).toContain('class="file-picker-input"');
+    expect(source).toContain('aria-label="选择 HTML"');
+    expect(source).not.toContain('openFilePicker');
+    expect(source).not.toContain('hidden @change="pickFile"');
     expect(source).toContain('fileName');
   });
 
