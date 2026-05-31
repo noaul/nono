@@ -6,31 +6,52 @@ const tabs = document.querySelector('#tabs');
 const folders = document.querySelector('#folders');
 const searchForm = document.querySelector('#search-form');
 const searchInput = document.querySelector('#search-input');
+let activeSite = null;
 
 function icon(name) {
   return name ? '●' : '○';
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("'", '&#39;');
+}
+
 function render(payload) {
   const site = payload.data.site_info;
   const folderList = payload.data.folder_with_links;
+  activeSite = site;
 
   document.title = `${site.name} 导航`;
   siteName.textContent = site.name;
   siteInfo.textContent = site.info;
-  document.documentElement.style.setProperty('--page-bg', `url("${site.bg}")`);
+  document.documentElement.style.setProperty(
+    '--page-bg',
+    site.bg_switch ? `url("${site.bg}")` : site.bg_color,
+  );
+  document.documentElement.style.setProperty('--text', site.font_color || '#ffffff');
 
   tabs.innerHTML = folderList
-    .map((folder) => `<a href="#folder-${folder.id}">${folder.name}</a>`)
+    .map((folder) => `<a href="#folder-${folder.id}">${escapeHtml(folder.name)}</a>`)
     .join('');
 
   folders.innerHTML = folderList
     .map((folder) => `
       <article class="folder" id="folder-${folder.id}">
-        <h2>${icon(folder.icon)} ${folder.name}</h2>
+        <h2>${icon(folder.icon)} ${escapeHtml(folder.name)}</h2>
         <div class="links">
           ${folder.links
-            .map((link) => `<a class="link" href="${link.url}" target="_blank" rel="noopener noreferrer">${icon(link.icon)} ${link.name}</a>`)
+            .map(
+              (link) =>
+                `<a class="link" href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(link.info || link.description || link.name)}">${icon(link.icon)} ${escapeHtml(link.name)}</a>`,
+            )
             .join('')}
         </div>
       </article>
@@ -56,7 +77,10 @@ searchForm.addEventListener('submit', (event) => {
     return;
   }
 
-  location.href = `https://www.baidu.com/s?wd=${encodeURIComponent(keyword)}`;
+  const template = activeSite?.search_url_template || 'https://www.google.com/search?q={query}';
+  location.href = template.includes('{query}')
+    ? template.replace('{query}', encodeURIComponent(keyword))
+    : `${template}${encodeURIComponent(keyword)}`;
 });
 
 fetch(`/api/v1/allsiteandlinks/${encodeURIComponent(username)}`)
