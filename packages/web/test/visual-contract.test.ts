@@ -46,6 +46,18 @@ describe('visual contracts', () => {
     expect(source).toContain('to="/admin/bookmarks"');
   });
 
+  it('uses an explicit file picker button for bookmark imports', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/BookmarksView.vue'), 'utf8');
+
+    expect(source).toContain('const fileInput = ref<HTMLInputElement | null>(null)');
+    expect(source).toContain('function openFilePicker()');
+    expect(source).toContain('@click="openFilePicker"');
+    expect(source).toContain('ref="fileInput"');
+    expect(source).toContain('fileName');
+  });
+
   it('renders admin pages with the previous workbench shell', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
