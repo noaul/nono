@@ -27,13 +27,49 @@ describe('visual contracts', () => {
     expect(wrapper.findAll('.large-link')).toHaveLength(2);
   });
 
-  it('keeps folder columns responsive to viewport and zoom changes', async () => {
+  it('keeps folder columns stable across viewport and zoom changes', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*max\(340px,\s*25vw\)\),\s*1fr\)\)/);
+    expect(css).toContain('--folder-card-min: 370px');
+    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*var\(--folder-card-min\)\),\s*1fr\)\)/);
+    expect(css).not.toContain('25vw');
+    const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+    expect(folderCardSource).toContain('content-visibility: auto');
+  });
+
+  it('makes the folder expand control interactive', async () => {
+    const wrapper = mount(FolderCard, {
+      props: {
+        folder: {
+          id: 1,
+          userId: 1,
+          name: '综合资源',
+          sortOrder: 100,
+          locked: false,
+          links: [{ id: 1, folderId: 1, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 }],
+        },
+      },
+    });
+
+    await wrapper.get('[data-testid="folder-expand"]').trigger('click');
+    expect(wrapper.emitted('expand')?.[0]).toEqual([expect.objectContaining({ id: 1 })]);
+  });
+
+  it('renders an expanded folder link panel from the navigation page', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+
+    expect(source).toContain('expandedFolder');
+    expect(source).toContain('folder-expand-modal');
+    expect(source).toContain('expanded-link-grid');
+    expect(folderCardSource).toContain('large-link:hover');
+    expect(folderCardSource).toContain('large-link:focus-visible');
+    expect(folderCardSource).toContain('large-link:active');
   });
 
   it('exposes a persisted manual sorting endpoint from bookmark management', async () => {

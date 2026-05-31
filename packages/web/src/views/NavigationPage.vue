@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { Bookmark, X } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
@@ -12,6 +13,7 @@ const navigation = useNavigationStore();
 const query = ref('');
 const password = ref('');
 const verifying = ref<Folder | null>(null);
+const expandedFolder = ref<Folder | null>(null);
 const error = ref('');
 
 const username = computed(() => String(route.params.username || 'admin'));
@@ -88,8 +90,29 @@ watch(username, load);
         <a v-for="folder in payload?.folders || []" :key="folder.id" :href="`#folder-${folder.id}`">{{ folder.name }}</a>
       </nav>
       <div class="adaptive-folder-grid">
-        <FolderCard v-for="folder in foldersWithLinks" :key="folder.id" :folder="folder" @verify="verifying = $event" />
+        <FolderCard v-for="folder in foldersWithLinks" :key="folder.id" :folder="folder" @verify="verifying = $event" @expand="expandedFolder = $event" />
       </div>
+    </div>
+
+    <div v-if="expandedFolder" class="folder-expand-backdrop" @click.self="expandedFolder = null">
+      <section class="folder-expand-modal" role="dialog" aria-modal="true" :aria-label="expandedFolder.name">
+        <header class="folder-expand-head">
+          <h2>{{ expandedFolder.name }}</h2>
+          <button class="folder-expand-close" type="button" title="关闭" @click="expandedFolder = null">
+            <X :size="22" />
+          </button>
+        </header>
+        <div class="expanded-link-grid">
+          <a v-for="link in expandedFolder.links || []" :key="link.id" class="expanded-link" :href="link.url" target="_blank" rel="noreferrer">
+            <span class="expanded-link-icon"><Bookmark :size="24" /></span>
+            <span class="expanded-link-copy">
+              <strong>{{ link.name }}</strong>
+              <small v-if="link.description">{{ link.description }}</small>
+            </span>
+          </a>
+          <p v-if="!(expandedFolder.links || []).length" class="expanded-empty">这个文件夹还没有可展示的书签。</p>
+        </div>
+      </section>
     </div>
 
     <div v-if="verifying" class="modal-backdrop">
@@ -119,6 +142,7 @@ watch(username, load);
 }
 
 .nav-content {
+  --folder-card-min: 370px;
   display: grid;
   gap: 24px;
   margin: 0 auto;
@@ -181,9 +205,146 @@ h1 {
 }
 
 .adaptive-folder-grid {
+  align-items: stretch;
   display: grid;
   gap: 28px 20px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, 25vw)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--folder-card-min)), 1fr));
+}
+
+.folder-expand-backdrop {
+  align-items: start;
+  background: rgba(0, 0, 0, 0.7);
+  display: grid;
+  inset: 0;
+  padding: 82px 36px 36px;
+  position: fixed;
+  z-index: 30;
+}
+
+.folder-expand-modal {
+  background: rgba(118, 118, 118, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.48);
+  color: #f8fafc;
+  display: grid;
+  gap: 24px;
+  margin: 0 auto;
+  min-height: min(70vh, 730px);
+  overflow: hidden;
+  padding: 18px 28px 34px;
+  width: min(100%, 1888px);
+}
+
+.folder-expand-head {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.folder-expand-head h2 {
+  font-size: 26px;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.folder-expand-close {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+}
+
+.folder-expand-close:hover,
+.folder-expand-close:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.26);
+  outline: none;
+}
+
+.expanded-link-grid {
+  align-content: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+}
+
+.expanded-link {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  color: #1f2937;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-height: 90px;
+  padding: 14px;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+
+.expanded-link:hover,
+.expanded-link:focus-visible {
+  background: #2398ff;
+  border-color: rgba(255, 255, 255, 0.86);
+  color: #ffffff;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.expanded-link:active {
+  transform: translateY(0);
+}
+
+.expanded-link:hover small,
+.expanded-link:focus-visible small {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.expanded-link-icon {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  display: inline-flex;
+  height: 54px;
+  justify-content: center;
+  width: 54px;
+}
+
+.expanded-link-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.expanded-link strong,
+.expanded-link small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expanded-link strong {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.expanded-link small {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.expanded-empty {
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0;
 }
 
 .modal-backdrop {
@@ -217,6 +378,7 @@ h1 {
   }
 
   .nav-content {
+    --folder-card-min: 280px;
     padding: 0 10px;
   }
 
@@ -229,6 +391,19 @@ h1 {
   .folder-tabs {
     margin-left: -10px;
     margin-right: -10px;
+  }
+
+  .folder-expand-backdrop {
+    padding: 24px 12px;
+  }
+
+  .folder-expand-modal {
+    min-height: calc(100vh - 48px);
+    padding: 16px;
+  }
+
+  .expanded-link-grid {
+    gap: 12px;
   }
 }
 </style>
