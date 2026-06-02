@@ -71,7 +71,7 @@ watch(username, load);
   <main
     class="nav-page"
     :style="{
-      backgroundImage: payload?.site.backgroundImage ? `linear-gradient(rgba(0,0,0,.38), rgba(0,0,0,.66)), url(${payload.site.backgroundImage})` : undefined,
+      backgroundImage: payload?.site.backgroundImage ? `linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.75)), url('${payload.site.backgroundImage}')` : undefined,
       backgroundColor: payload?.site.backgroundColor || '#111318',
       color: payload?.site.fontColor || '#fff',
     }"
@@ -82,7 +82,6 @@ watch(username, load);
           <h1>{{ payload?.site.name || 'Nono' }}</h1>
           <p>{{ payload?.site.description || '一个可自托管的网址导航主页' }}</p>
         </div>
-        <RouterLink class="button secondary" to="/admin">后台</RouterLink>
       </header>
       <SearchBar v-model="query" @submit="submitSearch" />
       <div class="trace-link">我的足迹 ^</div>
