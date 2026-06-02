@@ -49,9 +49,9 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('grid-template-rows: 38px 308px');
-    expect(source).toContain('height: 356px');
-    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(source).toContain('grid-auto-rows: 34px');
+    expect(source).toContain('height: 358px');
+    expect(source).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(source).toContain('grid-auto-rows: 40px');
     expect(source).toContain('height: 308px');
     expect(source).toContain('overflow-y: auto');
   });

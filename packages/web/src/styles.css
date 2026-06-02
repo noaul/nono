@@ -318,17 +318,21 @@ a {
 }
 
 .app-workbench .brand-logo {
-  background: #7bdc60;
-  border: 3px solid #111827;
-  border-radius: 8px;
-  color: #111827;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-radius: 10px;
+  color: #ffffff;
   display: grid;
-  font-size: 26px;
-  font-weight: 900;
-  height: 48px;
+  font-size: 24px;
+  font-weight: 800;
+  height: 44px;
   place-items: center;
-  transform: rotate(12deg);
-  width: 48px;
+  width: 44px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.app-workbench .brand:hover .brand-logo {
+  transform: scale(1.05);
 }
 
 .app-workbench .brand h1 {

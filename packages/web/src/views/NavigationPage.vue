@@ -154,7 +154,7 @@ watch(username, load);
   display: grid;
   justify-items: center;
   gap: 14px;
-  min-height: 200px;
+  min-height: 180px;
   text-align: center;
 }
 
@@ -162,46 +162,70 @@ h1 {
   font-size: clamp(38px, 6vw, 64px);
   line-height: 1;
   margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .nav-header p {
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 17px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 16px;
   margin: 12px 0 0;
   max-width: 640px;
+  font-weight: 500;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .trace-link {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 18px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 600;
   justify-self: end;
-  margin: 18px 10% 8px 0;
+  margin: 8px 6% 0 0;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trace-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .folder-tabs {
-  backdrop-filter: blur(4px);
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-left: 0;
-  border-radius: 0;
-  border-right: 0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(20, 24, 33, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
-  margin-left: -40px;
-  margin-right: -40px;
+  margin: 10px auto;
+  max-width: fit-content;
   overflow-x: auto;
-  padding: 10px;
+  padding: 6px 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 
 .folder-tabs a {
-  border-radius: 6px;
+  border-radius: 999px;
   flex: 0 0 auto;
-  padding: 6px 14px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
 }
 
 .folder-tabs a:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .adaptive-folder-grid {
@@ -214,27 +238,33 @@ h1 {
 
 .folder-expand-backdrop {
   align-items: start;
-  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(10, 12, 16, 0.6);
   display: grid;
   inset: 0;
   padding: 82px 36px 36px;
   position: fixed;
-  z-index: 30;
+  z-index: 40;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .folder-expand-modal {
-  background: rgba(118, 118, 118, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 8px;
-  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.48);
+  background: rgba(20, 25, 35, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.55), 0 0 40px rgba(255,255,255,0.02);
   color: #f8fafc;
   display: grid;
   gap: 24px;
   margin: 0 auto;
   min-height: min(70vh, 730px);
   overflow: hidden;
-  padding: 18px 28px 34px;
-  width: min(100%, 1888px);
+  padding: 24px 32px 36px;
+  width: min(100%, 1440px);
+  animation: scaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .folder-expand-head {
@@ -242,63 +272,72 @@ h1 {
   display: flex;
   gap: 16px;
   justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 16px;
 }
 
 .folder-expand-head h2 {
-  font-size: 26px;
-  letter-spacing: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin: 0;
+  color: #fff;
 }
 
 .folder-expand-close {
   align-items: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: inherit;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   display: inline-flex;
-  height: 36px;
+  height: 38px;
   justify-content: center;
   padding: 0;
-  width: 36px;
+  transition: all 0.2s ease;
+  width: 38px;
 }
 
 .folder-expand-close:hover,
 .folder-expand-close:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
   outline: none;
 }
 
 .expanded-link-grid {
   align-content: start;
   display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .expanded-link {
   align-items: center;
-  background: rgba(255, 255, 255, 0.64);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
-  color: #1f2937;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.9);
   display: grid;
   gap: 14px;
   grid-template-columns: 56px minmax(0, 1fr);
-  min-height: 90px;
+  min-height: 84px;
   padding: 14px;
-  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .expanded-link:hover,
 .expanded-link:focus-visible {
-  background: #2398ff;
-  border-color: rgba(255, 255, 255, 0.86);
-  color: #ffffff;
+  background: rgba(76, 201, 167, 0.08);
+  border-color: rgba(76, 201, 167, 0.35);
+  color: var(--accent);
   outline: none;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(76, 201, 167, 0.1);
 }
 
 .expanded-link:active {
@@ -307,17 +346,27 @@ h1 {
 
 .expanded-link:hover small,
 .expanded-link:focus-visible small {
-  color: rgba(255, 255, 255, 0.76);
+  color: rgba(76, 201, 167, 0.6);
 }
 
 .expanded-link-icon {
   align-items: center;
-  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   display: inline-flex;
   height: 54px;
   justify-content: center;
   width: 54px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.expanded-link:hover .expanded-link-icon {
+  background: rgba(76, 201, 167, 0.12);
+  border-color: rgba(76, 201, 167, 0.25);
+  color: var(--accent);
+  transform: scale(1.04);
 }
 
 .expanded-link-copy {
@@ -334,43 +383,74 @@ h1 {
 }
 
 .expanded-link strong {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .expanded-link small {
-  color: #64748b;
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .expanded-empty {
-  color: rgba(255, 255, 255, 0.78);
-  margin: 0;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 40px auto;
+  font-size: 15px;
 }
 
 .modal-backdrop {
   align-items: center;
-  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 12, 16, 0.65);
   display: grid;
   inset: 0;
   padding: 20px;
   position: fixed;
+  z-index: 50;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .modal {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: rgba(20, 24, 33, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
   display: grid;
-  gap: 14px;
+  gap: 18px;
   margin: 0 auto;
   max-width: 380px;
-  padding: 18px;
+  padding: 24px;
   width: 100%;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .modal h2 {
+  font-size: 20px;
+  font-weight: 800;
   margin: 0;
+  color: #fff;
+}
+
+.modal p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13.5px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 @media (max-width: 640px) {
@@ -396,6 +476,8 @@ h1 {
   .folder-tabs {
     margin-left: -10px;
     margin-right: -10px;
+    border-radius: 0;
+    max-width: 100%;
   }
 
   .folder-expand-backdrop {
