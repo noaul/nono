@@ -3,15 +3,17 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  --bg: #111318;
-  --panel: #181c23;
-  --panel-2: #202632;
-  --line: #303846;
-  --text: #eef2f6;
-  --muted: #9aa7b6;
-  --accent: #4cc9a7;
-  --accent-2: #f2b84b;
-  --danger: #ff6b6b;
+  --bg: #090a0f;
+  --panel: #12141c;
+  --panel-2: #1a1d29;
+  --line: #222635;
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --accent: #10b981;
+  --accent-2: #3b82f6;
+  --danger: #f43f5e;
+
+  --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -23,11 +25,14 @@ body,
 #app {
   min-height: 100%;
   margin: 0;
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -35,10 +40,13 @@ input,
 textarea,
 select {
   font: inherit;
+  outline: none;
 }
 
 button {
   cursor: pointer;
+  border: none;
+  background: none;
 }
 
 a {
@@ -46,39 +54,69 @@ a {
   text-decoration: none;
 }
 
+/* Base interactive elements */
 .button,
 .icon-button {
   align-items: center;
   background: var(--accent);
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: #06110e;
+  color: #041d14;
   display: inline-flex;
-  font-weight: 700;
+  font-weight: 600;
   gap: 8px;
   justify-content: center;
   min-height: 38px;
-  padding: 0 14px;
+  padding: 0 16px;
+  transition: var(--transition-smooth);
+}
+
+.button:hover,
+.icon-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.button:active,
+.icon-button:active {
+  transform: translateY(0);
 }
 
 .button.secondary,
 .icon-button.secondary {
-  background: #2b3442;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
   color: var(--text);
+}
+
+.button.secondary:hover,
+.icon-button.secondary:hover {
+  background: var(--line);
+  border-color: var(--muted);
 }
 
 .button.danger,
 .icon-button.danger {
-  background: rgba(255, 107, 107, 0.16);
-  color: #ffb1b1;
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #fda4af;
+}
+
+.button.danger:hover,
+.icon-button.danger:hover {
+  background: var(--danger);
+  color: #ffffff;
+  border-color: transparent;
 }
 
 .icon-button {
   aspect-ratio: 1;
   padding: 0;
   width: 38px;
+  height: 38px;
 }
 
+/* Fields & Form elements */
 .field {
   display: grid;
   gap: 6px;
@@ -87,19 +125,27 @@ a {
 .field label {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .field input,
 .field textarea,
 .field select {
-  background: #10141b;
+  background: rgba(10, 11, 16, 0.7);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
   min-height: 40px;
-  padding: 9px 11px;
+  padding: 9px 12px;
   width: 100%;
+  transition: var(--transition-smooth);
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .field textarea {
@@ -107,22 +153,26 @@ a {
   resize: vertical;
 }
 
+/* Feedback blocks */
 .notice {
-  background: rgba(76, 201, 167, 0.12);
-  border: 1px solid rgba(76, 201, 167, 0.28);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
   border-radius: 8px;
-  color: #b8f2df;
-  padding: 11px 12px;
+  color: #a7f3d0;
+  padding: 12px 14px;
+  font-size: 14px;
 }
 
 .error {
-  background: rgba(255, 107, 107, 0.12);
-  border: 1px solid rgba(255, 107, 107, 0.28);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.25);
   border-radius: 8px;
-  color: #ffc7c7;
-  padding: 11px 12px;
+  color: #fecdd3;
+  padding: 12px 14px;
+  font-size: 14px;
 }
 
+/* Legacy Admin shell styling (for general backwards compatibility if fallback triggered) */
 .admin-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
@@ -130,9 +180,9 @@ a {
 }
 
 .admin-sidebar {
-  background: #0d1016;
+  background: #090a0f;
   border-right: 1px solid var(--line);
-  padding: 22px 16px;
+  padding: 24px 16px;
 }
 
 .admin-brand {
@@ -141,7 +191,7 @@ a {
   gap: 10px;
   font-size: 20px;
   font-weight: 800;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .admin-nav {
@@ -157,17 +207,24 @@ a {
   display: flex;
   gap: 10px;
   min-height: 40px;
-  padding: 0 10px;
+  padding: 0 12px;
+  transition: var(--transition-smooth);
+}
+
+.admin-nav a:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
 }
 
 .admin-nav a.router-link-active {
   background: var(--panel-2);
   color: var(--text);
+  font-weight: 600;
 }
 
 .admin-main {
   min-width: 0;
-  padding: 26px;
+  padding: 24px;
 }
 
 .admin-topbar {
@@ -175,24 +232,26 @@ a {
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .admin-topbar h1 {
   font-size: 24px;
   margin: 0;
+  font-weight: 700;
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .grid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .grid.two {
@@ -205,22 +264,29 @@ a {
 
 .list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .row {
   align-items: center;
-  background: #121721;
+  background: rgba(18, 20, 28, 0.6);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 12px;
+  padding: 12px 16px;
+  transition: var(--transition-smooth);
+}
+
+.row:hover {
+  border-color: var(--muted);
+  background: rgba(26, 29, 41, 0.7);
 }
 
 .row-title {
-  font-weight: 800;
+  font-weight: 700;
+  font-size: 16px;
   overflow-wrap: anywhere;
 }
 
@@ -240,10 +306,10 @@ a {
 
 .auth-page {
   align-items: center;
-  background: #111318;
+  background: #090a0f;
   display: grid;
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
 }
 
 .auth-card {
@@ -251,16 +317,19 @@ a {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin: 0 auto;
   max-width: 420px;
-  padding: 22px;
+  padding: 32px;
   width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
 .auth-card h1 {
-  font-size: 25px;
+  font-size: 26px;
+  font-weight: 800;
   margin: 0;
+  letter-spacing: 0;
 }
 
 @media (max-width: 860px) {
@@ -270,6 +339,8 @@ a {
 
   .admin-sidebar {
     position: static;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .admin-nav {
@@ -282,21 +353,25 @@ a {
   }
 }
 
+/* ==========================================================================
+   Modern SaaS / Workbench Shell Styling (app-workbench)
+   ========================================================================== */
 .app-workbench {
-  --bg: #f4f7fb;
+  --bg: #f8fafc;
   --panel: #ffffff;
-  --panel-2: #f8fbff;
-  --line: #dbe5f0;
-  --line-soft: #edf2f7;
-  --text: #111827;
+  --panel-2: #f1f5f9;
+  --line: #e2e8f0;
+  --line-soft: #f1f5f9;
+  --text: #0f172a;
   --muted: #64748b;
-  --accent: #2f8df6;
-  --accent-2: #18b969;
-  --danger: #f05261;
+  --accent: #2563eb;
+  --accent-2: #10b981;
+  --danger: #ef4444;
+
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  padding: 12px 14px 28px;
+  padding: 16px 20px 32px;
 }
 
 .app-workbench .topbar {
@@ -305,30 +380,31 @@ a {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(260px, 1fr);
-  min-height: 86px;
-  padding: 16px 22px;
+  gap: 20px;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(280px, 1.8fr) 1.2fr;
+  min-height: 76px;
+  padding: 14px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .app-workbench .brand {
   align-items: center;
   display: flex;
-  gap: 14px;
+  gap: 12px;
 }
 
 .app-workbench .brand-logo {
   background: linear-gradient(135deg, #10b981, #059669);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #ffffff;
   display: grid;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
-  height: 44px;
+  height: 40px;
   place-items: center;
-  width: 44px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
-  transition: transform 0.2s ease;
+  width: 40px;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-workbench .brand:hover .brand-logo {
@@ -336,12 +412,15 @@ a {
 }
 
 .app-workbench .brand h1 {
-  font-size: 24px;
+  font-size: 18px;
+  font-weight: 800;
   line-height: 1.1;
   margin: 0;
+  letter-spacing: 0;
 }
 
 .app-workbench .brand p {
+  font-size: 12px;
   color: var(--muted);
   margin: 2px 0 0;
 }
@@ -350,12 +429,27 @@ a {
   align-items: center;
   background: #f8fafc;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 99px;
   color: #475569;
   display: flex;
   gap: 8px;
-  min-width: 320px;
-  padding: 10px 20px;
+  min-width: 0;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  justify-self: center;
+}
+
+.app-workbench .notice strong {
+  color: var(--text);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.app-workbench .notice span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-workbench .top-actions {
@@ -369,21 +463,22 @@ a {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  margin-top: 18px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  margin-top: 16px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .app-workbench .sidebar {
-  background: #f8fbff;
+  background: #fafbfe;
   border-right: 1px solid var(--line);
-  min-height: calc(100vh - 130px);
-  padding: 16px 14px;
+  min-height: calc(100vh - 140px);
+  padding: 16px 12px;
 }
 
 .app-workbench .admin-nav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .app-workbench .nav-button {
@@ -392,20 +487,27 @@ a {
   border-radius: 8px;
   color: #475569;
   display: flex;
-  font-weight: 700;
-  gap: 12px;
-  min-height: 48px;
+  font-weight: 600;
+  gap: 10px;
+  min-height: 40px;
   padding: 0 14px;
+  font-size: 14px;
+  transition: var(--transition-smooth);
+}
+
+.app-workbench .nav-button:hover {
+  background: #f1f5f9;
+  color: var(--text);
 }
 
 .app-workbench .nav-button.router-link-active {
-  background: #e8f2ff;
-  box-shadow: inset 3px 0 0 var(--accent);
-  color: #0f6edb;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
 }
 
 .app-workbench .content {
-  background: #fff;
+  background: #ffffff;
   min-width: 0;
 }
 
@@ -415,40 +517,45 @@ a {
   display: flex;
   gap: 18px;
   justify-content: space-between;
-  padding: 28px 30px;
+  padding: 24px 28px;
 }
 
 .app-workbench .page-title p {
   color: var(--muted);
   margin: 0 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .app-workbench .page-title h1 {
-  font-size: 28px;
+  font-size: 24px;
+  font-weight: 800;
   line-height: 1.2;
   margin: 0;
+  letter-spacing: 0;
 }
 
 .app-workbench .section {
-  padding: 24px 30px;
+  padding: 24px 28px;
 }
 
 .app-workbench .panel {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
-  margin-bottom: 18px;
-  padding: 20px 22px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  box-shadow: none;
 }
 
 .app-workbench .admin-card {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
-  margin-bottom: 20px;
-  padding: 22px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  padding: 24px;
 }
 
 .app-workbench .admin-card-head {
@@ -456,16 +563,21 @@ a {
   display: flex;
   gap: 18px;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 16px;
 }
 
 .app-workbench .admin-card-head h2 {
-  font-size: 22px;
-  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: 0;
 }
 
 .app-workbench .admin-card-head p {
   color: var(--muted);
+  font-size: 13px;
   margin: 0;
 }
 
@@ -473,12 +585,12 @@ a {
 .app-workbench .bookmark-create-grid {
   align-items: end;
   display: grid;
-  gap: 18px;
+  gap: 16px;
   grid-template-columns: 1fr 1.2fr 1fr 1.6fr;
 }
 
 .app-workbench .bookmark-create-grid {
-  grid-template-columns: 1.2fr 1.9fr 1fr;
+  grid-template-columns: 1.2fr 1.8fr 1fr;
 }
 
 .app-workbench .bookmark-create-grid .wide {
@@ -491,7 +603,7 @@ a {
 
 .app-workbench .input-with-picker {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 78px;
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 .app-workbench .input-with-picker input {
@@ -500,61 +612,78 @@ a {
 }
 
 .app-workbench .input-with-picker button {
-  background: #f4f7fb;
+  background: #f8fafc;
   border: 1px solid var(--line);
   border-left: 0;
   border-radius: 0 8px 8px 0;
-  color: #94a3b8;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  transition: var(--transition-smooth);
+}
+
+.app-workbench .input-with-picker button:hover {
+  background: #f1f5f9;
+  color: var(--text);
 }
 
 .app-workbench .warning-line {
   align-items: center;
-  background: #fff7ed;
-  border-radius: 6px;
-  color: #f59e0b;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  color: #b45309;
   display: flex;
-  min-height: 48px;
-  padding: 0 22px;
+  min-height: 40px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
 }
 
 .app-workbench .folder-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 18px 0 28px;
+  gap: 8px;
+  margin: 16px 0 24px;
 }
 
 .app-workbench .folder-pill {
   align-items: center;
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 99px;
   color: #475569;
   display: inline-flex;
   font-weight: 600;
   gap: 8px;
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: 34px;
+  padding: 0 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  transition: var(--transition-smooth);
 }
 
 .app-workbench .folder-pill:hover {
   background: #f8fafc;
-  color: #1e293b;
+  color: var(--text);
   border-color: #cbd5e1;
 }
 
 .app-workbench .folder-pill.active {
-  background: rgba(47, 141, 246, 0.08);
+  background: rgba(37, 99, 235, 0.06);
   border-color: var(--accent);
-  color: #0f6edb;
-  box-shadow: 0 4px 12px rgba(47, 141, 246, 0.12);
+  color: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
 }
 
+/* Tables in Workbench */
 .app-workbench .admin-table {
   display: grid;
   overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .app-workbench .admin-table-head,
@@ -562,10 +691,14 @@ a {
   align-items: center;
   border-bottom: 1px solid var(--line-soft);
   display: grid;
-  gap: 18px;
-  min-width: 960px;
-  padding: 14px 18px;
-  transition: all 0.15s ease;
+  gap: 16px;
+  min-width: 900px;
+  padding: 12px 18px;
+  transition: var(--transition-smooth);
+}
+
+.app-workbench .admin-table-row:last-child {
+  border-bottom: none;
 }
 
 .app-workbench .admin-table-row:hover {
@@ -574,19 +707,22 @@ a {
 
 .app-workbench .folder-table .admin-table-head,
 .app-workbench .folder-table .admin-table-row {
-  grid-template-columns: 120px 1fr 1.6fr 210px;
+  grid-template-columns: 100px 1.5fr 2fr 180px;
 }
 
 .app-workbench .bookmark-table .admin-table-head,
 .app-workbench .bookmark-table .admin-table-row {
-  grid-template-columns: 86px 1fr 1.9fr 1fr 150px;
+  grid-template-columns: 80px 1.5fr 2fr 1.2fr 130px;
 }
 
 .app-workbench .admin-table-head {
-  background: #f8fafc;
+  background: #fafbfe;
   border-bottom: 1px solid var(--line);
   color: #475569;
   font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   padding: 12px 18px;
 }
 
@@ -597,16 +733,24 @@ a {
 .app-workbench .text-button {
   background: transparent;
   border: 0;
-  color: #334155;
+  color: var(--text);
   font: inherit;
-  font-weight: 700;
-  min-height: 34px;
+  font-weight: 600;
+  min-height: auto;
   padding: 0;
   text-align: left;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.app-workbench .text-button:hover {
+  color: var(--accent);
 }
 
 .app-workbench .url-cell {
-  color: #526a88;
+  color: #64748b;
+  font-size: 13px;
+  font-family: monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -615,46 +759,62 @@ a {
 .app-workbench .sort-cell {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .app-workbench .row-actions {
   display: flex;
-  gap: 0;
+  gap: 4px;
   justify-content: flex-end;
 }
 
 .app-workbench .icon-button.success {
-  background: #59c236;
-  color: #fff;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #047857;
+}
+
+.app-workbench .icon-button.success:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: transparent;
 }
 
 .app-workbench .sort-footer {
   align-items: center;
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
-  margin-top: 30px;
-  min-height: 92px;
-  padding: 18px 24px;
+  margin-top: 16px;
+  min-height: 64px;
+  padding: 12px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .app-workbench .panel h2 {
-  font-size: 20px;
+  font-size: 18px;
+  font-weight: 800;
   margin: 0 0 4px;
+  letter-spacing: 0;
 }
 
 .app-workbench .row {
-  background: linear-gradient(180deg, #fff, #f9fbfe);
+  background: #ffffff;
   border-color: var(--line);
+  box-shadow: none;
+}
+
+.app-workbench .row:hover {
+  border-color: #cbd5e1;
+  background: #fafbfe;
 }
 
 .app-workbench .row-subtitle,
 .app-workbench .admin-user {
   color: var(--muted);
+  font-size: 13px;
 }
 
 .app-workbench .field label {
@@ -666,39 +826,39 @@ a {
 .app-workbench .field input,
 .app-workbench .field textarea,
 .app-workbench .field select {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
   min-height: 38px;
   padding: 8px 12px;
   width: 100%;
-  transition: all 0.2s ease;
+  transition: var(--transition-smooth);
 }
 
 .app-workbench .field input:focus,
 .app-workbench .field textarea:focus,
 .app-workbench .field select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(47, 141, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
   outline: 0;
 }
 
 .app-workbench .button,
 .app-workbench .icon-button {
   background: var(--accent);
-  color: #fff;
+  color: #ffffff;
   border-radius: 8px;
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(47, 141, 246, 0.1);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.05);
+  transition: var(--transition-smooth);
 }
 
 .app-workbench .button:hover,
 .app-workbench .icon-button:hover {
-  background: #1d7add;
+  background: #1d4ed8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(47, 141, 246, 0.2);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
 }
 
 .app-workbench .button:active,
@@ -708,10 +868,10 @@ a {
 
 .app-workbench .button.secondary,
 .app-workbench .icon-button.secondary {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
   color: #334155;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .app-workbench .button.secondary:hover,
@@ -719,36 +879,49 @@ a {
   background: #f8fafc;
   color: #0f172a;
   border-color: #cbd5e1;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .app-workbench .button.danger,
 .app-workbench .icon-button.danger {
   background: var(--danger);
-  color: #fff;
-  box-shadow: 0 2px 4px rgba(240, 82, 97, 0.10);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.05);
 }
 
 .app-workbench .button.danger:hover,
 .app-workbench .icon-button.danger:hover {
-  background: #e03b4b;
-  box-shadow: 0 4px 8px rgba(240, 82, 97, 0.20);
+  background: #dc2626;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.15);
 }
 
 .app-workbench .notice {
-  background: #f8fafc;
-  border-color: var(--line);
-  color: #475569;
-  border-radius: 999px;
-  font-weight: 500;
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #065f46;
+  border-radius: 99px;
+  font-weight: 600;
 }
 
 .app-workbench .error {
-  background: #fff1f2;
-  border-color: #fecdd3;
-  color: #be123c;
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
   border-radius: 8px;
   font-weight: 500;
+}
+
+/* prefers-reduced-motion compatibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
 }
 
 @media (max-width: 900px) {
@@ -759,21 +932,27 @@ a {
   .app-workbench .topbar {
     border-radius: 0;
     grid-template-columns: 1fr;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
   }
 
   .app-workbench .notice {
     min-width: 0;
+    width: 100%;
+    justify-content: center;
   }
 
   .app-workbench .top-actions {
-    justify-content: flex-start;
-    overflow-x: auto;
+    justify-content: center;
+    width: 100%;
   }
 
   .app-workbench .workspace {
     border-radius: 0;
     grid-template-columns: 1fr;
     margin-top: 0;
+    border: 0;
   }
 
   .app-workbench .sidebar {
@@ -781,14 +960,17 @@ a {
     border-right: 0;
     min-height: auto;
     overflow-x: auto;
+    padding: 10px 14px;
   }
 
   .app-workbench .admin-nav {
     display: flex;
+    gap: 6px;
   }
 
   .app-workbench .nav-button {
     flex: 0 0 auto;
+    min-height: 36px;
   }
 
   .app-workbench .page-head,
@@ -800,6 +982,7 @@ a {
   .app-workbench .sort-footer {
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
   }
 
   .app-workbench .admin-form-grid,
