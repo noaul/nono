@@ -19,6 +19,23 @@ const error = ref('');
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
+const backgroundStyle = computed(() => {
+  if (!payload.value?.site) {
+    return {
+      '--nav-bg-color': '#090a0f',
+      '--nav-bg-image': 'none',
+      color: '#f3f4f6',
+    };
+  }
+
+  return {
+    '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
+    '--nav-bg-image': payload.value.site.backgroundImage
+      ? `linear-gradient(rgba(10, 11, 16, 0.22), rgba(10, 11, 16, 0.58)), url(${JSON.stringify(payload.value.site.backgroundImage)})`
+      : 'none',
+    color: payload.value.site.fontColor || '#f3f4f6',
+  };
+});
 const shownFolders = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!payload.value || !q) return payload.value?.folders || [];
@@ -68,14 +85,7 @@ watch(username, load);
 </script>
 
 <template>
-  <main
-    class="nav-page"
-    :style="{
-      backgroundImage: payload?.site.backgroundImage ? `linear-gradient(rgba(10, 11, 16, 0.45), rgba(10, 11, 16, 0.8)), url('${payload.site.backgroundImage}')` : undefined,
-      backgroundColor: payload?.site.backgroundColor || '#090a0f',
-      color: payload?.site.fontColor || '#f3f4f6',
-    }"
-  >
+  <main class="nav-page" :style="backgroundStyle">
     <div class="nav-content">
       <header class="nav-header">
         <div class="header-vibe">
@@ -156,10 +166,23 @@ watch(username, load);
 
 <style scoped>
 .nav-page {
-  background-position: center;
-  background-size: cover;
+  background: var(--nav-bg-color, #090a0f);
+  isolation: isolate;
   min-height: 100vh;
   padding: 48px 0 80px;
+  position: relative;
+}
+
+.nav-page::before {
+  background-image: var(--nav-bg-image, none);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
 }
 
 .nav-content {
@@ -169,6 +192,8 @@ watch(username, load);
   margin: 0 auto;
   max-width: 2048px;
   padding: 0 40px;
+  position: relative;
+  z-index: 1;
 }
 
 .nav-header {

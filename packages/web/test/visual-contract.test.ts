@@ -27,6 +27,22 @@ describe('visual contracts', () => {
     expect(wrapper.findAll('.large-link')).toHaveLength(2);
   });
 
+  it('keeps the public background image on its own layer with color as fallback only', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+
+    expect(source).toContain('backgroundStyle');
+    expect(source).toContain("'--nav-bg-image'");
+    expect(source).toContain("'--nav-bg-color'");
+    expect(source).toContain('JSON.stringify(payload.value.site.backgroundImage)');
+    expect(source).toContain('.nav-page::before');
+    expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
+    expect(source).toMatch(/background-image:\s*var\(--nav-bg-image,\s*none\)/);
+    expect(source).not.toContain('backgroundImage: payload?.site.backgroundImage');
+    expect(source).not.toContain("url('${payload.site.backgroundImage}')");
+  });
+
   it('keeps folder columns stable across viewport and zoom changes', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
