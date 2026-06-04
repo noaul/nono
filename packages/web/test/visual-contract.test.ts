@@ -147,4 +147,17 @@ describe('visual contracts', () => {
     expect(wrapper.find('.topbar').exists()).toBe(true);
     expect(wrapper.find('.workspace').exists()).toBe(true);
   });
+
+  it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(css).toContain('.toast-stack');
+    expect(css).toContain('.confirm-backdrop');
+    expect(css).toContain('.admin-empty-state');
+    expect(css).toContain('.loading-overlay');
+    expect(css).toContain('@media (max-width: 720px)');
+    expect(css).toContain('.admin-table.mobile-card-table');
+  });
 });
