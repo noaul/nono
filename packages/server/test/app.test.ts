@@ -202,6 +202,49 @@ describe('Nono Fastify app', () => {
     expect(links.map((link) => link.name)).toEqual(['Second', 'First', 'Third']);
   });
 
+  it('reports duplicate admin links by normalized URL', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Tools' } });
+    const folderId = folder.json().data.id;
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'GitHub A', url: 'https://github.com/' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'GitHub B', url: 'https://github.com' } });
+
+    const duplicates = await app.inject({ method: 'GET', url: '/api/admin/links/duplicates', headers: { cookie } });
+
+    expect(duplicates.statusCode).toBe(200);
+    expect(duplicates.json().data.groups).toHaveLength(1);
+    expect(duplicates.json().data.groups[0].links.map((link: any) => link.name)).toEqual(['GitHub A', 'GitHub B']);
+  });
+
+  it('bulk moves and bulk deletes admin links', async () => {
+    const cookie = await setupAdmin();
+    const firstFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Inbox' } });
+    const secondFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Archive' } });
+    const inboxId = firstFolder.json().data.id;
+    const archiveId = secondFolder.json().data.id;
+    const first = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: inboxId, name: 'One', url: 'https://one.example/' } });
+    const second = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: inboxId, name: 'Two', url: 'https://two.example/' } });
+
+    const move = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/bulk-move',
+      headers: { cookie },
+      payload: { ids: [first.json().data.id, second.json().data.id], folderId: archiveId },
+    });
+    expect(move.statusCode).toBe(200);
+    expect(move.json().data).toEqual({ moved: 2 });
+
+    const deleteResult = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/bulk-delete',
+      headers: { cookie },
+      payload: { ids: [first.json().data.id, second.json().data.id] },
+    });
+    expect(deleteResult.statusCode).toBe(200);
+    expect(deleteResult.json().data).toEqual({ deleted: 2 });
+    expect(await repo.listLinks(1)).toHaveLength(0);
+  });
+
   it('falls back when LLM is not configured and saves the confirmed bookmark', async () => {
     const cookie = await setupAdmin();
     await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading' } });
