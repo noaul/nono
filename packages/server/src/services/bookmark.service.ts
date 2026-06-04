@@ -1,6 +1,19 @@
 import type { FolderRecord, LinkRecord, Repository } from './repository.js';
 import { createSortOrder } from '../utils/sort-order.js';
 
+export interface BookmarkImportPreview {
+  summary: {
+    parsedFolders: number;
+    parsedLinks: number;
+    newFolders: number;
+    newLinks: number;
+    duplicateLinks: number;
+    invalidLinks: number;
+  };
+  folders: Array<{ tempId: string; parentTempId: string | null; name: string; status: 'new' }>;
+  links: Array<{ name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
+}
+
 export function parseBookmarksHtml(html: string) {
   const folders: Array<{ tempId: string; parentTempId: string | null; name: string }> = [];
   const links: Array<{ folderTempId: string | null; name: string; url: string; icon?: string }> = [];
@@ -89,6 +102,47 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   }
 
   return summary;
+}
+
+export async function previewBookmarksImport(repo: Repository, userId: number, html: string): Promise<BookmarkImportPreview> {
+  const parsed = parseBookmarksHtml(html);
+  const existingLinks = await repo.listLinks(userId);
+  const existingUrls = new Set(existingLinks.map((link) => link.url.toLowerCase()));
+  const links = parsed.links.map((item) => {
+    const normalizedUrl = tryNormalizeUrl(item.url);
+    if (!normalizedUrl) {
+      return {
+        name: item.name,
+        url: item.url,
+        folderTempId: item.folderTempId,
+        status: 'invalid' as const,
+        reason: 'URL must start with http:// or https://',
+      };
+    }
+    if (existingUrls.has(normalizedUrl.toLowerCase())) {
+      return {
+        name: item.name,
+        url: normalizedUrl,
+        folderTempId: item.folderTempId,
+        status: 'duplicate' as const,
+        reason: 'URL already exists',
+      };
+    }
+    return { name: item.name, url: normalizedUrl, folderTempId: item.folderTempId, status: 'new' as const };
+  });
+
+  return {
+    summary: {
+      parsedFolders: parsed.folders.length,
+      parsedLinks: parsed.links.length,
+      newFolders: parsed.folders.length,
+      newLinks: links.filter((link) => link.status === 'new').length,
+      duplicateLinks: links.filter((link) => link.status === 'duplicate').length,
+      invalidLinks: links.filter((link) => link.status === 'invalid').length,
+    },
+    folders: parsed.folders.map((folder) => ({ ...folder, status: 'new' as const })),
+    links,
+  };
 }
 
 export function normalizeUrl(value: string) {

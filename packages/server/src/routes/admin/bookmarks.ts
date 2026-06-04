@@ -2,9 +2,17 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
-import { exportBookmarksHtml, importBookmarks } from '../../services/bookmark.service.js';
+import { exportBookmarksHtml, importBookmarks, previewBookmarksImport } from '../../services/bookmark.service.js';
 
 export async function bookmarkRoutes(app: FastifyInstance, services: AppServices) {
+  app.post('/api/admin/bookmarks/preview', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const html = String((request.body as any)?.html || '');
+    if (!html.trim()) throw Object.assign(new Error('Bookmark HTML is required'), { statusCode: 400 });
+    return sendOk(reply, await previewBookmarksImport(services.repo, user.id, html));
+  });
+
   app.post('/api/admin/bookmarks/import', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;

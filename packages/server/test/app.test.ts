@@ -113,6 +113,32 @@ describe('Nono Fastify app', () => {
     expect(exported.body).toContain('https://github.com/');
   });
 
+  it('previews bookmark imports without writing folders or links', async () => {
+    const cookie = await setupAdmin();
+    await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Existing' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: 1, name: 'GitHub', url: 'https://github.com/' } });
+    const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Dev</H3><DL><p><DT><A HREF="https://github.com/">GitHub</A><DT><A HREF="https://example.com/">Example</A><DT><A HREF="chrome://bookmarks/">Chrome</A></DL><p></DL><p>';
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json().data.summary).toMatchObject({
+      parsedFolders: 1,
+      parsedLinks: 3,
+      newFolders: 1,
+      newLinks: 1,
+      duplicateLinks: 1,
+      invalidLinks: 1,
+    });
+    expect(await repo.listFolders(1)).toHaveLength(1);
+    expect(await repo.listLinks(1)).toHaveLength(1);
+  });
+
   it('uses PostgreSQL-safe sort order values when importing bookmarks', async () => {
     const cookie = await setupAdmin();
     const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Tools</H3><DL><p><DT><A HREF="https://example.com/">Example</A></DL><p></DL><p>';
