@@ -17,7 +17,11 @@
   - `7892244 feat(web): add token governance console`
   - 增加 Token 过期时间校验、`GET /api/admin/tokens/summary`、Token 摘要卡、过期预设和本地撤销。
   - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
-- 当前执行位置：阶段 5，准备实现公开页文件夹树形上下文和搜索反馈。
+- 阶段 5 已完成并推送：
+  - `bfb9ca3 feat(web): polish public folder tree search`
+  - 增加公开页子文件夹深度变量、父级标签、站内搜索命中数和空状态提示。
+  - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
+- 阶段 3/4/5 已全部完成，当前 `main` 已推送到 `origin/main`。
 
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。

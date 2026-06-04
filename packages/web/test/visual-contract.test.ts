@@ -192,4 +192,16 @@ describe('visual contracts', () => {
     expect(css).toContain('.token-summary-grid');
     expect(css).toContain('.token-created-secret');
   });
+
+  it('defines public navigation tree and search polish contracts', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+
+    expect(navigationSource).toContain('search-result-summary');
+    expect(navigationSource).toContain('public-empty-state');
+    expect(folderCardSource).toContain('--public-folder-depth');
+    expect(folderCardSource).toContain('folder-parent-label');
+  });
 });
