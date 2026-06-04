@@ -93,6 +93,38 @@ describe('Nono Fastify app', () => {
     expect(folders.json().data.name).toBe('AI 工具');
   });
 
+  it('summarizes token governance and rejects expired token creation', async () => {
+    const cookie = await setupAdmin();
+    const neverExpires = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Permanent token' },
+    });
+    expect(neverExpires.statusCode).toBe(200);
+
+    const expired = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Expired token', expiresAt: new Date(Date.now() - 60_000).toISOString() },
+    });
+    expect(expired.statusCode).toBe(400);
+
+    const future = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Future token', expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() },
+    });
+    expect(future.statusCode).toBe(200);
+
+    const summary = await app.inject({ method: 'GET', url: '/api/admin/tokens/summary', headers: { cookie } });
+
+    expect(summary.statusCode).toBe(200);
+    expect(summary.json().data).toMatchObject({ total: 2, active: 2, expired: 0, neverExpires: 1, expiringSoon: 0 });
+  });
+
   it('imports and exports Netscape browser bookmarks', async () => {
     const cookie = await setupAdmin();
     const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Dev</H3><DL><p><DT><A HREF="https://github.com/">GitHub</A></DL><p></DL><p>';
