@@ -707,7 +707,7 @@ a {
 
 .app-workbench .folder-table .admin-table-head,
 .app-workbench .folder-table .admin-table-row {
-  grid-template-columns: 100px 1.5fr 2fr 180px;
+  grid-template-columns: 100px 1.4fr 120px 2fr 180px;
 }
 
 .app-workbench .bookmark-table .admin-table-head,
