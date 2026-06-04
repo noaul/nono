@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 
 defineProps<{ title: string }>();
@@ -77,5 +78,6 @@ async function logout() {
       </main>
     </div>
     <ToastHost />
+    <ConfirmDialog />
   </div>
 </template>
