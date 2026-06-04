@@ -5,7 +5,7 @@ import AdminLayout from '@/components/AdminLayout.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import { apiRequest, jsonBody } from '@/api/client';
-import type { Folder, Link } from '@/api/types';
+import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 
@@ -23,9 +23,15 @@ const isSaving = ref(false);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const searchTerm = ref('');
+const selectedLinkIds = ref(new Set<number>());
+const bulkFolderId = ref(0);
+const duplicateGroups = ref<DuplicateLinkGroup[]>([]);
+const isBulkWorking = ref(false);
+const isLoadingDuplicates = ref(false);
 
 const activeFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || folders.value[0]);
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const selectedCount = computed(() => selectedLinkIds.value.size);
 const filteredLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
   const base = sortMode.value ? draftLinks.value : activeFolderLinks.value;
@@ -39,6 +45,8 @@ async function load() {
     [folders.value, links.value] = await Promise.all([apiRequest<Folder[]>('/api/admin/folders'), apiRequest<Link[]>('/api/admin/links')]);
     if (!selectedFolderId.value && folders.value[0]) selectedFolderId.value = folders.value[0].id;
     if (!form.folderId && folders.value[0]) form.folderId = folders.value[0].id;
+    if (!bulkFolderId.value && folders.value[0]) bulkFolderId.value = folders.value[0].id;
+    selectedLinkIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载书签失败');
   } finally {
@@ -50,6 +58,7 @@ function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
   form.folderId = folder.id;
   searchTerm.value = '';
+  selectedLinkIds.value = new Set();
   stopSorting();
 }
 
@@ -104,6 +113,75 @@ async function remove(link: Link) {
     next.delete(link.id);
     deletingIds.value = next;
   }
+}
+
+function toggleLinkSelection(id: number, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  const next = new Set(selectedLinkIds.value);
+  if (checked) next.add(id);
+  else next.delete(id);
+  selectedLinkIds.value = next;
+}
+
+async function bulkMoveSelected() {
+  const ids = [...selectedLinkIds.value];
+  if (!ids.length || !bulkFolderId.value) return;
+
+  isBulkWorking.value = true;
+  try {
+    const result = await apiRequest<BulkLinkResult>('/api/admin/links/bulk-move', { method: 'POST', body: jsonBody({ ids, folderId: bulkFolderId.value }) });
+    const movedIds = new Set(ids);
+    links.value = links.value.map((link) => (movedIds.has(link.id) ? { ...link, folderId: bulkFolderId.value } : link));
+    selectedLinkIds.value = new Set();
+    notifySuccess(`已移动 ${result.moved ?? ids.length} 个书签`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '批量移动失败');
+  } finally {
+    isBulkWorking.value = false;
+  }
+}
+
+async function bulkDeleteSelected() {
+  const ids = [...selectedLinkIds.value];
+  if (!ids.length) return;
+
+  const confirmed = await confirmApi.confirm({
+    title: '批量删除书签',
+    message: `确定删除选中的 ${ids.length} 个书签吗？这个操作会立即从公开导航页移除这些链接。`,
+    confirmText: '删除',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  isBulkWorking.value = true;
+  try {
+    const result = await apiRequest<BulkLinkResult>('/api/admin/links/bulk-delete', { method: 'POST', body: jsonBody({ ids }) });
+    const deletedIds = new Set(ids);
+    links.value = links.value.filter((link) => !deletedIds.has(link.id));
+    selectedLinkIds.value = new Set();
+    notifySuccess(`已删除 ${result.deleted ?? ids.length} 个书签`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '批量删除失败');
+  } finally {
+    isBulkWorking.value = false;
+  }
+}
+
+async function loadDuplicates() {
+  isLoadingDuplicates.value = true;
+  try {
+    const result = await apiRequest<{ groups: DuplicateLinkGroup[] }>('/api/admin/links/duplicates');
+    duplicateGroups.value = result.groups;
+    notifySuccess(result.groups.length ? `发现 ${result.groups.length} 组重复链接` : '没有发现重复链接');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '重复链接加载失败');
+  } finally {
+    isLoadingDuplicates.value = false;
+  }
+}
+
+function folderName(folderId: number) {
+  return folders.value.find((folder) => folder.id === folderId)?.name || '-';
 }
 
 function startSorting() {
@@ -180,7 +258,12 @@ onMounted(load);
           <h2>书签管理</h2>
           <p>先选择文件夹，再编辑、迁移、排序或删除其中的书签。</p>
         </div>
-        <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" placeholder="搜索名称、链接或介绍" />
+        <div class="toolbar">
+          <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates" @click="loadDuplicates">
+            <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
+          </button>
+          <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" placeholder="搜索名称、链接或介绍" />
+        </div>
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
@@ -189,9 +272,39 @@ onMounted(load);
             <span>{{ folder.icon || '□' }}</span>{{ folder.name }}
           </button>
         </div>
+        <div class="bulk-action-bar">
+          <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
+          <div class="bulk-controls">
+            <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
+              <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            </select>
+            <button class="button secondary" data-testid="bulk-move" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkMoveSelected">
+              <MoveDown :size="17" /> 移动
+            </button>
+            <button class="button danger" data-testid="bulk-delete" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkDeleteSelected">
+              <Trash2 :size="17" /> 删除
+            </button>
+          </div>
+        </div>
+        <div v-if="duplicateGroups.length" class="duplicate-panel">
+          <div class="duplicate-panel-head">
+            <h3>重复链接</h3>
+            <span>{{ duplicateGroups.length }} 组</span>
+          </div>
+          <div v-for="group in duplicateGroups" :key="group.url" class="duplicate-group">
+            <strong>{{ group.url }}</strong>
+            <ul class="duplicate-list">
+              <li v-for="link in group.links" :key="link.id">
+                <span>{{ link.name }}</span>
+                <small>{{ folderName(link.folderId) }}</small>
+              </li>
+            </ul>
+          </div>
+        </div>
         <EmptyState v-if="!filteredLinks.length" title="没有匹配的书签" description="换一个关键词或选择其他文件夹。" />
         <div v-else class="admin-table bookmark-table mobile-card-table">
           <div class="admin-table-head">
+            <span>选择</span>
             <span></span>
             <span>名称</span>
             <span>链接</span>
@@ -199,6 +312,9 @@ onMounted(load);
             <span>操作</span>
           </div>
           <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row">
+            <span class="selection-cell" data-label="选择">
+              <input :data-testid="`select-link-${link.id}`" type="checkbox" :checked="selectedLinkIds.has(link.id)" @change="toggleLinkSelection(link.id, $event)" />
+            </span>
             <span class="sort-cell" data-label="排序">
               <template v-if="sortMode">
                 <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
@@ -208,7 +324,7 @@ onMounted(load);
             </span>
             <button class="text-button" data-label="名称" type="button" @click="edit(link)">{{ link.name }}</button>
             <span class="url-cell" data-label="链接">{{ link.url }}</span>
-            <span data-label="文件夹">{{ folders.find((folder) => folder.id === link.folderId)?.name || '-' }}</span>
+            <span data-label="文件夹">{{ folderName(link.folderId) }}</span>
             <span class="row-actions" data-label="操作">
               <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
               <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
