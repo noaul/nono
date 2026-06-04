@@ -128,4 +128,28 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('重复链接');
     expect(wrapper.text()).toContain('GitHub B');
   });
+
+  it('checks selected link health and displays broken results', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'OK', url: 'https://ok.example/', sortOrder: 100 },
+        { id: 11, folderId: 1, name: 'Broken', url: 'https://broken.example/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({
+        summary: { total: 1, ok: 0, broken: 1, timeout: 0, invalid: 0 },
+        results: [{ id: 11, name: 'Broken', url: 'https://broken.example/', status: 'broken', statusCode: 404, checkedAt: '2026-06-04T10:00:00.000Z' }],
+      });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="select-link-11"]').setValue(true);
+    await wrapper.get('[data-testid="check-link-health"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/health-check', expect.objectContaining({ method: 'POST' }));
+    expect(wrapper.text()).toContain('健康检查');
+    expect(wrapper.text()).toContain('Broken');
+    expect(wrapper.text()).toContain('404');
+  });
 });

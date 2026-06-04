@@ -79,3 +79,21 @@ export interface BulkLinkResult {
   moved?: number;
   deleted?: number;
 }
+
+export interface LinkHealthResult {
+  id: number;
+  name: string;
+  url: string;
+  status: 'ok' | 'broken' | 'timeout' | 'invalid';
+  statusCode?: number;
+  reason?: string;
+  checkedAt: string;
+}
+
+export interface LinkHealthSummary {
+  total: number;
+  ok: number;
+  broken: number;
+  timeout: number;
+  invalid: number;
+}

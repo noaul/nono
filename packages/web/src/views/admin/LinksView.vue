@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { Eye, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Activity, Eye, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import { apiRequest, jsonBody } from '@/api/client';
-import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link } from '@/api/types';
+import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult, LinkHealthSummary } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 
@@ -28,6 +28,9 @@ const bulkFolderId = ref(0);
 const duplicateGroups = ref<DuplicateLinkGroup[]>([]);
 const isBulkWorking = ref(false);
 const isLoadingDuplicates = ref(false);
+const healthResults = ref<LinkHealthResult[]>([]);
+const healthSummary = ref<LinkHealthSummary | null>(null);
+const isCheckingHealth = ref(false);
 
 const activeFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || folders.value[0]);
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
@@ -180,8 +183,29 @@ async function loadDuplicates() {
   }
 }
 
+async function checkLinkHealth() {
+  const ids = selectedCount.value ? [...selectedLinkIds.value] : filteredLinks.value.map((link) => link.id);
+  if (!ids.length) return;
+
+  isCheckingHealth.value = true;
+  try {
+    const result = await apiRequest<{ summary: LinkHealthSummary; results: LinkHealthResult[] }>('/api/admin/links/health-check', { method: 'POST', body: jsonBody({ ids }) });
+    healthSummary.value = result.summary;
+    healthResults.value = result.results;
+    notifySuccess(`健康检查完成：${result.summary.total} 个链接`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '健康检查失败');
+  } finally {
+    isCheckingHealth.value = false;
+  }
+}
+
 function folderName(folderId: number) {
   return folders.value.find((folder) => folder.id === folderId)?.name || '-';
+}
+
+function healthStatusLabel(status: LinkHealthResult['status']) {
+  return { ok: '正常', broken: '异常', timeout: '超时', invalid: '无效' }[status];
 }
 
 function startSorting() {
@@ -281,6 +305,9 @@ onMounted(load);
             <button class="button secondary" data-testid="bulk-move" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkMoveSelected">
               <MoveDown :size="17" /> 移动
             </button>
+            <button class="button secondary" data-testid="check-link-health" type="button" :disabled="isCheckingHealth || (!selectedCount && !filteredLinks.length)" @click="checkLinkHealth">
+              <Activity :size="17" /> {{ isCheckingHealth ? '检查中' : '健康检查' }}
+            </button>
             <button class="button danger" data-testid="bulk-delete" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkDeleteSelected">
               <Trash2 :size="17" /> 删除
             </button>
@@ -299,6 +326,25 @@ onMounted(load);
                 <small>{{ folderName(link.folderId) }}</small>
               </li>
             </ul>
+          </div>
+        </div>
+        <div v-if="healthSummary" class="health-check-panel">
+          <div class="health-check-head">
+            <h3>健康检查</h3>
+            <span>{{ healthSummary.total }} 个链接</span>
+          </div>
+          <div class="health-summary">
+            <span>正常 {{ healthSummary.ok }}</span>
+            <span>异常 {{ healthSummary.broken }}</span>
+            <span>超时 {{ healthSummary.timeout }}</span>
+            <span>无效 {{ healthSummary.invalid }}</span>
+          </div>
+          <div class="health-result-list">
+            <div v-for="result in healthResults" :key="result.id" class="health-result-row" :class="`status-${result.status}`">
+              <strong>{{ result.name }}</strong>
+              <span>{{ result.url }}</span>
+              <small>{{ healthStatusLabel(result.status) }}{{ result.statusCode ? ` · ${result.statusCode}` : '' }}{{ result.reason ? ` · ${result.reason}` : '' }}</small>
+            </div>
           </div>
         </div>
         <EmptyState v-if="!filteredLinks.length" title="没有匹配的书签" description="换一个关键词或选择其他文件夹。" />

@@ -974,6 +974,102 @@ a {
   color: #b91c1c;
 }
 
+.app-workbench .health-check-panel {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.app-workbench .health-check-head {
+  align-items: center;
+  background: #fafbfe;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.app-workbench .health-check-head h3 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.app-workbench .health-check-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.app-workbench .health-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 14px 16px;
+}
+
+.app-workbench .health-summary span {
+  background: #f8fafc;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.app-workbench .health-result-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+}
+
+.app-workbench .health-result-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  padding: 12px 16px;
+}
+
+.app-workbench .health-result-row + .health-result-row {
+  border-top: 1px solid var(--line-soft);
+}
+
+.app-workbench .health-result-row strong,
+.app-workbench .health-result-row span,
+.app-workbench .health-result-row small {
+  overflow-wrap: anywhere;
+}
+
+.app-workbench .health-result-row strong {
+  color: var(--text);
+}
+
+.app-workbench .health-result-row span {
+  color: #64748b;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.app-workbench .health-result-row small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-workbench .health-result-row.status-ok small {
+  color: #047857;
+}
+
+.app-workbench .health-result-row.status-broken small,
+.app-workbench .health-result-row.status-invalid small {
+  color: #b91c1c;
+}
+
+.app-workbench .health-result-row.status-timeout small {
+  color: #b45309;
+}
+
 .app-workbench .row-actions {
   display: flex;
   gap: 4px;
@@ -1444,6 +1540,8 @@ a {
   }
 
   .app-workbench .preview-stats,
+  .app-workbench .health-summary,
+  .app-workbench .health-result-row,
   .app-workbench .preview-row {
     grid-template-columns: 1fr;
   }
