@@ -199,17 +199,17 @@ onMounted(load);
             <span>操作</span>
           </div>
           <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row">
-            <span class="sort-cell">
+            <span class="sort-cell" data-label="排序">
               <template v-if="sortMode">
                 <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
                 <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
               </template>
               <Link2 v-else :size="16" />
             </span>
-            <button class="text-button" type="button" @click="edit(link)">{{ link.name }}</button>
-            <span class="url-cell">{{ link.url }}</span>
-            <span>{{ folders.find((folder) => folder.id === link.folderId)?.name || '-' }}</span>
-            <span class="row-actions">
+            <button class="text-button" data-label="名称" type="button" @click="edit(link)">{{ link.name }}</button>
+            <span class="url-cell" data-label="链接">{{ link.url }}</span>
+            <span data-label="文件夹">{{ folders.find((folder) => folder.id === link.folderId)?.name || '-' }}</span>
+            <span class="row-actions" data-label="操作">
               <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
               <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
             </span>

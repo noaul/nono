@@ -768,6 +768,25 @@ a {
   justify-content: flex-end;
 }
 
+.app-workbench .row-actions .icon-button {
+  flex: 0 0 auto;
+}
+
+.app-workbench .admin-search-input {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 38px;
+  min-width: min(280px, 100%);
+  padding: 8px 12px;
+}
+
+.app-workbench .admin-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .app-workbench .icon-button.success {
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.25);
@@ -1175,5 +1194,27 @@ a {
     display: grid;
     gap: 10px;
     min-width: 0;
+  }
+
+  .app-workbench .admin-table.mobile-card-table .admin-table-row > span,
+  .app-workbench .admin-table.mobile-card-table .admin-table-row > button,
+  .app-workbench .admin-table.mobile-card-table .admin-table-row > a {
+    align-items: center;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+
+  .app-workbench .admin-table.mobile-card-table [data-label]::before {
+    color: #64748b;
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .app-workbench .admin-table.mobile-card-table .row-actions {
+    display: flex;
+    justify-content: flex-start;
   }
 }

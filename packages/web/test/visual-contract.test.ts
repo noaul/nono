@@ -159,5 +159,8 @@ describe('visual contracts', () => {
     expect(css).toContain('.loading-overlay');
     expect(css).toContain('@media (max-width: 720px)');
     expect(css).toContain('.admin-table.mobile-card-table');
+    expect(css).toContain('[data-label]::before');
+    expect(css).toContain('.admin-search-input');
+    expect(css).toContain('.row-actions .icon-button');
   });
 });

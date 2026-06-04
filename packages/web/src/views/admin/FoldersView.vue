@@ -177,11 +177,11 @@ onMounted(load);
           <span>操作</span>
         </div>
         <article v-for="(folder, index) in sortedFolders" :key="folder.id" class="admin-table-row">
-          <span>{{ folder.icon || '□' }}</span>
-          <button class="text-button" type="button" @click="edit(folder)">{{ folder.name }}</button>
-          <span>{{ folderLinkCount(folder.id) }} 个书签</span>
-          <span>{{ folder.passwordHint || folder.description || '-' }}</span>
-          <span class="row-actions">
+          <span data-label="图标">{{ folder.icon || '□' }}</span>
+          <button class="text-button" data-label="名称" type="button" @click="edit(folder)">{{ folder.name }}</button>
+          <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
+          <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
+          <span class="row-actions" data-label="操作">
             <button class="icon-button secondary" title="上移" :disabled="index === 0 || movingFolderId === folder.id" @click="move(folder, -1)"><MoveUp :size="16" /></button>
             <button class="icon-button secondary" title="下移" :disabled="index === sortedFolders.length - 1 || movingFolderId === folder.id" @click="move(folder, 1)"><MoveDown :size="16" /></button>
             <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
