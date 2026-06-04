@@ -22,6 +22,7 @@
   - 增加公开页子文件夹深度变量、父级标签、站内搜索命中数和空状态提示。
   - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
 - 阶段 3/4/5 已全部完成，当前 `main` 已推送到 `origin/main`。
+- 当前状态：无未完成阶段；阶段 3/4/5 全部完成。
 
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。
@@ -45,7 +46,7 @@
   - `findings.md`
   - `progress.md`
 
-## 下一步
+## 2026-05-31 历史记录：旧版阶段 1-8
 - 已创建并切换到分支：`codex/admin-console-bookmarks`。
 - 已完成阶段 1-8：
   - 新增 `src/default-state.js`、`src/store.js`、`src/auth.js`、`src/bookmarks-html.js`。
