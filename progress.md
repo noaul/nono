@@ -7,7 +7,12 @@
   - `docs/superpowers/plans/2026-06-04-admin-link-quality-phase3.md`
   - `docs/superpowers/plans/2026-06-04-admin-token-governance-phase4.md`
   - `docs/superpowers/plans/2026-06-04-public-navigation-polish-phase5.md`
-- 当前执行位置：阶段 3，准备先写链接健康检查后端红测。
+- 阶段 3 已完成并推送：
+  - `40bdec6 feat(server): add link health checks`
+  - `4441f7e feat(web): add link health workflow`
+  - 增加 `POST /api/admin/links/health-check`、Links 页健康检查按钮和结果面板。
+  - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
+- 当前执行位置：阶段 4，准备实现 Token 安全治理摘要与过期校验。
 
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。

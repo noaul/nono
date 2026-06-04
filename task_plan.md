@@ -11,8 +11,8 @@
 - `docs/superpowers/plans/2026-06-04-public-navigation-polish-phase5.md`
 
 阶段：
-- 阶段 3：链接健康巡检。状态：in_progress
-- 阶段 4：Token 安全治理。状态：pending
+- 阶段 3：链接健康巡检。状态：complete
+- 阶段 4：Token 安全治理。状态：in_progress
 - 阶段 5：前台树形导航与搜索体验。状态：pending
 
 执行约束：

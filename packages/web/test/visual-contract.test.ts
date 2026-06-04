@@ -174,4 +174,13 @@ describe('visual contracts', () => {
     expect(css).toContain('.import-preview-panel');
     expect(css).toContain('--folder-depth');
   });
+
+  it('defines link health operation styles', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(css).toContain('.health-check-panel');
+    expect(css).toContain('.health-result-row');
+  });
 });
