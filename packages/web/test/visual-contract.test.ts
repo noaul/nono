@@ -183,4 +183,13 @@ describe('visual contracts', () => {
     expect(css).toContain('.health-check-panel');
     expect(css).toContain('.health-result-row');
   });
+
+  it('defines token governance styles', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(css).toContain('.token-summary-grid');
+    expect(css).toContain('.token-created-secret');
+  });
 });

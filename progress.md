@@ -12,7 +12,12 @@
   - `4441f7e feat(web): add link health workflow`
   - 增加 `POST /api/admin/links/health-check`、Links 页健康检查按钮和结果面板。
   - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
-- 当前执行位置：阶段 4，准备实现 Token 安全治理摘要与过期校验。
+- 阶段 4 已完成并推送：
+  - `e195582 feat(server): add token governance summary`
+  - `7892244 feat(web): add token governance console`
+  - 增加 Token 过期时间校验、`GET /api/admin/tokens/summary`、Token 摘要卡、过期预设和本地撤销。
+  - 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
+- 当前执行位置：阶段 5，准备实现公开页文件夹树形上下文和搜索反馈。
 
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。
