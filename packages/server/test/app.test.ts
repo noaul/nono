@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
@@ -243,6 +243,36 @@ describe('Nono Fastify app', () => {
     expect(deleteResult.statusCode).toBe(200);
     expect(deleteResult.json().data).toEqual({ deleted: 2 });
     expect(await repo.listLinks(1)).toHaveLength(0);
+  });
+
+  it('checks selected admin link health without writing link state', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Quality' } });
+    const folderId = folder.json().data.id;
+    const ok = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'OK', url: 'https://ok.example/' } });
+    const broken = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Broken', url: 'https://broken.example/' } });
+    const invalid = await repo.createLink({ folderId, name: 'Chrome', url: 'chrome://bookmarks/', icon: '', description: '', sortOrder: 10 });
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+      if (href.includes('ok.example')) return new Response('', { status: 200 });
+      if (href.includes('broken.example')) return new Response('', { status: 404 });
+      return new Response('', { status: 500 });
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const health = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { cookie },
+      payload: { ids: [ok.json().data.id, broken.json().data.id, invalid.id] },
+    });
+    globalThis.fetch = originalFetch;
+
+    expect(health.statusCode).toBe(200);
+    expect(health.json().data.summary).toMatchObject({ total: 3, ok: 1, broken: 1, invalid: 1, timeout: 0 });
+    expect(health.json().data.results.map((result: any) => result.status)).toEqual(['ok', 'broken', 'invalid']);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects folder parent cycles', async () => {

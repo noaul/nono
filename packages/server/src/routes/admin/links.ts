@@ -3,6 +3,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
+import { checkLinksHealth } from '../../services/link-health.service.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 
 export async function linkRoutes(app: FastifyInstance, services: AppServices) {
@@ -64,6 +65,15 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const ids = uniqueNumericIds((request.body as any).ids);
     for (const id of ids) await services.repo.deleteLink(user.id, id);
     return sendOk(reply, { deleted: ids.length });
+  });
+
+  app.post('/api/admin/links/health-check', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const ids = uniqueNumericIds((request.body as any)?.ids);
+    const idFilter = new Set(ids);
+    const links = await services.repo.listLinks(user.id);
+    return sendOk(reply, await checkLinksHealth(ids.length ? links.filter((link) => idFilter.has(link.id)) : links));
   });
 
   app.put('/api/admin/links/:id', async (request, reply) => {
