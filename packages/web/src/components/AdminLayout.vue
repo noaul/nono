@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import ToastHost from '@/components/admin/ToastHost.vue';
 
 defineProps<{ title: string }>();
 
@@ -75,5 +76,6 @@ async function logout() {
         </section>
       </main>
     </div>
+    <ToastHost />
   </div>
 </template>
