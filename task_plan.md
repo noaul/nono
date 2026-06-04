@@ -1,5 +1,25 @@
 # Nono 后台管理与书签导入导出计划
 
+## 2026-06-04 后续阶段 3/4/5
+状态：in_progress
+
+本轮目标：在 Phase 1/2 已完成并直接推送 `main` 的基础上，继续把后台从“能管理”推进到“可运营、可治理、前台体验一致”。
+
+计划文件：
+- `docs/superpowers/plans/2026-06-04-admin-link-quality-phase3.md`
+- `docs/superpowers/plans/2026-06-04-admin-token-governance-phase4.md`
+- `docs/superpowers/plans/2026-06-04-public-navigation-polish-phase5.md`
+
+阶段：
+- 阶段 3：链接健康巡检。状态：in_progress
+- 阶段 4：Token 安全治理。状态：pending
+- 阶段 5：前台树形导航与搜索体验。状态：pending
+
+执行约束：
+- 用户已明确要求以后直接推送 `main`，因此本轮不创建功能分支。
+- 每个阶段按 TDD 红绿循环推进，阶段完成后提交并推送。
+- 不改 Prisma schema，避免当前机器上 `prisma generate` 阻塞风险。
+
 ## 目标
 把 Nono 从一个只读的静态导航 MVP，升级为可本地自托管的完整导航工作台：有公开导航页、后台管理、持久化数据、账号保护、浏览器书签 HTML 双向导入导出，并默认使用 Google 搜索。
 

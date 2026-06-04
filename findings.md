@@ -1,5 +1,14 @@
 # Nono 项目发现
 
+## 2026-06-04 Phase 3/4/5 规划发现
+- 当前项目已迁移为 workspace：`packages/server`、`packages/web`、`packages/extension`。
+- Phase 1/2 已在 `main` 上完成并推送，当前分支仅保留 `main` / `origin/main`。
+- Prisma schema 已有 `Folder.parentId` 与 `ApiToken.expiresAt`，阶段 3/4/5 可先不改数据库结构。
+- `prisma generate` 在本机有阻塞风险，后续阶段优先使用现有 Repository 接口和瞬时计算。
+- 后台 Links 页已有 Phase 2 的 selection/bulk/duplicate 状态，适合承接链接健康检查工作流。
+- Tokens 页当前能创建/撤销 token，但没有过期校验摘要，也没有本地撤销后的轻量反馈。
+- 后台已支持文件夹 parentId，但公开页目前主要按扁平文件夹展示，Phase 5 应补前台树形上下文与搜索反馈。
+
 ## 当前实现
 - 仓库路径：`C:\Users\aodo\Documents\New project\nono`
 - 当前分支：`main`

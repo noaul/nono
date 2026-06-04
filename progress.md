@@ -1,5 +1,14 @@
 # Nono 进度记录
 
+## 2026-06-04 Phase 3/4/5
+- 用户要求：把阶段 3/4/5 的详细计划写成独立文件，并按计划依次推进阶段 3、4、5 后推送。
+- 已读取当前项目结构、Prisma schema、后台 Links/Tokens/Folders/Site/Dashboard/Navigation 相关文件。
+- 已创建三个独立方案文件：
+  - `docs/superpowers/plans/2026-06-04-admin-link-quality-phase3.md`
+  - `docs/superpowers/plans/2026-06-04-admin-token-governance-phase4.md`
+  - `docs/superpowers/plans/2026-06-04-public-navigation-polish-phase5.md`
+- 当前执行位置：阶段 3，准备先写链接健康检查后端红测。
+
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。
 - 因 `3000` 被 `moneypulse-app-1` 占用，Nono Docker 服务映射到 `http://127.0.0.1:3001/`。
