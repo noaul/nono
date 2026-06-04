@@ -24,6 +24,17 @@
 - 阶段 3/4/5 已全部完成，当前 `main` 已推送到 `origin/main`。
 - 当前状态：无未完成阶段；阶段 3/4/5 全部完成。
 
+## 2026-06-04 浏览器扩展增强
+- 用户要求：扩展增加测试连接、显示 Token 是否过期、选择已有文件夹、保存前提示重复链接，并联动后台链接健康检查。
+- 已完成：
+  - 后端新增 `GET /api/admin/tokens/current`，用于 Bearer Token 元数据和有效期显示。
+  - 扩展设置面板新增“测试连接”，会检查 session、当前 token、文件夹和链接列表。
+  - 扩展保存页新增已有文件夹下拉选择和新文件夹输入。
+  - 扩展保存前会提示当前 URL 是否已存在。
+  - 扩展保存成功后会调用 `/api/admin/links/health-check` 检查新保存链接。
+  - 新增 `packages/extension/shared/popup-workflow.js` 和对应测试。
+- 验证：`npm.cmd test` 通过；`npm.cmd run build` 通过。
+
 ## 2026-05-31
 - 已本地部署 `noaul/nono`。
 - 因 `3000` 被 `moneypulse-app-1` 占用，Nono Docker 服务映射到 `http://127.0.0.1:3001/`。

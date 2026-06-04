@@ -16,7 +16,11 @@
       <section id="settings" class="panel hidden">
         <label>服务地址<input id="serverUrl" placeholder="http://127.0.0.1:3000" /></label>
         <label>API Token<input id="token" type="password" placeholder="nono_..." /></label>
-        <button id="saveSettings">保存设置</button>
+        <div class="button-row">
+          <button id="testConnection" type="button">测试连接</button>
+          <button id="saveSettings" type="button">保存设置</button>
+        </div>
+        <p id="tokenStatus" class="meta-text">尚未测试连接。</p>
       </section>
 
       <section id="workflow" class="panel">
@@ -24,7 +28,10 @@
         <div id="result" class="hidden">
           <label>标题<input id="name" /></label>
           <label>描述<textarea id="description"></textarea></label>
-          <label>文件夹<input id="folderName" /></label>
+          <label>已有文件夹<select id="folderSelect"></select></label>
+          <label>新文件夹<input id="folderName" placeholder="留空则使用已选文件夹" /></label>
+          <p id="duplicateWarning" class="warning hidden"></p>
+          <p id="healthStatus" class="meta-text hidden"></p>
           <button id="saveBookmark">确认保存</button>
         </div>
       </section>

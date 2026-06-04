@@ -30,6 +30,21 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, summarizeTokens(await services.repo.listTokens(user.id)));
   });
 
+  app.get('/api/admin/tokens/current', async (request, reply) => {
+    const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!bearer) throw Object.assign(new Error('Bearer token is required'), { statusCode: 401 });
+    const record = await services.repo.findToken(bearer);
+    if (!record) throw Object.assign(new Error('Token is invalid or expired'), { statusCode: 401 });
+    return sendOk(reply, {
+      id: record.id,
+      name: record.name,
+      token: `${record.token.slice(0, 10)}...`,
+      expiresAt: record.expiresAt || null,
+      createdAt: record.createdAt,
+      user: { id: record.user.id, username: record.user.username, displayName: record.user.displayName, role: record.user.role },
+    });
+  });
+
   app.post('/api/admin/tokens', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;

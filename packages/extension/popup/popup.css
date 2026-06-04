@@ -69,7 +69,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   background: #10141b;
   border: 1px solid #303846;
   border-radius: 8px;
@@ -90,4 +91,32 @@ textarea {
 
 #result.hidden {
   display: none;
+}
+
+.button-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.meta-text,
+.warning {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.meta-text {
+  background: #10141b;
+  border: 1px solid #303846;
+  color: #9aa7b6;
+}
+
+.warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
 }

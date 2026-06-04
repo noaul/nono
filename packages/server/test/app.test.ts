@@ -125,6 +125,28 @@ describe('Nono Fastify app', () => {
     expect(summary.json().data).toMatchObject({ total: 2, active: 2, expired: 0, neverExpires: 1, expiringSoon: 0 });
   });
 
+  it('returns metadata for the current bearer token', async () => {
+    const cookie = await setupAdmin();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const tokenResponse = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Extension token', expiresAt },
+    });
+    const token = tokenResponse.json().data.token;
+
+    const current = await app.inject({
+      method: 'GET',
+      url: '/api/admin/tokens/current',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(current.statusCode).toBe(200);
+    expect(current.json().data).toMatchObject({ name: 'Extension token', expiresAt });
+    expect(current.json().data.token).toContain('...');
+  });
+
   it('imports and exports Netscape browser bookmarks', async () => {
     const cookie = await setupAdmin();
     const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Dev</H3><DL><p><DT><A HREF="https://github.com/">GitHub</A></DL><p></DL><p>';
