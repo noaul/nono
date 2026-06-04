@@ -1070,6 +1070,47 @@ a {
   color: #b45309;
 }
 
+.app-workbench .token-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.app-workbench .token-summary-grid section {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-height: 74px;
+  padding: 14px 16px;
+}
+
+.app-workbench .token-summary-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-workbench .token-summary-grid strong {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.app-workbench .token-created-secret {
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 8px;
+  color: #334155;
+  font-family: monospace;
+  font-size: 13px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
 .app-workbench .row-actions {
   display: flex;
   gap: 4px;
@@ -1543,6 +1584,10 @@ a {
   .app-workbench .health-summary,
   .app-workbench .health-result-row,
   .app-workbench .preview-row {
+    grid-template-columns: 1fr;
+  }
+
+  .app-workbench .token-summary-grid {
     grid-template-columns: 1fr;
   }
 

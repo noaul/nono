@@ -97,3 +97,19 @@ export interface LinkHealthSummary {
   timeout: number;
   invalid: number;
 }
+
+export interface ApiToken {
+  id: number;
+  name: string;
+  token: string;
+  expiresAt?: string | null;
+  createdAt: string;
+}
+
+export interface ApiTokenSummary {
+  total: number;
+  active: number;
+  expired: number;
+  neverExpires: number;
+  expiringSoon: number;
+}
