@@ -14,4 +14,14 @@ describe('web api helpers', () => {
     expect(buildSearchUrl('vite vue', undefined)).toBe('https://www.google.com/search?q=vite%20vue');
     expect(buildSearchUrl('vite vue', 'https://example.test/search?q={query}')).toBe('https://example.test/search?q=vite%20vue');
   });
+
+  it('exposes phase 2 admin operation types', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/api/types.ts'), 'utf8');
+
+    expect(source).toContain('export interface BookmarkImportPreview');
+    expect(source).toContain('export interface DuplicateLinkGroup');
+    expect(source).toContain('export interface BulkLinkResult');
+  });
 });

@@ -56,3 +56,26 @@ export interface SessionPayload {
   setupRequired: boolean;
   user: User | null;
 }
+
+export interface BookmarkImportPreview {
+  summary: {
+    parsedFolders: number;
+    parsedLinks: number;
+    newFolders: number;
+    newLinks: number;
+    duplicateLinks: number;
+    invalidLinks: number;
+  };
+  folders: Array<{ tempId: string; parentTempId: string | null; name: string; status: 'new' }>;
+  links: Array<{ name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
+}
+
+export interface DuplicateLinkGroup {
+  url: string;
+  links: Link[];
+}
+
+export interface BulkLinkResult {
+  moved?: number;
+  deleted?: number;
+}
