@@ -19,6 +19,11 @@ const error = ref('');
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
+const localMatchCount = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return allLinks.value.length;
+  return allLinks.value.filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)).length;
+});
 const backgroundStyle = computed(() => {
   if (!payload.value?.site) {
     return {
@@ -80,6 +85,23 @@ async function verifyFolder() {
   }
 }
 
+function folderDepth(folder: Folder) {
+  let depth = 0;
+  let parentId = folder.parentId || null;
+  while (parentId) {
+    const parent = payload.value?.folders.find((item) => item.id === parentId);
+    if (!parent) break;
+    depth += 1;
+    parentId = parent.parentId || null;
+  }
+  return depth;
+}
+
+function parentFolderName(folder: Folder) {
+  if (!folder.parentId) return '';
+  return payload.value?.folders.find((item) => item.id === folder.parentId)?.name || '';
+}
+
 onMounted(load);
 watch(username, load);
 </script>
@@ -96,6 +118,10 @@ watch(username, load);
 
       <SearchBar v-model="query" @submit="submitSearch" />
 
+      <p v-if="query.trim()" class="search-result-summary">
+        站内命中 {{ localMatchCount }} 个链接
+      </p>
+
       <div class="trace-link">
         <Footprints :size="14" />
         <span>我的足迹</span>
@@ -108,8 +134,18 @@ watch(username, load);
       </nav>
 
       <div class="adaptive-folder-grid">
-        <FolderCard v-for="folder in foldersWithLinks" :key="folder.id" :folder="folder" @verify="verifying = $event" @expand="expandedFolder = $event" />
+        <FolderCard
+          v-for="folder in foldersWithLinks"
+          :key="folder.id"
+          :data-testid="`public-folder-card-${folder.id}`"
+          :folder="folder"
+          :depth="folderDepth(folder)"
+          :parent-name="parentFolderName(folder)"
+          @verify="verifying = $event"
+          @expand="expandedFolder = $event"
+        />
       </div>
+      <p v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">没有站内命中，按回车会使用外部搜索继续查找。</p>
     </div>
 
     <!-- Expanded Folder Modal -->
@@ -248,6 +284,27 @@ h1 {
   align-items: center;
   gap: 6px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-result-summary {
+  color: rgba(243, 244, 246, 0.72);
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: center;
+  margin: -10px 0 0;
+}
+
+.public-empty-state {
+  background: rgba(17, 20, 28, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(243, 244, 246, 0.72);
+  font-size: 14px;
+  font-weight: 600;
+  justify-self: center;
+  margin: 0;
+  padding: 18px 22px;
+  text-align: center;
 }
 
 .trace-link:hover {

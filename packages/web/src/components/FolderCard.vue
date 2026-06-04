@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 
-defineProps<{ folder: Folder }>();
+const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string }>(), { depth: 0, parentName: '' });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
 const faviconErrors = ref<Record<string | number, boolean>>({});
+const folder = computed(() => props.folder);
 
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
@@ -23,12 +24,15 @@ function getFaviconUrl(url: string) {
 </script>
 
 <template>
-  <section class="large-folder" :id="`folder-${folder.id}`">
+  <section class="large-folder" :id="`folder-${folder.id}`" :style="{ '--public-folder-depth': props.depth }">
     <header class="large-folder-title">
       <span class="title-spacer"></span>
       <div class="title-main">
         <span class="title-icon">{{ folder.icon || '📁' }}</span>
-        <h2>{{ folder.name }}</h2>
+        <div class="title-copy">
+          <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
+          <h2>{{ folder.name }}</h2>
+        </div>
       </div>
       <button v-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
         <Lock :size="16" />
@@ -83,7 +87,7 @@ function getFaviconUrl(url: string) {
   gap: 12px;
   grid-template-columns: 32px minmax(0, 1fr) 32px;
   height: 38px;
-  padding: 0 8px;
+  padding: 0 8px 0 calc(8px + var(--public-folder-depth, 0) * 12px);
 }
 
 h2 {
@@ -106,6 +110,22 @@ h2 {
   gap: 8px;
   justify-content: center;
   min-width: 0;
+}
+
+.title-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.folder-parent-label {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title-icon {
