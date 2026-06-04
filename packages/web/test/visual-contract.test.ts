@@ -163,4 +163,15 @@ describe('visual contracts', () => {
     expect(css).toContain('.admin-search-input');
     expect(css).toContain('.row-actions .icon-button');
   });
+
+  it('defines phase 2 admin operation styles', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(css).toContain('.bulk-action-bar');
+    expect(css).toContain('.duplicate-panel');
+    expect(css).toContain('.import-preview-panel');
+    expect(css).toContain('--folder-depth');
+  });
 });

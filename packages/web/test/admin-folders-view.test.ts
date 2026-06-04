@@ -74,7 +74,7 @@ describe('FoldersView admin workflow', () => {
     const wrapper = mountFoldersView();
     await settle(wrapper);
 
-    expect(wrapper.get('[data-testid="folder-parent"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-parent"]').exists()).toBe(true);
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
   });
 });
