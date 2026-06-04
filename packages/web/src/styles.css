@@ -747,6 +747,10 @@ a {
   color: var(--accent);
 }
 
+.app-workbench .folder-table .text-button {
+  padding-left: calc(var(--folder-depth, 0) * 18px);
+}
+
 .app-workbench .url-cell {
   color: #64748b;
   font-size: 13px;

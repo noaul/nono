@@ -45,7 +45,7 @@ function folderLinkCount(folderId: number) {
 }
 
 function edit(folder: Folder) {
-  Object.assign(form, { ...folder, password: '', passwordHint: folder.passwordHint || '' });
+  Object.assign(form, { ...folder, parentId: folder.parentId || null, password: '', passwordHint: folder.passwordHint || '' });
 }
 
 function reset() {
@@ -61,6 +61,32 @@ function folderPayload() {
     password: form.password,
     passwordHint: form.passwordHint,
   };
+}
+
+function folderDepth(folder: Folder) {
+  let depth = 0;
+  let parentId = folder.parentId || null;
+  while (parentId) {
+    const parent = folders.value.find((item) => item.id === parentId);
+    if (!parent) break;
+    depth += 1;
+    parentId = parent.parentId || null;
+  }
+  return depth;
+}
+
+function isDescendantOf(folder: Folder, parentId: number) {
+  let cursor = folder.parentId || null;
+  while (cursor) {
+    if (cursor === parentId) return true;
+    const parent = folders.value.find((item) => item.id === cursor);
+    cursor = parent?.parentId || null;
+  }
+  return false;
+}
+
+function selectableParents() {
+  return folders.value.filter((folder) => folder.id !== form.id && (!form.id || !isDescendantOf(folder, form.id)));
 }
 
 async function save() {
@@ -149,6 +175,13 @@ onMounted(load);
       <form class="admin-form-grid" @submit.prevent="save">
         <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="如 link" /><button type="button" title="图标">☝</button></div></div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
+        <div class="field">
+          <label>上级文件夹</label>
+          <select data-testid="folder-parent" v-model.number="form.parentId">
+            <option :value="null">顶级文件夹</option>
+            <option v-for="folder in selectableParents()" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+          </select>
+        </div>
         <div class="field"><label>密码</label><input v-model="form.password" type="password" /></div>
         <div class="field"><label>引导语</label><input v-model="form.passwordHint" maxlength="30" placeholder="密码文件夹的提示语" /></div>
       </form>
@@ -176,7 +209,7 @@ onMounted(load);
           <span>引导语</span>
           <span>操作</span>
         </div>
-        <article v-for="(folder, index) in sortedFolders" :key="folder.id" class="admin-table-row">
+        <article v-for="(folder, index) in sortedFolders" :key="folder.id" class="admin-table-row" :data-testid="`folder-row-${folder.id}`" :style="{ '--folder-depth': folderDepth(folder) }">
           <span data-label="图标">{{ folder.icon || '□' }}</span>
           <button class="text-button" data-label="名称" type="button" @click="edit(folder)">{{ folder.name }}</button>
           <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>

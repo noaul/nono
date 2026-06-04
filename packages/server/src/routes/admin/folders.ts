@@ -16,7 +16,9 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body = request.body as any;
-    return sendOk(reply, await services.repo.createFolder({ userId: user.id, parentId: body.parentId || null, name: body.name, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()), passwordHash: body.password ? await hashPassword(body.password) : null, passwordHint: body.passwordHint || '' }));
+    const parentId = normalizeParentId(body.parentId);
+    await assertValidParent(services, user.id, 0, parentId);
+    return sendOk(reply, await services.repo.createFolder({ userId: user.id, parentId, name: body.name, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()), passwordHash: body.password ? await hashPassword(body.password) : null, passwordHint: body.passwordHint || '' }));
   });
 
   app.put('/api/admin/folders/reorder', async (request, reply) => {
@@ -31,7 +33,13 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body = request.body as any;
-    return sendOk(reply, await services.repo.updateFolder(user.id, Number((request.params as any).id), body));
+    const id = Number((request.params as any).id);
+    const input = { ...body };
+    if ('parentId' in input) {
+      input.parentId = normalizeParentId(input.parentId);
+      await assertValidParent(services, user.id, id, input.parentId);
+    }
+    return sendOk(reply, await services.repo.updateFolder(user.id, id, input));
   });
 
   app.delete('/api/admin/folders/:id', async (request, reply) => {
@@ -40,4 +48,25 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     await services.repo.deleteFolder(user.id, Number((request.params as any).id));
     return sendOk(reply, { ok: true });
   });
+}
+
+function normalizeParentId(value: unknown) {
+  if (value === undefined || value === null || value === '') return null;
+  const parentId = Number(value);
+  if (!Number.isInteger(parentId) || parentId < 1) throw Object.assign(new Error('Invalid parent folder'), { statusCode: 400 });
+  return parentId;
+}
+
+async function assertValidParent(services: AppServices, userId: number, folderId: number, parentId: number | null) {
+  if (!parentId) return;
+  if (parentId === folderId) throw Object.assign(new Error('Folder cannot be its own parent'), { statusCode: 400 });
+
+  const folders = await services.repo.listFolders(userId);
+  let cursor = folders.find((folder) => folder.id === parentId);
+  if (!cursor) throw Object.assign(new Error('Parent folder not found'), { statusCode: 400 });
+
+  while (cursor?.parentId) {
+    if (cursor.parentId === folderId) throw Object.assign(new Error('Folder cannot use a descendant as parent'), { statusCode: 400 });
+    cursor = folders.find((folder) => folder.id === cursor?.parentId);
+  }
 }

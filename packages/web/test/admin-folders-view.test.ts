@@ -62,4 +62,19 @@ describe('FoldersView admin workflow', () => {
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/1', { method: 'DELETE' });
     expect(wrapper.text()).not.toContain('工具');
   });
+
+  it('renders parent selector and indents child folders', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: 'Parent', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'Child', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="folder-parent"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
+  });
 });

@@ -245,6 +245,28 @@ describe('Nono Fastify app', () => {
     expect(await repo.listLinks(1)).toHaveLength(0);
   });
 
+  it('rejects folder parent cycles', async () => {
+    const cookie = await setupAdmin();
+    const parent = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Parent' } });
+    const child = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Child', parentId: parent.json().data.id } });
+
+    const selfParent = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/folders/${parent.json().data.id}`,
+      headers: { cookie },
+      payload: { parentId: parent.json().data.id },
+    });
+    expect(selfParent.statusCode).toBe(400);
+
+    const descendantParent = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/folders/${parent.json().data.id}`,
+      headers: { cookie },
+      payload: { parentId: child.json().data.id },
+    });
+    expect(descendantParent.statusCode).toBe(400);
+  });
+
   it('falls back when LLM is not configured and saves the confirmed bookmark', async () => {
     const cookie = await setupAdmin();
     await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading' } });
