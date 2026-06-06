@@ -70,8 +70,8 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench">
-    <aside class="workbench-sidebar">
+  <div class="app-workbench glass-workbench">
+    <aside class="workbench-sidebar glass-surface">
       <RouterLink class="sidebar-brand" to="/admin">
         <div class="brand-logo">N</div>
         <div>
@@ -80,7 +80,7 @@ async function logout() {
         </div>
       </RouterLink>
 
-      <section class="operator-card">
+      <section class="operator-card glass-surface">
         <div class="operator-status">
           <span class="status-dot"></span>
           <span>在线</span>
@@ -110,12 +110,12 @@ async function logout() {
     </aside>
 
     <div class="workbench-main">
-      <header class="workbench-topbar">
+      <header class="workbench-topbar glass-surface">
         <div class="page-title">
           <p><strong>{{ activeNavItem?.sectionLabel || '运营' }}</strong></p>
           <h1>{{ title }}</h1>
         </div>
-        <div class="page-command-card">
+        <div class="page-command-card glass-surface">
           <Activity :size="18" />
           <div>
             <span>当前任务</span>

@@ -144,6 +144,7 @@ describe('visual contracts', () => {
     });
 
     expect(wrapper.find('.app-workbench').exists()).toBe(true);
+    expect(wrapper.find('.glass-workbench').exists()).toBe(true);
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
@@ -166,6 +167,20 @@ describe('visual contracts', () => {
     expect(dashboardSource).toContain('dashboard-hero');
     expect(dashboardSource).toContain('ops-metric-card');
     expect(dashboardSource).toContain('operations-grid');
+  });
+
+  it('defines the admin glassmorphism surface system', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(css).toContain('.glass-workbench');
+    expect(css).toContain('.glass-workbench::before');
+    expect(css).toContain('.glass-surface');
+    expect(css).toContain('backdrop-filter: blur');
+    expect(css).toContain('-webkit-backdrop-filter: blur');
+    expect(css).toContain('rgba(255, 255, 255, 0.62)');
+    expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
   });
 
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
