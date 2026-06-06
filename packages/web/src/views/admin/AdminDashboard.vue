@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { Folder as FolderIcon, Link2, Lock, Globe, ExternalLink, ArrowRight, Settings, ListPlus } from 'lucide-vue-next';
+import { ArrowRight, Bot, ExternalLink, Folder as FolderIcon, Globe, KeyRound, Link2, ListChecks, Lock, Settings, Upload } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
@@ -10,6 +10,15 @@ const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
 
 const lockedCount = computed(() => folders.value.filter((folder) => folder.locked).length);
+const emptyFolderCount = computed(() => folders.value.filter((folder) => !links.value.some((link) => link.folderId === folder.id)).length);
+const averageLinksPerFolder = computed(() => (folders.value.length ? Math.round((links.value.length / folders.value.length) * 10) / 10 : 0));
+const localSearchMode = computed(() => (site.value?.localSearchFirst ? '站内优先' : '外部搜索'));
+const folderHighlights = computed(() =>
+  folders.value
+    .map((folder) => ({ ...folder, linkCount: links.value.filter((link) => link.folderId === folder.id).length }))
+    .sort((a, b) => b.linkCount - a.linkCount || b.sortOrder - a.sortOrder)
+    .slice(0, 5),
+);
 
 onMounted(async () => {
   [site.value, folders.value, links.value] = await Promise.all([
@@ -22,115 +31,154 @@ onMounted(async () => {
 
 <template>
   <AdminLayout title="控制台总览">
-    <!-- Stat Cards Grid -->
-    <div class="grid three">
-      <section class="stat-card">
-        <div class="stat-icon-wrapper">
-          <FolderIcon :size="20" class="stat-icon" />
+    <section class="dashboard-hero">
+      <div class="dashboard-hero-copy">
+        <p>运营中枢</p>
+        <h2>{{ site?.name || 'Nono' }}</h2>
+        <span>{{ site?.description || '把分散的工具、资料和浏览器书签整理成一个稳定的个人导航入口。' }}</span>
+        <div class="dashboard-hero-actions">
+          <RouterLink class="button" to="/admin/links"><Link2 :size="17" /> 管理书签</RouterLink>
+          <RouterLink class="button secondary" to="/admin/site"><Settings :size="17" /> 调整站点</RouterLink>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">分类文件夹</span>
-          <h2 class="stat-value">{{ folders.length }}</h2>
-          <div class="stat-footer-text">
-            已创建 {{ folders.length }} 个导航分组
-          </div>
+      </div>
+      <div class="dashboard-hero-panel">
+        <div>
+          <span>公开入口</span>
+          <strong>/{{ site?.slug || 'admin' }}</strong>
         </div>
-        <RouterLink to="/admin/folders" class="stat-action-arrow" title="管理文件夹">
-          <ArrowRight :size="16" />
-        </RouterLink>
-      </section>
+        <a href="/" target="_blank" rel="noreferrer">
+          打开主页 <ExternalLink :size="14" />
+        </a>
+        <small>{{ localSearchMode }} · {{ site?.searchUrlTemplate || '默认搜索模板' }}</small>
+      </div>
+    </section>
 
-      <section class="stat-card">
-        <div class="stat-icon-wrapper blue">
-          <Link2 :size="20" class="stat-icon" />
+    <div class="ops-metric-grid">
+      <RouterLink to="/admin/folders" class="ops-metric-card tone-green">
+        <FolderIcon :size="20" />
+        <div>
+          <span>分类文件夹</span>
+          <strong>{{ folders.length }}</strong>
+          <small>{{ emptyFolderCount }} 个待补内容</small>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">收录书签链接</span>
-          <h2 class="stat-value">{{ links.length }}</h2>
-          <div class="stat-footer-text">
-            已收录 <span>{{ links.length }}</span> 个常用工具与链接
-          </div>
-        </div>
-        <RouterLink to="/admin/links" class="stat-action-arrow" title="管理链接">
-          <ArrowRight :size="16" />
-        </RouterLink>
-      </section>
+        <ArrowRight :size="16" />
+      </RouterLink>
 
-      <section class="stat-card">
-        <div class="stat-icon-wrapper orange">
-          <Lock :size="20" class="stat-icon" />
+      <RouterLink to="/admin/links" class="ops-metric-card tone-blue">
+        <Link2 :size="20" />
+        <div>
+          <span>收录书签</span>
+          <strong>{{ links.length }}</strong>
+          <small>平均 {{ averageLinksPerFolder }} 个/文件夹</small>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">加密分类文件夹</span>
-          <h2 class="stat-value">{{ lockedCount }}</h2>
-          <div class="stat-footer-text">
-            其中 <span>{{ lockedCount }}</span> 个文件夹已设置密码保护
-          </div>
+        <ArrowRight :size="16" />
+      </RouterLink>
+
+      <RouterLink to="/admin/folders" class="ops-metric-card tone-amber">
+        <Lock :size="20" />
+        <div>
+          <span>加密分类</span>
+          <strong>{{ lockedCount }}</strong>
+          <small>受控访问分组</small>
         </div>
-        <RouterLink to="/admin/folders" class="stat-action-arrow" title="查看加密文件夹">
-          <ArrowRight :size="16" />
-        </RouterLink>
-      </section>
+        <ArrowRight :size="16" />
+      </RouterLink>
+
+      <RouterLink to="/admin/tokens" class="ops-metric-card tone-rose">
+        <KeyRound :size="20" />
+        <div>
+          <span>扩展接入</span>
+          <strong>Token</strong>
+          <small>管理浏览器扩展授权</small>
+        </div>
+        <ArrowRight :size="16" />
+      </RouterLink>
     </div>
 
-    <!-- Details and Quick Links Grid -->
-    <div class="grid two" style="margin-top: 20px;">
-      <!-- Site configuration details card -->
-      <section class="dashboard-details-card">
-        <div class="card-title-header">
-          <Globe :size="18" class="header-icon" />
-          <h3>当前站点配置</h3>
+    <div class="operations-grid">
+      <section class="ops-panel folder-distribution">
+        <div class="ops-panel-head">
+          <div>
+            <p>内容分布</p>
+            <h3>高密度文件夹</h3>
+          </div>
+          <RouterLink to="/admin/folders">管理 <ArrowRight :size="14" /></RouterLink>
         </div>
-        <div class="details-body">
-          <div class="detail-row">
-            <span class="detail-label">站点名称</span>
-            <span class="detail-value highlight">{{ site?.name || 'Nono' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">访问路径 (Slug)</span>
-            <span class="detail-value font-mono">/{{ site?.slug || 'admin' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">默认搜索引擎</span>
-            <span class="detail-value url-text" :title="site?.searchUrlTemplate">
-              {{ site?.searchUrlTemplate || 'Google' }}
-            </span>
-          </div>
-          <div class="detail-row border-none">
-            <span class="detail-label">主页浏览</span>
-            <a href="/" target="_blank" class="detail-link">
-              打开前台主页 <ExternalLink :size="13" />
-            </a>
+        <div class="folder-rank-list">
+          <article v-for="folder in folderHighlights" :key="folder.id">
+            <span>{{ folder.icon || '□' }}</span>
+            <div>
+              <strong>{{ folder.name }}</strong>
+              <small>{{ folder.locked ? '加密' : '公开' }} · {{ folder.description || folder.passwordHint || '无说明' }}</small>
+            </div>
+            <em>{{ folder.linkCount }} 个</em>
+          </article>
+          <div v-if="!folderHighlights.length" class="folder-rank-empty">
+            <strong>还没有可展示的文件夹</strong>
+            <small>创建文件夹并添加书签后，这里会显示内容最密集的分类。</small>
           </div>
         </div>
       </section>
 
-      <!-- Quick Actions list -->
-      <section class="dashboard-details-card">
-        <div class="card-title-header">
-          <Settings :size="18" class="header-icon" />
-          <h3>快捷运营中心</h3>
+      <section class="ops-panel quick-ops-panel">
+        <div class="ops-panel-head">
+          <div>
+            <p>快捷动作</p>
+            <h3>常用运营入口</h3>
+          </div>
         </div>
-        <div class="quick-links-grid">
-          <RouterLink to="/admin/site" class="quick-action-item">
-            <Settings :size="16" />
-            <div class="action-meta">
-              <strong>修改站点信息</strong>
-              <small>自定义背景、LOGO、描述</small>
+        <div class="quick-ops-list">
+          <RouterLink to="/admin/links">
+            <Link2 :size="17" />
+            <div>
+              <strong>新增链接</strong>
+              <small>补充工具、资料和外部入口</small>
             </div>
           </RouterLink>
-          <RouterLink to="/admin/links" class="quick-action-item">
-            <ListPlus :size="16" />
-            <div class="action-meta">
-              <strong>新增导航链接</strong>
-              <small>一键添加常用网站与书签</small>
+          <RouterLink to="/admin/bookmarks">
+            <Upload :size="17" />
+            <div>
+              <strong>导入浏览器书签</strong>
+              <small>先预览，再批量导入</small>
             </div>
           </RouterLink>
-          <RouterLink to="/admin/bookmarks" class="quick-action-item">
-            <Globe :size="16" />
-            <div class="action-meta">
-              <strong>批量导入书签</strong>
-              <small>导入/导出浏览器 HTML 书签</small>
+          <RouterLink to="/admin/llm">
+            <Bot :size="17" />
+            <div>
+              <strong>配置智能收藏</strong>
+              <small>让扩展自动分析标题与说明</small>
+            </div>
+          </RouterLink>
+        </div>
+      </section>
+
+      <section class="ops-panel governance-panel">
+        <div class="ops-panel-head">
+          <div>
+            <p>治理队列</p>
+            <h3>下一步建议</h3>
+          </div>
+        </div>
+        <div class="governance-list">
+          <RouterLink to="/admin/links">
+            <ListChecks :size="17" />
+            <div>
+              <strong>检查重复与失效链接</strong>
+              <small>在书签管理里运行查重和健康检查</small>
+            </div>
+          </RouterLink>
+          <RouterLink to="/admin/folders">
+            <FolderIcon :size="17" />
+            <div>
+              <strong>整理空文件夹</strong>
+              <small>{{ emptyFolderCount }} 个文件夹暂时没有链接</small>
+            </div>
+          </RouterLink>
+          <RouterLink to="/admin/site">
+            <Globe :size="17" />
+            <div>
+              <strong>校准公开主页</strong>
+              <small>{{ localSearchMode }} · 检查品牌、颜色和搜索模板</small>
             </div>
           </RouterLink>
         </div>
@@ -140,236 +188,24 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.stat-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 24px;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  position: relative;
-  transition: var(--transition-smooth);
+.dashboard-hero h2,
+.ops-panel h3,
+.ops-metric-card strong {
+  letter-spacing: 0;
 }
 
-.stat-card:hover {
-  border-color: #cbd5e1;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.stat-icon-wrapper {
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.15);
-  color: #2563eb;
-  border-radius: 8px;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.stat-icon-wrapper.blue {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-}
-
-.stat-icon-wrapper.orange {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.15);
-  color: #d97706;
-}
-
-.stat-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.folder-rank-list article,
+.quick-ops-list a,
+.governance-list a {
   min-width: 0;
 }
 
-.stat-label {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 800;
-  margin: 6px 0 4px;
-  color: var(--text);
-  line-height: 1;
-}
-
-.stat-footer-text {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.stat-footer-text span {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.stat-action-arrow {
-  color: var(--muted);
-  position: absolute;
-  right: 18px;
-  top: 18px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  transition: var(--transition-smooth);
-}
-
-.stat-card:hover .stat-action-arrow {
-  background: var(--line-soft);
-  color: var(--text);
-  transform: translateX(2px);
-}
-
-/* Details and lists styling */
-.dashboard-details-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.card-title-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 12px;
-}
-
-.card-title-header h3 {
-  font-size: 16px;
-  font-weight: 800;
-  margin: 0;
-}
-
-.header-icon {
-  color: var(--muted);
-}
-
-.details-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 44px;
-  border-bottom: 1px solid var(--line-soft);
-  gap: 16px;
-}
-
-.detail-row.border-none {
-  border-bottom: none;
-}
-
-.detail-label {
-  font-size: 13.5px;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.detail-value {
-  font-size: 13.5px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.detail-value.highlight {
-  color: var(--accent);
-}
-
-.detail-value.font-mono {
-  font-family: monospace;
-  background: var(--line-soft);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12.5px;
-}
-
-.url-text {
-  font-family: monospace;
-  font-size: 12.5px;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.detail-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent);
-  font-size: 13.5px;
-  font-weight: 600;
-  transition: var(--transition-smooth);
-}
-
-.detail-link:hover {
-  text-decoration: underline;
-}
-
-/* Quick link grid */
-.quick-links-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.quick-action-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--line-soft);
-  transition: var(--transition-smooth);
-  background: var(--bg);
-}
-
-.quick-action-item:hover {
-  border-color: var(--line);
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.02);
-  transform: translateY(-1px);
-}
-
-.quick-action-item svg {
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.action-meta {
-  display: flex;
-  flex-direction: column;
-}
-
-.action-meta strong {
-  font-size: 13.5px;
-  color: var(--text);
-  font-weight: 700;
-}
-
-.action-meta small {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
+.folder-rank-list strong,
+.folder-rank-list small,
+.quick-ops-list strong,
+.quick-ops-list small,
+.governance-list strong,
+.governance-list small {
+  overflow-wrap: anywhere;
 }
 </style>

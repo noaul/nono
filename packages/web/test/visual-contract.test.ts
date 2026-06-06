@@ -129,7 +129,7 @@ describe('visual contracts', () => {
     expect(source).toContain('fileName');
   });
 
-  it('renders admin pages with the previous workbench shell', () => {
+  it('renders admin pages with the redesigned operations shell', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const wrapper = mount(AdminLayout, {
@@ -144,8 +144,28 @@ describe('visual contracts', () => {
     });
 
     expect(wrapper.find('.app-workbench').exists()).toBe(true);
-    expect(wrapper.find('.topbar').exists()).toBe(true);
-    expect(wrapper.find('.workspace').exists()).toBe(true);
+    expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
+    expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
+    expect(wrapper.find('.workbench-stage').exists()).toBe(true);
+    expect(wrapper.findAll('.nav-section')).toHaveLength(3);
+    expect(wrapper.find('.operator-card').exists()).toBe(true);
+  });
+
+  it('defines the redesigned admin operations dashboard shell styles', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const dashboardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AdminDashboard.vue'), 'utf8');
+
+    expect(css).toContain('.workbench-sidebar');
+    expect(css).toContain('.workbench-topbar');
+    expect(css).toContain('.page-command-card');
+    expect(css).toContain('.dashboard-hero');
+    expect(css).toContain('.ops-metric-card');
+    expect(css).toContain('.operations-grid');
+    expect(dashboardSource).toContain('dashboard-hero');
+    expect(dashboardSource).toContain('ops-metric-card');
+    expect(dashboardSource).toContain('operations-grid');
   });
 
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
