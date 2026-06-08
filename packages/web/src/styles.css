@@ -2666,3 +2666,79 @@ a {
     border-right: 1px solid rgba(255, 255, 255, 0.46);
   }
 }
+
+/* Figma-inspired admin frame */
+.figma-admin-shell {
+  --figma-surface: rgba(255, 255, 255, 0.58);
+  --figma-surface-strong: rgba(255, 255, 255, 0.74);
+  --figma-stroke: rgba(15, 118, 110, 0.18);
+  --figma-grid: rgba(15, 118, 110, 0.07);
+}
+
+.figma-admin-shell::after {
+  background-image:
+    linear-gradient(rgba(15, 118, 110, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 118, 110, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  content: "";
+  inset: 0;
+  opacity: 0.42;
+  pointer-events: none;
+  position: fixed;
+  z-index: -1;
+}
+
+.figma-control-strip {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin: 16px 28px 0;
+  min-height: 58px;
+  overflow-x: auto;
+  padding: 9px;
+}
+
+.figma-section-chip {
+  align-items: center;
+  background: var(--figma-surface);
+  border: 1px solid var(--figma-stroke);
+  border-radius: 8px;
+  color: var(--text);
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  transition: var(--transition-smooth);
+}
+
+.figma-section-chip:hover,
+.figma-section-chip.router-link-active {
+  background: var(--figma-surface-strong);
+  border-color: rgba(15, 118, 110, 0.34);
+}
+
+.figma-section-chip span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.figma-section-chip strong {
+  align-items: center;
+  background: rgba(15, 118, 110, 0.1);
+  border-radius: 999px;
+  color: #07544e;
+  display: inline-flex;
+  font-size: 12px;
+  height: 22px;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 7px;
+}
+
+@media (max-width: 720px) {
+  .figma-control-strip {
+    margin: 12px 14px 0;
+  }
+}

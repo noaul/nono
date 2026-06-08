@@ -78,7 +78,7 @@ function getFaviconUrl(url: string) {
 
 .large-folder:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25), 0 0 24px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18), 0 0 24px rgba(16, 185, 129, 0.07);
 }
 
 .large-folder-title {
@@ -134,10 +134,10 @@ h2 {
 }
 
 .large-links {
-  background: rgba(17, 20, 28, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -147,9 +147,9 @@ h2 {
   overflow-x: hidden;
   overflow-y: auto;
   padding: 16px;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.02), 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* Custom scrollbar track details */
@@ -158,18 +158,18 @@ h2 {
 }
 
 .large-links::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.24);
   border-radius: 99px;
 }
 
 .large-links::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .large-link {
   align-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(8, 12, 18, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   color: rgba(243, 244, 246, 0.85);
   display: flex;
@@ -183,7 +183,7 @@ h2 {
 
 .large-link:hover,
 .large-link:focus-visible {
-  background: rgba(16, 185, 129, 0.08);
+  background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.3);
   color: #10b981;
   outline: none;
@@ -219,10 +219,10 @@ h2 {
 }
 
 .locked {
-  background: rgba(17, 20, 28, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   display: flex;
   flex-direction: column;

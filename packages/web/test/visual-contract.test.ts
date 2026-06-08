@@ -145,8 +145,10 @@ describe('visual contracts', () => {
 
     expect(wrapper.find('.app-workbench').exists()).toBe(true);
     expect(wrapper.find('.glass-workbench').exists()).toBe(true);
+    expect(wrapper.find('.figma-admin-shell').exists()).toBe(true);
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
+    expect(wrapper.find('.figma-control-strip').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
     expect(wrapper.findAll('.nav-section')).toHaveLength(3);
     expect(wrapper.find('.operator-card').exists()).toBe(true);
@@ -181,6 +183,21 @@ describe('visual contracts', () => {
     expect(css).toContain('-webkit-backdrop-filter: blur');
     expect(css).toContain('rgba(255, 255, 255, 0.62)');
     expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
+  });
+
+  it('defines the Figma-inspired admin frame and component tokens', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
+
+    expect(layoutSource).toContain('figma-admin-shell');
+    expect(layoutSource).toContain('figma-control-strip');
+    expect(css).toContain('--figma-surface');
+    expect(css).toContain('--figma-stroke');
+    expect(css).toContain('.figma-admin-shell::after');
+    expect(css).toContain('.figma-control-strip');
+    expect(css).toContain('linear-gradient(rgba(15, 118, 110, 0.07) 1px, transparent 1px)');
   });
 
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
@@ -233,10 +250,19 @@ describe('visual contracts', () => {
     const path = await import('node:path');
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+    const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
 
     expect(navigationSource).toContain('search-result-summary');
     expect(navigationSource).toContain('public-empty-state');
+    expect(navigationSource).toContain('public-glass-page');
+    expect(navigationSource).toContain('--public-glass-bg');
+    expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
+    expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).toContain('folder-parent-label');
+    expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
+    expect(folderCardSource).toContain('blur(10px)');
+    expect(searchBarSource).toContain('rgba(255, 255, 255, 0.22)');
+    expect(searchBarSource).toContain('blur(10px)');
   });
 });

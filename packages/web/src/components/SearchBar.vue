@@ -22,10 +22,10 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
 <style scoped>
 .search-bar {
   align-items: center;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(20, 24, 33, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   display: flex;
   gap: 12px;
@@ -35,20 +35,20 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
   overflow: hidden;
   padding: 0 6px 0 20px;
   width: 100%;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-bar:focus-within {
   border-color: rgba(76, 201, 167, 0.4);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 20px rgba(76, 201, 167, 0.15);
-  background: rgba(25, 30, 41, 0.75);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.22), 0 0 20px rgba(76, 201, 167, 0.15);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .search-provider-badge {
-  color: var(--accent);
-  background: rgba(76, 201, 167, 0.12);
-  border: 1px solid rgba(76, 201, 167, 0.25);
+  color: #d9fff4;
+  background: rgba(6, 78, 59, 0.42);
+  border: 1px solid rgba(167, 243, 208, 0.3);
   border-radius: 999px;
   flex: 0 0 auto;
   font-size: 13px;
@@ -71,7 +71,7 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
 }
 
 .search-bar input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.48);
 }
 
 .search-btn {

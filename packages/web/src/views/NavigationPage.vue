@@ -29,14 +29,16 @@ const backgroundStyle = computed(() => {
     return {
       '--nav-bg-color': '#090a0f',
       '--nav-bg-image': 'none',
+      '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
       color: '#f3f4f6',
     };
   }
 
   return {
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
+    '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
     '--nav-bg-image': payload.value.site.backgroundImage
-      ? `linear-gradient(rgba(10, 11, 16, 0.22), rgba(10, 11, 16, 0.58)), url(${JSON.stringify(payload.value.site.backgroundImage)})`
+      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(payload.value.site.backgroundImage)})`
       : 'none',
     color: payload.value.site.fontColor || '#f3f4f6',
   };
@@ -107,7 +109,7 @@ watch(username, load);
 </script>
 
 <template>
-  <main class="nav-page" :style="backgroundStyle">
+  <main class="nav-page public-glass-page" :style="backgroundStyle">
     <div class="nav-content">
       <header class="nav-header">
         <div class="header-vibe">
@@ -209,6 +211,14 @@ watch(username, load);
   position: relative;
 }
 
+.public-glass-page {
+  --public-glass-bg: rgba(255, 255, 255, 0.16);
+  background:
+    radial-gradient(circle at 14% 10%, rgba(52, 211, 153, 0.2), transparent 28%),
+    linear-gradient(135deg, rgba(8, 12, 18, 0.18), rgba(8, 12, 18, 0.04) 42%, rgba(15, 118, 110, 0.12)),
+    var(--nav-bg-color, #090a0f);
+}
+
 .nav-page::before {
   background-image: var(--nav-bg-image, none);
   background-position: center;
@@ -216,6 +226,19 @@ watch(username, load);
   background-size: cover;
   content: '';
   inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+
+.public-glass-page::after {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  content: '';
+  inset: 0;
+  opacity: 0.18;
   pointer-events: none;
   position: fixed;
   z-index: 0;
@@ -270,15 +293,17 @@ h1 {
 }
 
 .trace-link {
-  color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 13px;
   font-weight: 600;
   justify-self: end;
   margin: 4px 4% 0 0;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.12);
   padding: 6px 14px;
   border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -295,10 +320,12 @@ h1 {
 }
 
 .public-empty-state {
-  background: rgba(17, 20, 28, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
-  color: rgba(243, 244, 246, 0.72);
+  color: rgba(243, 244, 246, 0.8);
   font-size: 14px;
   font-weight: 600;
   justify-self: center;
@@ -309,16 +336,16 @@ h1 {
 
 .trace-link:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
 }
 
 .folder-tabs {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(17, 20, 28, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 99px;
   display: flex;
   gap: 4px;
@@ -327,7 +354,7 @@ h1 {
   max-width: fit-content;
   overflow-x: auto;
   padding: 5px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255,255,255,0.03);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.16);
 }
 
 .folder-tabs::-webkit-scrollbar {
@@ -340,12 +367,12 @@ h1 {
   padding: 6px 14px;
   font-size: 13.5px;
   font-weight: 600;
-  color: rgba(243, 244, 246, 0.7);
+  color: rgba(243, 244, 246, 0.78);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .folder-tabs a:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
 }
 

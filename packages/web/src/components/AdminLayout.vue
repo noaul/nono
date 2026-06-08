@@ -70,7 +70,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench">
+  <div class="app-workbench glass-workbench figma-admin-shell">
     <aside class="workbench-sidebar glass-surface">
       <RouterLink class="sidebar-brand" to="/admin">
         <div class="brand-logo">N</div>
@@ -127,6 +127,13 @@ async function logout() {
           <button class="button secondary" title="退出登录" @click="logout"><LogOut :size="18" /> 退出</button>
         </div>
       </header>
+
+      <section class="figma-control-strip glass-surface" aria-label="后台区域">
+        <RouterLink v-for="section in visibleNavSections" :key="section.label" class="figma-section-chip" :to="section.items[0]?.to || '/admin'">
+          <span>{{ section.label }}</span>
+          <strong>{{ section.items.length }}</strong>
+        </RouterLink>
+      </section>
 
       <main class="workbench-stage">
         <slot />
