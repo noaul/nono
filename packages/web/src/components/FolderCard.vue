@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Bookmark, Lock, Maximize2, Monitor } from 'lucide-vue-next';
+import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 
 const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string }>(), { depth: 0, parentName: '' });
@@ -12,8 +12,9 @@ const folder = computed(() => props.folder);
 <template>
   <section class="large-folder" :id="`folder-${folder.id}`" :style="{ '--public-folder-depth': props.depth }">
     <header class="large-folder-title">
+      <span class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
-        <Monitor class="title-icon" :size="30" />
+        <span class="title-icon">{{ folder.icon || '📁' }}</span>
         <div class="title-copy">
           <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
           <h2>{{ folder.name }}</h2>
@@ -34,7 +35,7 @@ const folder = computed(() => props.folder);
     </div>
     <div v-else class="large-links folder-glass-panel">
       <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
-        <Bookmark :size="30" class="large-link-icon" />
+        <Bookmark :size="18" class="large-link-icon" />
         <span>{{ link.name }}</span>
       </a>
     </div>
@@ -45,10 +46,11 @@ const folder = computed(() => props.folder);
 .large-folder {
   display: grid;
   gap: 12px;
-  grid-template-rows: auto minmax(320px, auto);
+  grid-template-rows: 38px 308px;
+  height: 358px;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 1120px 460px;
+  contain-intrinsic-size: 445px 358px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -62,18 +64,19 @@ const folder = computed(() => props.folder);
 .large-folder-title {
   align-items: center;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-height: 44px;
-  padding: 0 72px 0 calc(72px + var(--public-folder-depth, 0) * 12px);
+  gap: 12px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  height: 38px;
+  padding: 0 8px 0 calc(8px + var(--public-folder-depth, 0) * 12px);
   position: relative;
   z-index: 2;
 }
 
 h2 {
-  font-size: 34px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1.08;
+  line-height: 1.2;
   margin: 0;
   overflow: hidden;
   text-align: center;
@@ -86,7 +89,7 @@ h2 {
 .title-main {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
   min-width: 0;
 }
@@ -97,10 +100,10 @@ h2 {
 }
 
 .folder-parent-label {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1;
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
@@ -108,26 +111,24 @@ h2 {
 }
 
 .title-icon {
-  color: #ffffff;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.28));
+  font-size: 18px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .large-links {
   background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(18px) saturate(1.18);
-  -webkit-backdrop-filter: blur(18px) saturate(1.18);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 32px;
+  backdrop-filter: blur(14px) saturate(1.14);
+  -webkit-backdrop-filter: blur(14px) saturate(1.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
   display: grid;
-  gap: 12px 42px;
-  grid-auto-rows: 58px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  height: clamp(320px, 36vw, 440px);
-  min-height: 320px;
+  gap: 8px;
+  grid-auto-rows: 40px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: 308px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 52px 64px;
+  padding: 16px;
   scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -154,14 +155,14 @@ h2 {
   align-items: center;
   background: rgba(255, 255, 255, 0);
   border: 1px solid rgba(255, 255, 255, 0);
-  border-radius: 14px;
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.94);
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-start;
-  min-height: 58px;
+  min-height: 40px;
   overflow: hidden;
-  padding: 0 12px;
+  padding: 4px 10px;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -176,8 +177,8 @@ h2 {
   border-color: rgba(255, 255, 255, 0.18);
   color: #ffffff;
   outline: none;
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .large-link:active {
@@ -187,8 +188,8 @@ h2 {
 }
 
 .large-link span {
-  font-size: 29px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -210,7 +211,7 @@ h2 {
   color: rgba(255, 255, 255, 0.4);
   font-size: 13.5px;
   font-weight: 500;
-  height: clamp(320px, 36vw, 440px);
+  height: 308px;
   padding: 24px;
   text-align: center;
 }
@@ -241,25 +242,23 @@ h2 {
 .folder-expand,
 .lock-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.62);
   cursor: pointer;
   display: inline-flex;
-  height: 40px;
+  height: 32px;
   justify-content: center;
   padding: 0;
-  position: absolute;
-  right: 18px;
-  top: 2px;
+  position: static;
   transition:
     background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-  width: 40px;
+  width: 32px;
 }
 
 .folder-expand:hover,
@@ -280,9 +279,9 @@ h2 {
 }
 
 .lock-btn {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  color: rgba(255, 255, 255, 0.86) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
 }
 
 .lock-btn:hover {
@@ -291,55 +290,9 @@ h2 {
   color: #10b981 !important;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 640px) {
   .large-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 42px 36px;
-  }
-
-  .large-link span {
-    font-size: 24px;
-  }
-}
-
-@media (max-width: 640px) {
-  .large-folder {
-    grid-template-rows: auto minmax(280px, auto);
-  }
-
-  .large-folder-title {
-    min-height: 40px;
-    padding: 0 54px;
-  }
-
-  h2 {
-    font-size: 27px;
-  }
-
-  .title-icon {
-    width: 24px;
-  }
-
-  .large-links {
-    border-radius: 24px;
-    gap: 6px;
-    grid-auto-rows: 48px;
-    grid-template-columns: 1fr;
-    height: auto;
-    min-height: 280px;
-    padding: 28px 22px;
-  }
-
-  .large-link {
-    min-height: 48px;
-  }
-
-  .large-link span {
-    font-size: 21px;
-  }
-
-  .large-link-icon {
-    width: 24px;
   }
 }
 </style>

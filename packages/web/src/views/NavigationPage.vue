@@ -70,7 +70,10 @@ function addBackgroundHint(rel: 'preconnect' | 'preload', href: string, as?: str
   link.rel = rel;
   link.href = href;
   link.dataset.nonoBackgroundPreload = 'true';
-  if (as) link.as = as;
+  if (as) {
+    link.as = as;
+    link.setAttribute('as', as);
+  }
   if (rel === 'preload') link.setAttribute('fetchpriority', 'high');
   document.head.appendChild(link);
 }
@@ -298,11 +301,11 @@ onUnmounted(removeBackgroundHints);
 }
 
 .nav-content {
-  --folder-panel-width: min(100%, 1120px);
+  --folder-card-width: 445px;
   display: grid;
   gap: 28px;
   margin: 0 auto;
-  max-width: 1280px;
+  max-width: 2048px;
   padding: 0 40px;
   position: relative;
   z-index: 1;
@@ -451,8 +454,8 @@ h1 {
 .adaptive-folder-grid {
   align-items: stretch;
   display: grid;
-  gap: 44px;
-  grid-template-columns: minmax(0, var(--folder-panel-width));
+  gap: 38px 32px;
+  grid-template-columns: repeat(auto-fit, var(--folder-card-width));
   justify-content: center;
 }
 
@@ -759,7 +762,7 @@ h1 {
   }
 
   .nav-content {
-    --folder-panel-width: min(100%, 1120px);
+    --folder-card-width: min(100%, 445px);
     padding: 0 8px;
     gap: 20px;
   }
