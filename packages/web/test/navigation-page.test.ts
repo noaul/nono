@@ -75,7 +75,7 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
-  it('preloads the public background image before fading it onto the page', async () => {
+  it('shows the public background image immediately while keeping preload hints', async () => {
     const imageInstances: Array<{ src: string; onload: (() => void) | null; onerror: (() => void) | null; fetchPriority?: string; decoding?: string }> = [];
     class MockImage {
       src = '';
@@ -94,8 +94,10 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage();
     const page = wrapper.get('.nav-page');
 
+    expect(page.classes()).toContain('nav-bg-visible');
     expect(page.classes()).not.toContain('nav-bg-loaded');
-    expect(page.attributes('style')).toContain('--nav-bg-image: none');
+    expect(page.attributes('style')).toContain('url("https://cdn.example.com/bg.jpg")');
+    expect(document.head.querySelector('link[data-nono-background-preload][rel="dns-prefetch"]')?.getAttribute('href')).toBe('https://cdn.example.com');
     expect(document.head.querySelector('link[data-nono-background-preload][rel="preconnect"]')?.getAttribute('href')).toBe('https://cdn.example.com');
     expect(document.head.querySelector('link[data-nono-background-preload][rel="preload"]')?.getAttribute('href')).toBe('https://cdn.example.com/bg.jpg');
     expect(document.head.querySelector('link[data-nono-background-preload][rel="preload"]')?.getAttribute('as')).toBe('image');
@@ -105,6 +107,5 @@ describe('NavigationPage public workflow', () => {
     await wrapper.vm.$nextTick();
 
     expect(page.classes()).toContain('nav-bg-loaded');
-    expect(page.attributes('style')).toContain('url("https://cdn.example.com/bg.jpg")');
   });
 });

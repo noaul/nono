@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Bookmark, X, Lock, Footprints } from 'lucide-vue-next';
+import { Bookmark, X, Lock } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
+import { getFaviconUrl } from '@/utils/favicon';
 
 const route = useRoute();
 const navigation = useNavigationStore();
@@ -15,7 +16,9 @@ const password = ref('');
 const verifying = ref<Folder | null>(null);
 const expandedFolder = ref<Folder | null>(null);
 const error = ref('');
+const visibleBackgroundImage = ref('');
 const loadedBackgroundImage = ref('');
+const faviconErrors = ref<Record<string | number, boolean>>({});
 let backgroundPreloadVersion = 0;
 
 const username = computed(() => String(route.params.username || 'admin'));
@@ -39,8 +42,8 @@ const backgroundStyle = computed(() => {
   return {
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
     '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
-    '--nav-bg-image': loadedBackgroundImage.value
-      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(loadedBackgroundImage.value)})`
+    '--nav-bg-image': visibleBackgroundImage.value
+      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(visibleBackgroundImage.value)})`
       : 'none',
     color: payload.value.site.fontColor || '#f3f4f6',
   };
@@ -65,7 +68,7 @@ function removeBackgroundHints() {
   document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
 }
 
-function addBackgroundHint(rel: 'preconnect' | 'preload', href: string, as?: string) {
+function addBackgroundHint(rel: 'dns-prefetch' | 'preconnect' | 'preload', href: string, as?: string) {
   const link = document.createElement('link');
   link.rel = rel;
   link.href = href;
@@ -80,13 +83,17 @@ function addBackgroundHint(rel: 'preconnect' | 'preload', href: string, as?: str
 
 function preloadPublicBackground(url?: string | null) {
   const requestVersion = ++backgroundPreloadVersion;
+  visibleBackgroundImage.value = url || '';
   loadedBackgroundImage.value = '';
   removeBackgroundHints();
   if (!url || typeof document === 'undefined') return;
 
   try {
     const origin = new URL(url, window.location.href).origin;
-    if (origin !== window.location.origin) addBackgroundHint('preconnect', origin);
+    if (origin !== window.location.origin) {
+      addBackgroundHint('dns-prefetch', origin);
+      addBackgroundHint('preconnect', origin);
+    }
   } catch {
     // Invalid URLs fall back to the stable color layer.
   }
@@ -99,9 +106,16 @@ function preloadPublicBackground(url?: string | null) {
     if (requestVersion === backgroundPreloadVersion) loadedBackgroundImage.value = url;
   };
   image.onerror = () => {
-    if (requestVersion === backgroundPreloadVersion) loadedBackgroundImage.value = '';
+    if (requestVersion === backgroundPreloadVersion) {
+      visibleBackgroundImage.value = '';
+      loadedBackgroundImage.value = '';
+    }
   };
   image.src = url;
+}
+
+function handleFaviconError(linkId: string | number) {
+  faviconErrors.value[linkId] = true;
 }
 
 function submitSearch() {
@@ -158,7 +172,7 @@ onUnmounted(removeBackgroundHints);
 </script>
 
 <template>
-  <main class="nav-page public-glass-page" :class="{ 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
+  <main class="nav-page public-glass-page" :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
     <div class="nav-content">
       <header class="nav-header">
         <div class="header-vibe">
@@ -172,11 +186,6 @@ onUnmounted(removeBackgroundHints);
       <p v-if="query.trim()" class="search-result-summary">
         站内命中 {{ localMatchCount }} 个链接
       </p>
-
-      <div class="trace-link">
-        <Footprints :size="14" />
-        <span>我的足迹</span>
-      </div>
 
       <nav class="folder-tabs" aria-label="文件夹">
         <a v-for="folder in payload?.folders || []" :key="folder.id" :href="`#folder-${folder.id}`">
@@ -215,7 +224,15 @@ onUnmounted(removeBackgroundHints);
         <div class="expanded-link-grid">
           <a v-for="link in expandedFolder.links || []" :key="link.id" class="expanded-link" :href="link.url" target="_blank" rel="noreferrer">
             <span class="expanded-link-icon">
-              <Bookmark :size="20" />
+              <img
+                v-if="getFaviconUrl(link.url, link.icon) && !faviconErrors[link.id]"
+                :src="getFaviconUrl(link.url, link.icon)"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                @error="handleFaviconError(link.id)"
+              />
+              <Bookmark v-else :size="20" />
             </span>
             <span class="expanded-link-copy">
               <strong>{{ link.name }}</strong>
@@ -283,7 +300,7 @@ onUnmounted(removeBackgroundHints);
   z-index: 0;
 }
 
-.nav-page.nav-bg-loaded::before {
+.nav-page.nav-bg-visible::before {
   opacity: 1;
 }
 
@@ -348,29 +365,6 @@ h1 {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.trace-link {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 13px;
-  font-weight: 600;
-  justify-self: end;
-  margin: 4px 4% 0 0;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 6px 14px;
-  border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition:
-    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
 .search-result-summary {
   color: rgba(243, 244, 246, 0.72);
   font-size: 13px;
@@ -392,18 +386,6 @@ h1 {
   margin: 0;
   padding: 18px 22px;
   text-align: center;
-}
-
-.trace-link:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.22);
-  transform: translateY(-1px);
-}
-
-.trace-link:active {
-  transform: translateY(1px) scale(0.975);
-  transition-duration: 0.12s;
 }
 
 .folder-tabs {
@@ -623,6 +605,13 @@ h1 {
   width: 44px;
   color: rgba(255, 255, 255, 0.3);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.expanded-link-icon img {
+  border-radius: 6px;
+  height: 24px;
+  object-fit: contain;
+  width: 24px;
 }
 
 .expanded-link:hover .expanded-link-icon {

@@ -13,6 +13,7 @@ const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
 const form = reactive({ id: 0, parentId: null as number | null, name: '', icon: '', description: '', password: '', passwordHint: '' });
+const folderIconOptions = ['📁', '⭐', '🧰', '💻', '📚', '🎨', '🎮', '🌐', '🔒', '📌', '🧪', '🚀'];
 const message = ref('');
 const error = ref('');
 const isInitialLoading = ref(true);
@@ -50,6 +51,10 @@ function edit(folder: Folder) {
 
 function reset() {
   Object.assign(form, { id: 0, parentId: null, name: '', icon: '', description: '', password: '', passwordHint: '' });
+}
+
+function chooseIcon(icon: string) {
+  form.icon = icon;
 }
 
 function folderPayload() {
@@ -173,7 +178,23 @@ onMounted(load);
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <form class="admin-form-grid" @submit.prevent="save">
-        <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="如 link" /><button type="button" title="图标">☝</button></div></div>
+        <div class="field folder-icon-field">
+          <label>图标</label>
+          <div class="folder-icon-picker" aria-label="选择文件夹图标">
+            <button
+              v-for="icon in folderIconOptions"
+              :key="icon"
+              class="folder-icon-option"
+              :class="{ active: form.icon === icon }"
+              type="button"
+              :aria-pressed="form.icon === icon"
+              @click="chooseIcon(icon)"
+            >
+              {{ icon }}
+            </button>
+          </div>
+          <input class="folder-icon-custom" v-model="form.icon" maxlength="4" placeholder="也可手动输入图标" />
+        </div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
         <div class="field">
           <label>上级文件夹</label>
@@ -224,3 +245,53 @@ onMounted(load);
     </section>
   </AdminLayout>
 </template>
+
+<style scoped>
+.folder-icon-field {
+  gap: 8px;
+}
+
+.folder-icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-icon-option {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 8px;
+  color: #0f172a;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 18px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+  width: 36px;
+}
+
+.folder-icon-option:hover,
+.folder-icon-option:focus-visible,
+.folder-icon-option.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.42);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.folder-icon-option:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.folder-icon-custom {
+  margin-top: 2px;
+}
+</style>

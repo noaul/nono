@@ -35,11 +35,14 @@ describe('visual contracts', () => {
     expect(source).toContain('backgroundStyle');
     expect(source).toContain("'--nav-bg-image'");
     expect(source).toContain("'--nav-bg-color'");
-    expect(source).toContain('JSON.stringify(loadedBackgroundImage.value)');
+    expect(source).toContain('visibleBackgroundImage');
+    expect(source).toContain('JSON.stringify(visibleBackgroundImage.value)');
     expect(source).toContain('preloadPublicBackground');
     expect(source).toContain('data-nono-background-preload');
+    expect(source).toContain("addBackgroundHint('dns-prefetch', origin)");
     expect(source).toContain('new Image()');
     expect(source).toContain("image.fetchPriority = 'high'");
+    expect(source).toContain('nav-bg-visible');
     expect(source).toContain('nav-bg-loaded');
     expect(source).toContain('.nav-page::before');
     expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
@@ -79,7 +82,11 @@ describe('visual contracts', () => {
     expect(source).toContain('height: 308px');
     expect(source).toContain('overflow-y: auto');
     expect(source).toContain('border-radius: 8px');
+    expect(source).toContain('backdrop-filter: none');
+    expect(source).toContain('.large-folder:hover .large-links');
     expect(source).toContain('blur(14px)');
+    expect(source).toContain('link-favicon');
+    expect(source).toContain('loading="lazy"');
     expect(source).not.toContain('Monitor');
     expect(source).not.toContain('height: clamp(320px, 36vw, 440px)');
     expect(source).not.toContain('grid-auto-rows: 58px');
@@ -113,6 +120,7 @@ describe('visual contracts', () => {
     expect(source).toContain('expandedFolder');
     expect(source).toContain('folder-expand-modal');
     expect(source).toContain('expanded-link-grid');
+    expect(source).toContain('getFaviconUrl(link.url, link.icon)');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
     expect(folderCardSource).toContain('large-link:active');
@@ -250,6 +258,19 @@ describe('visual contracts', () => {
     expect(css).toContain('.health-result-row');
   });
 
+  it('sets a real browser favicon for the web app', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const html = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
+    const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon.svg'), 'utf8');
+
+    expect(html).toContain('rel="icon"');
+    expect(html).toContain('/favicon.svg');
+    expect(html).toContain('theme-color');
+    expect(favicon).toContain('<svg');
+    expect(favicon).toContain('#123f36');
+  });
+
   it('defines token governance styles', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -275,9 +296,28 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
+    expect(folderCardSource).toContain('backdrop-filter: none');
+    expect(folderCardSource).toContain('.large-folder:hover .large-links');
     expect(folderCardSource).toContain('blur(14px)');
-    expect(searchBarSource).toContain('rgba(255, 255, 255, 0.22)');
-    expect(searchBarSource).toContain('blur(10px)');
+    expect(folderCardSource).toContain('getFaviconUrl');
+    expect(navigationSource).not.toContain('我的足迹');
+    expect(navigationSource).not.toContain('Footprints');
+    expect(searchBarSource).toContain('search-leading-icon');
+    expect(searchBarSource).not.toContain('search-provider-badge');
+    expect(searchBarSource).toContain('rgba(10, 14, 18, 0.26)');
+    expect(searchBarSource).toContain('blur(14px)');
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
+  });
+
+  it('provides selectable folder icon presets in admin folder management', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+
+    expect(source).toContain('folderIconOptions');
+    expect(source).toContain('folder-icon-picker');
+    expect(source).toContain('folder-icon-option');
+    expect(source).toContain('chooseIcon(icon)');
+    expect(source).toContain('aria-pressed');
   });
 });

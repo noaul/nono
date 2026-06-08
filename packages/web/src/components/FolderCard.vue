@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
+import { getFaviconUrl } from '@/utils/favicon';
 
 const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string }>(), { depth: 0, parentName: '' });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
+const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
+
+function handleFaviconError(linkId: string | number) {
+  faviconErrors.value[linkId] = true;
+}
 </script>
 
 <template>
@@ -35,7 +41,16 @@ const folder = computed(() => props.folder);
     </div>
     <div v-else class="large-links folder-glass-panel">
       <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
-        <Bookmark :size="18" class="large-link-icon" />
+        <img
+          v-if="getFaviconUrl(link.url, link.icon) && !faviconErrors[link.id]"
+          :src="getFaviconUrl(link.url, link.icon)"
+          class="large-link-icon link-favicon"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          @error="handleFaviconError(link.id)"
+        />
+        <Bookmark v-else :size="18" class="large-link-icon fallback-link-icon" />
         <span>{{ link.name }}</span>
       </a>
     </div>
@@ -116,10 +131,10 @@ h2 {
 }
 
 .large-links {
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(14px) saturate(1.14);
-  -webkit-backdrop-filter: blur(14px) saturate(1.14);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -131,6 +146,23 @@ h2 {
   padding: 16px;
   scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
   scrollbar-width: thin;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 14px 34px rgba(0, 0, 0, 0.1);
+  transition:
+    background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    backdrop-filter 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.large-folder:hover .large-links,
+.large-folder:focus-within .large-links {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(1.14);
+  -webkit-backdrop-filter: blur(14px) saturate(1.14);
+  border-color: rgba(255, 255, 255, 0.24);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.32),
     inset 0 -1px 0 rgba(255, 255, 255, 0.08),
@@ -200,6 +232,17 @@ h2 {
   flex-shrink: 0;
   color: currentColor;
   opacity: 0.96;
+}
+
+.link-favicon {
+  border-radius: 4px;
+  height: 18px;
+  object-fit: contain;
+  width: 18px;
+}
+
+.fallback-link-icon {
+  opacity: 0.82;
 }
 
 .locked {
