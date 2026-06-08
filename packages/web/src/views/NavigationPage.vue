@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Bookmark, X, Lock, Footprints } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
@@ -15,6 +15,8 @@ const password = ref('');
 const verifying = ref<Folder | null>(null);
 const expandedFolder = ref<Folder | null>(null);
 const error = ref('');
+const loadedBackgroundImage = ref('');
+let backgroundPreloadVersion = 0;
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
@@ -37,12 +39,13 @@ const backgroundStyle = computed(() => {
   return {
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
     '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
-    '--nav-bg-image': payload.value.site.backgroundImage
-      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(payload.value.site.backgroundImage)})`
+    '--nav-bg-image': loadedBackgroundImage.value
+      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(loadedBackgroundImage.value)})`
       : 'none',
     color: payload.value.site.fontColor || '#f3f4f6',
   };
 });
+const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
 const shownFolders = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!payload.value || !q) return payload.value?.folders || [];
@@ -55,6 +58,47 @@ const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => fo
 
 async function load() {
   await navigation.load(username.value);
+}
+
+function removeBackgroundHints() {
+  if (typeof document === 'undefined') return;
+  document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
+}
+
+function addBackgroundHint(rel: 'preconnect' | 'preload', href: string, as?: string) {
+  const link = document.createElement('link');
+  link.rel = rel;
+  link.href = href;
+  link.dataset.nonoBackgroundPreload = 'true';
+  if (as) link.as = as;
+  if (rel === 'preload') link.setAttribute('fetchpriority', 'high');
+  document.head.appendChild(link);
+}
+
+function preloadPublicBackground(url?: string | null) {
+  const requestVersion = ++backgroundPreloadVersion;
+  loadedBackgroundImage.value = '';
+  removeBackgroundHints();
+  if (!url || typeof document === 'undefined') return;
+
+  try {
+    const origin = new URL(url, window.location.href).origin;
+    if (origin !== window.location.origin) addBackgroundHint('preconnect', origin);
+  } catch {
+    // Invalid URLs fall back to the stable color layer.
+  }
+
+  addBackgroundHint('preload', url, 'image');
+  const image = new Image();
+  image.decoding = 'async';
+  image.fetchPriority = 'high';
+  image.onload = () => {
+    if (requestVersion === backgroundPreloadVersion) loadedBackgroundImage.value = url;
+  };
+  image.onerror = () => {
+    if (requestVersion === backgroundPreloadVersion) loadedBackgroundImage.value = '';
+  };
+  image.src = url;
 }
 
 function submitSearch() {
@@ -106,10 +150,12 @@ function parentFolderName(folder: Folder) {
 
 onMounted(load);
 watch(username, load);
+watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
+onUnmounted(removeBackgroundHints);
 </script>
 
 <template>
-  <main class="nav-page public-glass-page" :style="backgroundStyle">
+  <main class="nav-page public-glass-page" :class="{ 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
     <div class="nav-content">
       <header class="nav-header">
         <div class="header-vibe">
@@ -226,9 +272,16 @@ watch(username, load);
   background-size: cover;
   content: '';
   inset: 0;
+  opacity: 0;
   pointer-events: none;
   position: fixed;
+  transition: opacity 0.45s ease;
+  will-change: opacity;
   z-index: 0;
+}
+
+.nav-page.nav-bg-loaded::before {
+  opacity: 1;
 }
 
 .public-glass-page::after {
@@ -245,11 +298,11 @@ watch(username, load);
 }
 
 .nav-content {
-  --folder-card-width: 445px;
+  --folder-panel-width: min(100%, 1120px);
   display: grid;
   gap: 28px;
   margin: 0 auto;
-  max-width: 2048px;
+  max-width: 1280px;
   padding: 0 40px;
   position: relative;
   z-index: 1;
@@ -308,7 +361,11 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .search-result-summary {
@@ -341,6 +398,11 @@ h1 {
   transform: translateY(-1px);
 }
 
+.trace-link:active {
+  transform: translateY(1px) scale(0.975);
+  transition-duration: 0.12s;
+}
+
 .folder-tabs {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -368,19 +430,29 @@ h1 {
   font-size: 13.5px;
   font-weight: 600;
   color: rgba(243, 244, 246, 0.78);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .folder-tabs a:hover {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.folder-tabs a:active {
+  transform: translateY(1px) scale(0.97);
+  transition-duration: 0.12s;
 }
 
 .adaptive-folder-grid {
   align-items: stretch;
   display: grid;
-  gap: 38px 32px;
-  grid-template-columns: repeat(auto-fit, var(--folder-card-width));
+  gap: 44px;
+  grid-template-columns: minmax(0, var(--folder-panel-width));
   justify-content: center;
 }
 
@@ -456,7 +528,12 @@ h1 {
   height: 36px;
   justify-content: center;
   padding: 0;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
   width: 36px;
 }
 
@@ -465,6 +542,12 @@ h1 {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.15);
   color: #ffffff;
+  transform: translateY(-1px) scale(1.03);
+}
+
+.folder-expand-close:active {
+  transform: translateY(1px) scale(0.94);
+  transition-duration: 0.12s;
 }
 
 .expanded-link-grid {
@@ -498,7 +581,12 @@ h1 {
   grid-template-columns: 46px minmax(0, 1fr);
   min-height: 72px;
   padding: 12px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .expanded-link:hover,
@@ -512,7 +600,8 @@ h1 {
 }
 
 .expanded-link:active {
-  transform: translateY(0);
+  transform: translateY(1px) scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .expanded-link:hover small,
@@ -670,7 +759,7 @@ h1 {
   }
 
   .nav-content {
-    --folder-card-width: min(100%, 445px);
+    --folder-panel-width: min(100%, 1120px);
     padding: 0 8px;
     gap: 20px;
   }

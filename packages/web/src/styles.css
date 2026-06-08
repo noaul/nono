@@ -13,7 +13,7 @@
   --accent-2: #3b82f6;
   --danger: #f43f5e;
 
-  --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: all 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 * {
@@ -2741,4 +2741,43 @@ a {
   .figma-control-strip {
     margin: 12px 14px 0;
   }
+}
+
+/* Softer interaction rhythm */
+.button,
+.icon-button,
+.app-workbench .button,
+.app-workbench .icon-button,
+.app-workbench .nav-button,
+.figma-section-chip,
+.glass-workbench .input-with-picker button,
+.app-workbench .text-button,
+.app-workbench .page-command-card,
+.app-workbench .quick-ops-list a,
+.app-workbench .governance-list a {
+  transform: translateZ(0);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.button:active,
+.icon-button:active,
+.app-workbench .button:active,
+.app-workbench .icon-button:active,
+.app-workbench .nav-button:active,
+.figma-section-chip:active,
+.glass-workbench .input-with-picker button:active,
+.app-workbench .text-button:active,
+.app-workbench .page-command-card:active,
+.app-workbench .quick-ops-list a:active,
+.app-workbench .governance-list a:active {
+  transform: translateY(1px) scale(0.975);
+  transition-duration: 0.12s;
 }

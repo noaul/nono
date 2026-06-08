@@ -1,34 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { Bookmark, Lock, Maximize2, Monitor } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 
 const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string }>(), { depth: 0, parentName: '' });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
-const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
-
-function handleFaviconError(linkId: string | number) {
-  faviconErrors.value[linkId] = true;
-}
-
-function getFaviconUrl(url: string) {
-  try {
-    const hostname = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?sz=32&domain=${hostname}`;
-  } catch (e) {
-    return undefined;
-  }
-}
 </script>
 
 <template>
   <section class="large-folder" :id="`folder-${folder.id}`" :style="{ '--public-folder-depth': props.depth }">
     <header class="large-folder-title">
-      <span class="title-spacer"></span>
       <div class="title-main">
-        <span class="title-icon">{{ folder.icon || '📁' }}</span>
+        <Monitor class="title-icon" :size="30" />
         <div class="title-copy">
           <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
           <h2>{{ folder.name }}</h2>
@@ -41,22 +26,15 @@ function getFaviconUrl(url: string) {
         <Maximize2 :size="16" />
       </button>
     </header>
-    <div v-if="folder.locked" class="large-links locked">
+    <div v-if="folder.locked" class="large-links folder-glass-panel locked">
       <div class="lock-illustration">
         <Lock :size="28" />
       </div>
       <span>分类已锁定，请输入密码解锁</span>
     </div>
-    <div v-else class="large-links">
+    <div v-else class="large-links folder-glass-panel">
       <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
-        <img 
-          v-if="getFaviconUrl(link.url) && !faviconErrors[link.id]" 
-          :src="getFaviconUrl(link.url)" 
-          class="link-favicon" 
-          alt="" 
-          @error="handleFaviconError(link.id)"
-        />
-        <Bookmark v-else :size="14" class="fallback-icon" />
+        <Bookmark :size="30" class="large-link-icon" />
         <span>{{ link.name }}</span>
       </a>
     </div>
@@ -67,34 +45,35 @@ function getFaviconUrl(url: string) {
 .large-folder {
   display: grid;
   gap: 12px;
-  grid-template-rows: 38px 308px;
-  height: 358px;
+  grid-template-rows: auto minmax(320px, auto);
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 445px 358px;
+  contain-intrinsic-size: 1120px 460px;
   content-visibility: auto;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .large-folder:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18), 0 0 24px rgba(16, 185, 129, 0.07);
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.16));
+  transform: translateY(-3px);
 }
 
 .large-folder-title {
   align-items: center;
   display: grid;
-  gap: 12px;
-  grid-template-columns: 32px minmax(0, 1fr) 32px;
-  height: 38px;
-  padding: 0 8px 0 calc(8px + var(--public-folder-depth, 0) * 12px);
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 44px;
+  padding: 0 72px 0 calc(72px + var(--public-folder-depth, 0) * 12px);
+  position: relative;
+  z-index: 2;
 }
 
 h2 {
-  font-size: 18px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1.2;
+  line-height: 1.08;
   margin: 0;
   overflow: hidden;
   text-align: center;
@@ -107,7 +86,7 @@ h2 {
 .title-main {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
   min-width: 0;
 }
@@ -118,10 +97,10 @@ h2 {
 }
 
 .folder-parent-label {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 11px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.1;
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
@@ -129,27 +108,32 @@ h2 {
 }
 
 .title-icon {
-  font-size: 18px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  color: #ffffff;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.28));
 }
 
 .large-links {
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 32px;
   display: grid;
-  gap: 8px;
-  grid-auto-rows: 40px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  height: 308px;
+  gap: 12px 42px;
+  grid-auto-rows: 58px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: clamp(320px, 36vw, 440px);
+  min-height: 320px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 16px;
-  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  padding: 52px 64px;
+  scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
   scrollbar-width: thin;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 20px 54px rgba(0, 0, 0, 0.18);
 }
 
 /* Custom scrollbar track details */
@@ -168,62 +152,56 @@ h2 {
 
 .large-link {
   align-items: center;
-  background: rgba(8, 12, 18, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: rgba(243, 244, 246, 0.85);
+  background: rgba(255, 255, 255, 0);
+  border: 1px solid rgba(255, 255, 255, 0);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.94);
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-start;
-  min-height: 40px;
+  min-height: 58px;
   overflow: hidden;
-  padding: 4px 10px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0 12px;
+  transition:
+    background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .large-link:hover,
 .large-link:focus-visible {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #10b981;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   outline: none;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .large-link:active {
-  background: rgba(16, 185, 129, 0.16);
-  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(0) scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .large-link span {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 29px;
+  font-weight: 650;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.link-favicon {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+.large-link-icon {
   flex-shrink: 0;
-  object-fit: contain;
-  background: transparent;
-}
-
-.fallback-icon {
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.3);
+  color: currentColor;
+  opacity: 0.96;
 }
 
 .locked {
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -232,7 +210,7 @@ h2 {
   color: rgba(255, 255, 255, 0.4);
   font-size: 13.5px;
   font-weight: 500;
-  height: 308px;
+  height: clamp(320px, 36vw, 440px);
   padding: 24px;
   text-align: center;
 }
@@ -260,38 +238,108 @@ h2 {
   color: rgba(255, 255, 255, 0.55);
 }
 
-.folder-expand {
+.folder-expand,
+.lock-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.86);
   cursor: pointer;
   display: inline-flex;
-  height: 32px;
+  height: 40px;
   justify-content: center;
   padding: 0;
-  transition: all 0.2s ease;
-  width: 32px;
+  position: absolute;
+  right: 18px;
+  top: 2px;
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 40px;
 }
 
 .folder-expand:hover,
-.folder-expand:focus-visible {
+.folder-expand:focus-visible,
+.lock-btn:hover,
+.lock-btn:focus-visible {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.36);
   color: #ffffff;
   outline: none;
+  transform: translateY(-1px) scale(1.03);
+}
+
+.folder-expand:active,
+.lock-btn:active {
+  transform: translateY(0) scale(0.94);
+  transition-duration: 0.12s;
 }
 
 .lock-btn {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: rgba(255, 255, 255, 0.86) !important;
 }
 
 .lock-btn:hover {
   background: rgba(16, 185, 129, 0.1) !important;
   border-color: rgba(16, 185, 129, 0.25) !important;
   color: #10b981 !important;
+}
+
+@media (max-width: 960px) {
+  .large-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 42px 36px;
+  }
+
+  .large-link span {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .large-folder {
+    grid-template-rows: auto minmax(280px, auto);
+  }
+
+  .large-folder-title {
+    min-height: 40px;
+    padding: 0 54px;
+  }
+
+  h2 {
+    font-size: 27px;
+  }
+
+  .title-icon {
+    width: 24px;
+  }
+
+  .large-links {
+    border-radius: 24px;
+    gap: 6px;
+    grid-auto-rows: 48px;
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 280px;
+    padding: 28px 22px;
+  }
+
+  .large-link {
+    min-height: 48px;
+  }
+
+  .large-link span {
+    font-size: 21px;
+  }
+
+  .large-link-icon {
+    width: 24px;
+  }
 }
 </style>

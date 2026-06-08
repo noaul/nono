@@ -36,7 +36,11 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
   padding: 0 6px 0 20px;
   width: 100%;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .search-bar:focus-within {
@@ -87,17 +91,24 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
   margin: auto 0;
   place-items: center;
   cursor: pointer;
-  transition: all 0.2s ease;
   opacity: 0.85;
+  transform: translateZ(0);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
 }
 
 .search-btn:hover {
-  transform: scale(1.05);
+  transform: translateY(-1px) scale(1.04);
   opacity: 1;
   background: #34d399; /* brighter green on hover */
 }
 
 .search-btn:active {
-  transform: scale(0.95);
+  transform: translateY(1px) scale(0.94);
+  transition-duration: 0.12s;
 }
 </style>

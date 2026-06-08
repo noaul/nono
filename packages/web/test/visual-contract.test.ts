@@ -35,7 +35,12 @@ describe('visual contracts', () => {
     expect(source).toContain('backgroundStyle');
     expect(source).toContain("'--nav-bg-image'");
     expect(source).toContain("'--nav-bg-color'");
-    expect(source).toContain('JSON.stringify(payload.value.site.backgroundImage)');
+    expect(source).toContain('JSON.stringify(loadedBackgroundImage.value)');
+    expect(source).toContain('preloadPublicBackground');
+    expect(source).toContain('data-nono-background-preload');
+    expect(source).toContain('new Image()');
+    expect(source).toContain("image.fetchPriority = 'high'");
+    expect(source).toContain('nav-bg-loaded');
     expect(source).toContain('.nav-page::before');
     expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
     expect(source).toMatch(/background-image:\s*var\(--nav-bg-image,\s*none\)/);
@@ -49,27 +54,29 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('--folder-card-width: 445px');
-    expect(css).toContain('max-width: 2048px');
-    expect(css).toContain('gap: 38px 32px');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*var\(--folder-card-width\)\)/);
+    expect(css).toContain('--folder-panel-width: min(100%, 1120px)');
+    expect(css).toContain('max-width: 1280px');
+    expect(css).toContain('gap: 44px');
+    expect(css).toMatch(/grid-template-columns:\s*minmax\(0,\s*var\(--folder-panel-width\)\)/);
     expect(css).toContain('justify-content: center');
     expect(css).not.toContain('25vw');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     expect(folderCardSource).toContain('content-visibility: auto');
   });
 
-  it('keeps each large folder to three bookmark columns with overflow scrolling after fifteen items', async () => {
+  it('renders each public folder as a wide glass bookmark panel', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
-    expect(source).toContain('grid-template-rows: 38px 308px');
-    expect(source).toContain('height: 358px');
-    expect(source).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
-    expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toContain('height: 308px');
+    expect(source).toContain('folder-glass-panel');
+    expect(source).toContain('Monitor');
+    expect(source).toContain('grid-template-rows: auto minmax(320px, auto)');
+    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(source).toContain('grid-auto-rows: 58px');
+    expect(source).toContain('height: clamp(320px, 36vw, 440px)');
     expect(source).toContain('overflow-y: auto');
+    expect(source).toContain('border-radius: 32px');
   });
 
   it('makes the folder expand control interactive', async () => {
@@ -261,8 +268,9 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
-    expect(folderCardSource).toContain('blur(10px)');
+    expect(folderCardSource).toContain('blur(18px)');
     expect(searchBarSource).toContain('rgba(255, 255, 255, 0.22)');
     expect(searchBarSource).toContain('blur(10px)');
+    expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
   });
 });
