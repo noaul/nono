@@ -23,6 +23,14 @@ export interface Site {
   settings?: Record<string, unknown>;
 }
 
+export interface PortalSettings {
+  enabled: boolean;
+  url: string;
+  label: string;
+  imageUrl: string;
+  openInNewTab: boolean;
+}
+
 export interface Folder {
   id: number;
   userId: number;

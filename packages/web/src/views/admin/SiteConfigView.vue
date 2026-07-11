@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Gauge, LayoutGrid, Palette, Save, Search, SlidersHorizontal } from 'lucide-vue-next';
+import { ArrowUpRight, Gauge, Image, LayoutGrid, Link2, Palette, Save, Search, SlidersHorizontal } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, getAppearanceSettings, toAppearanceCssVars, type AppearanceSettings } from '@/utils/appearance';
+import { getPortalSettings, portalDefaults } from '@/utils/portal';
 
 const form = reactive({
   name: '',
@@ -18,6 +19,7 @@ const form = reactive({
   settings: {} as Record<string, unknown>,
 });
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
+const portal = reactive({ ...portalDefaults });
 const message = ref('');
 const error = ref('');
 const saving = ref(false);
@@ -30,6 +32,7 @@ onMounted(async () => {
   const site = await apiRequest<Site>('/api/admin/site');
   Object.assign(form, site, { settings: { ...(site.settings || {}) } });
   Object.assign(appearance, getAppearanceSettings(site.settings));
+  Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
 });
 
 async function save() {
@@ -42,6 +45,7 @@ async function save() {
       settings: {
         ...form.settings,
         appearance: { ...appearance },
+        portal: { ...portal },
       },
     };
     const site = await apiRequest<Site>('/api/admin/site', { method: 'PUT', body: jsonBody(payload) });
@@ -97,6 +101,50 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
             <input v-model="form.localSearchFirst" type="checkbox" />
             <span><strong>站内优先搜索</strong><small>有本地结果时停留在导航页</small></span>
           </label>
+        </div>
+      </section>
+
+      <section class="admin-card portal-editor">
+        <header class="admin-card-head">
+          <div>
+            <h2><Link2 :size="18" /> 博客联动</h2>
+            <p>配置公开导航页中心图片、标题和右上角的博客入口</p>
+          </div>
+          <label class="portal-enabled">
+            <input v-model="portal.enabled" type="checkbox" />
+            <span>启用入口</span>
+          </label>
+        </header>
+
+        <div class="portal-layout">
+          <div class="config-fields">
+            <div class="field">
+              <label>入口名称</label>
+              <input v-model="portal.label" data-testid="portal-label" placeholder="前往博客" />
+            </div>
+            <div class="field">
+              <label>博客地址</label>
+              <input v-model="portal.url" data-testid="portal-url" type="url" placeholder="https://blog.example.com" />
+            </div>
+            <div class="field wide">
+              <label>自定义图片 URL</label>
+              <input v-model="portal.imageUrl" data-testid="portal-image-url" type="url" placeholder="https://cdn.example.com/avatar.png" />
+            </div>
+            <label class="switch-row wide">
+              <input v-model="portal.openInNewTab" type="checkbox" />
+              <span><strong>新窗口打开</strong><small>关闭时会在当前页面直接切换到博客</small></span>
+            </label>
+          </div>
+
+          <div class="portal-preview" :class="{ disabled: !portal.enabled }">
+            <span class="portal-preview-kicker"><ArrowUpRight :size="14" /> {{ portal.label || '前往博客' }}</span>
+            <div class="portal-preview-avatar">
+              <img v-if="portal.imageUrl" :src="portal.imageUrl" alt="" />
+              <Image v-else :size="28" />
+            </div>
+            <strong>{{ form.name || 'Nono' }}</strong>
+            <small>{{ portal.url || '配置博客地址后即可双向跳转' }}</small>
+          </div>
         </div>
       </section>
 
@@ -296,6 +344,89 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
   grid-template-columns: minmax(300px, 0.9fr) minmax(320px, 1.1fr);
 }
 
+.portal-layout {
+  align-items: stretch;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+}
+
+.portal-enabled {
+  align-items: center;
+  color: #475569;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 8px;
+}
+
+.portal-enabled input {
+  accent-color: #0f766e;
+  height: 17px;
+  width: 17px;
+}
+
+.portal-preview {
+  align-content: center;
+  background:
+    linear-gradient(145deg, rgba(15, 118, 110, 0.18), rgba(54, 95, 143, 0.13)),
+    rgba(248, 250, 252, 0.86);
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 8px;
+  display: grid;
+  gap: 9px;
+  justify-items: center;
+  min-height: 250px;
+  overflow: hidden;
+  padding: 24px;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+
+.portal-preview.disabled {
+  opacity: 0.48;
+}
+
+.portal-preview-kicker {
+  align-items: center;
+  color: #0f766e;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 5px;
+}
+
+.portal-preview-avatar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  color: #64748b;
+  display: inline-flex;
+  height: 82px;
+  justify-content: center;
+  overflow: hidden;
+  width: 82px;
+}
+
+.portal-preview-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.portal-preview strong {
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.portal-preview small {
+  color: #64748b;
+  font-size: 11px;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+
 .appearance-controls {
   display: grid;
   gap: 18px;
@@ -434,7 +565,8 @@ legend {
 }
 
 @media (max-width: 860px) {
-  .appearance-layout {
+  .appearance-layout,
+  .portal-layout {
     grid-template-columns: 1fr;
   }
 

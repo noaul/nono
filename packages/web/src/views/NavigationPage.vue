@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Bookmark, X, Lock } from 'lucide-vue-next';
+import { ArrowUpRight, Bookmark, X, Lock } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -10,6 +10,7 @@ import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getFaviconUrl } from '@/utils/favicon';
+import { getPortalSettings } from '@/utils/portal';
 
 const route = useRoute();
 const navigation = useNavigationStore();
@@ -21,7 +22,10 @@ const error = ref('');
 const visibleBackgroundImage = ref('');
 const loadedBackgroundImage = ref('');
 const faviconErrors = ref<Record<string | number, boolean>>({});
+const folderLoadSentinel = ref<HTMLElement | null>(null);
+const renderedFolderCount = ref(24);
 let backgroundPreloadVersion = 0;
+let folderObserver: IntersectionObserver | null = null;
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
@@ -63,6 +67,10 @@ const backgroundStyle = computed(() => {
   };
 });
 const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
+const portal = computed(() => getPortalSettings(payload.value?.site.settings, import.meta.env.VITE_BLOG_URL));
+const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
+const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
+const portalRel = computed(() => (portal.value.openInNewTab ? 'noreferrer' : undefined));
 const shownFolders = computed(() => {
   if (!payload.value || !matchedLinkIds.value) return payload.value?.folders || [];
   return payload.value.folders.map((folder) => ({
@@ -71,6 +79,13 @@ const shownFolders = computed(() => {
   }));
 });
 const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !query.value.trim()));
+const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
+const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
+const tabFolders = computed(() => {
+  const folders = payload.value?.folders || [];
+  const roots = folders.filter((folder) => !folder.parentId);
+  return roots.length ? roots : folders;
+});
 const folderMetadata = computed(() => {
   const folders = payload.value?.folders || [];
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
@@ -206,20 +221,82 @@ function parentFolderName(folder: Folder) {
   return folderMetadata.value.byId.get(folder.parentId)?.name || '';
 }
 
+function loadMoreFolders() {
+  renderedFolderCount.value = Math.min(renderedFolderCount.value + 24, foldersWithLinks.value.length);
+}
+
+async function revealFolder(folder: Folder, event: MouseEvent) {
+  event.preventDefault();
+  const folderIndex = foldersWithLinks.value.findIndex((entry) => entry.id === folder.id);
+  if (folderIndex >= renderedFolderCount.value) {
+    renderedFolderCount.value = folderIndex + 1;
+    await nextTick();
+  }
+
+  document.getElementById(`folder-${folder.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.history.replaceState(null, '', `#folder-${folder.id}`);
+}
+
+function observeFolderSentinel(element: HTMLElement | null) {
+  folderObserver?.disconnect();
+  folderObserver = null;
+  if (!element || typeof IntersectionObserver === 'undefined') return;
+
+  folderObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMoreFolders();
+    },
+    { rootMargin: '600px 0px' },
+  );
+  folderObserver.observe(element);
+}
+
 onMounted(load);
 watch(username, load);
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
-onUnmounted(removeBackgroundHints);
+watch(normalizedQuery, () => {
+  renderedFolderCount.value = 24;
+});
+watch(folderLoadSentinel, observeFolderSentinel);
+onUnmounted(() => {
+  folderObserver?.disconnect();
+  removeBackgroundHints();
+});
 </script>
 
 <template>
   <main class="nav-page public-glass-page" :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
+    <a
+      v-if="portalHref"
+      class="portal-corner-link"
+      data-testid="portal-corner-link"
+      :href="portalHref"
+      :target="portalTarget"
+      :rel="portalRel"
+      :aria-label="portal.label"
+    >
+      <span>{{ portal.label }}</span>
+      <ArrowUpRight :size="17" />
+    </a>
+
     <div class="nav-content">
       <header class="nav-header">
-        <div class="header-vibe">
+        <component
+          :is="portalHref ? 'a' : 'div'"
+          class="header-vibe"
+          :class="{ 'header-vibe-link': portalHref }"
+          :href="portalHref || undefined"
+          :target="portalTarget"
+          :rel="portalRel"
+          data-testid="portal-center-link"
+        >
+          <span v-if="portal.imageUrl" class="portal-center-image">
+            <img :src="portal.imageUrl" :alt="portal.label" />
+            <ArrowUpRight class="portal-center-arrow" :size="17" />
+          </span>
           <h1>{{ payload?.site.name || 'Nono' }}</h1>
           <p>{{ payload?.site.description || '一个可自托管的网址导航主页' }}</p>
-        </div>
+        </component>
       </header>
 
       <SearchBar v-model="query" @submit="submitSearch" />
@@ -240,14 +317,14 @@ onUnmounted(removeBackgroundHints);
       </p>
 
       <nav class="folder-tabs" aria-label="文件夹">
-        <a v-for="folder in payload?.folders || []" :key="folder.id" :href="`#folder-${folder.id}`">
+        <a v-for="folder in tabFolders" :key="folder.id" :href="`#folder-${folder.id}`" @click="revealFolder(folder, $event)">
           {{ folder.name }}
         </a>
       </nav>
 
       <div class="adaptive-folder-grid">
         <FolderCard
-          v-for="folder in foldersWithLinks"
+          v-for="folder in renderedFolders"
           :key="folder.id"
           :data-testid="`public-folder-card-${folder.id}`"
           :folder="folder"
@@ -257,6 +334,9 @@ onUnmounted(removeBackgroundHints);
           @expand="expandedFolder = $event"
         />
       </div>
+      <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
+        继续加载更多文件夹
+      </button>
       <p v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">没有站内命中，按回车会使用外部搜索继续查找。</p>
     </div>
 
@@ -376,9 +456,57 @@ onUnmounted(removeBackgroundHints);
   gap: 28px;
   margin: 0 auto;
   max-width: 2048px;
+  min-width: 0;
   padding: 0 40px;
   position: relative;
   z-index: 1;
+}
+
+.portal-corner-link {
+  align-items: center;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(12, 18, 24, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 750;
+  gap: 8px;
+  max-width: min(280px, calc(100vw - 32px));
+  min-height: 42px;
+  padding: 0 14px;
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  transform: translateZ(0);
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+  z-index: 20;
+}
+
+.portal-corner-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-corner-link:hover,
+.portal-corner-link:focus-visible {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: rgba(167, 243, 208, 0.56);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(16, 185, 129, 0.12);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.portal-corner-link:active {
+  transform: translateY(0) scale(0.97);
 }
 
 .nav-header {
@@ -391,6 +519,60 @@ onUnmounted(removeBackgroundHints);
 
 .header-vibe {
   animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: inherit;
+  display: grid;
+  justify-items: center;
+  max-width: min(760px, 100%);
+  padding: 8px 20px 14px;
+}
+
+.header-vibe-link {
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transform: translateZ(0);
+  transition:
+    background-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+}
+
+.header-vibe-link:hover,
+.header-vibe-link:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.portal-center-image {
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 50%;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  height: 86px;
+  margin-bottom: 12px;
+  padding: 5px;
+  position: relative;
+  width: 86px;
+}
+
+.portal-center-image img {
+  border-radius: 50%;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.portal-center-arrow {
+  background: #10b981;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  bottom: 0;
+  color: #052e2b;
+  padding: 4px;
+  position: absolute;
+  right: -2px;
 }
 
 h1 {
@@ -503,11 +685,13 @@ h1 {
   border-radius: 99px;
   display: flex;
   gap: 4px;
-  justify-content: center;
+  justify-content: safe center;
   margin: 8px auto;
-  max-width: fit-content;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding: 5px;
+  width: min(100%, 1200px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.16);
 }
 
@@ -546,6 +730,34 @@ h1 {
   gap: 38px 32px;
   grid-template-columns: repeat(auto-fit, var(--folder-card-width));
   justify-content: center;
+}
+
+.folder-load-more {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(12, 18, 24, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: center;
+  min-height: 42px;
+  padding: 0 18px;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    transform 0.24s ease;
+}
+
+.folder-load-more:hover,
+.folder-load-more:focus-visible {
+  background: rgba(16, 185, 129, 0.26);
+  border-color: rgba(167, 243, 208, 0.5);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 /* Expanded Modal Details */
@@ -881,6 +1093,26 @@ h1 {
     margin-bottom: 8px;
   }
 
+  .portal-corner-link {
+    min-height: 40px;
+    right: 12px;
+    top: 12px;
+  }
+
+  .portal-corner-link span {
+    max-width: 140px;
+  }
+
+  .header-vibe {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .portal-center-image {
+    height: 72px;
+    width: 72px;
+  }
+
   .folder-tabs {
     margin: 4px -8px;
     border-radius: 0;
@@ -917,6 +1149,7 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .header-vibe,
+  .portal-corner-link,
   .folder-expand-backdrop,
   .folder-expand-modal,
   .modal-backdrop,

@@ -15,7 +15,7 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { username: 'admin' } }),
 }));
 
-function navigationPayload(backgroundImage?: string) {
+function navigationPayload(backgroundImage?: string, settings?: Record<string, unknown>) {
   return {
     site: {
       id: 1,
@@ -28,6 +28,7 @@ function navigationPayload(backgroundImage?: string) {
       fontColor: '#ffffff',
       searchUrlTemplate: 'https://www.google.com/search?q={query}',
       localSearchFirst: true,
+      settings,
     },
     folders: [
       { id: 1, userId: 1, parentId: null, name: 'Parent', sortOrder: 100, locked: false, links: [] },
@@ -70,6 +71,8 @@ describe('NavigationPage public workflow', () => {
 
     expect(wrapper.get('[data-testid="public-folder-card-2"]').attributes('style')).toContain('--public-folder-depth: 1');
     expect(wrapper.get('[data-testid="public-folder-card-2"] .folder-parent-label').text()).toBe('Parent');
+    expect(wrapper.findAll('.folder-tabs a')).toHaveLength(1);
+    expect(wrapper.get('.folder-tabs a').text()).toBe('Parent');
 
     await wrapper.get('.search-bar input').setValue('Vue');
     expect(wrapper.text()).toContain('站内命中 1 个链接');
@@ -107,5 +110,50 @@ describe('NavigationPage public workflow', () => {
     await wrapper.vm.$nextTick();
 
     expect(page.classes()).toContain('nav-bg-loaded');
+  });
+
+  it('renders matching center and corner portal links from site settings', async () => {
+    apiRequest.mockResolvedValue(
+      navigationPayload(undefined, {
+        portal: {
+          enabled: true,
+          url: 'https://blog.example.com/',
+          label: '博客空间',
+          imageUrl: 'https://cdn.example.com/avatar.png',
+          openInNewTab: true,
+        },
+      }),
+    );
+
+    const wrapper = await mountNavigationPage();
+    const corner = wrapper.get('[data-testid="portal-corner-link"]');
+    const center = wrapper.get('[data-testid="portal-center-link"]');
+
+    expect(corner.attributes('href')).toBe('https://blog.example.com/');
+    expect(corner.attributes('target')).toBe('_blank');
+    expect(corner.attributes('rel')).toBe('noreferrer');
+    expect(corner.text()).toContain('博客空间');
+    expect(center.attributes('href')).toBe('https://blog.example.com/');
+    expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
+  });
+
+  it('renders large folder collections in incremental batches', async () => {
+    const folders = Array.from({ length: 30 }, (_, index) => ({
+      id: index + 1,
+      userId: 1,
+      parentId: null,
+      name: `Folder ${index + 1}`,
+      sortOrder: 100 - index,
+      locked: false,
+      links: [{ id: index + 100, folderId: index + 1, name: `Link ${index + 1}`, url: `https://example.com/${index + 1}`, sortOrder: 100 }],
+    }));
+    apiRequest.mockResolvedValue({ ...navigationPayload(), folders });
+
+    const wrapper = await mountNavigationPage();
+
+    expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(24);
+    await wrapper.get('.folder-load-more').trigger('click');
+    expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(30);
+    expect(wrapper.find('.folder-load-more').exists()).toBe(false);
   });
 });

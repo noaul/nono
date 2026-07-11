@@ -41,7 +41,16 @@ describe('SiteConfigView appearance controls', () => {
         fontColor: '#ffffff',
         searchUrlTemplate: 'https://www.google.com/search?q={query}',
         localSearchFirst: true,
-        settings: { appearance: { cardRadius: 12, cardOpacity: 58, cardBlur: 10, searchRadius: 30, searchOpacity: 32, searchBlur: 16 } },
+        settings: {
+          appearance: { cardRadius: 12, cardOpacity: 58, cardBlur: 10, searchRadius: 30, searchOpacity: 32, searchBlur: 16 },
+          portal: {
+            enabled: true,
+            url: 'https://blog.example.com/',
+            label: '我的博客',
+            imageUrl: 'https://cdn.example.com/avatar.png',
+            openInNewTab: true,
+          },
+        },
       })
       .mockResolvedValueOnce({
         id: 1,
@@ -54,7 +63,10 @@ describe('SiteConfigView appearance controls', () => {
     await settle(wrapper);
 
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-card-radius: 12px');
+    expect((wrapper.get('[data-testid="portal-label"]').element as HTMLInputElement).value).toBe('我的博客');
+    expect((wrapper.get('[data-testid="portal-url"]').element as HTMLInputElement).value).toBe('https://blog.example.com/');
     await wrapper.get('[data-testid="card-radius"]').setValue('16');
+    await wrapper.get('[data-testid="portal-label"]').setValue('前往新博客');
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
 
@@ -68,6 +80,13 @@ describe('SiteConfigView appearance controls', () => {
       searchRadius: 30,
       searchOpacity: 32,
       searchBlur: 16,
+    });
+    expect(JSON.parse(options.body).settings.portal).toMatchObject({
+      enabled: true,
+      url: 'https://blog.example.com/',
+      label: '前往新博客',
+      imageUrl: 'https://cdn.example.com/avatar.png',
+      openInNewTab: true,
     });
   });
 });

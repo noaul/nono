@@ -18,7 +18,19 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      additional_contexts:
+        blog: "${BLOG_BUILD_CONTEXT:-https://github.com/noaul/2025-blog-public.git#my-features}"
+      args:
+        VITE_BLOG_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/blog}
+        NEXT_PUBLIC_SITE_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/blog}
+        NEXT_PUBLIC_NONO_URL: ${NONO_PUBLIC_URL:-http://localhost:3000}
+        NEXT_PUBLIC_GITHUB_OWNER: ${NEXT_PUBLIC_GITHUB_OWNER:-noaul}
+        NEXT_PUBLIC_GITHUB_REPO: ${NEXT_PUBLIC_GITHUB_REPO:-2025-blog-public}
+        NEXT_PUBLIC_GITHUB_BRANCH: ${NEXT_PUBLIC_GITHUB_BRANCH:-my-features}
+        NEXT_PUBLIC_GITHUB_APP_ID: ${NEXT_PUBLIC_GITHUB_APP_ID:-}
+        NEXT_PUBLIC_BASE_PATH: /blog
     container_name: nono
     restart: unless-stopped
     depends_on:
@@ -37,7 +49,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 25s
 
 volumes:
   nono_pg_data:

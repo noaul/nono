@@ -4,3 +4,4 @@ npm-debug.log
 Dockerfile
 docker-compose.yml
 .env
+design-qa*
