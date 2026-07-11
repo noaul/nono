@@ -24,8 +24,8 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
   app.put('/api/admin/folders/reorder', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const ids = (request.body as any).ids || [];
-    for (let index = 0; index < ids.length; index += 1) await services.repo.updateFolder(user.id, Number(ids[index]), { sortOrder: (ids.length - index) * 10 });
+    const ids = uniqueNumericIds((request.body as any).ids);
+    await services.repo.reorderFolders(user.id, ids);
     return sendOk(reply, { ok: true });
   });
 
@@ -69,4 +69,8 @@ async function assertValidParent(services: AppServices, userId: number, folderId
     if (cursor.parentId === folderId) throw Object.assign(new Error('Folder cannot use a descendant as parent'), { statusCode: 400 });
     cursor = folders.find((folder) => folder.id === cursor?.parentId);
   }
+}
+
+function uniqueNumericIds(value: unknown) {
+  return [...new Set((Array.isArray(value) ? value : []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
 }

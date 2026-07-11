@@ -25,10 +25,8 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.put('/api/admin/links/reorder', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const ids = (request.body as any).ids || [];
-    for (let index = 0; index < ids.length; index += 1) {
-      await services.repo.updateLink(user.id, Number(ids[index]), { sortOrder: (ids.length - index) * 10 });
-    }
+    const ids = uniqueNumericIds((request.body as any).ids);
+    await services.repo.reorderLinks(user.id, ids);
     return sendOk(reply, { ok: true });
   });
 

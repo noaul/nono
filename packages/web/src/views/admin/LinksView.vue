@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { Activity, Eye, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
+import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
+import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult, LinkHealthSummary } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
@@ -209,6 +211,8 @@ function healthStatusLabel(status: LinkHealthResult['status']) {
 }
 
 function startSorting() {
+  searchTerm.value = '';
+  selectedLinkIds.value = new Set();
   draftLinks.value = activeFolderLinks.value.map((link) => ({ ...link }));
   sortMode.value = true;
 }
@@ -223,6 +227,11 @@ function moveDraft(link: Link, direction: -1 | 1) {
   const next = index + direction;
   if (index < 0 || next < 0 || next >= draftLinks.value.length) return;
   [draftLinks.value[index], draftLinks.value[next]] = [draftLinks.value[next], draftLinks.value[index]];
+}
+
+function reorderDraft(ids: number[]) {
+  const byId = new Map(draftLinks.value.map((link) => [link.id, link]));
+  draftLinks.value = ids.map((id) => byId.get(id)).filter((link): link is Link => Boolean(link));
 }
 
 async function saveSorting() {
@@ -286,17 +295,17 @@ onMounted(load);
           <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates" @click="loadDuplicates">
             <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
           </button>
-          <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" placeholder="搜索名称、链接或介绍" />
+          <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" :disabled="sortMode" :placeholder="sortMode ? '排序时暂停搜索' : '搜索名称、链接或介绍'" />
         </div>
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
         <div class="folder-pills">
           <button v-for="folder in folders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
-            <span>{{ folder.icon || '□' }}</span>{{ folder.name }}
+            <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
           </button>
         </div>
-        <div class="bulk-action-bar">
+        <div v-if="!sortMode" class="bulk-action-bar">
           <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
           <div class="bulk-controls">
             <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
@@ -348,7 +357,7 @@ onMounted(load);
           </div>
         </div>
         <EmptyState v-if="!filteredLinks.length" title="没有匹配的书签" description="换一个关键词或选择其他文件夹。" />
-        <div v-else class="admin-table bookmark-table mobile-card-table">
+        <div v-else class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
           <div class="admin-table-head">
             <span>选择</span>
             <span></span>
@@ -357,32 +366,37 @@ onMounted(load);
             <span>文件夹</span>
             <span>操作</span>
           </div>
-          <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row">
-            <span class="selection-cell" data-label="选择">
-              <input :data-testid="`select-link-${link.id}`" type="checkbox" :checked="selectedLinkIds.has(link.id)" @change="toggleLinkSelection(link.id, $event)" />
-            </span>
-            <span class="sort-cell" data-label="排序">
-              <template v-if="sortMode">
-                <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
-                <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
-              </template>
-              <Link2 v-else :size="16" />
-            </span>
-            <button class="text-button" data-label="名称" type="button" @click="edit(link)">{{ link.name }}</button>
-            <span class="url-cell" data-label="链接">{{ link.url }}</span>
-            <span data-label="文件夹">{{ folderName(link.folderId) }}</span>
-            <span class="row-actions" data-label="操作">
-              <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
-              <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
-            </span>
-          </article>
+          <SortableList :item-ids="filteredLinks.map((link) => link.id)" :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
+            <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row sortable-admin-row" :data-testid="`link-row-${link.id}`" :data-id="link.id">
+              <span class="selection-cell" data-label="选择">
+                <input :data-testid="`select-link-${link.id}`" type="checkbox" :disabled="sortMode" :checked="selectedLinkIds.has(link.id)" @change="toggleLinkSelection(link.id, $event)" />
+              </span>
+              <span class="sort-cell" data-label="排序">
+                <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整书签顺序"><GripVertical :size="18" /></button>
+                <Link2 v-else :size="16" />
+              </span>
+              <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="edit(link)">{{ link.name }}</button>
+              <span class="url-cell" data-label="链接">{{ link.url }}</span>
+              <span data-label="文件夹">{{ folderName(link.folderId) }}</span>
+              <span class="row-actions" data-label="操作">
+                <template v-if="sortMode">
+                  <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
+                  <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
+                </template>
+                <template v-else>
+                  <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
+                  <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                </template>
+              </span>
+            </article>
+          </SortableList>
         </div>
-        <div class="sort-footer">
-          <strong>{{ activeFolder?.name || '未选择文件夹' }} · {{ filteredLinks.length }} 个书签</strong>
+        <div class="sort-footer" :class="{ 'sticky-sort-footer': sortMode }">
+          <strong>{{ activeFolder?.name || '未选择文件夹' }} · {{ filteredLinks.length }} 个书签<span v-if="sortMode"> · 更改尚未保存</span></strong>
           <div class="toolbar">
-            <button v-if="!sortMode" class="button secondary" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><MoveUp :size="17" /> 调整顺序</button>
+            <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
             <button v-if="sortMode" class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
-            <button v-if="sortMode" class="button" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+            <button v-if="sortMode" class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
           </div>
         </div>
       </template>

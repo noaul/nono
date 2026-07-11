@@ -3,10 +3,12 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Bookmark, X, Lock } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
+import FolderGlyph from '@/components/FolderGlyph.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
+import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getFaviconUrl } from '@/utils/favicon';
 
 const route = useRoute();
@@ -24,14 +26,25 @@ let backgroundPreloadVersion = 0;
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
+const searchIndex = computed(() =>
+  allLinks.value.map((link) => ({
+    id: link.id,
+    text: normalizeSearchText(link),
+  })),
+);
+const normalizedQuery = computed(() => query.value.trim().toLocaleLowerCase());
+const matchedLinkIds = computed(() => {
+  if (!normalizedQuery.value) return null;
+  return new Set(searchIndex.value.filter((entry) => entry.text.includes(normalizedQuery.value)).map((entry) => entry.id));
+});
 const localMatchCount = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return allLinks.value.length;
-  return allLinks.value.filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)).length;
+  return matchedLinkIds.value?.size ?? allLinks.value.length;
 });
 const backgroundStyle = computed(() => {
+  const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
   if (!payload.value?.site) {
     return {
+      ...appearanceVars,
       '--nav-bg-color': '#090a0f',
       '--nav-bg-image': 'none',
       '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
@@ -40,6 +53,7 @@ const backgroundStyle = computed(() => {
   }
 
   return {
+    ...appearanceVars,
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
     '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
     '--nav-bg-image': visibleBackgroundImage.value
@@ -50,17 +64,52 @@ const backgroundStyle = computed(() => {
 });
 const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
 const shownFolders = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!payload.value || !q) return payload.value?.folders || [];
+  if (!payload.value || !matchedLinkIds.value) return payload.value?.folders || [];
   return payload.value.folders.map((folder) => ({
     ...folder,
-    links: (folder.links || []).filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)),
+    links: (folder.links || []).filter((link) => matchedLinkIds.value?.has(link.id)),
   }));
 });
 const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !query.value.trim()));
+const folderMetadata = computed(() => {
+  const folders = payload.value?.folders || [];
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const depthById = new Map<string | number, number>();
+
+  const getDepth = (folder: Folder) => {
+    const cached = depthById.get(folder.id);
+    if (cached !== undefined) return cached;
+
+    let depth = 0;
+    let parentId = folder.parentId || null;
+    const visited = new Set<string | number>([folder.id]);
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      depth += 1;
+      parentId = parent.parentId || null;
+    }
+    depthById.set(folder.id, depth);
+    return depth;
+  };
+
+  return {
+    byId,
+    depthById: new Map(folders.map((folder) => [folder.id, getDepth(folder)])),
+  };
+});
+const expandedFavicons = computed(() => {
+  const entries = (expandedFolder.value?.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)] as const);
+  return new Map(entries);
+});
+
+function normalizeSearchText(link: Link) {
+  return `${link.name} ${link.description || ''} ${link.url}`.toLocaleLowerCase();
+}
 
 async function load() {
-  await navigation.load(username.value);
+  await navigation.load(username.value).catch(() => undefined);
 }
 
 function removeBackgroundHints() {
@@ -121,7 +170,7 @@ function handleFaviconError(linkId: string | number) {
 function submitSearch() {
   const q = query.value.trim();
   if (!q) return;
-  const hasLocalMatch = allLinks.value.some((link: Link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q.toLowerCase()));
+  const hasLocalMatch = (matchedLinkIds.value?.size || 0) > 0;
   if (!hasLocalMatch || payload.value?.site.localSearchFirst === false) {
     window.location.href = buildSearchUrl(q, payload.value?.site.searchUrlTemplate);
   }
@@ -149,20 +198,12 @@ async function verifyFolder() {
 }
 
 function folderDepth(folder: Folder) {
-  let depth = 0;
-  let parentId = folder.parentId || null;
-  while (parentId) {
-    const parent = payload.value?.folders.find((item) => item.id === parentId);
-    if (!parent) break;
-    depth += 1;
-    parentId = parent.parentId || null;
-  }
-  return depth;
+  return folderMetadata.value.depthById.get(folder.id) || 0;
 }
 
 function parentFolderName(folder: Folder) {
   if (!folder.parentId) return '';
-  return payload.value?.folders.find((item) => item.id === folder.parentId)?.name || '';
+  return folderMetadata.value.byId.get(folder.parentId)?.name || '';
 }
 
 onMounted(load);
@@ -182,6 +223,17 @@ onUnmounted(removeBackgroundHints);
       </header>
 
       <SearchBar v-model="query" @submit="submitSearch" />
+
+      <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
+        <span class="public-loading-bar"></span>
+        <span class="public-loading-bar"></span>
+        <span class="public-loading-bar"></span>
+        <span class="sr-only">正在加载导航内容</span>
+      </div>
+      <div v-else-if="navigation.error && !payload" class="public-load-error" role="alert">
+        <p>{{ navigation.error }}</p>
+        <button class="button" type="button" @click="load">重新加载</button>
+      </div>
 
       <p v-if="query.trim()" class="search-result-summary">
         站内命中 {{ localMatchCount }} 个链接
@@ -213,7 +265,7 @@ onUnmounted(removeBackgroundHints);
       <section class="folder-expand-modal" role="dialog" aria-modal="true" :aria-label="expandedFolder.name">
         <header class="folder-expand-head">
           <div class="expand-head-title">
-            <span class="expand-folder-icon">{{ expandedFolder.icon || '📂' }}</span>
+            <FolderGlyph class="expand-folder-icon" :icon="expandedFolder.icon" :size="22" />
             <h2>{{ expandedFolder.name }}</h2>
           </div>
           <button class="folder-expand-close" type="button" title="关闭" @click="expandedFolder = null">
@@ -225,8 +277,8 @@ onUnmounted(removeBackgroundHints);
           <a v-for="link in expandedFolder.links || []" :key="link.id" class="expanded-link" :href="link.url" target="_blank" rel="noreferrer">
             <span class="expanded-link-icon">
               <img
-                v-if="getFaviconUrl(link.url, link.icon) && !faviconErrors[link.id]"
-                :src="getFaviconUrl(link.url, link.icon)"
+                v-if="expandedFavicons.get(link.id) && !faviconErrors[link.id]"
+                :src="expandedFavicons.get(link.id)"
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -272,13 +324,15 @@ onUnmounted(removeBackgroundHints);
 .nav-page {
   background: var(--nav-bg-color, #090a0f);
   isolation: isolate;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 48px 0 80px;
   position: relative;
 }
 
 .public-glass-page {
   --public-glass-bg: rgba(255, 255, 255, 0.16);
+  --public-card-opacity: 0.52;
+  --public-search-blur: 14px;
   background:
     radial-gradient(circle at 14% 10%, rgba(52, 211, 153, 0.2), transparent 28%),
     linear-gradient(135deg, rgba(8, 12, 18, 0.18), rgba(8, 12, 18, 0.04) 42%, rgba(15, 118, 110, 0.12)),
@@ -296,7 +350,6 @@ onUnmounted(removeBackgroundHints);
   pointer-events: none;
   position: fixed;
   transition: opacity 0.45s ease;
-  will-change: opacity;
   z-index: 0;
 }
 
@@ -371,6 +424,60 @@ h1 {
   font-weight: 700;
   justify-self: center;
   margin: -10px 0 0;
+}
+
+.public-loading,
+.public-load-error {
+  justify-self: center;
+  width: min(100%, 680px);
+}
+
+.public-loading {
+  display: grid;
+  gap: 10px;
+}
+
+.public-loading-bar {
+  animation: public-loading-pulse 1.2s ease-in-out infinite alternate;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  display: block;
+  height: 12px;
+}
+
+.public-loading-bar:nth-child(2) {
+  width: 82%;
+}
+
+.public-loading-bar:nth-child(3) {
+  width: 64%;
+}
+
+.public-load-error {
+  align-items: center;
+  background: rgba(20, 22, 28, 0.84);
+  border: 1px solid rgba(244, 63, 94, 0.32);
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.public-load-error p {
+  color: #fecdd3;
+  margin: 0;
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .public-empty-state {
@@ -490,6 +597,7 @@ h1 {
 }
 
 .expand-folder-icon {
+  color: rgba(255, 255, 255, 0.92);
   font-size: 22px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
 }
@@ -745,6 +853,11 @@ h1 {
   to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes public-loading-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 0.9; }
+}
+
 @media (max-width: 640px) {
   .nav-page {
     padding: 32px 12px 64px;
@@ -782,7 +895,7 @@ h1 {
   }
 
   .folder-expand-modal {
-    height: calc(100vh - 40px);
+    height: calc(100dvh - 40px);
     padding: 16px;
     gap: 16px;
   }
@@ -799,6 +912,21 @@ h1 {
   .expanded-link {
     min-height: 64px;
     padding: 8px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-vibe,
+  .folder-expand-backdrop,
+  .folder-expand-modal,
+  .modal-backdrop,
+  .modal,
+  .public-loading-bar {
+    animation: none;
+  }
+
+  .nav-page::before {
+    transition: none;
   }
 }
 </style>

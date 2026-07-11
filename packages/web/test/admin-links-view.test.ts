@@ -1,5 +1,6 @@
 import { mount, RouterLinkStub } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import SortableList from '../src/components/admin/SortableList.vue';
 import LinksView from '../src/views/admin/LinksView.vue';
 
 const apiRequest = vi.fn();
@@ -151,5 +152,34 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('健康检查');
     expect(wrapper.text()).toContain('Broken');
     expect(wrapper.text()).toContain('404');
+  });
+
+  it('uses drag handles and saves bookmark ordering only once', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'First', url: 'https://first.example/', sortOrder: 100 },
+        { id: 11, folderId: 1, name: 'Second', url: 'https://second.example/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-link-sort"]').trigger('click');
+    wrapper.findComponent(SortableList).vm.$emit('reorder', [11, 10]);
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+    expect(wrapper.get('[data-testid="link-row-11"]').find('.drag-handle').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="link-search"]').attributes('disabled')).toBeDefined();
+
+    await wrapper.get('[data-testid="save-link-sort"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenCalledTimes(3);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [11, 10] }),
+    });
   });
 });

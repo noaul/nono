@@ -12,11 +12,17 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     const links = await services.repo.listLinks(site.userId);
     const q = String((request.query as any).q || '').toLowerCase();
     const visibleLinks = q ? links.filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)) : links;
+    const linksByFolder = new Map<number, typeof visibleLinks>();
+    for (const link of visibleLinks) {
+      const folderLinks = linksByFolder.get(link.folderId);
+      if (folderLinks) folderLinks.push(link);
+      else linksByFolder.set(link.folderId, [link]);
+    }
     return sendOk(reply, {
       site,
       folders: folders.map((folder) => ({
         ...folder,
-        links: folder.passwordHash ? [] : visibleLinks.filter((link) => link.folderId === folder.id),
+        links: folder.passwordHash ? [] : linksByFolder.get(folder.id) || [],
         locked: Boolean(folder.passwordHash),
       })),
     });
@@ -28,6 +34,12 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     if (!site) throw Object.assign(new Error('user not found'), { statusCode: 404 });
     const folders = await services.repo.listFolders(site.userId);
     const links = await services.repo.listLinks(site.userId);
+    const linksByFolder = new Map<number, typeof links>();
+    for (const link of links) {
+      const folderLinks = linksByFolder.get(link.folderId);
+      if (folderLinks) folderLinks.push(link);
+      else linksByFolder.set(link.folderId, [link]);
+    }
     return reply.send({
       code: 0,
       data: {
@@ -41,7 +53,7 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
           search_url_template: site.searchUrlTemplate,
           local_search_first: site.localSearchFirst,
         },
-        folder_with_links: folders.map((folder) => ({ ...folder, links: links.filter((link) => link.folderId === folder.id) })),
+        folder_with_links: folders.map((folder) => ({ ...folder, links: linksByFolder.get(folder.id) || [] })),
         target: { id: site.user.id, name: site.user.username },
         me: null,
       },

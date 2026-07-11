@@ -1,18 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import NavigationPage from '@/views/NavigationPage.vue';
-import LoginView from '@/views/LoginView.vue';
-import RegisterView from '@/views/RegisterView.vue';
-import SetupView from '@/views/SetupView.vue';
-import AdminDashboard from '@/views/admin/AdminDashboard.vue';
-import SiteConfigView from '@/views/admin/SiteConfigView.vue';
-import FoldersView from '@/views/admin/FoldersView.vue';
-import LinksView from '@/views/admin/LinksView.vue';
-import BookmarksView from '@/views/admin/BookmarksView.vue';
-import UsersView from '@/views/admin/UsersView.vue';
-import AccountView from '@/views/admin/AccountView.vue';
-import LlmView from '@/views/admin/LlmView.vue';
-import TokensView from '@/views/admin/TokensView.vue';
+
+const LoginView = () => import('@/views/LoginView.vue');
+const RegisterView = () => import('@/views/RegisterView.vue');
+const SetupView = () => import('@/views/SetupView.vue');
+const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
+const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
+const FoldersView = () => import('@/views/admin/FoldersView.vue');
+const LinksView = () => import('@/views/admin/LinksView.vue');
+const BookmarksView = () => import('@/views/admin/BookmarksView.vue');
+const UsersView = () => import('@/views/admin/UsersView.vue');
+const AccountView = () => import('@/views/admin/AccountView.vue');
+const LlmView = () => import('@/views/admin/LlmView.vue');
+const TokensView = () => import('@/views/admin/TokensView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),

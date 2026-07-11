@@ -80,6 +80,15 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       const folder = await prisma.folder.findFirstOrThrow({ where: { userId, id } });
       return (await prisma.folder.update({ where: { id: folder.id }, data: prune(input) as any })) as any;
     },
+    async reorderFolders(userId, ids) {
+      if (!ids.length) return;
+      const owned = await prisma.folder.findMany({ where: { userId, id: { in: ids } }, select: { id: true } });
+      if (owned.length !== ids.length) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+      await prisma.$transaction(ids.map((id, index) => prisma.folder.update({
+        where: { id },
+        data: { sortOrder: (ids.length - index) * 10 },
+      })));
+    },
     async deleteFolder(userId, id) {
       const folder = await prisma.folder.findFirstOrThrow({ where: { userId, id } });
       await prisma.folder.delete({ where: { id: folder.id } });
@@ -93,6 +102,15 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     async updateLink(userId, id, input) {
       const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });
       return (await prisma.link.update({ where: { id: link.id }, data: prune(input) as any })) as any;
+    },
+    async reorderLinks(userId, ids) {
+      if (!ids.length) return;
+      const owned = await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, select: { id: true } });
+      if (owned.length !== ids.length) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+      await prisma.$transaction(ids.map((id, index) => prisma.link.update({
+        where: { id },
+        data: { sortOrder: (ids.length - index) * 10 },
+      })));
     },
     async deleteLink(userId, id) {
       const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });

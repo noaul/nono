@@ -90,10 +90,12 @@ export interface Repository {
   getFolder(userId: number, id: number): Promise<FolderRecord | null>;
   createFolder(input: Omit<FolderRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<FolderRecord>;
   updateFolder(userId: number, id: number, input: Partial<FolderRecord>): Promise<FolderRecord>;
+  reorderFolders(userId: number, ids: number[]): Promise<void>;
   deleteFolder(userId: number, id: number): Promise<void>;
   listLinks(userId: number): Promise<LinkRecord[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
+  reorderLinks(userId: number, ids: number[]): Promise<void>;
   deleteLink(userId: number, id: number): Promise<void>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null): Promise<ApiTokenRecord>;
@@ -218,6 +220,14 @@ export class MemoryRepository implements Repository {
     return folder;
   }
 
+  async reorderFolders(userId: number, ids: number[]) {
+    const folders = await this.listFolders(userId);
+    const byId = new Map(folders.map((folder) => [folder.id, folder]));
+    if (ids.some((id) => !byId.has(id))) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+    const now = new Date();
+    ids.forEach((id, index) => Object.assign(byId.get(id)!, { sortOrder: (ids.length - index) * 10, updatedAt: now }));
+  }
+
   async deleteFolder(userId: number, id: number) {
     const all = await this.listFolders(userId);
     const ids = collectFolderIds(all, id);
@@ -241,6 +251,14 @@ export class MemoryRepository implements Repository {
     const link = await this.requiredLink(userId, id);
     Object.assign(link, input, { updatedAt: new Date() });
     return link;
+  }
+
+  async reorderLinks(userId: number, ids: number[]) {
+    const links = await this.listLinks(userId);
+    const byId = new Map(links.map((link) => [link.id, link]));
+    if (ids.some((id) => !byId.has(id))) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    const now = new Date();
+    ids.forEach((id, index) => Object.assign(byId.get(id)!, { sortOrder: (ids.length - index) * 10, updatedAt: now }));
   }
 
   async deleteLink(userId: number, id: number) {

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { ArrowRight, Bot, ExternalLink, Folder as FolderIcon, Globe, KeyRound, Link2, ListChecks, Lock, Settings, Upload } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
+import FolderGlyph from '@/components/FolderGlyph.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 
@@ -106,7 +107,7 @@ onMounted(async () => {
         </div>
         <div class="folder-rank-list">
           <article v-for="folder in folderHighlights" :key="folder.id">
-            <span>{{ folder.icon || '□' }}</span>
+            <span><FolderGlyph :icon="folder.icon" :size="18" /></span>
             <div>
               <strong>{{ folder.name }}</strong>
               <small>{{ folder.locked ? '加密' : '公开' }} · {{ folder.description || folder.passwordHint || '无说明' }}</small>

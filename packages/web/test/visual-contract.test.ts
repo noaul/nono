@@ -44,6 +44,10 @@ describe('visual contracts', () => {
     expect(source).toContain("image.fetchPriority = 'high'");
     expect(source).toContain('nav-bg-visible');
     expect(source).toContain('nav-bg-loaded');
+    expect(source).toContain('getAppearanceSettings');
+    expect(source).toContain('toAppearanceCssVars');
+    expect(source).toContain('--public-card-opacity');
+    expect(source).toContain('--public-search-blur');
     expect(source).toContain('.nav-page::before');
     expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
     expect(source).toMatch(/background-image:\s*var\(--nav-bg-image,\s*none\)/);
@@ -82,15 +86,20 @@ describe('visual contracts', () => {
     expect(source).toContain('height: 308px');
     expect(source).toContain('overflow-y: auto');
     expect(source).toContain('border-radius: 8px');
-    expect(source).toContain('backdrop-filter: none');
+    expect(source).toContain('backdrop-filter: blur(var(--public-card-blur');
+    expect(source).toContain('var(--public-card-radius');
+    expect(source).toContain('var(--public-card-opacity');
+    expect(source).toContain('var(--public-card-blur');
     expect(source).toContain('.large-folder:hover .large-links');
-    expect(source).toContain('blur(14px)');
+    expect(source).not.toContain('will-change: transform');
     expect(source).toContain('link-favicon');
     expect(source).toContain('loading="lazy"');
     expect(source).not.toContain('Monitor');
     expect(source).not.toContain('height: clamp(320px, 36vw, 440px)');
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?min-height: 80px/);
   });
 
   it('makes the folder expand control interactive', async () => {
@@ -111,6 +120,25 @@ describe('visual contracts', () => {
     expect(wrapper.emitted('expand')?.[0]).toEqual([expect.objectContaining({ id: 1 })]);
   });
 
+  it('renders semantic folder icon names as icons instead of visible source text', () => {
+    const wrapper = mount(FolderCard, {
+      props: {
+        folder: {
+          id: 1,
+          userId: 1,
+          name: '开发',
+          icon: 'code',
+          sortOrder: 100,
+          locked: false,
+          links: [],
+        },
+      },
+    });
+
+    expect(wrapper.find('.title-icon').element.tagName.toLowerCase()).toBe('svg');
+    expect(wrapper.find('.title-main').text()).not.toContain('code');
+  });
+
   it('renders an expanded folder link panel from the navigation page', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -120,6 +148,7 @@ describe('visual contracts', () => {
     expect(source).toContain('expandedFolder');
     expect(source).toContain('folder-expand-modal');
     expect(source).toContain('expanded-link-grid');
+    expect(source).toContain('<FolderGlyph class="expand-folder-icon"');
     expect(source).toContain('getFaviconUrl(link.url, link.icon)');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
@@ -296,9 +325,9 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
-    expect(folderCardSource).toContain('backdrop-filter: none');
+    expect(folderCardSource).toContain('background: rgba(10, 14, 18, 0.52)');
+    expect(folderCardSource).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(folderCardSource).toContain('.large-folder:hover .large-links');
-    expect(folderCardSource).toContain('blur(14px)');
     expect(folderCardSource).toContain('getFaviconUrl');
     expect(navigationSource).not.toContain('我的足迹');
     expect(navigationSource).not.toContain('Footprints');
@@ -306,7 +335,31 @@ describe('visual contracts', () => {
     expect(searchBarSource).not.toContain('search-provider-badge');
     expect(searchBarSource).toContain('rgba(10, 14, 18, 0.26)');
     expect(searchBarSource).toContain('blur(14px)');
+    expect(searchBarSource).toContain('var(--public-search-radius');
+    expect(searchBarSource).toContain('var(--public-search-opacity');
+    expect(searchBarSource).toContain('var(--public-search-blur');
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
+  });
+
+  it('keeps expensive visual effects off repeated admin and public surfaces', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+
+    expect(css).not.toMatch(/\.glass-workbench \.admin-card[\s\S]*?backdrop-filter:\s*blur/);
+    expect(css).not.toContain('will-change: transform');
+    expect(folderCardSource).not.toContain('filter: drop-shadow(0 18px 30px');
+  });
+
+  it('loads non-public routes on demand', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
+
+    expect(source).toContain("const LoginView = () => import('@/views/LoginView.vue')");
+    expect(source).toContain("const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')");
+    expect(source).not.toContain("import AdminDashboard from '@/views/admin/AdminDashboard.vue'");
   });
 
   it('provides selectable folder icon presets in admin folder management', async () => {
@@ -319,5 +372,17 @@ describe('visual contracts', () => {
     expect(source).toContain('folder-icon-option');
     expect(source).toContain('chooseIcon(icon)');
     expect(source).toContain('aria-pressed');
+  });
+
+  it('reuses semantic folder glyphs across admin folder surfaces', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const dashboard = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AdminDashboard.vue'), 'utf8');
+    const folders = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const links = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
+
+    expect(dashboard).toContain('<FolderGlyph :icon="folder.icon"');
+    expect(folders).toContain('<FolderGlyph :icon="folder.icon"');
+    expect(links).toContain('<FolderGlyph :icon="folder.icon"');
   });
 });

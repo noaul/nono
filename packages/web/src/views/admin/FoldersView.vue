@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { FolderPlus, MoveDown, MoveUp, Trash2 } from 'lucide-vue-next';
+import { FolderPlus, GripVertical, MoveDown, MoveUp, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
+import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
+import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
@@ -18,9 +20,30 @@ const message = ref('');
 const error = ref('');
 const isInitialLoading = ref(true);
 const isSaving = ref(false);
-const movingFolderId = ref<number | null>(null);
+const sortMode = ref(false);
+const draftFolders = ref<Folder[]>([]);
+const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const displayedFolders = computed(() => sortMode.value ? draftFolders.value : sortedFolders.value);
+const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
+const folderDepthById = computed(() => {
+  const depths = new Map<number, number>();
+  for (const folder of folders.value) {
+    let depth = 0;
+    let parentId = folder.parentId || null;
+    const visited = new Set<number>();
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = folderById.value.get(parentId);
+      if (!parent) break;
+      depth += 1;
+      parentId = parent.parentId || null;
+    }
+    depths.set(folder.id, depth);
+  }
+  return depths;
+});
 const linkCountsByFolder = computed(() => {
   const counts = new Map<number, number>();
   for (const link of links.value) counts.set(link.folderId, (counts.get(link.folderId) || 0) + 1);
@@ -69,15 +92,7 @@ function folderPayload() {
 }
 
 function folderDepth(folder: Folder) {
-  let depth = 0;
-  let parentId = folder.parentId || null;
-  while (parentId) {
-    const parent = folders.value.find((item) => item.id === parentId);
-    if (!parent) break;
-    depth += 1;
-    parentId = parent.parentId || null;
-  }
-  return depth;
+  return folderDepthById.value.get(folder.id) || 0;
 }
 
 function isDescendantOf(folder: Folder, parentId: number) {
@@ -141,22 +156,43 @@ async function remove(folder: Folder) {
   }
 }
 
-async function move(folder: Folder, direction: -1 | 1) {
-  const ids = sortedFolders.value.map((item) => item.id);
+function startSorting() {
+  draftFolders.value = sortedFolders.value.map((folder) => ({ ...folder }));
+  sortMode.value = true;
+}
+
+function stopSorting() {
+  sortMode.value = false;
+  draftFolders.value = [];
+}
+
+function reorderDraft(ids: number[]) {
+  const byId = new Map(draftFolders.value.map((folder) => [folder.id, folder]));
+  draftFolders.value = ids.map((id) => byId.get(id)).filter((folder): folder is Folder => Boolean(folder));
+}
+
+function moveDraft(folder: Folder, direction: -1 | 1) {
+  const ids = draftFolders.value.map((item) => item.id);
   const index = ids.indexOf(folder.id);
   const next = index + direction;
   if (index < 0 || next < 0 || next >= ids.length) return;
   [ids[index], ids[next]] = [ids[next], ids[index]];
-  movingFolderId.value = folder.id;
+  reorderDraft(ids);
+}
+
+async function saveSorting() {
+  const ids = draftFolders.value.map((folder) => folder.id);
+  isSavingSort.value = true;
   try {
     await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids }) });
     const orderMap = new Map(ids.map((id, orderIndex) => [id, (ids.length - orderIndex) * 10]));
     folders.value = folders.value.map((item) => ({ ...item, sortOrder: orderMap.get(item.id) || item.sortOrder }));
     notifySuccess('文件夹顺序已保存');
+    stopSorting();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '排序保存失败');
   } finally {
-    movingFolderId.value = null;
+    isSavingSort.value = false;
   }
 }
 
@@ -212,9 +248,16 @@ onMounted(load);
       <div class="admin-card-head">
         <div>
           <h2>文件夹管理</h2>
-          <p>管理分类、访问密码、引导语和展示顺序。</p>
+          <p>{{ sortMode ? '拖动手柄调整顺序，完成后统一保存。' : '管理分类、访问密码、引导语和展示顺序。' }}</p>
         </div>
-        <button class="button secondary" type="button" @click="reset">清空表单</button>
+        <div class="toolbar">
+          <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
+          <button v-if="!sortMode" class="button secondary" data-testid="start-folder-sort" type="button" :disabled="!sortedFolders.length" @click="startSorting">
+            <GripVertical :size="17" /> 调整顺序
+          </button>
+          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
+          <button class="button secondary" type="button" @click="reset">清空表单</button>
+        </div>
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载文件夹" />
       <EmptyState v-else-if="!sortedFolders.length" title="还没有文件夹" description="先创建一个文件夹，再添加导航链接。">
@@ -224,23 +267,37 @@ onMounted(load);
       </EmptyState>
       <div v-else class="admin-table folder-table mobile-card-table">
         <div class="admin-table-head">
-          <span>图标</span>
+          <span>{{ sortMode ? '排序' : '图标' }}</span>
           <span>名称</span>
           <span>书签数</span>
           <span>引导语</span>
           <span>操作</span>
         </div>
-        <article v-for="(folder, index) in sortedFolders" :key="folder.id" class="admin-table-row" :data-testid="`folder-row-${folder.id}`" :style="{ '--folder-depth': folderDepth(folder) }">
-          <span data-label="图标">{{ folder.icon || '□' }}</span>
-          <button class="text-button" data-label="名称" type="button" @click="edit(folder)">{{ folder.name }}</button>
-          <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
-          <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
-          <span class="row-actions" data-label="操作">
-            <button class="icon-button secondary" title="上移" :disabled="index === 0 || movingFolderId === folder.id" @click="move(folder, -1)"><MoveUp :size="16" /></button>
-            <button class="icon-button secondary" title="下移" :disabled="index === sortedFolders.length - 1 || movingFolderId === folder.id" @click="move(folder, 1)"><MoveDown :size="16" /></button>
-            <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
-          </span>
-        </article>
+        <SortableList :item-ids="displayedFolders.map((folder) => folder.id)" :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
+          <article v-for="(folder, index) in displayedFolders" :key="folder.id" class="admin-table-row sortable-admin-row" :data-testid="`folder-row-${folder.id}`" :data-id="folder.id" :style="{ '--folder-depth': folderDepth(folder) }">
+            <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
+              <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
+              <FolderGlyph :icon="folder.icon" :size="18" />
+            </span>
+            <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="edit(folder)">{{ folder.name }}</button>
+            <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
+            <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
+            <span class="row-actions" data-label="操作">
+              <template v-if="sortMode">
+                <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
+                <button class="icon-button secondary" title="下移" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
+              </template>
+              <button v-else class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
+            </span>
+          </article>
+        </SortableList>
+      </div>
+      <div v-if="sortMode" class="sort-footer sticky-sort-footer">
+        <strong>{{ displayedFolders.length }} 个文件夹 · 拖动期间不会发起网络请求</strong>
+        <div class="toolbar">
+          <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
+          <button class="button" data-testid="save-folder-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+        </div>
       </div>
     </section>
   </AdminLayout>

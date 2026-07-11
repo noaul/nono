@@ -256,6 +256,48 @@ describe('Nono Fastify app', () => {
     expect(links.map((link) => link.name)).toEqual(['Second', 'First', 'Third']);
   });
 
+  it('persists link sorting through one repository batch operation', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Batch links' } });
+    const folderId = folder.json().data.id;
+    const first = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'First', url: 'https://first.example/' } });
+    const second = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Second', url: 'https://second.example/' } });
+    const batch = vi.spyOn(repo, 'reorderLinks');
+    const sequential = vi.spyOn(repo, 'updateLink');
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/links/reorder',
+      headers: { cookie },
+      payload: { ids: [second.json().data.id, second.json().data.id, first.json().data.id, 'invalid'] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(batch).toHaveBeenCalledOnce();
+    expect(batch).toHaveBeenCalledWith(1, [second.json().data.id, first.json().data.id]);
+    expect(sequential).not.toHaveBeenCalled();
+  });
+
+  it('persists folder sorting through one repository batch operation', async () => {
+    const cookie = await setupAdmin();
+    const first = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'First' } });
+    const second = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Second' } });
+    const batch = vi.spyOn(repo, 'reorderFolders');
+    const sequential = vi.spyOn(repo, 'updateFolder');
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/folders/reorder',
+      headers: { cookie },
+      payload: { ids: [second.json().data.id, second.json().data.id, first.json().data.id, 0] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(batch).toHaveBeenCalledOnce();
+    expect(batch).toHaveBeenCalledWith(1, [second.json().data.id, first.json().data.id]);
+    expect(sequential).not.toHaveBeenCalled();
+  });
+
   it('reports duplicate admin links by normalized URL', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Tools' } });

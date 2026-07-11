@@ -13,7 +13,13 @@
   --accent-2: #3b82f6;
   --danger: #f43f5e;
 
-  --transition-smooth: all 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-smooth:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    color 0.24s ease,
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 * {
@@ -699,6 +705,80 @@ a {
 
 .app-workbench .admin-table-row:last-child {
   border-bottom: none;
+}
+
+.app-workbench .sortable-list {
+  display: grid;
+}
+
+.app-workbench .sortable-admin-row {
+  min-height: 58px;
+  position: relative;
+}
+
+.app-workbench .drag-handle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: grab;
+  display: inline-flex;
+  flex: 0 0 36px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  touch-action: none;
+  width: 36px;
+}
+
+.app-workbench .drag-handle:hover,
+.app-workbench .drag-handle:focus-visible {
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.22);
+  color: #0f766e;
+  outline: none;
+}
+
+.app-workbench .drag-handle:active {
+  cursor: grabbing;
+}
+
+.app-workbench .folder-sort-cell {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.app-workbench .sortable-row-ghost {
+  background: rgba(15, 118, 110, 0.08) !important;
+  opacity: 0.42;
+}
+
+.app-workbench .sortable-row-ghost::before {
+  background: #0f766e;
+  content: '';
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: -1px;
+}
+
+.app-workbench .sortable-row-chosen {
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.app-workbench .sortable-row-dragging {
+  cursor: grabbing;
+  opacity: 0.92;
+}
+
+.app-workbench .sort-save-state {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .app-workbench .admin-table-row:hover {
@@ -1568,6 +1648,16 @@ a {
     justify-content: flex-start;
   }
 
+  .app-workbench .drag-handle {
+    flex-basis: 44px;
+    height: 44px;
+    width: 44px;
+  }
+
+  .app-workbench .sticky-sort-footer {
+    bottom: 8px;
+  }
+
   .app-workbench .bulk-controls,
   .app-workbench .bulk-controls select,
   .app-workbench .bulk-controls .button {
@@ -1935,7 +2025,12 @@ a {
   padding-bottom: 16px;
 }
 
-.app-workbench .admin-card-head h2,
+.app-workbench .sticky-sort-footer {
+  bottom: 16px;
+  position: sticky;
+  z-index: 12;
+}
+
 .app-workbench .panel h2 {
   color: var(--text);
   font-size: 17px;
@@ -2387,19 +2482,82 @@ a {
   }
 
   .workbench-sidebar {
+    align-items: center;
+    gap: 14px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto;
     min-height: auto;
+    padding: 12px 18px;
     position: static;
+  }
+
+  .sidebar-brand {
+    grid-template-columns: 36px auto;
+    min-height: 40px;
+  }
+
+  .sidebar-brand .brand-logo {
+    height: 36px;
+    width: 36px;
+  }
+
+  .sidebar-brand h1 {
+    font-size: 15px;
+  }
+
+  .sidebar-brand p,
+  .operator-card,
+  .nav-section > p,
+  .nav-copy small,
+  .nav-chevron {
+    display: none;
   }
 
   .workbench-nav {
     display: flex;
-    gap: 12px;
+    gap: 6px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    overscroll-behavior-x: contain;
+    padding: 2px;
+    scrollbar-width: thin;
   }
 
   .nav-section {
-    flex: 0 0 240px;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .app-workbench .nav-button {
+    flex: 0 0 auto;
+    gap: 7px;
+    grid-template-columns: 30px auto;
+    min-height: 38px;
+    padding: 3px 10px 3px 4px;
+  }
+
+  .nav-icon {
+    border-radius: 6px;
+    height: 30px;
+    width: 30px;
+  }
+
+  .nav-copy {
+    display: block;
+  }
+
+  .nav-copy strong {
+    font-size: 13px;
+  }
+
+  .sidebar-footer {
+    grid-template-columns: auto 38px;
+    padding: 0;
+  }
+
+  .sidebar-footer .button {
+    min-height: 38px;
+    padding: 0 10px;
   }
 
   .workbench-topbar {
@@ -2423,11 +2581,31 @@ a {
   .governance-panel {
     grid-column: auto;
   }
+
+  .figma-control-strip {
+    display: none;
+  }
 }
 
 @media (max-width: 720px) {
   .workbench-sidebar {
-    padding: 16px 12px;
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px 12px;
+  }
+
+  .sidebar-brand {
+    grid-template-columns: 34px;
+  }
+
+  .sidebar-brand .brand-logo {
+    height: 34px;
+    width: 34px;
+  }
+
+  .sidebar-brand > div:last-child,
+  .sidebar-footer {
+    display: none;
   }
 
   .workbench-stage,
@@ -2495,7 +2673,16 @@ a {
   z-index: -1;
 }
 
-.glass-surface,
+.glass-surface {
+  -webkit-backdrop-filter: blur(10px) saturate(1.08);
+  backdrop-filter: blur(10px) saturate(1.08);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  box-shadow:
+    0 12px 30px rgba(31, 41, 55, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
 .glass-workbench .panel,
 .glass-workbench .admin-card,
 .glass-workbench .ops-panel,
@@ -2509,13 +2696,11 @@ a {
 .glass-workbench .token-summary-grid section,
 .glass-workbench .loading-overlay,
 .glass-workbench .admin-empty-state {
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  backdrop-filter: blur(22px) saturate(1.3);
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(216, 225, 221, 0.9);
   box-shadow:
-    0 18px 44px rgba(31, 41, 55, 0.11),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    0 8px 22px rgba(31, 41, 55, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .glass-workbench .workbench-sidebar {
@@ -2580,9 +2765,7 @@ a {
 }
 
 .glass-workbench .dashboard-hero-panel {
-  -webkit-backdrop-filter: blur(22px) saturate(1.15);
-  backdrop-filter: blur(22px) saturate(1.15);
-  background: rgba(24, 32, 29, 0.82);
+  background: rgba(24, 32, 29, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -2755,16 +2938,13 @@ a {
 .app-workbench .page-command-card,
 .app-workbench .quick-ops-list a,
 .app-workbench .governance-list a {
-  transform: translateZ(0);
   transition:
     background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: transform;
 }
 
 .button:active,
@@ -2780,4 +2960,37 @@ a {
 .app-workbench .governance-list a:active {
   transform: translateY(1px) scale(0.975);
   transition-duration: 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  #app {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface,
+  .search-bar,
+  .folder-tabs,
+  .folder-expand-backdrop,
+  .folder-expand-modal,
+  .modal-backdrop,
+  .modal {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.96);
+  }
 }

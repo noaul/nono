@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import SortableList from '../src/components/admin/SortableList.vue';
 import FoldersView from '../src/views/admin/FoldersView.vue';
 
 const apiRequest = vi.fn();
@@ -76,5 +77,33 @@ describe('FoldersView admin workflow', () => {
 
     expect(wrapper.find('[data-testid="folder-parent"]').exists()).toBe(true);
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
+  });
+
+  it('keeps folder drag ordering local until one explicit save', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-folder-sort"]').trigger('click');
+    wrapper.findComponent(SortableList).vm.$emit('reorder', [2, 1]);
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+    expect(wrapper.get('[data-testid="folder-row-2"]').find('.drag-handle').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="save-folder-sort"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenCalledTimes(3);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [2, 1] }),
+    });
   });
 });

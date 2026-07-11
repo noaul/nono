@@ -25,10 +25,13 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
 .search-bar {
   align-items: center;
   backdrop-filter: blur(14px) saturate(1.12);
+  backdrop-filter: blur(var(--public-search-blur, 14px)) saturate(1.12);
   -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 14px)) saturate(1.12);
   background: rgba(10, 14, 18, 0.26);
+  background: rgba(10, 14, 18, var(--public-search-opacity, 0.26));
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
+  border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 10px;
   min-height: 52px;
@@ -101,7 +104,6 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
     box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: transform;
 }
 
 .search-btn:hover {
@@ -114,5 +116,12 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
 .search-btn:active {
   transform: translateY(1px) scale(0.94);
   transition-duration: 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-bar,
+  .search-btn {
+    transition: none;
+  }
 }
 </style>

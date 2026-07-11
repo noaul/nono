@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
+import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 
 const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string }>(), { depth: 0, parentName: '' });
@@ -9,6 +10,7 @@ defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
+const faviconUrls = computed(() => new Map((folder.value.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)])));
 
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
@@ -20,7 +22,7 @@ function handleFaviconError(linkId: string | number) {
     <header class="large-folder-title">
       <span class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
-        <span class="title-icon">{{ folder.icon || '📁' }}</span>
+        <FolderGlyph class="title-icon" :icon="folder.icon" :size="18" />
         <div class="title-copy">
           <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
           <h2>{{ folder.name }}</h2>
@@ -42,8 +44,8 @@ function handleFaviconError(linkId: string | number) {
     <div v-else class="large-links folder-glass-panel">
       <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
         <img
-          v-if="getFaviconUrl(link.url, link.icon) && !faviconErrors[link.id]"
-          :src="getFaviconUrl(link.url, link.icon)"
+          v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
+          :src="faviconUrls.get(link.id)"
           class="large-link-icon link-favicon"
           alt=""
           loading="lazy"
@@ -68,12 +70,11 @@ function handleFaviconError(linkId: string | number) {
   contain-intrinsic-size: 445px 358px;
   content-visibility: auto;
   position: relative;
-  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.24s ease-out;
 }
 
 .large-folder:hover {
-  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.16));
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .large-folder-title {
@@ -126,16 +127,18 @@ h2 {
 }
 
 .title-icon {
+  color: rgba(255, 255, 255, 0.92);
   font-size: 18px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .large-links {
-  background: rgba(255, 255, 255, 0.025);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: rgba(10, 14, 18, 0.52);
+  background: rgba(10, 14, 18, var(--public-card-opacity, 0.52));
+  backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: var(--public-card-radius, 8px);
   display: grid;
   gap: 8px;
   grid-auto-rows: 40px;
@@ -152,21 +155,17 @@ h2 {
     0 14px 34px rgba(0, 0, 0, 0.1);
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-    backdrop-filter 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .large-folder:hover .large-links,
 .large-folder:focus-within .large-links {
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(14px) saturate(1.14);
-  -webkit-backdrop-filter: blur(14px) saturate(1.14);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(10, 14, 18, 0.68);
+  border-color: rgba(255, 255, 255, 0.18);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-    0 20px 54px rgba(0, 0, 0, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 16px 36px rgba(0, 0, 0, 0.14);
 }
 
 /* Custom scrollbar track details */
@@ -334,8 +333,36 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  .large-folder {
+    contain-intrinsic-size: auto 150px;
+    grid-template-rows: 38px auto;
+    height: auto;
+  }
+
   .large-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    min-height: 80px;
+  }
+
+  .large-links.locked {
+    min-height: 128px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .large-folder,
+  .large-link,
+  .folder-expand,
+  .lock-btn,
+  .lock-illustration {
+    transition: none;
+  }
+
+  .large-folder:hover,
+  .large-link:hover,
+  .large-link:focus-visible {
+    transform: none;
   }
 }
 </style>
