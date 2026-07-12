@@ -1,0 +1,10 @@
+:root {
+	--nono-accent: var(--color-brand, #35bfab);
+	--nono-radius-sm: 8px;
+	--nono-radius-md: 12px;
+	--nono-radius-lg: 20px;
+	--nono-surface-opacity: 0.4;
+	--nono-surface-blur: 4px;
+	--nono-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--nono-focus-ring: 0 0 0 3px color-mix(in srgb, var(--nono-accent) 22%, transparent);
+}

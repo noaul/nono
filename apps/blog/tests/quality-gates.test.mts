@@ -37,6 +37,31 @@ test('defines repeatable local quality checks', async () => {
 	assert.match(packageJson.packageManager, /^pnpm@\d+\.\d+\.\d+$/)
 })
 
+test('shares the Nono visual token contract before Blog theme rules', async () => {
+	const globals = await read('src/styles/globals.css')
+	const tokens = await read('src/styles/nono-tokens.css')
+	const tokenImport = globals.indexOf("@import './nono-tokens.css';")
+	const themeImport = globals.indexOf("@import './theme.css';")
+
+	assert.ok(tokenImport >= 0)
+	assert.ok(themeImport > tokenImport)
+
+	for (const token of [
+		'--nono-accent',
+		'--nono-radius-sm',
+		'--nono-radius-md',
+		'--nono-radius-lg',
+		'--nono-surface-opacity',
+		'--nono-surface-blur',
+		'--nono-ease-standard',
+		'--nono-focus-ring'
+	]) {
+		assert.match(tokens, new RegExp(token))
+	}
+
+	assert.match(tokens, /--nono-accent:\s*var\(--color-brand/)
+})
+
 test('runs the same quality gates in GitHub Actions', async () => {
 	const workflow = await readRepositoryFile('.github/workflows/ci.yml')
 

@@ -1,183 +1,3 @@
-:root {
-  color-scheme: dark;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  --bg: #090a0f;
-  --panel: #12141c;
-  --panel-2: #1a1d29;
-  --line: #222635;
-  --text: #f3f4f6;
-  --muted: #9ca3af;
-  --accent: #10b981;
-  --accent-2: #3b82f6;
-  --danger: #f43f5e;
-
-  --transition-smooth:
-    background-color 0.24s ease,
-    border-color 0.24s ease,
-    box-shadow 0.24s ease,
-    color 0.24s ease,
-    opacity 0.24s ease,
-    transform 0.24s ease;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
-  margin: 0;
-  scroll-behavior: smooth;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-  outline: none;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Base interactive elements */
-.button,
-.icon-button {
-  align-items: center;
-  background: var(--accent);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: #041d14;
-  display: inline-flex;
-  font-weight: 600;
-  gap: 8px;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 16px;
-  transition: var(--transition-smooth);
-}
-
-.button:hover,
-.icon-button:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-
-.button:active,
-.icon-button:active {
-  transform: translateY(0);
-}
-
-.button.secondary,
-.icon-button.secondary {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  color: var(--text);
-}
-
-.button.secondary:hover,
-.icon-button.secondary:hover {
-  background: var(--line);
-  border-color: var(--muted);
-}
-
-.button.danger,
-.icon-button.danger {
-  background: rgba(244, 63, 94, 0.15);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  color: #fda4af;
-}
-
-.button.danger:hover,
-.icon-button.danger:hover {
-  background: var(--danger);
-  color: #ffffff;
-  border-color: transparent;
-}
-
-.icon-button {
-  aspect-ratio: 1;
-  padding: 0;
-  width: 38px;
-  height: 38px;
-}
-
-/* Fields & Form elements */
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field label {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.field input,
-.field textarea,
-.field select {
-  background: rgba(10, 11, 16, 0.7);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--text);
-  min-height: 40px;
-  padding: 9px 12px;
-  width: 100%;
-  transition: var(--transition-smooth);
-}
-
-.field input:focus,
-.field textarea:focus,
-.field select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
-}
-
-.field textarea {
-  min-height: 92px;
-  resize: vertical;
-}
-
-/* Feedback blocks */
-.notice {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 8px;
-  color: #a7f3d0;
-  padding: 12px 14px;
-  font-size: 14px;
-}
-
-.error {
-  background: rgba(244, 63, 94, 0.08);
-  border: 1px solid rgba(244, 63, 94, 0.25);
-  border-radius: 8px;
-  color: #fecdd3;
-  padding: 12px 14px;
-  font-size: 14px;
-}
-
 /* Legacy Admin shell styling (for general backwards compatibility if fallback triggered) */
 .admin-shell {
   display: grid;
@@ -301,41 +121,6 @@ a {
   font-size: 13px;
   margin-top: 4px;
   overflow-wrap: anywhere;
-}
-
-.toolbar {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.auth-page {
-  align-items: center;
-  background: #090a0f;
-  display: grid;
-  min-height: 100vh;
-  padding: 24px;
-}
-
-.auth-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  gap: 16px;
-  margin: 0 auto;
-  max-width: 420px;
-  padding: 32px;
-  width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-}
-
-.auth-card h1 {
-  font-size: 26px;
-  font-weight: 800;
-  margin: 0;
-  letter-spacing: 0;
 }
 
 @media (max-width: 860px) {
@@ -1533,19 +1318,6 @@ a {
   cursor: not-allowed;
   opacity: 0.52;
   transform: none;
-}
-
-/* prefers-reduced-motion compatibility */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-delay: -1ms !important;
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    background-attachment: initial !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
-  }
 }
 
 @media (max-width: 900px) {
@@ -2934,9 +2706,7 @@ a {
   }
 }
 
-/* Softer interaction rhythm */
-.button,
-.icon-button,
+/* Admin interaction rhythm */
 .app-workbench .button,
 .app-workbench .icon-button,
 .app-workbench .nav-button,
@@ -2947,16 +2717,14 @@ a {
 .app-workbench .quick-ops-list a,
 .app-workbench .governance-list a {
   transition:
-    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+    background-color 0.28s var(--nono-ease-standard),
+    border-color 0.28s var(--nono-ease-standard),
+    box-shadow 0.28s var(--nono-ease-standard),
+    color 0.28s var(--nono-ease-standard),
+    opacity 0.28s var(--nono-ease-standard),
+    transform 0.34s var(--nono-ease-standard);
 }
 
-.button:active,
-.icon-button:active,
 .app-workbench .button:active,
 .app-workbench .icon-button:active,
 .app-workbench .nav-button:active,
@@ -2970,35 +2738,10 @@ a {
   transition-duration: 0.12s;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html,
-  body,
-  #app {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 @media (prefers-reduced-transparency: reduce) {
-  .glass-surface,
-  .search-bar,
-  .folder-tabs,
-  .folder-expand-backdrop,
-  .folder-expand-modal,
-  .modal-backdrop,
-  .modal {
+  .glass-surface {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-  }
-
-  .glass-surface {
     background: rgba(255, 255, 255, 0.96);
   }
 }

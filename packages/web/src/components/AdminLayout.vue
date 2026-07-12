@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '@/styles/admin.css';
 import { computed } from 'vue';
 import {
   Activity,

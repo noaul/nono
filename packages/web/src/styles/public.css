@@ -1,0 +1,33 @@
+.public-empty-state {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--nono-radius-md);
+  color: rgba(243, 244, 246, 0.8);
+  font-size: 14px;
+  font-weight: 600;
+  justify-self: center;
+  margin: 0;
+  padding: 18px 22px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-empty-state {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .public-empty-state,
+  .search-bar,
+  .folder-tabs,
+  .folder-expand-backdrop,
+  .folder-expand-modal,
+  .modal-backdrop,
+  .modal {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}

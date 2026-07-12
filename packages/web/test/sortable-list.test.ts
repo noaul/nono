@@ -72,7 +72,7 @@ describe('SortableList', () => {
   });
 
   it('disables expensive row effects while a drag is active', () => {
-    const css = fs.readFileSync('src/styles.css', 'utf8');
+    const css = fs.readFileSync('src/styles/admin.css', 'utf8');
 
     expect(css).toContain(".sortable-list[data-dragging='true'] .sortable-admin-row");
     expect(css).toMatch(/sortable-list\[data-dragging='true'\][\s\S]*?transition:\s*none/);

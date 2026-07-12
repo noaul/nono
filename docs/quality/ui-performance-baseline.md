@@ -47,6 +47,34 @@ Measured on July 12, 2026 with Node `v26.3.1`, npm `11.17.0`, Playwright `1.61.1
 
 Command result: `npm run test:e2e` passed 2/2 tests in 2.2 seconds of Playwright time and 3.227 seconds wall-clock time. These local, intercepted-data measurements are reference values for detecting large regressions; they are not production network measurements.
 
+## Day 2 Style Boundary Baseline
+
+Measured on July 12, 2026 before the style split at commit `fd6f81283795d4aa25fc2520280b879e1b4b4621`:
+
+| Asset | Size |
+| --- | ---: |
+| `packages/web/src/styles.css` | 59,644 bytes |
+| `packages/web/dist/assets/index-BtUMctE0.css` | 68,496 bytes |
+| `packages/web/dist/assets/SiteConfigView-TLY6IZ1F.css` | 6,209 bytes |
+| `packages/web/dist/assets/FoldersView-DS3tdaKt.css` | 859 bytes |
+| `packages/web/dist/assets/AdminDashboard-Ch3-qmEh.css` | 518 bytes |
+| `packages/web/dist/assets/BookmarksView-BowJ-cZl.css` | 292 bytes |
+
+The public entry asset currently includes the complete global stylesheet. Day 2 will compare these values after loading shared foundations globally and route-specific public/admin styles from their Vue boundaries.
+
+After the route-level split:
+
+| Asset | Size |
+| --- | ---: |
+| `packages/web/src/styles/tokens.css` | 787 bytes |
+| `packages/web/src/styles/base.css` | 4,214 bytes |
+| `packages/web/src/styles/public.css` | 746 bytes |
+| `packages/web/src/styles/admin.css` | 53,972 bytes |
+| `packages/web/dist/assets/index-CfkANT1H.css` | 26,225 bytes |
+| `packages/web/dist/assets/AdminLayout-D8_ytati.css` | 43,044 bytes |
+
+The public entry CSS decreased by 42,271 bytes (61.7%). Admin rules are now emitted with the lazy `AdminLayout` boundary instead of being fetched by public and authentication routes.
+
 ## Live RN 8188 Acceptance
 
 This acceptance used the live application, Fastify/Prisma request path, and RN PostgreSQL data store at `http://192.129.159.194:8188`.

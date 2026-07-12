@@ -1,10 +1,56 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { mount, RouterLinkStub } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it } from 'vitest';
 import FolderCard from '../src/components/FolderCard.vue';
 import AdminLayout from '../src/components/AdminLayout.vue';
 
+const readSource = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
+const readStyle = (name: string) => readSource(`src/styles/${name}.css`);
+
 describe('visual contracts', () => {
+  it('loads shared foundations globally and route-specific styles at their boundaries', () => {
+    const mainSource = readSource('src/main.ts');
+    const navigationSource = readSource('src/views/NavigationPage.vue');
+    const adminLayoutSource = readSource('src/components/AdminLayout.vue');
+    const tokens = readStyle('tokens');
+    const base = readStyle('base');
+    const publicStyles = readStyle('public');
+    const adminStyles = readStyle('admin');
+
+    expect(mainSource).toContain("import './styles/tokens.css'");
+    expect(mainSource).toContain("import './styles/base.css'");
+    expect(mainSource).not.toContain("import './styles.css'");
+    expect(navigationSource).toContain("import '@/styles/public.css'");
+    expect(adminLayoutSource).toContain("import '@/styles/admin.css'");
+
+    for (const token of [
+      '--nono-accent',
+      '--nono-radius-sm',
+      '--nono-radius-md',
+      '--nono-radius-lg',
+      '--nono-surface-opacity',
+      '--nono-surface-blur',
+      '--nono-ease-standard',
+      '--nono-focus-ring',
+    ]) {
+      expect(tokens).toContain(token);
+    }
+
+    expect(publicStyles).toContain('.public-empty-state');
+    expect(publicStyles).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(adminStyles).toContain('.app-workbench');
+    expect(adminStyles).toContain('.admin-card');
+    expect(adminStyles).toContain('.sortable-row-dragging');
+    expect(adminStyles).toContain('.admin-empty-state');
+
+    for (const routeSpecificPrefix of ['.app-workbench', '.glass-workbench', '.workbench-', '.admin-', '.sortable-']) {
+      expect(base).not.toContain(routeSpecificPrefix);
+      expect(publicStyles).not.toContain(routeSpecificPrefix);
+    }
+  });
+
   it('renders public folders in the large folder layout', () => {
     const wrapper = mount(FolderCard, {
       props: {
@@ -208,7 +254,7 @@ describe('visual contracts', () => {
   it('defines the redesigned admin operations dashboard shell styles', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
     const dashboardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AdminDashboard.vue'), 'utf8');
 
     expect(css).toContain('.workbench-sidebar');
@@ -225,7 +271,7 @@ describe('visual contracts', () => {
   it('defines the admin glassmorphism surface system', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
 
     expect(css).toContain('.glass-workbench');
     expect(css).toContain('.glass-workbench::before');
@@ -239,7 +285,7 @@ describe('visual contracts', () => {
   it('defines the Figma-inspired admin frame and component tokens', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(layoutSource).toContain('figma-admin-shell');
@@ -254,7 +300,7 @@ describe('visual contracts', () => {
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
 
     expect(css).toContain('.toast-stack');
     expect(css).toContain('.confirm-backdrop');
@@ -270,7 +316,7 @@ describe('visual contracts', () => {
   it('defines phase 2 admin operation styles', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
 
     expect(css).toContain('.bulk-action-bar');
     expect(css).toContain('.duplicate-panel');
@@ -281,7 +327,7 @@ describe('visual contracts', () => {
   it('defines link health operation styles', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
 
     expect(css).toContain('.health-check-panel');
     expect(css).toContain('.health-result-row');
@@ -303,7 +349,7 @@ describe('visual contracts', () => {
   it('defines token governance styles', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
 
     expect(css).toContain('.token-summary-grid');
     expect(css).toContain('.token-created-secret');
@@ -344,7 +390,7 @@ describe('visual contracts', () => {
   it('keeps expensive visual effects off repeated admin and public surfaces', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const css = readStyle('admin');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(css).not.toMatch(/\.glass-workbench \.admin-card[\s\S]*?backdrop-filter:\s*blur/);

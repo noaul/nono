@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ArrowUpRight, Bookmark, X, Lock } from 'lucide-vue-next';
@@ -660,21 +661,6 @@ h1 {
   width: 1px;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-}
-
-.public-empty-state {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  color: rgba(243, 244, 246, 0.8);
-  font-size: 14px;
-  font-weight: 600;
-  justify-self: center;
-  margin: 0;
-  padding: 18px 22px;
-  text-align: center;
 }
 
 .folder-tabs {
