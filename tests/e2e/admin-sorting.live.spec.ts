@@ -6,6 +6,7 @@ const authToken = process.env.E2E_AUTH_TOKEN || '';
 const fixturePrefix = process.env.E2E_FIXTURE_PREFIX || '';
 const liveEnabled = process.env.E2E_LIVE === '1' && Boolean(authToken && fixturePrefix);
 const captureDir = process.env.E2E_CAPTURE_DIR || '';
+const dragSteps = Math.max(1, Number.parseInt(process.env.E2E_DRAG_STEPS || '12', 10) || 12);
 
 test.describe('live admin sorting acceptance', () => {
   test.describe.configure({ timeout: 120_000 });
@@ -30,6 +31,7 @@ test.describe('live admin sorting acceptance', () => {
     expect(saveResult.requestCount).toBe(1);
     expect(saveResult.status).toBe(200);
 
+    await page.waitForTimeout(20_000);
     await page.reload();
     await expect(page.locator('[data-testid^="folder-row-"]')).toHaveCount(100);
     await expectPersistedOrder(page.locator('[data-testid^="folder-row-"]'), result.afterIds);
@@ -41,6 +43,12 @@ test.describe('live admin sorting acceptance', () => {
       dragEndToDomStableMs: result.dragEndToDomStableMs,
       saveRequestMs: saveResult.durationMs,
       reorderRequestCount: saveResult.requestCount,
+      dragSteps,
+      protocolMoveToHandleMs: result.protocolMoveToHandleMs,
+      protocolPointerDownMs: result.protocolPointerDownMs,
+      protocolMoveAcrossRowMs: result.protocolMoveAcrossRowMs,
+      longTaskCount: result.longTaskCount,
+      longTaskDurationMs: result.longTaskDurationMs,
     });
   });
 
@@ -64,6 +72,7 @@ test.describe('live admin sorting acceptance', () => {
     expect(saveResult.requestCount).toBe(1);
     expect(saveResult.status).toBe(200);
 
+    await page.waitForTimeout(20_000);
     await page.reload();
     const reloadedFixtureFolder = page.locator('.folder-pill').filter({ hasText: `${fixturePrefix}-F001` });
     await expect(reloadedFixtureFolder).toHaveCount(1);
@@ -78,6 +87,12 @@ test.describe('live admin sorting acceptance', () => {
       dragEndToDomStableMs: result.dragEndToDomStableMs,
       saveRequestMs: saveResult.durationMs,
       reorderRequestCount: saveResult.requestCount,
+      dragSteps,
+      protocolMoveToHandleMs: result.protocolMoveToHandleMs,
+      protocolPointerDownMs: result.protocolPointerDownMs,
+      protocolMoveAcrossRowMs: result.protocolMoveAcrossRowMs,
+      longTaskCount: result.longTaskCount,
+      longTaskDurationMs: result.longTaskDurationMs,
     });
   });
 });
@@ -102,20 +117,29 @@ async function dragFirstBelowSecond(page: Page, rows: Locator, endpoint: string)
     if (request.method() === 'PUT' && new URL(request.url()).pathname === endpoint) requestCount += 1;
   });
 
-  const startedAt = await page.evaluate(() => performance.now());
+  await page.evaluate(() => {
+    const diagnostics = window as typeof window & { __nonoDragLongTasks?: PerformanceEntry[] };
+    diagnostics.__nonoDragLongTasks = [];
+    new PerformanceObserver((list) => diagnostics.__nonoDragLongTasks?.push(...list.getEntries()))
+      .observe({ type: 'longtask' });
+  });
   const displacement = page.evaluate(
     ({ selector, originalIds }) =>
-      new Promise<number>((resolve) => {
+      new Promise<{ displacedAt: number; pointerDownAt: number }>((resolve) => {
         const root = document.querySelector(selector);
         if (!root) {
-          resolve(performance.now());
+          resolve({ displacedAt: performance.now(), pointerDownAt: 0 });
           return;
         }
+        let pointerDownAt = 0;
+        root.addEventListener('pointerdown', () => {
+          pointerDownAt = performance.now();
+        }, { capture: true, once: true });
         const observer = new MutationObserver(() => {
           const ids = [...root.querySelectorAll<HTMLElement>('[data-id]')].map((row) => row.dataset.id);
           if (ids.join(',') !== originalIds.join(',')) {
             observer.disconnect();
-            resolve(performance.now());
+            resolve({ displacedAt: performance.now(), pointerDownAt });
           }
         });
         observer.observe(root, { childList: true });
@@ -123,20 +147,29 @@ async function dragFirstBelowSecond(page: Page, rows: Locator, endpoint: string)
     { selector: '.sortable-list', originalIds: beforeIds },
   );
 
+  const protocolStartedAt = performance.now();
   await page.mouse.move(source!.x + source!.width / 2, source!.y + source!.height / 2);
+  const pointerAtHandleAt = performance.now();
   await page.mouse.down();
+  const pointerDownAt = performance.now();
   await page.mouse.move(
     target!.x + target!.width / 2,
     target!.y + target!.height + Math.min(12, target!.height / 3),
-    { steps: 12 },
+    { steps: dragSteps },
   );
-  const displacedAt = await displacement;
+  const pointerAcrossRowAt = performance.now();
+  const displacementTiming = await displacement;
   await page.mouse.up();
   const dragEndedAt = await page.evaluate(() => performance.now());
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const stabilizedAt = await page.evaluate(() => performance.now());
 
   const afterIds = await rowIds(rows);
+  const longTasks = await page.evaluate(() => {
+    const diagnostics = window as typeof window & { __nonoDragLongTasks?: PerformanceEntry[] };
+    return (diagnostics.__nonoDragLongTasks || []).map((entry) => entry.duration);
+  });
+  expect(displacementTiming.pointerDownAt).toBeGreaterThan(0);
   expect(afterIds[0]).toBe(beforeIds[1]);
   expect(afterIds[1]).toBe(beforeIds[0]);
   expect(requestCount).toBe(0);
@@ -144,7 +177,12 @@ async function dragFirstBelowSecond(page: Page, rows: Locator, endpoint: string)
   const saveCompleted = waitForSingleSave(page, endpoint, () => requestCount);
   return {
     afterIds,
-    firstDisplacementMs: round(displacedAt - startedAt),
+    firstDisplacementMs: round(displacementTiming.displacedAt - displacementTiming.pointerDownAt),
+    protocolMoveToHandleMs: round(pointerAtHandleAt - protocolStartedAt),
+    protocolPointerDownMs: round(pointerDownAt - pointerAtHandleAt),
+    protocolMoveAcrossRowMs: round(pointerAcrossRowAt - pointerDownAt),
+    longTaskCount: longTasks.length,
+    longTaskDurationMs: round(longTasks.reduce((total, duration) => total + duration, 0)),
     dragEndToDomStableMs: round(stabilizedAt - dragEndedAt),
     saveCompleted,
   };
