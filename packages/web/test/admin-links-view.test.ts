@@ -187,4 +187,55 @@ describe('LinksView admin workflow', () => {
       body: JSON.stringify({ ids: [11, 10] }),
     });
   });
+
+  it('ignores repeated bookmark save clicks while a reorder request is pending', async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    const pendingSave = new Promise((resolve) => {
+      resolveSave = resolve;
+    });
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'First', url: 'https://first.example/', sortOrder: 100 },
+        { id: 11, folderId: 1, name: 'Second', url: 'https://second.example/', sortOrder: 90 },
+      ])
+      .mockReturnValueOnce(pendingSave);
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-link-sort"]').trigger('click');
+
+    const saveButton = wrapper.get('[data-testid="save-link-sort"]').element;
+    saveButton.dispatchEvent(new MouseEvent('click'));
+    saveButton.dispatchEvent(new MouseEvent('click'));
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledTimes(3);
+
+    resolveSave({ ok: true });
+    await settle(wrapper);
+  });
+
+  it('keeps the bookmark draft order available after a save failure', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'First', url: 'https://first.example/', sortOrder: 100 },
+        { id: 11, folderId: 1, name: 'Second', url: 'https://second.example/', sortOrder: 90 },
+      ])
+      .mockRejectedValueOnce(new Error('network unavailable'));
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-link-sort"]').trigger('click');
+    wrapper.findComponent(SortableList).vm.$emit('reorder', [11, 10]);
+    await wrapper.vm.$nextTick();
+
+    await wrapper.get('[data-testid="save-link-sort"]').trigger('click');
+    await settle(wrapper);
+
+    const rows = wrapper.findAll('[data-testid^="link-row-"]');
+    expect(rows.map((row) => row.attributes('data-testid'))).toEqual(['link-row-11', 'link-row-10']);
+    expect(wrapper.get('[data-testid="save-link-sort"]').attributes('disabled')).toBeUndefined();
+  });
 });

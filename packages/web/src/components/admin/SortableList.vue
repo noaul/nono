@@ -15,9 +15,15 @@ const emit = defineEmits<{
 }>();
 
 const root = ref<HTMLElement | null>(null);
+const dragging = ref(false);
 let sortable: Sortable | null = null;
 
+function handleStart() {
+  dragging.value = true;
+}
+
 function handleEnd(event: SortableEvent) {
+  dragging.value = false;
   const oldIndex = event.oldIndex;
   const newIndex = event.newIndex;
   if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
@@ -38,11 +44,17 @@ onMounted(() => {
     chosenClass: 'sortable-row-chosen',
     dragClass: 'sortable-row-dragging',
     easing: 'cubic-bezier(0.2, 0, 0, 1)',
+    forceFallback: false,
+    fallbackOnBody: true,
+    fallbackTolerance: 4,
+    swapThreshold: 0.65,
+    invertSwap: true,
+    emptyInsertThreshold: 8,
     delay: 120,
     delayOnTouchOnly: true,
     touchStartThreshold: 4,
-    fallbackTolerance: 4,
     disabled: props.disabled,
+    onStart: handleStart,
     onEnd: handleEnd,
   });
 });
@@ -58,7 +70,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="sortable-list" role="list" :aria-label="ariaLabel">
+  <div ref="root" class="sortable-list" role="list" :aria-label="ariaLabel" :data-dragging="String(dragging)">
     <slot />
   </div>
 </template>

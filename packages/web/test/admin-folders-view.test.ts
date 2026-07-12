@@ -111,4 +111,55 @@ describe('FoldersView admin workflow', () => {
       body: JSON.stringify({ ids: [2, 1] }),
     });
   });
+
+  it('ignores repeated folder save clicks while a reorder request is pending', async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    const pendingSave = new Promise((resolve) => {
+      resolveSave = resolve;
+    });
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(pendingSave);
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-folder-sort"]').trigger('click');
+
+    const saveButton = wrapper.get('[data-testid="save-folder-sort"]').element;
+    saveButton.dispatchEvent(new MouseEvent('click'));
+    saveButton.dispatchEvent(new MouseEvent('click'));
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledTimes(3);
+
+    resolveSave({ ok: true });
+    await settle(wrapper);
+  });
+
+  it('keeps the folder draft order available after a save failure', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('network unavailable'));
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="start-folder-sort"]').trigger('click');
+    wrapper.findComponent(SortableList).vm.$emit('reorder', [2, 1]);
+    await wrapper.vm.$nextTick();
+
+    await wrapper.get('[data-testid="save-folder-sort"]').trigger('click');
+    await settle(wrapper);
+
+    const rows = wrapper.findAll('[data-testid^="folder-row-"]');
+    expect(rows.map((row) => row.attributes('data-testid'))).toEqual(['folder-row-2', 'folder-row-1']);
+    expect(wrapper.get('[data-testid="save-folder-sort"]').attributes('disabled')).toBeUndefined();
+  });
 });

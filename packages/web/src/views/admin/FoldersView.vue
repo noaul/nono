@@ -183,6 +183,7 @@ function moveDraft(folder: Folder, direction: -1 | 1) {
 }
 
 async function saveSorting() {
+  if (isSavingSort.value) return;
   const ids = [...draftFolderIds.value];
   isSavingSort.value = true;
   try {

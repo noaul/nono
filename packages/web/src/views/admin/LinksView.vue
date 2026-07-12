@@ -239,6 +239,7 @@ function reorderDraft(ids: number[]) {
 }
 
 async function saveSorting() {
+  if (isSavingSort.value) return;
   isSavingSort.value = true;
   try {
     const ids = [...draftLinkIds.value];

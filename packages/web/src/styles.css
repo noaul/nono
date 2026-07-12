@@ -716,6 +716,10 @@ a {
   position: relative;
 }
 
+.app-workbench .sortable-list[data-dragging='true'] .sortable-admin-row {
+  transition: none;
+}
+
 .app-workbench .drag-handle {
   align-items: center;
   background: transparent;
@@ -767,12 +771,16 @@ a {
 
 .app-workbench .sortable-row-chosen {
   background: #ffffff !important;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  contain: paint;
 }
 
 .app-workbench .sortable-row-dragging {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   cursor: grabbing;
   opacity: 0.92;
+  transform: none;
 }
 
 .app-workbench .sort-save-state {
