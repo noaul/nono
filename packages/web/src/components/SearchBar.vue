@@ -61,10 +61,10 @@ defineExpose({
 
 .search-bar:focus-within {
   background: rgba(12, 18, 24, 0.34);
-  border-color: rgba(134, 239, 172, 0.38);
+  border-color: rgba(var(--accent-soft-rgb), 0.38);
   box-shadow:
     0 16px 44px rgba(0, 0, 0, 0.22),
-    0 0 0 3px rgba(52, 211, 153, 0.12),
+    0 0 0 3px rgba(var(--accent-bright-rgb), 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
@@ -111,7 +111,7 @@ defineExpose({
 
 .search-btn {
   align-self: stretch;
-  background: rgba(52, 211, 153, 0.92);
+  background: rgba(var(--accent-bright-rgb), 0.92);
   border: 0;
   color: #052016;
   display: grid;
@@ -134,8 +134,8 @@ defineExpose({
 .search-btn:hover {
   transform: translateY(-1px) scale(1.04);
   opacity: 1;
-  background: #6ee7b7;
-  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.24);
+  background: var(--accent-hover);
+  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.24);
 }
 
 .search-btn:active {

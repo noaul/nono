@@ -531,7 +531,7 @@ onUnmounted(() => {
   --public-card-opacity: 0.52;
   --public-search-blur: 14px;
   background:
-    radial-gradient(circle at 14% 10%, rgba(52, 211, 153, 0.2), transparent 28%),
+    radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.2), transparent 28%),
     linear-gradient(135deg, rgba(8, 12, 18, 0.18), rgba(8, 12, 18, 0.04) 42%, rgba(15, 118, 110, 0.12)),
     var(--nav-bg-color, #090a0f);
 }
@@ -615,9 +615,9 @@ onUnmounted(() => {
 
 .portal-corner-link:hover,
 .portal-corner-link:focus-visible {
-  background: rgba(16, 185, 129, 0.28);
-  border-color: rgba(167, 243, 208, 0.56);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(16, 185, 129, 0.12);
+  background: rgba(var(--accent-rgb), 0.28);
+  border-color: rgba(var(--accent-soft-rgb), 0.56);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
   transform: translateY(-2px);
 }
@@ -682,7 +682,7 @@ onUnmounted(() => {
 }
 
 .portal-center-arrow {
-  background: #10b981;
+  background: var(--accent);
   border: 2px solid rgba(255, 255, 255, 0.92);
   border-radius: 50%;
   bottom: 0;
@@ -830,8 +830,8 @@ h1 {
 }
 
 .folder-tabs a.active {
-  background: rgba(16, 185, 129, 0.22);
-  color: #a7f3d0;
+  background: rgba(var(--accent-rgb), 0.22);
+  color: var(--accent-soft);
 }
 
 .adaptive-folder-grid {
@@ -864,8 +864,8 @@ h1 {
 
 .folder-load-more:hover,
 .folder-load-more:focus-visible {
-  background: rgba(16, 185, 129, 0.26);
-  border-color: rgba(167, 243, 208, 0.5);
+  background: rgba(var(--accent-rgb), 0.26);
+  border-color: rgba(var(--accent-soft-rgb), 0.5);
   outline: none;
   transform: translateY(-1px);
 }
@@ -1006,12 +1006,12 @@ h1 {
 
 .expanded-link:hover,
 .expanded-link:focus-visible {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  color: var(--accent);
   outline: none;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.08);
 }
 
 .expanded-link:active {
@@ -1021,7 +1021,7 @@ h1 {
 
 .expanded-link:hover small,
 .expanded-link:focus-visible small {
-  color: rgba(16, 185, 129, 0.6);
+  color: rgba(var(--accent-rgb), 0.6);
 }
 
 .expanded-link-icon {
@@ -1045,9 +1045,9 @@ h1 {
 }
 
 .expanded-link:hover .expanded-link-icon {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent);
   transform: scale(1.04);
 }
 

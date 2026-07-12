@@ -340,9 +340,9 @@ onMounted(load);
 .folder-icon-option:hover,
 .folder-icon-option:focus-visible,
 .folder-icon-option.active {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.42);
-  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
+  border-color: rgba(var(--accent-rgb), 0.42);
+  box-shadow: 0 8px 18px rgba(var(--accent-rgb), 0.12);
   outline: none;
   transform: translateY(-1px);
 }

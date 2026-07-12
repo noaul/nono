@@ -10,6 +10,12 @@
   --text: #f3f4f6;
   --muted: #9ca3af;
   --accent: #10b981;
+  --accent-rgb: 16, 185, 129;
+  --accent-bright: #34d399;
+  --accent-bright-rgb: 52, 211, 153;
+  --accent-hover: #6ee7b7;
+  --accent-soft: #a7f3d0;
+  --accent-soft-rgb: 167, 243, 208;
   --accent-2: #3b82f6;
   --danger: #f43f5e;
 

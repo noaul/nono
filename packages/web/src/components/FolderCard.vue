@@ -272,9 +272,9 @@ h2 {
 
 .locked:hover .lock-illustration {
   transform: scale(1.05);
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.2);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .locked span {
@@ -320,16 +320,17 @@ h2 {
   transition-duration: 0.12s;
 }
 
-.lock-btn {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  color: rgba(255, 255, 255, 0.62) !important;
+/* Outrank base.css .icon-button.secondary without !important */
+.icon-button.secondary.lock-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.62);
 }
 
-.lock-btn:hover {
-  background: rgba(16, 185, 129, 0.1) !important;
-  border-color: rgba(16, 185, 129, 0.25) !important;
-  color: #10b981 !important;
+.icon-button.secondary.lock-btn:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  color: var(--accent);
 }
 
 @media (max-width: 640px) {

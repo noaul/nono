@@ -127,7 +127,7 @@ a {
 .field textarea:focus,
 .field select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
 .field textarea {
@@ -137,10 +137,10 @@ a {
 
 /* Feedback blocks */
 .notice {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   border-radius: 8px;
-  color: #a7f3d0;
+  color: var(--accent-soft);
   padding: 12px 14px;
   font-size: 14px;
 }
@@ -189,15 +189,22 @@ a {
   letter-spacing: 0;
 }
 
-/* prefers-reduced-motion compatibility */
+/* prefers-reduced-motion kill switch (single source of truth) */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  html,
+  body,
+  #app {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
     animation-delay: -1ms !important;
-    animation-duration: 1ms !important;
+    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     background-attachment: initial !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0s !important;
+    transition-duration: 0.01ms !important;
     transition-delay: 0s !important;
   }
 }
@@ -218,20 +225,4 @@ a {
 .icon-button:active {
   transform: translateY(1px) scale(0.975);
   transition-duration: 0.12s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html,
-  body,
-  #app {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }

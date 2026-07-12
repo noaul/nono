@@ -352,7 +352,7 @@ function resetAppearance() {
 }
 
 .switch-row input {
-  accent-color: #0f766e;
+  accent-color: var(--nono-accent);
   height: 18px;
   width: 18px;
 }
@@ -402,7 +402,7 @@ function resetAppearance() {
 
 .preset-group button:hover {
   background: #f8fafc;
-  color: #0f766e;
+  color: var(--nono-accent);
   position: relative;
 }
 
@@ -430,7 +430,7 @@ function resetAppearance() {
 }
 
 .portal-enabled input {
-  accent-color: #0f766e;
+  accent-color: var(--nono-accent);
   height: 17px;
   width: 17px;
 }
@@ -458,7 +458,7 @@ function resetAppearance() {
 
 .portal-preview-kicker {
   align-items: center;
-  color: #0f766e;
+  color: var(--nono-accent);
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
@@ -534,13 +534,13 @@ legend {
 }
 
 .range-field output {
-  color: #0f766e;
+  color: var(--nono-accent);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 .range-field input {
-  accent-color: #0f766e;
+  accent-color: var(--nono-accent);
   cursor: pointer;
   width: 100%;
 }
