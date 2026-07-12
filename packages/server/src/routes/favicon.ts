@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 
 const HOSTNAME_PATTERN = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
@@ -15,22 +17,74 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
-function readCache(domain: string) {
-  const entry = cache.get(domain);
-  if (!entry) return undefined;
-  if (entry.expires < Date.now()) {
-    cache.delete(domain);
-    return undefined;
-  }
-  return entry;
+// Disk layer survives restarts; NONO_FAVICON_CACHE_DIR overrides (empty string disables).
+function getDiskDir() {
+  return process.env.NONO_FAVICON_CACHE_DIR ?? path.resolve(process.cwd(), '.favicon-cache');
 }
 
-function writeCache(domain: string, entry: CacheEntry) {
+function diskPaths(domain: string) {
+  const dir = getDiskDir();
+  return {
+    icon: path.join(dir, `${domain}.icon`),
+    meta: path.join(dir, `${domain}.json`),
+  };
+}
+
+function readDisk(domain: string): CacheEntry | undefined {
+  if (!getDiskDir()) return undefined;
+  try {
+    const { icon, meta } = diskPaths(domain);
+    const parsed = JSON.parse(fs.readFileSync(meta, 'utf8')) as { contentType: string; expires: number; miss?: boolean };
+    if (!parsed.expires || parsed.expires < Date.now()) return undefined;
+    if (parsed.miss) return { body: null, contentType: '', expires: parsed.expires };
+    return { body: fs.readFileSync(icon), contentType: parsed.contentType, expires: parsed.expires };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeDisk(domain: string, entry: CacheEntry) {
+  const dir = getDiskDir();
+  if (!dir) return;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const { icon, meta } = diskPaths(domain);
+    if (entry.body) {
+      fs.writeFileSync(icon, entry.body);
+      fs.writeFileSync(meta, JSON.stringify({ contentType: entry.contentType, expires: entry.expires }));
+    } else {
+      fs.writeFileSync(meta, JSON.stringify({ contentType: '', expires: entry.expires, miss: true }));
+    }
+  } catch {
+    // Disk cache is best-effort; memory layer still works.
+  }
+}
+
+function readCache(domain: string) {
+  const entry = cache.get(domain);
+  if (entry) {
+    if (entry.expires >= Date.now()) return entry;
+    cache.delete(domain);
+  }
+  const disk = readDisk(domain);
+  if (disk) {
+    writeMemory(domain, disk);
+    return disk;
+  }
+  return undefined;
+}
+
+function writeMemory(domain: string, entry: CacheEntry) {
   if (cache.size >= MAX_CACHE_ENTRIES) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
   }
   cache.set(domain, entry);
+}
+
+function writeCache(domain: string, entry: CacheEntry) {
+  writeMemory(domain, entry);
+  writeDisk(domain, entry);
 }
 
 async function fetchIcon(url: string): Promise<{ body: Buffer; contentType: string } | null> {

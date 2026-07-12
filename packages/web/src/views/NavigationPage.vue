@@ -2,17 +2,15 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ArrowUpRight, X, Lock } from 'lucide-vue-next';
-import FaviconBadge from '@/components/FaviconBadge.vue';
+import { ArrowUpRight } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
-import FolderGlyph from '@/components/FolderGlyph.vue';
+import FolderExpandModal from '@/components/FolderExpandModal.vue';
+import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
 import SearchBar from '@/components/SearchBar.vue';
-import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
+import { buildSearchUrl } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
-import { getFaviconUrl } from '@/utils/favicon';
-import { splitHighlight } from '@/utils/highlight';
 import { getPortalSettings } from '@/utils/portal';
 import { getEngine, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 
@@ -20,27 +18,24 @@ const route = useRoute();
 const navigation = useNavigationStore();
 const query = ref('');
 const debouncedQuery = ref('');
-const password = ref('');
 const verifying = ref<Folder | null>(null);
 const expandedFolder = ref<Folder | null>(null);
-const error = ref('');
 const visibleBackgroundImage = ref('');
 const loadedBackgroundImage = ref('');
-const faviconErrors = ref<Record<string | number, boolean>>({});
 const folderLoadSentinel = ref<HTMLElement | null>(null);
 const renderedFolderCount = ref(24);
 const activeFolderId = ref<string | null>(null);
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
-const expandModalRef = ref<HTMLElement | null>(null);
-const unlockModalRef = ref<HTMLElement | null>(null);
 let backgroundPreloadVersion = 0;
 let folderObserver: IntersectionObserver | null = null;
 let scrollspyObserver: IntersectionObserver | null = null;
 const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
+const tabsScrollable = ref(false);
 
 function updateTabIndicator() {
   const nav = tabsRef.value;
+  tabsScrollable.value = Boolean(nav && nav.scrollWidth > nav.clientWidth + 1);
   const active = nav?.querySelector<HTMLElement>('a.active');
   if (!nav || !active) {
     tabIndicatorStyle.value = { opacity: '0' };
@@ -149,10 +144,6 @@ const folderMetadata = computed(() => {
     depthById: new Map(folders.map((folder) => [folder.id, getDepth(folder)])),
   };
 });
-const expandedFavicons = computed(() => {
-  const entries = (expandedFolder.value?.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)] as const);
-  return new Map(entries);
-});
 
 function normalizeSearchText(link: Link) {
   return `${link.name} ${link.description || ''} ${link.url}`.toLocaleLowerCase();
@@ -213,10 +204,6 @@ function preloadPublicBackground(url?: string | null) {
   image.src = url;
 }
 
-function handleFaviconError(linkId: string | number) {
-  faviconErrors.value[linkId] = true;
-}
-
 function submitSearch() {
   const q = query.value.trim();
   if (!q) return;
@@ -240,81 +227,21 @@ const externalSearchLabel = computed(() => {
   return engine.template ? engine.label : '外部搜索';
 });
 
-async function verifyFolder() {
-  if (!verifying.value) return;
-  error.value = '';
-  try {
-    const result = await apiRequest<{ verified: boolean; links: Link[] }>(`/api/navigation/${username.value}/folder/${verifying.value.id}/verify`, {
-      method: 'POST',
-      body: jsonBody({ password: password.value }),
-    });
-    if (!result.verified) {
-      error.value = '密码不正确';
-      return;
-    }
-    verifying.value.links = result.links;
+function onFolderVerified(links: Link[]) {
+  if (verifying.value) {
+    verifying.value.links = links;
     verifying.value.locked = false;
-    verifying.value = null;
-    password.value = '';
-  } catch (event) {
-    error.value = event instanceof Error ? event.message : '验证失败';
   }
-}
-
-function closeVerify() {
   verifying.value = null;
-  password.value = '';
-  error.value = '';
 }
 
-let lastFocused: HTMLElement | null = null;
-watch(anyModalOpen, async (open) => {
+// Modals own Escape/focus handling; the page only locks body scroll while one is open.
+watch(anyModalOpen, (open) => {
   if (typeof document === 'undefined') return;
   document.body.style.overflow = open ? 'hidden' : '';
-  if (open) {
-    lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    await nextTick();
-    const modal = verifying.value ? unlockModalRef.value : expandModalRef.value;
-    const target = modal?.querySelector<HTMLElement>('input, button, a[href]');
-    (target || modal)?.focus();
-  } else {
-    lastFocused?.focus();
-    lastFocused = null;
-  }
 });
 
-function trapFocus(event: KeyboardEvent, modal: HTMLElement | null) {
-  if (!modal) return;
-  const focusables = Array.from(
-    modal.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'),
-  );
-  if (!focusables.length) {
-    event.preventDefault();
-    modal.focus();
-    return;
-  }
-  const first = focusables[0];
-  const last = focusables[focusables.length - 1];
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !modal.contains(active))) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
 function onGlobalKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    if (verifying.value) closeVerify();
-    else if (expandedFolder.value) expandedFolder.value = null;
-    return;
-  }
-  if (event.key === 'Tab' && anyModalOpen.value) {
-    trapFocus(event, verifying.value ? unlockModalRef.value : expandModalRef.value);
-    return;
-  }
   if (event.key === '/' && !anyModalOpen.value && !event.ctrlKey && !event.metaKey && !event.altKey) {
     const el = event.target;
     if (el instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable)) return;
@@ -464,7 +391,7 @@ onUnmounted(() => {
         站内命中 {{ localMatchCount }} 个链接
       </p>
 
-      <nav ref="tabsRef" class="folder-tabs" aria-label="文件夹">
+      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="文件夹">
         <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
         <a
           v-for="folder in tabFolders"
@@ -502,67 +429,9 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Expanded Folder Modal -->
-    <div v-if="expandedFolder" class="folder-expand-backdrop" @click.self="expandedFolder = null">
-      <section ref="expandModalRef" class="folder-expand-modal" role="dialog" aria-modal="true" :aria-label="expandedFolder.name" tabindex="-1">
-        <header class="folder-expand-head">
-          <div class="expand-head-title">
-            <FolderGlyph class="expand-folder-icon" :icon="expandedFolder.icon" :size="22" />
-            <h2>{{ expandedFolder.name }}</h2>
-          </div>
-          <button class="folder-expand-close" type="button" title="关闭" @click="expandedFolder = null">
-            <X :size="20" />
-          </button>
-        </header>
+    <FolderExpandModal v-if="expandedFolder" :folder="expandedFolder" :highlight="debouncedQuery" @close="expandedFolder = null" />
 
-        <div class="expanded-link-grid">
-          <a v-for="link in expandedFolder.links || []" :key="link.id" class="expanded-link" :href="link.url" target="_blank" rel="noreferrer">
-            <span class="expanded-link-icon">
-              <img
-                v-if="expandedFavicons.get(link.id) && !faviconErrors[link.id]"
-                :src="expandedFavicons.get(link.id)"
-                alt=""
-                loading="lazy"
-                decoding="async"
-                @error="handleFaviconError(link.id)"
-              />
-              <FaviconBadge v-else :name="link.name" :url="link.url" :size="24" />
-            </span>
-            <span class="expanded-link-copy">
-              <strong>
-                <template v-for="(segment, index) in splitHighlight(link.name, debouncedQuery)" :key="index">
-                  <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
-                </template>
-              </strong>
-              <small v-if="link.description">{{ link.description }}</small>
-            </span>
-          </a>
-          <p v-if="!(expandedFolder.links || []).length" class="expanded-empty">这个文件夹还没有可展示的书签。</p>
-        </div>
-      </section>
-    </div>
-
-    <!-- Verify Folder Password Modal -->
-    <div v-if="verifying" class="modal-backdrop" @click.self="closeVerify">
-      <form ref="unlockModalRef" class="modal" role="dialog" aria-modal="true" :aria-label="verifying.name" tabindex="-1" @submit.prevent="verifyFolder">
-        <div class="modal-head">
-          <div class="modal-icon-lock">
-            <Lock :size="22" />
-          </div>
-          <h2>{{ verifying.name }}</h2>
-        </div>
-        <p v-if="verifying.passwordHint" class="password-hint">提示：{{ verifying.passwordHint }}</p>
-        <p v-if="error" class="error">{{ error }}</p>
-        <div class="field">
-          <label>请输入文件夹密码</label>
-          <input v-model="password" type="password" autofocus placeholder="••••••" />
-        </div>
-        <div class="toolbar modal-actions">
-          <button class="button" type="submit">确认解锁</button>
-          <button class="button secondary" type="button" @click="closeVerify">取消</button>
-        </div>
-      </form>
-    </div>
+    <FolderUnlockModal v-if="verifying" :folder="verifying" :username="username" @close="verifying = null" @verified="onFolderVerified" />
   </main>
 </template>
 
@@ -860,6 +729,12 @@ h1 {
   display: none;
 }
 
+/* Edge fade hints that more tabs are reachable by horizontal scroll */
+.folder-tabs.tabs-scrollable {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
 .tab-indicator {
   background: rgba(var(--accent-rgb), 0.22);
   border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
@@ -967,306 +842,6 @@ mark {
   transform: translateY(-1px);
 }
 
-/* Expanded Modal Details */
-.folder-expand-backdrop {
-  align-items: center;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(8, 10, 14, 0.75);
-  display: grid;
-  inset: 0;
-  padding: 40px 36px;
-  position: fixed;
-  z-index: 100;
-  animation: fadeIn 0.25s ease-out;
-}
-
-.folder-expand-modal {
-  background: rgba(15, 18, 25, var(--public-modal-opacity, 0.85));
-  backdrop-filter: blur(var(--public-modal-blur, 24px));
-  -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--public-modal-radius, 8px);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.04);
-  color: #f3f4f6;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 20px;
-  margin: 0 auto;
-  height: min(80vh, 760px);
-  overflow: hidden;
-  padding: 24px 32px;
-  width: min(100%, 1200px);
-  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.folder-expand-head {
-  align-items: center;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 16px;
-}
-
-.expand-head-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.expand-folder-icon {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 22px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
-}
-
-.folder-expand-head h2 {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0;
-  margin: 0;
-  color: #ffffff;
-}
-
-.folder-expand-close {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  display: inline-flex;
-  height: 36px;
-  justify-content: center;
-  padding: 0;
-  transform: translateZ(0);
-  transition:
-    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-  width: 36px;
-}
-
-.folder-expand-close:hover,
-.folder-expand-close:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  transform: translateY(-1px) scale(1.03);
-}
-
-.folder-expand-close:active {
-  transform: translateY(1px) scale(0.94);
-  transition-duration: 0.12s;
-}
-
-.expanded-link-grid {
-  align-content: start;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  overflow-y: auto;
-  padding-right: 6px;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-  scrollbar-width: thin;
-}
-
-.expanded-link-grid::-webkit-scrollbar {
-  width: 5px;
-}
-
-.expanded-link-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 99px;
-}
-
-.expanded-link {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  color: rgba(243, 244, 246, 0.9);
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 46px minmax(0, 1fr);
-  min-height: 72px;
-  padding: 12px;
-  transition:
-    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.expanded-link:hover,
-.expanded-link:focus-visible {
-  background: rgba(var(--accent-rgb), 0.06);
-  border-color: rgba(var(--accent-rgb), 0.25);
-  color: var(--accent);
-  outline: none;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.08);
-}
-
-.expanded-link:active {
-  transform: translateY(1px) scale(0.985);
-  transition-duration: 0.12s;
-}
-
-.expanded-link:hover small,
-.expanded-link:focus-visible small {
-  color: rgba(var(--accent-rgb), 0.6);
-}
-
-.expanded-link-icon {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  display: inline-flex;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
-  color: rgba(255, 255, 255, 0.3);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.expanded-link-icon img {
-  border-radius: 6px;
-  height: 24px;
-  object-fit: contain;
-  width: 24px;
-}
-
-.expanded-link:hover .expanded-link-icon {
-  background: rgba(var(--accent-rgb), 0.1);
-  border-color: rgba(var(--accent-rgb), 0.2);
-  color: var(--accent);
-  transform: scale(1.04);
-}
-
-.expanded-link-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.expanded-link strong,
-.expanded-link small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.expanded-link strong {
-  font-size: 14.5px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.expanded-link small {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.expanded-empty {
-  color: rgba(255, 255, 255, 0.45);
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 60px 0;
-  font-size: 14px;
-}
-
-/* Modal password unlock */
-.modal-backdrop {
-  align-items: center;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(8, 10, 14, 0.7);
-  display: grid;
-  inset: 0;
-  padding: 24px;
-  position: fixed;
-  z-index: 120;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.modal {
-  background: rgba(17, 20, 28, var(--public-modal-opacity, 0.85));
-  backdrop-filter: blur(var(--public-modal-blur, 24px));
-  -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--public-modal-radius, 8px);
-  display: grid;
-  gap: 20px;
-  margin: 0 auto;
-  max-width: 380px;
-  padding: 28px;
-  width: 100%;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.04);
-  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.modal-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.modal-icon-lock {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.5);
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-}
-
-.modal h2 {
-  font-size: 18px;
-  font-weight: 800;
-  margin: 0;
-  color: #ffffff;
-}
-
-.password-hint {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 13px;
-  margin: 0;
-  line-height: 1.4;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border-left: 3px solid rgba(255, 255, 255, 0.2);
-}
-
-.modal-actions {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.modal-actions .button {
-  width: 100%;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
 @keyframes slideDown {
   from { transform: translateY(-12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
@@ -1330,39 +905,11 @@ mark {
     border-right: 0;
     top: 0;
   }
-
-  .folder-expand-backdrop {
-    padding: 20px 12px;
-  }
-
-  .folder-expand-modal {
-    height: calc(100dvh - 40px);
-    padding: 16px;
-    gap: 16px;
-  }
-
-  .folder-expand-head h2 {
-    font-size: 18px;
-  }
-
-  .expanded-link-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .expanded-link {
-    min-height: 64px;
-    padding: 8px 10px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .header-vibe,
   .portal-corner-link,
-  .folder-expand-backdrop,
-  .folder-expand-modal,
-  .modal-backdrop,
-  .modal,
   .public-loading-bar {
     animation: none;
   }

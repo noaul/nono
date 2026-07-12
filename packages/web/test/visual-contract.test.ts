@@ -191,13 +191,15 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const expandModalSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderExpandModal.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('expandedFolder');
-    expect(source).toContain('folder-expand-modal');
-    expect(source).toContain('expanded-link-grid');
-    expect(source).toContain('<FolderGlyph class="expand-folder-icon"');
-    expect(source).toContain('getFaviconUrl(link.url, link.icon)');
+    expect(source).toContain('<FolderExpandModal');
+    expect(expandModalSource).toContain('folder-expand-modal');
+    expect(expandModalSource).toContain('expanded-link-grid');
+    expect(expandModalSource).toContain('<FolderGlyph class="expand-folder-icon"');
+    expect(expandModalSource).toContain('getFaviconUrl(link.url, link.icon)');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
     expect(folderCardSource).toContain('large-link:active');

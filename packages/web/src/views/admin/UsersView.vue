@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { Save, Trash2 } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
+import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
 
@@ -41,6 +42,7 @@ onMounted(load);
         <button class="button" type="button" @click="saveConfig"><Save :size="17" /> 保存全局配置</button>
       </section>
       <section class="panel list">
+        <EmptyState v-if="!users.length" title="还没有其他用户" description="开放注册或手动创建后，成员会出现在这里。" />
         <article v-for="user in users" :key="user.id" class="row">
           <div class="grid">
             <div class="grid two">

@@ -6,6 +6,9 @@ import { MemoryRepository } from '../src/services/repository.js';
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
+// Disable the on-disk favicon cache layer in tests.
+process.env.NONO_FAVICON_CACHE_DIR = '';
+
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function imageResponse() {

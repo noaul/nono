@@ -4,6 +4,8 @@ import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
+import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
+import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -209,10 +211,6 @@ function folderName(folderId: number) {
   return folders.value.find((folder) => folder.id === folderId)?.name || '-';
 }
 
-function healthStatusLabel(status: LinkHealthResult['status']) {
-  return { ok: '正常', broken: '异常', timeout: '超时', invalid: '无效' }[status];
-}
-
 function startSorting() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
@@ -328,40 +326,8 @@ onMounted(load);
             </button>
           </div>
         </div>
-        <div v-if="duplicateGroups.length" class="duplicate-panel">
-          <div class="duplicate-panel-head">
-            <h3>重复链接</h3>
-            <span>{{ duplicateGroups.length }} 组</span>
-          </div>
-          <div v-for="group in duplicateGroups" :key="group.url" class="duplicate-group">
-            <strong>{{ group.url }}</strong>
-            <ul class="duplicate-list">
-              <li v-for="link in group.links" :key="link.id">
-                <span>{{ link.name }}</span>
-                <small>{{ folderName(link.folderId) }}</small>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div v-if="healthSummary" class="health-check-panel">
-          <div class="health-check-head">
-            <h3>健康检查</h3>
-            <span>{{ healthSummary.total }} 个链接</span>
-          </div>
-          <div class="health-summary">
-            <span>正常 {{ healthSummary.ok }}</span>
-            <span>异常 {{ healthSummary.broken }}</span>
-            <span>超时 {{ healthSummary.timeout }}</span>
-            <span>无效 {{ healthSummary.invalid }}</span>
-          </div>
-          <div class="health-result-list">
-            <div v-for="result in healthResults" :key="result.id" class="health-result-row" :class="`status-${result.status}`">
-              <strong>{{ result.name }}</strong>
-              <span>{{ result.url }}</span>
-              <small>{{ healthStatusLabel(result.status) }}{{ result.statusCode ? ` · ${result.statusCode}` : '' }}{{ result.reason ? ` · ${result.reason}` : '' }}</small>
-            </div>
-          </div>
-        </div>
+        <LinkDuplicatePanel :groups="duplicateGroups" :folder-name="folderName" />
+        <LinkHealthPanel :summary="healthSummary" :results="healthResults" />
         <EmptyState v-if="!filteredLinks.length" title="没有匹配的书签" description="换一个关键词或选择其他文件夹。" />
         <div v-else class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
           <div class="admin-table-head">
