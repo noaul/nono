@@ -11,5 +11,6 @@ node_modules
 !**/.env.example
 design-qa*
 apps/blog/design-qa*
+docs/quality/screenshots
 npm-debug.log*
 pnpm-debug.log*
