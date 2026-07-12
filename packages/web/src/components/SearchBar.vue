@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { Search } from 'lucide-vue-next';
 
 defineProps<{ modelValue: string; placeholder?: string }>();
 defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
+
+const inputRef = ref<HTMLInputElement | null>(null);
+
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+});
 </script>
 
 <template>
@@ -10,11 +17,13 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
     <span class="search-leading-icon" aria-hidden="true">
       <Search :size="17" />
     </span>
-    <input 
-      :value="modelValue" 
-      :placeholder="placeholder || '搜索站内链接，回车继续搜索...'" 
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)" 
+    <input
+      ref="inputRef"
+      :value="modelValue"
+      :placeholder="placeholder || '搜索站内链接，回车继续搜索...'"
+      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
     <button type="submit" class="search-btn" title="搜索">
       <Search :size="18" />
     </button>
@@ -82,6 +91,22 @@ defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
 
 .search-bar input::placeholder {
   color: rgba(226, 232, 240, 0.56);
+}
+
+.search-kbd {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: rgba(226, 232, 240, 0.5);
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.search-bar:focus-within .search-kbd {
+  display: none;
 }
 
 .search-btn {

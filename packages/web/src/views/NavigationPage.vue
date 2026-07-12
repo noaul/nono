@@ -16,6 +16,7 @@ import { getPortalSettings } from '@/utils/portal';
 const route = useRoute();
 const navigation = useNavigationStore();
 const query = ref('');
+const debouncedQuery = ref('');
 const password = ref('');
 const verifying = ref<Folder | null>(null);
 const expandedFolder = ref<Folder | null>(null);
@@ -25,8 +26,21 @@ const loadedBackgroundImage = ref('');
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folderLoadSentinel = ref<HTMLElement | null>(null);
 const renderedFolderCount = ref(24);
+const activeFolderId = ref<string | null>(null);
+const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
+const expandModalRef = ref<HTMLElement | null>(null);
+const unlockModalRef = ref<HTMLElement | null>(null);
 let backgroundPreloadVersion = 0;
 let folderObserver: IntersectionObserver | null = null;
+let scrollspyObserver: IntersectionObserver | null = null;
+
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+watch(query, (value) => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debouncedQuery.value = value;
+  }, 150);
+});
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
@@ -37,7 +51,7 @@ const searchIndex = computed(() =>
     text: normalizeSearchText(link),
   })),
 );
-const normalizedQuery = computed(() => query.value.trim().toLocaleLowerCase());
+const normalizedQuery = computed(() => debouncedQuery.value.trim().toLocaleLowerCase());
 const matchedLinkIds = computed(() => {
   if (!normalizedQuery.value) return null;
   return new Set(searchIndex.value.filter((entry) => entry.text.includes(normalizedQuery.value)).map((entry) => entry.id));
@@ -79,7 +93,8 @@ const shownFolders = computed(() => {
     links: (folder.links || []).filter((link) => matchedLinkIds.value?.has(link.id)),
   }));
 });
-const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !query.value.trim()));
+const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !normalizedQuery.value));
+const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
 const tabFolders = computed(() => {
@@ -186,7 +201,8 @@ function handleFaviconError(linkId: string | number) {
 function submitSearch() {
   const q = query.value.trim();
   if (!q) return;
-  const hasLocalMatch = (matchedLinkIds.value?.size || 0) > 0;
+  const liveQuery = q.toLocaleLowerCase();
+  const hasLocalMatch = searchIndex.value.some((entry) => entry.text.includes(liveQuery));
   if (!hasLocalMatch || payload.value?.site.localSearchFirst === false) {
     window.location.href = buildSearchUrl(q, payload.value?.site.searchUrlTemplate);
   }
@@ -213,6 +229,68 @@ async function verifyFolder() {
   }
 }
 
+function closeVerify() {
+  verifying.value = null;
+  password.value = '';
+  error.value = '';
+}
+
+let lastFocused: HTMLElement | null = null;
+watch(anyModalOpen, async (open) => {
+  if (typeof document === 'undefined') return;
+  document.body.style.overflow = open ? 'hidden' : '';
+  if (open) {
+    lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    await nextTick();
+    const modal = verifying.value ? unlockModalRef.value : expandModalRef.value;
+    const target = modal?.querySelector<HTMLElement>('input, button, a[href]');
+    (target || modal)?.focus();
+  } else {
+    lastFocused?.focus();
+    lastFocused = null;
+  }
+});
+
+function trapFocus(event: KeyboardEvent, modal: HTMLElement | null) {
+  if (!modal) return;
+  const focusables = Array.from(
+    modal.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+  );
+  if (!focusables.length) {
+    event.preventDefault();
+    modal.focus();
+    return;
+  }
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || !modal.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    if (verifying.value) closeVerify();
+    else if (expandedFolder.value) expandedFolder.value = null;
+    return;
+  }
+  if (event.key === 'Tab' && anyModalOpen.value) {
+    trapFocus(event, verifying.value ? unlockModalRef.value : expandModalRef.value);
+    return;
+  }
+  if (event.key === '/' && !anyModalOpen.value && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    const el = event.target;
+    if (el instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable)) return;
+    event.preventDefault();
+    searchBarRef.value?.focus();
+  }
+}
+
 function folderDepth(folder: Folder) {
   return folderMetadata.value.depthById.get(folder.id) || 0;
 }
@@ -236,6 +314,7 @@ async function revealFolder(folder: Folder, event: MouseEvent) {
 
   document.getElementById(`folder-${folder.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.history.replaceState(null, '', `#folder-${folder.id}`);
+  activeFolderId.value = String(folder.id);
 }
 
 function observeFolderSentinel(element: HTMLElement | null) {
@@ -252,16 +331,46 @@ function observeFolderSentinel(element: HTMLElement | null) {
   folderObserver.observe(element);
 }
 
-onMounted(load);
+function setupScrollspy() {
+  scrollspyObserver?.disconnect();
+  scrollspyObserver = null;
+  if (typeof IntersectionObserver === 'undefined') return;
+
+  scrollspyObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) activeFolderId.value = entry.target.id.replace('folder-', '');
+      }
+    },
+    { rootMargin: '-15% 0px -70% 0px' },
+  );
+  document.querySelectorAll('.adaptive-folder-grid [id^="folder-"]').forEach((section) => scrollspyObserver?.observe(section));
+}
+
+onMounted(() => {
+  load();
+  window.addEventListener('keydown', onGlobalKeydown);
+});
 watch(username, load);
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
 watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
 });
 watch(folderLoadSentinel, observeFolderSentinel);
+watch(
+  () => renderedFolders.value.map((folder) => folder.id).join(','),
+  async () => {
+    await nextTick();
+    setupScrollspy();
+  },
+);
 onUnmounted(() => {
   folderObserver?.disconnect();
+  scrollspyObserver?.disconnect();
   removeBackgroundHints();
+  window.removeEventListener('keydown', onGlobalKeydown);
+  clearTimeout(debounceTimer);
+  if (typeof document !== 'undefined') document.body.style.overflow = '';
 });
 </script>
 
@@ -300,7 +409,7 @@ onUnmounted(() => {
         </component>
       </header>
 
-      <SearchBar v-model="query" @submit="submitSearch" />
+      <SearchBar ref="searchBarRef" v-model="query" @submit="submitSearch" />
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
         <span class="public-loading-bar"></span>
@@ -318,7 +427,14 @@ onUnmounted(() => {
       </p>
 
       <nav class="folder-tabs" aria-label="文件夹">
-        <a v-for="folder in tabFolders" :key="folder.id" :href="`#folder-${folder.id}`" @click="revealFolder(folder, $event)">
+        <a
+          v-for="folder in tabFolders"
+          :key="folder.id"
+          :href="`#folder-${folder.id}`"
+          :class="{ active: String(folder.id) === activeFolderId }"
+          :aria-current="String(folder.id) === activeFolderId ? 'true' : undefined"
+          @click="revealFolder(folder, $event)"
+        >
           {{ folder.name }}
         </a>
       </nav>
@@ -343,7 +459,7 @@ onUnmounted(() => {
 
     <!-- Expanded Folder Modal -->
     <div v-if="expandedFolder" class="folder-expand-backdrop" @click.self="expandedFolder = null">
-      <section class="folder-expand-modal" role="dialog" aria-modal="true" :aria-label="expandedFolder.name">
+      <section ref="expandModalRef" class="folder-expand-modal" role="dialog" aria-modal="true" :aria-label="expandedFolder.name" tabindex="-1">
         <header class="folder-expand-head">
           <div class="expand-head-title">
             <FolderGlyph class="expand-folder-icon" :icon="expandedFolder.icon" :size="22" />
@@ -378,8 +494,8 @@ onUnmounted(() => {
     </div>
 
     <!-- Verify Folder Password Modal -->
-    <div v-if="verifying" class="modal-backdrop" @click.self="verifying = null">
-      <form class="modal" @submit.prevent="verifyFolder">
+    <div v-if="verifying" class="modal-backdrop" @click.self="closeVerify">
+      <form ref="unlockModalRef" class="modal" role="dialog" aria-modal="true" :aria-label="verifying.name" tabindex="-1" @submit.prevent="verifyFolder">
         <div class="modal-head">
           <div class="modal-icon-lock">
             <Lock :size="22" />
@@ -394,7 +510,7 @@ onUnmounted(() => {
         </div>
         <div class="toolbar modal-actions">
           <button class="button" type="submit">确认解锁</button>
-          <button class="button secondary" type="button" @click="verifying = null">取消</button>
+          <button class="button secondary" type="button" @click="closeVerify">取消</button>
         </div>
       </form>
     </div>
@@ -679,6 +795,9 @@ h1 {
   padding: 5px;
   width: min(100%, 1200px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.16);
+  position: sticky;
+  top: 12px;
+  z-index: 10;
 }
 
 .folder-tabs::-webkit-scrollbar {
@@ -708,6 +827,11 @@ h1 {
 .folder-tabs a:active {
   transform: translateY(1px) scale(0.97);
   transition-duration: 0.12s;
+}
+
+.folder-tabs a.active {
+  background: rgba(16, 185, 129, 0.22);
+  color: #a7f3d0;
 }
 
 .adaptive-folder-grid {
@@ -1106,6 +1230,7 @@ h1 {
     width: calc(100% + 16px);
     border-left: 0;
     border-right: 0;
+    top: 0;
   }
 
   .folder-expand-backdrop {
