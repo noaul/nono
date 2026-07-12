@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Bookmark, Lock, Maximize2 } from 'lucide-vue-next';
+import { Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
+import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
@@ -66,7 +67,7 @@ function handleFaviconError(linkId: string | number) {
           decoding="async"
           @error="handleFaviconError(link.id)"
         />
-        <Bookmark v-else :size="18" class="large-link-icon fallback-link-icon" />
+        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="18" />
         <span>
           <template v-for="(segment, index) in splitHighlight(link.name, props.highlight)" :key="index">
             <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
@@ -129,6 +130,9 @@ h2 {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #ffffff;
+}
+
+.nav-bg-visible .large-folder h2 {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 

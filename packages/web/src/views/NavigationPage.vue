@@ -2,7 +2,8 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ArrowUpRight, Bookmark, X, Lock } from 'lucide-vue-next';
+import { ArrowUpRight, X, Lock } from 'lucide-vue-next';
+import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -525,7 +526,7 @@ onUnmounted(() => {
                 decoding="async"
                 @error="handleFaviconError(link.id)"
               />
-              <Bookmark v-else :size="20" />
+              <FaviconBadge v-else :name="link.name" :url="link.url" :size="24" />
             </span>
             <span class="expanded-link-copy">
               <strong>
@@ -747,6 +748,10 @@ h1 {
   font-weight: 900;
   letter-spacing: 0;
   color: #ffffff;
+}
+
+/* Text shadows only earn their keep over a background image; on flat color they just blur. */
+.nav-bg-visible h1 {
   text-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
@@ -762,6 +767,9 @@ h1 {
   margin: 12px 0 0;
   max-width: 600px;
   font-weight: 500;
+}
+
+.nav-bg-visible .nav-header p {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -1293,9 +1301,10 @@ mark {
   }
 
   .portal-corner-link {
+    margin: 0 auto;
     min-height: 40px;
-    right: 12px;
-    top: 12px;
+    position: static;
+    width: fit-content;
   }
 
   .portal-corner-link span {
