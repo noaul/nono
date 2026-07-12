@@ -1,0 +1,18 @@
+{
+	"short_name": "Faint Light",
+	"name": "Faint Light",
+	"description": "U1S1",
+	"start_url": "/",
+	"scope": "/",
+	"icons": [
+		{
+			"src": "/favicon.png",
+			"sizes": "1024x1024",
+			"type": "image/png"
+		}
+	],
+	"display": "standalone",
+	"background_color": "#d4e8f3",
+	"theme_color": "#35bfab",
+	"lang": "zh-CN"
+}

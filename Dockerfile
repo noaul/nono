@@ -14,12 +14,10 @@ COPY . .
 RUN npm run prisma:generate
 RUN npm run build
 
-FROM blog AS blog-source
-
 FROM node:22-alpine AS blog-deps
 WORKDIR /app/blog
 RUN corepack enable
-COPY --from=blog-source /package.json /pnpm-lock.yaml /pnpm-workspace.yaml /.npmrc ./
+COPY apps/blog/package.json apps/blog/pnpm-lock.yaml apps/blog/pnpm-workspace.yaml apps/blog/.npmrc ./
 RUN pnpm install --frozen-lockfile
 
 FROM blog-deps AS blog-build
@@ -30,6 +28,7 @@ ARG NEXT_PUBLIC_GITHUB_OWNER
 ARG NEXT_PUBLIC_GITHUB_REPO
 ARG NEXT_PUBLIC_GITHUB_BRANCH
 ARG NEXT_PUBLIC_GITHUB_APP_ID
+ARG NEXT_PUBLIC_GITHUB_ROOT_PATH=apps/blog
 ARG NEXT_PUBLIC_BASE_PATH=/blog
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_NONO_URL=$NEXT_PUBLIC_NONO_URL
@@ -37,8 +36,9 @@ ENV NEXT_PUBLIC_GITHUB_OWNER=$NEXT_PUBLIC_GITHUB_OWNER
 ENV NEXT_PUBLIC_GITHUB_REPO=$NEXT_PUBLIC_GITHUB_REPO
 ENV NEXT_PUBLIC_GITHUB_BRANCH=$NEXT_PUBLIC_GITHUB_BRANCH
 ENV NEXT_PUBLIC_GITHUB_APP_ID=$NEXT_PUBLIC_GITHUB_APP_ID
+ENV NEXT_PUBLIC_GITHUB_ROOT_PATH=$NEXT_PUBLIC_GITHUB_ROOT_PATH
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
-COPY --from=blog-source / ./
+COPY apps/blog/ ./
 RUN pnpm build
 
 FROM node:22-alpine AS runtime

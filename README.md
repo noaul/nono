@@ -2,6 +2,7 @@
 
 Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工具。当前版本已经从零依赖单体 Node.js 应用重构为 monorepo：
 
+- `apps/blog`：Next.js 博客、文章与图片管理
 - `packages/server`：Fastify + Prisma + PostgreSQL API
 - `packages/web`：Vue 3 + Vite + Pinia + Vue Router
 - `packages/extension`：Chrome Manifest V3 一键收藏插件
@@ -35,6 +36,13 @@ npm run dev
 npm run dev:web
 ```
 
+博客首次开发前安装其锁定依赖：
+
+```bash
+npm run install:blog
+npm run dev:blog
+```
+
 默认访问：
 
 ```text
@@ -58,18 +66,14 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-请先修改 `.env` 里的 `SESSION_SECRET` 和 `ENCRYPTION_KEY`。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像会同时构建 Nono 与 `2025-blog-public`，启动前运行 Prisma migration，再由内置网关统一转发：
+请先修改 `.env` 里的 `SESSION_SECRET` 和 `ENCRYPTION_KEY`。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库的 `apps/blog` 构建博客，启动前运行 Prisma migration，再由内置网关统一转发：
 
 ```text
 Nono: http://127.0.0.1:3000
 Blog: http://127.0.0.1:3000/blog
 ```
 
-`docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器。默认会把 `noaul/2025-blog-public` 的 `my-features` 分支作为 Docker 的附加构建上下文。需要改为本地相邻仓库时，在 `.env` 中设置：
-
-```text
-BLOG_BUILD_CONTEXT=../2025-blog-public
-```
+`docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
 
 正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为同域名下的 `/blog` 地址，例如：
 
@@ -79,6 +83,16 @@ BLOG_PUBLIC_URL=https://example.com/blog
 ```
 
 两端公开页面的中心图片和右上角入口可以在各自后台配置；Docker 构建参数会作为初始跳转地址，后台保存的设置优先。
+
+博客后台通过 GitHub App 提交文章与图片时，默认写入当前 `nono` 仓库的 `apps/blog` 目录：
+
+```text
+NEXT_PUBLIC_GITHUB_REPO=nono
+NEXT_PUBLIC_GITHUB_BRANCH=main
+NEXT_PUBLIC_GITHUB_ROOT_PATH=apps/blog
+```
+
+GitHub App 必须安装到 `nono` 仓库并拥有 Contents 写权限。
 
 ## 旧数据迁移
 

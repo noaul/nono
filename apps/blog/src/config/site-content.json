@@ -1,0 +1,73 @@
+{
+	"meta": {
+		"title": "Faint Light",
+		"description": "U1S1",
+		"username": "Austin"
+	},
+	"portal": {
+		"enabled": true,
+		"url": "",
+		"label": "返回网址导航",
+		"imageUrl": "/images/avatar.png",
+		"openInNewTab": false
+	},
+	"theme": {
+		"colorBrand": "#35bfab",
+		"colorPrimary": "#5B423F",
+		"colorSecondary": "#8b7667",
+		"colorBrandSecondary": "#eec25e",
+		"colorBg": "#d4e8f3",
+		"colorBorder": "#ffffff",
+		"colorCard": "#ffffff99",
+		"colorArticle": "#ffffffcc"
+	},
+	"backgroundColors": ["#EDDD62", "#9EE7D1", "#84D68A", "#88E6E5", "#a7f3d0"],
+	"artImages": [
+		{
+			"id": "cat",
+			"url": "/images/art/cat.png"
+		}
+	],
+	"currentArtImageId": "cat",
+	"backgroundImages": [
+		{
+			"id": "bing-daily",
+			"url": "https://api.dujin.org/bing/1920.php"
+		}
+	],
+	"currentBackgroundImageId": "bing-daily",
+	"socialButtons": [
+		{
+			"id": "github",
+			"type": "github",
+			"value": "https://github.com/auaodo",
+			"label": "Github",
+			"order": 3
+		},
+		{
+			"id": "faint-light",
+			"type": "link",
+			"value": "https://aodo.me",
+			"label": "微光",
+			"order": 2
+		},
+		{
+			"id": "email",
+			"type": "email",
+			"value": "auaodo@gmail.com",
+			"label": "",
+			"order": 1
+		}
+	],
+	"clockShowSeconds": false,
+	"summaryInContent": false,
+	"hideEditButton": false,
+	"enableCategories": true,
+	"currentHatIndex": 3,
+	"hatFlipped": false,
+	"enableChristmas": false,
+	"beian": {
+		"text": "",
+		"link": ""
+	}
+}

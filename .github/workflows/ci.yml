@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_OPTIONS: --max-old-space-size=2048
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Nono dependencies
+        run: npm ci
+
+      - name: Test Nono
+        run: npm test
+
+      - name: Build Nono
+        run: npm run build:nono
+
+      - name: Install Blog dependencies
+        working-directory: apps/blog
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Blog
+        working-directory: apps/blog
+        run: pnpm test
+
+      - name: Check Blog types
+        working-directory: apps/blog
+        run: pnpm typecheck
+
+      - name: Build Blog
+        working-directory: apps/blog
+        run: pnpm build

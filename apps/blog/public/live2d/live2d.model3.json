@@ -1,0 +1,9 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "live2d.moc3",
+		"Textures": [
+			"live2d.2048/texture_00.png"
+		]
+	}
+}
