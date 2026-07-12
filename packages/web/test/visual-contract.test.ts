@@ -385,4 +385,26 @@ describe('visual contracts', () => {
     expect(folders).toContain('<FolderGlyph :icon="folder.icon"');
     expect(links).toContain('<FolderGlyph :icon="folder.icon"');
   });
+
+  it('defines repeatable desktop and mobile browser performance baselines', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const root = path.resolve(process.cwd(), '../..');
+    const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+    const playwrightConfig = fs.readFileSync(path.join(root, 'playwright.config.ts'), 'utf8');
+    const smokeTest = fs.readFileSync(path.join(root, 'tests/e2e/public-navigation.smoke.spec.ts'), 'utf8');
+    const baselineDoc = fs.readFileSync(path.join(root, 'docs/quality/ui-performance-baseline.md'), 'utf8');
+
+    expect(packageJson.scripts['test:e2e']).toBe('playwright test');
+    expect(packageJson.devDependencies['@playwright/test']).toBeTruthy();
+    expect(playwrightConfig).toContain("name: 'desktop-chromium'");
+    expect(playwrightConfig).toContain("name: 'mobile-chromium'");
+    expect(playwrightConfig).toContain('webServer');
+    expect(smokeTest).toContain("page.route('**/api/navigation/admin'");
+    expect(smokeTest).toContain("page.goto('/admin')");
+    expect(smokeTest).toContain('performance.getEntriesByType');
+    expect(baselineDoc).toContain('npm run test:e2e');
+    expect(baselineDoc).toContain('desktop-chromium');
+    expect(baselineDoc).toContain('mobile-chromium');
+  });
 });

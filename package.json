@@ -18,6 +18,8 @@
     "build:all": "npm run build:nono && npm run build:blog",
     "start": "npm run start -w packages/server",
     "test": "npm run test -w packages/server && npm run test -w packages/web && npm run test -w packages/extension",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "test:blog": "pnpm --dir apps/blog test",
     "test:all": "npm test && npm run test:blog",
     "typecheck:blog": "pnpm --dir apps/blog typecheck",
@@ -30,5 +32,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
   }
 }
