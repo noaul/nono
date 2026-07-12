@@ -77,6 +77,45 @@ function edit(link: Link) {
   stopSorting();
 }
 
+const quickUrl = ref('');
+const isQuickAdding = ref(false);
+
+async function quickAdd() {
+  const url = quickUrl.value.trim();
+  if (!url || isQuickAdding.value) return;
+  if (!/^https?:\/\//i.test(url)) {
+    notifyError('请以 http 或 https 开头');
+    return;
+  }
+  const folderId = form.folderId || activeFolder.value?.id || folders.value[0]?.id;
+  if (!folderId) {
+    notifyError('请先创建一个文件夹');
+    return;
+  }
+  isQuickAdding.value = true;
+  try {
+    const meta = await apiRequest<{ title: string; description: string }>(`/api/admin/fetch-meta?url=${encodeURIComponent(url)}`).catch(() => ({ title: '', description: '' }));
+    const fallbackName = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        return url;
+      }
+    })();
+    const saved = await apiRequest<Link>('/api/admin/links', {
+      method: 'POST',
+      body: jsonBody({ folderId, name: (meta.title || fallbackName).slice(0, 24), url, icon: '', description: meta.description || '' }),
+    });
+    links.value = [saved, ...links.value];
+    quickUrl.value = '';
+    notifySuccess(`已添加「${saved.name}」`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '快速添加失败');
+  } finally {
+    isQuickAdding.value = false;
+  }
+}
+
 function reset() {
   Object.assign(form, { id: 0, folderId: activeFolder.value?.id || folders.value[0]?.id || 0, name: '', url: '', icon: '', description: '' });
 }
@@ -279,6 +318,21 @@ onMounted(load);
       <p class="warning-line">隐私与法律免责声明：你所添加的每一个链接都将负法律责任。</p>
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
+      <form class="quick-add-bar" @submit.prevent="quickAdd">
+        <input
+          v-model="quickUrl"
+          data-testid="quick-add-url"
+          type="url"
+          placeholder="粘贴 URL 回车即添加 — 自动抓取标题和介绍"
+          :disabled="isQuickAdding"
+        />
+        <select v-model.number="form.folderId" aria-label="目标文件夹">
+          <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+        </select>
+        <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
+          {{ isQuickAdding ? '抓取中…' : '快速添加' }}
+        </button>
+      </form>
       <form class="bookmark-create-grid" @submit.prevent="save">
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
         <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>

@@ -33,5 +33,9 @@
   --nono-surface-opacity: 0.62;
   --nono-surface-blur: 10px;
   --nono-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nono-ease-spring: cubic-bezier(0.34, 1.36, 0.44, 1);
+  --nono-dur-fast: 120ms;
+  --nono-dur-base: 240ms;
+  --nono-dur-slow: 340ms;
   --nono-focus-ring: 0 0 0 3px rgb(15 118 110 / 18%);
 }

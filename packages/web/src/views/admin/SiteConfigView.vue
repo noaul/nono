@@ -7,6 +7,7 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
+import { PUBLIC_THEMES, accentCssVars, type PublicTheme } from '@/utils/themes';
 
 const form = reactive({
   name: '',
@@ -21,15 +22,34 @@ const form = reactive({
 });
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
 const portal = reactive({ ...portalDefaults });
+const theme = reactive({ id: '', accent: '' });
 const message = ref('');
 const error = ref('');
 const saving = ref(false);
+
+function applyTheme(preset: PublicTheme) {
+  theme.id = preset.id;
+  theme.accent = preset.accent;
+  form.backgroundColor = preset.backgroundColor;
+  form.fontColor = preset.fontColor;
+  Object.assign(appearance, preset.appearance);
+}
+
+function themePreviewStyle(preset: PublicTheme) {
+  return {
+    ...accentCssVars(preset.accent),
+    '--theme-bg': preset.backgroundColor,
+    '--theme-font': preset.fontColor,
+  };
+}
 
 onMounted(async () => {
   const site = await apiRequest<Site>('/api/admin/site');
   Object.assign(form, site, { settings: { ...(site.settings || {}) } });
   Object.assign(appearance, getAppearanceSettings(site.settings));
   Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
+  const savedTheme = (site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
+  if (savedTheme) Object.assign(theme, { id: savedTheme.id || '', accent: savedTheme.accent || '' });
 });
 
 async function save() {
@@ -43,6 +63,7 @@ async function save() {
         ...form.settings,
         appearance: { ...appearance },
         portal: { ...portal },
+        theme: { ...theme },
       },
     };
     const site = await apiRequest<Site>('/api/admin/site', { method: 'PUT', body: jsonBody(payload) });
@@ -136,6 +157,35 @@ async function save() {
         </div>
       </section>
 
+      <section class="admin-card theme-wall-card">
+        <header class="admin-card-head">
+          <div>
+            <h2><Palette :size="18" /> 主题预设</h2>
+            <p>一键应用整套配色与质感，应用后仍可在下方单独微调</p>
+          </div>
+        </header>
+        <div class="theme-wall">
+          <button
+            v-for="preset in PUBLIC_THEMES"
+            :key="preset.id"
+            type="button"
+            class="theme-card"
+            :class="{ active: theme.id === preset.id }"
+            :style="themePreviewStyle(preset)"
+            :data-testid="`theme-${preset.id}`"
+            @click="applyTheme(preset)"
+          >
+            <span class="theme-swatch">
+              <span class="theme-swatch-tab"></span>
+              <span class="theme-swatch-card"></span>
+              <span class="theme-swatch-accent"></span>
+            </span>
+            <strong>{{ preset.name }}</strong>
+            <small>{{ preset.description }}</small>
+          </button>
+        </div>
+      </section>
+
       <AppearanceEditor :appearance="appearance" :preview-bg="form.backgroundColor" />
 
       <footer class="site-config-actions">
@@ -159,6 +209,81 @@ async function save() {
 
 .site-config-feedback p {
   margin: 0;
+}
+
+.theme-wall {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.theme-card {
+  background: var(--theme-bg, #0b0d12);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  color: var(--theme-font, #f3f4f6);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 8px;
+  justify-items: start;
+  padding: 14px;
+  text-align: left;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-card:hover,
+.theme-card:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
+}
+
+.theme-card.active {
+  border-color: var(--accent, #10b981);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 16, 185, 129), 0.2);
+}
+
+.theme-card strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.theme-card small {
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+.theme-swatch {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.theme-swatch-tab {
+  background: color-mix(in srgb, var(--theme-font, #fff) 18%, transparent);
+  border-radius: 999px;
+  display: inline-block;
+  height: 10px;
+  width: 44px;
+}
+
+.theme-swatch-card {
+  background: color-mix(in srgb, var(--theme-font, #fff) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 24%, transparent);
+  border-radius: 4px;
+  display: inline-block;
+  height: 18px;
+  width: 26px;
+}
+
+.theme-swatch-accent {
+  background: var(--accent, #10b981);
+  border-radius: 999px;
+  display: inline-block;
+  height: 14px;
+  width: 14px;
 }
 
 .admin-card {

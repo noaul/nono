@@ -13,6 +13,7 @@ import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
 import { getEngine, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
+import { getThemeAccentVars } from '@/utils/themes';
 
 const route = useRoute();
 const navigation = useNavigationStore();
@@ -74,6 +75,7 @@ const localMatchCount = computed(() => {
 });
 const backgroundStyle = computed(() => {
   const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
+  const accentVars = getThemeAccentVars(payload.value?.site.settings);
   if (!payload.value?.site) {
     return {
       ...appearanceVars,
@@ -86,6 +88,7 @@ const backgroundStyle = computed(() => {
 
   return {
     ...appearanceVars,
+    ...accentVars,
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
     '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
     '--nav-bg-image': visibleBackgroundImage.value
@@ -414,7 +417,7 @@ onUnmounted(() => {
         </button>
       </nav>
 
-      <div class="adaptive-folder-grid">
+      <TransitionGroup tag="div" name="folder-card" class="adaptive-folder-grid">
         <FolderCard
           v-for="folder in renderedFolders"
           :key="folder.id"
@@ -426,7 +429,7 @@ onUnmounted(() => {
           @verify="verifying = $event"
           @expand="expandedFolder = $event"
         />
-      </div>
+      </TransitionGroup>
       <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
         继续加载更多文件夹
       </button>
@@ -821,6 +824,38 @@ mark {
   gap: 38px 32px;
   grid-template-columns: repeat(auto-fit, var(--folder-card-width));
   justify-content: center;
+}
+
+.folder-card-enter-active {
+  transition:
+    opacity var(--nono-dur-slow, 340ms) var(--nono-ease-standard),
+    transform var(--nono-dur-slow, 340ms) var(--nono-ease-spring);
+}
+
+.folder-card-leave-active {
+  position: absolute;
+  transition: opacity var(--nono-dur-fast, 120ms) ease;
+}
+
+.folder-card-move {
+  transition: transform var(--nono-dur-slow, 340ms) var(--nono-ease-standard);
+}
+
+.folder-card-enter-from {
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+}
+
+.folder-card-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folder-card-enter-active,
+  .folder-card-leave-active,
+  .folder-card-move {
+    transition: none;
+  }
 }
 
 .folder-load-more {

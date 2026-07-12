@@ -17,6 +17,7 @@ import { bookmarkRoutes } from './routes/admin/bookmarks.js';
 import { tokenRoutes } from './routes/admin/tokens.js';
 import { userRoutes } from './routes/admin/users.js';
 import { accountRoutes } from './routes/admin/account.js';
+import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
@@ -55,6 +56,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await tokenRoutes(app, services);
   await userRoutes(app, services);
   await accountRoutes(app, services);
+  await metaRoutes(app, services);
   await aiRoutes(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
