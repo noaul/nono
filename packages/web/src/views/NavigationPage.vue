@@ -24,11 +24,10 @@ const visibleBackgroundImage = ref('');
 const loadedBackgroundImage = ref('');
 const folderLoadSentinel = ref<HTMLElement | null>(null);
 const renderedFolderCount = ref(24);
-const activeFolderId = ref<string | null>(null);
+const selectedCategoryId = ref<string>('all');
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
 let backgroundPreloadVersion = 0;
 let folderObserver: IntersectionObserver | null = null;
-let scrollspyObserver: IntersectionObserver | null = null;
 const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
@@ -36,7 +35,7 @@ const tabsScrollable = ref(false);
 function updateTabIndicator() {
   const nav = tabsRef.value;
   tabsScrollable.value = Boolean(nav && nav.scrollWidth > nav.clientWidth + 1);
-  const active = nav?.querySelector<HTMLElement>('a.active');
+  const active = nav?.querySelector<HTMLElement>('button.active');
   if (!nav || !active) {
     tabIndicatorStyle.value = { opacity: '0' };
     return;
@@ -100,9 +99,78 @@ const portal = computed(() => getPortalSettings(payload.value?.site.settings, im
 const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
 const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
 const portalRel = computed(() => (portal.value.openInNewTab ? 'noreferrer' : undefined));
+const folderMetadata = computed(() => {
+  const folders = payload.value?.folders || [];
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const depthById = new Map<string | number, number>();
+  const topIdById = new Map<string | number, string | number>();
+
+  const resolve = (folder: Folder) => {
+    const cached = depthById.get(folder.id);
+    if (cached !== undefined) return cached;
+
+    let depth = 0;
+    let topId: string | number = folder.id;
+    let parentId = folder.parentId || null;
+    const visited = new Set<string | number>([folder.id]);
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      depth += 1;
+      topId = parent.id;
+      parentId = parent.parentId || null;
+    }
+    depthById.set(folder.id, depth);
+    topIdById.set(folder.id, topId);
+    return depth;
+  };
+
+  folders.forEach(resolve);
+  return { byId, depthById, topIdById };
+});
+
+// Categories = top-level folders; tabs show [全部, ...categories].
+const categoryFolders = computed(() => {
+  const { byId } = folderMetadata.value;
+  return (payload.value?.folders || []).filter((folder) => !folder.parentId || !byId.has(folder.parentId));
+});
+
+// Card list follows the bookmark-tree model: sub-folders become cards, categories don't —
+// unless a category carries direct links (or is locked), which earns it a fallback card.
+const displayFolders = computed(() => {
+  const folders = payload.value?.folders || [];
+  const byParent = new Map<string | number, Folder[]>();
+  for (const folder of folders) {
+    if (!folder.parentId || !folderMetadata.value.byId.has(folder.parentId)) continue;
+    const siblings = byParent.get(folder.parentId);
+    if (siblings) siblings.push(folder);
+    else byParent.set(folder.parentId, [folder]);
+  }
+
+  const result: Folder[] = [];
+  const visit = (folder: Folder) => {
+    for (const child of byParent.get(folder.id) || []) {
+      result.push(child);
+      visit(child);
+    }
+  };
+  for (const root of categoryFolders.value) {
+    if (root.locked || (root.links?.length || 0) > 0) result.push(root);
+    visit(root);
+  }
+  return result;
+});
+
+const categoryFilteredFolders = computed(() => {
+  // Searching spans all categories; otherwise honor the picked tab.
+  if (normalizedQuery.value || selectedCategoryId.value === 'all') return displayFolders.value;
+  return displayFolders.value.filter((folder) => String(folderMetadata.value.topIdById.get(folder.id) ?? folder.id) === selectedCategoryId.value);
+});
+
 const shownFolders = computed(() => {
-  if (!payload.value || !matchedLinkIds.value) return payload.value?.folders || [];
-  return payload.value.folders.map((folder) => ({
+  if (!matchedLinkIds.value) return categoryFilteredFolders.value;
+  return categoryFilteredFolders.value.map((folder) => ({
     ...folder,
     links: (folder.links || []).filter((link) => matchedLinkIds.value?.has(link.id)),
   }));
@@ -111,39 +179,12 @@ const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => fo
 const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
-const tabFolders = computed(() => {
-  const folders = payload.value?.folders || [];
-  const roots = folders.filter((folder) => !folder.parentId);
-  return roots.length ? roots : folders;
-});
-const folderMetadata = computed(() => {
-  const folders = payload.value?.folders || [];
-  const byId = new Map(folders.map((folder) => [folder.id, folder]));
-  const depthById = new Map<string | number, number>();
+const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
 
-  const getDepth = (folder: Folder) => {
-    const cached = depthById.get(folder.id);
-    if (cached !== undefined) return cached;
-
-    let depth = 0;
-    let parentId = folder.parentId || null;
-    const visited = new Set<string | number>([folder.id]);
-    while (parentId && !visited.has(parentId)) {
-      visited.add(parentId);
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      depth += 1;
-      parentId = parent.parentId || null;
-    }
-    depthById.set(folder.id, depth);
-    return depth;
-  };
-
-  return {
-    byId,
-    depthById: new Map(folders.map((folder) => [folder.id, getDepth(folder)])),
-  };
-});
+function selectCategory(id: string) {
+  selectedCategoryId.value = id;
+  renderedFolderCount.value = 24;
+}
 
 function normalizeSearchText(link: Link) {
   return `${link.name} ${link.description || ''} ${link.url}`.toLocaleLowerCase();
@@ -263,19 +304,6 @@ function loadMoreFolders() {
   renderedFolderCount.value = Math.min(renderedFolderCount.value + 24, foldersWithLinks.value.length);
 }
 
-async function revealFolder(folder: Folder, event: MouseEvent) {
-  event.preventDefault();
-  const folderIndex = foldersWithLinks.value.findIndex((entry) => entry.id === folder.id);
-  if (folderIndex >= renderedFolderCount.value) {
-    renderedFolderCount.value = folderIndex + 1;
-    await nextTick();
-  }
-
-  document.getElementById(`folder-${folder.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  window.history.replaceState(null, '', `#folder-${folder.id}`);
-  activeFolderId.value = String(folder.id);
-}
-
 function observeFolderSentinel(element: HTMLElement | null) {
   folderObserver?.disconnect();
   folderObserver = null;
@@ -290,22 +318,6 @@ function observeFolderSentinel(element: HTMLElement | null) {
   folderObserver.observe(element);
 }
 
-function setupScrollspy() {
-  scrollspyObserver?.disconnect();
-  scrollspyObserver = null;
-  if (typeof IntersectionObserver === 'undefined') return;
-
-  scrollspyObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) activeFolderId.value = entry.target.id.replace('folder-', '');
-      }
-    },
-    { rootMargin: '-15% 0px -70% 0px' },
-  );
-  document.querySelectorAll('.adaptive-folder-grid [id^="folder-"]').forEach((section) => scrollspyObserver?.observe(section));
-}
-
 onMounted(() => {
   load();
   window.addEventListener('keydown', onGlobalKeydown);
@@ -317,20 +329,16 @@ watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
 });
 watch(folderLoadSentinel, observeFolderSentinel);
-watch(activeFolderId, async () => {
-  await nextTick();
-  updateTabIndicator();
-});
 watch(
-  () => renderedFolders.value.map((folder) => folder.id).join(','),
+  () => [selectedCategoryId.value, categoryTabs.value.map((tab) => tab.id).join(',')],
   async () => {
     await nextTick();
-    setupScrollspy();
+    updateTabIndicator();
   },
+  { immediate: false },
 );
 onUnmounted(() => {
   folderObserver?.disconnect();
-  scrollspyObserver?.disconnect();
   removeBackgroundHints();
   window.removeEventListener('keydown', onGlobalKeydown);
   window.removeEventListener('resize', updateTabIndicator);
@@ -391,18 +399,19 @@ onUnmounted(() => {
         站内命中 {{ localMatchCount }} 个链接
       </p>
 
-      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="文件夹">
+      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="大类">
         <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
-        <a
-          v-for="folder in tabFolders"
-          :key="folder.id"
-          :href="`#folder-${folder.id}`"
-          :class="{ active: String(folder.id) === activeFolderId }"
-          :aria-current="String(folder.id) === activeFolderId ? 'true' : undefined"
-          @click="revealFolder(folder, $event)"
+        <button
+          v-for="tab in categoryTabs"
+          :key="tab.id"
+          type="button"
+          :class="{ active: tab.id === selectedCategoryId }"
+          :aria-pressed="tab.id === selectedCategoryId"
+          :data-testid="`category-tab-${tab.id}`"
+          @click="selectCategory(tab.id)"
         >
-          {{ folder.name }}
-        </a>
+          {{ tab.name }}
+        </button>
       </nav>
 
       <div class="adaptive-folder-grid">
@@ -751,7 +760,7 @@ h1 {
   will-change: transform, width;
 }
 
-.folder-tabs a {
+.folder-tabs button {
   border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
   flex: 0 0 auto;
   padding: 6px 14px;
@@ -767,18 +776,18 @@ h1 {
   z-index: 1;
 }
 
-.folder-tabs a:hover {
+.folder-tabs button:hover {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
   transform: translateY(-1px);
 }
 
-.folder-tabs a:active {
+.folder-tabs button:active {
   transform: translateY(1px) scale(0.97);
   transition-duration: 0.12s;
 }
 
-.folder-tabs a.active {
+.folder-tabs button.active {
   color: var(--accent-soft);
 }
 

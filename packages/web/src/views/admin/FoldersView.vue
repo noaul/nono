@@ -24,7 +24,29 @@ const sortMode = ref(false);
 const draftFolderIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
-const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const sortedFolders = computed(() => {
+  // Tree order: each category (top-level) followed by its sub-folders.
+  const list = [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id);
+  const byId = new Map(list.map((folder) => [folder.id, folder]));
+  const byParent = new Map<number, Folder[]>();
+  const roots: Folder[] = [];
+  for (const folder of list) {
+    if (folder.parentId && byId.has(folder.parentId)) {
+      const siblings = byParent.get(folder.parentId);
+      if (siblings) siblings.push(folder);
+      else byParent.set(folder.parentId, [folder]);
+    } else {
+      roots.push(folder);
+    }
+  }
+  const result: Folder[] = [];
+  const visit = (folder: Folder) => {
+    result.push(folder);
+    for (const child of byParent.get(folder.id) || []) visit(child);
+  };
+  roots.forEach(visit);
+  return result;
+});
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
 const displayedFolders = computed(() => {
   if (!sortMode.value) return sortedFolders.value;
@@ -109,7 +131,8 @@ function isDescendantOf(folder: Folder, parentId: number) {
 }
 
 function selectableParents() {
-  return folders.value.filter((folder) => folder.id !== form.id && (!form.id || !isDescendantOf(folder, form.id)));
+  // Two-level model: sub-folders attach to a category (top-level folder).
+  return folders.value.filter((folder) => !folder.parentId && folder.id !== form.id && (!form.id || !isDescendantOf(folder, form.id)));
 }
 
 async function save() {
@@ -236,9 +259,9 @@ onMounted(load);
         </div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
         <div class="field">
-          <label>上级文件夹</label>
+          <label>所属大类</label>
           <select data-testid="folder-parent" v-model.number="form.parentId">
-            <option :value="null">顶级文件夹</option>
+            <option :value="null">作为大类（顶级）</option>
             <option v-for="folder in selectableParents()" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
           </select>
         </div>

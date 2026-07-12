@@ -66,13 +66,19 @@ describe('NavigationPage public workflow', () => {
     document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
   });
 
-  it('renders tree-aware folder cards and local search summary', async () => {
+  it('renders category tabs, sub-folder cards, and local search summary', async () => {
     const wrapper = await mountNavigationPage();
 
     expect(wrapper.get('[data-testid="public-folder-card-2"]').attributes('style')).toContain('--public-folder-depth: 1');
     expect(wrapper.get('[data-testid="public-folder-card-2"] .folder-parent-label').text()).toBe('Parent');
-    expect(wrapper.findAll('.folder-tabs a')).toHaveLength(1);
-    expect(wrapper.get('.folder-tabs a').text()).toBe('Parent');
+    // Category (top-level folder without direct links) is a tab, not a card.
+    expect(wrapper.find('[data-testid="public-folder-card-1"]').exists()).toBe(false);
+    const tabs = wrapper.findAll('.folder-tabs button');
+    expect(tabs.map((tab) => tab.text())).toEqual(['全部', 'Parent']);
+
+    // Picking a category filters the grid to its sub-folders.
+    await wrapper.get('[data-testid="category-tab-1"]').trigger('click');
+    expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(1);
 
     await wrapper.get('.search-bar input').setValue('Vue');
     expect(wrapper.text()).toContain('站内命中 1 个链接');
