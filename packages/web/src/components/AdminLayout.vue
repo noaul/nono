@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import '@/styles/admin.css';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
-  Activity,
-  Bookmark,
   Bot,
-  ChevronRight,
   Compass,
   Folder,
   Home,
@@ -31,30 +28,32 @@ const auth = useAuthStore();
 const router = useRouter();
 const siteSettings = ref<Record<string, unknown>>({});
 const appearanceStyle = computed(() => toAppearanceCssVars(getAppearanceSettings(siteSettings.value)));
+const userMenuOpen = ref(false);
+const userMenuRef = ref<HTMLElement | null>(null);
 
 const navSections = [
   {
     label: '运营',
     items: [
-      { to: '/admin', label: '总览', title: '控制台总览', hint: '关键数据', icon: Home, command: '查看内容规模、站点状态和下一步运营动作。' },
-      { to: '/admin/site', label: '站点', title: '站点配置', hint: '前台外观', icon: Settings, command: '调整公开导航页的品牌信息、搜索和视觉配置。' },
-      { to: '/admin/folders', label: '文件夹', title: '文件夹', hint: '分类结构', icon: Folder, command: '维护导航分类、层级、密码和排序。' },
-      { to: '/admin/links', label: '书签管理', title: '书签管理', hint: '链接资产', icon: Link2, command: '新增、迁移、排序、查重和检查链接健康度。' },
+      { to: '/admin', label: '总览', title: '控制台总览', icon: Home },
+      { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
+      { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
+      { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
     ],
   },
   {
     label: '自动化',
     items: [
-      { to: '/admin/bookmarks', label: '导入导出', title: '浏览器书签', hint: '批量处理', icon: Upload, command: '预览浏览器书签文件并安全导入或导出。' },
-      { to: '/admin/llm', label: 'LLM', title: 'AI 智能收藏', hint: '智能分析', icon: Bot, command: '配置智能收藏所需的模型服务。' },
-      { to: '/admin/tokens', label: 'Token', title: 'API Token', hint: '扩展接入', icon: KeyRound, command: '管理浏览器扩展和接口访问凭证。' },
+      { to: '/admin/bookmarks', label: '导入导出', title: '浏览器书签', icon: Upload },
+      { to: '/admin/llm', label: 'LLM', title: 'AI 智能收藏', icon: Bot },
+      { to: '/admin/tokens', label: 'Token', title: 'API Token', icon: KeyRound },
     ],
   },
   {
     label: '系统',
     items: [
-      { to: '/admin/account', label: '账户', title: '账户设置', hint: '安全', icon: User, command: '更新当前账户的安全凭据。' },
-      { to: '/admin/users', label: '用户', title: '用户管理', hint: '权限', icon: Users, adminOnly: true, command: '管理成员资料、角色和注册策略。' },
+      { to: '/admin/account', label: '账户', title: '账户设置', icon: User },
+      { to: '/admin/users', label: '用户', title: '用户管理', icon: Users, adminOnly: true },
     ],
   },
 ];
@@ -68,8 +67,22 @@ const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) =
 const activeNavItem = computed(() => flatNavItems.value.find((item) => item.title === props.title || item.label === props.title) || flatNavItems.value[0]);
 const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
 const operatorRole = computed(() => (auth.isAdmin ? '管理员' : '成员'));
+const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
+
+function onDocumentClick(event: MouseEvent) {
+  if (!userMenuOpen.value) return;
+  if (userMenuRef.value && event.target instanceof Node && !userMenuRef.value.contains(event.target)) {
+    userMenuOpen.value = false;
+  }
+}
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') userMenuOpen.value = false;
+}
 
 onMounted(async () => {
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onDocumentKeydown);
   try {
     const site = await apiRequest<Site>('/api/admin/site');
     siteSettings.value = site.settings || {};
@@ -78,7 +91,13 @@ onMounted(async () => {
   }
 });
 
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('keydown', onDocumentKeydown);
+});
+
 async function logout() {
+  userMenuOpen.value = false;
   await auth.logout();
   await router.push('/login');
 }
@@ -95,33 +114,21 @@ async function logout() {
         </div>
       </RouterLink>
 
-      <section class="operator-card glass-surface">
-        <div class="operator-status">
-          <span class="status-dot"></span>
-          <span>在线</span>
-        </div>
-        <strong>{{ operatorName }}</strong>
-        <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>
-      </section>
-
       <nav class="admin-nav workbench-nav" aria-label="后台导航">
         <section v-for="section in visibleNavSections" :key="section.label" class="nav-section">
           <p>{{ section.label }}</p>
-          <RouterLink v-for="item in section.items" :key="item.to" class="nav-button" :to="item.to">
+          <RouterLink v-for="item in section.items" :key="item.to" class="nav-button nav-button-plain" :to="item.to">
             <span class="nav-icon"><component :is="item.icon" :size="17" /></span>
-            <span class="nav-copy">
-              <strong>{{ item.label }}</strong>
-              <small>{{ item.hint }}</small>
-            </span>
-            <ChevronRight class="nav-chevron" :size="15" />
+            <span class="nav-label">{{ item.label }}</span>
           </RouterLink>
         </section>
       </nav>
 
-      <div class="sidebar-footer">
-        <RouterLink class="button secondary compact" to="/"><Compass :size="17" /> 主页</RouterLink>
-        <button class="icon-button secondary" title="退出登录" @click="logout"><LogOut :size="17" /></button>
-      </div>
+      <section class="operator-card operator-row glass-surface">
+        <span class="operator-avatar" aria-hidden="true">{{ operatorInitial }}</span>
+        <strong>{{ operatorName }}</strong>
+        <small class="operator-role-badge">{{ operatorRole }}</small>
+      </section>
     </aside>
 
     <div class="workbench-main">
@@ -130,25 +137,31 @@ async function logout() {
           <p><strong>{{ activeNavItem?.sectionLabel || '运营' }}</strong></p>
           <h1>{{ title }}</h1>
         </div>
-        <div class="page-command-card glass-surface">
-          <Activity :size="18" />
-          <div>
-            <span>当前任务</span>
-            <strong>{{ activeNavItem?.command || '维护导航数据和站点配置。' }}</strong>
+        <div ref="userMenuRef" class="topbar-user">
+          <button
+            class="topbar-avatar"
+            type="button"
+            :title="operatorName"
+            aria-haspopup="menu"
+            :aria-expanded="userMenuOpen"
+            @click="userMenuOpen = !userMenuOpen"
+          >
+            {{ operatorInitial }}
+          </button>
+          <div v-if="userMenuOpen" class="user-menu glass-surface" role="menu">
+            <div class="user-menu-head">
+              <strong>{{ operatorName }}</strong>
+              <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>
+            </div>
+            <RouterLink class="user-menu-item" role="menuitem" to="/" @click="userMenuOpen = false">
+              <Compass :size="16" /> 查看主页
+            </RouterLink>
+            <button class="user-menu-item" role="menuitem" type="button" @click="logout">
+              <LogOut :size="16" /> 退出登录
+            </button>
           </div>
         </div>
-        <div class="top-actions">
-          <RouterLink class="button secondary" to="/"><Bookmark :size="17" /> 查看主页</RouterLink>
-          <button class="button secondary" title="退出登录" @click="logout"><LogOut :size="18" /> 退出</button>
-        </div>
       </header>
-
-      <section class="figma-control-strip glass-surface" aria-label="后台区域">
-        <RouterLink v-for="section in visibleNavSections" :key="section.label" class="figma-section-chip" :to="section.items[0]?.to || '/admin'">
-          <span>{{ section.label }}</span>
-          <strong>{{ section.items.length }}</strong>
-        </RouterLink>
-      </section>
 
       <main class="workbench-stage">
         <slot />

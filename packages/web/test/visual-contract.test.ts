@@ -245,10 +245,13 @@ describe('visual contracts', () => {
     expect(wrapper.find('.figma-admin-shell').exists()).toBe(true);
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
-    expect(wrapper.find('.figma-control-strip').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
     expect(wrapper.findAll('.nav-section')).toHaveLength(3);
     expect(wrapper.find('.operator-card').exists()).toBe(true);
+    // Reduced-noise shell: no redundant section chip strip, no command card, avatar menu instead of button row.
+    expect(wrapper.find('.figma-control-strip').exists()).toBe(false);
+    expect(wrapper.find('.page-command-card').exists()).toBe(false);
+    expect(wrapper.find('.topbar-avatar').exists()).toBe(true);
   });
 
   it('defines the redesigned admin operations dashboard shell styles', async () => {
@@ -259,7 +262,7 @@ describe('visual contracts', () => {
 
     expect(css).toContain('.workbench-sidebar');
     expect(css).toContain('.workbench-topbar');
-    expect(css).toContain('.page-command-card');
+    expect(css).toContain('.user-menu');
     expect(css).toContain('.dashboard-hero');
     expect(css).toContain('.ops-metric-card');
     expect(css).toContain('.operations-grid');
@@ -289,11 +292,9 @@ describe('visual contracts', () => {
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(layoutSource).toContain('figma-admin-shell');
-    expect(layoutSource).toContain('figma-control-strip');
     expect(css).toContain('--figma-surface');
     expect(css).toContain('--figma-stroke');
     expect(css).toContain('.figma-admin-shell::after');
-    expect(css).toContain('.figma-control-strip');
     expect(css).toContain('linear-gradient(rgba(15, 118, 110, 0.07) 1px, transparent 1px)');
   });
 

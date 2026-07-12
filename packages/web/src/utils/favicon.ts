@@ -5,7 +5,8 @@ export function getFaviconUrl(url?: string | null, explicitIcon?: string | null)
 
   try {
     const parsed = new URL(url);
-    return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(parsed.origin)}`;
+    if (!parsed.hostname || !parsed.hostname.includes('.')) return '';
+    return `/api/favicon?domain=${encodeURIComponent(parsed.hostname)}`;
   } catch {
     return '';
   }

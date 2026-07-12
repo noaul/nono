@@ -9,6 +9,7 @@ import fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { authRoutes } from './routes/auth.js';
 import { navigationRoutes } from './routes/navigation.js';
+import { faviconRoutes } from './routes/favicon.js';
 import { siteRoutes } from './routes/admin/site.js';
 import { folderRoutes } from './routes/admin/folders.js';
 import { linkRoutes } from './routes/admin/links.js';
@@ -46,6 +47,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 
   await authRoutes(app, services);
   await navigationRoutes(app, services);
+  await faviconRoutes(app);
   await siteRoutes(app, services);
   await folderRoutes(app, services);
   await linkRoutes(app, services);
