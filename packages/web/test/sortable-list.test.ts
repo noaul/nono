@@ -5,6 +5,8 @@ import SortableList from '../src/components/admin/SortableList.vue';
 const sortableMocks = vi.hoisted(() => ({
   create: vi.fn(),
   destroy: vi.fn(),
+  option: vi.fn(),
+  toArray: vi.fn(),
 }));
 
 vi.mock('sortablejs', () => ({
@@ -17,12 +19,18 @@ describe('SortableList', () => {
   beforeEach(() => {
     sortableMocks.create.mockReset();
     sortableMocks.destroy.mockReset();
-    sortableMocks.create.mockReturnValue({ destroy: sortableMocks.destroy });
+    sortableMocks.option.mockReset();
+    sortableMocks.toArray.mockReset();
+    sortableMocks.toArray.mockReturnValue(['3', '1', '2']);
+    sortableMocks.create.mockReturnValue({
+      destroy: sortableMocks.destroy,
+      option: sortableMocks.option,
+      toArray: sortableMocks.toArray,
+    });
   });
 
-  it('reorders ids locally through a dedicated drag handle', async () => {
+  it('emits the final DOM order once after dragging through a dedicated handle', async () => {
     const wrapper = mount(SortableList, {
-      props: { itemIds: [1, 2, 3] },
       slots: {
         default: `
           <article data-id="1"><button class="drag-handle">Drag</button></article>
@@ -35,7 +43,9 @@ describe('SortableList', () => {
     expect(sortableMocks.create).toHaveBeenCalledOnce();
     const options = sortableMocks.create.mock.calls[0][1];
     expect(options).toMatchObject({
-      animation: 160,
+      animation: 100,
+      dataIdAttr: 'data-id',
+      draggable: '.sortable-admin-row',
       handle: '.drag-handle',
       ghostClass: 'sortable-row-ghost',
       chosenClass: 'sortable-row-chosen',
@@ -43,7 +53,8 @@ describe('SortableList', () => {
     });
 
     options.onEnd({ oldIndex: 0, newIndex: 2 });
-    expect(wrapper.emitted('reorder')?.[0]).toEqual([[2, 3, 1]]);
+    expect(sortableMocks.toArray).toHaveBeenCalledOnce();
+    expect(wrapper.emitted('reorder')).toEqual([[[3, 1, 2]]]);
 
     wrapper.unmount();
     expect(sortableMocks.destroy).toHaveBeenCalledOnce();

@@ -166,7 +166,12 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
     await wrapper.get('[data-testid="start-link-sort"]').trigger('click');
-    wrapper.findComponent(SortableList).vm.$emit('reorder', [11, 10]);
+    const sortable = wrapper.findComponent(SortableList);
+    expect(sortable.attributes('item-ids')).toBeUndefined();
+
+    sortable.vm.$emit('reorder', [11, 10]);
+    sortable.vm.$emit('reorder', [10, 11]);
+    sortable.vm.$emit('reorder', [11, 10]);
     await wrapper.vm.$nextTick();
 
     expect(apiRequest).toHaveBeenCalledTimes(2);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
@@ -16,7 +16,7 @@ const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
 const selectedFolderId = ref<number>(0);
 const sortMode = ref(false);
-const draftLinks = ref<Link[]>([]);
+const draftLinkIds = shallowRef<number[]>([]);
 const form = reactive({ id: 0, folderId: 0, name: '', url: '', icon: '', description: '' });
 const error = ref('');
 const message = ref('');
@@ -36,10 +36,13 @@ const isCheckingHealth = ref(false);
 
 const activeFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || folders.value[0]);
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
 const filteredLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
-  const base = sortMode.value ? draftLinks.value : activeFolderLinks.value;
+  const base = sortMode.value
+    ? draftLinkIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link))
+    : activeFolderLinks.value;
   if (!query) return base;
   return base.filter((link) => [link.name, link.url, link.description || ''].join(' ').toLowerCase().includes(query));
 });
@@ -213,32 +216,34 @@ function healthStatusLabel(status: LinkHealthResult['status']) {
 function startSorting() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
-  draftLinks.value = activeFolderLinks.value.map((link) => ({ ...link }));
+  draftLinkIds.value = activeFolderLinks.value.map((link) => link.id);
   sortMode.value = true;
 }
 
 function stopSorting() {
   sortMode.value = false;
-  draftLinks.value = [];
+  draftLinkIds.value = [];
 }
 
 function moveDraft(link: Link, direction: -1 | 1) {
-  const index = draftLinks.value.findIndex((item) => item.id === link.id);
+  const ids = [...draftLinkIds.value];
+  const index = ids.indexOf(link.id);
   const next = index + direction;
-  if (index < 0 || next < 0 || next >= draftLinks.value.length) return;
-  [draftLinks.value[index], draftLinks.value[next]] = [draftLinks.value[next], draftLinks.value[index]];
+  if (index < 0 || next < 0 || next >= ids.length) return;
+  [ids[index], ids[next]] = [ids[next], ids[index]];
+  draftLinkIds.value = ids;
 }
 
 function reorderDraft(ids: number[]) {
-  const byId = new Map(draftLinks.value.map((link) => [link.id, link]));
-  draftLinks.value = ids.map((id) => byId.get(id)).filter((link): link is Link => Boolean(link));
+  draftLinkIds.value = ids;
 }
 
 async function saveSorting() {
   isSavingSort.value = true;
   try {
-    await apiRequest('/api/admin/links/reorder', { method: 'PUT', body: jsonBody({ ids: draftLinks.value.map((link) => link.id) }) });
-    const orderMap = new Map(draftLinks.value.map((link, index) => [link.id, (draftLinks.value.length - index) * 10]));
+    const ids = [...draftLinkIds.value];
+    await apiRequest('/api/admin/links/reorder', { method: 'PUT', body: jsonBody({ ids }) });
+    const orderMap = new Map(ids.map((id, index) => [id, (ids.length - index) * 10]));
     links.value = links.value.map((link) => (orderMap.has(link.id) ? { ...link, sortOrder: orderMap.get(link.id)! } : link));
     message.value = '书签顺序已保存';
     notifySuccess(message.value);
@@ -366,7 +371,7 @@ onMounted(load);
             <span>文件夹</span>
             <span>操作</span>
           </div>
-          <SortableList :item-ids="filteredLinks.map((link) => link.id)" :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
+          <SortableList :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
             <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row sortable-admin-row" :data-testid="`link-row-${link.id}`" :data-id="link.id">
               <span class="selection-cell" data-label="选择">
                 <input :data-testid="`select-link-${link.id}`" type="checkbox" :disabled="sortMode" :checked="selectedLinkIds.has(link.id)" @change="toggleLinkSelection(link.id, $event)" />

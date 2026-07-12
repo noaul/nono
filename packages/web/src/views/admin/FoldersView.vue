@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { FolderPlus, GripVertical, MoveDown, MoveUp, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
@@ -21,12 +21,15 @@ const error = ref('');
 const isInitialLoading = ref(true);
 const isSaving = ref(false);
 const sortMode = ref(false);
-const draftFolders = ref<Folder[]>([]);
+const draftFolderIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
-const displayedFolders = computed(() => sortMode.value ? draftFolders.value : sortedFolders.value);
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
+const displayedFolders = computed(() => {
+  if (!sortMode.value) return sortedFolders.value;
+  return draftFolderIds.value.map((id) => folderById.value.get(id)).filter((folder): folder is Folder => Boolean(folder));
+});
 const folderDepthById = computed(() => {
   const depths = new Map<number, number>();
   for (const folder of folders.value) {
@@ -157,22 +160,21 @@ async function remove(folder: Folder) {
 }
 
 function startSorting() {
-  draftFolders.value = sortedFolders.value.map((folder) => ({ ...folder }));
+  draftFolderIds.value = sortedFolders.value.map((folder) => folder.id);
   sortMode.value = true;
 }
 
 function stopSorting() {
   sortMode.value = false;
-  draftFolders.value = [];
+  draftFolderIds.value = [];
 }
 
 function reorderDraft(ids: number[]) {
-  const byId = new Map(draftFolders.value.map((folder) => [folder.id, folder]));
-  draftFolders.value = ids.map((id) => byId.get(id)).filter((folder): folder is Folder => Boolean(folder));
+  draftFolderIds.value = ids;
 }
 
 function moveDraft(folder: Folder, direction: -1 | 1) {
-  const ids = draftFolders.value.map((item) => item.id);
+  const ids = [...draftFolderIds.value];
   const index = ids.indexOf(folder.id);
   const next = index + direction;
   if (index < 0 || next < 0 || next >= ids.length) return;
@@ -181,7 +183,7 @@ function moveDraft(folder: Folder, direction: -1 | 1) {
 }
 
 async function saveSorting() {
-  const ids = draftFolders.value.map((folder) => folder.id);
+  const ids = [...draftFolderIds.value];
   isSavingSort.value = true;
   try {
     await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids }) });
@@ -273,7 +275,7 @@ onMounted(load);
           <span>引导语</span>
           <span>操作</span>
         </div>
-        <SortableList :item-ids="displayedFolders.map((folder) => folder.id)" :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
+        <SortableList :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
           <article v-for="(folder, index) in displayedFolders" :key="folder.id" class="admin-table-row sortable-admin-row" :data-testid="`folder-row-${folder.id}`" :data-id="folder.id" :style="{ '--folder-depth': folderDepth(folder) }">
             <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
               <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>

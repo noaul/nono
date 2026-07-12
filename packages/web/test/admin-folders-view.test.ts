@@ -91,7 +91,12 @@ describe('FoldersView admin workflow', () => {
     const wrapper = mountFoldersView();
     await settle(wrapper);
     await wrapper.get('[data-testid="start-folder-sort"]').trigger('click');
-    wrapper.findComponent(SortableList).vm.$emit('reorder', [2, 1]);
+    const sortable = wrapper.findComponent(SortableList);
+    expect(sortable.attributes('item-ids')).toBeUndefined();
+
+    sortable.vm.$emit('reorder', [2, 1]);
+    sortable.vm.$emit('reorder', [1, 2]);
+    sortable.vm.$emit('reorder', [2, 1]);
     await wrapper.vm.$nextTick();
 
     expect(apiRequest).toHaveBeenCalledTimes(2);

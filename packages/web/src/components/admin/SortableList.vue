@@ -3,7 +3,6 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Sortable, { type SortableEvent } from 'sortablejs';
 
 const props = withDefaults(defineProps<{
-  itemIds: number[];
   disabled?: boolean;
   ariaLabel?: string;
 }>(), {
@@ -23,21 +22,22 @@ function handleEnd(event: SortableEvent) {
   const newIndex = event.newIndex;
   if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
 
-  const ids = [...props.itemIds];
-  const [moved] = ids.splice(oldIndex, 1);
-  if (moved === undefined) return;
-  ids.splice(newIndex, 0, moved);
+  const ids = sortable?.toArray().map(Number).filter(Number.isInteger) || [];
+  if (!ids.length) return;
   emit('reorder', ids);
 }
 
 onMounted(() => {
   if (!root.value) return;
   sortable = Sortable.create(root.value, {
-    animation: 160,
+    animation: 100,
+    dataIdAttr: 'data-id',
+    draggable: '.sortable-admin-row',
     handle: '.drag-handle',
     ghostClass: 'sortable-row-ghost',
     chosenClass: 'sortable-row-chosen',
     dragClass: 'sortable-row-dragging',
+    easing: 'cubic-bezier(0.2, 0, 0, 1)',
     delay: 120,
     delayOnTouchOnly: true,
     touchStartThreshold: 4,
