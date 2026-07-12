@@ -11,7 +11,9 @@ import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getFaviconUrl } from '@/utils/favicon';
+import { splitHighlight } from '@/utils/highlight';
 import { getPortalSettings } from '@/utils/portal';
+import { getEngine, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 
 const route = useRoute();
 const navigation = useNavigationStore();
@@ -33,6 +35,22 @@ const unlockModalRef = ref<HTMLElement | null>(null);
 let backgroundPreloadVersion = 0;
 let folderObserver: IntersectionObserver | null = null;
 let scrollspyObserver: IntersectionObserver | null = null;
+const tabsRef = ref<HTMLElement | null>(null);
+const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
+
+function updateTabIndicator() {
+  const nav = tabsRef.value;
+  const active = nav?.querySelector<HTMLElement>('a.active');
+  if (!nav || !active) {
+    tabIndicatorStyle.value = { opacity: '0' };
+    return;
+  }
+  tabIndicatorStyle.value = {
+    opacity: '1',
+    transform: `translateX(${active.offsetLeft}px)`,
+    width: `${active.offsetWidth}px`,
+  };
+}
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 watch(query, (value) => {
@@ -204,9 +222,22 @@ function submitSearch() {
   const liveQuery = q.toLocaleLowerCase();
   const hasLocalMatch = searchIndex.value.some((entry) => entry.text.includes(liveQuery));
   if (!hasLocalMatch || payload.value?.site.localSearchFirst === false) {
-    window.location.href = buildSearchUrl(q, payload.value?.site.searchUrlTemplate);
+    window.location.href = buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate));
   }
 }
+
+const searchEngineTick = ref(0);
+const externalSearchUrl = computed(() => {
+  searchEngineTick.value; // re-evaluate when the picked engine changes
+  const q = query.value.trim();
+  if (!q) return '';
+  return buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate));
+});
+const externalSearchLabel = computed(() => {
+  searchEngineTick.value;
+  const engine = getEngine(getSelectedEngineId());
+  return engine.template ? engine.label : '外部搜索';
+});
 
 async function verifyFolder() {
   if (!verifying.value) return;
@@ -350,6 +381,7 @@ function setupScrollspy() {
 onMounted(() => {
   load();
   window.addEventListener('keydown', onGlobalKeydown);
+  window.addEventListener('resize', updateTabIndicator);
 });
 watch(username, load);
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
@@ -357,6 +389,10 @@ watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
 });
 watch(folderLoadSentinel, observeFolderSentinel);
+watch(activeFolderId, async () => {
+  await nextTick();
+  updateTabIndicator();
+});
 watch(
   () => renderedFolders.value.map((folder) => folder.id).join(','),
   async () => {
@@ -369,6 +405,7 @@ onUnmounted(() => {
   scrollspyObserver?.disconnect();
   removeBackgroundHints();
   window.removeEventListener('keydown', onGlobalKeydown);
+  window.removeEventListener('resize', updateTabIndicator);
   clearTimeout(debounceTimer);
   if (typeof document !== 'undefined') document.body.style.overflow = '';
 });
@@ -409,7 +446,7 @@ onUnmounted(() => {
         </component>
       </header>
 
-      <SearchBar ref="searchBarRef" v-model="query" @submit="submitSearch" />
+      <SearchBar ref="searchBarRef" v-model="query" @submit="submitSearch" @engine-change="searchEngineTick++" />
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
         <span class="public-loading-bar"></span>
@@ -426,7 +463,8 @@ onUnmounted(() => {
         站内命中 {{ localMatchCount }} 个链接
       </p>
 
-      <nav class="folder-tabs" aria-label="文件夹">
+      <nav ref="tabsRef" class="folder-tabs" aria-label="文件夹">
+        <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
         <a
           v-for="folder in tabFolders"
           :key="folder.id"
@@ -447,6 +485,7 @@ onUnmounted(() => {
           :folder="folder"
           :depth="folderDepth(folder)"
           :parent-name="parentFolderName(folder)"
+          :highlight="normalizedQuery"
           @verify="verifying = $event"
           @expand="expandedFolder = $event"
         />
@@ -454,7 +493,12 @@ onUnmounted(() => {
       <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
         继续加载更多文件夹
       </button>
-      <p v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">没有站内命中，按回车会使用外部搜索继续查找。</p>
+      <div v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">
+        <p>没有站内命中。</p>
+        <a v-if="externalSearchUrl" class="button external-search-cta" :href="externalSearchUrl">
+          用{{ externalSearchLabel }}搜索“{{ query.trim() }}” →
+        </a>
+      </div>
     </div>
 
     <!-- Expanded Folder Modal -->
@@ -484,7 +528,11 @@ onUnmounted(() => {
               <Bookmark v-else :size="20" />
             </span>
             <span class="expanded-link-copy">
-              <strong>{{ link.name }}</strong>
+              <strong>
+                <template v-for="(segment, index) in splitHighlight(link.name, debouncedQuery)" :key="index">
+                  <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
+                </template>
+              </strong>
               <small v-if="link.description">{{ link.description }}</small>
             </span>
           </a>
@@ -804,6 +852,22 @@ h1 {
   display: none;
 }
 
+.tab-indicator {
+  background: rgba(var(--accent-rgb), 0.22);
+  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
+  height: calc(100% - 10px);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 5px;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.2s ease;
+  width: 0;
+  will-change: transform, width;
+}
+
 .folder-tabs a {
   border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
   flex: 0 0 auto;
@@ -811,11 +875,13 @@ h1 {
   font-size: 13.5px;
   font-weight: 600;
   color: rgba(243, 244, 246, 0.78);
+  position: relative;
   transform: translateZ(0);
   transition:
     background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 1;
 }
 
 .folder-tabs a:hover {
@@ -830,12 +896,35 @@ h1 {
 }
 
 .folder-tabs a.active {
-  background: rgba(var(--accent-rgb), 0.22);
   color: var(--accent-soft);
 }
 
+.public-empty-state {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.public-empty-state p {
+  margin: 0;
+}
+
+.external-search-cta {
+  font-size: 13.5px;
+  min-height: 34px;
+}
+
+mark {
+  background: rgba(var(--accent-rgb), 0.28);
+  border-radius: 3px;
+  color: inherit;
+  padding: 0 1px;
+}
+
 .adaptive-folder-grid {
-  align-items: stretch;
+  align-items: start;
   display: grid;
   gap: 38px 32px;
   grid-template-columns: repeat(auto-fit, var(--folder-card-width));
@@ -1269,7 +1358,8 @@ h1 {
     animation: none;
   }
 
-  .nav-page::before {
+  .nav-page::before,
+  .tab-indicator {
     transition: none;
   }
 }

@@ -124,13 +124,15 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    expect(source).toContain('grid-template-rows: 38px 308px');
-    expect(source).toContain('height: 358px');
+    // Elastic card: folders shrink to fit few links and cap growth with an overflow tile instead of an inner scrollbar.
+    expect(source).toContain('grid-template-rows: 38px auto');
+    expect(source).toContain('min-height: 190px');
     expect(source).toContain('contain-intrinsic-size: 445px 358px');
     expect(source).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toContain('height: 308px');
-    expect(source).toContain('overflow-y: auto');
+    expect(source).toContain('max-height: 308px');
+    expect(source).toContain('link-overflow-more');
+    expect(source).not.toContain('overflow-y: auto');
     expect(source).toContain('border-radius: 8px');
     expect(source).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(source).toContain('var(--public-card-radius');
@@ -378,7 +380,8 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('getFaviconUrl');
     expect(navigationSource).not.toContain('我的足迹');
     expect(navigationSource).not.toContain('Footprints');
-    expect(searchBarSource).toContain('search-leading-icon');
+    expect(searchBarSource).toContain('engine-picker');
+    expect(searchBarSource).toContain('engine-trigger');
     expect(searchBarSource).not.toContain('search-provider-badge');
     expect(searchBarSource).toContain('rgba(10, 14, 18, 0.26)');
     expect(searchBarSource).toContain('blur(14px)');

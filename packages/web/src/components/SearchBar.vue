@@ -1,11 +1,45 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { Search } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { Check, ChevronDown, Search } from 'lucide-vue-next';
+import { SEARCH_ENGINES, getEngine, getSelectedEngineId, setSelectedEngineId } from '@/utils/searchEngines';
 
 defineProps<{ modelValue: string; placeholder?: string }>();
-defineEmits<{ 'update:modelValue': [value: string]; submit: [] }>();
+const emit = defineEmits<{ 'update:modelValue': [value: string]; submit: []; 'engine-change': [engineId: string] }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
+const pickerRef = ref<HTMLElement | null>(null);
+const pickerOpen = ref(false);
+const engineId = ref(getSelectedEngineId());
+const engine = computed(() => getEngine(engineId.value));
+
+function pickEngine(id: string) {
+  engineId.value = id;
+  setSelectedEngineId(id);
+  pickerOpen.value = false;
+  emit('engine-change', id);
+  inputRef.value?.focus();
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (!pickerOpen.value) return;
+  if (pickerRef.value && event.target instanceof Node && !pickerRef.value.contains(event.target)) {
+    pickerOpen.value = false;
+  }
+}
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') pickerOpen.value = false;
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onDocumentKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('keydown', onDocumentKeydown);
+});
 
 defineExpose({
   focus: () => inputRef.value?.focus(),
@@ -14,9 +48,36 @@ defineExpose({
 
 <template>
   <form class="search-bar" @submit.prevent="$emit('submit')">
-    <span class="search-leading-icon" aria-hidden="true">
-      <Search :size="17" />
-    </span>
+    <div ref="pickerRef" class="engine-picker">
+      <button
+        class="engine-trigger"
+        type="button"
+        :title="`搜索引擎：${engine.label}`"
+        aria-haspopup="listbox"
+        :aria-expanded="pickerOpen"
+        data-testid="engine-trigger"
+        @click="pickerOpen = !pickerOpen"
+      >
+        <span class="engine-badge">{{ engine.short }}</span>
+        <ChevronDown class="engine-caret" :size="13" />
+      </button>
+      <ul v-if="pickerOpen" class="engine-menu" role="listbox" :aria-activedescendant="`engine-${engineId}`">
+        <li v-for="option in SEARCH_ENGINES" :key="option.id">
+          <button
+            :id="`engine-${option.id}`"
+            class="engine-option"
+            type="button"
+            role="option"
+            :aria-selected="option.id === engineId"
+            @click="pickEngine(option.id)"
+          >
+            <span class="engine-badge">{{ option.short }}</span>
+            <span class="engine-name">{{ option.label }}</span>
+            <Check v-if="option.id === engineId" :size="14" />
+          </button>
+        </li>
+      </ul>
+    </div>
     <input
       ref="inputRef"
       :value="modelValue"
@@ -46,8 +107,8 @@ defineExpose({
   min-height: 52px;
   margin: 0 auto;
   max-width: 680px;
-  overflow: hidden;
-  padding: 0 6px 0 18px;
+  padding: 0 6px 0 10px;
+  position: relative;
   width: 100%;
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.18),
@@ -68,14 +129,99 @@ defineExpose({
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
-.search-leading-icon {
-  align-items: center;
-  color: rgba(226, 232, 240, 0.72);
-  display: inline-flex;
+.engine-picker {
   flex: 0 0 auto;
-  height: 30px;
+  position: relative;
+}
+
+.engine-trigger {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: rgba(226, 232, 240, 0.85);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 8px 0 5px;
+  transition:
+    background-color 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.engine-trigger:hover,
+.engine-trigger:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+  outline: none;
+}
+
+.engine-badge {
+  align-items: center;
+  background: rgba(var(--accent-rgb), 0.16);
+  border-radius: 999px;
+  color: var(--accent-soft);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 24px;
   justify-content: center;
-  width: 30px;
+  width: 24px;
+}
+
+.engine-caret {
+  color: rgba(226, 232, 240, 0.55);
+}
+
+.engine-menu {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 18, 25, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+  display: grid;
+  gap: 2px;
+  left: 0;
+  list-style: none;
+  margin: 0;
+  min-width: 190px;
+  padding: 6px;
+  position: absolute;
+  top: calc(100% + 10px);
+  z-index: 30;
+}
+
+.engine-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: rgba(243, 244, 246, 0.88);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  gap: 10px;
+  padding: 7px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.engine-option:hover,
+.engine-option:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.engine-option[aria-selected='true'] {
+  color: var(--accent-soft);
+}
+
+.engine-name {
+  flex: 1;
 }
 
 .search-bar input {
