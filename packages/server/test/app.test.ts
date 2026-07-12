@@ -93,6 +93,56 @@ describe('Nono Fastify app', () => {
     expect(folders.json().data.name).toBe('AI 工具');
   });
 
+  it('normalizes site appearance settings and rejects unsafe portal URLs', async () => {
+    const cookie = await setupAdmin();
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: {
+        settings: {
+          analytics: { enabled: true },
+          appearance: {
+            cardRadius: 999,
+            modalOpacity: '38',
+            tabBlur: -12,
+            adminBlur: {},
+          },
+        },
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data.settings).toMatchObject({
+      analytics: { enabled: true },
+      appearance: {
+        cardRadius: 24,
+        modalOpacity: 38,
+        tabBlur: 0,
+        adminBlur: 10,
+      },
+    });
+
+    const unsafe = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: {
+        settings: {
+          portal: {
+            enabled: true,
+            url: 'javascript:alert(1)',
+            label: 'Unsafe',
+            imageUrl: '',
+            openInNewTab: false,
+          },
+        },
+      },
+    });
+
+    expect(unsafe.statusCode).toBe(400);
+  });
+
   it('summarizes token governance and rejects expired token creation', async () => {
     const cookie = await setupAdmin();
     const neverExpires = await app.inject({

@@ -8,9 +8,18 @@ describe('appearance settings', () => {
         cardRadius: 99,
         cardOpacity: -10,
         cardBlur: 80,
-        searchRadius: 30,
+        searchRadius: '30',
         searchOpacity: 38,
         searchBlur: 18,
+        modalRadius: 99,
+        modalOpacity: '38',
+        modalBlur: Number.NaN,
+        tabRadius: -8,
+        tabOpacity: 120,
+        tabBlur: -12,
+        adminRadius: [],
+        adminOpacity: 20,
+        adminBlur: {},
       },
     })).toEqual({
       ...appearanceDefaults,
@@ -20,6 +29,15 @@ describe('appearance settings', () => {
       searchRadius: 30,
       searchOpacity: 38,
       searchBlur: 18,
+      modalRadius: 32,
+      modalOpacity: 38,
+      modalBlur: appearanceDefaults.modalBlur,
+      tabRadius: 0,
+      tabOpacity: 96,
+      tabBlur: 0,
+      adminRadius: appearanceDefaults.adminRadius,
+      adminOpacity: 40,
+      adminBlur: appearanceDefaults.adminBlur,
     });
   });
 
@@ -31,6 +49,15 @@ describe('appearance settings', () => {
       '--public-search-radius': '28px',
       '--public-search-opacity': '0.26',
       '--public-search-blur': '14px',
+      '--public-modal-radius': '8px',
+      '--public-modal-opacity': '0.85',
+      '--public-modal-blur': '24px',
+      '--public-tab-radius': '28px',
+      '--public-tab-opacity': '0.12',
+      '--public-tab-blur': '10px',
+      '--admin-surface-radius': '8px',
+      '--admin-surface-opacity': '0.72',
+      '--admin-surface-blur': '10px',
     });
   });
 });

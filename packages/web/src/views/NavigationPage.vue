@@ -664,11 +664,11 @@ h1 {
 }
 
 .folder-tabs {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(var(--public-tab-blur, 10px));
+  -webkit-backdrop-filter: blur(var(--public-tab-blur, 10px));
+  background: rgba(255, 255, 255, var(--public-tab-opacity, 0.12));
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 99px;
+  border-radius: var(--public-tab-radius, 28px);
   display: flex;
   gap: 4px;
   justify-content: safe center;
@@ -686,7 +686,7 @@ h1 {
 }
 
 .folder-tabs a {
-  border-radius: 99px;
+  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
   flex: 0 0 auto;
   padding: 6px 14px;
   font-size: 13.5px;
@@ -761,11 +761,11 @@ h1 {
 }
 
 .folder-expand-modal {
-  background: rgba(15, 18, 25, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(15, 18, 25, var(--public-modal-opacity, 0.85));
+  backdrop-filter: blur(var(--public-modal-blur, 24px));
+  -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: var(--public-modal-radius, 8px);
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.04);
   color: #f3f4f6;
   display: grid;
@@ -975,11 +975,11 @@ h1 {
 }
 
 .modal {
-  background: rgba(17, 20, 28, 0.9);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  background: rgba(17, 20, 28, var(--public-modal-opacity, 0.85));
+  backdrop-filter: blur(var(--public-modal-blur, 24px));
+  -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: var(--public-modal-radius, 8px);
   display: grid;
   gap: 20px;
   margin: 0 auto;

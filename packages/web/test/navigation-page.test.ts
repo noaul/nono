@@ -78,6 +78,31 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
+  it('applies modal, tab, and admin-compatible appearance variables from saved settings', async () => {
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      appearance: {
+        modalRadius: 16,
+        modalOpacity: 78,
+        modalBlur: 20,
+        tabRadius: 18,
+        tabOpacity: 36,
+        tabBlur: 8,
+        adminRadius: 12,
+        adminOpacity: 84,
+        adminBlur: 6,
+      },
+    }));
+
+    const wrapper = await mountNavigationPage();
+    const style = wrapper.get('.nav-page').attributes('style');
+
+    expect(style).toContain('--public-modal-radius: 16px');
+    expect(style).toContain('--public-modal-opacity: 0.78');
+    expect(style).toContain('--public-tab-radius: 18px');
+    expect(style).toContain('--public-tab-opacity: 0.36');
+    expect(style).toContain('--admin-surface-radius: 12px');
+  });
+
   it('shows the public background image immediately while keeping preload hints', async () => {
     const imageInstances: Array<{ src: string; onload: (() => void) | null; onerror: (() => void) | null; fetchPriority?: string; decoding?: string }> = [];
     class MockImage {

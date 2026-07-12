@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import '@/styles/admin.css';
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   Activity,
   Bookmark,
@@ -18,7 +18,10 @@ import {
   Users,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
+import { apiRequest } from '@/api/client';
+import type { Site } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
+import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 
@@ -26,6 +29,8 @@ const props = defineProps<{ title: string }>();
 
 const auth = useAuthStore();
 const router = useRouter();
+const siteSettings = ref<Record<string, unknown>>({});
+const appearanceStyle = computed(() => toAppearanceCssVars(getAppearanceSettings(siteSettings.value)));
 
 const navSections = [
   {
@@ -64,6 +69,15 @@ const activeNavItem = computed(() => flatNavItems.value.find((item) => item.titl
 const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
 const operatorRole = computed(() => (auth.isAdmin ? '管理员' : '成员'));
 
+onMounted(async () => {
+  try {
+    const site = await apiRequest<Site>('/api/admin/site');
+    siteSettings.value = site.settings || {};
+  } catch {
+    siteSettings.value = {};
+  }
+});
+
 async function logout() {
   await auth.logout();
   await router.push('/login');
@@ -71,7 +85,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench figma-admin-shell">
+  <div class="app-workbench glass-workbench figma-admin-shell" :style="appearanceStyle">
     <aside class="workbench-sidebar glass-surface">
       <RouterLink class="sidebar-brand" to="/admin">
         <div class="brand-logo">N</div>

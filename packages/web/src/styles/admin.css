@@ -2423,6 +2423,9 @@
    Glassmorphism Admin Skin
    ========================================================================== */
 .glass-workbench {
+  --admin-surface-radius: 8px;
+  --admin-surface-opacity: 0.72;
+  --admin-surface-blur: 10px;
   --bg: #f3f7f4;
   --panel: rgba(255, 255, 255, 0.62);
   --panel-2: rgba(255, 255, 255, 0.48);
@@ -2454,10 +2457,11 @@
 }
 
 .glass-surface {
-  -webkit-backdrop-filter: blur(10px) saturate(1.08);
-  backdrop-filter: blur(10px) saturate(1.08);
-  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.08);
+  backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.08);
+  background: rgba(255, 255, 255, var(--admin-surface-opacity));
   border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: var(--admin-surface-radius);
   box-shadow:
     0 12px 30px rgba(31, 41, 55, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.58);
@@ -2476,24 +2480,27 @@
 .glass-workbench .token-summary-grid section,
 .glass-workbench .loading-overlay,
 .glass-workbench .admin-empty-state {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, var(--admin-surface-opacity));
   border: 1px solid rgba(216, 225, 221, 0.9);
+  border-radius: var(--admin-surface-radius);
   box-shadow:
     0 8px 22px rgba(31, 41, 55, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .glass-workbench .workbench-sidebar {
-  background: rgba(255, 255, 255, 0.54);
+  background: rgba(255, 255, 255, var(--admin-surface-opacity));
   border-right: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 0 var(--admin-surface-radius) var(--admin-surface-radius) 0;
   box-shadow:
     18px 0 42px rgba(31, 41, 55, 0.07),
     inset -1px 0 0 rgba(255, 255, 255, 0.38);
 }
 
 .glass-workbench .workbench-topbar {
-  background: rgba(255, 255, 255, 0.54);
+  background: rgba(255, 255, 255, var(--admin-surface-opacity));
   border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 0 0 var(--admin-surface-radius) var(--admin-surface-radius);
   border-left: 0;
   border-right: 0;
   border-top: 0;

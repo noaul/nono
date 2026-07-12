@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { ArrowUpRight, Gauge, Image, LayoutGrid, Link2, Palette, Save, Search, SlidersHorizontal } from 'lucide-vue-next';
+import { ArrowUpRight, Gauge, Image, LayoutGrid, Link2, Palette, RotateCcw, Save, Search, SlidersHorizontal } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -60,11 +60,27 @@ async function save() {
 
 function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
   const values: Record<typeof preset, AppearanceSettings> = {
-    performance: { cardRadius: 6, cardOpacity: 72, cardBlur: 0, searchRadius: 24, searchOpacity: 62, searchBlur: 0 },
+    performance: {
+      cardRadius: 6, cardOpacity: 72, cardBlur: 0,
+      searchRadius: 24, searchOpacity: 62, searchBlur: 0,
+      modalRadius: 8, modalOpacity: 90, modalBlur: 0,
+      tabRadius: 20, tabOpacity: 72, tabBlur: 0,
+      adminRadius: 6, adminOpacity: 88, adminBlur: 4,
+    },
     balanced: { ...appearanceDefaults },
-    clear: { cardRadius: 12, cardOpacity: 42, cardBlur: 16, searchRadius: 30, searchOpacity: 24, searchBlur: 20 },
+    clear: {
+      cardRadius: 12, cardOpacity: 68, cardBlur: 16,
+      searchRadius: 30, searchOpacity: 60, searchBlur: 20,
+      modalRadius: 16, modalOpacity: 88, modalBlur: 30,
+      tabRadius: 24, tabOpacity: 64, tabBlur: 20,
+      adminRadius: 12, adminOpacity: 84, adminBlur: 16,
+    },
   };
   Object.assign(appearance, values[preset]);
+}
+
+function resetAppearance() {
+  Object.assign(appearance, appearanceDefaults);
 }
 </script>
 
@@ -158,6 +174,9 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
             <button type="button" @click="applyPreset('performance')"><Gauge :size="15" /> 性能</button>
             <button type="button" @click="applyPreset('balanced')">均衡</button>
             <button type="button" @click="applyPreset('clear')">通透</button>
+            <button class="reset-appearance" type="button" title="恢复默认外观" aria-label="恢复默认外观" @click="resetAppearance">
+              <RotateCcw :size="15" />
+            </button>
           </div>
         </header>
 
@@ -193,14 +212,64 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
                 <input v-model.number="appearance.searchBlur" data-testid="search-blur" type="range" min="0" max="32" step="1" />
               </label>
             </fieldset>
+            <fieldset>
+              <legend>弹窗</legend>
+              <label class="range-field">
+                <span>圆角 <output>{{ appearance.modalRadius }}px</output></span>
+                <input v-model.number="appearance.modalRadius" data-testid="modal-radius" type="range" min="0" max="32" step="1" />
+              </label>
+              <label class="range-field">
+                <span>透明度 <output>{{ appearance.modalOpacity }}%</output></span>
+                <input v-model.number="appearance.modalOpacity" data-testid="modal-opacity" type="range" min="20" max="96" step="1" />
+              </label>
+              <label class="range-field">
+                <span>高斯模糊 <output>{{ appearance.modalBlur }}px</output></span>
+                <input v-model.number="appearance.modalBlur" data-testid="modal-blur" type="range" min="0" max="40" step="1" />
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>文件夹标签栏</legend>
+              <label class="range-field">
+                <span>圆角 <output>{{ appearance.tabRadius }}px</output></span>
+                <input v-model.number="appearance.tabRadius" data-testid="tab-radius" type="range" min="0" max="28" step="1" />
+              </label>
+              <label class="range-field">
+                <span>透明度 <output>{{ appearance.tabOpacity }}%</output></span>
+                <input v-model.number="appearance.tabOpacity" data-testid="tab-opacity" type="range" min="12" max="96" step="1" />
+              </label>
+              <label class="range-field">
+                <span>高斯模糊 <output>{{ appearance.tabBlur }}px</output></span>
+                <input v-model.number="appearance.tabBlur" data-testid="tab-blur" type="range" min="0" max="32" step="1" />
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>后台表面</legend>
+              <label class="range-field">
+                <span>圆角 <output>{{ appearance.adminRadius }}px</output></span>
+                <input v-model.number="appearance.adminRadius" data-testid="admin-radius" type="range" min="0" max="20" step="1" />
+              </label>
+              <label class="range-field">
+                <span>透明度 <output>{{ appearance.adminOpacity }}%</output></span>
+                <input v-model.number="appearance.adminOpacity" data-testid="admin-opacity" type="range" min="40" max="100" step="1" />
+              </label>
+              <label class="range-field">
+                <span>高斯模糊 <output>{{ appearance.adminBlur }}px</output></span>
+                <input v-model.number="appearance.adminBlur" data-testid="admin-blur" type="range" min="0" max="24" step="1" />
+              </label>
+            </fieldset>
           </div>
 
           <div data-testid="appearance-preview" class="appearance-preview" :style="previewStyle">
+            <nav class="preview-tabs"><span class="active">常用</span><span>开发</span><span>设计</span></nav>
             <div class="preview-search"><Search :size="15" /><span>搜索书签...</span></div>
             <div class="preview-folder">
               <strong>常用工具</strong>
               <div class="preview-links"><span>GitHub</span><span>设计资源</span><span>开发文档</span><span>灵感收藏</span></div>
             </div>
+            <div class="preview-modal-backdrop">
+              <div class="preview-modal"><strong>解锁文件夹</strong><span>输入密码后继续访问</span></div>
+            </div>
+            <div class="preview-admin"><strong>后台表面</strong><span>运营数据与快捷操作</span></div>
           </div>
         </div>
       </section>
@@ -434,10 +503,11 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
 
 fieldset {
   border: 0;
+  border-top: 1px solid #e5e7eb;
   display: grid;
   gap: 14px;
   margin: 0;
-  padding: 0;
+  padding: 16px 0 0;
 }
 
 legend {
@@ -447,7 +517,8 @@ legend {
   font-size: 13px;
   font-weight: 750;
   gap: 7px;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
+  padding-right: 10px;
 }
 
 .range-field {
@@ -475,15 +546,16 @@ legend {
 }
 
 .appearance-preview {
-  align-content: center;
+  align-content: start;
   background:
     linear-gradient(140deg, rgba(15, 118, 110, 0.28), rgba(15, 23, 42, 0.2)),
     var(--preview-bg);
   border-radius: 8px;
   color: #ffffff;
   display: grid;
-  gap: 18px;
-  min-height: 330px;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 520px;
   overflow: hidden;
   padding: 28px;
   position: relative;
@@ -497,9 +569,35 @@ legend {
   position: absolute;
 }
 
+.preview-tabs,
 .preview-search,
-.preview-folder {
+.preview-folder,
+.preview-modal-backdrop,
+.preview-admin {
   position: relative;
+}
+
+.preview-tabs {
+  align-items: center;
+  backdrop-filter: blur(var(--public-tab-blur));
+  background: rgba(255, 255, 255, var(--public-tab-opacity));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--public-tab-radius);
+  display: flex;
+  gap: 4px;
+  grid-column: 1 / -1;
+  padding: 5px;
+}
+
+.preview-tabs span {
+  border-radius: calc(var(--public-tab-radius) - 4px);
+  font-size: 11px;
+  padding: 6px 12px;
+}
+
+.preview-tabs .active {
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 750;
 }
 
 .preview-search {
@@ -511,6 +609,7 @@ legend {
   display: flex;
   font-size: 12px;
   gap: 8px;
+  grid-column: 1 / -1;
   min-height: 42px;
   padding: 0 14px;
 }
@@ -523,6 +622,45 @@ legend {
   display: grid;
   gap: 14px;
   padding: 18px;
+}
+
+.preview-admin {
+  backdrop-filter: blur(var(--admin-surface-blur));
+  background: rgba(255, 255, 255, var(--admin-surface-opacity));
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: var(--admin-surface-radius);
+  color: #17211d;
+  display: grid;
+  gap: 7px;
+  padding: 18px;
+}
+
+.preview-admin span,
+.preview-modal span {
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+.preview-modal-backdrop {
+  align-items: center;
+  background: rgba(7, 10, 14, 0.5);
+  display: grid;
+  grid-column: 1 / -1;
+  min-height: 130px;
+  padding: 18px;
+}
+
+.preview-modal {
+  backdrop-filter: blur(var(--public-modal-blur));
+  background: rgba(17, 20, 28, var(--public-modal-opacity));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--public-modal-radius);
+  display: grid;
+  gap: 7px;
+  justify-self: center;
+  max-width: 260px;
+  padding: 18px;
+  width: 100%;
 }
 
 .preview-folder strong {
@@ -571,7 +709,7 @@ legend {
   }
 
   .appearance-preview {
-    min-height: 280px;
+    min-height: 500px;
   }
 }
 
@@ -600,8 +738,14 @@ legend {
   }
 
   .appearance-preview {
-    min-height: 250px;
+    grid-template-columns: 1fr;
+    min-height: 620px;
     padding: 18px;
+  }
+
+  .preview-folder,
+  .preview-admin {
+    grid-column: 1 / -1;
   }
 
   .site-config-actions {
