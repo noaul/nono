@@ -12,7 +12,7 @@ import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
-import { getEngine, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
+import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 import { getThemeAccentVars } from '@/utils/themes';
 
 const route = useRoute();
@@ -103,6 +103,10 @@ const portal = computed(() => getPortalSettings(payload.value?.site.settings, im
 const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
 const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
 const portalRel = computed(() => (portal.value.openInNewTab ? 'noreferrer' : undefined));
+const searchEngineSettings = computed(() => getSearchEngineSettings(
+  payload.value?.site.settings,
+  payload.value?.site.searchUrlTemplate,
+));
 const folderMetadata = computed(() => {
   const folders = payload.value?.folders || [];
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
@@ -255,7 +259,7 @@ function submitSearch() {
   const liveQuery = q.toLocaleLowerCase();
   const hasLocalMatch = searchIndex.value.some((entry) => entry.text.includes(liveQuery));
   if (!hasLocalMatch || payload.value?.site.localSearchFirst === false) {
-    window.location.href = buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate));
+    window.location.href = buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate, searchEngineSettings.value));
   }
 }
 
@@ -264,11 +268,11 @@ const externalSearchUrl = computed(() => {
   searchEngineTick.value; // re-evaluate when the picked engine changes
   const q = query.value.trim();
   if (!q) return '';
-  return buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate));
+  return buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate, searchEngineSettings.value));
 });
 const externalSearchLabel = computed(() => {
   searchEngineTick.value;
-  const engine = getEngine(getSelectedEngineId());
+  const engine = getEngine(getSelectedEngineId(searchEngineSettings.value), searchEngineSettings.value);
   return engine.template ? engine.label : '外部搜索';
 });
 
@@ -378,7 +382,7 @@ onUnmounted(() => {
         </component>
       </header>
 
-      <SearchBar ref="searchBarRef" v-model="query" @submit="submitSearch" @engine-change="searchEngineTick++" />
+      <SearchBar ref="searchBarRef" v-model="query" :search-engines="searchEngineSettings" @submit="submitSearch" @engine-change="searchEngineTick++" />
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
         <span class="public-loading-bar"></span>

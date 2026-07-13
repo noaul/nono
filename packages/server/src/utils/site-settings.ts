@@ -82,12 +82,59 @@ const portalSchema = z.object({
   openInNewTab: z.boolean().default(false),
 }).passthrough();
 
+const searchTemplateSchema = z.string().trim().min(1).max(2048)
+  .refine((value) => value.includes('{query}'), 'Search URL template must include {query}')
+  .refine((value) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(value.replace('{query}', 'query')).protocol);
+    } catch {
+      return false;
+    }
+  }, 'Search URL template must use http or https');
+
+const searchEngineSettingsSchema = z.object({
+  defaultId: z.string().trim().max(80).default(''),
+  items: z.array(z.object({
+    id: z.string().trim().max(80),
+    label: z.string().trim().min(1).max(60),
+    short: z.string().trim().max(4).default(''),
+    template: searchTemplateSchema,
+    enabled: z.boolean().default(true),
+  })).min(1).max(30),
+}).transform((value) => {
+  const usedIds = new Set<string>();
+  const items = value.items.map((item, index) => {
+    const baseId = normalizeSearchEngineId(item.id) || `engine-${index + 1}`;
+    let id = baseId;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `${baseId}-${suffix++}`;
+    usedIds.add(id);
+    return {
+      ...item,
+      id,
+      short: item.short || item.label.slice(0, 1),
+    };
+  });
+  if (!items.some((item) => item.enabled)) items[0].enabled = true;
+  const enabled = items.filter((item) => item.enabled);
+  const requestedDefault = normalizeSearchEngineId(value.defaultId);
+  return {
+    defaultId: enabled.some((item) => item.id === requestedDefault) ? requestedDefault : enabled[0].id,
+    items,
+  };
+});
+
 export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) return {};
   const settings = { ...input };
   if ('appearance' in settings) settings.appearance = appearanceSchema.parse(settings.appearance);
   if ('portal' in settings) settings.portal = portalSchema.parse(settings.portal);
+  if ('searchEngines' in settings) settings.searchEngines = searchEngineSettingsSchema.parse(settings.searchEngines);
   return settings;
+}
+
+function normalizeSearchEngineId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
 const optionalWebLocation = safeWebLocation.nullable().optional();

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
@@ -16,6 +16,7 @@ import { notifyError, notifySuccess } from '@/composables/useToasts';
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
+const selectedCategoryId = ref<number>(0);
 const selectedFolderId = ref<number>(0);
 const sortMode = ref(false);
 const draftLinkIds = shallowRef<number[]>([]);
@@ -35,8 +36,20 @@ const isLoadingDuplicates = ref(false);
 const healthResults = ref<LinkHealthResult[]>([]);
 const healthSummary = ref<LinkHealthSummary | null>(null);
 const isCheckingHealth = ref(false);
+const editingLinkId = ref<number | null>(null);
+const inlineForm = reactive({ name: '', url: '', folderId: 0 });
 
-const activeFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || folders.value[0]);
+const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
+const categoryFolders = computed(() => sortedFolders.value.filter((folder) => !folder.parentId || !folderById.value.has(folder.parentId)));
+const categoryFolderGroups = computed(() => categoryFolders.value.map((category) => ({
+  category,
+  folders: folderTree(category.id),
+})));
+const selectedCategoryFolders = computed(() => {
+  return categoryFolderGroups.value.find((item) => item.category.id === selectedCategoryId.value)?.folders || [];
+});
+const activeFolder = computed(() => selectedCategoryFolders.value.find((folder) => folder.id === selectedFolderId.value));
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
@@ -50,13 +63,37 @@ const filteredLinks = computed(() => {
   return base.filter((link) => [link.name, link.url, link.description || ''].join(' ').toLowerCase().includes(query));
 });
 
+function folderTree(rootId: number) {
+  const result: Folder[] = [];
+  const visit = (folder: Folder) => {
+    result.push(folder);
+    for (const child of sortedFolders.value.filter((item) => item.parentId === folder.id)) visit(child);
+  };
+  const root = folderById.value.get(rootId);
+  if (root) visit(root);
+  return result;
+}
+
+function preferredFolderId(categoryId: number) {
+  return sortedFolders.value.find((folder) => folder.parentId === categoryId)?.id || categoryId;
+}
+
+function ensureCategorySelection() {
+  if (!categoryFolders.value.some((folder) => folder.id === selectedCategoryId.value)) {
+    selectedCategoryId.value = categoryFolders.value[0]?.id || 0;
+  }
+  if (!selectedCategoryFolders.value.some((folder) => folder.id === selectedFolderId.value)) {
+    selectedFolderId.value = preferredFolderId(selectedCategoryId.value);
+  }
+}
+
 async function load() {
   isInitialLoading.value = true;
   try {
     [folders.value, links.value] = await Promise.all([apiRequest<Folder[]>('/api/admin/folders'), apiRequest<Link[]>('/api/admin/links')]);
-    if (!selectedFolderId.value && folders.value[0]) selectedFolderId.value = folders.value[0].id;
-    if (!form.folderId && folders.value[0]) form.folderId = folders.value[0].id;
-    if (!bulkFolderId.value && folders.value[0]) bulkFolderId.value = folders.value[0].id;
+    ensureCategorySelection();
+    if (!form.folderId && activeFolder.value) form.folderId = activeFolder.value.id;
+    if (!bulkFolderId.value && activeFolder.value) bulkFolderId.value = activeFolder.value.id;
     selectedLinkIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载书签失败');
@@ -65,17 +102,58 @@ async function load() {
   }
 }
 
+function selectCategory(category: Folder) {
+  selectedCategoryId.value = category.id;
+  selectedFolderId.value = preferredFolderId(category.id);
+  form.folderId = selectedFolderId.value;
+  bulkFolderId.value = selectedFolderId.value;
+  clearManagementState();
+}
+
 function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
   form.folderId = folder.id;
+  bulkFolderId.value = folder.id;
+  clearManagementState();
+}
+
+function clearManagementState() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
+  cancelInlineEdit();
   stopSorting();
 }
 
 function edit(link: Link) {
   Object.assign(form, link);
   stopSorting();
+}
+
+function startInlineEdit(link: Link) {
+  Object.assign(inlineForm, { name: link.name, url: link.url, folderId: link.folderId });
+  editingLinkId.value = link.id;
+  stopSorting();
+}
+
+function cancelInlineEdit() {
+  editingLinkId.value = null;
+}
+
+async function saveInlineEdit(link: Link) {
+  if (!inlineForm.name.trim() || !inlineForm.url.trim() || !inlineForm.folderId) return;
+  try {
+    const payload = {
+      name: inlineForm.name.trim(),
+      url: inlineForm.url.trim(),
+      folderId: inlineForm.folderId,
+    };
+    const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, { method: 'PUT', body: jsonBody(payload) });
+    links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved } : item));
+    editingLinkId.value = null;
+    notifySuccess('书签已更新');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '书签更新失败');
+  }
 }
 
 const quickUrl = ref('');
@@ -88,7 +166,7 @@ async function quickAdd() {
     notifyError('请以 http 或 https 开头');
     return;
   }
-  const folderId = form.folderId || activeFolder.value?.id || folders.value[0]?.id;
+  const folderId = form.folderId || activeFolder.value?.id || sortedFolders.value[0]?.id;
   if (!folderId) {
     notifyError('请先创建一个文件夹');
     return;
@@ -118,7 +196,7 @@ async function quickAdd() {
 }
 
 function reset() {
-  Object.assign(form, { id: 0, folderId: activeFolder.value?.id || folders.value[0]?.id || 0, name: '', url: '', icon: '', description: '' });
+  Object.assign(form, { id: 0, folderId: activeFolder.value?.id || sortedFolders.value[0]?.id || 0, name: '', url: '', icon: '', description: '' });
 }
 
 async function save() {
@@ -338,7 +416,9 @@ onMounted(load);
           :disabled="isQuickAdding"
         />
         <select v-model.number="form.folderId" aria-label="目标文件夹">
-          <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+          <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
+            <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+          </optgroup>
         </select>
         <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
           {{ isQuickAdding ? '抓取中…' : '快速添加' }}
@@ -347,7 +427,14 @@ onMounted(load);
       <form class="bookmark-create-grid" @submit.prevent="save">
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
         <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>
-        <div class="field"><label>文件夹</label><select v-model.number="form.folderId" required><option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option></select></div>
+        <div class="field">
+          <label>文件夹</label>
+          <select v-model.number="form.folderId" required>
+            <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
+              <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            </optgroup>
+          </select>
+        </div>
         <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="可为空" /><button type="button" title="图标">☝</button></div></div>
         <div class="field wide"><label>介绍</label><input v-model="form.description" placeholder="鼠标经过时的提示语，也可用于站内搜索" /></div>
         <div class="field action-field"><label>操作</label><button class="button" type="submit" :disabled="isSaving"><Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}</button></div>
@@ -369,10 +456,30 @@ onMounted(load);
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
-        <div class="folder-pills">
-          <button v-for="folder in folders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
-            <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
-          </button>
+        <div class="management-filter-group">
+          <div class="management-filter-label">大类</div>
+          <nav class="folder-pills" aria-label="书签大类">
+            <button
+              v-for="category in categoryFolders"
+              :key="category.id"
+              class="folder-pill"
+              :class="{ active: category.id === selectedCategoryId }"
+              :aria-pressed="category.id === selectedCategoryId"
+              :data-testid="`link-category-${category.id}`"
+              type="button"
+              @click="selectCategory(category)"
+            >
+              <FolderGlyph :icon="category.icon" :size="15" />{{ category.name }}
+            </button>
+          </nav>
+        </div>
+        <div class="management-filter-group">
+          <div class="management-filter-label">文件夹</div>
+          <div class="folder-pills">
+            <button v-for="folder in selectedCategoryFolders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
+              <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
+            </button>
+          </div>
         </div>
         <div v-if="!sortMode" class="bulk-action-bar">
           <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
@@ -381,7 +488,9 @@ onMounted(load);
               {{ allFilteredSelected ? '取消全选' : '全选当前' }}
             </button>
             <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
-              <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+              <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
+                <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+              </optgroup>
             </select>
             <button class="button secondary" data-testid="bulk-move" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkMoveSelected">
               <MoveDown :size="17" /> 移动
@@ -415,17 +524,54 @@ onMounted(load);
                 <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整书签顺序"><GripVertical :size="18" /></button>
                 <Link2 v-else :size="16" />
               </span>
-              <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="edit(link)">{{ link.name }}</button>
-              <span class="url-cell" data-label="链接">{{ link.url }}</span>
-              <span data-label="文件夹">{{ folderName(link.folderId) }}</span>
+              <span data-label="名称">
+                <input
+                  v-if="editingLinkId === link.id"
+                  v-model="inlineForm.name"
+                  class="inline-link-input"
+                  :data-testid="`inline-link-name-${link.id}`"
+                  maxlength="24"
+                />
+                <button v-else class="text-button" type="button" :disabled="sortMode" @click="edit(link)">{{ link.name }}</button>
+              </span>
+              <span class="url-cell" data-label="链接">
+                <input
+                  v-if="editingLinkId === link.id"
+                  v-model="inlineForm.url"
+                  class="inline-link-input"
+                  :data-testid="`inline-link-url-${link.id}`"
+                  type="url"
+                />
+                <template v-else>{{ link.url }}</template>
+              </span>
+              <span data-label="文件夹">
+                <select
+                  v-if="editingLinkId === link.id"
+                  v-model.number="inlineForm.folderId"
+                  class="inline-link-select"
+                  :data-testid="`inline-link-folder-${link.id}`"
+                >
+                  <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
+                    <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+                  </optgroup>
+                </select>
+                <template v-else>{{ folderName(link.folderId) }}</template>
+              </span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
                   <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
                   <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
                 </template>
                 <template v-else>
-                  <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
-                  <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                  <template v-if="editingLinkId === link.id">
+                    <button class="icon-button success" :data-testid="`save-inline-link-${link.id}`" title="保存快速修改" @click="saveInlineEdit(link)"><Save :size="16" /></button>
+                    <button class="icon-button secondary" title="取消快速修改" @click="cancelInlineEdit"><X :size="16" /></button>
+                  </template>
+                  <template v-else>
+                    <button class="icon-button secondary" :data-testid="`edit-link-${link.id}`" title="快速修改名称、链接和文件夹" @click="startInlineEdit(link)"><Pencil :size="16" /></button>
+                    <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
+                    <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                  </template>
                 </template>
               </span>
             </article>
@@ -443,3 +589,72 @@ onMounted(load);
     </section>
   </AdminLayout>
 </template>
+
+<style scoped>
+.management-filter-group {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  padding: 11px 0;
+}
+
+.management-filter-group + .management-filter-group {
+  margin-bottom: 10px;
+}
+
+.management-filter-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.management-filter-group .folder-pills {
+  margin: 0;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.management-filter-group .folder-pill {
+  flex: 0 0 auto;
+}
+
+.inline-link-input,
+.inline-link-select {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.46);
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  min-height: 34px;
+  min-width: 0;
+  padding: 6px 9px;
+  width: 100%;
+}
+
+.inline-link-input:focus,
+.inline-link-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .management-filter-group {
+    gap: 4px;
+    grid-template-columns: 1fr;
+  }
+
+  .management-filter-label {
+    line-height: 1.4;
+  }
+
+  .inline-link-input,
+  .inline-link-select {
+    width: 100%;
+  }
+}
+</style>

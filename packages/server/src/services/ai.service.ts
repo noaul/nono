@@ -32,7 +32,13 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
     'JSON shape: {"suggestedFolderId":number|null,"suggestedFolderName":string,"suggestedName":string,"suggestedDescription":string,"createFolder":boolean}',
   ].join('\n');
   try {
-    const raw = await services.llmClient.complete({ provider: account.llmProvider as any, apiKey, model: account.llmModel || defaultModel(account.llmProvider), prompt });
+    const raw = await services.llmClient.complete({
+      provider: account.llmProvider as any,
+      apiKey,
+      model: account.llmModel || defaultModel(account.llmProvider),
+      baseUrl: account.llmBaseUrl,
+      prompt,
+    });
     return { ...fallback, ...JSON.parse(raw) };
   } catch {
     return fallback;

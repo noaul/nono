@@ -20,7 +20,7 @@ export interface AppServices {
 }
 
 export interface LlmClient {
-  complete(input: { provider: LlmProvider; apiKey: string; model: string; prompt: string }): Promise<string>;
+  complete(input: { provider: LlmProvider; apiKey: string; model: string; baseUrl?: string | null; prompt: string }): Promise<string>;
 }
 
 export interface AuthedRequest extends FastifyRequest {

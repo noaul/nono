@@ -17,6 +17,7 @@ model User {
   llmProvider  String?
   llmApiKey    String?
   llmModel     String?
+  llmBaseUrl   String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   sites        Site[]

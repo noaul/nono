@@ -6,6 +6,7 @@ export interface User {
   role: 'admin' | 'user';
   llmProvider?: string | null;
   llmModel?: string | null;
+  llmBaseUrl?: string | null;
   hasLlmApiKey?: boolean;
 }
 

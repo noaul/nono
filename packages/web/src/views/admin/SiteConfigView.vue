@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ArrowUpRight, Image, Link2, Palette, Save } from 'lucide-vue-next';
+import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
+import { getSearchEngineSettings, type SearchEngineSettings } from '@/utils/searchEngines';
 import { PUBLIC_THEMES, accentCssVars, type PublicTheme } from '@/utils/themes';
 
 const form = reactive({
@@ -23,6 +24,7 @@ const form = reactive({
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
 const portal = reactive({ ...portalDefaults });
 const theme = reactive({ id: '', accent: '' });
+const searchEngines = reactive<SearchEngineSettings>({ defaultId: 'default', items: [] });
 const message = ref('');
 const error = ref('');
 const saving = ref(false);
@@ -48,6 +50,12 @@ onMounted(async () => {
   Object.assign(form, site, { settings: { ...(site.settings || {}) } });
   Object.assign(appearance, getAppearanceSettings(site.settings));
   Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
+  const savedSearchEngines = getSearchEngineSettings(site.settings, site.searchUrlTemplate);
+  searchEngines.defaultId = savedSearchEngines.defaultId;
+  searchEngines.items = savedSearchEngines.items.map((item) => ({
+    ...item,
+    template: item.template || site.searchUrlTemplate,
+  }));
   const savedTheme = (site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
   if (savedTheme) Object.assign(theme, { id: savedTheme.id || '', accent: savedTheme.accent || '' });
 });
@@ -64,6 +72,15 @@ async function save() {
         appearance: { ...appearance },
         portal: { ...portal },
         theme: { ...theme },
+        searchEngines: {
+          defaultId: searchEngines.defaultId,
+          items: searchEngines.items.map((item) => ({
+            ...item,
+            label: item.label.trim(),
+            short: item.short.trim(),
+            template: String(item.template || '').trim(),
+          })),
+        },
       },
     };
     const site = await apiRequest<Site>('/api/admin/site', { method: 'PUT', body: jsonBody(payload) });
@@ -74,6 +91,41 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+function addSearchEngine() {
+  const id = `custom-${Date.now()}-${searchEngines.items.length + 1}`;
+  searchEngines.items.push({
+    id,
+    label: '自定义搜索',
+    short: '搜',
+    template: 'https://example.com/search?q={query}',
+    enabled: true,
+  });
+}
+
+function removeSearchEngine(id: string) {
+  if (searchEngines.items.length <= 1) return;
+  searchEngines.items = searchEngines.items.filter((item) => item.id !== id);
+  if (searchEngines.defaultId === id) {
+    searchEngines.defaultId = searchEngines.items.find((item) => item.enabled)?.id || searchEngines.items[0].id;
+  }
+}
+
+function setEngineEnabled(id: string, enabled: boolean) {
+  const engine = searchEngines.items.find((item) => item.id === id);
+  if (!engine) return;
+  engine.enabled = enabled;
+  if (!enabled && searchEngines.defaultId === id) {
+    searchEngines.defaultId = searchEngines.items.find((item) => item.enabled)?.id || id;
+  }
+}
+
+function setDefaultSearchEngine(id: string) {
+  const engine = searchEngines.items.find((item) => item.id === id);
+  if (!engine) return;
+  engine.enabled = true;
+  searchEngines.defaultId = id;
 }
 </script>
 
@@ -105,11 +157,77 @@ async function save() {
             <label>字体色</label>
             <div class="color-control"><input v-model="form.fontColor" type="color" /><code>{{ form.fontColor }}</code></div>
           </div>
-          <div class="field wide"><label>搜索模板</label><input v-model="form.searchUrlTemplate" /></div>
+          <div class="field wide"><label>旧版默认搜索模板</label><input v-model="form.searchUrlTemplate" /></div>
           <label class="switch-row wide">
             <input v-model="form.localSearchFirst" type="checkbox" />
             <span><strong>站内优先搜索</strong><small>有本地结果时停留在导航页</small></span>
           </label>
+        </div>
+      </section>
+
+      <section class="admin-card search-engine-editor">
+        <header class="admin-card-head">
+          <div>
+            <h2><Search :size="18" /> 搜索引擎</h2>
+            <p>自定义公开导航页可选的搜索入口，并指定默认项</p>
+          </div>
+          <button class="button secondary" data-testid="add-search-engine" type="button" @click="addSearchEngine">
+            <Plus :size="16" /> 新增引擎
+          </button>
+        </header>
+
+        <div class="search-engine-list">
+          <article
+            v-for="engine in searchEngines.items"
+            :key="engine.id"
+            class="search-engine-row"
+            :data-testid="`search-engine-row-${engine.id}`"
+          >
+            <div class="field engine-name-field">
+              <label>名称</label>
+              <input v-model="engine.label" data-testid="search-engine-label" maxlength="60" />
+            </div>
+            <div class="field engine-short-field">
+              <label>简称</label>
+              <input v-model="engine.short" data-testid="search-engine-short" maxlength="4" />
+            </div>
+            <div class="field engine-template-field">
+              <label>搜索 URL，必须包含 {query}</label>
+              <input v-model="engine.template" data-testid="search-engine-template" type="url" />
+            </div>
+            <label class="engine-toggle">
+              <input
+                :checked="engine.enabled"
+                data-testid="search-engine-enabled"
+                type="checkbox"
+                @change="setEngineEnabled(engine.id, ($event.target as HTMLInputElement).checked)"
+              />
+              <span>启用</span>
+            </label>
+            <label
+              class="engine-default"
+              :checked="searchEngines.defaultId === engine.id"
+              :data-testid="`default-search-engine-${engine.id}`"
+            >
+              <input
+                :checked="searchEngines.defaultId === engine.id"
+                data-testid="search-engine-default"
+                name="default-search-engine"
+                type="radio"
+                @change="setDefaultSearchEngine(engine.id)"
+              />
+              <span>默认</span>
+            </label>
+            <button
+              class="icon-button danger"
+              type="button"
+              title="删除搜索引擎"
+              :disabled="searchEngines.items.length <= 1"
+              @click="removeSearchEngine(engine.id)"
+            >
+              <Trash2 :size="16" />
+            </button>
+          </article>
         </div>
       </section>
 
@@ -302,6 +420,44 @@ async function save() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.search-engine-list {
+  display: grid;
+  gap: 10px;
+}
+
+.search-engine-row {
+  align-items: end;
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(120px, 0.7fr) 72px minmax(260px, 1.6fr) auto auto 36px;
+  padding: 12px;
+}
+
+.search-engine-row .field {
+  gap: 5px;
+}
+
+.engine-toggle,
+.engine-default {
+  align-items: center;
+  color: #475569;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 6px;
+  min-height: 40px;
+}
+
+.engine-toggle input,
+.engine-default input {
+  accent-color: var(--nono-accent);
+  height: 17px;
+  width: 17px;
+}
+
 .wide {
   grid-column: 1 / -1;
 }
@@ -467,6 +623,15 @@ async function save() {
   .portal-layout {
     grid-template-columns: 1fr;
   }
+
+  .search-engine-row {
+    grid-template-columns: minmax(0, 1fr) 72px auto auto 36px;
+  }
+
+  .engine-template-field {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 
 @media (max-width: 640px) {
@@ -476,6 +641,15 @@ async function save() {
 
   .wide {
     grid-column: auto;
+  }
+
+  .search-engine-row {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) 64px 36px;
+  }
+
+  .engine-template-field {
+    grid-column: 1 / -1;
   }
 
   .admin-card-head,

@@ -83,7 +83,7 @@ function envOrThrow(name: string) {
   return 'dev-only-session-secret-change-me';
 }
 
-class FetchLlmClient implements LlmClient {
+export class FetchLlmClient implements LlmClient {
   async complete(input: Parameters<LlmClient['complete']>[0]) {
     if (input.provider === 'claude') return completeClaude(input);
     return completeOpenAi(input);
@@ -91,7 +91,7 @@ class FetchLlmClient implements LlmClient {
 }
 
 async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.openai.com/v1', 'chat/completions'), {
     method: 'POST',
     headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -109,7 +109,7 @@ async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
 }
 
 async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.anthropic.com/v1', 'messages'), {
     method: 'POST',
     headers: {
       'x-api-key': input.apiKey,
@@ -126,4 +126,10 @@ async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
   if (!response.ok) throw new Error(`Claude request failed: ${response.status}`);
   const payload = (await response.json()) as any;
   return payload.content?.find((item: any) => item.type === 'text')?.text || '{}';
+}
+
+function resolveLlmEndpoint(baseUrl: string | null | undefined, officialBaseUrl: string, endpoint: string) {
+  const base = (baseUrl || officialBaseUrl).replace(/\/+$/, '');
+  if (base.endsWith(`/${endpoint}`)) return base;
+  return `${base}/${endpoint}`;
 }

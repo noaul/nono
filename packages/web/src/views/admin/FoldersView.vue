@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
-import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Save, Square, Trash2, X } from 'lucide-vue-next';
+import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Pencil, Save, Square, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
@@ -26,6 +26,7 @@ const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const selectedFolderIds = ref(new Set<number>());
 const isBulkDeleting = ref(false);
+const selectedCategoryId = ref<number | null>(null);
 const selectedFolderCount = computed(() => selectedFolderIds.value.size);
 const sortedFolders = computed(() => {
   // Tree order: each category (top-level) followed by its sub-folders.
@@ -51,8 +52,14 @@ const sortedFolders = computed(() => {
   return result;
 });
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
+const categoryFolders = computed(() => sortedFolders.value.filter((folder) => !folder.parentId || !folderById.value.has(folder.parentId)));
+const visibleFolderIds = computed(() => {
+  if (!selectedCategoryId.value) return new Set<number>();
+  return folderTreeIds(selectedCategoryId.value);
+});
+const categorySortedFolders = computed(() => sortedFolders.value.filter((folder) => visibleFolderIds.value.has(folder.id)));
 const displayedFolders = computed(() => {
-  if (!sortMode.value) return sortedFolders.value;
+  if (!sortMode.value) return categorySortedFolders.value;
   return draftFolderIds.value.map((id) => folderById.value.get(id)).filter((folder): folder is Folder => Boolean(folder));
 });
 const folderDepthById = computed(() => {
@@ -85,6 +92,7 @@ async function load() {
       apiRequest<Folder[]>('/api/admin/folders'),
       apiRequest<Link[]>('/api/admin/links'),
     ]);
+    ensureSelectedCategory();
     selectedFolderIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载文件夹失败');
@@ -112,6 +120,19 @@ function folderTreeIds(rootId: number) {
   return ids;
 }
 
+function ensureSelectedCategory() {
+  if (categoryFolders.value.some((folder) => folder.id === selectedCategoryId.value)) return;
+  selectedCategoryId.value = categoryFolders.value[0]?.id || null;
+}
+
+function selectCategory(id: number) {
+  if (selectedCategoryId.value === id) return;
+  selectedCategoryId.value = id;
+  clearFolderSelection();
+  stopSorting();
+  if (form.parentId && !visibleFolderIds.value.has(form.parentId)) reset();
+}
+
 function affectedFolderIds(rootIds: Iterable<number>) {
   const ids = new Set<number>();
   for (const rootId of rootIds) {
@@ -129,7 +150,7 @@ function toggleFolderSelection(id: number, event: Event) {
 }
 
 function selectAllFolders() {
-  selectedFolderIds.value = new Set(sortedFolders.value.map((folder) => folder.id));
+  selectedFolderIds.value = new Set(categorySortedFolders.value.map((folder) => folder.id));
 }
 
 function clearFolderSelection() {
@@ -155,6 +176,7 @@ async function bulkDeleteSelected() {
     folders.value = folders.value.filter((folder) => !affectedIds.has(folder.id));
     links.value = links.value.filter((link) => !affectedIds.has(link.folderId));
     if (affectedIds.has(form.id)) reset();
+    ensureSelectedCategory();
     clearFolderSelection();
     notifySuccess(`已删除 ${affectedIds.size} 个文件夹和 ${linkCount} 个书签`);
   } catch (event) {
@@ -216,6 +238,7 @@ async function save() {
       ? await apiRequest<Folder>(`/api/admin/folders/${form.id}`, { method: 'PUT', body: jsonBody({ ...payload, password: undefined }) })
       : await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) });
     folders.value = form.id ? folders.value.map((folder) => (folder.id === saved.id ? saved : folder)) : [saved, ...folders.value];
+    if (!selectedCategoryId.value) ensureSelectedCategory();
     message.value = form.id ? '文件夹已更新' : '文件夹已新增';
     notifySuccess(message.value);
     reset();
@@ -246,6 +269,7 @@ async function remove(folder: Folder) {
     links.value = links.value.filter((link) => !affectedFolderIds.has(link.folderId));
     selectedFolderIds.value = new Set([...selectedFolderIds.value].filter((id) => !affectedFolderIds.has(id)));
     if (affectedFolderIds.has(form.id)) reset();
+    ensureSelectedCategory();
     notifySuccess('文件夹已删除');
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '删除失败');
@@ -258,7 +282,7 @@ async function remove(folder: Folder) {
 
 function startSorting() {
   clearFolderSelection();
-  draftFolderIds.value = sortedFolders.value.map((folder) => folder.id);
+  draftFolderIds.value = categorySortedFolders.value.map((folder) => folder.id);
   sortMode.value = true;
 }
 
@@ -367,6 +391,21 @@ onMounted(load);
         </template>
       </EmptyState>
       <template v-else>
+        <nav class="folder-pills category-manager-tabs" aria-label="文件夹大类">
+          <button
+            v-for="category in categoryFolders"
+            :key="category.id"
+            class="folder-pill"
+            :class="{ active: selectedCategoryId === category.id }"
+            :aria-pressed="selectedCategoryId === category.id"
+            :data-testid="`folder-category-${category.id}`"
+            type="button"
+            @click="selectCategory(category.id)"
+          >
+            <FolderGlyph :icon="category.icon" :size="16" />
+            {{ category.name }}
+          </button>
+        </nav>
         <div v-if="!sortMode" class="bulk-action-bar">
           <strong>{{ selectedFolderCount ? `已选择 ${selectedFolderCount} 个文件夹` : '批量操作' }}</strong>
           <div class="bulk-controls">
@@ -409,7 +448,10 @@ onMounted(load);
                 <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
                 <button class="icon-button secondary" title="下移" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
               </template>
-              <button v-else class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
+              <template v-else>
+                <button class="icon-button secondary" :data-testid="`edit-folder-${folder.id}`" title="重命名和更改图标" @click="edit(folder)"><Pencil :size="16" /></button>
+                <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
+              </template>
             </span>
           </article>
         </SortableList>
@@ -473,5 +515,18 @@ onMounted(load);
 
 .folder-icon-custom {
   margin-top: 2px;
+}
+
+.category-manager-tabs {
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.category-manager-tabs .folder-pill {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 7px;
 }
 </style>

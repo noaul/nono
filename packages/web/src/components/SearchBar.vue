@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Check, ChevronDown, Search } from 'lucide-vue-next';
-import { SEARCH_ENGINES, getEngine, getSelectedEngineId, setSelectedEngineId } from '@/utils/searchEngines';
+import { getEngine, getSelectedEngineId, setSelectedEngineId, type SearchEngineSettings } from '@/utils/searchEngines';
 
-defineProps<{ modelValue: string; placeholder?: string }>();
+const props = defineProps<{ modelValue: string; placeholder?: string; searchEngines: SearchEngineSettings }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string]; submit: []; 'engine-change': [engineId: string] }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerRef = ref<HTMLElement | null>(null);
 const pickerOpen = ref(false);
-const engineId = ref(getSelectedEngineId());
-const engine = computed(() => getEngine(engineId.value));
+const engineId = ref(getSelectedEngineId(props.searchEngines));
+const enabledEngines = computed(() => props.searchEngines.items.filter((item) => item.enabled));
+const engine = computed(() => getEngine(engineId.value, props.searchEngines));
+
+watch(() => props.searchEngines, (settings) => {
+  engineId.value = getSelectedEngineId(settings);
+}, { deep: true });
 
 function pickEngine(id: string) {
   engineId.value = id;
@@ -62,7 +67,7 @@ defineExpose({
         <ChevronDown class="engine-caret" :size="13" />
       </button>
       <ul v-if="pickerOpen" class="engine-menu" role="listbox" :aria-activedescendant="`engine-${engineId}`">
-        <li v-for="option in SEARCH_ENGINES" :key="option.id">
+        <li v-for="option in enabledEngines" :key="option.id">
           <button
             :id="`engine-${option.id}`"
             class="engine-option"

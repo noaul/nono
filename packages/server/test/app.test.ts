@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
+import { buildApp, FetchLlmClient } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
@@ -629,5 +629,80 @@ describe('Nono Fastify app', () => {
     expect(saved.statusCode).toBe(200);
     expect(saved.json().data.url).toBe('https://example.com/article');
     expect(await repo.listLinks(1)).toHaveLength(1);
+  });
+
+  it('persists a custom LLM API base URL and passes it to bookmark analysis', async () => {
+    const llmClient = { complete: vi.fn().mockResolvedValue('{"suggestedName":"AI result"}') };
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
+    const cookie = await setupAdmin();
+    await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading' } });
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/account/llm',
+      headers: { cookie },
+      payload: {
+        provider: 'openai',
+        model: 'custom-model',
+        apiKey: 'secret-key',
+        baseUrl: 'https://gateway.example.com/v1/',
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data).toMatchObject({
+      llmProvider: 'openai',
+      llmModel: 'custom-model',
+      llmBaseUrl: 'https://gateway.example.com/v1',
+      hasLlmApiKey: true,
+    });
+
+    const analysis = await app.inject({
+      method: 'POST',
+      url: '/api/ai/analyze',
+      headers: { cookie },
+      payload: { url: 'https://example.com/article', title: 'Example' },
+    });
+
+    expect(analysis.statusCode).toBe(200);
+    expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({
+      provider: 'openai',
+      model: 'custom-model',
+      baseUrl: 'https://gateway.example.com/v1',
+    }));
+  });
+
+  it('resolves custom OpenAI-compatible and Claude API endpoints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '{}' } }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ type: 'text', text: '{}' }] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new FetchLlmClient();
+
+    await client.complete({
+      provider: 'openai',
+      apiKey: 'key',
+      model: 'model',
+      baseUrl: 'https://openrouter.example/api/v1',
+      prompt: 'hello',
+    });
+    await client.complete({
+      provider: 'claude',
+      apiKey: 'key',
+      model: 'model',
+      baseUrl: 'https://claude-gateway.example/v1/',
+      prompt: 'hello',
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://openrouter.example/api/v1/chat/completions');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://claude-gateway.example/v1/messages');
+    vi.unstubAllGlobals();
   });
 });

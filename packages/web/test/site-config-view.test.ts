@@ -112,4 +112,53 @@ describe('SiteConfigView appearance controls', () => {
       openInNewTab: true,
     });
   });
+
+  it('adds custom search engines, toggles them, and persists the default engine', async () => {
+    apiRequest
+      .mockResolvedValueOnce({
+        id: 1,
+        userId: 1,
+        name: 'Nono',
+        description: '导航',
+        slug: 'admin',
+        backgroundColor: '#090a0f',
+        fontColor: '#ffffff',
+        searchUrlTemplate: 'https://www.google.com/search?q={query}',
+        localSearchFirst: true,
+        settings: {
+          searchEngines: {
+            defaultId: 'bing',
+            items: [
+              { id: 'google', label: 'Google', short: 'G', template: 'https://www.google.com/search?q={query}', enabled: true },
+              { id: 'bing', label: 'Bing', short: 'B', template: 'https://www.bing.com/search?q={query}', enabled: true },
+            ],
+          },
+        },
+      })
+      .mockResolvedValueOnce({ id: 1, userId: 1, name: 'Nono', settings: {} });
+
+    const wrapper = mountView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="default-search-engine-bing"]').attributes('checked')).toBeDefined();
+    await wrapper.get('[data-testid="add-search-engine"]').trigger('click');
+    const rows = wrapper.findAll('[data-testid^="search-engine-row-"]');
+    const customRow = rows[rows.length - 1];
+    await customRow.get('[data-testid="search-engine-label"]').setValue('站内文档');
+    await customRow.get('[data-testid="search-engine-short"]').setValue('文');
+    await customRow.get('[data-testid="search-engine-template"]').setValue('https://docs.example/search?q={query}');
+    await customRow.get('[data-testid="search-engine-enabled"]').setValue(true);
+    await customRow.get('[data-testid="search-engine-default"]').setValue(true);
+    await wrapper.get('form').trigger('submit');
+    await settle(wrapper);
+
+    const payload = JSON.parse(apiRequest.mock.calls[1][1].body);
+    expect(payload.settings.searchEngines.defaultId).toMatch(/^custom-/);
+    expect(payload.settings.searchEngines.items).toContainEqual(expect.objectContaining({
+      label: '站内文档',
+      short: '文',
+      template: 'https://docs.example/search?q={query}',
+      enabled: true,
+    }));
+  });
 });

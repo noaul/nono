@@ -86,6 +86,30 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
   });
 
+  it('defaults to the first category and filters the management table by category', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
+        { id: 4, userId: 1, name: '旅行', parentId: 3, sortOrder: 70 },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="folder-category-1"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.find('[data-testid="folder-row-1"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-row-2"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-row-3"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="folder-category-3"]').trigger('click');
+    expect(wrapper.find('[data-testid="folder-row-1"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="folder-row-3"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-row-4"]').exists()).toBe(true);
+  });
+
   it('selects and bulk deletes folder trees without reloading lists', async () => {
     apiRequest
       .mockResolvedValueOnce([

@@ -105,6 +105,48 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('Archive');
   });
 
+  it('filters bookmarks by category then folder and saves inline changes', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
+        { id: 4, userId: 1, name: '旅行', parentId: 3, sortOrder: 70 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 },
+        { id: 11, folderId: 4, name: 'Maps', url: 'https://maps.example/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({ id: 10, folderId: 4, name: 'GitHub Home', url: 'https://github.com/home', sortOrder: 100 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="link-category-1"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.text()).toContain('GitHub');
+    expect(wrapper.text()).not.toContain('Maps');
+
+    await wrapper.get('[data-testid="edit-link-10"]').trigger('click');
+    await wrapper.get('[data-testid="inline-link-name-10"]').setValue('GitHub Home');
+    await wrapper.get('[data-testid="inline-link-url-10"]').setValue('https://github.com/home');
+    await wrapper.get('[data-testid="inline-link-folder-10"]').setValue('4');
+    await wrapper.get('[data-testid="save-inline-link-10"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/10', {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: 'GitHub Home',
+        url: 'https://github.com/home',
+        folderId: 4,
+      }),
+    });
+
+    await wrapper.get('[data-testid="link-category-3"]').trigger('click');
+    expect(wrapper.text()).toContain('GitHub Home');
+    expect(wrapper.text()).toContain('Maps');
+  });
+
   it('selects all visible bookmarks for batch deletion', async () => {
     apiRequest
       .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Inbox', sortOrder: 100 }])

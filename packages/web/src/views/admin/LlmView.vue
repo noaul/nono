@@ -5,7 +5,7 @@ import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
 
-const form = reactive({ provider: 'openai' as 'openai' | 'claude', model: 'gpt-4o-mini', apiKey: '' });
+const form = reactive({ provider: 'openai' as 'openai' | 'claude', model: 'gpt-4o-mini', apiKey: '', baseUrl: '' });
 const hasKey = ref(false);
 const message = ref('');
 const error = ref('');
@@ -14,6 +14,7 @@ onMounted(async () => {
   const account = await apiRequest<User>('/api/admin/account');
   form.provider = (account.llmProvider as 'openai' | 'claude') || 'openai';
   form.model = account.llmModel || (form.provider === 'claude' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
+  form.baseUrl = account.llmBaseUrl || '';
   hasKey.value = Boolean(account.hasLlmApiKey);
 });
 
@@ -39,6 +40,11 @@ async function save() {
       <p class="notice">API Key 会在后端用 AES-256-GCM 加密存储。{{ hasKey ? '当前已配置 Key。' : '当前未配置 Key。' }}</p>
       <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>
       <div class="field"><label>模型</label><input v-model="form.model" /></div>
+      <div class="field">
+        <label>API 地址</label>
+        <input v-model="form.baseUrl" data-testid="llm-base-url" type="url" placeholder="留空使用官方接口，例如 https://api.openai.com/v1" />
+        <small>支持 OpenAI 兼容接口和 Claude 网关，可填写内网 HTTP 地址。</small>
+      </div>
       <div class="field"><label>API Key</label><input v-model="form.apiKey" type="password" placeholder="留空则保留现有 Key" /></div>
       <button class="button" type="submit"><Save :size="17" /> 保存 LLM 配置</button>
     </form>
