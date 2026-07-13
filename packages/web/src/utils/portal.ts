@@ -2,13 +2,13 @@ import type { PortalSettings } from '@/api/types';
 
 export const portalDefaults: PortalSettings = {
   enabled: true,
-  url: '',
+  url: '/blog',
   label: '前往博客',
   imageUrl: '',
   openInNewTab: false,
 };
 
-export function getPortalSettings(settings: unknown, fallbackUrl = ''): PortalSettings {
+export function getPortalSettings(settings: unknown, fallbackUrl = portalDefaults.url): PortalSettings {
   const record = isRecord(settings) && isRecord(settings.portal) ? settings.portal : {};
 
   return {

@@ -21,9 +21,9 @@ services:
     build:
       context: .
       args:
-        VITE_BLOG_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/blog}
+        VITE_BLOG_URL: ${BLOG_NAVIGATION_URL:-/blog}
         NEXT_PUBLIC_SITE_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/blog}
-        NEXT_PUBLIC_NONO_URL: ${NONO_PUBLIC_URL:-http://localhost:3000}
+        NEXT_PUBLIC_NONO_URL: ${NONO_NAVIGATION_URL:-/}
         NEXT_PUBLIC_GITHUB_OWNER: ${NEXT_PUBLIC_GITHUB_OWNER:-noaul}
         NEXT_PUBLIC_GITHUB_REPO: ${NEXT_PUBLIC_GITHUB_REPO:-nono}
         NEXT_PUBLIC_GITHUB_BRANCH: ${NEXT_PUBLIC_GITHUB_BRANCH:-main}

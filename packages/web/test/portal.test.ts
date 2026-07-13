@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getPortalSettings, safeHttpUrl, safeImageUrl } from '../src/utils/portal';
 
 describe('portal settings', () => {
+  it('uses the same-origin blog path by default', () => {
+    expect(getPortalSettings({}).url).toBe('/blog');
+  });
+
   it('normalizes portal values and uses a deployment fallback URL', () => {
     expect(getPortalSettings({}, 'https://blog.example.com')).toMatchObject({
       enabled: true,

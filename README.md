@@ -75,14 +75,16 @@ Blog: http://127.0.0.1:3000/blog
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
 
-正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为同域名下的 `/blog` 地址，例如：
+正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为博客的完整公网地址。站内互跳默认使用同域名相对路径 `/` 与 `/blog`，无需绑定服务器 IP：
 
 ```text
 NONO_PUBLIC_URL=https://example.com
 BLOG_PUBLIC_URL=https://example.com/blog
+NONO_NAVIGATION_URL=/
+BLOG_NAVIGATION_URL=/blog
 ```
 
-两端公开页面的中心图片和右上角入口可以在各自后台配置；Docker 构建参数会作为初始跳转地址，后台保存的设置优先。
+`NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和博客元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在各自后台覆盖，后台保存的设置优先。
 
 博客后台通过 GitHub App 提交文章与图片时，默认写入当前 `nono` 仓库的 `apps/blog` 目录：
 
