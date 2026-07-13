@@ -117,7 +117,9 @@ describe('visual contracts', () => {
     expect(source).toContain('nav-bg-loaded');
     expect(source).toContain('getAppearanceSettings');
     expect(source).toContain('toAppearanceCssVars');
+    expect(source).toContain('--public-card-color-rgb');
     expect(source).toContain('--public-card-opacity');
+    expect(source).toContain('--public-search-color-rgb');
     expect(source).toContain('--public-search-blur');
     expect(source).toContain('.nav-page::before');
     expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
@@ -412,8 +414,9 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).not.toContain('folder-parent-label');
-    expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
-    expect(folderCardSource).toContain('background: rgba(10, 14, 18, 0.52)');
+    expect(folderCardSource).toContain('rgba(var(--public-card-color-rgb');
+    expect(folderCardSource).toContain('var(--public-bookmark-text');
+    expect(folderCardSource).toContain('var(--public-category-text');
     expect(folderCardSource).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(folderCardSource).toContain('.large-folder:hover .large-links');
     expect(folderCardSource).toContain('getFaviconUrl');
@@ -422,8 +425,8 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('engine-picker');
     expect(searchBarSource).toContain('engine-trigger');
     expect(searchBarSource).not.toContain('search-provider-badge');
-    expect(searchBarSource).toContain('rgba(10, 14, 18, 0.26)');
-    expect(searchBarSource).toContain('blur(14px)');
+    expect(searchBarSource).toContain('rgba(var(--public-search-color-rgb');
+    expect(searchBarSource).toContain('var(--public-bookmark-text');
     expect(searchBarSource).toContain('var(--public-search-radius');
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');

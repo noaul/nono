@@ -42,6 +42,8 @@ function themePreviewStyle(preset: PublicTheme) {
     ...accentCssVars(preset.accent),
     '--theme-bg': preset.backgroundColor,
     '--theme-font': preset.fontColor,
+    '--theme-card': preset.appearance.cardColor,
+    '--theme-search': preset.appearance.searchColor,
   };
 }
 
@@ -380,7 +382,8 @@ function setDefaultSearchEngine(id: string) {
 }
 
 .theme-swatch-tab {
-  background: color-mix(in srgb, var(--theme-font, #fff) 18%, transparent);
+  background: color-mix(in srgb, var(--theme-search, #f7f8fb) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 18%, transparent);
   border-radius: 999px;
   display: inline-block;
   height: 10px;
@@ -388,7 +391,7 @@ function setDefaultSearchEngine(id: string) {
 }
 
 .theme-swatch-card {
-  background: color-mix(in srgb, var(--theme-font, #fff) 10%, transparent);
+  background: color-mix(in srgb, var(--theme-card, #f7f8fb) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 24%, transparent);
   border-radius: 4px;
   display: inline-block;

@@ -1,12 +1,38 @@
 import { z } from 'zod';
 
-export const appearanceDefaults = {
+type AppearanceSettings = {
+  cardColor: string;
+  cardRadius: number;
+  cardOpacity: number;
+  cardBlur: number;
+  searchColor: string;
+  searchRadius: number;
+  searchOpacity: number;
+  searchBlur: number;
+  bookmarkTextColor: string;
+  categoryTextColor: string;
+  modalRadius: number;
+  modalOpacity: number;
+  modalBlur: number;
+  tabRadius: number;
+  tabOpacity: number;
+  tabBlur: number;
+  adminRadius: number;
+  adminOpacity: number;
+  adminBlur: number;
+};
+
+export const appearanceDefaults: AppearanceSettings = {
+  cardColor: '#f7f8fb',
   cardRadius: 8,
-  cardOpacity: 52,
-  cardBlur: 8,
+  cardOpacity: 26,
+  cardBlur: 18,
+  searchColor: '#f7f8fb',
   searchRadius: 28,
-  searchOpacity: 26,
-  searchBlur: 14,
+  searchOpacity: 34,
+  searchBlur: 20,
+  bookmarkTextColor: '#ffffff',
+  categoryTextColor: '#ffffff',
   modalRadius: 8,
   modalOpacity: 85,
   modalBlur: 24,
@@ -16,11 +42,22 @@ export const appearanceDefaults = {
   adminRadius: 8,
   adminOpacity: 72,
   adminBlur: 10,
-} as const;
+};
 
-type AppearanceKey = keyof typeof appearanceDefaults;
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor'>;
+type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
 
-const appearanceLimits: Record<AppearanceKey, readonly [number, number]> = {
+const numericAppearanceKeys: NumericAppearanceKey[] = [
+  'cardRadius', 'cardOpacity', 'cardBlur',
+  'searchRadius', 'searchOpacity', 'searchBlur',
+  'modalRadius', 'modalOpacity', 'modalBlur',
+  'tabRadius', 'tabOpacity', 'tabBlur',
+  'adminRadius', 'adminOpacity', 'adminBlur',
+];
+
+const colorAppearanceKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor'];
+
+const appearanceLimits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],
   cardOpacity: [12, 90],
   cardBlur: [0, 32],
@@ -52,13 +89,23 @@ function normalizeNumber(value: unknown, fallback: number, min: number, max: num
   return Math.min(max, Math.max(min, Math.round(number)));
 }
 
+function normalizeHex(value: unknown, fallback: string) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : fallback;
+}
+
 function normalizeAppearance(input: unknown) {
   const source = isRecord(input) ? input : {};
-  return (Object.keys(appearanceDefaults) as AppearanceKey[]).reduce<Record<AppearanceKey, number>>((result, key) => {
+  const result: AppearanceSettings = { ...appearanceDefaults };
+  for (const key of numericAppearanceKeys) {
     const [min, max] = appearanceLimits[key];
     result[key] = normalizeNumber(source[key], appearanceDefaults[key], min, max);
-    return result;
-  }, { ...appearanceDefaults });
+  }
+  for (const key of colorAppearanceKeys) {
+    result[key] = normalizeHex(source[key], appearanceDefaults[key]);
+  }
+  return result;
 }
 
 export const appearanceSchema = z.unknown().transform(normalizeAppearance);

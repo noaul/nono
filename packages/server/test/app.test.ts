@@ -122,7 +122,11 @@ describe('Nono Fastify app', () => {
         settings: {
           analytics: { enabled: true },
           appearance: {
+            cardColor: 'transparent',
             cardRadius: 999,
+            searchColor: '#A1B2C3',
+            bookmarkTextColor: '#112233',
+            categoryTextColor: null,
             modalOpacity: '38',
             tabBlur: -12,
             adminBlur: {},
@@ -135,7 +139,11 @@ describe('Nono Fastify app', () => {
     expect(updated.json().data.settings).toMatchObject({
       analytics: { enabled: true },
       appearance: {
+        cardColor: '#f7f8fb',
         cardRadius: 24,
+        searchColor: '#a1b2c3',
+        bookmarkTextColor: '#112233',
+        categoryTextColor: '#ffffff',
         modalOpacity: 38,
         tabBlur: 0,
         adminBlur: 10,

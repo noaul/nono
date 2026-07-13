@@ -454,8 +454,12 @@ onUnmounted(() => {
 
 .public-glass-page {
   --public-glass-bg: rgba(255, 255, 255, 0.16);
-  --public-card-opacity: 0.52;
-  --public-search-blur: 14px;
+  --public-card-color-rgb: 247, 248, 251;
+  --public-card-opacity: 0.26;
+  --public-search-color-rgb: 247, 248, 251;
+  --public-search-blur: 20px;
+  --public-bookmark-text: #ffffff;
+  --public-category-text: #ffffff;
   background:
     radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.2), transparent 28%),
     linear-gradient(135deg, rgba(8, 12, 18, 0.18), rgba(8, 12, 18, 0.04) 42%, rgba(15, 118, 110, 0.12)),
@@ -715,8 +719,8 @@ h1 {
 .folder-tabs {
   backdrop-filter: blur(var(--public-tab-blur, 10px));
   -webkit-backdrop-filter: blur(var(--public-tab-blur, 10px));
-  background: rgba(255, 255, 255, var(--public-tab-opacity, 0.12));
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-tab-opacity, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: var(--public-tab-radius, 28px);
   display: flex;
   gap: 4px;
@@ -765,7 +769,7 @@ h1 {
   padding: 6px 14px;
   font-size: 13.5px;
   font-weight: 600;
-  color: rgba(243, 244, 246, 0.78);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.8);
   position: relative;
   transform: translateZ(0);
   transition:
@@ -777,7 +781,7 @@ h1 {
 
 .folder-tabs button:hover {
   background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  color: var(--public-category-text, #ffffff);
   transform: translateY(-1px);
 }
 
@@ -787,7 +791,8 @@ h1 {
 }
 
 .folder-tabs button.active {
-  color: var(--accent-soft);
+  color: var(--public-category-text, #ffffff);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.16);
 }
 
 .public-empty-state {

@@ -10,8 +10,14 @@ describe('public themes', () => {
       expect(theme.backgroundColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.fontColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(theme.appearance.cardColor).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(theme.appearance.searchColor).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(theme.appearance.categoryTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
     }
+    expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
+    expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.bookmarkTextColor)).size).toBeGreaterThan(1);
   });
 
   it('resolves a theme by id', () => {

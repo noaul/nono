@@ -95,6 +95,7 @@ function handleFaviconError(linkId: string | number) {
 }
 
 h2 {
+  color: var(--public-category-text, #ffffff);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0;
@@ -104,7 +105,6 @@ h2 {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ffffff;
 }
 
 .nav-bg-visible .large-folder h2 {
@@ -120,17 +120,16 @@ h2 {
 }
 
 .title-icon {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.92);
   font-size: 18px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .large-links {
-  background: rgba(10, 14, 18, 0.52);
-  background: rgba(10, 14, 18, var(--public-card-opacity, 0.52));
-  backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
-  -webkit-backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
+  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
   gap: 8px;
@@ -146,9 +145,9 @@ h2 {
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
-    0 14px 34px rgba(0, 0, 0, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 34px rgba(0, 0, 0, 0.08);
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -157,11 +156,12 @@ h2 {
 
 .large-folder:hover .large-links,
 .large-folder:focus-within .large-links {
-  background: rgba(10, 14, 18, 0.68);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.08));
+  border-color: rgba(255, 255, 255, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 16px 36px rgba(0, 0, 0, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 36px rgba(0, 0, 0, 0.1);
 }
 
 .large-link {
@@ -169,7 +169,7 @@ h2 {
   background: rgba(255, 255, 255, 0);
   border: 1px solid rgba(255, 255, 255, 0);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.94);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
   gap: 8px;
   justify-content: flex-start;
@@ -189,7 +189,7 @@ h2 {
 .large-link:focus-visible {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  color: var(--public-bookmark-text, #ffffff);
   outline: none;
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -240,7 +240,7 @@ mark {
   gap: 12px;
   justify-content: center;
   align-items: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
   height: 218px;
@@ -256,7 +256,7 @@ mark {
   height: 56px;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.52);
   transition: var(--transition-smooth);
 }
 
@@ -268,7 +268,7 @@ mark {
 }
 
 .locked span {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.68);
 }
 
 .folder-expand,
@@ -277,7 +277,7 @@ mark {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
   cursor: pointer;
   display: inline-flex;
   height: 32px;
@@ -299,7 +299,7 @@ mark {
 .lock-btn:focus-visible {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.36);
-  color: #ffffff;
+  color: var(--public-category-text, #ffffff);
   outline: none;
   transform: translateY(-1px) scale(1.03);
 }
@@ -314,7 +314,7 @@ mark {
 .icon-button.secondary.lock-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
 }
 
 .icon-button.secondary.lock-btn:hover {
