@@ -14,9 +14,11 @@ describe('public themes', () => {
       expect(theme.appearance.searchColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.categoryTextColor).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(theme.appearance.tabColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
     }
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
+    expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.tabColor)).size).toBeGreaterThan(3);
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.bookmarkTextColor)).size).toBeGreaterThan(1);
   });
 

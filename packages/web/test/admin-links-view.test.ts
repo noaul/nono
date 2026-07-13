@@ -129,6 +129,7 @@ describe('LinksView admin workflow', () => {
     await wrapper.get('[data-testid="edit-link-10"]').trigger('click');
     await wrapper.get('[data-testid="inline-link-name-10"]').setValue('GitHub Home');
     await wrapper.get('[data-testid="inline-link-url-10"]').setValue('https://github.com/home');
+    await wrapper.get('[data-testid="inline-link-category-10"]').setValue('3');
     await wrapper.get('[data-testid="inline-link-folder-10"]').setValue('4');
     await wrapper.get('[data-testid="save-inline-link-10"]').trigger('click');
     await settle(wrapper);
@@ -145,6 +146,46 @@ describe('LinksView admin workflow', () => {
     await wrapper.get('[data-testid="link-category-3"]').trigger('click');
     expect(wrapper.text()).toContain('GitHub Home');
     expect(wrapper.text()).toContain('Maps');
+  });
+
+  it('selects a category before choosing a folder for bookmark creation and quick add', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
+        { id: 4, userId: 1, name: '旅行', parentId: 3, sortOrder: 70 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ title: 'Maps', description: 'Map service' })
+      .mockResolvedValueOnce({ id: 20, folderId: 4, name: 'Maps', url: 'https://maps.example/', description: 'Map service', sortOrder: 100 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="create-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(wrapper.get('[data-testid="quick-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['工作', '开发']);
+
+    await wrapper.get('[data-testid="create-link-category"]').setValue('3');
+    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['生活', '旅行']);
+    expect((wrapper.get('[data-testid="create-link-folder"]').element as HTMLSelectElement).value).toBe('4');
+
+    await wrapper.get('[data-testid="quick-link-category"]').setValue('3');
+    await wrapper.get('[data-testid="quick-add-url"]').setValue('https://maps.example/');
+    await wrapper.get('.quick-add-bar').trigger('submit');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links', {
+      method: 'POST',
+      body: JSON.stringify({
+        folderId: 4,
+        name: 'Maps',
+        url: 'https://maps.example/',
+        icon: '',
+        description: 'Map service',
+      }),
+    });
   });
 
   it('selects all visible bookmarks for batch deletion', async () => {

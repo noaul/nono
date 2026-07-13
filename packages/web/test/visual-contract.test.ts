@@ -381,13 +381,15 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const html = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
-    const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon.svg'), 'utf8');
+    const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-32.png'));
+    const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
     expect(html).toContain('rel="icon"');
-    expect(html).toContain('/favicon.svg');
-    expect(html).toContain('theme-color');
-    expect(favicon).toContain('<svg');
-    expect(favicon).toContain('#123f36');
+    expect(html).toContain('/favicon-32.png');
+    expect(html).toContain('/favicon-192.png');
+    expect(html).toContain('/apple-touch-icon.png');
+    expect(html).toContain('name="theme-color" content="#5b5ce2"');
+    expect(favicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
   });
 
   it('defines token governance styles', async () => {
@@ -405,6 +407,7 @@ describe('visual contracts', () => {
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
+    const siteConfigSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/SiteConfigView.vue'), 'utf8');
     const publicStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/public.css'), 'utf8');
 
     expect(navigationSource).toContain('search-result-summary');
@@ -413,6 +416,8 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--public-glass-bg');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
+    expect(navigationSource).toContain('rgba(var(--public-tab-color-rgb');
+    expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*15px/);
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).not.toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(var(--public-card-color-rgb');
@@ -431,6 +436,7 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('var(--public-search-radius');
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');
+    expect(siteConfigSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
     expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);
   });

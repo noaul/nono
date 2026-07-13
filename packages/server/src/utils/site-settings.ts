@@ -11,6 +11,7 @@ type AppearanceSettings = {
   searchBlur: number;
   bookmarkTextColor: string;
   categoryTextColor: string;
+  tabColor: string;
   modalRadius: number;
   modalOpacity: number;
   modalBlur: number;
@@ -33,18 +34,19 @@ export const appearanceDefaults: AppearanceSettings = {
   searchBlur: 20,
   bookmarkTextColor: '#ffffff',
   categoryTextColor: '#ffffff',
+  tabColor: '#f7f8fb',
   modalRadius: 8,
   modalOpacity: 85,
   modalBlur: 24,
   tabRadius: 28,
-  tabOpacity: 12,
+  tabOpacity: 26,
   tabBlur: 10,
   adminRadius: 8,
   adminOpacity: 72,
   adminBlur: 10,
 };
 
-type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor'>;
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor' | 'tabColor'>;
 type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
 
 const numericAppearanceKeys: NumericAppearanceKey[] = [
@@ -55,7 +57,7 @@ const numericAppearanceKeys: NumericAppearanceKey[] = [
   'adminRadius', 'adminOpacity', 'adminBlur',
 ];
 
-const colorAppearanceKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor'];
+const colorAppearanceKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor', 'tabColor'];
 
 const appearanceLimits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],

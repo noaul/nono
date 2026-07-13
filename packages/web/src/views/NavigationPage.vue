@@ -458,6 +458,7 @@ onUnmounted(() => {
   --public-card-opacity: 0.26;
   --public-search-color-rgb: 247, 248, 251;
   --public-search-blur: 20px;
+  --public-tab-color-rgb: 247, 248, 251;
   --public-bookmark-text: #ffffff;
   --public-category-text: #ffffff;
   background:
@@ -719,7 +720,7 @@ h1 {
 .folder-tabs {
   backdrop-filter: blur(var(--public-tab-blur, 10px));
   -webkit-backdrop-filter: blur(var(--public-tab-blur, 10px));
-  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-tab-opacity, 0.12));
+  background: rgba(var(--public-tab-color-rgb, 247, 248, 251), var(--public-tab-opacity, 0.26));
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: var(--public-tab-radius, 28px);
   display: flex;
@@ -767,7 +768,7 @@ h1 {
   border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
   flex: 0 0 auto;
   padding: 6px 14px;
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 600;
   color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.8);
   position: relative;

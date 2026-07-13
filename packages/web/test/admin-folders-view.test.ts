@@ -110,6 +110,54 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.find('[data-testid="folder-row-4"]').exists()).toBe(true);
   });
 
+  it('edits a folder inline with category and icon controls', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', icon: '📁', parentId: null, sortOrder: 100, passwordHint: '' },
+        { id: 2, userId: 1, name: '开发', icon: '💻', parentId: 1, sortOrder: 90, passwordHint: '旧提示' },
+        { id: 3, userId: 1, name: '生活', icon: '⭐', parentId: null, sortOrder: 80, passwordHint: '' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({
+        id: 2,
+        userId: 1,
+        name: '工程',
+        icon: '🚀',
+        parentId: 3,
+        sortOrder: 90,
+        passwordHint: '新提示',
+      });
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="edit-folder-2"]').trigger('click');
+
+    expect(wrapper.text()).toContain('新增文件夹');
+    expect(wrapper.get('[data-testid="inline-folder-name-2"]').element).toBeInstanceOf(HTMLInputElement);
+    expect(wrapper.get('[data-testid="inline-folder-parent-2"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(wrapper.get('[data-testid="inline-folder-icon-picker-2"]').element).toBeInstanceOf(HTMLElement);
+
+    await wrapper.get('[data-testid="inline-folder-name-2"]').setValue('工程');
+    await wrapper.get('[data-testid="inline-folder-parent-2"]').setValue('3');
+    await wrapper.get('[data-testid="inline-folder-hint-2"]').setValue('新提示');
+    await wrapper.get('[data-testid="inline-folder-icon-2-11"]').trigger('click');
+    await wrapper.get('[data-testid="save-inline-folder-2"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/2', {
+      method: 'PUT',
+      body: JSON.stringify({
+        parentId: 3,
+        name: '工程',
+        icon: '🚀',
+        description: '',
+        passwordHint: '新提示',
+      }),
+    });
+    expect(wrapper.text()).toContain('工程');
+    expect(wrapper.find('[data-testid="inline-folder-name-2"]').exists()).toBe(false);
+  });
+
   it('selects and bulk deletes folder trees without reloading lists', async () => {
     apiRequest
       .mockResolvedValueOnce([

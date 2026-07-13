@@ -27,6 +27,15 @@ const deletingIds = ref(new Set<number>());
 const selectedFolderIds = ref(new Set<number>());
 const isBulkDeleting = ref(false);
 const selectedCategoryId = ref<number | null>(null);
+const editingFolderId = ref<number | null>(null);
+const isSavingInlineFolder = ref(false);
+const inlineForm = reactive({
+  parentId: null as number | null,
+  name: '',
+  icon: '',
+  description: '',
+  passwordHint: '',
+});
 const selectedFolderCount = computed(() => selectedFolderIds.value.size);
 const sortedFolders = computed(() => {
   // Tree order: each category (top-level) followed by its sub-folders.
@@ -129,8 +138,9 @@ function selectCategory(id: number) {
   if (selectedCategoryId.value === id) return;
   selectedCategoryId.value = id;
   clearFolderSelection();
+  cancelInlineEdit();
   stopSorting();
-  if (form.parentId && !visibleFolderIds.value.has(form.parentId)) reset();
+  if (form.parentId && !visibleFolderIds.value.has(form.parentId)) form.parentId = id;
 }
 
 function affectedFolderIds(rootIds: Iterable<number>) {
@@ -186,8 +196,20 @@ async function bulkDeleteSelected() {
   }
 }
 
-function edit(folder: Folder) {
-  Object.assign(form, { ...folder, parentId: folder.parentId || null, password: '', passwordHint: folder.passwordHint || '' });
+function startInlineEdit(folder: Folder) {
+  Object.assign(inlineForm, {
+    parentId: folder.parentId || null,
+    name: folder.name,
+    icon: folder.icon || '',
+    description: folder.description || '',
+    passwordHint: folder.passwordHint || '',
+  });
+  editingFolderId.value = folder.id;
+  stopSorting();
+}
+
+function cancelInlineEdit() {
+  editingFolderId.value = null;
 }
 
 function reset() {
@@ -196,6 +218,10 @@ function reset() {
 
 function chooseIcon(icon: string) {
   form.icon = icon;
+}
+
+function chooseInlineIcon(icon: string) {
+  inlineForm.icon = icon;
 }
 
 function folderPayload() {
@@ -228,18 +254,20 @@ function selectableParents() {
   return folders.value.filter((folder) => !folder.parentId && folder.id !== form.id && (!form.id || !isDescendantOf(folder, form.id)));
 }
 
+function inlineSelectableParents(folderId: number) {
+  return categoryFolders.value.filter((folder) => folder.id !== folderId);
+}
+
 async function save() {
   error.value = '';
   message.value = '';
   isSaving.value = true;
   try {
     const payload = folderPayload();
-    const saved = form.id
-      ? await apiRequest<Folder>(`/api/admin/folders/${form.id}`, { method: 'PUT', body: jsonBody({ ...payload, password: undefined }) })
-      : await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) });
-    folders.value = form.id ? folders.value.map((folder) => (folder.id === saved.id ? saved : folder)) : [saved, ...folders.value];
+    const saved = await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) });
+    folders.value = [saved, ...folders.value];
     if (!selectedCategoryId.value) ensureSelectedCategory();
-    message.value = form.id ? '文件夹已更新' : '文件夹已新增';
+    message.value = '文件夹已新增';
     notifySuccess(message.value);
     reset();
   } catch (event) {
@@ -248,6 +276,33 @@ async function save() {
     notifyError(text);
   } finally {
     isSaving.value = false;
+  }
+}
+
+async function saveInlineEdit(folder: Folder) {
+  if (!inlineForm.name.trim() || isSavingInlineFolder.value) return;
+  isSavingInlineFolder.value = true;
+  try {
+    const payload = {
+      parentId: inlineForm.parentId,
+      name: inlineForm.name.trim(),
+      icon: inlineForm.icon,
+      description: inlineForm.description,
+      passwordHint: inlineForm.passwordHint.trim(),
+    };
+    const saved = await apiRequest<Folder>(`/api/admin/folders/${folder.id}`, {
+      method: 'PUT',
+      body: jsonBody(payload),
+    });
+    folders.value = folders.value.map((item) => (item.id === folder.id ? { ...item, ...saved } : item));
+    selectedCategoryId.value = saved.parentId || saved.id;
+    editingFolderId.value = null;
+    ensureSelectedCategory();
+    notifySuccess('文件夹已更新');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '文件夹更新失败');
+  } finally {
+    isSavingInlineFolder.value = false;
   }
 }
 
@@ -282,6 +337,7 @@ async function remove(folder: Folder) {
 
 function startSorting() {
   clearFolderSelection();
+  cancelInlineEdit();
   draftFolderIds.value = categorySortedFolders.value.map((folder) => folder.id);
   sortMode.value = true;
 }
@@ -329,11 +385,11 @@ onMounted(load);
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
-          <h2>{{ form.id ? '编辑文件夹' : '新增文件夹' }}</h2>
+          <h2>新增文件夹</h2>
           <p>用于组织你的导航分类，可选图标、访问密码和引导语。</p>
         </div>
         <button class="button" type="button" :disabled="isSaving" @click="save">
-          <FolderPlus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存文件夹' : '新增文件夹' }}
+          <FolderPlus :size="18" /> {{ isSaving ? '保存中' : '新增文件夹' }}
         </button>
       </div>
       <p v-if="message" class="notice">{{ message }}</p>
@@ -426,7 +482,15 @@ onMounted(load);
           <span>操作</span>
         </div>
         <SortableList :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
-          <article v-for="(folder, index) in displayedFolders" :key="folder.id" class="admin-table-row sortable-admin-row" :data-testid="`folder-row-${folder.id}`" :data-id="folder.id" :style="{ '--folder-depth': folderDepth(folder) }">
+          <article
+            v-for="(folder, index) in displayedFolders"
+            :key="folder.id"
+            class="admin-table-row sortable-admin-row"
+            :class="{ 'is-inline-editing': editingFolderId === folder.id }"
+            :data-testid="`folder-row-${folder.id}`"
+            :data-id="folder.id"
+            :style="{ '--folder-depth': folderDepth(folder) }"
+          >
             <span class="selection-cell" data-label="选择">
               <input
                 :data-testid="`select-folder-${folder.id}`"
@@ -436,23 +500,64 @@ onMounted(load);
                 @change="toggleFolderSelection(folder.id, $event)"
               />
             </span>
-            <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
-              <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
-              <FolderGlyph :icon="folder.icon" :size="18" />
-            </span>
-            <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="edit(folder)">{{ folder.name }}</button>
-            <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
-            <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
-            <span class="row-actions" data-label="操作">
-              <template v-if="sortMode">
-                <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
-                <button class="icon-button secondary" title="下移" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
-              </template>
-              <template v-else>
-                <button class="icon-button secondary" :data-testid="`edit-folder-${folder.id}`" title="重命名和更改图标" @click="edit(folder)"><Pencil :size="16" /></button>
-                <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
-              </template>
-            </span>
+            <div v-if="editingFolderId === folder.id" class="inline-folder-editor">
+              <div class="inline-folder-field inline-folder-icon-field">
+                <label>图标</label>
+                <div class="inline-folder-icon-picker" :data-testid="`inline-folder-icon-picker-${folder.id}`">
+                  <button
+                    v-for="(icon, iconIndex) in folderIconOptions"
+                    :key="icon"
+                    class="folder-icon-option"
+                    :class="{ active: inlineForm.icon === icon }"
+                    :data-testid="`inline-folder-icon-${folder.id}-${iconIndex}`"
+                    type="button"
+                    :aria-pressed="inlineForm.icon === icon"
+                    @click="chooseInlineIcon(icon)"
+                  >
+                    {{ icon }}
+                  </button>
+                </div>
+              </div>
+              <div class="inline-folder-field">
+                <label :for="`inline-folder-name-${folder.id}`">名称</label>
+                <input :id="`inline-folder-name-${folder.id}`" v-model="inlineForm.name" :data-testid="`inline-folder-name-${folder.id}`" maxlength="16" />
+              </div>
+              <div class="inline-folder-field">
+                <label :for="`inline-folder-parent-${folder.id}`">所属大类</label>
+                <select :id="`inline-folder-parent-${folder.id}`" v-model.number="inlineForm.parentId" :data-testid="`inline-folder-parent-${folder.id}`">
+                  <option :value="null">作为大类（顶级）</option>
+                  <option v-for="parent in inlineSelectableParents(folder.id)" :key="parent.id" :value="parent.id">{{ parent.name }}</option>
+                </select>
+              </div>
+              <div class="inline-folder-field">
+                <label :for="`inline-folder-hint-${folder.id}`">引导语</label>
+                <input :id="`inline-folder-hint-${folder.id}`" v-model="inlineForm.passwordHint" :data-testid="`inline-folder-hint-${folder.id}`" maxlength="30" />
+              </div>
+              <div class="inline-folder-actions">
+                <span>{{ folderLinkCount(folder.id) }} 个书签</span>
+                <button class="icon-button success" :data-testid="`save-inline-folder-${folder.id}`" title="保存修改" :disabled="isSavingInlineFolder" @click="saveInlineEdit(folder)"><Save :size="16" /></button>
+                <button class="icon-button secondary" title="取消修改" :disabled="isSavingInlineFolder" @click="cancelInlineEdit"><X :size="16" /></button>
+              </div>
+            </div>
+            <template v-else>
+              <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
+                <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
+                <FolderGlyph :icon="folder.icon" :size="18" />
+              </span>
+              <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
+              <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
+              <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
+              <span class="row-actions" data-label="操作">
+                <template v-if="sortMode">
+                  <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
+                  <button class="icon-button secondary" title="下移" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
+                </template>
+                <template v-else>
+                  <button class="icon-button secondary" :data-testid="`edit-folder-${folder.id}`" title="重命名和更改图标" @click="startInlineEdit(folder)"><Pencil :size="16" /></button>
+                  <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
+                </template>
+              </span>
+            </template>
           </article>
         </SortableList>
         </div>
@@ -528,5 +633,103 @@ onMounted(load);
   display: inline-flex;
   flex: 0 0 auto;
   gap: 7px;
+}
+
+.folder-table .admin-table-row.is-inline-editing {
+  align-items: start;
+  min-height: 0;
+  padding-block: 14px;
+}
+
+.inline-folder-editor {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-column: 2 / -1;
+  grid-template-columns: minmax(190px, 1.4fr) minmax(120px, 0.8fr) minmax(150px, 0.9fr) minmax(150px, 1fr) auto;
+  min-width: 0;
+}
+
+.inline-folder-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inline-folder-field label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.inline-folder-field input,
+.inline-folder-field select {
+  background: #ffffff;
+  border: 1px solid #aeb9c6;
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 38px;
+  min-width: 0;
+  padding: 7px 10px;
+  width: 100%;
+}
+
+.inline-folder-field input:focus,
+.inline-folder-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+}
+
+.inline-folder-icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 78px;
+  overflow-y: auto;
+}
+
+.inline-folder-icon-picker .folder-icon-option {
+  height: 34px;
+  width: 34px;
+}
+
+.inline-folder-actions {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.inline-folder-actions > span {
+  color: #64748b;
+  font-size: 12px;
+  margin-right: 2px;
+}
+
+@media (max-width: 980px) {
+  .inline-folder-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inline-folder-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .inline-folder-editor {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .inline-folder-actions {
+    grid-column: auto;
+    justify-content: flex-start;
+  }
 }
 </style>

@@ -50,6 +50,7 @@ describe('SiteConfigView appearance controls', () => {
             searchRadius: 30, searchOpacity: 32, searchBlur: 16,
             bookmarkTextColor: '#f8fafc',
             categoryTextColor: '#e0f2fe',
+            tabColor: '#bfdbfe',
             modalRadius: 14, modalOpacity: 82, modalBlur: 22,
             tabRadius: 24, tabOpacity: 28, tabBlur: 12,
             adminRadius: 10, adminOpacity: 76, adminBlur: 9,
@@ -76,6 +77,7 @@ describe('SiteConfigView appearance controls', () => {
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-card-radius: 12px');
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-card-color-rgb: 219, 234, 254');
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-search-color-rgb: 254, 243, 199');
+    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-tab-color-rgb: 191, 219, 254');
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-modal-radius: 14px');
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-tab-radius: 24px');
     expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--admin-surface-radius: 10px');
@@ -86,6 +88,7 @@ describe('SiteConfigView appearance controls', () => {
     await wrapper.get('[data-testid="search-color"]').setValue('#fde68a');
     await wrapper.get('[data-testid="bookmark-text-color"]').setValue('#f1f5f9');
     await wrapper.get('[data-testid="category-text-color"]').setValue('#fefce8');
+    await wrapper.get('[data-testid="tab-color"]').setValue('#ddd6fe');
     await wrapper.get('[data-testid="modal-opacity"]').setValue('74');
     await wrapper.get('[data-testid="tab-blur"]').setValue('18');
     await wrapper.get('[data-testid="admin-radius"]').setValue('12');
@@ -107,6 +110,7 @@ describe('SiteConfigView appearance controls', () => {
       searchBlur: 16,
       bookmarkTextColor: '#f1f5f9',
       categoryTextColor: '#fefce8',
+      tabColor: '#ddd6fe',
       modalRadius: 14,
       modalOpacity: 74,
       modalBlur: 22,
@@ -152,6 +156,7 @@ describe('SiteConfigView appearance controls', () => {
     expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffbeb');
     expect((wrapper.get('[data-testid="bookmark-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
     expect((wrapper.get('[data-testid="category-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
+    expect((wrapper.get('[data-testid="tab-color"]').element as HTMLInputElement).value).toBe('#fff7ed');
   });
 
   it('adds custom search engines, toggles them, and persists the default engine', async () => {

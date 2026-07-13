@@ -9,6 +9,7 @@ export interface AppearanceSettings {
   searchBlur: number;
   bookmarkTextColor: string;
   categoryTextColor: string;
+  tabColor: string;
   modalRadius: number;
   modalOpacity: number;
   modalBlur: number;
@@ -31,18 +32,19 @@ export const appearanceDefaults: AppearanceSettings = {
   searchBlur: 20,
   bookmarkTextColor: '#ffffff',
   categoryTextColor: '#ffffff',
+  tabColor: '#f7f8fb',
   modalRadius: 8,
   modalOpacity: 85,
   modalBlur: 24,
   tabRadius: 28,
-  tabOpacity: 12,
+  tabOpacity: 26,
   tabBlur: 10,
   adminRadius: 8,
   adminOpacity: 72,
   adminBlur: 10,
 };
 
-type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor'>;
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor' | 'tabColor'>;
 type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
 
 const numericKeys: NumericAppearanceKey[] = [
@@ -53,7 +55,7 @@ const numericKeys: NumericAppearanceKey[] = [
   'adminRadius', 'adminOpacity', 'adminBlur',
 ];
 
-const colorKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor'];
+const colorKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor', 'tabColor'];
 
 const limits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],
@@ -127,6 +129,8 @@ export function toAppearanceCssVars(appearance: AppearanceSettings): Record<stri
     '--public-bookmark-text-rgb': hexToRgb(appearance.bookmarkTextColor),
     '--public-category-text': appearance.categoryTextColor,
     '--public-category-text-rgb': hexToRgb(appearance.categoryTextColor),
+    '--public-tab-color': appearance.tabColor,
+    '--public-tab-color-rgb': hexToRgb(appearance.tabColor),
     '--public-modal-radius': `${appearance.modalRadius}px`,
     '--public-modal-opacity': (appearance.modalOpacity / 100).toFixed(2),
     '--public-modal-blur': `${appearance.modalBlur}px`,

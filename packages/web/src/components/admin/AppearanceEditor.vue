@@ -135,6 +135,13 @@ function resetAppearance() {
         </fieldset>
         <fieldset>
           <legend>文件夹标签栏</legend>
+          <label class="color-field">
+            <span>玻璃底色</span>
+            <span class="color-control">
+              <input v-model="appearance.tabColor" data-testid="tab-color" type="color" />
+              <code>{{ appearance.tabColor }}</code>
+            </span>
+          </label>
           <label class="range-field">
             <span>圆角 <output>{{ appearance.tabRadius }}px</output></span>
             <input v-model.number="appearance.tabRadius" data-testid="tab-radius" type="range" min="0" max="28" step="1" />
@@ -351,7 +358,7 @@ legend {
 .preview-tabs {
   align-items: center;
   backdrop-filter: blur(var(--public-tab-blur));
-  background: rgba(255, 255, 255, var(--public-tab-opacity));
+  background: rgba(var(--public-tab-color-rgb), var(--public-tab-opacity));
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--public-tab-radius);
   display: flex;

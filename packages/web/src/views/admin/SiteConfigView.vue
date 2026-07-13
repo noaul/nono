@@ -44,6 +44,7 @@ function themePreviewStyle(preset: PublicTheme) {
     '--theme-font': preset.fontColor,
     '--theme-card': preset.appearance.cardColor,
     '--theme-search': preset.appearance.searchColor,
+    '--theme-tab': preset.appearance.tabColor,
   };
 }
 
@@ -382,7 +383,7 @@ function setDefaultSearchEngine(id: string) {
 }
 
 .theme-swatch-tab {
-  background: color-mix(in srgb, var(--theme-search, #f7f8fb) 78%, transparent);
+  background: color-mix(in srgb, var(--theme-tab, #f7f8fb) 78%, transparent);
   border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 18%, transparent);
   border-radius: 999px;
   display: inline-block;

@@ -1917,9 +1917,9 @@
   font-weight: 800;
 }
 
-.app-workbench .field input,
-.app-workbench .field textarea,
-.app-workbench .field select,
+.app-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']),
+.app-workbench textarea,
+.app-workbench select,
 .app-workbench .admin-search-input,
 .app-workbench .bulk-controls select {
   background: #ffffff;
@@ -1927,23 +1927,49 @@
   border-radius: 8px;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
   color: var(--text);
+  color-scheme: light;
   min-height: 40px;
   padding: 8px 11px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.app-workbench .field input:hover,
-.app-workbench .field textarea:hover,
-.app-workbench .field select:hover {
+.app-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):hover,
+.app-workbench textarea:hover,
+.app-workbench select:hover {
   border-color: #8b99aa;
 }
 
-.app-workbench .field input:focus,
-.app-workbench .field textarea:focus,
-.app-workbench .field select:focus,
+.app-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):focus,
+.app-workbench textarea:focus,
+.app-workbench select:focus,
 .app-workbench .admin-search-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+  outline: none;
+}
+
+.app-workbench input::placeholder,
+.app-workbench textarea::placeholder {
+  color: #8793a3;
+  opacity: 1;
+}
+
+.app-workbench .quick-add-bar {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #d5dde8;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(260px, 1fr) minmax(120px, 0.34fr) minmax(140px, 0.4fr) auto;
+  margin-bottom: 18px;
+  padding: 12px;
+}
+
+.app-workbench .quick-add-bar input,
+.app-workbench .quick-add-bar select {
+  min-width: 0;
+  width: 100%;
 }
 
 .app-workbench .button,
@@ -2680,10 +2706,38 @@
 .glass-workbench .field textarea,
 .glass-workbench .field select,
 .glass-workbench .admin-search-input,
-.glass-workbench .bulk-controls select {
+.glass-workbench .bulk-controls select,
+.glass-workbench .quick-add-bar input,
+.glass-workbench .quick-add-bar select {
   background: rgba(255, 255, 255, 0.58);
   border-color: rgba(255, 255, 255, 0.56);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.glass-workbench .quick-add-bar {
+  background: rgba(255, 255, 255, 0.34);
+  border-color: rgba(255, 255, 255, 0.46);
+}
+
+@media (max-width: 900px) {
+  .app-workbench .quick-add-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 0.38fr) minmax(130px, 0.42fr);
+  }
+
+  .app-workbench .quick-add-bar .button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-workbench .quick-add-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .app-workbench .quick-add-bar .button {
+    grid-column: auto;
+    width: 100%;
+  }
 }
 
 .glass-workbench .button.secondary,

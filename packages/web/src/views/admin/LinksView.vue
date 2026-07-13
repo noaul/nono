@@ -21,6 +21,9 @@ const selectedFolderId = ref<number>(0);
 const sortMode = ref(false);
 const draftLinkIds = shallowRef<number[]>([]);
 const form = reactive({ id: 0, folderId: 0, name: '', url: '', icon: '', description: '' });
+const formCategoryId = ref(0);
+const quickCategoryId = ref(0);
+const quickFolderId = ref(0);
 const error = ref('');
 const message = ref('');
 const isInitialLoading = ref(true);
@@ -37,7 +40,7 @@ const healthResults = ref<LinkHealthResult[]>([]);
 const healthSummary = ref<LinkHealthSummary | null>(null);
 const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
-const inlineForm = reactive({ name: '', url: '', folderId: 0 });
+const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
 
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
@@ -46,6 +49,8 @@ const categoryFolderGroups = computed(() => categoryFolders.value.map((category)
   category,
   folders: folderTree(category.id),
 })));
+const formCategoryFolders = computed(() => foldersForCategory(formCategoryId.value));
+const quickCategoryFolders = computed(() => foldersForCategory(quickCategoryId.value));
 const selectedCategoryFolders = computed(() => {
   return categoryFolderGroups.value.find((item) => item.category.id === selectedCategoryId.value)?.folders || [];
 });
@@ -78,6 +83,36 @@ function preferredFolderId(categoryId: number) {
   return sortedFolders.value.find((folder) => folder.parentId === categoryId)?.id || categoryId;
 }
 
+function foldersForCategory(categoryId: number) {
+  return categoryFolderGroups.value.find((item) => item.category.id === categoryId)?.folders || [];
+}
+
+function categoryIdForFolder(folderId: number) {
+  let folder = folderById.value.get(folderId);
+  const visited = new Set<number>();
+  while (folder?.parentId && !visited.has(folder.id)) {
+    visited.add(folder.id);
+    folder = folderById.value.get(folder.parentId);
+  }
+  return folder?.id || 0;
+}
+
+function ensureCreationSelection() {
+  const firstCategoryId = categoryFolders.value[0]?.id || 0;
+  if (!categoryFolders.value.some((folder) => folder.id === formCategoryId.value)) {
+    formCategoryId.value = categoryIdForFolder(form.folderId) || firstCategoryId;
+  }
+  if (!formCategoryFolders.value.some((folder) => folder.id === form.folderId)) {
+    form.folderId = preferredFolderId(formCategoryId.value);
+  }
+  if (!categoryFolders.value.some((folder) => folder.id === quickCategoryId.value)) {
+    quickCategoryId.value = firstCategoryId;
+  }
+  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
+    quickFolderId.value = preferredFolderId(quickCategoryId.value);
+  }
+}
+
 function ensureCategorySelection() {
   if (!categoryFolders.value.some((folder) => folder.id === selectedCategoryId.value)) {
     selectedCategoryId.value = categoryFolders.value[0]?.id || 0;
@@ -92,7 +127,7 @@ async function load() {
   try {
     [folders.value, links.value] = await Promise.all([apiRequest<Folder[]>('/api/admin/folders'), apiRequest<Link[]>('/api/admin/links')]);
     ensureCategorySelection();
-    if (!form.folderId && activeFolder.value) form.folderId = activeFolder.value.id;
+    ensureCreationSelection();
     if (!bulkFolderId.value && activeFolder.value) bulkFolderId.value = activeFolder.value.id;
     selectedLinkIds.value = new Set();
   } catch (event) {
@@ -105,14 +140,12 @@ async function load() {
 function selectCategory(category: Folder) {
   selectedCategoryId.value = category.id;
   selectedFolderId.value = preferredFolderId(category.id);
-  form.folderId = selectedFolderId.value;
   bulkFolderId.value = selectedFolderId.value;
   clearManagementState();
 }
 
 function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
-  form.folderId = folder.id;
   bulkFolderId.value = folder.id;
   clearManagementState();
 }
@@ -126,17 +159,27 @@ function clearManagementState() {
 
 function edit(link: Link) {
   Object.assign(form, link);
+  formCategoryId.value = categoryIdForFolder(link.folderId);
   stopSorting();
 }
 
 function startInlineEdit(link: Link) {
-  Object.assign(inlineForm, { name: link.name, url: link.url, folderId: link.folderId });
+  Object.assign(inlineForm, {
+    name: link.name,
+    url: link.url,
+    categoryId: categoryIdForFolder(link.folderId),
+    folderId: link.folderId,
+  });
   editingLinkId.value = link.id;
   stopSorting();
 }
 
 function cancelInlineEdit() {
   editingLinkId.value = null;
+}
+
+function selectInlineCategory() {
+  inlineForm.folderId = preferredFolderId(inlineForm.categoryId);
 }
 
 async function saveInlineEdit(link: Link) {
@@ -166,7 +209,7 @@ async function quickAdd() {
     notifyError('请以 http 或 https 开头');
     return;
   }
-  const folderId = form.folderId || activeFolder.value?.id || sortedFolders.value[0]?.id;
+  const folderId = quickFolderId.value;
   if (!folderId) {
     notifyError('请先创建一个文件夹');
     return;
@@ -196,7 +239,14 @@ async function quickAdd() {
 }
 
 function reset() {
-  Object.assign(form, { id: 0, folderId: activeFolder.value?.id || sortedFolders.value[0]?.id || 0, name: '', url: '', icon: '', description: '' });
+  Object.assign(form, {
+    id: 0,
+    folderId: preferredFolderId(formCategoryId.value) || sortedFolders.value[0]?.id || 0,
+    name: '',
+    url: '',
+    icon: '',
+    description: '',
+  });
 }
 
 async function save() {
@@ -382,8 +432,16 @@ async function saveSorting() {
   }
 }
 
-watch(activeFolder, (folder) => {
-  if (folder && !form.id) form.folderId = folder.id;
+watch(formCategoryId, (categoryId) => {
+  if (!formCategoryFolders.value.some((folder) => folder.id === form.folderId)) {
+    form.folderId = preferredFolderId(categoryId);
+  }
+});
+
+watch(quickCategoryId, (categoryId) => {
+  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
+    quickFolderId.value = preferredFolderId(categoryId);
+  }
 });
 
 onMounted(load);
@@ -415,10 +473,11 @@ onMounted(load);
           placeholder="粘贴 URL 回车即添加 — 自动抓取标题和介绍"
           :disabled="isQuickAdding"
         />
-        <select v-model.number="form.folderId" aria-label="目标文件夹">
-          <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
-            <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-          </optgroup>
+        <select v-model.number="quickCategoryId" data-testid="quick-link-category" aria-label="目标大类" :disabled="isQuickAdding">
+          <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+        </select>
+        <select v-model.number="quickFolderId" data-testid="quick-link-folder" aria-label="目标文件夹" :disabled="isQuickAdding">
+          <option v-for="folder in quickCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
         </select>
         <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
           {{ isQuickAdding ? '抓取中…' : '快速添加' }}
@@ -428,11 +487,15 @@ onMounted(load);
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
         <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>
         <div class="field">
+          <label>所属大类</label>
+          <select v-model.number="formCategoryId" data-testid="create-link-category" required>
+            <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+          </select>
+        </div>
+        <div class="field">
           <label>文件夹</label>
-          <select v-model.number="form.folderId" required>
-            <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
-              <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-            </optgroup>
+          <select v-model.number="form.folderId" data-testid="create-link-folder" required>
+            <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
           </select>
         </div>
         <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="可为空" /><button type="button" title="图标">☝</button></div></div>
@@ -545,16 +608,25 @@ onMounted(load);
                 <template v-else>{{ link.url }}</template>
               </span>
               <span data-label="文件夹">
-                <select
-                  v-if="editingLinkId === link.id"
-                  v-model.number="inlineForm.folderId"
-                  class="inline-link-select"
-                  :data-testid="`inline-link-folder-${link.id}`"
-                >
-                  <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
-                    <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-                  </optgroup>
-                </select>
+                <div v-if="editingLinkId === link.id" class="inline-link-location">
+                  <select
+                    v-model.number="inlineForm.categoryId"
+                    class="inline-link-select"
+                    :data-testid="`inline-link-category-${link.id}`"
+                    aria-label="书签大类"
+                    @change="selectInlineCategory"
+                  >
+                    <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+                  </select>
+                  <select
+                    v-model.number="inlineForm.folderId"
+                    class="inline-link-select"
+                    :data-testid="`inline-link-folder-${link.id}`"
+                    aria-label="书签文件夹"
+                  >
+                    <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+                  </select>
+                </div>
                 <template v-else>{{ folderName(link.folderId) }}</template>
               </span>
               <span class="row-actions" data-label="操作">
@@ -633,6 +705,11 @@ onMounted(load);
   min-width: 0;
   padding: 6px 9px;
   width: 100%;
+}
+
+.inline-link-location {
+  display: grid;
+  gap: 6px;
 }
 
 .inline-link-input:focus,
