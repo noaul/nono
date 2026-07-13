@@ -140,6 +140,7 @@ function resetAppearance() {
           <div class="preview-links"><span>GitHub</span><span>设计资源</span><span>开发文档</span><span>灵感收藏</span></div>
         </div>
         <div class="preview-modal-backdrop">
+          <span class="preview-zone-label">弹窗效果预览</span>
           <div class="preview-modal"><strong>解锁文件夹</strong><span>输入密码后继续访问</span></div>
         </div>
         <div class="preview-admin"><strong>后台表面</strong><span>运营数据与快捷操作</span></div>
@@ -348,10 +349,22 @@ legend {
 .preview-modal-backdrop {
   align-items: center;
   background: rgba(7, 10, 14, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
   display: grid;
+  gap: 8px;
   grid-column: 1 / -1;
+  justify-items: center;
   min-height: 130px;
-  padding: 18px;
+  padding: 14px 18px 18px;
+}
+
+.preview-zone-label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 700;
+  justify-self: start;
+  letter-spacing: 0.04em;
 }
 
 .preview-modal {
