@@ -40,6 +40,7 @@ const activeFolder = computed(() => folders.value.find((folder) => folder.id ===
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
+const allFilteredSelected = computed(() => filteredLinks.value.length > 0 && filteredLinks.value.every((link) => selectedLinkIds.value.has(link.id)));
 const filteredLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
   const base = sortMode.value
@@ -169,6 +170,16 @@ function toggleLinkSelection(id: number, event: Event) {
   const next = new Set(selectedLinkIds.value);
   if (checked) next.add(id);
   else next.delete(id);
+  selectedLinkIds.value = next;
+}
+
+function toggleAllFilteredLinks() {
+  const next = new Set(selectedLinkIds.value);
+  if (allFilteredSelected.value) {
+    for (const link of filteredLinks.value) next.delete(link.id);
+  } else {
+    for (const link of filteredLinks.value) next.add(link.id);
+  }
   selectedLinkIds.value = next;
 }
 
@@ -366,6 +377,9 @@ onMounted(load);
         <div v-if="!sortMode" class="bulk-action-bar">
           <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
           <div class="bulk-controls">
+            <button class="button secondary" data-testid="select-all-links" type="button" :disabled="!filteredLinks.length || isBulkWorking" @click="toggleAllFilteredLinks">
+              {{ allFilteredSelected ? '取消全选' : '全选当前' }}
+            </button>
             <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
               <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
             </select>

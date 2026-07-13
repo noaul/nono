@@ -262,6 +262,88 @@ describe('Nono Fastify app', () => {
     expect(await repo.listLinks(1)).toHaveLength(1);
   });
 
+  it('promotes folders below the Bookmarks wrapper and ignores sibling roots', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>',
+      '<DT><H3>Outside</H3><DL><p><DT><A HREF="https://outside.example/">Outside link</A></DL><p>',
+      '<DT><H3>Bookmarks</H3><DL><p>',
+      '<DT><H3>Work</H3><DL><p><DT><A HREF="https://work.example/">Work link</A></DL><p>',
+      '<DT><H3>Life</H3><DL><p><DT><A HREF="https://life.example/">Life link</A></DL><p>',
+      '</DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json().data.folders).toEqual([
+      expect.objectContaining({ tempId: 'folder-3', parentTempId: null, name: 'Work' }),
+      expect.objectContaining({ tempId: 'folder-4', parentTempId: null, name: 'Life' }),
+    ]);
+    expect(preview.json().data.links.map((link: any) => link.name)).toEqual(['Work link', 'Life link']);
+    expect(preview.json().data.summary).toMatchObject({ ignoredFolders: 1, ignoredLinks: 1 });
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    expect((await repo.listFolders(1)).map((folder) => ({ name: folder.name, parentId: folder.parentId }))).toEqual([
+      { name: 'Work', parentId: null },
+      { name: 'Life', parentId: null },
+    ]);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Work link', 'Life link']);
+  });
+
+  it('imports only selected preview folders and links', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Bookmarks</H3><DL><p>',
+      '<DT><H3>Work</H3><DL><p>',
+      '<DT><A HREF="https://one.example/">One</A>',
+      '<DT><A HREF="https://two.example/">Two</A>',
+      '</DL><p>',
+      '<DT><H3>Skip me</H3><DL><p><DT><A HREF="https://skip.example/">Skip</A></DL><p>',
+      '</DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+    const data = preview.json().data;
+    const work = data.folders.find((folder: any) => folder.name === 'Work');
+    const one = data.links.find((link: any) => link.name === 'One');
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: {
+        html,
+        selection: {
+          folderTempIds: [work.tempId],
+          linkTempIds: [one.tempId],
+        },
+      },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    expect(imported.json().data).toMatchObject({ addedFolders: 1, addedLinks: 1 });
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['Work']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['One']);
+  });
+
   it('uses PostgreSQL-safe sort order values when importing bookmarks', async () => {
     const cookie = await setupAdmin();
     const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Tools</H3><DL><p><DT><A HREF="https://example.com/">Example</A></DL><p></DL><p>';
@@ -408,6 +490,27 @@ describe('Nono Fastify app', () => {
     expect(deleteResult.statusCode).toBe(200);
     expect(deleteResult.json().data).toEqual({ deleted: 2 });
     expect(await repo.listLinks(1)).toHaveLength(0);
+  });
+
+  it('bulk deletes selected folder trees and their bookmarks', async () => {
+    const cookie = await setupAdmin();
+    const root = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Root' } });
+    const child = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Child', parentId: root.json().data.id } });
+    const keep = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Keep' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: child.json().data.id, name: 'Delete', url: 'https://delete.example/' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: keep.json().data.id, name: 'Keep', url: 'https://keep.example/' } });
+
+    const result = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders/bulk-delete',
+      headers: { cookie },
+      payload: { ids: [root.json().data.id, root.json().data.id, 0] },
+    });
+
+    expect(result.statusCode).toBe(200);
+    expect(result.json().data).toEqual({ deletedFolders: 2, deletedLinks: 1 });
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['Keep']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Keep']);
   });
 
   it('checks selected admin link health without writing link state', async () => {

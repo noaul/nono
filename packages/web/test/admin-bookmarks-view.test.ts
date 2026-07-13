@@ -39,12 +39,14 @@ describe('BookmarksView import workflow', () => {
           newLinks: 1,
           duplicateLinks: 1,
           invalidLinks: 1,
+          ignoredFolders: 0,
+          ignoredLinks: 0,
         },
         folders: [{ tempId: 'folder-1', parentTempId: null, name: 'Dev', status: 'new' }],
         links: [
-          { name: 'Example', url: 'https://example.com/', folderTempId: 'folder-1', status: 'new' },
-          { name: 'GitHub', url: 'https://github.com/', folderTempId: 'folder-1', status: 'duplicate', reason: 'URL already exists' },
-          { name: 'Chrome', url: 'chrome://bookmarks/', folderTempId: 'folder-1', status: 'invalid', reason: 'URL must start with http:// or https://' },
+          { tempId: 'link-1', name: 'Example', url: 'https://example.com/', folderTempId: 'folder-1', status: 'new' },
+          { tempId: 'link-2', name: 'GitHub', url: 'https://github.com/', folderTempId: 'folder-1', status: 'duplicate', reason: 'URL already exists' },
+          { tempId: 'link-3', name: 'Chrome', url: 'chrome://bookmarks/', folderTempId: 'folder-1', status: 'invalid', reason: 'URL must start with http:// or https://' },
         ],
       })
       .mockResolvedValueOnce({ addedFolders: 1, addedLinks: 1, skippedDuplicates: 1, skippedInvalid: 1 });
@@ -64,7 +66,61 @@ describe('BookmarksView import workflow', () => {
     await wrapper.get('[data-testid="confirm-import"]').trigger('click');
     await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/bookmarks/import', expect.objectContaining({ method: 'POST' }));
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/bookmarks/import', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        html: '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+        selection: {
+          folderTempIds: ['folder-1'],
+          linkTempIds: ['link-1'],
+        },
+      }),
+    }));
     expect(wrapper.text()).toContain('导入 1 个文件夹、1 个链接');
+  });
+
+  it('lets users exclude folders and individual bookmarks from import', async () => {
+    apiRequest
+      .mockResolvedValueOnce({
+        summary: {
+          parsedFolders: 2,
+          parsedLinks: 2,
+          newFolders: 2,
+          newLinks: 2,
+          duplicateLinks: 0,
+          invalidLinks: 0,
+          ignoredFolders: 1,
+          ignoredLinks: 1,
+        },
+        folders: [
+          { tempId: 'folder-1', parentTempId: null, name: 'Work', status: 'new' },
+          { tempId: 'folder-2', parentTempId: null, name: 'Life', status: 'new' },
+        ],
+        links: [
+          { tempId: 'link-1', name: 'GitHub', url: 'https://github.com/', folderTempId: 'folder-1', status: 'new' },
+          { tempId: 'link-2', name: 'Recipes', url: 'https://recipes.example/', folderTempId: 'folder-2', status: 'new' },
+        ],
+      })
+      .mockResolvedValueOnce({ addedFolders: 1, addedLinks: 1, skippedDuplicates: 0, skippedInvalid: 0 });
+
+    const wrapper = mountBookmarksView();
+    await wrapper.get('textarea').setValue('<!DOCTYPE NETSCAPE-Bookmark-file-1>');
+    await wrapper.get('[data-testid="preview-bookmarks"]').trigger('click');
+    await settle(wrapper);
+
+    expect(wrapper.text()).toContain('已忽略 Bookmarks 外 1 个文件夹、1 个链接');
+    await wrapper.get('[data-testid="select-import-folder-folder-2"]').setValue(false);
+    await wrapper.get('[data-testid="confirm-import"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/bookmarks/import', expect.objectContaining({
+      body: JSON.stringify({
+        html: '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+        selection: {
+          folderTempIds: ['folder-1'],
+          linkTempIds: ['link-1'],
+        },
+      }),
+    }));
   });
 });

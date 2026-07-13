@@ -105,6 +105,30 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('Archive');
   });
 
+  it('selects all visible bookmarks for batch deletion', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Inbox', sortOrder: 100 }])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'One', url: 'https://one.example/', sortOrder: 100 },
+        { id: 11, folderId: 1, name: 'Two', url: 'https://two.example/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({ deleted: 2 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="select-all-links"]').trigger('click');
+    expect(wrapper.text()).toContain('已选择 2 个书签');
+    await wrapper.get('[data-testid="bulk-delete"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids: [10, 11] }),
+    });
+    expect(wrapper.text()).not.toContain('One');
+    expect(wrapper.text()).not.toContain('Two');
+  });
+
   it('loads and displays duplicate link groups', async () => {
     apiRequest
       .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])

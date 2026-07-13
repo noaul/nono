@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
-import { FolderPlus, GripVertical, MoveDown, MoveUp, Save, Trash2, X } from 'lucide-vue-next';
+import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Save, Square, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
@@ -24,6 +24,9 @@ const sortMode = ref(false);
 const draftFolderIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
+const selectedFolderIds = ref(new Set<number>());
+const isBulkDeleting = ref(false);
+const selectedFolderCount = computed(() => selectedFolderIds.value.size);
 const sortedFolders = computed(() => {
   // Tree order: each category (top-level) followed by its sub-folders.
   const list = [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id);
@@ -82,6 +85,7 @@ async function load() {
       apiRequest<Folder[]>('/api/admin/folders'),
       apiRequest<Link[]>('/api/admin/links'),
     ]);
+    selectedFolderIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载文件夹失败');
   } finally {
@@ -106,6 +110,58 @@ function folderTreeIds(rootId: number) {
     }
   }
   return ids;
+}
+
+function affectedFolderIds(rootIds: Iterable<number>) {
+  const ids = new Set<number>();
+  for (const rootId of rootIds) {
+    for (const id of folderTreeIds(rootId)) ids.add(id);
+  }
+  return ids;
+}
+
+function toggleFolderSelection(id: number, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  const next = new Set(selectedFolderIds.value);
+  if (checked) next.add(id);
+  else next.delete(id);
+  selectedFolderIds.value = next;
+}
+
+function selectAllFolders() {
+  selectedFolderIds.value = new Set(sortedFolders.value.map((folder) => folder.id));
+}
+
+function clearFolderSelection() {
+  selectedFolderIds.value = new Set();
+}
+
+async function bulkDeleteSelected() {
+  const ids = [...selectedFolderIds.value];
+  if (!ids.length) return;
+  const affectedIds = affectedFolderIds(ids);
+  const linkCount = links.value.filter((link) => affectedIds.has(link.folderId)).length;
+  const confirmed = await confirmApi.confirm({
+    title: '批量删除文件夹',
+    message: `确定删除涉及的 ${affectedIds.size} 个文件夹和 ${linkCount} 个书签吗？子文件夹也会一起删除。`,
+    confirmText: '删除',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  isBulkDeleting.value = true;
+  try {
+    await apiRequest('/api/admin/folders/bulk-delete', { method: 'POST', body: jsonBody({ ids }) });
+    folders.value = folders.value.filter((folder) => !affectedIds.has(folder.id));
+    links.value = links.value.filter((link) => !affectedIds.has(link.folderId));
+    if (affectedIds.has(form.id)) reset();
+    clearFolderSelection();
+    notifySuccess(`已删除 ${affectedIds.size} 个文件夹和 ${linkCount} 个书签`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '批量删除失败');
+  } finally {
+    isBulkDeleting.value = false;
+  }
 }
 
 function edit(folder: Folder) {
@@ -188,6 +244,7 @@ async function remove(folder: Folder) {
     await apiRequest(`/api/admin/folders/${folder.id}`, { method: 'DELETE' });
     folders.value = folders.value.filter((item) => !affectedFolderIds.has(item.id));
     links.value = links.value.filter((link) => !affectedFolderIds.has(link.folderId));
+    selectedFolderIds.value = new Set([...selectedFolderIds.value].filter((id) => !affectedFolderIds.has(id)));
     if (affectedFolderIds.has(form.id)) reset();
     notifySuccess('文件夹已删除');
   } catch (event) {
@@ -200,6 +257,7 @@ async function remove(folder: Folder) {
 }
 
 function startSorting() {
+  clearFolderSelection();
   draftFolderIds.value = sortedFolders.value.map((folder) => folder.id);
   sortMode.value = true;
 }
@@ -308,8 +366,20 @@ onMounted(load);
           <button class="button" type="button" @click="reset">创建文件夹</button>
         </template>
       </EmptyState>
-      <div v-else class="admin-table folder-table mobile-card-table">
+      <template v-else>
+        <div v-if="!sortMode" class="bulk-action-bar">
+          <strong>{{ selectedFolderCount ? `已选择 ${selectedFolderCount} 个文件夹` : '批量操作' }}</strong>
+          <div class="bulk-controls">
+            <button class="button secondary" data-testid="select-all-folders" type="button" @click="selectAllFolders"><CheckSquare :size="17" /> 全选</button>
+            <button class="button secondary" type="button" :disabled="!selectedFolderCount" @click="clearFolderSelection"><Square :size="17" /> 取消选择</button>
+            <button class="button danger" data-testid="bulk-delete-folders" type="button" :disabled="!selectedFolderCount || isBulkDeleting" @click="bulkDeleteSelected">
+              <Trash2 :size="17" /> {{ isBulkDeleting ? '删除中' : '批量删除' }}
+            </button>
+          </div>
+        </div>
+        <div class="admin-table folder-table mobile-card-table">
         <div class="admin-table-head">
+          <span>选择</span>
           <span>{{ sortMode ? '排序' : '图标' }}</span>
           <span>名称</span>
           <span>书签数</span>
@@ -318,6 +388,15 @@ onMounted(load);
         </div>
         <SortableList :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
           <article v-for="(folder, index) in displayedFolders" :key="folder.id" class="admin-table-row sortable-admin-row" :data-testid="`folder-row-${folder.id}`" :data-id="folder.id" :style="{ '--folder-depth': folderDepth(folder) }">
+            <span class="selection-cell" data-label="选择">
+              <input
+                :data-testid="`select-folder-${folder.id}`"
+                type="checkbox"
+                :disabled="sortMode"
+                :checked="selectedFolderIds.has(folder.id)"
+                @change="toggleFolderSelection(folder.id, $event)"
+              />
+            </span>
             <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
               <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
               <FolderGlyph :icon="folder.icon" :size="18" />
@@ -334,7 +413,8 @@ onMounted(load);
             </span>
           </article>
         </SortableList>
-      </div>
+        </div>
+      </template>
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
         <strong>{{ displayedFolders.length }} 个文件夹 · 拖动期间不会发起网络请求</strong>
         <div class="toolbar">

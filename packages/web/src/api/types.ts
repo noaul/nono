@@ -73,9 +73,11 @@ export interface BookmarkImportPreview {
     newLinks: number;
     duplicateLinks: number;
     invalidLinks: number;
+    ignoredFolders: number;
+    ignoredLinks: number;
   };
   folders: Array<{ tempId: string; parentTempId: string | null; name: string; status: 'new' }>;
-  links: Array<{ name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
+  links: Array<{ tempId: string; name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
 }
 
 export interface DuplicateLinkGroup {

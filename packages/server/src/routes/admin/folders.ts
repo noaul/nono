@@ -29,6 +29,22 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     return sendOk(reply, { ok: true });
   });
 
+  app.post('/api/admin/folders/bulk-delete', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const ids = uniqueNumericIds((request.body as any).ids);
+    const folders = await services.repo.listFolders(user.id);
+    const links = await services.repo.listLinks(user.id);
+    const ownedIds = new Set(folders.map((folder) => folder.id));
+    const rootIds = ids.filter((id) => ownedIds.has(id));
+    const affectedIds = collectFolderTreeIds(folders, rootIds);
+    await services.repo.deleteFolders(user.id, rootIds);
+    return sendOk(reply, {
+      deletedFolders: affectedIds.size,
+      deletedLinks: links.filter((link) => affectedIds.has(link.folderId)).length,
+    });
+  });
+
   app.put('/api/admin/folders/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
@@ -73,4 +89,19 @@ async function assertValidParent(services: AppServices, userId: number, folderId
 
 function uniqueNumericIds(value: unknown) {
   return [...new Set((Array.isArray(value) ? value : []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+function collectFolderTreeIds(folders: Array<{ id: number; parentId?: number | null }>, rootIds: number[]) {
+  const ids = new Set(rootIds);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
 }

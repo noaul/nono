@@ -9,14 +9,21 @@ export interface BookmarkImportPreview {
     newLinks: number;
     duplicateLinks: number;
     invalidLinks: number;
+    ignoredFolders: number;
+    ignoredLinks: number;
   };
   folders: Array<{ tempId: string; parentTempId: string | null; name: string; status: 'new' }>;
-  links: Array<{ name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
+  links: Array<{ tempId: string; name: string; url: string; folderTempId: string | null; status: 'new' | 'duplicate' | 'invalid'; reason?: string }>;
+}
+
+export interface BookmarkImportSelection {
+  folderTempIds?: string[];
+  linkTempIds?: string[];
 }
 
 export function parseBookmarksHtml(html: string) {
   const folders: Array<{ tempId: string; parentTempId: string | null; name: string }> = [];
-  const links: Array<{ folderTempId: string | null; name: string; url: string; icon?: string }> = [];
+  const links: Array<{ tempId: string; folderTempId: string | null; name: string; url: string; icon?: string }> = [];
   const stack: string[] = [];
   const tokenPattern = /<DT>\s*<H3([^>]*)>([\s\S]*?)<\/H3>|<DT>\s*<A([^>]*)>([\s\S]*?)<\/A>|<\/DL>/gi;
   let match;
@@ -29,12 +36,12 @@ export function parseBookmarksHtml(html: string) {
       const attrs = parseAttributes(match[3]);
       const url = attrs.href || '';
       if (!url) continue;
-      links.push({ folderTempId: stack.at(-1) || null, name: decodeHtml(stripTags(match[4])).trim() || url, url: decodeHtml(url), icon: attrs.icon_uri || attrs.icon || '' });
+      links.push({ tempId: `link-${links.length + 1}`, folderTempId: stack.at(-1) || null, name: decodeHtml(stripTags(match[4])).trim() || url, url: decodeHtml(url), icon: attrs.icon_uri || attrs.icon || '' });
     } else if (stack.length > 0) {
       stack.pop();
     }
   }
-  return { folders, links };
+  return scopeBookmarksTree(folders, links);
 }
 
 export function exportBookmarksHtml(folders: FolderRecord[], links: LinkRecord[]) {
@@ -44,22 +51,28 @@ export function exportBookmarksHtml(folders: FolderRecord[], links: LinkRecord[]
   return `${lines.join('\n')}\n`;
 }
 
-export async function importBookmarks(repo: Repository, userId: number, html: string) {
+export async function importBookmarks(repo: Repository, userId: number, html: string, selection?: BookmarkImportSelection) {
   const parsed = parseBookmarksHtml(html);
+  const selectedFolderTempIds = selectedIds(selection?.folderTempIds, parsed.folders.map((folder) => folder.tempId));
+  const selectedLinkTempIds = selectedIds(selection?.linkTempIds, parsed.links.map((link) => link.tempId));
+  const selectedFolders = parsed.folders.filter((folder) => selectedFolderTempIds.has(folder.tempId));
+  const selectedLinks = parsed.links.filter((link) => selectedLinkTempIds.has(link.tempId));
+  const folderByTempId = new Map(parsed.folders.map((folder) => [folder.tempId, folder]));
   const folders = await repo.listFolders(userId);
   const links = await repo.listLinks(userId);
   const existingUrls = new Set(links.map((link) => link.url.toLowerCase()));
   const tempToId = new Map<string, number>();
   const summary = { addedFolders: 0, addedLinks: 0, skippedDuplicates: 0, skippedInvalid: 0 };
 
-  for (const item of parsed.folders) {
+  for (const [index, item] of selectedFolders.entries()) {
+    const selectedParentTempId = nearestSelectedFolder(item.parentTempId, selectedFolderTempIds, folderByTempId);
     const folder = await repo.createFolder({
       userId,
-      parentId: item.parentTempId ? tempToId.get(item.parentTempId) || null : null,
+      parentId: selectedParentTempId ? tempToId.get(selectedParentTempId) || null : null,
       name: item.name,
       icon: '',
       description: '',
-      sortOrder: createSortOrder(summary.addedFolders),
+      sortOrder: createSortOrder(selectedFolders.length - index),
       passwordHash: null,
       passwordHint: null,
     });
@@ -68,8 +81,8 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   }
 
   let fallbackFolderId = folders[0]?.id;
-  if (!fallbackFolderId && parsed.links.length > 0) {
-    fallbackFolderId = parsed.folders[0] ? tempToId.get(parsed.folders[0].tempId) : undefined;
+  if (!fallbackFolderId && selectedLinks.length > 0) {
+    fallbackFolderId = selectedFolders[0] ? tempToId.get(selectedFolders[0].tempId) : undefined;
     if (!fallbackFolderId) {
       const folder = await repo.createFolder({ userId, parentId: null, name: '导入书签', icon: 'folder', description: '', sortOrder: 100, passwordHash: null, passwordHint: null });
       fallbackFolderId = folder.id;
@@ -77,7 +90,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
     }
   }
 
-  for (const item of parsed.links) {
+  for (const [index, item] of selectedLinks.entries()) {
     const normalizedUrl = tryNormalizeUrl(item.url);
     if (!normalizedUrl) {
       summary.skippedInvalid += 1;
@@ -89,13 +102,14 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       continue;
     }
     if (!fallbackFolderId) throw Object.assign(new Error('No target folder available'), { statusCode: 400 });
+    const selectedFolderTempId = nearestSelectedFolder(item.folderTempId, selectedFolderTempIds, folderByTempId);
     await repo.createLink({
-      folderId: item.folderTempId ? tempToId.get(item.folderTempId) || fallbackFolderId : fallbackFolderId,
+      folderId: selectedFolderTempId ? tempToId.get(selectedFolderTempId) || fallbackFolderId : fallbackFolderId,
       name: item.name,
       url: normalizedUrl,
       icon: normalizeImportedIcon(item.icon),
       description: '',
-      sortOrder: createSortOrder(summary.addedLinks),
+      sortOrder: createSortOrder(selectedLinks.length - index),
     });
     existingUrls.add(key);
     summary.addedLinks += 1;
@@ -112,6 +126,7 @@ export async function previewBookmarksImport(repo: Repository, userId: number, h
     const normalizedUrl = tryNormalizeUrl(item.url);
     if (!normalizedUrl) {
       return {
+        tempId: item.tempId,
         name: item.name,
         url: item.url,
         folderTempId: item.folderTempId,
@@ -121,6 +136,7 @@ export async function previewBookmarksImport(repo: Repository, userId: number, h
     }
     if (existingUrls.has(normalizedUrl.toLowerCase())) {
       return {
+        tempId: item.tempId,
         name: item.name,
         url: normalizedUrl,
         folderTempId: item.folderTempId,
@@ -128,7 +144,8 @@ export async function previewBookmarksImport(repo: Repository, userId: number, h
         reason: 'URL already exists',
       };
     }
-    return { name: item.name, url: normalizedUrl, folderTempId: item.folderTempId, status: 'new' as const };
+    existingUrls.add(normalizedUrl.toLowerCase());
+    return { tempId: item.tempId, name: item.name, url: normalizedUrl, folderTempId: item.folderTempId, status: 'new' as const };
   });
 
   return {
@@ -139,10 +156,71 @@ export async function previewBookmarksImport(repo: Repository, userId: number, h
       newLinks: links.filter((link) => link.status === 'new').length,
       duplicateLinks: links.filter((link) => link.status === 'duplicate').length,
       invalidLinks: links.filter((link) => link.status === 'invalid').length,
+      ignoredFolders: parsed.ignoredFolders,
+      ignoredLinks: parsed.ignoredLinks,
     },
     folders: parsed.folders.map((folder) => ({ ...folder, status: 'new' as const })),
     links,
   };
+}
+
+function scopeBookmarksTree(
+  folders: Array<{ tempId: string; parentTempId: string | null; name: string }>,
+  links: Array<{ tempId: string; folderTempId: string | null; name: string; url: string; icon?: string }>,
+) {
+  const wrapper = folders.find((folder) => !folder.parentTempId && isBookmarksWrapper(folder.name));
+  if (!wrapper) return { folders, links, ignoredFolders: 0, ignoredLinks: 0 };
+
+  const includedFolderIds = new Set<string>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (folder.parentTempId === wrapper.tempId || (folder.parentTempId && includedFolderIds.has(folder.parentTempId))) {
+        if (!includedFolderIds.has(folder.tempId)) {
+          includedFolderIds.add(folder.tempId);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  const scopedFolders = folders
+    .filter((folder) => includedFolderIds.has(folder.tempId))
+    .map((folder) => ({ ...folder, parentTempId: folder.parentTempId === wrapper.tempId ? null : folder.parentTempId }));
+  const scopedLinks = links
+    .filter((link) => link.folderTempId === wrapper.tempId || Boolean(link.folderTempId && includedFolderIds.has(link.folderTempId)))
+    .map((link) => ({ ...link, folderTempId: link.folderTempId === wrapper.tempId ? null : link.folderTempId }));
+
+  return {
+    folders: scopedFolders,
+    links: scopedLinks,
+    ignoredFolders: folders.length - scopedFolders.length - 1,
+    ignoredLinks: links.length - scopedLinks.length,
+  };
+}
+
+function isBookmarksWrapper(name: string) {
+  return ['bookmarks', '书签'].includes(name.trim().toLowerCase());
+}
+
+function selectedIds(selection: string[] | undefined, availableIds: string[]) {
+  const available = new Set(availableIds);
+  if (selection === undefined) return available;
+  return new Set(selection.filter((id) => available.has(id)));
+}
+
+function nearestSelectedFolder(
+  tempId: string | null,
+  selectedFolderTempIds: Set<string>,
+  folderByTempId: Map<string, { parentTempId: string | null }>,
+) {
+  let cursor = tempId;
+  while (cursor) {
+    if (selectedFolderTempIds.has(cursor)) return cursor;
+    cursor = folderByTempId.get(cursor)?.parentTempId || null;
+  }
+  return null;
 }
 
 export function normalizeUrl(value: string) {

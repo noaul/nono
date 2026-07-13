@@ -86,6 +86,37 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
   });
 
+  it('selects and bulk deletes folder trees without reloading lists', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: 'Root', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'Child', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: 'Keep', parentId: null, sortOrder: 80 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 2, name: 'Delete', url: 'https://delete.example/', sortOrder: 100 },
+        { id: 11, folderId: 3, name: 'Keep', url: 'https://keep.example/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({ deletedFolders: 2, deletedLinks: 1 });
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="select-folder-1"]').setValue(true);
+    await wrapper.get('[data-testid="bulk-delete-folders"]').trigger('click');
+    await settle(wrapper);
+
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('2 个文件夹和 1 个书签'),
+    }));
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids: [1] }),
+    });
+    expect(wrapper.text()).not.toContain('Root');
+    expect(wrapper.text()).not.toContain('Child');
+    expect(wrapper.text()).toContain('Keep');
+  });
+
   it('keeps folder drag ordering local until one explicit save', async () => {
     apiRequest
       .mockResolvedValueOnce([

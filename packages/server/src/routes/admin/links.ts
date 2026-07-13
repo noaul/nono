@@ -61,8 +61,10 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any).ids);
-    for (const id of ids) await services.repo.deleteLink(user.id, id);
-    return sendOk(reply, { deleted: ids.length });
+    const ownedIds = new Set((await services.repo.listLinks(user.id)).map((link) => link.id));
+    const deleteIds = ids.filter((id) => ownedIds.has(id));
+    await services.repo.deleteLinks(user.id, deleteIds);
+    return sendOk(reply, { deleted: deleteIds.length });
   });
 
   app.post('/api/admin/links/health-check', async (request, reply) => {
