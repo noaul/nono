@@ -411,7 +411,7 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
     expect(folderCardSource).toContain('--public-folder-depth');
-    expect(folderCardSource).toContain('folder-parent-label');
+    expect(folderCardSource).not.toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
     expect(folderCardSource).toContain('background: rgba(10, 14, 18, 0.52)');
     expect(folderCardSource).toContain('backdrop-filter: blur(var(--public-card-blur');

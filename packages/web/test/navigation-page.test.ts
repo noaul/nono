@@ -67,20 +67,40 @@ describe('NavigationPage public workflow', () => {
   });
 
   it('renders category tabs, sub-folder cards, and local search summary', async () => {
+    apiRequest.mockResolvedValue({
+      ...navigationPayload(),
+      folders: [
+        ...navigationPayload().folders,
+        { id: 3, userId: 1, parentId: null, name: 'Second', sortOrder: 80, locked: false, links: [] },
+        {
+          id: 4,
+          userId: 1,
+          parentId: 3,
+          name: 'Another child',
+          sortOrder: 70,
+          locked: false,
+          links: [{ id: 11, folderId: 4, name: 'Vite', url: 'https://vite.dev/', sortOrder: 100 }],
+        },
+      ],
+    });
     const wrapper = await mountNavigationPage();
 
     expect(wrapper.get('[data-testid="public-folder-card-2"]').attributes('style')).toContain('--public-folder-depth: 1');
-    expect(wrapper.get('[data-testid="public-folder-card-2"] .folder-parent-label').text()).toBe('Parent');
+    expect(wrapper.find('[data-testid="public-folder-card-2"] .folder-parent-label').exists()).toBe(false);
     // Category (top-level folder without direct links) is a tab, not a card.
     expect(wrapper.find('[data-testid="public-folder-card-1"]').exists()).toBe(false);
     const tabs = wrapper.findAll('.folder-tabs button');
-    expect(tabs.map((tab) => tab.text())).toEqual(['全部', 'Parent']);
+    expect(tabs.map((tab) => tab.text())).toEqual(['全部', 'Parent', 'Second']);
+    expect(wrapper.get('[data-testid="category-tab-1"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.find('[data-testid="public-folder-card-4"]').exists()).toBe(false);
 
-    // Picking a category filters the grid to its sub-folders.
-    await wrapper.get('[data-testid="category-tab-1"]').trigger('click');
-    expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(1);
+    // "全部" remains available, but the first real category is the initial view.
+    await wrapper.get('[data-testid="category-tab-all"]').trigger('click');
+    expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(2);
 
     await wrapper.get('.search-bar input').setValue('Vue');
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
@@ -143,7 +163,7 @@ describe('NavigationPage public workflow', () => {
     expect(page.classes()).toContain('nav-bg-loaded');
   });
 
-  it('renders matching center and corner portal links from site settings', async () => {
+  it('keeps the center portal link while the corner link opens admin', async () => {
     apiRequest.mockResolvedValue(
       navigationPayload(undefined, {
         portal: {
@@ -160,11 +180,13 @@ describe('NavigationPage public workflow', () => {
     const corner = wrapper.get('[data-testid="portal-corner-link"]');
     const center = wrapper.get('[data-testid="portal-center-link"]');
 
-    expect(corner.attributes('href')).toBe('https://blog.example.com/');
-    expect(corner.attributes('target')).toBe('_blank');
-    expect(corner.attributes('rel')).toBe('noreferrer');
-    expect(corner.text()).toContain('博客空间');
+    expect(corner.attributes('href')).toBe('/admin');
+    expect(corner.attributes('target')).toBeUndefined();
+    expect(corner.attributes('rel')).toBeUndefined();
+    expect(corner.text()).toContain('后台管理');
     expect(center.attributes('href')).toBe('https://blog.example.com/');
+    expect(center.attributes('target')).toBe('_blank');
+    expect(center.attributes('rel')).toBe('noreferrer');
     expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
   });
 
@@ -181,6 +203,7 @@ describe('NavigationPage public workflow', () => {
     apiRequest.mockResolvedValue({ ...navigationPayload(), folders });
 
     const wrapper = await mountNavigationPage();
+    await wrapper.get('[data-testid="category-tab-all"]').trigger('click');
 
     expect(wrapper.findAll('[data-testid^="public-folder-card-"]')).toHaveLength(24);
     await wrapper.get('.folder-load-more').trigger('click');

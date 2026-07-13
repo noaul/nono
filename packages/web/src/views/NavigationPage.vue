@@ -26,6 +26,7 @@ const loadedBackgroundImage = ref('');
 const folderLoadSentinel = ref<HTMLElement | null>(null);
 const renderedFolderCount = ref(24);
 const selectedCategoryId = ref<string>('all');
+const categorySelectionInitialized = ref(false);
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
 let backgroundPreloadVersion = 0;
 let folderObserver: IntersectionObserver | null = null;
@@ -298,11 +299,6 @@ function folderDepth(folder: Folder) {
   return folderMetadata.value.depthById.get(folder.id) || 0;
 }
 
-function parentFolderName(folder: Folder) {
-  if (!folder.parentId) return '';
-  return folderMetadata.value.byId.get(folder.parentId)?.name || '';
-}
-
 function loadMoreFolders() {
   renderedFolderCount.value = Math.min(renderedFolderCount.value + 24, foldersWithLinks.value.length);
 }
@@ -331,6 +327,11 @@ watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
 watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
 });
+watch(categoryFolders, (folders) => {
+  if (!payload.value || categorySelectionInitialized.value) return;
+  selectedCategoryId.value = folders[0] ? String(folders[0].id) : 'all';
+  categorySelectionInitialized.value = true;
+}, { immediate: true });
 watch(folderLoadSentinel, observeFolderSentinel);
 watch(
   () => [selectedCategoryId.value, categoryTabs.value.map((tab) => tab.id).join(',')],
@@ -352,16 +353,8 @@ onUnmounted(() => {
 
 <template>
   <main class="nav-page public-glass-page" :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
-    <a
-      v-if="portalHref"
-      class="portal-corner-link"
-      data-testid="portal-corner-link"
-      :href="portalHref"
-      :target="portalTarget"
-      :rel="portalRel"
-      :aria-label="portal.label"
-    >
-      <span>{{ portal.label }}</span>
+    <a class="portal-corner-link" data-testid="portal-corner-link" href="/admin" aria-label="后台管理">
+      <span>后台管理</span>
       <ArrowUpRight :size="17" />
     </a>
 
@@ -424,7 +417,6 @@ onUnmounted(() => {
           :data-testid="`public-folder-card-${folder.id}`"
           :folder="folder"
           :depth="folderDepth(folder)"
-          :parent-name="parentFolderName(folder)"
           :highlight="normalizedQuery"
           @verify="verifying = $event"
           @expand="expandedFolder = $event"

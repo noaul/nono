@@ -7,9 +7,8 @@ import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
 
-const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string; highlight?: string }>(), {
+const props = withDefaults(defineProps<{ folder: Folder; depth?: number; highlight?: string }>(), {
   depth: 0,
-  parentName: '',
   highlight: '',
 });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
@@ -29,10 +28,7 @@ function handleFaviconError(linkId: string | number) {
       <span class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
         <FolderGlyph class="title-icon" :icon="folder.icon" :size="18" />
-        <div class="title-copy">
-          <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
-          <h2>{{ folder.name }}</h2>
-        </div>
+        <h2>{{ folder.name }}</h2>
       </div>
       <button v-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
         <Lock :size="16" />
@@ -121,22 +117,6 @@ h2 {
   gap: 8px;
   justify-content: center;
   min-width: 0;
-}
-
-.title-copy {
-  display: grid;
-  min-width: 0;
-}
-
-.folder-parent-label {
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .title-icon {
