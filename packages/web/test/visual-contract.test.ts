@@ -405,6 +405,7 @@ describe('visual contracts', () => {
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
+    const publicStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/public.css'), 'utf8');
 
     expect(navigationSource).toContain('search-result-summary');
     expect(navigationSource).toContain('public-empty-state');
@@ -431,6 +432,7 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
+    expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);
   });
 
   it('keeps expensive visual effects off repeated admin and public surfaces', async () => {
