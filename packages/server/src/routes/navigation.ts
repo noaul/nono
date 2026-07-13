@@ -6,7 +6,7 @@ import { verifyPassword } from '../utils/crypto.js';
 export async function navigationRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/navigation/:username', async (request, reply) => {
     const username = (request.params as any).username;
-    const site = await services.repo.getSiteBySlug(username);
+    const site = await findNavigationSite(services, username);
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const folders = await services.repo.listFolders(site.userId);
     const links = await services.repo.listLinks(site.userId);
@@ -62,11 +62,20 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
   });
 
   app.post('/api/navigation/:username/folder/:id/verify', async (request, reply) => {
-    const site = await services.repo.getSiteBySlug((request.params as any).username);
+    const site = await findNavigationSite(services, (request.params as any).username);
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const folder = await services.repo.getFolder(site.userId, Number((request.params as any).id));
     if (!folder?.passwordHash) return sendOk(reply, { verified: true });
     const ok = await verifyPassword(String((request.body as any)?.password || ''), folder.passwordHash);
     return sendOk(reply, { verified: ok, links: ok ? (await services.repo.listLinks(site.userId)).filter((link) => link.folderId === folder.id) : [] });
   });
+}
+
+async function findNavigationSite(services: AppServices, slug: string) {
+  const exactSite = await services.repo.getSiteBySlug(slug);
+  if (exactSite || slug !== 'admin') return exactSite;
+
+  const users = await services.repo.listUsers();
+  const admin = users.find((user) => user.role === 'admin');
+  return admin ? services.repo.getSite(admin.id) : null;
 }

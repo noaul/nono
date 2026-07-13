@@ -58,6 +58,25 @@ describe('Nono Fastify app', () => {
     expect(session.json().data).toMatchObject({ authenticated: true, setupRequired: false });
   });
 
+  it('serves the setup admin site through the root navigation alias', async () => {
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: {
+        username: 'nono',
+        email: 'nono@nono.test',
+        displayName: 'Nono',
+        password: adminPassword,
+      },
+    });
+    expect(setup.statusCode).toBe(200);
+
+    const navigation = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+
+    expect(navigation.statusCode).toBe(200);
+    expect(navigation.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
+  });
+
   it('keeps disabled registration and unauthenticated errors in the unified response envelope', async () => {
     const register = await app.inject({
       method: 'POST',

@@ -90,8 +90,7 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       })));
     },
     async deleteFolder(userId, id) {
-      const folder = await prisma.folder.findFirstOrThrow({ where: { userId, id } });
-      await prisma.folder.delete({ where: { id: folder.id } });
+      await prisma.folder.deleteMany({ where: { userId, id } });
     },
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;

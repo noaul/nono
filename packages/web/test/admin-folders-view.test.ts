@@ -4,6 +4,7 @@ import SortableList from '../src/components/admin/SortableList.vue';
 import FoldersView from '../src/views/admin/FoldersView.vue';
 
 const apiRequest = vi.fn();
+const confirm = vi.fn();
 
 vi.mock('@/api/client', () => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
@@ -11,7 +12,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 vi.mock('@/composables/useConfirm', () => ({
-  useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
+  useConfirm: () => ({ confirm }),
 }));
 
 vi.mock('@/composables/useToasts', () => ({
@@ -37,31 +38,37 @@ async function settle(wrapper: ReturnType<typeof mountFoldersView>) {
 describe('FoldersView admin workflow', () => {
   beforeEach(() => {
     apiRequest.mockReset();
+    confirm.mockReset();
+    confirm.mockResolvedValue(true);
   });
 
-  it('shows folder link impact counts before deletion and removes locally', async () => {
+  it('shows subtree link impact counts and removes descendants locally', async () => {
     apiRequest
       .mockResolvedValueOnce([
-        { id: 1, userId: 1, name: '工具', sortOrder: 100, passwordHint: '' },
-        { id: 2, userId: 1, name: '文档', sortOrder: 90, passwordHint: '' },
+        { id: 1, userId: 1, name: '工具', parentId: null, sortOrder: 100, passwordHint: '' },
+        { id: 2, userId: 1, name: '开发文档', parentId: 1, sortOrder: 90, passwordHint: '' },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80, passwordHint: '' },
       ])
       .mockResolvedValueOnce([
         { id: 10, folderId: 1, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 },
-        { id: 11, folderId: 1, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 },
+        { id: 11, folderId: 2, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 },
       ])
       .mockResolvedValueOnce({ ok: true });
 
     const wrapper = mountFoldersView();
     await settle(wrapper);
 
-    expect(wrapper.text()).toContain('2 个书签');
-
     await wrapper.get('[data-testid="delete-folder-1"]').trigger('click');
     await settle(wrapper);
 
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('2 个书签'),
+    }));
     expect(apiRequest).toHaveBeenCalledTimes(3);
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/1', { method: 'DELETE' });
     expect(wrapper.text()).not.toContain('工具');
+    expect(wrapper.text()).not.toContain('开发文档');
+    expect(wrapper.text()).toContain('生活');
   });
 
   it('renders parent selector and indents child folders', async () => {

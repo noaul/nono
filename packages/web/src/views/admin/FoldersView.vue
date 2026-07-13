@@ -93,6 +93,21 @@ function folderLinkCount(folderId: number) {
   return linkCountsByFolder.value.get(folderId) || 0;
 }
 
+function folderTreeIds(rootId: number) {
+  const ids = new Set<number>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders.value) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
+}
+
 function edit(folder: Folder) {
   Object.assign(form, { ...folder, parentId: folder.parentId || null, password: '', passwordHint: folder.passwordHint || '' });
 }
@@ -158,7 +173,8 @@ async function save() {
 }
 
 async function remove(folder: Folder) {
-  const linkCount = folderLinkCount(folder.id);
+  const affectedFolderIds = folderTreeIds(folder.id);
+  const linkCount = links.value.filter((link) => affectedFolderIds.has(link.folderId)).length;
   const confirmed = await confirmApi.confirm({
     title: '删除文件夹',
     message: `确定删除「${folder.name}」吗？该文件夹内的 ${linkCount} 个书签会一起删除。`,
@@ -170,8 +186,9 @@ async function remove(folder: Folder) {
   deletingIds.value = new Set([...deletingIds.value, folder.id]);
   try {
     await apiRequest(`/api/admin/folders/${folder.id}`, { method: 'DELETE' });
-    folders.value = folders.value.filter((item) => item.id !== folder.id);
-    links.value = links.value.filter((link) => link.folderId !== folder.id);
+    folders.value = folders.value.filter((item) => !affectedFolderIds.has(item.id));
+    links.value = links.value.filter((link) => !affectedFolderIds.has(link.folderId));
+    if (affectedFolderIds.has(form.id)) reset();
     notifySuccess('文件夹已删除');
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '删除失败');
