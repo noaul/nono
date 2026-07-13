@@ -1,3 +1,28 @@
+<script setup lang="ts">
+import { watch } from 'vue';
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+const adminPaths = ['/admin', '/login', '/register', '/setup'];
+
+watch(
+  () => route.path,
+  (path) => {
+    const isAdmin = adminPaths.some((adminPath) => path === adminPath || path.startsWith(`${adminPath}/`));
+    const variant = isAdmin ? '-admin' : '';
+
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]').forEach((favicon) => {
+      const size = favicon.sizes.value === '192x192' ? 192 : 32;
+      favicon.href = `/favicon${variant}-${size}.png`;
+    });
+
+    const appleTouchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    if (appleTouchIcon) appleTouchIcon.href = `/apple-touch-icon${variant}.png`;
+  },
+  { immediate: true },
+);
+</script>
+
 <template>
   <router-view v-slot="{ Component }">
     <transition name="page" mode="out-in">

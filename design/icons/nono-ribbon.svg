@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Nono ribbon icon</title>
+  <defs>
+    <linearGradient id="badge" x1="104" y1="88" x2="408" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1FC9E7"/>
+      <stop offset="0.52" stop-color="#35BFAB"/>
+      <stop offset="1" stop-color="#16A085"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="224" fill="url(#badge)"/>
+  <path
+    d="M110 306c0-80 46-136 112-136 48 0 77 23 96 61 18-27 44-43 82-43v74c-39 0-58 18-58 54v28h-74v-65c0-31-15-48-43-48-29 0-43 22-43 65v48h-72v-38Z"
+    fill="#fff"
+  />
+  <path d="M140 374c61 34 153 40 238 2" fill="none" stroke="#DFFFF7" stroke-linecap="round" stroke-width="18"/>
+  <circle cx="389" cy="357" r="18" fill="#F4D35E"/>
+</svg>

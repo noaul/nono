@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 560" role="img" aria-labelledby="title">
+  <title id="title">Three Nono web icon concepts</title>
+  <rect width="1440" height="560" fill="#F7FAF9"/>
+  <g transform="translate(74 52)">
+    <rect width="392" height="456" rx="32" fill="#fff"/>
+    <image href="nono-ribbon.svg" x="52" y="32" width="288" height="288"/>
+    <text x="196" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#173B34">01 Ribbon N</text>
+    <text x="196" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#66827B">活力字母 / 品牌主标</text>
+  </g>
+  <g transform="translate(524 52)">
+    <rect width="392" height="456" rx="32" fill="#fff"/>
+    <image href="nono-duo.svg" x="52" y="32" width="288" height="288"/>
+    <text x="196" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#173B34">02 Duo Loop</text>
+    <text x="196" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#66827B">双拍伙伴 / 轻社交感</text>
+  </g>
+  <g transform="translate(974 52)">
+    <rect width="392" height="456" rx="32" fill="#fff"/>
+    <image href="nono-orbit.svg" x="52" y="32" width="288" height="288"/>
+    <text x="196" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#173B34">03 Orbit</text>
+    <text x="196" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#66827B">导航轨迹 / 发现与收藏</text>
+  </g>
+</svg>

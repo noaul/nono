@@ -377,12 +377,14 @@ describe('visual contracts', () => {
     expect(css).toContain('.health-result-row');
   });
 
-  it('sets a real browser favicon for the web app', async () => {
+  it('sets distinct public and admin browser favicons', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const html = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
     const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-32.png'));
+    const adminFavicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-admin-32.png'));
     const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const app = fs.readFileSync(path.resolve(process.cwd(), 'src/App.vue'), 'utf8');
 
     expect(html).toContain('rel="icon"');
     expect(html).toContain('/favicon-32.png');
@@ -390,6 +392,10 @@ describe('visual contracts', () => {
     expect(html).toContain('/apple-touch-icon.png');
     expect(html).toContain('name="theme-color" content="#5b5ce2"');
     expect(favicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(adminFavicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(app).toContain("const variant = isAdmin ? '-admin' : ''");
+    expect(app).toContain('`/favicon${variant}-${size}.png`');
+    expect(app).toContain('`/apple-touch-icon${variant}.png`');
   });
 
   it('defines token governance styles', async () => {
