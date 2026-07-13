@@ -73,6 +73,31 @@ describe('visual contracts', () => {
     expect(wrapper.findAll('.large-link')).toHaveLength(2);
   });
 
+  it('renders every bookmark in a folder and lets the card scroll after twelve items', () => {
+    const links = Array.from({ length: 13 }, (_, index) => ({
+      id: index + 1,
+      folderId: 1,
+      name: `书签 ${index + 1}`,
+      url: `https://example.com/${index + 1}`,
+      sortOrder: 100 - index,
+    }));
+    const wrapper = mount(FolderCard, {
+      props: {
+        folder: {
+          id: 1,
+          userId: 1,
+          name: '常用工具',
+          sortOrder: 100,
+          locked: false,
+          links,
+        },
+      },
+    });
+
+    expect(wrapper.findAll('.large-link')).toHaveLength(13);
+    expect(wrapper.find('[data-testid="folder-overflow-more"]').exists()).toBe(false);
+  });
+
   it('keeps the public background image on its own layer with color as fallback only', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -124,15 +149,18 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    // Elastic card: folders shrink to fit few links and cap growth with an overflow tile instead of an inner scrollbar.
+    // Elastic card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('min-height: 190px');
-    expect(source).toContain('contain-intrinsic-size: 445px 358px');
-    expect(source).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(source).not.toContain('min-height: 190px');
+    expect(source).toContain('contain-intrinsic-size: 445px 268px');
+    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toContain('max-height: 308px');
-    expect(source).toContain('link-overflow-more');
-    expect(source).not.toContain('overflow-y: auto');
+    expect(source).toContain('max-height: 218px');
+    expect(source).toContain('overflow-y: auto');
+    expect(source).toContain('overscroll-behavior: contain');
+    expect(source).not.toContain('link-overflow-more');
+    expect(source).not.toContain('MAX_VISIBLE_LINKS');
+    expect(source).not.toContain('visibleLinks');
     expect(source).toContain('border-radius: 8px');
     expect(source).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(source).toContain('var(--public-card-radius');
@@ -147,7 +175,14 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
-    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?min-height: 80px/);
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+
+    const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
+    expect(navigationSource).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.nav-header,[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/,
+    );
+    expect(searchBarSource).toMatch(/\.search-bar \{[\s\S]*?min-width: 0;/);
   });
 
   it('makes the folder expand control interactive', async () => {

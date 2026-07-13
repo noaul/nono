@@ -907,6 +907,12 @@ mark {
     gap: 20px;
   }
 
+  .nav-header,
+  .adaptive-folder-grid {
+    min-width: 0;
+    width: 100%;
+  }
+
   .adaptive-folder-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;

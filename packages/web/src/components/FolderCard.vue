@@ -14,18 +14,9 @@ const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentN
 });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
-// 12 tiles = 6 rows x 2 cols, matching the previous 308px fixed panel capacity.
-const MAX_VISIBLE_LINKS = 12;
-
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
 const faviconUrls = computed(() => new Map((folder.value.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)])));
-const overflowing = computed(() => (folder.value.links?.length || 0) > MAX_VISIBLE_LINKS);
-const visibleLinks = computed(() => {
-  const links = folder.value.links || [];
-  return overflowing.value ? links.slice(0, MAX_VISIBLE_LINKS - 1) : links;
-});
-const hiddenCount = computed(() => Math.max(0, (folder.value.links?.length || 0) - visibleLinks.value.length));
 
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
@@ -57,7 +48,7 @@ function handleFaviconError(linkId: string | number) {
       <span>分类已锁定，请输入密码解锁</span>
     </div>
     <div v-else class="large-links folder-glass-panel">
-      <a v-for="link in visibleLinks" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
+      <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
         <img
           v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
           :src="faviconUrls.get(link.id)"
@@ -74,17 +65,6 @@ function handleFaviconError(linkId: string | number) {
           </template>
         </span>
       </a>
-      <button
-        v-if="overflowing"
-        class="large-link link-overflow-more"
-        type="button"
-        data-testid="folder-overflow-more"
-        :title="`展开查看全部 ${folder.links?.length || 0} 个链接`"
-        @click="$emit('expand', folder)"
-      >
-        <Maximize2 :size="15" class="large-link-icon" />
-        <span>+{{ hiddenCount }} 更多</span>
-      </button>
     </div>
   </section>
 </template>
@@ -95,10 +75,9 @@ function handleFaviconError(linkId: string | number) {
   gap: 12px;
   grid-template-rows: 38px auto;
   height: auto;
-  min-height: 190px;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 445px 358px;
+  contain-intrinsic-size: 445px 268px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -176,13 +155,16 @@ h2 {
   display: grid;
   gap: 8px;
   grid-auto-rows: 40px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
   height: auto;
-  min-height: 140px;
-  max-height: 308px;
-  overflow: hidden;
+  max-height: 218px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  scrollbar-width: thin;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(255, 255, 255, 0.03),
@@ -212,6 +194,7 @@ h2 {
   gap: 8px;
   justify-content: flex-start;
   min-height: 40px;
+  min-width: 0;
   overflow: hidden;
   padding: 4px 10px;
   transition:
@@ -264,23 +247,6 @@ h2 {
   opacity: 0.82;
 }
 
-/* Overflow tile takes the last grid cell and hands off to the expand modal */
-.link-overflow-more {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px dashed rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.66);
-  cursor: pointer;
-  font: inherit;
-}
-
-.link-overflow-more:hover,
-.link-overflow-more:focus-visible {
-  background: rgba(var(--accent-rgb), 0.1);
-  border-color: rgba(var(--accent-rgb), 0.4);
-  border-style: solid;
-  color: var(--accent-soft);
-}
-
 mark {
   background: rgba(var(--accent-rgb), 0.28);
   border-radius: 3px;
@@ -297,7 +263,7 @@ mark {
   color: rgba(255, 255, 255, 0.4);
   font-size: 13.5px;
   font-weight: 500;
-  height: 308px;
+  height: 218px;
   padding: 24px;
   text-align: center;
 }
@@ -379,15 +345,14 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 150px;
+    contain-intrinsic-size: auto 268px;
     grid-template-rows: 38px auto;
     height: auto;
   }
 
   .large-links {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     height: auto;
-    min-height: 80px;
   }
 
   .large-links.locked {

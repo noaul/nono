@@ -105,6 +105,7 @@ defineExpose({
   display: flex;
   gap: 10px;
   min-height: 52px;
+  min-width: 0;
   margin: 0 auto;
   max-width: 680px;
   padding: 0 6px 0 10px;
