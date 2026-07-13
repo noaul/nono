@@ -338,17 +338,23 @@ describe('visual contracts', () => {
     expect(css).toContain('.health-result-row');
   });
 
-  it('sets a real browser favicon for the web app', async () => {
+  it('sets distinct public and admin browser favicons', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const html = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
     const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon.svg'), 'utf8');
+    const adminFavicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-admin.svg'), 'utf8');
+    const app = fs.readFileSync(path.resolve(process.cwd(), 'src/App.vue'), 'utf8');
 
     expect(html).toContain('rel="icon"');
     expect(html).toContain('/favicon.svg');
     expect(html).toContain('theme-color');
     expect(favicon).toContain('<svg');
-    expect(favicon).toContain('#123f36');
+    expect(favicon).toContain('#35BFAB');
+    expect(adminFavicon).toContain('<svg');
+    expect(adminFavicon).toContain('#FF6B6B');
+    expect(app).toContain("'/favicon-admin.svg'");
+    expect(app).toContain("'/favicon.svg'");
   });
 
   it('defines token governance styles', async () => {
