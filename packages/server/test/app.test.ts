@@ -303,6 +303,48 @@ describe('Nono Fastify app', () => {
     expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Work link', 'Life link']);
   });
 
+  it('treats the Chrome Bookmarks bar as an import wrapper', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>',
+      '<DT><H3>Bookmarks bar</H3><DL><p>',
+      '<DT><H3>Lighting</H3><DL><p>',
+      '<DT><H3>微光</H3><DL><p><DT><A HREF="https://glimmer.example/">微光</A></DL><p>',
+      '<DT><H3>Gather</H3><DL><p><DT><A HREF="https://gather.example/">Gather</A></DL><p>',
+      '</DL><p></DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(preview.statusCode).toBe(200);
+    const previewFolders = preview.json().data.folders;
+    const lighting = previewFolders.find((folder: any) => folder.name === 'Lighting');
+    expect(previewFolders.map((folder: any) => folder.name)).toEqual(['Lighting', '微光', 'Gather']);
+    expect(lighting.parentTempId).toBeNull();
+    expect(previewFolders.find((folder: any) => folder.name === '微光').parentTempId).toBe(lighting.tempId);
+    expect(previewFolders.find((folder: any) => folder.name === 'Gather').parentTempId).toBe(lighting.tempId);
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    const importedFolders = await repo.listFolders(1);
+    const importedLighting = importedFolders.find((folder) => folder.name === 'Lighting');
+    expect(importedFolders.map((folder) => folder.name)).toEqual(['Lighting', '微光', 'Gather']);
+    expect(importedLighting?.parentId).toBeNull();
+    expect(importedFolders.find((folder) => folder.name === '微光')?.parentId).toBe(importedLighting?.id);
+    expect(importedFolders.find((folder) => folder.name === 'Gather')?.parentId).toBe(importedLighting?.id);
+  });
+
   it('imports only selected preview folders and links', async () => {
     const cookie = await setupAdmin();
     const html = [

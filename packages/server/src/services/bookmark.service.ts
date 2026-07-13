@@ -201,7 +201,7 @@ function scopeBookmarksTree(
 }
 
 function isBookmarksWrapper(name: string) {
-  return ['bookmarks', '书签'].includes(name.trim().toLowerCase());
+  return ['bookmarks', 'bookmarks bar', '书签', '书签栏'].includes(name.trim().toLowerCase());
 }
 
 function selectedIds(selection: string[] | undefined, availableIds: string[]) {
