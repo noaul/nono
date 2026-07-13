@@ -149,12 +149,12 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    // Elastic card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
+    // Fixed card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).not.toContain('min-height: 190px');
     expect(source).toContain('contain-intrinsic-size: 445px 268px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
+    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 218px;[\s\S]*?max-height: 218px;/);
     expect(source).toContain('max-height: 218px');
     expect(source).toContain('overflow-y: auto');
     expect(source).toContain('overscroll-behavior: contain');
@@ -175,7 +175,9 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
-    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(source).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 218px;/,
+    );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');

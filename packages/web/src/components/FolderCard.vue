@@ -157,7 +157,7 @@ h2 {
   grid-auto-rows: 40px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: auto;
+  height: 218px;
   max-height: 218px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -352,7 +352,7 @@ mark {
 
   .large-links {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: auto;
+    height: 218px;
   }
 
   .large-links.locked {
