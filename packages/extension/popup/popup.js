@@ -1,147 +1,121 @@
-import { buildSavePayload, findDuplicateLink, healthStatusText, normalizeServerUrl, tokenExpiryText } from '../shared/popup-workflow.js';
+import {
+  buildFolderGroups,
+  buildQuickSavePayload,
+  findDuplicateLink,
+  findFolderGroup,
+  normalizeServerUrl,
+  preferredFolderId,
+  tokenExpiryText,
+} from '../shared/popup-workflow.js';
 
 const settingsPanel = document.querySelector('#settings');
 const workflow = document.querySelector('#workflow');
+const details = document.querySelector('#details');
 const statusEl = document.querySelector('#status');
-const resultEl = document.querySelector('#result');
 const tokenStatusEl = document.querySelector('#tokenStatus');
 const duplicateWarningEl = document.querySelector('#duplicateWarning');
-const healthStatusEl = document.querySelector('#healthStatus');
+const destinationHintEl = document.querySelector('#destinationHint');
 const serverUrlInput = document.querySelector('#serverUrl');
 const tokenInput = document.querySelector('#token');
 const nameInput = document.querySelector('#name');
 const descriptionInput = document.querySelector('#description');
+const categorySelect = document.querySelector('#categorySelect');
 const folderSelect = document.querySelector('#folderSelect');
-const folderNameInput = document.querySelector('#folderName');
+const saveButton = document.querySelector('#saveBookmark');
+const analyzeButton = document.querySelector('#analyzeBookmark');
+const toggleDetailsButton = document.querySelector('#toggleDetails');
 
 let config = {};
 let pageInfo = null;
-let analysis = null;
 let folders = [];
 let links = [];
+let folderGroups = [];
 let duplicateLink = null;
 
-document.querySelector('#settingsButton').addEventListener('click', () => {
-  settingsPanel.classList.toggle('hidden');
-});
-
-document.querySelector('#saveSettings').addEventListener('click', async () => {
-  config = { serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
-  await chrome.storage.local.set(config);
-  const connected = await testConnection();
-  if (connected) {
-    settingsPanel.classList.add('hidden');
-    await analyzeCurrentTab();
-  }
-});
-
-document.querySelector('#testConnection').addEventListener('click', async () => {
-  config = { serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
-  await testConnection();
-});
-
-document.querySelector('#saveBookmark').addEventListener('click', async () => {
-  await saveBookmark();
-});
+document.querySelector('#settingsButton').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+document.querySelector('#closeSettings').addEventListener('click', () => settingsPanel.classList.add('hidden'));
+document.querySelector('#saveSettings').addEventListener('click', saveSettings);
+document.querySelector('#testConnection').addEventListener('click', () => testConnection());
+document.querySelector('#refreshFolders').addEventListener('click', refreshFolders);
+document.querySelector('#saveBookmark').addEventListener('click', saveBookmark);
+document.querySelector('#analyzeBookmark').addEventListener('click', analyzeBookmark);
+document.querySelector('#toggleDetails').addEventListener('click', toggleDetails);
+categorySelect.addEventListener('change', () => renderFolderOptions());
 
 init();
 
 async function init() {
-  config = await chrome.storage.local.get(['serverUrl', 'token']);
-  serverUrlInput.value = config.serverUrl || 'http://127.0.0.1:3000';
+  config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId']);
+  serverUrlInput.value = config.serverUrl || 'https://noaul.com';
   tokenInput.value = config.token || '';
   if (!config.serverUrl || !config.token) {
     settingsPanel.classList.remove('hidden');
-    workflow.classList.add('hidden');
     return;
   }
-  const connected = await testConnection();
-  if (!connected) {
-    settingsPanel.classList.remove('hidden');
-    workflow.classList.add('hidden');
-    return;
+  if (await testConnection()) await prepareQuickSave();
+  else settingsPanel.classList.remove('hidden');
+}
+
+async function saveSettings() {
+  config = { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
+  await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
+  if (await testConnection()) {
+    settingsPanel.classList.add('hidden');
+    await prepareQuickSave();
   }
-  await analyzeCurrentTab();
 }
 
 async function testConnection() {
-  setTokenStatus('测试连接中...');
+  setTokenStatus('正在连接...');
   try {
-    const [session, token, folderList, linkList] = await Promise.all([
+    const [session, token] = await Promise.all([
       request('/api/auth/session', undefined, 'GET'),
       request('/api/admin/tokens/current', undefined, 'GET'),
+    ]);
+    setTokenStatus(`${session.user?.displayName || session.user?.username || '已连接'} · ${tokenExpiryText(token)}`);
+    return true;
+  } catch (error) {
+    setTokenStatus(error.message || '连接失败，请检查服务地址与 Token。');
+    return false;
+  }
+}
+
+async function prepareQuickSave() {
+  workflow.classList.remove('hidden');
+  setStatus('读取当前网页...');
+  try {
+    await Promise.all([refreshFolders(), readCurrentPage()]);
+    duplicateLink = findDuplicateLink(links, pageInfo.url);
+    renderDuplicateWarning();
+    setStatus('选好位置后，一次点击即可收藏。');
+  } catch (error) {
+    setStatus(error.message || '无法读取当前网页。', 'error');
+  }
+}
+
+async function refreshFolders() {
+  destinationHintEl.textContent = '正在刷新文件夹...';
+  try {
+    const [folderList, linkList] = await Promise.all([
       request('/api/admin/folders', undefined, 'GET'),
       request('/api/admin/links', undefined, 'GET'),
     ]);
     folders = folderList;
     links = linkList;
-    renderFolders();
-    setTokenStatus(`${session.user?.displayName || session.user?.username || '已连接'} · ${tokenExpiryText(token)}`);
-    return true;
+    folderGroups = buildFolderGroups(folders);
+    renderCategoryOptions();
+    destinationHintEl.textContent = folderGroups.length ? '默认记住上次使用的位置。' : '请先在 Nono 后台创建文件夹。';
   } catch (error) {
-    folders = [];
-    links = [];
-    renderFolders();
-    setTokenStatus(error.message || '连接失败，Token 可能无效或已过期。');
-    return false;
+    folderGroups = [];
+    renderCategoryOptions();
+    destinationHintEl.textContent = error.message || '读取文件夹失败。';
+    throw error;
   }
 }
 
-async function analyzeCurrentTab() {
-  workflow.classList.remove('hidden');
-  resultEl.classList.add('hidden');
-  setStatus('分析中...');
-  try {
-    pageInfo = await getCurrentPageInfo();
-    analysis = await request('/api/ai/analyze', pageInfo);
-    nameInput.value = analysis.suggestedName || pageInfo.title || '';
-    descriptionInput.value = analysis.suggestedDescription || pageInfo.description || '';
-    selectSuggestedFolder();
-    folderNameInput.value = '';
-    duplicateLink = findDuplicateLink(links, pageInfo.url);
-    renderDuplicateWarning();
-    healthStatusEl.classList.add('hidden');
-    resultEl.classList.remove('hidden');
-    setStatus('确认后保存到 Nono。');
-  } catch (error) {
-    setStatus(error.message || '分析失败');
-  }
-}
-
-async function saveBookmark() {
-  setStatus('保存中...');
-  try {
-    renderDuplicateWarning();
-    const payload = buildSavePayload(pageInfo, analysis, {
-      folderId: folderSelect.value,
-      folderName: folderNameInput.value,
-      name: nameInput.value,
-      description: descriptionInput.value,
-    });
-    const saved = await request('/api/ai/save', payload);
-    links = [saved, ...links];
-    await checkSavedLinkHealth(saved.id);
-    setStatus(duplicateLink ? '已保存；注意这个 URL 之前已存在。' : '已保存。');
-    chrome.action.setBadgeText({ text: 'OK' });
-  } catch (error) {
-    setStatus(error.message || '保存失败');
-  }
-}
-
-async function checkSavedLinkHealth(id) {
-  try {
-    const result = await request('/api/admin/links/health-check', { ids: [id] });
-    healthStatusEl.textContent = healthStatusText(result.results?.[0]);
-    healthStatusEl.classList.remove('hidden');
-  } catch (error) {
-    healthStatusEl.textContent = error.message || '链接健康检查失败';
-    healthStatusEl.classList.remove('hidden');
-  }
-}
-
-async function getCurrentPageInfo() {
+async function readCurrentPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error('无法读取当前标签页');
+  if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) throw new Error('请在普通网页标签中使用快速收藏。');
   let meta = {};
   try {
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
@@ -149,12 +123,120 @@ async function getCurrentPageInfo() {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
   }
-  return {
-    url: tab.url,
-    title: meta.title || tab.title,
-    content: meta.content || '',
-    meta,
-  };
+  pageInfo = { url: tab.url, title: meta.title || tab.title || '', description: meta.description || '', content: meta.content || '', meta };
+  nameInput.value = pageInfo.title;
+  descriptionInput.value = pageInfo.description;
+  renderPagePreview();
+}
+
+async function saveBookmark() {
+  if (!pageInfo) return;
+  const folderId = folderSelect.value;
+  if (!folderId) {
+    setStatus('请先选择一个文件夹。', 'error');
+    return;
+  }
+  setBusy(saveButton, true, '收藏中...');
+  try {
+    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, description: descriptionInput.value });
+    await request('/api/admin/links', payload);
+    await chrome.storage.local.set({ lastFolderId: folderId });
+    config.lastFolderId = folderId;
+    links = [{ ...payload, id: `saved-${Date.now()}` }, ...links];
+    duplicateLink = findDuplicateLink(links, pageInfo.url);
+    renderDuplicateWarning();
+    setStatus('已收藏到 Nono。', 'success');
+    chrome.action.setBadgeText({ text: 'OK' });
+  } catch (error) {
+    setStatus(error.message || '收藏失败。', 'error');
+  } finally {
+    setBusy(saveButton, false, '收藏此页');
+  }
+}
+
+async function analyzeBookmark() {
+  if (!pageInfo) return;
+  setBusy(analyzeButton, true, '整理中...');
+  try {
+    const analysis = await request('/api/ai/analyze', pageInfo);
+    nameInput.value = analysis.suggestedName || nameInput.value;
+    descriptionInput.value = analysis.suggestedDescription || descriptionInput.value;
+    const suggestedGroup = findFolderGroup(folderGroups, analysis.suggestedFolderId);
+    if (suggestedGroup) {
+      categorySelect.value = String(suggestedGroup.category.id);
+      renderFolderOptions(analysis.suggestedFolderId);
+    }
+    setStatus('AI 已补充标题、描述与建议位置。', 'success');
+  } catch (error) {
+    setStatus(error.message || 'AI 整理失败，仍可直接收藏。', 'error');
+  } finally {
+    setBusy(analyzeButton, false, 'AI 整理');
+  }
+}
+
+function renderCategoryOptions() {
+  categorySelect.innerHTML = '';
+  for (const group of folderGroups) {
+    const option = document.createElement('option');
+    option.value = String(group.category.id);
+    option.textContent = group.category.name;
+    categorySelect.appendChild(option);
+  }
+  const selectedGroup = findFolderGroup(folderGroups, config.lastFolderId);
+  if (selectedGroup) categorySelect.value = String(selectedGroup.category.id);
+  renderFolderOptions(config.lastFolderId);
+}
+
+function renderFolderOptions(selectedFolderId = '') {
+  folderSelect.innerHTML = '';
+  const activeGroup = folderGroups.find((group) => String(group.category.id) === categorySelect.value) || folderGroups[0];
+  for (const folder of activeGroup?.folders || []) {
+    const option = document.createElement('option');
+    option.value = String(folder.id);
+    option.textContent = folder.name;
+    folderSelect.appendChild(option);
+  }
+  const target = preferredFolderId([activeGroup].filter(Boolean), selectedFolderId || config.lastFolderId);
+  if (target) folderSelect.value = target;
+  categorySelect.disabled = !folderGroups.length;
+  folderSelect.disabled = !folderSelect.options.length;
+}
+
+function renderPagePreview() {
+  const host = new URL(pageInfo.url).hostname.replace(/^www\./, '');
+  document.querySelector('#pageDomain').textContent = host;
+  document.querySelector('#pageTitle').textContent = pageInfo.title || host;
+  document.querySelector('#siteInitial').textContent = host.charAt(0).toUpperCase() || 'N';
+}
+
+function renderDuplicateWarning() {
+  if (!duplicateLink) {
+    duplicateWarningEl.classList.add('hidden');
+    duplicateWarningEl.textContent = '';
+    return;
+  }
+  duplicateWarningEl.textContent = `这个链接已收藏为「${duplicateLink.name}」，仍可再次保存。`;
+  duplicateWarningEl.classList.remove('hidden');
+}
+
+function toggleDetails() {
+  const expanded = details.classList.toggle('hidden') === false;
+  toggleDetailsButton.textContent = expanded ? '收起' : '编辑';
+  toggleDetailsButton.setAttribute('aria-expanded', String(expanded));
+}
+
+function setBusy(button, busy, label) {
+  button.disabled = busy;
+  button.textContent = label;
+}
+
+function setStatus(message, type = '') {
+  statusEl.textContent = message;
+  statusEl.className = `status${type ? ` ${type}` : ''}`;
+}
+
+function setTokenStatus(message) {
+  tokenStatusEl.textContent = message;
 }
 
 async function request(path, body, method = 'POST') {
@@ -167,48 +249,6 @@ async function request(path, body, method = 'POST') {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const payload = await response.json();
-  if (payload.code !== 0) throw new Error(payload.message || 'Request failed');
+  if (payload.code !== 0) throw new Error(payload.message || '请求失败');
   return payload.data;
-}
-
-function renderFolders() {
-  folderSelect.innerHTML = '';
-  const empty = document.createElement('option');
-  empty.value = '';
-  empty.textContent = folders.length ? '自动选择' : '没有可选文件夹';
-  folderSelect.appendChild(empty);
-  for (const folder of folders) {
-    const option = document.createElement('option');
-    option.value = String(folder.id);
-    option.textContent = folder.name;
-    folderSelect.appendChild(option);
-  }
-}
-
-function selectSuggestedFolder() {
-  renderFolders();
-  const suggestedId = String(analysis?.suggestedFolderId || '');
-  if (suggestedId && folders.some((folder) => String(folder.id) === suggestedId)) {
-    folderSelect.value = suggestedId;
-  } else if (folders[0]) {
-    folderSelect.value = String(folders[0].id);
-  }
-}
-
-function renderDuplicateWarning() {
-  if (!duplicateLink) {
-    duplicateWarningEl.classList.add('hidden');
-    duplicateWarningEl.textContent = '';
-    return;
-  }
-  duplicateWarningEl.textContent = `提示：这个 URL 已存在于「${duplicateLink.name}」，仍可继续保存。`;
-  duplicateWarningEl.classList.remove('hidden');
-}
-
-function setStatus(message) {
-  statusEl.textContent = message;
-}
-
-function setTokenStatus(message) {
-  tokenStatusEl.textContent = message;
 }

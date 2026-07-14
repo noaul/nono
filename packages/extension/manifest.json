@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Nono Smart Bookmark",
   "version": "0.2.0",
-  "description": "一键分析当前网页并保存到 Nono。",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "description": "快速把当前网页收藏到 Nono。",
+  "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
     "default_title": "Save to Nono",
@@ -11,6 +11,22 @@
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "open-quick-save": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "MacCtrl+Shift+S"
+      },
+      "description": "打开 Nono 快速收藏"
+    },
+    "quick-save-last-folder": {
+      "suggested_key": {
+        "default": "Alt+Shift+B",
+        "mac": "MacCtrl+Shift+B"
+      },
+      "description": "保存到上次使用的文件夹"
+    }
   },
   "content_scripts": [
     {

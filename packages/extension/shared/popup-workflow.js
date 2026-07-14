@@ -24,23 +24,42 @@ export function tokenExpiryText(token, now = new Date()) {
   return `Token 还有 ${days} 天过期`;
 }
 
-export function buildSavePayload(pageInfo, analysis, fields) {
-  const folderId = Number(fields.folderId || analysis?.suggestedFolderId || 0);
-  const folderName = String(fields.folderName || '').trim() || (!folderId ? analysis?.suggestedFolderName : '');
-  return {
-    ...pageInfo,
-    ...(folderId ? { folderId } : {}),
-    ...(folderName ? { folderName } : {}),
-    name: String(fields.name || analysis?.suggestedName || pageInfo.title || '').trim(),
-    description: String(fields.description || analysis?.suggestedDescription || pageInfo.description || '').trim(),
-  };
+export function buildFolderGroups(folders) {
+  const ordered = [...folders].sort((left, right) => Number(right.sortOrder || 0) - Number(left.sortOrder || 0));
+  const roots = ordered.filter((folder) => !folder.parentId);
+  const childrenByParent = new Map(roots.map((folder) => [String(folder.id), []]));
+  const orphanFolders = [];
+
+  for (const folder of ordered.filter((folder) => folder.parentId)) {
+    const children = childrenByParent.get(String(folder.parentId));
+    if (children) children.push(folder);
+    else orphanFolders.push(folder);
+  }
+
+  const groups = roots.map((root) => {
+    const children = childrenByParent.get(String(root.id)) || [];
+    return { category: root, folders: children.length ? children : [root] };
+  });
+
+  if (orphanFolders.length) groups.push({ category: { id: '__other__', name: '其他文件夹' }, folders: orphanFolders });
+  return groups;
 }
 
-export function healthStatusText(result) {
-  if (!result) return '未检查链接健康状态';
-  const code = result.statusCode ? ` · ${result.statusCode}` : '';
-  if (result.status === 'ok') return `链接可访问${code}`;
-  if (result.status === 'timeout') return '链接检查超时';
-  if (result.status === 'invalid') return '链接格式无效';
-  return `链接异常${code}`;
+export function findFolderGroup(groups, folderId) {
+  return groups.find((group) => group.folders.some((folder) => String(folder.id) === String(folderId))) || groups[0] || null;
+}
+
+export function preferredFolderId(groups, lastFolderId) {
+  const hasLastFolder = groups.some((group) => group.folders.some((folder) => String(folder.id) === String(lastFolderId)));
+  if (hasLastFolder) return String(lastFolderId);
+  return String(groups[0]?.folders[0]?.id || '');
+}
+
+export function buildQuickSavePayload(pageInfo, fields) {
+  return {
+    folderId: Number(fields.folderId),
+    name: String(fields.name || pageInfo.title || new URL(pageInfo.url).hostname).trim(),
+    url: pageInfo.url,
+    description: String(fields.description || pageInfo.description || '').trim(),
+  };
 }

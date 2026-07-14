@@ -114,4 +114,4 @@ npm run migrate:json -w packages/server -- data/nono.json
 npm run build -w packages/extension
 ```
 
-在 Chrome 扩展管理页加载 `packages/extension/dist`，填入服务地址和后台创建的 API Token，即可一键分析当前网页并确认保存。
+在 Chrome 扩展管理页加载 `packages/extension/dist`，填入服务地址和后台创建的 API Token。插件会自动读取当前网页并记住上次使用的文件夹；可在弹窗中选择“大类 → 文件夹”后收藏，也可通过右键菜单直接保存到上次文件夹。AI 整理仅在需要时手动触发。
