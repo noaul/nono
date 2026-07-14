@@ -499,13 +499,12 @@ onUnmounted(() => {
 }
 
 .nav-content {
-  --folder-card-width: 250px;
   display: grid;
   gap: 28px;
   margin: 0 auto;
-  max-width: 1648px;
+  max-width: 2600px;
   min-width: 0;
-  padding: 0 24px;
+  padding: 0 8px;
   position: relative;
   z-index: 1;
 }
@@ -824,8 +823,31 @@ mark {
   align-items: start;
   display: grid;
   gap: 24px 20px;
-  grid-template-columns: repeat(auto-fit, minmax(0, var(--folder-card-width)));
-  justify-content: center;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (min-width: 2000px) {
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2400px) {
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .folder-card-enter-active {
@@ -904,7 +926,6 @@ mark {
   }
 
   .nav-content {
-    --folder-card-width: min(100%, 250px);
     padding: 0 8px;
     gap: 20px;
   }

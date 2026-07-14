@@ -134,11 +134,12 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('--folder-card-width: 250px');
-    expect(css).toContain('max-width: 1648px');
+    expect(css).toContain('max-width: 2600px');
     expect(css).toContain('gap: 24px 20px');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(0,\s*var\(--folder-card-width\)\)\)/);
-    expect(css).toContain('justify-content: center');
+    expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2000px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2400px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
     expect(css).not.toContain('--folder-panel-width');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
@@ -153,9 +154,14 @@ describe('visual contracts', () => {
     expect(source).toContain('folder-glass-panel');
     // Fixed card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 250px 268px');
+    expect(source).toContain('contain-intrinsic-size: 398px 268px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*16px 6px;/);
+    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?padding:\s*4px 0;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*13px;/);
+    expect(source).toContain(':size="16"');
+    expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?height: 218px;[\s\S]*?max-height: 218px;/);
     expect(source).toContain('max-height: 218px');
     expect(source).toContain('overflow-y: auto');

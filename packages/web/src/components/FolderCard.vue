@@ -55,7 +55,7 @@ function handleFaviconError(linkId: string | number) {
           decoding="async"
           @error="handleFaviconError(link.id)"
         />
-        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="18" />
+        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="16" />
         <span>
           <template v-for="(segment, index) in splitHighlight(compactBookmarkLabel(link.name), props.highlight)" :key="index">
             <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
@@ -74,7 +74,7 @@ function handleFaviconError(linkId: string | number) {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 250px 268px;
+  contain-intrinsic-size: 398px 268px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -133,7 +133,7 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
-  gap: 8px;
+  gap: 8px 4px;
   grid-auto-rows: 40px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
@@ -142,7 +142,7 @@ h2 {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: 16px 6px;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -172,12 +172,12 @@ h2 {
   border-radius: 8px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
-  gap: 8px;
+  gap: 2px;
   justify-content: flex-start;
   min-height: 40px;
   min-width: 0;
   overflow: hidden;
-  padding: 4px 8px;
+  padding: 4px 0;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -203,7 +203,7 @@ h2 {
 }
 
 .large-link span {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
   min-width: 0;
@@ -220,9 +220,9 @@ h2 {
 
 .link-favicon {
   border-radius: 4px;
-  height: 18px;
+  height: 16px;
   object-fit: contain;
-  width: 18px;
+  width: 16px;
 }
 
 .fallback-link-icon {
