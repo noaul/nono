@@ -134,10 +134,10 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('--folder-card-width: 445px');
-    expect(css).toContain('max-width: 2048px');
-    expect(css).toContain('gap: 38px 32px');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*var\(--folder-card-width\)\)/);
+    expect(css).toContain('--folder-card-width: 540px');
+    expect(css).toContain('max-width: 2200px');
+    expect(css).toContain('gap: 30px 20px');
+    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*var\(--folder-card-width\)\),\s*1fr\)\)/);
     expect(css).toContain('justify-content: center');
     expect(css).not.toContain('25vw');
     expect(css).not.toContain('--folder-panel-width');
@@ -153,7 +153,7 @@ describe('visual contracts', () => {
     expect(source).toContain('folder-glass-panel');
     // Fixed card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 445px 268px');
+    expect(source).toContain('contain-intrinsic-size: 540px 268px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
     expect(source).toMatch(/\.large-links \{[\s\S]*?height: 218px;[\s\S]*?max-height: 218px;/);

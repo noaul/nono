@@ -97,6 +97,7 @@ async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
     body: JSON.stringify({
       model: input.model,
       response_format: { type: 'json_object' },
+      ...(supportsOpenAiReasoning(input.model, input.reasoningEffort) ? { reasoning_effort: input.reasoningEffort } : {}),
       messages: [
         { role: 'system', content: 'Return valid compact JSON only.' },
         { role: 'user', content: input.prompt },
@@ -109,6 +110,7 @@ async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
 }
 
 async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
+  const thinkingBudget = claudeThinkingBudget(input.reasoningEffort);
   const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.anthropic.com/v1', 'messages'), {
     method: 'POST',
     headers: {
@@ -118,7 +120,8 @@ async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
     },
     body: JSON.stringify({
       model: input.model,
-      max_tokens: 500,
+      max_tokens: thinkingBudget ? thinkingBudget + 1024 : 500,
+      ...(thinkingBudget ? { thinking: { type: 'enabled', budget_tokens: thinkingBudget } } : {}),
       system: 'Return valid compact JSON only.',
       messages: [{ role: 'user', content: input.prompt }],
     }),
@@ -132,4 +135,15 @@ function resolveLlmEndpoint(baseUrl: string | null | undefined, officialBaseUrl:
   const base = (baseUrl || officialBaseUrl).replace(/\/+$/, '');
   if (base.endsWith(`/${endpoint}`)) return base;
   return `${base}/${endpoint}`;
+}
+
+function supportsOpenAiReasoning(model: string, effort: string | null | undefined) {
+  return Boolean(effort && effort !== 'none' && /^(o[1-9]|gpt-5)/i.test(model));
+}
+
+function claudeThinkingBudget(effort: string | null | undefined) {
+  if (effort === 'low') return 1024;
+  if (effort === 'medium') return 2048;
+  if (effort === 'high') return 4096;
+  return 0;
 }

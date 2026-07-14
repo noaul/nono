@@ -422,6 +422,10 @@ onMounted(load);
         </div>
         <div class="field"><label>密码</label><input v-model="form.password" type="password" /></div>
         <div class="field"><label>引导语</label><input v-model="form.passwordHint" maxlength="30" placeholder="密码文件夹的提示语" /></div>
+        <div class="field">
+          <label>AI 归类提示</label>
+          <textarea v-model="form.description" data-testid="folder-ai-prompt" maxlength="400" placeholder="例如：只收录文献管理、科研写作和 Zotero 相关网站" />
+        </div>
       </form>
     </section>
 
@@ -429,7 +433,7 @@ onMounted(load);
       <div class="admin-card-head">
         <div>
           <h2>文件夹管理</h2>
-          <p>{{ sortMode ? '拖动手柄调整顺序，完成后统一保存。' : '管理分类、访问密码、引导语和展示顺序。' }}</p>
+          <p>{{ sortMode ? '拖动手柄调整顺序，完成后统一保存。' : '管理分类、AI 归类提示、访问密码和展示顺序。' }}</p>
         </div>
         <div class="toolbar">
           <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
@@ -478,7 +482,7 @@ onMounted(load);
           <span>{{ sortMode ? '排序' : '图标' }}</span>
           <span>名称</span>
           <span>书签数</span>
-          <span>引导语</span>
+          <span>AI 提示</span>
           <span>操作</span>
         </div>
         <SortableList :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
@@ -533,6 +537,10 @@ onMounted(load);
                 <label :for="`inline-folder-hint-${folder.id}`">引导语</label>
                 <input :id="`inline-folder-hint-${folder.id}`" v-model="inlineForm.passwordHint" :data-testid="`inline-folder-hint-${folder.id}`" maxlength="30" />
               </div>
+              <div class="inline-folder-field inline-folder-ai-prompt">
+                <label :for="`inline-folder-ai-prompt-${folder.id}`">AI 归类提示</label>
+                <textarea :id="`inline-folder-ai-prompt-${folder.id}`" v-model="inlineForm.description" :data-testid="`inline-folder-ai-prompt-${folder.id}`" maxlength="400" placeholder="告诉 AI 这个大类或文件夹应收录什么" />
+              </div>
               <div class="inline-folder-actions">
                 <span>{{ folderLinkCount(folder.id) }} 个书签</span>
                 <button class="icon-button success" :data-testid="`save-inline-folder-${folder.id}`" title="保存修改" :disabled="isSavingInlineFolder" @click="saveInlineEdit(folder)"><Save :size="16" /></button>
@@ -546,7 +554,7 @@ onMounted(load);
               </span>
               <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
               <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
-              <span data-label="引导语">{{ folder.passwordHint || folder.description || '-' }}</span>
+              <span data-label="AI 提示">{{ folder.description || '-' }}</span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
                   <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
@@ -663,7 +671,8 @@ onMounted(load);
 }
 
 .inline-folder-field input,
-.inline-folder-field select {
+.inline-folder-field select,
+.inline-folder-field textarea {
   background: #ffffff;
   border: 1px solid #aeb9c6;
   border-radius: 8px;
@@ -673,6 +682,15 @@ onMounted(load);
   min-width: 0;
   padding: 7px 10px;
   width: 100%;
+}
+
+.inline-folder-field textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.inline-folder-ai-prompt {
+  grid-column: 1 / -1;
 }
 
 .inline-folder-field input:focus,

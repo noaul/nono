@@ -1,6 +1,7 @@
 import {
   buildFolderGroups,
   buildQuickSavePayload,
+  compactBookmarkName,
   findDuplicateLink,
   findFolderGroup,
   normalizeServerUrl,
@@ -14,7 +15,6 @@ const details = document.querySelector('#details');
 const statusEl = document.querySelector('#status');
 const tokenStatusEl = document.querySelector('#tokenStatus');
 const duplicateWarningEl = document.querySelector('#duplicateWarning');
-const destinationHintEl = document.querySelector('#destinationHint');
 const serverUrlInput = document.querySelector('#serverUrl');
 const tokenInput = document.querySelector('#token');
 const nameInput = document.querySelector('#name');
@@ -31,9 +31,10 @@ let folders = [];
 let links = [];
 let folderGroups = [];
 let duplicateLink = null;
+let nameMode = 'auto';
 
-document.querySelector('#settingsButton').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
-document.querySelector('#closeSettings').addEventListener('click', () => settingsPanel.classList.add('hidden'));
+document.querySelector('#settingsButton').addEventListener('click', openSettings);
+document.querySelector('#closeSettings').addEventListener('click', closeSettings);
 document.querySelector('#saveSettings').addEventListener('click', saveSettings);
 document.querySelector('#testConnection').addEventListener('click', () => testConnection());
 document.querySelector('#refreshFolders').addEventListener('click', refreshFolders);
@@ -41,6 +42,10 @@ document.querySelector('#saveBookmark').addEventListener('click', saveBookmark);
 document.querySelector('#analyzeBookmark').addEventListener('click', analyzeBookmark);
 document.querySelector('#toggleDetails').addEventListener('click', toggleDetails);
 categorySelect.addEventListener('change', () => renderFolderOptions());
+nameInput.addEventListener('input', () => {
+  nameMode = 'manual';
+  if (pageInfo) renderPagePreview();
+});
 
 init();
 
@@ -49,18 +54,18 @@ async function init() {
   serverUrlInput.value = config.serverUrl || 'https://noaul.com';
   tokenInput.value = config.token || '';
   if (!config.serverUrl || !config.token) {
-    settingsPanel.classList.remove('hidden');
+    openSettings();
     return;
   }
   if (await testConnection()) await prepareQuickSave();
-  else settingsPanel.classList.remove('hidden');
+  else openSettings();
 }
 
 async function saveSettings() {
   config = { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
   await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
   if (await testConnection()) {
-    settingsPanel.classList.add('hidden');
+    closeSettings();
     await prepareQuickSave();
   }
 }
@@ -94,7 +99,6 @@ async function prepareQuickSave() {
 }
 
 async function refreshFolders() {
-  destinationHintEl.textContent = '正在刷新文件夹...';
   try {
     const [folderList, linkList] = await Promise.all([
       request('/api/admin/folders', undefined, 'GET'),
@@ -104,11 +108,9 @@ async function refreshFolders() {
     links = linkList;
     folderGroups = buildFolderGroups(folders);
     renderCategoryOptions();
-    destinationHintEl.textContent = folderGroups.length ? '默认记住上次使用的位置。' : '请先在 Nono 后台创建文件夹。';
   } catch (error) {
     folderGroups = [];
     renderCategoryOptions();
-    destinationHintEl.textContent = error.message || '读取文件夹失败。';
     throw error;
   }
 }
@@ -124,7 +126,7 @@ async function readCurrentPage() {
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
   }
   pageInfo = { url: tab.url, title: meta.title || tab.title || '', description: meta.description || '', content: meta.content || '', meta };
-  nameInput.value = pageInfo.title;
+  setAutoName(pageInfo.title);
   descriptionInput.value = pageInfo.description;
   renderPagePreview();
 }
@@ -138,7 +140,7 @@ async function saveBookmark() {
   }
   setBusy(saveButton, true, '收藏中...');
   try {
-    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, description: descriptionInput.value });
+    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value });
     await request('/api/admin/links', payload);
     await chrome.storage.local.set({ lastFolderId: folderId });
     config.lastFolderId = folderId;
@@ -159,7 +161,7 @@ async function analyzeBookmark() {
   setBusy(analyzeButton, true, '整理中...');
   try {
     const analysis = await request('/api/ai/analyze', pageInfo);
-    nameInput.value = analysis.suggestedName || nameInput.value;
+    setAutoName(analysis.suggestedName || nameInput.value);
     descriptionInput.value = analysis.suggestedDescription || descriptionInput.value;
     const suggestedGroup = findFolderGroup(folderGroups, analysis.suggestedFolderId);
     if (suggestedGroup) {
@@ -205,8 +207,13 @@ function renderFolderOptions(selectedFolderId = '') {
 function renderPagePreview() {
   const host = new URL(pageInfo.url).hostname.replace(/^www\./, '');
   document.querySelector('#pageDomain').textContent = host;
-  document.querySelector('#pageTitle').textContent = pageInfo.title || host;
+  document.querySelector('#pageTitle').textContent = nameInput.value || host;
   document.querySelector('#siteInitial').textContent = host.charAt(0).toUpperCase() || 'N';
+}
+
+function setAutoName(value) {
+  nameMode = 'auto';
+  nameInput.value = compactBookmarkName(value, pageInfo.url);
 }
 
 function renderDuplicateWarning() {
@@ -223,6 +230,16 @@ function toggleDetails() {
   const expanded = details.classList.toggle('hidden') === false;
   toggleDetailsButton.textContent = expanded ? '收起' : '编辑';
   toggleDetailsButton.setAttribute('aria-expanded', String(expanded));
+}
+
+function openSettings() {
+  settingsPanel.classList.remove('hidden');
+  workflow.classList.add('hidden');
+}
+
+function closeSettings() {
+  settingsPanel.classList.add('hidden');
+  if (pageInfo) workflow.classList.remove('hidden');
 }
 
 function setBusy(button, busy, label) {

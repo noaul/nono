@@ -41,7 +41,7 @@ async function quickSave(tab) {
     const response = await fetch(`${String(serverUrl).replace(/\/+$/, '')}/api/admin/links`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ folderId: Number(lastFolderId), name: tab.title || new URL(tab.url).hostname, url: tab.url, description: '' }),
+      body: JSON.stringify({ folderId: Number(lastFolderId), name: tab.title || new URL(tab.url).hostname, nameMode: 'auto', url: tab.url, description: '' }),
     });
     const payload = await response.json();
     if (payload.code !== 0) throw new Error(payload.message || '收藏失败');

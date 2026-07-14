@@ -47,6 +47,7 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
           llmApiKey: input.llmApiKey || null,
           llmModel: input.llmModel || null,
           llmBaseUrl: input.llmBaseUrl || null,
+          llmReasoningEffort: input.llmReasoningEffort || null,
           sites: { create: toSiteCreate(defaultSite(0, input.username)) as any },
         },
       })) as any;

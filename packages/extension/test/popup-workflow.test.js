@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFolderGroups, buildQuickSavePayload, findDuplicateLink, findFolderGroup, preferredFolderId, tokenExpiryText } from '../shared/popup-workflow.js';
+import { buildFolderGroups, buildQuickSavePayload, compactBookmarkName, findDuplicateLink, findFolderGroup, preferredFolderId, tokenExpiryText } from '../shared/popup-workflow.js';
 
 describe('extension popup workflow helpers', () => {
   it('describes token expiry state', () => {
@@ -37,6 +37,13 @@ describe('extension popup workflow helpers', () => {
       { folderId: '2', name: 'Custom', description: 'Desc' },
     );
 
-    expect(payload).toEqual({ folderId: 2, name: 'Custom', url: 'https://example.com/', description: 'Desc' });
+    expect(payload).toEqual({ folderId: 2, name: 'Custom', nameMode: 'auto', url: 'https://example.com/', description: 'Desc' });
+  });
+
+  it('compacts page titles into recognizable bookmark names', () => {
+    expect(compactBookmarkName('GitHub - Build and ship software', 'https://github.com/openai')).toBe('GitHub');
+    expect(compactBookmarkName('首页', 'https://juejin.cn/post/123')).toBe('掘金');
+    expect(compactBookmarkName('Codex 额度重置提醒 | 别错过 reset credits', 'https://chatgpt.com/')).toBe('Codex 额度重置');
+    expect(compactBookmarkName('Zotero 中文社区', 'https://zotero-chinese.com/')).toBe('Zotero 中文社区');
   });
 });

@@ -59,7 +59,54 @@ export function buildQuickSavePayload(pageInfo, fields) {
   return {
     folderId: Number(fields.folderId),
     name: String(fields.name || pageInfo.title || new URL(pageInfo.url).hostname).trim(),
+    nameMode: fields.nameMode === 'manual' ? 'manual' : 'auto',
     url: pageInfo.url,
     description: String(fields.description || pageInfo.description || '').trim(),
   };
+}
+
+export function compactBookmarkName(value, rawUrl) {
+  const fallback = siteNameFromUrl(rawUrl);
+  let name = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!name || /^(home|homepage|index|welcome|untitled|首页|主页|欢迎页)$/i.test(name)) return fallback;
+  name = name.split(/[|｜]/, 1)[0].trim();
+  const segments = name.split(/\s+(?:—|–|-)\s+/).map((segment) => segment.trim()).filter(Boolean);
+  if (segments.length > 1) name = segments[0];
+  return truncateToVisualWidth(name, 8);
+}
+
+function truncateToVisualWidth(value, maxWidth) {
+  let width = 0;
+  let result = '';
+  let truncated = false;
+  for (const character of value) {
+    const characterWidth = /\s/.test(character) ? 0.25 : /[\u1100-\u11ff\u2e80-\ua4cf\uac00-\ud7af\uf900-\ufaff\uff01-\uff60\uffe0-\uffe6]/u.test(character) ? 1 : /[A-Za-z0-9]/.test(character) ? 0.55 : 0.45;
+    if (width + characterWidth > maxWidth) {
+      truncated = true;
+      break;
+    }
+    result += character;
+    width += characterWidth;
+  }
+  if (!truncated) return result;
+  if (/[A-Za-z0-9]$/.test(result)) {
+    const previousSpace = result.lastIndexOf(' ');
+    if (previousSpace > 0) return result.slice(0, previousSpace).trimEnd();
+  }
+  if (/[A-Za-z0-9]/.test(result) && /[\u1100-\u11ff\u2e80-\ua4cf\uac00-\ud7af\uf900-\ufaff\uff01-\uff60\uffe0-\uffe6]/u.test([...result].at(-1) || '')) return [...result].slice(0, -1).join('').trimEnd();
+  return result.trimEnd();
+}
+
+function siteNameFromUrl(rawUrl) {
+  try {
+    const hostname = new URL(rawUrl).hostname.replace(/^www\./, '');
+    const known = {
+      'bilibili.com': '哔哩哔哩', 'chatgpt.com': 'ChatGPT', 'developer.mozilla.org': 'MDN', 'github.com': 'GitHub', 'juejin.cn': '掘金', 'openai.com': 'OpenAI', 'zhihu.com': '知乎',
+    };
+    const match = Object.entries(known).find(([domain]) => hostname === domain || hostname.endsWith(`.${domain}`));
+    if (match) return match[1];
+    return hostname.split('.').at(-2) || hostname;
+  } catch {
+    return '未命名书签';
+  }
 }

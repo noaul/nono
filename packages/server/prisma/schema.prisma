@@ -18,6 +18,7 @@ model User {
   llmApiKey    String?
   llmModel     String?
   llmBaseUrl   String?
+  llmReasoningEffort String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   sites        Site[]

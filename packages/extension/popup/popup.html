@@ -10,8 +10,8 @@
     <main class="popup">
       <header class="popup-header">
         <div class="brand" aria-label="Nono">
-          <span class="brand-mark">n</span>
-          <strong>nono</strong>
+          <img class="brand-mark" src="../icons/nono-48.png" alt="" />
+          <strong>NONO</strong>
         </div>
         <button id="settingsButton" class="icon-button" type="button" title="连接设置" aria-label="连接设置">&#9881;</button>
       </header>
@@ -42,11 +42,20 @@
           </div>
         </section>
 
+        <section class="name-editor panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">书签名称</span>
+            </div>
+            <button id="analyzeBookmark" class="text-button" type="button">AI 整理</button>
+          </div>
+          <input id="name" maxlength="180" aria-label="书签名称" />
+        </section>
+
         <section class="destination panel">
           <div class="section-heading compact">
             <div>
               <span class="eyebrow">保存到</span>
-              <h2>选择位置</h2>
             </div>
             <button id="refreshFolders" class="icon-button subtle" type="button" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
           </div>
@@ -54,7 +63,6 @@
             <label>大类<select id="categorySelect"></select></label>
             <label>文件夹<select id="folderSelect"></select></label>
           </div>
-          <p id="destinationHint" class="meta-text">正在读取文件夹...</p>
         </section>
 
         <p id="duplicateWarning" class="warning hidden"></p>
@@ -71,9 +79,7 @@
               <span class="eyebrow">可选</span>
               <h2>补充信息</h2>
             </div>
-            <button id="analyzeBookmark" class="text-button" type="button">AI 整理</button>
           </div>
-          <label>标题<input id="name" maxlength="180" /></label>
           <label>描述<textarea id="description" maxlength="1000"></textarea></label>
         </section>
       </section>

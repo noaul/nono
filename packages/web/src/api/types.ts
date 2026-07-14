@@ -7,6 +7,7 @@ export interface User {
   llmProvider?: string | null;
   llmModel?: string | null;
   llmBaseUrl?: string | null;
+  llmReasoningEffort?: 'none' | 'low' | 'medium' | 'high' | null;
   hasLlmApiKey?: boolean;
 }
 

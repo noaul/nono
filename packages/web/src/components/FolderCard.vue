@@ -73,7 +73,7 @@ function handleFaviconError(linkId: string | number) {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 445px 268px;
+  contain-intrinsic-size: 540px 268px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -176,7 +176,7 @@ h2 {
   min-height: 40px;
   min-width: 0;
   overflow: hidden;
-  padding: 4px 10px;
+  padding: 4px 8px;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -205,6 +205,7 @@ h2 {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

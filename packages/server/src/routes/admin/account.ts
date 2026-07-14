@@ -5,7 +5,7 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { assertStrongPassword } from '../../services/auth.service.js';
 import { publicUser } from '../../services/repository.js';
-import { encryptSecret, hashPassword, verifyPassword } from '../../utils/crypto.js';
+import { decryptSecret, encryptSecret, hashPassword, verifyPassword } from '../../utils/crypto.js';
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -17,6 +17,7 @@ const llmSchema = z.object({
   apiKey: z.string().trim().optional(),
   model: z.string().trim().max(120).nullable().optional(),
   baseUrl: z.string().trim().max(500).refine((value) => !value || isHttpUrl(value), 'API 地址必须使用 HTTP 或 HTTPS').nullable().optional(),
+  reasoningEffort: z.enum(['none', 'low', 'medium', 'high']).optional(),
 });
 
 export async function accountRoutes(app: FastifyInstance, services: AppServices) {
@@ -48,11 +49,35 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
     const patch: Record<string, unknown> = {
       llmProvider: input.provider || null,
       llmModel: input.model || (input.provider === 'claude' ? 'claude-sonnet-4-5' : input.provider === 'openai' ? 'gpt-4o-mini' : null),
+      llmReasoningEffort: input.reasoningEffort || 'none',
     };
-    if (input.apiKey !== undefined) patch.llmApiKey = input.apiKey ? encryptSecret(input.apiKey, services.encryptionKey) : null;
+    if (input.apiKey?.trim()) patch.llmApiKey = encryptSecret(input.apiKey, services.encryptionKey);
     if (input.baseUrl !== undefined) patch.llmBaseUrl = input.baseUrl ? input.baseUrl.replace(/\/+$/, '') : null;
     const updated = await services.repo.updateUser(user.id, patch as any);
     return sendOk(reply, publicUser(updated));
+  });
+
+  app.post('/api/admin/account/llm/test', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const input = llmSchema.parse(request.body);
+    const account = await services.repo.findUserById(user.id);
+    const provider = input.provider || account?.llmProvider;
+    const apiKey = input.apiKey?.trim() || (account?.llmApiKey ? decryptSecret(account.llmApiKey, services.encryptionKey) : '');
+    const model = input.model || account?.llmModel || (provider === 'claude' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
+    const baseUrl = input.baseUrl === undefined ? account?.llmBaseUrl : input.baseUrl || null;
+    const reasoningEffort = input.reasoningEffort || account?.llmReasoningEffort || 'none';
+    if (!provider || !apiKey) throw Object.assign(new Error('请填写 Provider 和 API Key 后再测试'), { statusCode: 400 });
+    if (!services.llmClient) throw Object.assign(new Error('LLM client is unavailable'), { statusCode: 503 });
+    await services.llmClient.complete({
+      provider: provider as 'openai' | 'claude',
+      apiKey,
+      model,
+      baseUrl,
+      reasoningEffort: reasoningEffort as any,
+      prompt: 'Return exactly this JSON: {"ok":true}',
+    });
+    return sendOk(reply, { ok: true, provider, model, reasoningEffort });
   });
 }
 

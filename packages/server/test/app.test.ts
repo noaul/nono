@@ -646,7 +646,7 @@ describe('Nono Fastify app', () => {
     await app.close();
     app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
     const cookie = await setupAdmin();
-    await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading' } });
+    await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading', description: '只收录深度阅读和长篇资料' } });
 
     const updated = await app.inject({
       method: 'PUT',
@@ -657,6 +657,7 @@ describe('Nono Fastify app', () => {
         model: 'custom-model',
         apiKey: 'secret-key',
         baseUrl: 'https://gateway.example.com/v1/',
+        reasoningEffort: 'high',
       },
     });
 
@@ -665,6 +666,7 @@ describe('Nono Fastify app', () => {
       llmProvider: 'openai',
       llmModel: 'custom-model',
       llmBaseUrl: 'https://gateway.example.com/v1',
+      llmReasoningEffort: 'high',
       hasLlmApiKey: true,
     });
 
@@ -680,6 +682,36 @@ describe('Nono Fastify app', () => {
       provider: 'openai',
       model: 'custom-model',
       baseUrl: 'https://gateway.example.com/v1',
+      reasoningEffort: 'high',
+      prompt: expect.stringContaining('只收录深度阅读和长篇资料'),
+    }));
+  });
+
+  it('tests an unsaved LLM connection with the selected reasoning depth', async () => {
+    const llmClient = { complete: vi.fn().mockResolvedValue('{"ok":true}') };
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
+    const cookie = await setupAdmin();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/account/llm/test',
+      headers: { cookie },
+      payload: {
+        provider: 'openai',
+        model: 'gpt-5-mini',
+        apiKey: 'test-key',
+        baseUrl: 'https://gateway.example.com/v1',
+        reasoningEffort: 'medium',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toMatchObject({ ok: true, model: 'gpt-5-mini', reasoningEffort: 'medium' });
+    expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: 'test-key',
+      reasoningEffort: 'medium',
+      prompt: 'Return exactly this JSON: {"ok":true}',
     }));
   });
 

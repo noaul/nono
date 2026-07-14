@@ -12,6 +12,7 @@ export interface UserRecord {
   llmApiKey?: string | null;
   llmModel?: string | null;
   llmBaseUrl?: string | null;
+  llmReasoningEffort?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -116,6 +117,7 @@ export function publicUser(user: UserRecord) {
     llmProvider: user.llmProvider,
     llmModel: user.llmModel,
     llmBaseUrl: user.llmBaseUrl,
+    llmReasoningEffort: user.llmReasoningEffort,
     hasLlmApiKey: Boolean(user.llmApiKey),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,

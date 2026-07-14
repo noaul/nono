@@ -25,6 +25,7 @@ describe('LlmView', () => {
         llmProvider: 'openai',
         llmModel: 'custom-model',
         llmBaseUrl: 'https://gateway.example.com/v1',
+        llmReasoningEffort: 'medium',
         hasLlmApiKey: true,
       })
       .mockResolvedValueOnce({ ok: true });
@@ -39,6 +40,7 @@ describe('LlmView', () => {
     await settle(wrapper);
 
     expect((wrapper.get('[data-testid="llm-base-url"]').element as HTMLInputElement).value).toBe('https://gateway.example.com/v1');
+    expect((wrapper.get('[data-testid="llm-reasoning-effort"]').element as HTMLSelectElement).value).toBe('medium');
     await wrapper.get('[data-testid="llm-base-url"]').setValue('https://new-gateway.example/api/v1');
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
@@ -50,7 +52,26 @@ describe('LlmView', () => {
         model: 'custom-model',
         apiKey: '',
         baseUrl: 'https://new-gateway.example/api/v1',
+        reasoningEffort: 'medium',
       }),
     });
+  });
+
+  it('tests the current LLM connection without saving the form', async () => {
+    apiRequest
+      .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-5-mini', hasLlmApiKey: true })
+      .mockResolvedValueOnce({ ok: true, model: 'gpt-5-mini', reasoningEffort: 'high' });
+
+    const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
+    await settle(wrapper);
+    await wrapper.get('[data-testid="llm-reasoning-effort"]').setValue('high');
+    await wrapper.get('[data-testid="test-llm-connection"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/account/llm/test', {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'openai', model: 'gpt-5-mini', apiKey: '', baseUrl: '', reasoningEffort: 'high' }),
+    });
+    expect(wrapper.text()).toContain('连接成功');
   });
 });
