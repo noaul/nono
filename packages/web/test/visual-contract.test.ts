@@ -249,6 +249,8 @@ describe('visual contracts', () => {
     expect(expandModalSource).toContain('expanded-link-grid');
     expect(expandModalSource).toContain('<FolderGlyph class="expand-folder-icon"');
     expect(expandModalSource).toContain('getFaviconUrl(link.url, link.icon)');
+    expect(expandModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
+    expect(expandModalSource).not.toContain('background: rgba(15, 18, 25, var(--public-modal-opacity');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
     expect(folderCardSource).toContain('large-link:active');
