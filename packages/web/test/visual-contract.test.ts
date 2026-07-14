@@ -135,10 +135,14 @@ describe('visual contracts', () => {
 
     expect(css).toContain('adaptive-folder-grid');
     expect(css).toContain('max-width: 2600px');
+    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
     expect(css).toContain('gap: 24px 20px');
     expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).toMatch(/@media \(min-width: 2250px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).toMatch(/@media \(min-width: 2500px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 24px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(3,/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 20px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(2,/);
+    expect(css).not.toContain('@media (max-width: 820px)');
     expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
     expect(css).not.toContain('--folder-panel-width');

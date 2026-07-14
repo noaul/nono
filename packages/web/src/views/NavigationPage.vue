@@ -504,7 +504,7 @@ onUnmounted(() => {
   margin: 0 auto;
   max-width: 2600px;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 16px;
   position: relative;
   z-index: 1;
 }
@@ -838,13 +838,21 @@ mark {
   }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1800px) {
+  .nav-content {
+    padding: 0 24px;
+  }
+
   .adaptive-folder-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
+  .nav-content {
+    padding: 0 20px;
+  }
+
   .adaptive-folder-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
