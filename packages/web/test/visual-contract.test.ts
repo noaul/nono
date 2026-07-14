@@ -254,6 +254,18 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('large-link:active');
   });
 
+  it('uses the folder surface color for the unlock modal and its appearance preview', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const unlockModalSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderUnlockModal.vue'), 'utf8');
+    const appearanceEditorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
+
+    expect(unlockModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
+    expect(appearanceEditorSource).toContain('background: rgba(var(--public-card-color-rgb), var(--public-modal-opacity))');
+    expect(unlockModalSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
+    expect(appearanceEditorSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
+  });
+
   it('exposes a persisted manual sorting endpoint from bookmark management', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');

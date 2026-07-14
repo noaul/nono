@@ -444,9 +444,13 @@ legend {
 
 .preview-modal {
   backdrop-filter: blur(var(--public-modal-blur));
-  background: rgba(17, 20, 28, var(--public-modal-opacity));
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-card-color-rgb), var(--public-modal-opacity));
+  border: 1px solid rgba(51, 65, 61, 0.2);
   border-radius: var(--public-modal-radius);
+  box-shadow:
+    0 18px 42px rgba(5, 15, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: #17211d;
   display: grid;
   gap: 7px;
   justify-self: center;
