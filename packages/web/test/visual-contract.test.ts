@@ -137,8 +137,8 @@ describe('visual contracts', () => {
     expect(css).toContain('max-width: 2600px');
     expect(css).toContain('gap: 24px 20px');
     expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(min-width: 2000px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(min-width: 2400px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2250px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2500px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
     expect(css).not.toContain('--folder-panel-width');
@@ -159,7 +159,7 @@ describe('visual contracts', () => {
     expect(source).toContain('grid-auto-rows: 40px');
     expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*16px 6px;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?padding:\s*4px 0;/);
-    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*13px;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
     expect(source).toContain(':size="16"');
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?height: 218px;[\s\S]*?max-height: 218px;/);

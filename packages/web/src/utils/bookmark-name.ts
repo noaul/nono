@@ -1,4 +1,4 @@
-const MAX_BOOKMARK_LABEL_WIDTH = 8;
+const MAX_BOOKMARK_LABEL_WIDTH = 9;
 
 export function compactBookmarkLabel(value: string) {
   let width = 0;

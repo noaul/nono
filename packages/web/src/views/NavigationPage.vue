@@ -826,13 +826,13 @@ mark {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-@media (min-width: 2000px) {
+@media (min-width: 2250px) {
   .adaptive-folder-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 2400px) {
+@media (min-width: 2500px) {
   .adaptive-folder-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
