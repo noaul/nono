@@ -6,6 +6,7 @@ import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
+import { compactBookmarkLabel } from '@/utils/bookmark-name';
 
 const props = withDefaults(defineProps<{ folder: Folder; depth?: number; highlight?: string }>(), {
   depth: 0,
@@ -44,7 +45,7 @@ function handleFaviconError(linkId: string | number) {
       <span>分类已锁定，请输入密码解锁</span>
     </div>
     <div v-else class="large-links folder-glass-panel">
-      <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
+      <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" :title="link.name" target="_blank" rel="noreferrer">
         <img
           v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
           :src="faviconUrls.get(link.id)"
@@ -56,7 +57,7 @@ function handleFaviconError(linkId: string | number) {
         />
         <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="18" />
         <span>
-          <template v-for="(segment, index) in splitHighlight(link.name, props.highlight)" :key="index">
+          <template v-for="(segment, index) in splitHighlight(compactBookmarkLabel(link.name), props.highlight)" :key="index">
             <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
           </template>
         </span>
@@ -73,7 +74,7 @@ function handleFaviconError(linkId: string | number) {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 540px 268px;
+  contain-intrinsic-size: 250px 268px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;

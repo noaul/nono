@@ -499,11 +499,11 @@ onUnmounted(() => {
 }
 
 .nav-content {
-  --folder-card-width: 540px;
+  --folder-card-width: 250px;
   display: grid;
   gap: 28px;
   margin: 0 auto;
-  max-width: 2200px;
+  max-width: 1648px;
   min-width: 0;
   padding: 0 24px;
   position: relative;
@@ -823,8 +823,8 @@ mark {
 .adaptive-folder-grid {
   align-items: start;
   display: grid;
-  gap: 30px 20px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--folder-card-width)), 1fr));
+  gap: 24px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(0, var(--folder-card-width)));
   justify-content: center;
 }
 
@@ -904,7 +904,7 @@ mark {
   }
 
   .nav-content {
-    --folder-card-width: min(100%, 540px);
+    --folder-card-width: min(100%, 250px);
     padding: 0 8px;
     gap: 20px;
   }
