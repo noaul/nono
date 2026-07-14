@@ -2535,8 +2535,14 @@
    ========================================================================== */
 .glass-workbench {
   --admin-surface-radius: 8px;
-  --admin-surface-opacity: 0.72;
-  --admin-surface-blur: 10px;
+  --admin-surface-opacity: 0.66;
+  --admin-surface-blur: 20px;
+  --admin-control-height: 42px;
+  --admin-control-radius: 8px;
+  --admin-control-bg: rgba(255, 255, 255, 0.56);
+  --admin-control-border: rgba(76, 101, 94, 0.28);
+  --admin-control-border-hover: rgba(50, 83, 74, 0.42);
+  --admin-control-focus: rgba(15, 118, 110, 0.18);
   --bg: #f3f7f4;
   --panel: rgba(255, 255, 255, 0.62);
   --panel-2: rgba(255, 255, 255, 0.48);
@@ -2569,14 +2575,24 @@
 }
 
 .glass-surface {
-  -webkit-backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.08);
-  backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.16);
+  backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.16);
   background: rgba(255, 255, 255, var(--admin-surface-opacity));
   border: 1px solid rgba(255, 255, 255, 0.52);
   border-radius: var(--admin-surface-radius);
   box-shadow:
     0 12px 30px rgba(31, 41, 55, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.glass-workbench.admin-glass-enabled .workbench-stage > .admin-card,
+.glass-workbench.admin-glass-enabled .workbench-stage > .panel,
+.glass-workbench.admin-glass-enabled .workbench-stage > .dashboard-hero,
+.glass-workbench.admin-glass-enabled .workbench-stage > form > .admin-card,
+.glass-workbench.admin-glass-enabled .workbench-stage > * > .admin-card,
+.glass-workbench.admin-glass-enabled .workbench-stage > * > .ops-panel {
+  -webkit-backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.12);
+  backdrop-filter: blur(var(--admin-surface-blur)) saturate(1.12);
 }
 
 .glass-workbench .panel,
@@ -2702,16 +2718,44 @@
   background: rgba(255, 255, 255, 0.64);
 }
 
-.glass-workbench .field input,
-.glass-workbench .field textarea,
-.glass-workbench .field select,
+.glass-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']),
+.glass-workbench textarea,
+.glass-workbench select,
 .glass-workbench .admin-search-input,
-.glass-workbench .bulk-controls select,
-.glass-workbench .quick-add-bar input,
-.glass-workbench .quick-add-bar select {
-  background: rgba(255, 255, 255, 0.58);
-  border-color: rgba(255, 255, 255, 0.56);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+.glass-workbench .bulk-controls select {
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-control-radius);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.64),
+    0 1px 2px rgba(31, 41, 55, 0.04);
+  color: var(--text);
+  min-height: var(--admin-control-height);
+}
+
+.glass-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):hover,
+.glass-workbench textarea:hover,
+.glass-workbench select:hover,
+.glass-workbench .admin-search-input:hover {
+  border-color: var(--admin-control-border-hover);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.glass-workbench input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):focus,
+.glass-workbench textarea:focus,
+.glass-workbench select:focus,
+.glass-workbench .admin-search-input:focus {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--admin-control-focus),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  outline: none;
+}
+
+.glass-workbench input::placeholder,
+.glass-workbench textarea::placeholder {
+  color: rgba(61, 76, 70, 0.58);
 }
 
 .glass-workbench .quick-add-bar {
@@ -2719,23 +2763,35 @@
   border-color: rgba(255, 255, 255, 0.46);
 }
 
-@media (max-width: 900px) {
-  .app-workbench .quick-add-bar {
-    grid-template-columns: minmax(0, 1fr) minmax(120px, 0.38fr) minmax(130px, 0.42fr);
+@media (max-width: 1500px) {
+  .glass-workbench .admin-form-grid,
+  .glass-workbench .bookmark-create-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app-workbench .quick-add-bar .button {
+  .glass-workbench .quick-add-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .glass-workbench .quick-add-bar input:first-child {
     grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 640px) {
-  .app-workbench .quick-add-bar {
+@media (max-width: 1100px) {
+  .glass-workbench .admin-form-grid,
+  .glass-workbench .bookmark-create-grid,
+  .glass-workbench .quick-add-bar {
     grid-template-columns: 1fr;
   }
 
-  .app-workbench .quick-add-bar .button {
+  .glass-workbench .quick-add-bar input:first-child {
     grid-column: auto;
+  }
+
+  .glass-workbench .admin-form-grid .action-field,
+  .glass-workbench .bookmark-create-grid .action-field,
+  .glass-workbench .quick-add-bar .button {
     width: 100%;
   }
 }
@@ -2827,7 +2883,7 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass-surface {
+  .glass-workbench:not(.admin-glass-enabled) .glass-surface {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
     background: rgba(255, 255, 255, 0.96);

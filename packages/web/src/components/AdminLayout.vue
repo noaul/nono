@@ -104,7 +104,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench figma-admin-shell" :style="appearanceStyle">
+  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell" :style="appearanceStyle">
     <aside class="workbench-sidebar glass-surface">
       <RouterLink class="sidebar-brand" to="/admin">
         <div class="brand-logo">N</div>

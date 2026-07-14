@@ -328,14 +328,34 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const css = readStyle('admin');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(css).toContain('.glass-workbench');
     expect(css).toContain('.glass-workbench::before');
     expect(css).toContain('.glass-surface');
+    expect(layoutSource).toContain('admin-glass-enabled');
+    expect(css).toContain('--admin-surface-blur: 20px');
+    expect(css).toContain('--admin-surface-opacity: 0.66');
+    expect(css).toContain('--admin-control-height: 42px');
+    expect(css).toContain('--admin-control-radius: 8px');
+    expect(css).toContain('--admin-control-bg: rgba(255, 255, 255, 0.56)');
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('-webkit-backdrop-filter: blur');
-    expect(css).toContain('rgba(255, 255, 255, 0.62)');
+    expect(css).toContain('.glass-workbench.admin-glass-enabled .workbench-stage > .admin-card');
+    expect(css).toContain('.glass-workbench:not(.admin-glass-enabled) .glass-surface');
     expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
+  });
+
+  it('keeps admin forms visually unified across zoom breakpoints', async () => {
+    const css = readStyle('admin');
+
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?background:\s*var\(--admin-control-bg\)/);
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?min-height:\s*var\(--admin-control-height\)/);
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?border-radius:\s*var\(--admin-control-radius\)/);
+    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*1fr/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*1fr/);
   });
 
   it('defines the Figma-inspired admin frame and component tokens', async () => {
