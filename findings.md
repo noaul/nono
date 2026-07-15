@@ -1,5 +1,11 @@
 # Nono 项目发现
 
+## 2026-07-15 后台菜单切换黑屏发现
+- 黑屏不是 API 请求慢，而是全局 Vue 路由转场主动把整个 `.app-workbench` 淡到透明。
+- `mode="out-in"` 会串行执行约 240ms 离场和 240ms 入场，后台菜单切换因此显得迟缓。
+- 透明期间露出的 `body` 使用全局暗色变量 `--bg: #090a0f`，形成明显黑屏。
+- 修复前采样可见工作台透明度从 1 降到接近 0；修复后后台路由无转场类且透明度持续为 1。
+
 ## 2026-07-15 Notab 独立管理发现
 - Notab 沿用现有 `Folder` 数据模型，以 `parentId === null` 表示顶级 Notab，不需要数据库迁移。
 - 现有 `PUT /api/admin/folders/:id` 可更名，`PUT /api/admin/folders/reorder` 可对顶级 ID 子集排序，`DELETE /api/admin/folders/:id` 会递归删除子文件夹和书签。
