@@ -73,8 +73,8 @@ describe('visual contracts', () => {
     expect(wrapper.findAll('.large-link')).toHaveLength(2);
   });
 
-  it('renders every bookmark in a folder and lets the card scroll after twelve items', () => {
-    const links = Array.from({ length: 13 }, (_, index) => ({
+  it('renders every bookmark and only enables inner scrolling after fifteen items', () => {
+    const links = Array.from({ length: 16 }, (_, index) => ({
       id: index + 1,
       folderId: 1,
       name: `书签 ${index + 1}`,
@@ -94,8 +94,16 @@ describe('visual contracts', () => {
       },
     });
 
-    expect(wrapper.findAll('.large-link')).toHaveLength(13);
+    expect(wrapper.findAll('.large-link')).toHaveLength(16);
+    expect(wrapper.get('.large-links').classes()).toContain('is-scrollable');
     expect(wrapper.find('[data-testid="folder-overflow-more"]').exists()).toBe(false);
+  });
+
+  it('lets the page own the mouse wheel when a folder has at most fifteen bookmarks', () => {
+    const links = Array.from({ length: 15 }, (_, index) => ({ id: index + 1, folderId: 1, name: `书签 ${index + 1}`, url: `https://example.com/${index + 1}`, sortOrder: 100 - index }));
+    const wrapper = mount(FolderCard, { props: { folder: { id: 1, userId: 1, name: '常用工具', sortOrder: 100, locked: false, links } } });
+
+    expect(wrapper.get('.large-links').classes()).not.toContain('is-scrollable');
   });
 
   it('keeps the public background image on its own layer with color as fallback only', async () => {
@@ -156,20 +164,21 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    // Fixed card: three bookmarks per row, four visible rows, then an inner vertical scrollbar.
+    // Fixed card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 398px 268px');
+    expect(source).toContain('contain-intrinsic-size: 398px 316px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*16px 6px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*16px 0;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?padding:\s*4px 0;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 218px;[\s\S]*?max-height: 218px;/);
-    expect(source).toContain('max-height: 218px');
-    expect(source).toContain('overflow-y: auto');
-    expect(source).toContain('overscroll-behavior: contain');
+    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 266px;[\s\S]*?max-height: 266px;/);
+    expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
+    expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
+    expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/);
     expect(source).not.toContain('link-overflow-more');
     expect(source).not.toContain('MAX_VISIBLE_LINKS');
     expect(source).not.toContain('visibleLinks');
@@ -188,7 +197,7 @@ describe('visual contracts', () => {
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 218px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 266px;/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');

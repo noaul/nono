@@ -399,7 +399,7 @@ onUnmounted(() => {
         站内命中 {{ localMatchCount }} 个链接
       </p>
 
-      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="大类">
+      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="notab">
         <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
         <button
           v-for="tab in categoryTabs"

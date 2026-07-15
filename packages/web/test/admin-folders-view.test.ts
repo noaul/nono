@@ -160,6 +160,29 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.find('[data-testid="inline-folder-name-2"]').exists()).toBe(false);
   });
 
+  it('moves a child folder directly to another notab', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 2, userId: 1, name: '开发', parentId: 3, sortOrder: -10 });
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="move-folder-2"]').setValue('3');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/2', {
+      method: 'PUT',
+      body: JSON.stringify({ parentId: 3 }),
+    });
+    expect(wrapper.get('[data-testid="folder-category-3"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.find('[data-testid="folder-row-2"]').exists()).toBe(true);
+  });
+
   it('selects and bulk deletes folder trees without reloading lists', async () => {
     apiRequest
       .mockResolvedValueOnce([
@@ -194,8 +217,9 @@ describe('FoldersView admin workflow', () => {
   it('keeps folder drag ordering local until one explicit save', async () => {
     apiRequest
       .mockResolvedValueOnce([
-        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
-        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'First', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: 'Second', parentId: 1, sortOrder: 80 },
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ ok: true });
@@ -206,13 +230,14 @@ describe('FoldersView admin workflow', () => {
     const sortable = wrapper.findComponent(SortableList);
     expect(sortable.attributes('item-ids')).toBeUndefined();
 
-    sortable.vm.$emit('reorder', [2, 1]);
-    sortable.vm.$emit('reorder', [1, 2]);
-    sortable.vm.$emit('reorder', [2, 1]);
+    sortable.vm.$emit('reorder', [3, 2]);
+    sortable.vm.$emit('reorder', [2, 3]);
+    sortable.vm.$emit('reorder', [3, 2]);
     await wrapper.vm.$nextTick();
 
     expect(apiRequest).toHaveBeenCalledTimes(2);
-    expect(wrapper.get('[data-testid="folder-row-2"]').find('.drag-handle').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="folder-row-3"]').find('.drag-handle').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-row-1"]').exists()).toBe(false);
 
     await wrapper.get('[data-testid="save-folder-sort"]').trigger('click');
     await settle(wrapper);
@@ -220,7 +245,7 @@ describe('FoldersView admin workflow', () => {
     expect(apiRequest).toHaveBeenCalledTimes(3);
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/reorder', {
       method: 'PUT',
-      body: JSON.stringify({ ids: [2, 1] }),
+      body: JSON.stringify({ ids: [3, 2] }),
     });
   });
 
@@ -231,8 +256,9 @@ describe('FoldersView admin workflow', () => {
     });
     apiRequest
       .mockResolvedValueOnce([
-        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
-        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'First', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: 'Second', parentId: 1, sortOrder: 80 },
       ])
       .mockResolvedValueOnce([])
       .mockReturnValueOnce(pendingSave);
@@ -255,8 +281,9 @@ describe('FoldersView admin workflow', () => {
   it('keeps the folder draft order available after a save failure', async () => {
     apiRequest
       .mockResolvedValueOnce([
-        { id: 1, userId: 1, name: 'First', parentId: null, sortOrder: 100 },
-        { id: 2, userId: 1, name: 'Second', parentId: null, sortOrder: 90 },
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: 'First', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: 'Second', parentId: 1, sortOrder: 80 },
       ])
       .mockResolvedValueOnce([])
       .mockRejectedValueOnce(new Error('network unavailable'));
@@ -264,14 +291,14 @@ describe('FoldersView admin workflow', () => {
     const wrapper = mountFoldersView();
     await settle(wrapper);
     await wrapper.get('[data-testid="start-folder-sort"]').trigger('click');
-    wrapper.findComponent(SortableList).vm.$emit('reorder', [2, 1]);
+    wrapper.findComponent(SortableList).vm.$emit('reorder', [3, 2]);
     await wrapper.vm.$nextTick();
 
     await wrapper.get('[data-testid="save-folder-sort"]').trigger('click');
     await settle(wrapper);
 
     const rows = wrapper.findAll('[data-testid^="folder-row-"]');
-    expect(rows.map((row) => row.attributes('data-testid'))).toEqual(['folder-row-2', 'folder-row-1']);
+    expect(rows.map((row) => row.attributes('data-testid'))).toEqual(['folder-row-3', 'folder-row-2']);
     expect(wrapper.get('[data-testid="save-folder-sort"]').attributes('disabled')).toBeUndefined();
   });
 });

@@ -414,6 +414,38 @@ describe('Nono Fastify app', () => {
     expect(link.sortOrder).toBeLessThanOrEqual(2_147_483_647);
   });
 
+  it('appends newly created folders and links after existing items', async () => {
+    const cookie = await setupAdmin();
+    const firstFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'First', sortOrder: 1000 } });
+    const secondFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Second' } });
+    const folderId = firstFolder.json().data.id;
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'One', url: 'https://one.example/', sortOrder: 1000 } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Two', url: 'https://two.example/' } });
+
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['First', 'Second']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['One', 'Two']);
+    expect(secondFolder.json().data.sortOrder).toBeLessThanOrEqual(firstFolder.json().data.sortOrder);
+  });
+
+  it('moves a folder to the end of another notab', async () => {
+    const cookie = await setupAdmin();
+    const source = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Source' } });
+    const target = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Target' } });
+    const existing = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Existing', parentId: target.json().data.id, sortOrder: 1000 } });
+    const moving = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Moving', parentId: source.json().data.id, sortOrder: 2000 } });
+
+    const moved = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/folders/${moving.json().data.id}`,
+      headers: { cookie },
+      payload: { parentId: target.json().data.id },
+    });
+
+    expect(moved.statusCode).toBe(200);
+    expect(moved.json().data.parentId).toBe(target.json().data.id);
+    expect(moved.json().data.sortOrder).toBeLessThanOrEqual(existing.json().data.sortOrder);
+  });
+
   it('skips browser-only bookmark URLs and data icons during import', async () => {
     const cookie = await setupAdmin();
     const html = [
@@ -591,7 +623,11 @@ describe('Nono Fastify app', () => {
 
     expect(health.statusCode).toBe(200);
     expect(health.json().data.summary).toMatchObject({ total: 3, ok: 1, broken: 1, invalid: 1, timeout: 0 });
-    expect(health.json().data.results.map((result: any) => result.status)).toEqual(['ok', 'broken', 'invalid']);
+    expect(Object.fromEntries(health.json().data.results.map((result: any) => [result.id, result.status]))).toEqual({
+      [ok.json().data.id]: 'ok',
+      [broken.json().data.id]: 'broken',
+      [invalid.id]: 'invalid',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

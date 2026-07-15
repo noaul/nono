@@ -44,7 +44,7 @@ function handleFaviconError(linkId: string | number) {
       </div>
       <span>分类已锁定，请输入密码解锁</span>
     </div>
-    <div v-else class="large-links folder-glass-panel">
+    <div v-else class="large-links folder-glass-panel" :class="{ 'is-scrollable': (folder.links || []).length > 15 }">
       <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" :title="link.name" target="_blank" rel="noreferrer">
         <img
           v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
@@ -74,7 +74,7 @@ function handleFaviconError(linkId: string | number) {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 398px 268px;
+  contain-intrinsic-size: 398px 316px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -137,12 +137,11 @@ h2 {
   grid-auto-rows: 40px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: 218px;
-  max-height: 218px;
+  height: 266px;
+  max-height: 266px;
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 6px;
+  overflow-y: hidden;
+  padding: 16px 0;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -163,6 +162,11 @@ h2 {
     inset 0 1px 0 rgba(255, 255, 255, 0.42),
     inset 0 -1px 0 rgba(255, 255, 255, 0.1),
     0 16px 36px rgba(0, 0, 0, 0.1);
+}
+
+.large-links.is-scrollable {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .large-link {
@@ -208,7 +212,7 @@ h2 {
   letter-spacing: 0;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -245,7 +249,7 @@ mark {
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
-  height: 218px;
+  height: 266px;
   padding: 24px;
   text-align: center;
 }
@@ -327,14 +331,14 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 268px;
+    contain-intrinsic-size: auto 316px;
     grid-template-rows: 38px auto;
     height: auto;
   }
 
   .large-links {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: 218px;
+    height: 266px;
   }
 
   .large-links.locked {

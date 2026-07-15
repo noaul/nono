@@ -72,7 +72,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       name: item.name,
       icon: '',
       description: '',
-      sortOrder: createSortOrder(selectedFolders.length - index),
+      sortOrder: createSortOrder(index),
       passwordHash: null,
       passwordHint: null,
     });
@@ -84,7 +84,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   if (!fallbackFolderId && selectedLinks.length > 0) {
     fallbackFolderId = selectedFolders[0] ? tempToId.get(selectedFolders[0].tempId) : undefined;
     if (!fallbackFolderId) {
-      const folder = await repo.createFolder({ userId, parentId: null, name: '导入书签', icon: 'folder', description: '', sortOrder: 100, passwordHash: null, passwordHint: null });
+      const folder = await repo.createFolder({ userId, parentId: null, name: '导入书签', icon: 'folder', description: '', sortOrder: createSortOrder(), passwordHash: null, passwordHint: null });
       fallbackFolderId = folder.id;
       summary.addedFolders += 1;
     }
@@ -109,7 +109,7 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       url: normalizedUrl,
       icon: normalizeImportedIcon(item.icon),
       description: '',
-      sortOrder: createSortOrder(selectedLinks.length - index),
+      sortOrder: createSortOrder(index),
     });
     existingUrls.add(key);
     summary.addedLinks += 1;

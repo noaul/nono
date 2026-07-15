@@ -165,10 +165,10 @@ describe('LinksView admin workflow', () => {
 
     expect(wrapper.get('[data-testid="create-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
     expect(wrapper.get('[data-testid="quick-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
-    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['工作', '开发']);
+    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['工作', '开发', '＋ 新建文件夹']);
 
     await wrapper.get('[data-testid="create-link-category"]').setValue('3');
-    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['生活', '旅行']);
+    expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['生活', '旅行', '＋ 新建文件夹']);
     expect((wrapper.get('[data-testid="create-link-folder"]').element as HTMLSelectElement).value).toBe('4');
 
     await wrapper.get('[data-testid="quick-link-category"]').setValue('3');
@@ -186,6 +186,30 @@ describe('LinksView admin workflow', () => {
         description: 'Map service',
       }),
     });
+  });
+
+  it('creates a folder from the folder dropdown and selects it', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 3, userId: 1, name: '资料', parentId: 1, sortOrder: -10 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="create-link-folder"]').setValue('__new__');
+    await wrapper.get('[data-testid="new-link-folder-name"]').setValue('资料');
+    await wrapper.get('[data-testid="confirm-new-link-folder"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders', {
+      method: 'POST',
+      body: JSON.stringify({ parentId: 1, name: '资料', icon: '', description: '' }),
+    });
+    expect((wrapper.get('[data-testid="create-link-folder"]').element as HTMLSelectElement).value).toBe('3');
+    expect(wrapper.get('[data-testid="create-link-folder"]').text()).toContain('资料');
   });
 
   it('selects all visible bookmarks for batch deletion', async () => {

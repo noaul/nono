@@ -111,7 +111,7 @@ function resetAppearance() {
             </span>
           </label>
           <label class="color-field">
-            <span>大类与文件夹标题</span>
+            <span>notab 与文件夹标题</span>
             <span class="color-control">
               <input v-model="appearance.categoryTextColor" data-testid="category-text-color" type="color" />
               <code>{{ appearance.categoryTextColor }}</code>

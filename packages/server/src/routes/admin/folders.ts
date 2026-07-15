@@ -54,6 +54,9 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
     if ('parentId' in input) {
       input.parentId = normalizeParentId(input.parentId);
       await assertValidParent(services, user.id, id, input.parentId);
+      const current = await services.repo.getFolder(user.id, id);
+      if (!current) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+      if ((current.parentId ?? null) !== input.parentId) input.sortOrder = createSortOrder();
     }
     return sendOk(reply, await services.repo.updateFolder(user.id, id, input));
   });

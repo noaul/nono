@@ -24,6 +24,7 @@ const sortMode = ref(false);
 const draftFolderIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
+const movingFolderIds = ref(new Set<number>());
 const selectedFolderIds = ref(new Set<number>());
 const isBulkDeleting = ref(false);
 const selectedCategoryId = ref<number | null>(null);
@@ -67,6 +68,7 @@ const visibleFolderIds = computed(() => {
   return folderTreeIds(selectedCategoryId.value);
 });
 const categorySortedFolders = computed(() => sortedFolders.value.filter((folder) => visibleFolderIds.value.has(folder.id)));
+const sortableFolders = computed(() => sortedFolders.value.filter((folder) => folder.parentId === selectedCategoryId.value));
 const displayedFolders = computed(() => {
   if (!sortMode.value) return categorySortedFolders.value;
   return draftFolderIds.value.map((id) => folderById.value.get(id)).filter((folder): folder is Folder => Boolean(folder));
@@ -265,7 +267,7 @@ async function save() {
   try {
     const payload = folderPayload();
     const saved = await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) });
-    folders.value = [saved, ...folders.value];
+    folders.value = [...folders.value, saved];
     if (!selectedCategoryId.value) ensureSelectedCategory();
     message.value = '文件夹已新增';
     notifySuccess(message.value);
@@ -276,6 +278,28 @@ async function save() {
     notifyError(text);
   } finally {
     isSaving.value = false;
+  }
+}
+
+async function moveFolderToNotab(folder: Folder, event: Event) {
+  const parentId = Number((event.target as HTMLSelectElement).value);
+  if (!Number.isInteger(parentId) || parentId < 1 || parentId === folder.parentId || movingFolderIds.value.has(folder.id)) return;
+  movingFolderIds.value = new Set([...movingFolderIds.value, folder.id]);
+  try {
+    const saved = await apiRequest<Folder>(`/api/admin/folders/${folder.id}`, {
+      method: 'PUT',
+      body: jsonBody({ parentId }),
+    });
+    folders.value = folders.value.map((item) => (item.id === folder.id ? { ...item, ...saved } : item));
+    selectedCategoryId.value = saved.parentId || saved.id;
+    clearFolderSelection();
+    notifySuccess(`已移动「${saved.name}」`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '移动文件夹失败');
+  } finally {
+    const next = new Set(movingFolderIds.value);
+    next.delete(folder.id);
+    movingFolderIds.value = next;
   }
 }
 
@@ -338,7 +362,7 @@ async function remove(folder: Folder) {
 function startSorting() {
   clearFolderSelection();
   cancelInlineEdit();
-  draftFolderIds.value = categorySortedFolders.value.map((folder) => folder.id);
+  draftFolderIds.value = sortableFolders.value.map((folder) => folder.id);
   sortMode.value = true;
 }
 
@@ -414,9 +438,9 @@ onMounted(load);
         </div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
         <div class="field">
-          <label>所属大类</label>
+          <label>所属 notab</label>
           <select data-testid="folder-parent" v-model.number="form.parentId">
-            <option :value="null">作为大类（顶级）</option>
+            <option :value="null">作为 notab（顶级）</option>
             <option v-for="folder in selectableParents()" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
           </select>
         </div>
@@ -433,11 +457,11 @@ onMounted(load);
       <div class="admin-card-head">
         <div>
           <h2>文件夹管理</h2>
-          <p>{{ sortMode ? '拖动手柄调整顺序，完成后统一保存。' : '管理分类、AI 归类提示、访问密码和展示顺序。' }}</p>
+          <p>{{ sortMode ? '拖动当前 notab 下的文件夹，完成后统一保存。' : '管理 notab、文件夹位置、AI 归类提示、访问密码和展示顺序。' }}</p>
         </div>
         <div class="toolbar">
           <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
-          <button v-if="!sortMode" class="button secondary" data-testid="start-folder-sort" type="button" :disabled="!sortedFolders.length" @click="startSorting">
+          <button v-if="!sortMode" class="button secondary" data-testid="start-folder-sort" type="button" :disabled="sortableFolders.length < 2" @click="startSorting">
             <GripVertical :size="17" /> 调整顺序
           </button>
           <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
@@ -451,7 +475,7 @@ onMounted(load);
         </template>
       </EmptyState>
       <template v-else>
-        <nav class="folder-pills category-manager-tabs" aria-label="文件夹大类">
+        <nav class="folder-pills category-manager-tabs" aria-label="文件夹 notab">
           <button
             v-for="category in categoryFolders"
             :key="category.id"
@@ -527,9 +551,9 @@ onMounted(load);
                 <input :id="`inline-folder-name-${folder.id}`" v-model="inlineForm.name" :data-testid="`inline-folder-name-${folder.id}`" maxlength="16" />
               </div>
               <div class="inline-folder-field">
-                <label :for="`inline-folder-parent-${folder.id}`">所属大类</label>
+                <label :for="`inline-folder-parent-${folder.id}`">所属 notab</label>
                 <select :id="`inline-folder-parent-${folder.id}`" v-model.number="inlineForm.parentId" :data-testid="`inline-folder-parent-${folder.id}`">
-                  <option :value="null">作为大类（顶级）</option>
+                  <option :value="null">作为 notab（顶级）</option>
                   <option v-for="parent in inlineSelectableParents(folder.id)" :key="parent.id" :value="parent.id">{{ parent.name }}</option>
                 </select>
               </div>
@@ -539,7 +563,7 @@ onMounted(load);
               </div>
               <div class="inline-folder-field inline-folder-ai-prompt">
                 <label :for="`inline-folder-ai-prompt-${folder.id}`">AI 归类提示</label>
-                <textarea :id="`inline-folder-ai-prompt-${folder.id}`" v-model="inlineForm.description" :data-testid="`inline-folder-ai-prompt-${folder.id}`" maxlength="400" placeholder="告诉 AI 这个大类或文件夹应收录什么" />
+                <textarea :id="`inline-folder-ai-prompt-${folder.id}`" v-model="inlineForm.description" :data-testid="`inline-folder-ai-prompt-${folder.id}`" maxlength="400" placeholder="告诉 AI 这个 notab 或文件夹应收录什么" />
               </div>
               <div class="inline-folder-actions">
                 <span>{{ folderLinkCount(folder.id) }} 个书签</span>
@@ -552,7 +576,20 @@ onMounted(load);
                 <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
                 <FolderGlyph :icon="folder.icon" :size="18" />
               </span>
-              <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
+              <div class="folder-name-location" data-label="名称 / notab">
+                <button class="text-button" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
+                <select
+                  v-if="folder.parentId"
+                  :value="folder.parentId"
+                  :data-testid="`move-folder-${folder.id}`"
+                  aria-label="移动到 notab"
+                  :disabled="movingFolderIds.has(folder.id)"
+                  @change="moveFolderToNotab(folder, $event)"
+                >
+                  <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
+                <small v-else>notab</small>
+              </div>
               <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
               <span data-label="AI 提示">{{ folder.description || '-' }}</span>
               <span class="row-actions" data-label="操作">
@@ -571,7 +608,7 @@ onMounted(load);
         </div>
       </template>
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-        <strong>{{ displayedFolders.length }} 个文件夹 · 拖动期间不会发起网络请求</strong>
+        <strong>{{ displayedFolders.length }} 个文件夹 · 当前 notab 内拖动，期间不会发起网络请求</strong>
         <div class="toolbar">
           <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
           <button class="button" data-testid="save-folder-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
@@ -641,6 +678,37 @@ onMounted(load);
   display: inline-flex;
   flex: 0 0 auto;
   gap: 7px;
+}
+
+.folder-name-location {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.folder-name-location .text-button {
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.folder-name-location select {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  min-height: 28px;
+  min-width: 0;
+  padding: 3px 7px;
+  width: min(100%, 150px);
+}
+
+.folder-name-location small {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .folder-table .admin-table-row.is-inline-editing {

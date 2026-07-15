@@ -41,6 +41,9 @@ const healthSummary = ref<LinkHealthSummary | null>(null);
 const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
+const newFolderTarget = ref<'form' | 'quick' | null>(null);
+const newFolderName = ref('');
+const isCreatingFolder = ref(false);
 
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
@@ -182,6 +185,47 @@ function selectInlineCategory() {
   inlineForm.folderId = preferredFolderId(inlineForm.categoryId);
 }
 
+function selectFolderOption(target: 'form' | 'quick', event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value === '__new__') {
+    newFolderTarget.value = target;
+    newFolderName.value = '';
+    return;
+  }
+  const folderId = Number(value);
+  if (!Number.isInteger(folderId) || folderId < 1) return;
+  if (target === 'form') form.folderId = folderId;
+  else quickFolderId.value = folderId;
+  if (newFolderTarget.value === target) newFolderTarget.value = null;
+}
+
+function cancelNewFolder() {
+  newFolderTarget.value = null;
+  newFolderName.value = '';
+}
+
+async function createFolderFromDropdown(target: 'form' | 'quick') {
+  const name = newFolderName.value.trim();
+  const parentId = target === 'form' ? formCategoryId.value : quickCategoryId.value;
+  if (!name || !parentId || isCreatingFolder.value) return;
+  isCreatingFolder.value = true;
+  try {
+    const saved = await apiRequest<Folder>('/api/admin/folders', {
+      method: 'POST',
+      body: jsonBody({ parentId, name, icon: '', description: '' }),
+    });
+    folders.value = [...folders.value, saved];
+    if (target === 'form') form.folderId = saved.id;
+    else quickFolderId.value = saved.id;
+    cancelNewFolder();
+    notifySuccess(`已新建文件夹「${saved.name}」`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '新建文件夹失败');
+  } finally {
+    isCreatingFolder.value = false;
+  }
+}
+
 async function saveInlineEdit(link: Link) {
   if (!inlineForm.name.trim() || !inlineForm.url.trim() || !inlineForm.folderId) return;
   try {
@@ -228,7 +272,7 @@ async function quickAdd() {
       method: 'POST',
       body: jsonBody({ folderId, name: (meta.title || fallbackName).slice(0, 24), url, icon: '', description: meta.description || '' }),
     });
-    links.value = [saved, ...links.value];
+    links.value = [...links.value, saved];
     quickUrl.value = '';
     notifySuccess(`已添加「${saved.name}」`);
   } catch (event) {
@@ -257,7 +301,7 @@ async function save() {
     const saved = form.id
       ? await apiRequest<Link>(`/api/admin/links/${form.id}`, { method: 'PUT', body: jsonBody(form) })
       : await apiRequest<Link>('/api/admin/links', { method: 'POST', body: jsonBody(form) });
-    links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [saved, ...links.value];
+    links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [...links.value, saved];
     message.value = form.id ? '书签已更新' : '书签已新增';
     notifySuccess(message.value);
     reset();
@@ -473,30 +517,42 @@ onMounted(load);
           placeholder="粘贴 URL 回车即添加 — 自动抓取标题和介绍"
           :disabled="isQuickAdding"
         />
-        <select v-model.number="quickCategoryId" data-testid="quick-link-category" aria-label="目标大类" :disabled="isQuickAdding">
+        <select v-model.number="quickCategoryId" data-testid="quick-link-category" aria-label="目标 notab" :disabled="isQuickAdding">
           <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
         </select>
-        <select v-model.number="quickFolderId" data-testid="quick-link-folder" aria-label="目标文件夹" :disabled="isQuickAdding">
+        <select :value="quickFolderId" data-testid="quick-link-folder" aria-label="目标文件夹" :disabled="isQuickAdding" @change="selectFolderOption('quick', $event)">
           <option v-for="folder in quickCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+          <option value="__new__">＋ 新建文件夹</option>
         </select>
         <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
           {{ isQuickAdding ? '抓取中…' : '快速添加' }}
         </button>
+        <div v-if="newFolderTarget === 'quick'" class="new-folder-composer quick-folder-composer">
+          <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('quick')" />
+          <button class="button" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('quick')"><Plus :size="16" /> 新建</button>
+          <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="16" /></button>
+        </div>
       </form>
       <form class="bookmark-create-grid" @submit.prevent="save">
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
         <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>
         <div class="field">
-          <label>所属大类</label>
+          <label>所属 notab</label>
           <select v-model.number="formCategoryId" data-testid="create-link-category" required>
             <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
           </select>
         </div>
         <div class="field">
           <label>文件夹</label>
-          <select v-model.number="form.folderId" data-testid="create-link-folder" required>
+          <select :value="form.folderId" data-testid="create-link-folder" required @change="selectFolderOption('form', $event)">
             <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            <option value="__new__">＋ 新建文件夹</option>
           </select>
+          <div v-if="newFolderTarget === 'form'" class="new-folder-composer">
+            <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('form')" />
+            <button class="button compact" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('form')"><Plus :size="15" /> 新建</button>
+            <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="15" /></button>
+          </div>
         </div>
         <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="可为空" /><button type="button" title="图标">☝</button></div></div>
         <div class="field wide"><label>介绍</label><input v-model="form.description" placeholder="鼠标经过时的提示语，也可用于站内搜索" /></div>
@@ -520,8 +576,8 @@ onMounted(load);
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
         <div class="management-filter-group">
-          <div class="management-filter-label">大类</div>
-          <nav class="folder-pills" aria-label="书签大类">
+          <div class="management-filter-label">notab</div>
+          <nav class="folder-pills" aria-label="书签 notab">
             <button
               v-for="category in categoryFolders"
               :key="category.id"
@@ -613,7 +669,7 @@ onMounted(load);
                     v-model.number="inlineForm.categoryId"
                     class="inline-link-select"
                     :data-testid="`inline-link-category-${link.id}`"
-                    aria-label="书签大类"
+                    aria-label="书签 notab"
                     @change="selectInlineCategory"
                   >
                     <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
@@ -692,6 +748,28 @@ onMounted(load);
 
 .management-filter-group .folder-pill {
   flex: 0 0 auto;
+}
+
+.new-folder-composer {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto 36px;
+  margin-top: 6px;
+}
+
+.new-folder-composer input {
+  min-width: 0;
+}
+
+.new-folder-composer .button,
+.new-folder-composer .icon-button {
+  min-height: 36px;
+}
+
+.quick-folder-composer {
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 
 .inline-link-input,
