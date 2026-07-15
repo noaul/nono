@@ -41,6 +41,15 @@
 		"offsetY": null,
 		"enabled": true
 	},
+	"scheduleCard": {
+		"width": 420,
+		"height": 72,
+		"offset": 120,
+		"order": 7,
+		"offsetX": null,
+		"offsetY": null,
+		"enabled": true
+	},
 	"socialButtons": {
 		"width": 315,
 		"height": 48,

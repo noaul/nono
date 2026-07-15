@@ -40,8 +40,7 @@ export default function MusicCard() {
 	const { cardStyles, siteContent } = useConfigStore()
 	const styles = cardStyles.musicCard
 	const hiCardStyles = cardStyles.hiCard
-	const clockCardStyles = cardStyles.clockCard
-	const calendarCardStyles = cardStyles.calendarCard
+	const navCardStyles = cardStyles.navCard
 
 	const [isPlaying, setIsPlaying] = useState(false)
 	const [currentIndex, setCurrentIndex] = useState(0)
@@ -62,12 +61,17 @@ export default function MusicCard() {
 			}
 		}
 
-		// Default position on home page
+		// Keep the player below the left navigation card on the home page.
 		return {
-			x: styles.offsetX !== null ? center.x + styles.offsetX : center.x + CARD_SPACING + hiCardStyles.width / 2 - styles.offset,
-			y: styles.offsetY !== null ? center.y + styles.offsetY : center.y - clockCardStyles.offset + CARD_SPACING + calendarCardStyles.height + CARD_SPACING
+			x:
+				styles.offsetX !== null
+					? center.x + styles.offsetX
+					: navCardStyles.offsetX !== null
+						? center.x + navCardStyles.offsetX
+						: center.x - hiCardStyles.width / 2 - navCardStyles.width - CARD_SPACING,
+			y: styles.offsetY !== null ? center.y + styles.offsetY : center.y + hiCardStyles.height / 2 + CARD_SPACING
 		}
-	}, [isHomePage, center, styles, hiCardStyles, clockCardStyles, calendarCardStyles])
+	}, [isHomePage, center, styles, hiCardStyles, navCardStyles])
 
 	const { x, y } = position
 

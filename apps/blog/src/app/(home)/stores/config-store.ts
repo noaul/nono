@@ -47,9 +47,16 @@ function normalizeSiteContent(content: SiteContent): SiteContent {
 	}
 }
 
+function normalizeCardStyles(content: Partial<CardStyles>): CardStyles {
+	const merged = Object.fromEntries(
+		Object.entries(cardStyles).map(([key, defaultStyle]) => [key, { ...defaultStyle, ...(content[key as keyof CardStyles] || {}) }])
+	) as CardStyles
+	return merged
+}
+
 export const useConfigStore = create<ConfigStore>((set, get) => ({
 	siteContent: createInitialSiteContent(),
-	cardStyles: { ...cardStyles },
+	cardStyles: normalizeCardStyles(cardStyles),
 	regenerateKey: 0,
 	configDialogOpen: false,
 	setSiteContent: (content: SiteContent) => {
@@ -62,7 +69,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 		set({ siteContent: createInitialSiteContent() })
 	},
 	resetCardStyles: () => {
-		set({ cardStyles: { ...cardStyles } })
+		set({ cardStyles: normalizeCardStyles(cardStyles) })
 	},
 	regenerateBubbles: () => {
 		set(state => ({ regenerateKey: state.regenerateKey + 1 }))
@@ -77,7 +84,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 		])
 		set({
 			siteContent: normalizeSiteContent(runtimeSiteContent),
-			cardStyles: runtimeCardStyles
+			cardStyles: normalizeCardStyles(runtimeCardStyles)
 		})
 	}
 }))

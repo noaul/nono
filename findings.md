@@ -1,5 +1,11 @@
 # Nono 项目发现
 
+## 2026-07-15 首页音乐与日程摘要布局发现
+- `MusicCard` 在 `apps/blog/src/components/music-card.tsx` 中渲染，默认位置当前位于中心卡片右下方，使用 `musicCard.offset` 计算纵向位置。
+- `cardStyles` 当前没有独立的日程摘要卡配置；新增 `scheduleCard` 可以让摘要卡和音乐卡独立拖拽、调整尺寸。
+- 日程数据已经存在于 `siteContent.calendarEvents`，可按日期筛选今天起未来三天，并取最早的一条作为“最近日程”。
+- 首页底部原音乐位置的布局计算可复用为日程摘要默认位置；播放器左下位置可复用导航卡左边缘和中心卡底部坐标。
+
 ## 2026-07-15 Nodesk 管理边界与首页调整发现
 - 用户要求撤销 Nono 后台内嵌 Nodesk，但保留 `/nodesk` 独立站点。
 - Nono 后台入口由 `AdminLayout.vue`、路由表和 `NodeskView.vue` 三部分组成，可完整拆除，不影响网关和内容 API。

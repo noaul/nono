@@ -157,3 +157,16 @@ test('supports persisted calendar schedules and cache-safe avatar assets', async
 	assert.match(sitePush, /avatarAssetPath/)
 	assert.match(sitePush, /meta\.avatarUrl/)
 })
+
+test('places music on the lower left and summarizes the next three days beside it', async () => {
+	const music = await read('src/components/music-card.tsx')
+	const styles = await read('src/config/card-styles.json')
+	const summary = await read('src/components/schedule-summary-card.tsx')
+
+	assert.match(music, /navCardStyles/)
+	assert.match(music, /cardKey='musicCard'/)
+	assert.match(styles, /"scheduleCard"/)
+	assert.match(summary, /最近日程/)
+	assert.match(summary, /未来三天/)
+	assert.match(summary, /cardKey='scheduleCard'/)
+})
