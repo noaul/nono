@@ -1,7 +1,7 @@
 # Nono 后台管理与书签导入导出计划
 
 ## 2026-07-15 Notab 独立管理
-状态：in_progress
+状态：complete
 
 目标：
 - 在后台运营菜单新增“Notab 管理”。
@@ -12,7 +12,13 @@
 - 阶段 A：确认顶级 Folder 数据模型与现有排序、删除 API。状态：complete
 - 阶段 B：补失败测试，定义菜单、路由和页面交互契约。状态：complete
 - 阶段 C：实现 Notab 管理页并匹配浅色磨砂后台。状态：complete
-- 阶段 D：全量测试、构建、推送和 nc48 部署验收。状态：in_progress
+- 阶段 D：全量测试、构建、推送和 nc48 部署验收。状态：complete
+
+验收结果：
+- 已推送 `337c10b` 与移动端修复 `d713ad0` 到 `origin/main`。
+- nc48 已拉取 `d713ad0` 并完成 `docker compose up -d --build`。
+- `8188/healthz` 返回健康；`/admin/notabs`、`/nodesk` 返回 200。
+- Chrome 桌面端和 390px 窄屏均完成页面验收，控制台无错误。
 
 ## 2026-07-15 首页音乐与日程摘要布局
 状态：complete
