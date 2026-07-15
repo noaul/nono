@@ -148,6 +148,44 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('Maps');
   });
 
+  it('changes folder and notab from separate bookmark table columns', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '设计', parentId: 1, sortOrder: 80 },
+        { id: 4, userId: 1, name: '生活', parentId: null, sortOrder: 70 },
+        { id: 5, userId: 1, name: '旅行', parentId: 4, sortOrder: 60 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 },
+        { id: 11, folderId: 2, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce({ id: 10, folderId: 3, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 })
+      .mockResolvedValueOnce({ id: 11, folderId: 5, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹notab');
+    expect(wrapper.get('[data-testid="link-folder-10"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(wrapper.get('[data-testid="link-notab-11"]').element).toBeInstanceOf(HTMLSelectElement);
+
+    await wrapper.get('[data-testid="link-folder-10"]').setValue('3');
+    await settle(wrapper);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/10', {
+      method: 'PUT',
+      body: JSON.stringify({ folderId: 3 }),
+    });
+
+    await wrapper.get('[data-testid="link-notab-11"]').setValue('4');
+    await settle(wrapper);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/11', {
+      method: 'PUT',
+      body: JSON.stringify({ folderId: 5 }),
+    });
+  });
+
   it('selects a category before choosing a folder for bookmark creation and quick add', async () => {
     apiRequest
       .mockResolvedValueOnce([

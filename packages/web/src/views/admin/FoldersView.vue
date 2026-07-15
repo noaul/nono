@@ -505,6 +505,7 @@ onMounted(load);
           <span>选择</span>
           <span>{{ sortMode ? '排序' : '图标' }}</span>
           <span>名称</span>
+          <span>notab</span>
           <span>书签数</span>
           <span>AI 提示</span>
           <span>操作</span>
@@ -576,8 +577,10 @@ onMounted(load);
                 <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
                 <FolderGlyph :icon="folder.icon" :size="18" />
               </span>
-              <div class="folder-name-location" data-label="名称 / notab">
+              <div class="folder-name-location" data-label="名称">
                 <button class="text-button" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
+              </div>
+              <span class="folder-notab-cell" data-label="notab">
                 <select
                   v-if="folder.parentId"
                   :value="folder.parentId"
@@ -589,7 +592,7 @@ onMounted(load);
                   <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
                 </select>
                 <small v-else>notab</small>
-              </div>
+              </span>
               <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
               <span data-label="AI 提示">{{ folder.description || '-' }}</span>
               <span class="row-actions" data-label="操作">
@@ -694,7 +697,7 @@ onMounted(load);
   text-align: left;
 }
 
-.folder-name-location select {
+.folder-notab-cell select {
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 7px;
@@ -706,7 +709,7 @@ onMounted(load);
   width: min(100%, 150px);
 }
 
-.folder-name-location small {
+.folder-notab-cell small {
   color: var(--muted);
   font-size: 11px;
 }

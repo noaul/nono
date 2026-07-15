@@ -172,6 +172,9 @@ describe('FoldersView admin workflow', () => {
 
     const wrapper = mountFoldersView();
     await settle(wrapper);
+    const row = wrapper.get('[data-testid="folder-row-2"]');
+    expect(row.get('[data-label="名称"]').find('select').exists()).toBe(false);
+    expect(row.get('[data-label="notab"]').get('[data-testid="move-folder-2"]').element).toBeInstanceOf(HTMLSelectElement);
     await wrapper.get('[data-testid="move-folder-2"]').setValue('3');
     await settle(wrapper);
 

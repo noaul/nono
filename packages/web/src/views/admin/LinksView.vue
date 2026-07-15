@@ -30,6 +30,7 @@ const isInitialLoading = ref(true);
 const isSaving = ref(false);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
+const movingLinkIds = ref(new Set<number>());
 const searchTerm = ref('');
 const selectedLinkIds = ref(new Set<number>());
 const bulkFolderId = ref(0);
@@ -433,6 +434,38 @@ function folderName(folderId: number) {
   return folders.value.find((folder) => folder.id === folderId)?.name || '-';
 }
 
+async function updateLinkFolder(link: Link, folderId: number) {
+  if (!folderId || folderId === link.folderId || movingLinkIds.value.has(link.id)) return;
+  movingLinkIds.value = new Set([...movingLinkIds.value, link.id]);
+  try {
+    const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, {
+      method: 'PUT',
+      body: jsonBody({ folderId }),
+    });
+    links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved, folderId } : item));
+    if (editingLinkId.value === link.id) {
+      inlineForm.folderId = folderId;
+      inlineForm.categoryId = categoryIdForFolder(folderId);
+    }
+    notifySuccess('书签位置已更新');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '书签位置更新失败');
+  } finally {
+    const next = new Set(movingLinkIds.value);
+    next.delete(link.id);
+    movingLinkIds.value = next;
+  }
+}
+
+function moveLinkToFolder(link: Link, event: Event) {
+  void updateLinkFolder(link, Number((event.target as HTMLSelectElement).value));
+}
+
+function moveLinkToNotab(link: Link, event: Event) {
+  const categoryId = Number((event.target as HTMLSelectElement).value);
+  void updateLinkFolder(link, preferredFolderId(categoryId));
+}
+
 function startSorting() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
@@ -632,6 +665,7 @@ onMounted(load);
             <span>名称</span>
             <span>链接</span>
             <span>文件夹</span>
+            <span>notab</span>
             <span>操作</span>
           </div>
           <SortableList :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
@@ -664,26 +698,49 @@ onMounted(load);
                 <template v-else>{{ link.url }}</template>
               </span>
               <span data-label="文件夹">
-                <div v-if="editingLinkId === link.id" class="inline-link-location">
-                  <select
-                    v-model.number="inlineForm.categoryId"
-                    class="inline-link-select"
-                    :data-testid="`inline-link-category-${link.id}`"
-                    aria-label="书签 notab"
-                    @change="selectInlineCategory"
-                  >
-                    <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
-                  </select>
-                  <select
-                    v-model.number="inlineForm.folderId"
-                    class="inline-link-select"
-                    :data-testid="`inline-link-folder-${link.id}`"
-                    aria-label="书签文件夹"
-                  >
-                    <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-                  </select>
-                </div>
-                <template v-else>{{ folderName(link.folderId) }}</template>
+                <select
+                  v-if="editingLinkId === link.id"
+                  v-model.number="inlineForm.folderId"
+                  class="inline-link-select"
+                  :data-testid="`inline-link-folder-${link.id}`"
+                  aria-label="书签文件夹"
+                >
+                  <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+                </select>
+                <select
+                  v-else
+                  :value="link.folderId"
+                  class="table-location-select"
+                  :data-testid="`link-folder-${link.id}`"
+                  aria-label="更改书签文件夹"
+                  :disabled="sortMode || movingLinkIds.has(link.id)"
+                  @change="moveLinkToFolder(link, $event)"
+                >
+                  <option v-for="folder in foldersForCategory(categoryIdForFolder(link.folderId))" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+                </select>
+              </span>
+              <span data-label="notab">
+                <select
+                  v-if="editingLinkId === link.id"
+                  v-model.number="inlineForm.categoryId"
+                  class="inline-link-select"
+                  :data-testid="`inline-link-category-${link.id}`"
+                  aria-label="书签 notab"
+                  @change="selectInlineCategory"
+                >
+                  <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
+                <select
+                  v-else
+                  :value="categoryIdForFolder(link.folderId)"
+                  class="table-location-select"
+                  :data-testid="`link-notab-${link.id}`"
+                  aria-label="更改书签 notab"
+                  :disabled="sortMode || movingLinkIds.has(link.id)"
+                  @change="moveLinkToNotab(link, $event)"
+                >
+                  <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
               </span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
@@ -773,7 +830,8 @@ onMounted(load);
 }
 
 .inline-link-input,
-.inline-link-select {
+.inline-link-select,
+.table-location-select {
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(148, 163, 184, 0.46);
   border-radius: 7px;
@@ -785,13 +843,9 @@ onMounted(load);
   width: 100%;
 }
 
-.inline-link-location {
-  display: grid;
-  gap: 6px;
-}
-
 .inline-link-input:focus,
-.inline-link-select:focus {
+.inline-link-select:focus,
+.table-location-select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
@@ -808,7 +862,8 @@ onMounted(load);
   }
 
   .inline-link-input,
-  .inline-link-select {
+  .inline-link-select,
+  .table-location-select {
     width: 100%;
   }
 }
