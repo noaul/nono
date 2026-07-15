@@ -290,8 +290,9 @@ onMounted(load);
   gap: 8px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 720px) {
   .notab-table .admin-table-row {
+    grid-template-columns: 1fr !important;
     min-width: 0;
   }
 

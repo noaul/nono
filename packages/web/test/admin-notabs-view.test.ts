@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SortableList from '../src/components/admin/SortableList.vue';
@@ -40,6 +42,12 @@ describe('NotabsView admin workflow', () => {
     apiRequest.mockReset();
     confirm.mockReset();
     confirm.mockResolvedValue(true);
+  });
+
+  it('uses one column per Notab card on narrow screens', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue'), 'utf8');
+    expect(source).toContain('@media (max-width: 720px)');
+    expect(source).toContain('grid-template-columns: 1fr !important');
   });
 
   it('shows only top-level Notabs with folder and bookmark impact counts', async () => {
