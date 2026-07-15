@@ -181,7 +181,7 @@ h2 {
   min-height: 38px;
   min-width: 0;
   overflow: hidden;
-  padding: 2px 0;
+  padding: 2px 0 2px 5px;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
