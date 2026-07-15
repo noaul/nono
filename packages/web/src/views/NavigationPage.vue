@@ -822,7 +822,7 @@ mark {
 .adaptive-folder-grid {
   align-items: start;
   display: grid;
-  gap: 48px 40px;
+  gap: 24px 20px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -840,7 +840,7 @@ mark {
 
 @media (max-width: 1800px) {
   .nav-content {
-    padding: 0 48px;
+    padding: 0 24px;
   }
 
   .adaptive-folder-grid {
@@ -850,7 +850,7 @@ mark {
 
 @media (max-width: 1100px) {
   .nav-content {
-    padding: 0 40px;
+    padding: 0 20px;
   }
 
   .adaptive-folder-grid {
@@ -946,7 +946,7 @@ mark {
 
   .adaptive-folder-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 48px;
+    gap: 24px;
   }
 
   .nav-header {

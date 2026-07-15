@@ -69,12 +69,12 @@ function handleFaviconError(linkId: string | number) {
 <style scoped>
 .large-folder {
   display: grid;
-  gap: 24px;
+  gap: 12px;
   grid-template-rows: 38px auto;
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 398px 392px;
+  contain-intrinsic-size: 398px 330px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -133,15 +133,15 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
-  gap: 16px 8px;
-  grid-auto-rows: 40px;
+  gap: 12px 4px;
+  grid-auto-rows: 38px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: 330px;
-  max-height: 330px;
+  height: 280px;
+  max-height: 280px;
   overflow-x: hidden;
   overflow-y: hidden;
-  padding: 32px 0;
+  padding: 20px 16px;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -176,12 +176,12 @@ h2 {
   border-radius: 8px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
-  gap: 1px;
+  gap: 2px;
   justify-content: flex-start;
-  min-height: 40px;
+  min-height: 38px;
   min-width: 0;
   overflow: hidden;
-  padding: 4px 0;
+  padding: 2px 0;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -249,7 +249,7 @@ mark {
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
-  height: 330px;
+  height: 280px;
   padding: 24px;
   text-align: center;
 }
@@ -331,14 +331,14 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 392px;
+    contain-intrinsic-size: auto 330px;
     grid-template-rows: 38px auto;
     height: auto;
   }
 
   .large-links {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: 330px;
+    height: 280px;
   }
 
   .large-links.locked {
