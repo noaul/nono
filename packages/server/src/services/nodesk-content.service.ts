@@ -22,7 +22,7 @@ const CONFIG_PATH = /^src\/config\/(site-content|card-styles)\.json$/;
 const BLOG_ROOT_PATH = /^public\/blogs\/(index|categories)\.json$/;
 const BLOG_CONTENT_PATH = /^public\/blogs\/[^/]+\/(index\.md|config\.json|[^/]+\.(avif|gif|jpe?g|png|webp))$/i;
 const IMAGE_PATH = /^public\/images\/(art|background|blogger|pictures|project|share|social-buttons)\/[^/]+\.(avif|gif|jpe?g|png|svg|webp)$/i;
-const ROOT_IMAGE_PATH = /^public\/(favicon\.png|images\/avatar\.png)$/i;
+const ROOT_IMAGE_PATH = /^public\/(favicon\.png|images\/avatar(?:-[a-f0-9]{64})?\.(avif|gif|jpe?g|png|webp))$/i;
 
 const LIST_DIRECTORIES = [
   /^src\/app\/(about|bloggers|pictures|projects|share|snippets)$/,

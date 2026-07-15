@@ -75,7 +75,7 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 						/>
 						<button
 							type='button'
-							onClick={() => updatePortal({ imageUrl: '/images/avatar.png' })}
+							onClick={() => updatePortal({ imageUrl: formData.meta.avatarUrl || '/images/avatar.png' })}
 							className='bg-card shrink-0 rounded-lg border px-3 text-xs font-medium'>
 							使用头像
 						</button>

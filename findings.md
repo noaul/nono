@@ -1,5 +1,13 @@
 # Nono 项目发现
 
+## 2026-07-15 Nodesk 管理边界与首页调整发现
+- 用户要求撤销 Nono 后台内嵌 Nodesk，但保留 `/nodesk` 独立站点。
+- Nono 后台入口由 `AdminLayout.vue`、路由表和 `NodeskView.vue` 三部分组成，可完整拆除，不影响网关和内容 API。
+- 线上 Avatar 保存请求 `POST /api/admin/nodesk/files/batch` 返回 200，持久化卷中的 `public/images/avatar.png` 也已更新；页面仍固定引用同一路径，存在强缓存后显示旧图的问题。
+- Avatar 上传接受任意 `image/*`，但无论源格式都保存为 `avatar.png`，存在扩展名与实际 MIME 不一致风险。
+- 首页导航项在 `apps/blog/src/components/nav-card.tsx` 静态定义，后三项可直接从契约中移除。
+- 当前日历只根据当前月份静态渲染，没有日程数据模型、详情交互或管理入口。
+
 ## 2026-07-15 Nodesk 一体化发现
 - 当前 Blog 是独立 Next.js 应用，由 `docker/gateway.mjs` 挂载到 `/blog`。
 - Blog 的站点配置、文章、项目、分享、博主、图集、片段和关于页保存逻辑均直接调用 `apps/blog/src/lib/github-client.ts`。

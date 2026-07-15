@@ -95,4 +95,17 @@ describe('Nodesk local content API', () => {
     expect(response.statusCode).toBe(400);
     await expect(fs.stat(path.resolve(contentDir, '../secret.txt'))).rejects.toThrow();
   });
+
+  it('accepts cache-safe versioned avatar image paths', async () => {
+    const avatarPath = `public/images/avatar-${'a'.repeat(64)}.webp`;
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nodesk/files/batch',
+      headers: { cookie },
+      payload: { files: [{ path: avatarPath, contentBase64: Buffer.from('avatar').toString('base64') }] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    await expect(fs.readFile(path.join(contentDir, avatarPath))).resolves.toEqual(Buffer.from('avatar'));
+  });
 });

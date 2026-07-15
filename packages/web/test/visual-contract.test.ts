@@ -293,23 +293,20 @@ describe('visual contracts', () => {
     expect(source).not.toContain('data-testid="bulk-move"');
   });
 
-  it('routes bookmark creation and Nodesk management into the admin shell', async () => {
+  it('keeps bookmark creation in the admin shell without embedding Nodesk', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
-    const nodeskSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'), 'utf8');
 
     expect(routerSource).toContain("path: '/admin/add-bookmark'");
-    expect(routerSource).toContain("path: '/admin/nodesk'");
+    expect(routerSource).not.toContain("path: '/admin/nodesk'");
     expect(layoutSource).toContain("to: '/admin/add-bookmark', label: '新增书签'");
-    expect(layoutSource).toContain("to: '/admin/nodesk', label: 'Nodesk'");
+    expect(layoutSource).not.toContain("to: '/admin/nodesk', label: 'Nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
     expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/add-bookmark'");
     expect(layoutSource).not.toContain("label: '导入导出'");
-    expect(nodeskSource).toContain('nodesk-admin-frame');
-    expect(nodeskSource).toContain("'/nodesk'");
-    expect(nodeskSource).not.toContain("href: '/blog");
+    expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
   });
 
   it('combines bookmark creation and browser import/export in one page', async () => {

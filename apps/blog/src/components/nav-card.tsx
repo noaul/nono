@@ -11,12 +11,6 @@ import ScrollOutlineSVG from '@/svgs/scroll-outline.svg'
 import ScrollFilledSVG from '@/svgs/scroll-filled.svg'
 import ProjectsFilledSVG from '@/svgs/projects-filled.svg'
 import ProjectsOutlineSVG from '@/svgs/projects-outline.svg'
-import AboutFilledSVG from '@/svgs/about-filled.svg'
-import AboutOutlineSVG from '@/svgs/about-outline.svg'
-import ShareFilledSVG from '@/svgs/share-filled.svg'
-import ShareOutlineSVG from '@/svgs/share-outline.svg'
-import WebsiteFilledSVG from '@/svgs/website-filled.svg'
-import WebsiteOutlineSVG from '@/svgs/website-outline.svg'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import { cn } from '@/lib/utils'
@@ -36,24 +30,6 @@ const list = [
 		iconActive: ProjectsFilledSVG,
 		label: '我的项目',
 		href: '/projects'
-	},
-	{
-		icon: AboutOutlineSVG,
-		iconActive: AboutFilledSVG,
-		label: '关于网站',
-		href: '/about'
-	},
-	{
-		icon: ShareOutlineSVG,
-		iconActive: ShareFilledSVG,
-		label: '推荐分享',
-		href: '/share'
-	},
-	{
-		icon: WebsiteOutlineSVG,
-		iconActive: WebsiteFilledSVG,
-		label: '优秀博客',
-		href: '/bloggers'
 	}
 ]
 
@@ -102,7 +78,7 @@ export default function NavCard() {
 
 	const size = useMemo(() => {
 		if (form === 'mini') return { width: 64, height: 64 }
-		else if (form === 'icons') return { width: 340, height: 64 }
+		else if (form === 'icons') return { width: 160, height: 64 }
 		else return { width: styles.width, height: styles.height }
 	}, [form, styles])
 
@@ -139,7 +115,14 @@ export default function NavCard() {
 					)}
 
 					<Link className='flex items-center gap-3' href='/'>
-						<Image src='/images/avatar.png' alt='avatar' width={40} height={40} style={{ boxShadow: ' 0 12px 20px -5px #E2D9CE' }} className='rounded-full' />
+						<Image
+							src={siteContent.meta.avatarUrl || '/images/avatar.png'}
+							alt='avatar'
+							width={40}
+							height={40}
+							style={{ boxShadow: ' 0 12px 20px -5px #E2D9CE' }}
+							className='rounded-full object-cover'
+						/>
 						{form === 'full' && <span className='font-averia mt-1 text-2xl leading-none font-medium'>{siteContent.meta.title}</span>}
 						{form === 'full' && <span className='text-brand mt-2 text-xs font-medium'>Fly</span>}
 					</Link>

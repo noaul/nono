@@ -3,7 +3,6 @@ import '@/styles/admin.css';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   Bot,
-  BookOpenText,
   Compass,
   FilePlus2,
   Folder,
@@ -41,7 +40,6 @@ const navSections = [
       { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
       { to: '/admin/add-bookmark', label: '新增书签', title: '新增书签', icon: FilePlus2 },
       { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
-      { to: '/admin/nodesk', label: 'Nodesk', title: 'Nodesk', icon: BookOpenText },
     ],
   },
   {

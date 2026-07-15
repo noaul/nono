@@ -135,3 +135,25 @@ test('hydrates editable Nodesk content from the VPS runtime store', async () => 
 		assert.match(await read(file), new RegExp(`loadNodeskContent.*${key}`, 's'))
 	}
 })
+
+test('keeps the home navigation focused on articles and projects', async () => {
+	const navCard = await read('src/components/nav-card.tsx')
+
+	assert.match(navCard, /label: '近期文章'/)
+	assert.match(navCard, /label: '我的项目'/)
+	assert.doesNotMatch(navCard, /label: '关于网站'/)
+	assert.doesNotMatch(navCard, /label: '推荐分享'/)
+	assert.doesNotMatch(navCard, /label: '优秀博客'/)
+})
+
+test('supports persisted calendar schedules and cache-safe avatar assets', async () => {
+	const siteContent = await read('src/config/site-content.json')
+	const calendar = await read('src/app/(home)/calendar-card.tsx')
+	const sitePush = await read('src/app/(home)/services/push-site-content.ts')
+
+	assert.match(siteContent, /"calendarEvents"/)
+	assert.match(calendar, /管理日程/)
+	assert.match(calendar, /pushSiteContent/)
+	assert.match(sitePush, /avatarAssetPath/)
+	assert.match(sitePush, /meta\.avatarUrl/)
+})

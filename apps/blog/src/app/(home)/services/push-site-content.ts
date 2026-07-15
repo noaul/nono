@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { fileToBase64NoPrefix } from '@/lib/file-utils'
 import type { SiteContent, CardStyles } from '../stores/config-store'
 import type { FileItem, ArtImageUploads, SocialButtonImageUploads, BackgroundImageUploads } from '../config-dialog/site-settings'
+import { avatarAssetPath } from '@/lib/site-assets'
 
 type ArtImageConfig = SiteContent['artImages'][number]
 type BackgroundImageConfig = SiteContent['backgroundImages'][number]
@@ -50,8 +51,10 @@ export async function pushSiteContent(
 		toast.info('正在上传 Avatar...')
 		const contentBase64 = await fileToBase64NoPrefix(avatarItem.file)
 		const blobData = await createBlob(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, contentBase64, 'base64')
+		const avatarUrl = avatarAssetPath(avatarItem)
+		if (siteContent.meta.avatarUrl !== avatarUrl) throw new Error('Avatar 配置与上传文件不一致，请重新选择图片')
 		treeItems.push({
-			path: 'public/images/avatar.png',
+			path: `public${siteContent.meta.avatarUrl}`,
 			mode: '100644',
 			type: 'blob',
 			sha: blobData.sha

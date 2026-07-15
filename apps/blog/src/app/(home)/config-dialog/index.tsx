@@ -11,6 +11,7 @@ import type { SiteContent, CardStyles } from '../stores/config-store'
 import { SiteSettings, type FileItem, type ArtImageUploads, type BackgroundImageUploads, type SocialButtonImageUploads } from './site-settings'
 import { ColorConfig } from './color-config'
 import { HomeLayout } from './home-layout'
+import { avatarAssetPath } from '@/lib/site-assets'
 
 interface ConfigDialogProps {
 	open: boolean
@@ -89,6 +90,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 	const handleSave = async () => {
 		setIsSaving(true)
 		try {
+			const nextSiteContent = applyAvatarUpload(formData, avatarItem)
 			// Calculate removed art images so that we can delete files in repo
 			const originalArtImages = originalData.artImages ?? []
 			const currentArtImages = formData.artImages ?? []
@@ -100,7 +102,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			const removedBackgroundImages = originalBackgroundImages.filter(orig => !currentBackgroundImages.some(current => current.id === orig.id))
 
 			await pushSiteContent(
-				formData,
+				nextSiteContent,
 				cardStylesData,
 				faviconItem,
 				avatarItem,
@@ -110,7 +112,8 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 				removedBackgroundImages,
 				socialButtonImageUploads
 			)
-			setSiteContent(formData)
+			setSiteContent(nextSiteContent)
+			setFormData(nextSiteContent)
 			setCardStyles(cardStylesData)
 			updateThemeVariables(formData.theme)
 			setFaviconItem(null)
@@ -277,4 +280,19 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			</DialogModal>
 		</>
 	)
+}
+
+function applyAvatarUpload(siteContent: SiteContent, avatarItem: FileItem | null): SiteContent {
+	if (avatarItem?.type !== 'file') return siteContent
+
+	const avatarUrl = avatarAssetPath(avatarItem)
+	const previousAvatarUrl = siteContent.meta.avatarUrl || '/images/avatar.png'
+	return {
+		...siteContent,
+		meta: { ...siteContent.meta, avatarUrl },
+		portal:
+			siteContent.portal.imageUrl === previousAvatarUrl || siteContent.portal.imageUrl === '/images/avatar.png'
+				? { ...siteContent.portal, imageUrl: avatarUrl }
+				: siteContent.portal
+	}
 }

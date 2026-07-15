@@ -9,7 +9,6 @@ const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const FoldersView = () => import('@/views/admin/FoldersView.vue');
 const LinksView = () => import('@/views/admin/LinksView.vue');
-const NodeskView = () => import('@/views/admin/NodeskView.vue');
 const UsersView = () => import('@/views/admin/UsersView.vue');
 const AccountView = () => import('@/views/admin/AccountView.vue');
 const LlmView = () => import('@/views/admin/LlmView.vue');
@@ -28,7 +27,6 @@ export const router = createRouter({
     { path: '/admin/add-bookmark', component: LinksView, props: { mode: 'create' }, meta: { requiresAuth: true } },
     { path: '/admin/links', component: LinksView, meta: { requiresAuth: true } },
     { path: '/admin/bookmarks', redirect: '/admin/add-bookmark' },
-    { path: '/admin/nodesk', component: NodeskView, meta: { requiresAuth: true } },
     { path: '/admin/users', component: UsersView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/account', component: AccountView, meta: { requiresAuth: true } },
     { path: '/admin/llm', component: LlmView, meta: { requiresAuth: true } },

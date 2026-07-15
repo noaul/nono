@@ -4,7 +4,19 @@ import cardStyles from '@/config/card-styles.json'
 import { getPortalSettings } from '@/lib/portal'
 import { loadNodeskContent } from '@/lib/nodesk-content'
 
-export type SiteContent = typeof siteContent
+export type CalendarEvent = {
+	id: string
+	date: string
+	title: string
+	time?: string
+	note?: string
+}
+
+type SiteContentBase = typeof siteContent
+export type SiteContent = Omit<SiteContentBase, 'calendarEvents' | 'meta'> & {
+	meta: SiteContentBase['meta'] & { avatarUrl?: string }
+	calendarEvents?: CalendarEvent[]
+}
 export type CardStyles = typeof cardStyles
 
 interface ConfigStore {
@@ -22,9 +34,16 @@ interface ConfigStore {
 }
 
 function createInitialSiteContent(): SiteContent {
+	return normalizeSiteContent(siteContent)
+}
+
+function normalizeSiteContent(content: SiteContent): SiteContent {
 	return {
 		...siteContent,
-		portal: getPortalSettings(siteContent.portal)
+		...content,
+		meta: { ...siteContent.meta, ...content.meta },
+		calendarEvents: content.calendarEvents ?? [],
+		portal: getPortalSettings({ ...siteContent.portal, ...content.portal })
 	}
 }
 
@@ -57,7 +76,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 			loadNodeskContent<CardStyles>('card-styles', get().cardStyles)
 		])
 		set({
-			siteContent: { ...runtimeSiteContent, portal: getPortalSettings(runtimeSiteContent.portal) },
+			siteContent: normalizeSiteContent(runtimeSiteContent),
 			cardStyles: runtimeCardStyles
 		})
 	}
