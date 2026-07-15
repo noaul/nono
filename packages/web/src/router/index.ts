@@ -7,6 +7,7 @@ const RegisterView = () => import('@/views/RegisterView.vue');
 const SetupView = () => import('@/views/SetupView.vue');
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
+const NotabsView = () => import('@/views/admin/NotabsView.vue');
 const FoldersView = () => import('@/views/admin/FoldersView.vue');
 const LinksView = () => import('@/views/admin/LinksView.vue');
 const UsersView = () => import('@/views/admin/UsersView.vue');
@@ -23,6 +24,7 @@ export const router = createRouter({
     { path: '/setup', component: SetupView },
     { path: '/admin', component: AdminDashboard, meta: { requiresAuth: true } },
     { path: '/admin/site', component: SiteConfigView, meta: { requiresAuth: true } },
+    { path: '/admin/notabs', component: NotabsView, meta: { requiresAuth: true } },
     { path: '/admin/folders', component: FoldersView, meta: { requiresAuth: true } },
     { path: '/admin/add-bookmark', component: LinksView, props: { mode: 'create' }, meta: { requiresAuth: true } },
     { path: '/admin/links', component: LinksView, meta: { requiresAuth: true } },

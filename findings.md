@@ -1,5 +1,11 @@
 # Nono 项目发现
 
+## 2026-07-15 Notab 独立管理发现
+- Notab 沿用现有 `Folder` 数据模型，以 `parentId === null` 表示顶级 Notab，不需要数据库迁移。
+- 现有 `PUT /api/admin/folders/:id` 可更名，`PUT /api/admin/folders/reorder` 可对顶级 ID 子集排序，`DELETE /api/admin/folders/:id` 会递归删除子文件夹和书签。
+- 新页面需要同时读取文件夹和书签，才能在删除确认中准确展示受影响范围。
+- 现有 `SortableList`、`useConfirm`、后台表格和磨砂样式均可复用。
+
 ## 2026-07-15 首页音乐与日程摘要布局发现
 - `MusicCard` 在 `apps/blog/src/components/music-card.tsx` 中渲染，默认位置当前位于中心卡片右下方，使用 `musicCard.offset` 计算纵向位置。
 - `cardStyles` 当前没有独立的日程摘要卡配置；新增 `scheduleCard` 可以让摘要卡和音乐卡独立拖拽、调整尺寸。

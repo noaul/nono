@@ -8,6 +8,7 @@ import {
   Folder,
   Home,
   KeyRound,
+  Layers,
   Link2,
   LogOut,
   Settings,
@@ -37,6 +38,7 @@ const navSections = [
     items: [
       { to: '/admin', label: '总览', title: '控制台总览', icon: Home },
       { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
+      { to: '/admin/notabs', label: 'Notab 管理', title: 'Notab 管理', icon: Layers },
       { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
       { to: '/admin/add-bookmark', label: '新增书签', title: '新增书签', icon: FilePlus2 },
       { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
