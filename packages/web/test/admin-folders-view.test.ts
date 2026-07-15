@@ -122,7 +122,7 @@ describe('FoldersView admin workflow', () => {
         id: 2,
         userId: 1,
         name: '工程',
-        icon: '🚀',
+        icon: 'rocket',
         parentId: 3,
         sortOrder: 90,
         passwordHint: '新提示',
@@ -142,7 +142,10 @@ describe('FoldersView admin workflow', () => {
     await wrapper.get('[data-testid="inline-folder-parent-2"]').setValue('3');
     await wrapper.get('[data-testid="inline-folder-hint-2"]').setValue('新提示');
     await wrapper.get('[data-testid="inline-folder-ai-prompt-2"]').setValue('只收录工程开发资料');
-    await wrapper.get('[data-testid="inline-folder-icon-2-11"]').trigger('click');
+    await wrapper.get('[data-testid="inline-folder-icon-picker-2"]').trigger('click');
+    await (document.body.querySelector('[data-testid="folder-icon-tab-all"]') as HTMLButtonElement).click();
+    await wrapper.vm.$nextTick();
+    await (document.body.querySelector('[data-testid="folder-icon-option-rocket"]') as HTMLButtonElement).click();
     await wrapper.get('[data-testid="save-inline-folder-2"]').trigger('click');
     await settle(wrapper);
 
@@ -151,7 +154,7 @@ describe('FoldersView admin workflow', () => {
       body: JSON.stringify({
         parentId: 3,
         name: '工程',
-        icon: '🚀',
+        icon: 'rocket',
         description: '只收录工程开发资料',
         passwordHint: '新提示',
       }),

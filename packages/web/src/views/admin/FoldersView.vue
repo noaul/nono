@@ -4,6 +4,7 @@ import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Pencil, Save, 
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
+import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -15,7 +16,6 @@ const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
 const form = reactive({ id: 0, parentId: null as number | null, name: '', icon: '', description: '', password: '', passwordHint: '' });
-const folderIconOptions = ['📁', '⭐', '🧰', '💻', '📚', '🎨', '🎮', '🌐', '🔒', '📌', '🧪', '🚀'];
 const message = ref('');
 const error = ref('');
 const isInitialLoading = ref(true);
@@ -218,14 +218,6 @@ function reset() {
   Object.assign(form, { id: 0, parentId: null, name: '', icon: '', description: '', password: '', passwordHint: '' });
 }
 
-function chooseIcon(icon: string) {
-  form.icon = icon;
-}
-
-function chooseInlineIcon(icon: string) {
-  inlineForm.icon = icon;
-}
-
 function folderPayload() {
   return {
     parentId: form.parentId,
@@ -419,23 +411,7 @@ onMounted(load);
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <form class="admin-form-grid" @submit.prevent="save">
-        <div class="field folder-icon-field">
-          <label>图标</label>
-          <div class="folder-icon-picker" aria-label="选择文件夹图标">
-            <button
-              v-for="icon in folderIconOptions"
-              :key="icon"
-              class="folder-icon-option"
-              :class="{ active: form.icon === icon }"
-              type="button"
-              :aria-pressed="form.icon === icon"
-              @click="chooseIcon(icon)"
-            >
-              {{ icon }}
-            </button>
-          </div>
-          <input class="folder-icon-custom" v-model="form.icon" maxlength="4" placeholder="也可手动输入图标" />
-        </div>
+        <div class="field"><label>图标</label><FolderIconPicker v-model="form.icon" test-id="create-folder-icon-picker" /></div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
         <div class="field">
           <label>所属 notab</label>
@@ -530,22 +506,9 @@ onMounted(load);
               />
             </span>
             <div v-if="editingFolderId === folder.id" class="inline-folder-editor">
-              <div class="inline-folder-field inline-folder-icon-field">
+              <div class="inline-folder-field">
                 <label>图标</label>
-                <div class="inline-folder-icon-picker" :data-testid="`inline-folder-icon-picker-${folder.id}`">
-                  <button
-                    v-for="(icon, iconIndex) in folderIconOptions"
-                    :key="icon"
-                    class="folder-icon-option"
-                    :class="{ active: inlineForm.icon === icon }"
-                    :data-testid="`inline-folder-icon-${folder.id}-${iconIndex}`"
-                    type="button"
-                    :aria-pressed="inlineForm.icon === icon"
-                    @click="chooseInlineIcon(icon)"
-                  >
-                    {{ icon }}
-                  </button>
-                </div>
+                <FolderIconPicker v-model="inlineForm.icon" :test-id="`inline-folder-icon-picker-${folder.id}`" />
               </div>
               <div class="inline-folder-field">
                 <label :for="`inline-folder-name-${folder.id}`">名称</label>
@@ -622,54 +585,6 @@ onMounted(load);
 </template>
 
 <style scoped>
-.folder-icon-field {
-  gap: 8px;
-}
-
-.folder-icon-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.folder-icon-option {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(148, 163, 184, 0.36);
-  border-radius: 8px;
-  color: #0f172a;
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 18px;
-  height: 36px;
-  justify-content: center;
-  padding: 0;
-  transition:
-    background-color 0.24s ease,
-    border-color 0.24s ease,
-    box-shadow 0.24s ease,
-    transform 0.24s ease;
-  width: 36px;
-}
-
-.folder-icon-option:hover,
-.folder-icon-option:focus-visible,
-.folder-icon-option.active {
-  background: rgba(var(--accent-rgb), 0.12);
-  border-color: rgba(var(--accent-rgb), 0.42);
-  box-shadow: 0 8px 18px rgba(var(--accent-rgb), 0.12);
-  outline: none;
-  transform: translateY(-1px);
-}
-
-.folder-icon-option:active {
-  transform: translateY(0) scale(0.95);
-}
-
-.folder-icon-custom {
-  margin-top: 2px;
-}
-
 .category-manager-tabs {
   margin-bottom: 12px;
   overflow-x: auto;
@@ -769,19 +684,6 @@ onMounted(load);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
-}
-
-.inline-folder-icon-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  max-height: 78px;
-  overflow-y: auto;
-}
-
-.inline-folder-icon-picker .folder-icon-option {
-  height: 34px;
-  width: 34px;
 }
 
 .inline-folder-actions {

@@ -1,27 +1,15 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue';
-import { Bookmark, Code2, Folder, Globe2, Lock, Sparkles, Star, Wrench } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { Folder } from 'lucide-vue-next';
+import { getFolderIconOption } from '@/utils/folder-icons';
 
 const props = withDefaults(defineProps<{ icon?: string | null; size?: number }>(), {
   icon: '',
   size: 18,
 });
 
-const semanticIcons: Record<string, Component> = {
-  bookmark: Bookmark,
-  code: Code2,
-  code2: Code2,
-  folder: Folder,
-  globe: Globe2,
-  lock: Lock,
-  sparkles: Sparkles,
-  star: Star,
-  toolbox: Wrench,
-  tools: Wrench,
-};
-
 const normalizedIcon = computed(() => props.icon?.trim() || '');
-const semanticIcon = computed(() => semanticIcons[normalizedIcon.value.toLocaleLowerCase()] || (!normalizedIcon.value ? Folder : null));
+const semanticIcon = computed(() => getFolderIconOption(normalizedIcon.value)?.component || (!normalizedIcon.value ? Folder : null));
 </script>
 
 <template>

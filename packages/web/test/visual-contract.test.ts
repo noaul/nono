@@ -556,16 +556,18 @@ describe('visual contracts', () => {
     expect(source).not.toContain("import AdminDashboard from '@/views/admin/AdminDashboard.vue'");
   });
 
-  it('provides selectable folder icon presets in admin folder management', async () => {
+  it('provides a compact searchable folder icon modal in admin folder management', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const foldersSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const pickerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/FolderIconPicker.vue'), 'utf8');
 
-    expect(source).toContain('folderIconOptions');
-    expect(source).toContain('folder-icon-picker');
-    expect(source).toContain('folder-icon-option');
-    expect(source).toContain('chooseIcon(icon)');
-    expect(source).toContain('aria-pressed');
+    expect(foldersSource).toContain('<FolderIconPicker v-model="form.icon"');
+    expect(foldersSource).toContain('<FolderIconPicker v-model="inlineForm.icon"');
+    expect(pickerSource).toContain('folder-icon-dialog');
+    expect(pickerSource).toContain('folder-icon-search');
+    expect(pickerSource).toContain("['recommended', 'recent', 'all']");
+    expect(pickerSource).toContain('folder-icon-option');
   });
 
   it('reuses semantic folder glyphs across admin folder surfaces', async () => {
