@@ -168,17 +168,17 @@ describe('visual contracts', () => {
     expect(source).toContain('folder-glass-panel');
     // Fixed card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 398px 330px');
+    expect(source).toContain('contain-intrinsic-size: 398px 264px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(source).toContain('grid-auto-rows: 38px');
+    expect(source).toContain('grid-auto-rows: 30px');
     expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*12px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*12px 4px;[\s\S]*?padding:\s*20px 16px;/);
-    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*38px;[\s\S]*?padding:\s*2px 0 2px 5px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*15px 4px 15px 16px;/);
+    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*30px;[\s\S]*?padding:\s*2px 0 2px 5px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 280px;[\s\S]*?max-height: 280px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 214px;[\s\S]*?max-height: 214px;/);
     expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
     expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
     expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/);
@@ -200,7 +200,7 @@ describe('visual contracts', () => {
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 280px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 214px;/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');

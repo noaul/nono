@@ -74,7 +74,7 @@ function handleFaviconError(linkId: string | number) {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 398px 330px;
+  contain-intrinsic-size: 398px 264px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -133,15 +133,15 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
-  gap: 12px 4px;
-  grid-auto-rows: 38px;
+  gap: 8px 4px;
+  grid-auto-rows: 30px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: 280px;
-  max-height: 280px;
+  height: 214px;
+  max-height: 214px;
   overflow-x: hidden;
   overflow-y: hidden;
-  padding: 20px 16px;
+  padding: 15px 4px 15px 16px;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -178,7 +178,7 @@ h2 {
   display: flex;
   gap: 2px;
   justify-content: flex-start;
-  min-height: 38px;
+  min-height: 30px;
   min-width: 0;
   overflow: hidden;
   padding: 2px 0 2px 5px;
@@ -249,7 +249,7 @@ mark {
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
-  height: 280px;
+  height: 214px;
   padding: 24px;
   text-align: center;
 }
@@ -331,14 +331,14 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 330px;
+    contain-intrinsic-size: auto 264px;
     grid-template-rows: 38px auto;
     height: auto;
   }
 
   .large-links {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: 280px;
+    height: 214px;
   }
 
   .large-links.locked {
