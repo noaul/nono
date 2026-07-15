@@ -143,13 +143,15 @@ describe('visual contracts', () => {
 
     expect(css).toContain('adaptive-folder-grid');
     expect(css).toContain('max-width: 2600px');
-    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
-    expect(css).toContain('gap: 24px 20px');
+    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 32px;/);
+    expect(css).toContain('gap: 48px 40px');
     expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).toMatch(/@media \(min-width: 2250px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).toMatch(/@media \(min-width: 2500px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 24px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(3,/);
-    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 20px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 48px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(3,/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 40px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?gap:\s*48px;/);
     expect(css).not.toContain('@media (max-width: 820px)');
     expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
@@ -166,16 +168,17 @@ describe('visual contracts', () => {
     expect(source).toContain('folder-glass-panel');
     // Fixed card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 398px 316px');
+    expect(source).toContain('contain-intrinsic-size: 398px 392px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*16px 0;/);
+    expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*24px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*16px 8px;[\s\S]*?padding:\s*32px 0;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?padding:\s*4px 0;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 266px;[\s\S]*?max-height: 266px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 330px;[\s\S]*?max-height: 330px;/);
     expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
     expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
     expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/);
@@ -197,7 +200,7 @@ describe('visual contracts', () => {
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 266px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 330px;/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');

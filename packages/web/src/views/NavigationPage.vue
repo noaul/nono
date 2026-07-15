@@ -504,7 +504,7 @@ onUnmounted(() => {
   margin: 0 auto;
   max-width: 2600px;
   min-width: 0;
-  padding: 0 16px;
+  padding: 0 32px;
   position: relative;
   z-index: 1;
 }
@@ -822,7 +822,7 @@ mark {
 .adaptive-folder-grid {
   align-items: start;
   display: grid;
-  gap: 24px 20px;
+  gap: 48px 40px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -840,7 +840,7 @@ mark {
 
 @media (max-width: 1800px) {
   .nav-content {
-    padding: 0 24px;
+    padding: 0 48px;
   }
 
   .adaptive-folder-grid {
@@ -850,7 +850,7 @@ mark {
 
 @media (max-width: 1100px) {
   .nav-content {
-    padding: 0 20px;
+    padding: 0 40px;
   }
 
   .adaptive-folder-grid {
@@ -934,7 +934,7 @@ mark {
   }
 
   .nav-content {
-    padding: 0 8px;
+    padding: 0 16px;
     gap: 20px;
   }
 
@@ -946,7 +946,7 @@ mark {
 
   .adaptive-folder-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
+    gap: 48px;
   }
 
   .nav-header {
