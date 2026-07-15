@@ -1,5 +1,5 @@
 'use client'
-import { PropsWithChildren } from 'react'
+import { PropsWithChildren, useEffect } from 'react'
 import { useCenterInit } from '@/hooks/use-center'
 import BlurredBubblesBackground from './backgrounds/blurred-bubbles'
 import BingParticlesBackground from './backgrounds/bing-particles'
@@ -14,8 +14,12 @@ import MusicCard from '@/components/music-card'
 export default function Layout({ children }: PropsWithChildren) {
 	useCenterInit()
 	useSizeInit()
-	const { cardStyles, siteContent, regenerateKey } = useConfigStore()
+	const { cardStyles, siteContent, regenerateKey, hydrateRuntimeConfig } = useConfigStore()
 	const { maxSM, init } = useSize()
+
+	useEffect(() => {
+		void hydrateRuntimeConfig()
+	}, [hydrateRuntimeConfig])
 
 	const backgroundImages = (siteContent.backgroundImages ?? []) as Array<{ id: string; url: string }>
 	const currentBackgroundImageId = siteContent.currentBackgroundImageId

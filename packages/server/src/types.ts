@@ -17,6 +17,7 @@ export interface AppServices {
   repo: Repository;
   sessionSecret: string;
   encryptionKey: string;
+  nodeskContentDir: string;
   llmClient?: LlmClient;
 }
 

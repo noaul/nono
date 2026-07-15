@@ -95,3 +95,43 @@ test('pins patched transitive build dependencies', async () => {
 		assert.match(workspace, new RegExp(override.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 	}
 })
+
+test('deploys the integrated site at /nodesk with legacy /blog redirects', async () => {
+	const nextConfig = await read('next.config.ts')
+	const compose = await readRepositoryFile('docker-compose.yml')
+	const gateway = await readRepositoryFile('docker/gateway.mjs')
+
+	assert.match(nextConfig, /NEXT_PUBLIC_BASE_PATH === '\/nodesk'/)
+	assert.match(compose, /NEXT_PUBLIC_BASE_PATH:\s*\/nodesk/)
+	assert.match(compose, /BLOG_NAVIGATION_URL:-\/nodesk/)
+	assert.match(compose, /nodesk_content:\/app\/nodesk-content/)
+	assert.match(gateway, /url === '\/nodesk'/)
+	assert.match(gateway, /replace\('\/blog', '\/nodesk'\)/)
+})
+
+test('uses the Nono session and local content API instead of GitHub tokens', async () => {
+	const auth = await read('src/lib/auth.ts')
+	const client = await read('src/lib/github-client.ts')
+
+	assert.match(auth, /\/api\/auth\/session/)
+	assert.doesNotMatch(auth, /privateKey|installationId|github_token/)
+	assert.match(client, /\/api\/admin\/nodesk\/files/)
+	assert.doesNotMatch(client, /api\.github\.com/)
+})
+
+test('hydrates editable Nodesk content from the VPS runtime store', async () => {
+	const contentClient = await read('src/lib/nodesk-content.ts')
+	const configStore = await read('src/app/(home)/stores/config-store.ts')
+
+	assert.match(contentClient, /\/api\/nodesk\/content\//)
+	assert.match(configStore, /hydrateRuntimeConfig/)
+	for (const [file, key] of [
+		['src/app/projects/page.tsx', 'projects'],
+		['src/app/share/page.tsx', 'shares'],
+		['src/app/bloggers/page.tsx', 'bloggers'],
+		['src/app/about/page.tsx', 'about'],
+		['src/app/snippets/page.tsx', 'snippets']
+	] as const) {
+		assert.match(await read(file), new RegExp(`loadNodeskContent.*${key}`, 's'))
+	}
+})

@@ -1,74 +1,72 @@
-import { createInstallationToken, getInstallationId, signAppJwt } from './github-client'
-import { GITHUB_CONFIG } from '@/consts'
-import { useAuthStore } from '@/hooks/use-auth'
-import { toast } from 'sonner'
+type SessionUser = {
+	role?: string
+}
 
-const GITHUB_TOKEN_CACHE_KEY = 'github_token'
+type SessionPayload = {
+	authenticated?: boolean
+	user?: SessionUser | null
+}
 
-function getTokenFromCache(): string | null {
-	if (typeof sessionStorage === 'undefined') return null
+type SessionResponse = {
+	data?: SessionPayload
+	code?: number
+	message?: string
+}
+
+let sessionCache: SessionPayload | null | undefined
+
+async function readSession(force = false): Promise<SessionPayload> {
+	if (!force && sessionCache !== undefined) return sessionCache || { authenticated: false, user: null }
+
+	if (typeof window === 'undefined' && typeof fetch === 'undefined') {
+		sessionCache = { authenticated: false, user: null }
+		return sessionCache
+	}
+
 	try {
-		return sessionStorage.getItem(GITHUB_TOKEN_CACHE_KEY)
+		const response = await fetch('/api/auth/session', {
+			credentials: 'include',
+			cache: 'no-store',
+			headers: { Accept: 'application/json' }
+		})
+		if (!response.ok) {
+			sessionCache = { authenticated: false, user: null }
+			return sessionCache
+		}
+
+		const payload = (await response.json()) as SessionResponse & SessionPayload
+		const session: SessionPayload = payload.data || {
+			authenticated: payload.authenticated,
+			user: payload.user
+		}
+		sessionCache = session
+		return session
 	} catch {
-		return null
+		sessionCache = { authenticated: false, user: null }
+		return sessionCache
 	}
 }
 
-function saveTokenToCache(token: string): void {
-	if (typeof sessionStorage === 'undefined') return
-	try {
-		sessionStorage.setItem(GITHUB_TOKEN_CACHE_KEY, token)
-	} catch (error) {
-		console.error('Failed to save token to cache:', error)
-	}
-}
-
-function clearTokenCache(): void {
-	if (typeof sessionStorage === 'undefined') return
-	try {
-		sessionStorage.removeItem(GITHUB_TOKEN_CACHE_KEY)
-	} catch (error) {
-		console.error('Failed to clear token cache:', error)
-	}
+function isAdminSession(session: SessionPayload): boolean {
+	return session.authenticated === true && session.user?.role === 'admin'
 }
 
 export function clearAllAuthCache(): void {
-	clearTokenCache()
+	sessionCache = undefined
 }
 
 export async function hasAuth(): Promise<boolean> {
-	return !!getTokenFromCache()
+	return isAdminSession(await readSession())
 }
 
 /**
- * 统一的认证 Token 获取
- * 自动处理缓存、签发等逻辑
- * @returns GitHub Installation Token
+ * Compatibility entry point for the existing Blog write services.
+ * Authorization is provided by the same-origin Nono session cookie; this
+ * return value is intentionally not a credential and is ignored by the API client.
  */
 export async function getAuthToken(): Promise<string> {
-	// 1. 先尝试从缓存获取 token
-	const cachedToken = getTokenFromCache()
-	if (cachedToken) {
-		toast.info('使用缓存的令牌...')
-		return cachedToken
+	if (!isAdminSession(await readSession(true))) {
+		throw new Error('需要先登录 Nono 管理员账户')
 	}
-
-	// 2. 获取私钥（从缓存）
-	const privateKey = useAuthStore.getState().privateKey
-	if (!privateKey) {
-		throw new Error('需要先设置私钥。请使用 useAuth().setPrivateKey()')
-	}
-
-	toast.info('正在签发 JWT...')
-	const jwt = signAppJwt(GITHUB_CONFIG.APP_ID, privateKey)
-
-	toast.info('正在获取安装信息...')
-	const installationId = await getInstallationId(jwt, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO)
-
-	toast.info('正在创建安装令牌...')
-	const token = await createInstallationToken(jwt, installationId)
-
-	saveTokenToCache(token)
-
-	return token
+	return 'nono-session'
 }

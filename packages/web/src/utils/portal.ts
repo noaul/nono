@@ -2,8 +2,8 @@ import type { PortalSettings } from '@/api/types';
 
 export const portalDefaults: PortalSettings = {
   enabled: true,
-  url: '/blog',
-  label: '前往博客',
+  url: '/nodesk',
+  label: '前往 Nodesk',
   imageUrl: '',
   openInNewTab: false,
 };

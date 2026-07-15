@@ -12,7 +12,6 @@ import {
   Link2,
   LogOut,
   Settings,
-  Upload,
   User,
   Users,
 } from 'lucide-vue-next';
@@ -41,7 +40,6 @@ const navSections = [
       { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
       { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
       { to: '/admin/add-bookmark', label: '新增书签', title: '新增书签', icon: FilePlus2 },
-      { to: '/admin/bookmarks', label: '导入导出', title: '浏览器书签', icon: Upload },
       { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
       { to: '/admin/nodesk', label: 'Nodesk', title: 'Nodesk', icon: BookOpenText },
     ],

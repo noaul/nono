@@ -136,7 +136,7 @@ onMounted(async () => {
               <small>补充工具、资料和外部入口</small>
             </div>
           </RouterLink>
-          <RouterLink to="/admin/bookmarks">
+          <RouterLink to="/admin/add-bookmark">
             <Upload :size="17" />
             <div>
               <strong>导入浏览器书签</strong>

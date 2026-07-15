@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
@@ -478,12 +479,9 @@ onMounted(load);
           <h2>{{ form.id ? '编辑书签' : '新增书签' }}</h2>
           <p>把链接放进指定文件夹后，会立即出现在你的公开导航页。</p>
         </div>
-        <div class="toolbar">
-          <RouterLink class="button secondary" to="/admin/bookmarks">导入书签</RouterLink>
-          <button class="button" type="button" :disabled="isSaving" @click="save">
-            <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
-          </button>
-        </div>
+        <button class="button" type="button" :disabled="isSaving" @click="save">
+          <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
+        </button>
       </div>
       <p class="warning-line">隐私与法律免责声明：你所添加的每一个链接都将负法律责任。</p>
       <p v-if="message" class="notice">{{ message }}</p>
@@ -539,7 +537,9 @@ onMounted(load);
       </form>
     </section>
 
-    <section v-else class="admin-card">
+    <BookmarkTransferPanel v-if="props.mode === 'create'" />
+
+    <section v-if="props.mode === 'manage'" class="admin-card">
       <div class="admin-card-head">
         <div>
           <h2>书签管理</h2>

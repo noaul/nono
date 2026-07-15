@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { CheckSquare, Download, Eye, Square, Upload } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BookmarkImportPreview } from '@/api/types';
 
@@ -181,93 +180,91 @@ watch(html, () => {
 </script>
 
 <template>
-  <AdminLayout title="浏览器书签">
-    <section class="admin-card">
-      <div class="admin-card-head">
+  <section class="admin-card bookmark-transfer-panel">
+    <div class="admin-card-head">
+      <div>
+        <h2>书签导入导出</h2>
+        <p>支持 Chrome、Edge、Firefox 等浏览器导出的 Netscape Bookmark HTML。</p>
+      </div>
+      <div class="toolbar">
+        <button class="button secondary" data-testid="preview-bookmarks" type="button" :disabled="isPreviewing" @click="previewBookmarks">
+          <Eye :size="17" /> {{ isPreviewing ? '预览中' : '预览' }}
+        </button>
+        <button class="button" data-testid="confirm-import" type="button" :disabled="!preview || !hasImportSelection || isImporting" @click="importBookmarks">
+          <Upload :size="17" /> {{ isImporting ? '导入中' : '确认导入' }}
+        </button>
+        <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> 导出</button>
+      </div>
+    </div>
+    <p v-if="message" class="notice">{{ message }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <div class="field">
+      <label for="bookmark-html-file">选择 HTML</label>
+      <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
+    </div>
+    <p class="row-subtitle">{{ fileName ? `已选择：${fileName}` : '还没有选择文件，也可以直接把书签 HTML 粘贴到下方。' }}</p>
+    <div class="field">
+      <label>Netscape Bookmark HTML</label>
+      <textarea v-model="html" placeholder="也可以直接粘贴浏览器导出的书签 HTML" />
+    </div>
+    <div v-if="preview" class="import-preview-panel">
+      <div class="import-preview-head">
         <div>
-          <h2>书签导入导出</h2>
-          <p>支持 Chrome、Edge、Firefox 等浏览器导出的 Netscape Bookmark HTML。</p>
+          <h3>预览结果</h3>
+          <span>已选 {{ selectedFolderCount }} 个文件夹 · {{ selectedLinkCount }} 个链接</span>
         </div>
         <div class="toolbar">
-          <button class="button secondary" data-testid="preview-bookmarks" type="button" :disabled="isPreviewing" @click="previewBookmarks">
-            <Eye :size="17" /> {{ isPreviewing ? '预览中' : '预览' }}
-          </button>
-          <button class="button" data-testid="confirm-import" type="button" :disabled="!preview || !hasImportSelection || isImporting" @click="importBookmarks">
-            <Upload :size="17" /> {{ isImporting ? '导入中' : '确认导入' }}
-          </button>
-          <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> 导出</button>
+          <button class="button secondary compact" data-testid="select-all-import" type="button" @click="selectAllImportable"><CheckSquare :size="15" /> 全选可导入</button>
+          <button class="button secondary compact" data-testid="clear-import-selection" type="button" @click="clearImportSelection"><Square :size="15" /> 清空选择</button>
         </div>
       </div>
-      <p v-if="message" class="notice">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
-      <div class="field">
-        <label for="bookmark-html-file">选择 HTML</label>
-        <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
+      <div class="preview-stats">
+        <span>新增文件夹 {{ preview.summary.newFolders }}</span>
+        <span>新增链接 {{ preview.summary.newLinks }}</span>
+        <span>重复链接 {{ preview.summary.duplicateLinks }}</span>
+        <span>不可导入 {{ preview.summary.invalidLinks }}</span>
       </div>
-      <p class="row-subtitle">{{ fileName ? `已选择：${fileName}` : '还没有选择文件，也可以直接把书签 HTML 粘贴到下方。' }}</p>
-      <div class="field">
-        <label>Netscape Bookmark HTML</label>
-        <textarea v-model="html" placeholder="也可以直接粘贴浏览器导出的书签 HTML" />
+      <p v-if="preview.summary.ignoredFolders || preview.summary.ignoredLinks" class="import-scope-note">
+        已忽略 Bookmarks 外 {{ preview.summary.ignoredFolders }} 个文件夹、{{ preview.summary.ignoredLinks }} 个链接
+      </p>
+      <div class="preview-list">
+        <label
+          v-for="folder in preview.folders"
+          :key="folder.tempId"
+          class="preview-row preview-folder-row status-new"
+          :style="{ '--import-depth': folderDepth(folder.tempId) }"
+        >
+          <input
+            :data-testid="`select-import-folder-${folder.tempId}`"
+            type="checkbox"
+            :checked="selectedFolderTempIds.has(folder.tempId)"
+            @change="toggleFolderSelection(folder.tempId, $event)"
+          />
+          <strong>{{ folder.name }}</strong>
+          <span>{{ folder.parentTempId ? `子文件夹 · ${folderName(folder.parentTempId)}` : '大分类' }}</span>
+          <small>导入文件夹</small>
+        </label>
+        <label
+          v-for="link in preview.links"
+          :key="link.tempId"
+          class="preview-row preview-link-row"
+          :class="`status-${link.status}`"
+          :style="{ '--import-depth': folderDepth(link.folderTempId) + 1 }"
+        >
+          <input
+            :data-testid="`select-import-link-${link.tempId}`"
+            type="checkbox"
+            :disabled="link.status !== 'new'"
+            :checked="selectedLinkTempIds.has(link.tempId)"
+            @change="toggleLinkSelection(link, $event)"
+          />
+          <strong>{{ link.name }}</strong>
+          <span>{{ link.url }}</span>
+          <small>{{ link.status === 'new' ? folderName(link.folderTempId) : link.status === 'duplicate' ? '重复' : '不可导入' }}{{ link.reason ? `：${link.reason}` : '' }}</small>
+        </label>
       </div>
-      <div v-if="preview" class="import-preview-panel">
-        <div class="import-preview-head">
-          <div>
-            <h3>预览结果</h3>
-            <span>已选 {{ selectedFolderCount }} 个文件夹 · {{ selectedLinkCount }} 个链接</span>
-          </div>
-          <div class="toolbar">
-            <button class="button secondary compact" data-testid="select-all-import" type="button" @click="selectAllImportable"><CheckSquare :size="15" /> 全选可导入</button>
-            <button class="button secondary compact" data-testid="clear-import-selection" type="button" @click="clearImportSelection"><Square :size="15" /> 清空选择</button>
-          </div>
-        </div>
-        <div class="preview-stats">
-          <span>新增文件夹 {{ preview.summary.newFolders }}</span>
-          <span>新增链接 {{ preview.summary.newLinks }}</span>
-          <span>重复链接 {{ preview.summary.duplicateLinks }}</span>
-          <span>不可导入 {{ preview.summary.invalidLinks }}</span>
-        </div>
-        <p v-if="preview.summary.ignoredFolders || preview.summary.ignoredLinks" class="import-scope-note">
-          已忽略 Bookmarks 外 {{ preview.summary.ignoredFolders }} 个文件夹、{{ preview.summary.ignoredLinks }} 个链接
-        </p>
-        <div class="preview-list">
-          <label
-            v-for="folder in preview.folders"
-            :key="folder.tempId"
-            class="preview-row preview-folder-row status-new"
-            :style="{ '--import-depth': folderDepth(folder.tempId) }"
-          >
-            <input
-              :data-testid="`select-import-folder-${folder.tempId}`"
-              type="checkbox"
-              :checked="selectedFolderTempIds.has(folder.tempId)"
-              @change="toggleFolderSelection(folder.tempId, $event)"
-            />
-            <strong>{{ folder.name }}</strong>
-            <span>{{ folder.parentTempId ? `子文件夹 · ${folderName(folder.parentTempId)}` : '大分类' }}</span>
-            <small>导入文件夹</small>
-          </label>
-          <label
-            v-for="link in preview.links"
-            :key="link.tempId"
-            class="preview-row preview-link-row"
-            :class="`status-${link.status}`"
-            :style="{ '--import-depth': folderDepth(link.folderTempId) + 1 }"
-          >
-            <input
-              :data-testid="`select-import-link-${link.tempId}`"
-              type="checkbox"
-              :disabled="link.status !== 'new'"
-              :checked="selectedLinkTempIds.has(link.tempId)"
-              @change="toggleLinkSelection(link, $event)"
-            />
-            <strong>{{ link.name }}</strong>
-            <span>{{ link.url }}</span>
-            <small>{{ link.status === 'new' ? folderName(link.folderTempId) : link.status === 'duplicate' ? '重复' : '不可导入' }}{{ link.reason ? `：${link.reason}` : '' }}</small>
-          </label>
-        </div>
-      </div>
-    </section>
-  </AdminLayout>
+    </div>
+  </section>
 </template>
 
 <style scoped>

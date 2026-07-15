@@ -21,15 +21,10 @@ services:
     build:
       context: .
       args:
-        VITE_BLOG_URL: ${BLOG_NAVIGATION_URL:-/blog}
-        NEXT_PUBLIC_SITE_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/blog}
+        VITE_BLOG_URL: ${BLOG_NAVIGATION_URL:-/nodesk}
+        NEXT_PUBLIC_SITE_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/nodesk}
         NEXT_PUBLIC_NONO_URL: ${NONO_NAVIGATION_URL:-/}
-        NEXT_PUBLIC_GITHUB_OWNER: ${NEXT_PUBLIC_GITHUB_OWNER:-noaul}
-        NEXT_PUBLIC_GITHUB_REPO: ${NEXT_PUBLIC_GITHUB_REPO:-nono}
-        NEXT_PUBLIC_GITHUB_BRANCH: ${NEXT_PUBLIC_GITHUB_BRANCH:-main}
-        NEXT_PUBLIC_GITHUB_APP_ID: ${NEXT_PUBLIC_GITHUB_APP_ID:-}
-        NEXT_PUBLIC_GITHUB_ROOT_PATH: ${NEXT_PUBLIC_GITHUB_ROOT_PATH:-apps/blog}
-        NEXT_PUBLIC_BASE_PATH: /blog
+        NEXT_PUBLIC_BASE_PATH: /nodesk
     container_name: nono
     restart: unless-stopped
     depends_on:
@@ -43,6 +38,10 @@ services:
       DATABASE_URL: postgresql://nono:nono@postgres:5432/nono?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      NODESK_CONTENT_DIR: /app/nodesk-content
+      NODESK_SEED_DIR: /app/nodesk-seed
+    volumes:
+      - nodesk_content:/app/nodesk-content
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
       interval: 30s
@@ -52,3 +51,4 @@ services:
 
 volumes:
   nono_pg_data:
+  nodesk_content:

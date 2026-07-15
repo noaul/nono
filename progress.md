@@ -1,5 +1,21 @@
 # Nono 进度记录
 
+## 2026-07-15 Nodesk 真正后台一体化
+- 用户要求公开地址改为 `/nodesk`。
+- 用户明确拒绝仅提供跳转式管理，要求能在 Nono 后台设置的内容直接在后台设置。
+- 用户确认部署目标为 VPS，本地持久化后不再需要 GitHub Token。
+- 已开始梳理网关、Docker、Blog 管理页面及 GitHub 写入链路。
+- 新增范围：合并“新增书签”与“导入导出”菜单和页面。
+
+# 2026-07-15 Nodesk 一体化与新增书签合并
+
+- Nodesk 公共入口迁移至 `/nodesk`，旧 `/blog` 保留 308 重定向。
+- Nono 后台直接嵌入 Nodesk 各管理页面，内容写入本地持久化 API，不再要求 GitHub Token 或私钥。
+- Docker 新增 `nodesk_content` 命名卷，首次启动自动导入现有内容。
+- 后台侧栏移除独立“导入导出”，只保留“新增书签”；新增页面同时包含手动新增、快速添加、浏览器 HTML 导入和导出。
+- `/admin/bookmarks` 兼容重定向至 `/admin/add-bookmark`。
+- 已补充服务器、博客和 Web 契约测试；等待全量验证、推送与 nc48 部署验收。
+
 ## 2026-06-04 Phase 3/4/5
 - 用户要求：把阶段 3/4/5 的详细计划写成独立文件，并按计划依次推进阶段 3、4、5 后推送。
 - 已读取当前项目结构、Prisma schema、后台 Links/Tokens/Folders/Site/Dashboard/Navigation 相关文件。

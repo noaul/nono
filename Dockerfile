@@ -24,19 +24,9 @@ FROM blog-deps AS blog-build
 WORKDIR /app/blog
 ARG NEXT_PUBLIC_SITE_URL
 ARG NEXT_PUBLIC_NONO_URL
-ARG NEXT_PUBLIC_GITHUB_OWNER
-ARG NEXT_PUBLIC_GITHUB_REPO
-ARG NEXT_PUBLIC_GITHUB_BRANCH
-ARG NEXT_PUBLIC_GITHUB_APP_ID
-ARG NEXT_PUBLIC_GITHUB_ROOT_PATH=apps/blog
-ARG NEXT_PUBLIC_BASE_PATH=/blog
+ARG NEXT_PUBLIC_BASE_PATH=/nodesk
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_NONO_URL=$NEXT_PUBLIC_NONO_URL
-ENV NEXT_PUBLIC_GITHUB_OWNER=$NEXT_PUBLIC_GITHUB_OWNER
-ENV NEXT_PUBLIC_GITHUB_REPO=$NEXT_PUBLIC_GITHUB_REPO
-ENV NEXT_PUBLIC_GITHUB_BRANCH=$NEXT_PUBLIC_GITHUB_BRANCH
-ENV NEXT_PUBLIC_GITHUB_APP_ID=$NEXT_PUBLIC_GITHUB_APP_ID
-ENV NEXT_PUBLIC_GITHUB_ROOT_PATH=$NEXT_PUBLIC_GITHUB_ROOT_PATH
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 COPY apps/blog/ ./
 RUN pnpm build
@@ -55,8 +45,10 @@ COPY --from=nono-build /app/nono/packages/server/dist ./nono/packages/server/dis
 COPY --from=nono-build /app/nono/packages/server/prisma ./nono/packages/server/prisma
 COPY --from=nono-build /app/nono/packages/web/dist ./nono/packages/web/dist
 COPY --from=blog-build /app/blog/public ./blog/public
+COPY --from=blog-build /app/blog/public ./nodesk-seed/public
+COPY --from=blog-build /app/blog/src ./nodesk-seed/src
 COPY --from=blog-build /app/blog/.next/standalone ./blog
 COPY --from=blog-build /app/blog/.next/static ./blog/.next/static
 COPY docker/gateway.mjs ./gateway.mjs
 EXPOSE 3000
-CMD ["sh", "-c", "./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma && exec node ./gateway.mjs"]
+CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec node ./gateway.mjs"]

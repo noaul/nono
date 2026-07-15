@@ -287,7 +287,7 @@ describe('visual contracts', () => {
 
     expect(source).toContain('/api/admin/links/reorder');
     expect(source).toContain('sortMode');
-    expect(source).toContain('to="/admin/bookmarks"');
+    expect(source).not.toContain('to="/admin/bookmarks"');
     expect(source).toContain("mode?: 'create' | 'manage'");
     expect(source).not.toContain('data-testid="bulk-folder"');
     expect(source).not.toContain('data-testid="bulk-move"');
@@ -305,15 +305,30 @@ describe('visual contracts', () => {
     expect(layoutSource).toContain("to: '/admin/add-bookmark', label: '新增书签'");
     expect(layoutSource).toContain("to: '/admin/nodesk', label: 'Nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
-    expect(nodeskSource).toContain('/blog/write');
-    expect(nodeskSource).toContain('/blog/blog');
-    expect(nodeskSource).toContain('/blog/pictures');
+    expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/add-bookmark'");
+    expect(layoutSource).not.toContain("label: '导入导出'");
+    expect(nodeskSource).toContain('nodesk-admin-frame');
+    expect(nodeskSource).toContain("'/nodesk'");
+    expect(nodeskSource).not.toContain("href: '/blog");
+  });
+
+  it('combines bookmark creation and browser import/export in one page', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
+    const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
+
+    expect(linksSource).toContain('<BookmarkTransferPanel v-if="props.mode === \'create\'" />');
+    expect(linksSource).not.toContain('to="/admin/bookmarks"');
+    expect(transferSource).toContain('/api/admin/bookmarks/preview');
+    expect(transferSource).toContain('/api/admin/bookmarks/import');
+    expect(transferSource).toContain('/api/admin/bookmarks/export');
   });
 
   it('uses a visible native file input for bookmark imports', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/BookmarksView.vue'), 'utf8');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
     expect(source).toContain('class="native-file-input"');
     expect(source).toContain('id="bookmark-html-file"');

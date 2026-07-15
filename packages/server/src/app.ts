@@ -19,6 +19,7 @@ import { userRoutes } from './routes/admin/users.js';
 import { accountRoutes } from './routes/admin/account.js';
 import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
+import { nodeskRoutes } from './routes/nodesk.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
@@ -30,6 +31,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     repo: overrides.repo || createPrismaRepository(),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: overrides.encryptionKey || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
     llmClient: overrides.llmClient || new FetchLlmClient(),
   };
 
@@ -58,6 +60,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await accountRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);
+  await nodeskRoutes(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {

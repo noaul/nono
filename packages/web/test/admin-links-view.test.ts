@@ -184,6 +184,8 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView({ mode: 'create' });
     await settle(wrapper);
 
+    expect(wrapper.text()).toContain('书签导入导出');
+    expect(wrapper.find('[data-testid="preview-bookmarks"]').exists()).toBe(true);
     expect(wrapper.get('[data-testid="create-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
     expect(wrapper.get('[data-testid="quick-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
     expect(wrapper.get('[data-testid="create-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['工作', '开发', '＋ 新建文件夹']);

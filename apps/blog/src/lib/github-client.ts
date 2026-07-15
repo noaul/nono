@@ -1,120 +1,116 @@
 'use client'
 
-import { useAuthStore } from '@/hooks/use-auth'
-import { GITHUB_CONFIG } from '@/consts'
-import { fromRepoPath, toRepoPath } from '@/lib/repo-path'
-import { KJUR, KEYUTIL } from 'jsrsasign'
-import { toast } from 'sonner'
+const FILES_API = '/api/admin/nodesk/files'
+const LOCAL_AUTH_TOKEN = 'nono-session'
 
-export const GH_API = 'https://api.github.com'
-
-function handle401Error(): void {
-	if (typeof sessionStorage === 'undefined') return
-	try {
-		useAuthStore.getState().clearAuth()
-	} catch (error) {
-		console.error('Failed to clear auth cache:', error)
-	}
+type ApiEnvelope<T> = {
+	data?: T
+	message?: string
 }
 
-function handle422Error(): void {
-	toast.error('操作太快了，请操作慢一点')
+type FilePayload = {
+	contentBase64: string
+	sha?: string
+}
+
+type FileChange = {
+	path: string
+	contentBase64: string | null
+}
+
+type LocalTree = {
+	changes: FileChange[]
+}
+
+type LocalCommit = {
+	message: string
+	tree: string
+}
+
+const blobs = new Map<string, string>()
+const trees = new Map<string, LocalTree>()
+const commits = new Map<string, LocalCommit>()
+let localSequence = 0
+
+function localSha(kind: string): string {
+	localSequence += 1
+	return `local-${kind}-${Date.now().toString(36)}-${localSequence.toString(36)}`
+}
+
+function normalizeLocalPath(input: string): string {
+	const path = input.replaceAll('\\', '/').replace(/^\/+/, '')
+	const configuredRoot = (process.env.NEXT_PUBLIC_GITHUB_ROOT_PATH || 'apps/blog').replace(/^\/+|\/+$/g, '')
+	return configuredRoot && path.startsWith(`${configuredRoot}/`) ? path.slice(configuredRoot.length + 1) : path
+}
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+	const response = await fetch(url, {
+		...init,
+		credentials: 'include',
+		headers: {
+			Accept: 'application/json',
+			...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+			...init?.headers
+		}
+	})
+
+	if (!response.ok) {
+		let message = `Nodesk content request failed: ${response.status}`
+		try {
+			const payload = (await response.json()) as ApiEnvelope<unknown>
+			if (payload.message) message = payload.message
+		} catch {
+			// Preserve the status-based fallback for non-JSON responses.
+		}
+		throw new Error(message)
+	}
+
+	const payload = (await response.json()) as ApiEnvelope<T> | T
+	return typeof payload === 'object' && payload !== null && 'data' in payload && payload.data !== undefined ? payload.data : (payload as T)
+}
+
+async function writeFiles(files: FileChange[], message?: string): Promise<unknown> {
+	return requestJson(`${FILES_API}/batch`, {
+		method: 'POST',
+		body: JSON.stringify({ files, message })
+	})
 }
 
 export function toBase64Utf8(input: string): string {
-	return btoa(unescape(encodeURIComponent(input)))
+	const bytes = new TextEncoder().encode(input)
+	let binary = ''
+	for (const byte of bytes) binary += String.fromCharCode(byte)
+	return btoa(binary)
 }
 
-export function signAppJwt(appId: string, privateKeyPem: string): string {
-	const now = Math.floor(Date.now() / 1000)
-	const header = { alg: 'RS256', typ: 'JWT' }
-	const payload = { iat: now - 60, exp: now + 8 * 60, iss: appId }
-	const prv = KEYUTIL.getKey(privateKeyPem) as unknown as string
-	return KJUR.jws.JWS.sign('RS256', JSON.stringify(header), JSON.stringify(payload), prv)
+function fromBase64Utf8(input: string): string {
+	const binary = atob(input)
+	const bytes = Uint8Array.from(binary, character => character.charCodeAt(0))
+	return new TextDecoder().decode(bytes)
 }
 
-export async function getInstallationId(jwt: string, owner: string, repo: string): Promise<number> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/installation`, {
-		headers: {
-			Authorization: `Bearer ${jwt}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28'
-		}
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`installation lookup failed: ${res.status}`)
-	const data = await res.json()
-	return data.id
+export async function getFileSha(_token: string, _owner: string, _repo: string, path: string, _branch: string): Promise<string | undefined> {
+	const content = await readTextFileFromRepo(LOCAL_AUTH_TOKEN, '', '', path, '')
+	return content === null ? undefined : localSha('file')
 }
 
-export async function createInstallationToken(jwt: string, installationId: number): Promise<string> {
-	const res = await fetch(`${GH_API}/app/installations/${installationId}/access_tokens`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${jwt}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28'
-		}
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`create token failed: ${res.status}`)
-	const data = await res.json()
-	return data.token as string
+export async function putFile(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	path: string,
+	contentBase64: string,
+	message: string,
+	_branch: string
+) {
+	const normalizedPath = normalizeLocalPath(path)
+	await writeFiles([{ path: normalizedPath, contentBase64 }], message)
+	const sha = localSha('commit')
+	return { content: { path: normalizedPath, sha }, commit: { sha } }
 }
 
-export async function getFileSha(token: string, owner: string, repo: string, path: string, branch: string): Promise<string | undefined> {
-	const targetPath = toRepoPath(path, GITHUB_CONFIG.ROOT_PATH)
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(targetPath)}?ref=${encodeURIComponent(branch)}`, {
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28'
-		}
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (res.status === 404) return undefined
-	if (!res.ok) throw new Error(`get file sha failed: ${res.status}`)
-	const data = await res.json()
-	return (data && data.sha) || undefined
-}
-
-export async function putFile(token: string, owner: string, repo: string, path: string, contentBase64: string, message: string, branch: string) {
-	const sha = await getFileSha(token, owner, repo, path, branch)
-	const targetPath = toRepoPath(path, GITHUB_CONFIG.ROOT_PATH)
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(targetPath)}`, {
-		method: 'PUT',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ message, content: contentBase64, branch, ...(sha ? { sha } : {}) })
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`put file failed: ${res.status}`)
-	return res.json()
-}
-
-// Batch commit APIs
-
-export async function getRef(token: string, owner: string, repo: string, ref: string): Promise<{ sha: string }> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/ref/${encodeURIComponent(ref)}`, {
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28'
-		}
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`get ref failed: ${res.status}`)
-	const data = await res.json()
-	return { sha: data.object.sha }
+export async function getRef(_token: string, _owner: string, _repo: string, _ref: string): Promise<{ sha: string }> {
+	return { sha: localSha('ref') }
 }
 
 export type TreeItem = {
@@ -125,139 +121,108 @@ export type TreeItem = {
 	sha?: string | null
 }
 
-export async function createTree(token: string, owner: string, repo: string, tree: TreeItem[], baseTree?: string): Promise<{ sha: string }> {
-	const rootedTree = tree.map(item => ({
-		...item,
-		path: toRepoPath(item.path, GITHUB_CONFIG.ROOT_PATH)
-	}))
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/trees`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ tree: rootedTree, base_tree: baseTree })
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`create tree failed: ${res.status}`)
-	const data = await res.json()
-	return { sha: data.sha }
-}
+export async function createTree(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	tree: TreeItem[],
+	_baseTree?: string
+): Promise<{ sha: string }> {
+	const changes = tree.map<FileChange>(item => {
+		if (item.type !== 'blob') throw new Error(`Unsupported local tree item type: ${item.type}`)
 
-export async function createCommit(token: string, owner: string, repo: string, message: string, tree: string, parents: string[]): Promise<{ sha: string }> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/commits`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ message, tree, parents })
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`create commit failed: ${res.status}`)
-	const data = await res.json()
-	return { sha: data.sha }
-}
-
-export async function updateRef(token: string, owner: string, repo: string, ref: string, sha: string, force = false): Promise<void> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/refs/${encodeURIComponent(ref)}`, {
-		method: 'PATCH',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ sha, force })
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`update ref failed: ${res.status}`)
-}
-
-export async function readTextFileFromRepo(token: string, owner: string, repo: string, path: string, ref: string): Promise<string | null> {
-	const targetPath = toRepoPath(path, GITHUB_CONFIG.ROOT_PATH)
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(targetPath)}?ref=${encodeURIComponent(ref)}`, {
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28'
+		let contentBase64: string | null
+		if (item.sha === null) {
+			contentBase64 = null
+		} else if (item.content !== undefined) {
+			contentBase64 = toBase64Utf8(item.content)
+		} else if (item.sha && blobs.has(item.sha)) {
+			contentBase64 = blobs.get(item.sha) || ''
+		} else {
+			throw new Error(`Unknown local blob: ${item.sha || item.path}`)
 		}
+
+		return { path: normalizeLocalPath(item.path), contentBase64 }
 	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (res.status === 404) return null
-	if (!res.ok) throw new Error(`read file failed: ${res.status}`)
-	const data: any = await res.json()
-	if (Array.isArray(data) || !data.content) return null
+
+	const sha = localSha('tree')
+	trees.set(sha, { changes })
+	return { sha }
+}
+
+export async function createCommit(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	message: string,
+	tree: string,
+	_parents: string[]
+): Promise<{ sha: string }> {
+	if (!trees.has(tree)) throw new Error(`Unknown local tree: ${tree}`)
+	const sha = localSha('commit')
+	commits.set(sha, { message, tree })
+	return { sha }
+}
+
+export async function updateRef(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	_ref: string,
+	sha: string,
+	_force = false
+): Promise<void> {
+	const commit = commits.get(sha)
+	if (!commit) throw new Error(`Unknown local commit: ${sha}`)
+	const tree = trees.get(commit.tree)
+	if (!tree) throw new Error(`Unknown local tree: ${commit.tree}`)
+
+	await writeFiles(tree.changes, commit.message)
+	commits.delete(sha)
+	trees.delete(commit.tree)
+	blobs.clear()
+}
+
+export async function readTextFileFromRepo(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	path: string,
+	_ref: string
+): Promise<string | null> {
 	try {
-		return decodeURIComponent(escape(atob(data.content)))
-	} catch {
-		return atob(data.content)
+		const file = await requestJson<FilePayload>(`${FILES_API}?path=${encodeURIComponent(normalizeLocalPath(path))}`)
+		return fromBase64Utf8(file.contentBase64)
+	} catch (error) {
+		if (error instanceof Error && /404|not found/i.test(error.message)) return null
+		throw error
 	}
 }
 
-export async function listRepoFilesRecursive(token: string, owner: string, repo: string, path: string, ref: string): Promise<string[]> {
-	async function fetchPath(targetPath: string): Promise<string[]> {
-		const rootedPath = toRepoPath(targetPath, GITHUB_CONFIG.ROOT_PATH)
-		const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(rootedPath)}?ref=${encodeURIComponent(ref)}`, {
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: 'application/vnd.github+json',
-				'X-GitHub-Api-Version': '2022-11-28'
-			}
-		})
-		if (res.status === 401) handle401Error()
-		if (res.status === 422) handle422Error()
-		if (res.status === 404) return []
-		if (!res.ok) throw new Error(`read directory failed: ${res.status}`)
-		const data: any = await res.json()
-		if (Array.isArray(data)) {
-			const files: string[] = []
-			for (const item of data) {
-				if (item.type === 'file') {
-					files.push(fromRepoPath(item.path, GITHUB_CONFIG.ROOT_PATH))
-				} else if (item.type === 'dir') {
-					const nested = await fetchPath(item.path)
-					files.push(...nested)
-				}
-			}
-			return files
-		}
-		if (data?.type === 'file') return [fromRepoPath(data.path, GITHUB_CONFIG.ROOT_PATH)]
-		if (data?.type === 'dir') return fetchPath(data.path)
-		return []
+export async function listRepoFilesRecursive(
+	_token: string,
+	_owner: string,
+	_repo: string,
+	path: string,
+	_ref: string
+): Promise<string[]> {
+	try {
+		const files = await requestJson<string[]>(`${FILES_API}/list?path=${encodeURIComponent(normalizeLocalPath(path))}`)
+		return files.map(normalizeLocalPath)
+	} catch (error) {
+		if (error instanceof Error && /404|not found/i.test(error.message)) return []
+		throw error
 	}
-
-	return fetchPath(path)
 }
 
 export async function createBlob(
-	token: string,
-	owner: string,
-	repo: string,
+	_token: string,
+	_owner: string,
+	_repo: string,
 	content: string,
 	encoding: 'utf-8' | 'base64' = 'base64'
 ): Promise<{ sha: string }> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/blobs`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ content, encoding })
-	})
-	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`create blob failed: ${res.status}`)
-	const data = await res.json()
-	return { sha: data.sha }
+	const sha = localSha('blob')
+	blobs.set(sha, encoding === 'base64' ? content : toBase64Utf8(content))
+	return { sha }
 }

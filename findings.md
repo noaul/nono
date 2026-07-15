@@ -1,5 +1,14 @@
 # Nono 项目发现
 
+## 2026-07-15 Nodesk 一体化发现
+- 当前 Blog 是独立 Next.js 应用，由 `docker/gateway.mjs` 挂载到 `/blog`。
+- Blog 的站点配置、文章、项目、分享、博主、图集、片段和关于页保存逻辑均直接调用 `apps/blog/src/lib/github-client.ts`。
+- 因此即使部署在 VPS，浏览器管理端仍需要 GitHub Token；需要改为同源服务端本地写入 API。
+- Nono 后台 `packages/web/src/views/admin/NodeskView.vue` 目前只是链接到 Blog 各管理路由，不是真正的后台管理页面。
+- Docker 当前只持久化 PostgreSQL/Nono 数据，Blog 内容随镜像构建，缺少独立内容 volume。
+- 迁移必须同时处理 `/blog` 到 `/nodesk` 的网关前缀、Next 资源路径和旧链接兼容。
+- 用户新增要求：后台“新增书签”和“导入导出”合并为一个“新增书签”菜单；旧导入导出路由只做兼容，不再单列。
+
 ## 2026-06-04 Phase 3/4/5 规划发现
 - 当前项目已迁移为 workspace：`packages/server`、`packages/web`、`packages/extension`。
 - Phase 1/2 已在 `main` 上完成并推送，当前分支仅保留 `main` / `origin/main`。

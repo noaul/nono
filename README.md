@@ -70,31 +70,23 @@ docker compose up -d --build
 
 ```text
 Nono: http://127.0.0.1:3000
-Blog: http://127.0.0.1:3000/blog
+Nodesk: http://127.0.0.1:3000/nodesk
 ```
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
 
-正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为博客的完整公网地址。站内互跳默认使用同域名相对路径 `/` 与 `/blog`，无需绑定服务器 IP：
+正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为 Nodesk 的完整公网地址。站内互跳默认使用同域名相对路径 `/` 与 `/nodesk`，无需绑定服务器 IP：
 
 ```text
 NONO_PUBLIC_URL=https://example.com
-BLOG_PUBLIC_URL=https://example.com/blog
+BLOG_PUBLIC_URL=https://example.com/nodesk
 NONO_NAVIGATION_URL=/
-BLOG_NAVIGATION_URL=/blog
+BLOG_NAVIGATION_URL=/nodesk
 ```
 
-`NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和博客元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在各自后台覆盖，后台保存的设置优先。
+`NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和 Nodesk 元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在后台覆盖，后台保存的设置优先。旧 `/blog` 地址会以 308 重定向到 `/nodesk`。
 
-博客后台通过 GitHub App 提交文章与图片时，默认写入当前 `nono` 仓库的 `apps/blog` 目录：
-
-```text
-NEXT_PUBLIC_GITHUB_REPO=nono
-NEXT_PUBLIC_GITHUB_BRANCH=main
-NEXT_PUBLIC_GITHUB_ROOT_PATH=apps/blog
-```
-
-GitHub App 必须安装到 `nono` 仓库并拥有 Contents 写权限。
+Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 
 ## 旧数据迁移
 

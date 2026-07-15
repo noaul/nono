@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import siteContent from '@/config/site-content.json'
 import cardStyles from '@/config/card-styles.json'
 import { getPortalSettings } from '@/lib/portal'
+import { loadNodeskContent } from '@/lib/nodesk-content'
 
 export type SiteContent = typeof siteContent
 export type CardStyles = typeof cardStyles
@@ -17,6 +18,7 @@ interface ConfigStore {
 	resetCardStyles: () => void
 	regenerateBubbles: () => void
 	setConfigDialogOpen: (open: boolean) => void
+	hydrateRuntimeConfig: () => Promise<void>
 }
 
 function createInitialSiteContent(): SiteContent {
@@ -48,5 +50,15 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 	},
 	setConfigDialogOpen: (open: boolean) => {
 		set({ configDialogOpen: open })
+	},
+	hydrateRuntimeConfig: async () => {
+		const [runtimeSiteContent, runtimeCardStyles] = await Promise.all([
+			loadNodeskContent<SiteContent>('site', get().siteContent),
+			loadNodeskContent<CardStyles>('card-styles', get().cardStyles)
+		])
+		set({
+			siteContent: { ...runtimeSiteContent, portal: getPortalSettings(runtimeSiteContent.portal) },
+			cardStyles: runtimeCardStyles
+		})
 	}
 }))

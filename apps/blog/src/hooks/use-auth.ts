@@ -1,28 +1,19 @@
 import { create } from 'zustand'
 import { clearAllAuthCache, getAuthToken as getToken, hasAuth as checkAuth } from '@/lib/auth'
-interface AuthStore {
-	// State
-	isAuth: boolean
-	privateKey: string | null
 
-	// Actions
-	setPrivateKey: (key: string) => void
+interface AuthStore {
+	isAuth: boolean
 	clearAuth: () => void
-	refreshAuthState: () => void
+	refreshAuthState: () => Promise<void>
 	getAuthToken: () => Promise<string>
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
 	isAuth: false,
-	privateKey: null,
-
-	setPrivateKey: (key: string) => {
-		set({ isAuth: true, privateKey: key })
-	},
 
 	clearAuth: () => {
 		clearAllAuthCache()
-		set({ isAuth: false, privateKey: null })
+		set({ isAuth: false })
 	},
 
 	refreshAuthState: async () => {
@@ -31,13 +22,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
 	getAuthToken: async () => {
 		const token = await getToken()
-		get().refreshAuthState()
+		await get().refreshAuthState()
 		return token
 	}
 }))
 
-checkAuth().then(isAuth => {
-	if (isAuth) {
-		useAuthStore.setState({ isAuth })
-	}
-})
+void useAuthStore.getState().refreshAuthState()
