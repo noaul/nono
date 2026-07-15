@@ -176,7 +176,7 @@ h2 {
   border-radius: 8px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
-  gap: 2px;
+  gap: 1px;
   justify-content: flex-start;
   min-height: 40px;
   min-width: 0;

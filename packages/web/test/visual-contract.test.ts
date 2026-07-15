@@ -173,7 +173,7 @@ describe('visual contracts', () => {
     expect(source).toContain('grid-auto-rows: 40px');
     expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*24px;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*16px 8px;[\s\S]*?padding:\s*32px 0;/);
-    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?padding:\s*4px 0;/);
+    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*1px;[\s\S]*?padding:\s*4px 0;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
