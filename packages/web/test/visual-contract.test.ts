@@ -404,6 +404,12 @@ describe('visual contracts', () => {
     expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
   });
 
+  it('keeps admin content fluid across browser zoom levels', () => {
+    const css = readStyle('admin');
+
+    expect(css).toMatch(/\.workbench-stage > \* \{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*none;/);
+  });
+
   it('keeps admin forms visually unified across zoom breakpoints', async () => {
     const css = readStyle('admin');
 

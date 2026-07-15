@@ -10,7 +10,10 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 ## 功能
 
 - 多用户认证：Cookie session + Bearer API Token
-- 管理后台：站点配置、文件夹、链接、用户、Token、LLM 设置
+- 管理后台：站点配置、Notab、文件夹、链接、用户、Token、LLM 设置
+- Notab 管理：独立更名、拖动排序和带影响统计的删除确认
+- 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
+- 自适应后台：内容区随工作区流体铺满，浏览器缩放和宽屏下保持左右对齐
 - 浏览器书签：Netscape Bookmark HTML 导入和导出
 - AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
 - 公开导航：`/:username`，默认搜索为 Google
@@ -106,4 +109,12 @@ npm run migrate:json -w packages/server -- data/nono.json
 npm run build -w packages/extension
 ```
 
-在 Chrome 扩展管理页加载 `packages/extension/dist`，填入服务地址和后台创建的 API Token。插件会自动读取当前网页并记住上次使用的文件夹；可在弹窗中选择“大类 → 文件夹”后收藏，也可通过右键菜单直接保存到上次文件夹。AI 整理仅在需要时手动触发。
+开发安装：在 Chrome 扩展管理页开启“开发者模式”，选择“加载已解压的扩展程序”，打开 `packages/extension/dist`。
+
+打包安装文件：
+
+```text
+packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
+```
+
+插件设置中填入 Nono 服务地址和后台创建的 API Token。插件会自动读取当前网页并记住上次使用的文件夹；可在弹窗中选择“Notab → 文件夹”后收藏，也可通过右键菜单直接保存到上次文件夹。AI 整理仅在需要时手动触发。更完整的安装、权限和快捷键说明见 `packages/extension/README.md`。

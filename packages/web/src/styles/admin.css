@@ -1856,7 +1856,8 @@
 }
 
 .workbench-stage > * {
-  max-width: 1520px;
+  width: 100%;
+  max-width: none;
 }
 
 .app-workbench .panel,
