@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const adminPaths = ['/admin', '/login', '/register', '/setup'];
+const isAdminRoute = computed(() => route.path === '/admin' || route.path.startsWith('/admin/'));
 
 watch(
   () => route.path,
@@ -25,7 +26,8 @@ watch(
 
 <template>
   <router-view v-slot="{ Component }">
-    <transition name="page" mode="out-in">
+    <component v-if="isAdminRoute" :is="Component" />
+    <transition v-else name="page" mode="out-in">
       <component :is="Component" />
     </transition>
   </router-view>
