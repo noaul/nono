@@ -1,7 +1,7 @@
 # Nono 后台管理与书签导入导出计划
 
 ## 2026-07-15 Nodesk 管理边界与首页功能调整
-状态：in_progress
+状态：complete
 
 目标：
 - 从 Nono 后台移除 Nodesk 菜单、路由和嵌入页面，Nodesk 继续作为独立同域应用运行。
@@ -14,7 +14,7 @@
 - 阶段 B：先补失败测试，定义移除后台入口、头像版本化和日程持久化契约。状态：complete
 - 阶段 C：实现 Nono 后台拆除与 Avatar 修复。状态：complete
 - 阶段 D：实现精简导航与可管理日程日历。状态：complete
-- 阶段 E：全量测试、构建、推送和 nc48 部署验收。状态：in_progress
+- 阶段 E：全量测试、构建、推送和 nc48 部署验收。状态：complete
 
 关键约束：
 - 不删除 `/nodesk` 公共站点及本地内容 API。

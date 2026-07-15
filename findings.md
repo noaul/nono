@@ -7,6 +7,8 @@
 - Avatar 上传接受任意 `image/*`，但无论源格式都保存为 `avatar.png`，存在扩展名与实际 MIME 不一致风险。
 - 首页导航项在 `apps/blog/src/components/nav-card.tsx` 静态定义，后三项可直接从契约中移除。
 - 当前日历只根据当前月份静态渲染，没有日程数据模型、详情交互或管理入口。
+- Avatar 根因确认：本地写入成功，但固定 `/images/avatar.png` 会复用缓存，且任意 `image/*` 原始字节都被冠以 PNG 扩展名。现改为 SHA-256 版本化 URL 并保留受支持的原始图片格式。
+- 日程数据放入 `site-content.json` 的 `calendarEvents`，复用现有本地内容 API 和 Docker volume，无需增加数据库表。
 
 ## 2026-07-15 Nodesk 一体化发现
 - 当前 Blog 是独立 Next.js 应用，由 `docker/gateway.mjs` 挂载到 `/blog`。
