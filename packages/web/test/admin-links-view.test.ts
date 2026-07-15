@@ -19,8 +19,9 @@ vi.mock('@/composables/useToasts', () => ({
   notifyError: vi.fn(),
 }));
 
-function mountLinksView() {
+function mountLinksView(props: { mode?: 'create' | 'manage' } = {}) {
   return mount(LinksView, {
+    props,
     global: {
       stubs: {
         AdminLayout: { template: '<main><slot /></main>', props: ['title'] },
@@ -81,7 +82,7 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).not.toContain('GitHub');
   });
 
-  it('selects links and bulk moves them to another folder', async () => {
+  it('removes the redundant bulk move controls', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: 'Inbox', sortOrder: 100 },
@@ -90,19 +91,13 @@ describe('LinksView admin workflow', () => {
       .mockResolvedValueOnce([
         { id: 10, folderId: 1, name: 'One', url: 'https://one.example/', sortOrder: 100 },
         { id: 11, folderId: 1, name: 'Two', url: 'https://two.example/', sortOrder: 90 },
-      ])
-      .mockResolvedValueOnce({ moved: 2 });
+      ]);
 
     const wrapper = mountLinksView();
     await settle(wrapper);
-    await wrapper.get('[data-testid="select-link-10"]').setValue(true);
-    await wrapper.get('[data-testid="select-link-11"]').setValue(true);
-    await wrapper.get('[data-testid="bulk-folder"]').setValue('2');
-    await wrapper.get('[data-testid="bulk-move"]').trigger('click');
-    await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/bulk-move', expect.objectContaining({ method: 'POST' }));
-    expect(wrapper.text()).toContain('Archive');
+    expect(wrapper.find('[data-testid="bulk-folder"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="bulk-move"]').exists()).toBe(false);
   });
 
   it('filters bookmarks by category then folder and saves inline changes', async () => {
@@ -148,7 +143,7 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('Maps');
   });
 
-  it('changes folder and notab from separate bookmark table columns', async () => {
+  it('edits folder and notab only after entering edit mode', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -160,30 +155,18 @@ describe('LinksView admin workflow', () => {
       .mockResolvedValueOnce([
         { id: 10, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 },
         { id: 11, folderId: 2, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 },
-      ])
-      .mockResolvedValueOnce({ id: 10, folderId: 3, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 })
-      .mockResolvedValueOnce({ id: 11, folderId: 5, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 });
+      ]);
 
     const wrapper = mountLinksView();
     await settle(wrapper);
 
     expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹notab');
-    expect(wrapper.get('[data-testid="link-folder-10"]').element).toBeInstanceOf(HTMLSelectElement);
-    expect(wrapper.get('[data-testid="link-notab-11"]').element).toBeInstanceOf(HTMLSelectElement);
-
-    await wrapper.get('[data-testid="link-folder-10"]').setValue('3');
-    await settle(wrapper);
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/10', {
-      method: 'PUT',
-      body: JSON.stringify({ folderId: 3 }),
-    });
-
-    await wrapper.get('[data-testid="link-notab-11"]').setValue('4');
-    await settle(wrapper);
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/11', {
-      method: 'PUT',
-      body: JSON.stringify({ folderId: 5 }),
-    });
+    expect(wrapper.find('[data-testid="link-folder-10"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="link-notab-10"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="link-name-10"]').element.tagName).toBe('SPAN');
+    await wrapper.get('[data-testid="edit-link-10"]').trigger('click');
+    expect(wrapper.get('[data-testid="inline-link-folder-10"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(wrapper.get('[data-testid="inline-link-category-10"]').element).toBeInstanceOf(HTMLSelectElement);
   });
 
   it('selects a category before choosing a folder for bookmark creation and quick add', async () => {
@@ -198,7 +181,7 @@ describe('LinksView admin workflow', () => {
       .mockResolvedValueOnce({ title: 'Maps', description: 'Map service' })
       .mockResolvedValueOnce({ id: 20, folderId: 4, name: 'Maps', url: 'https://maps.example/', description: 'Map service', sortOrder: 100 });
 
-    const wrapper = mountLinksView();
+    const wrapper = mountLinksView({ mode: 'create' });
     await settle(wrapper);
 
     expect(wrapper.get('[data-testid="create-link-category"]').element).toBeInstanceOf(HTMLSelectElement);
@@ -235,7 +218,7 @@ describe('LinksView admin workflow', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ id: 3, userId: 1, name: '资料', parentId: 1, sortOrder: -10 });
 
-    const wrapper = mountLinksView();
+    const wrapper = mountLinksView({ mode: 'create' });
     await settle(wrapper);
     await wrapper.get('[data-testid="create-link-folder"]').setValue('__new__');
     await wrapper.get('[data-testid="new-link-folder-name"]').setValue('资料');

@@ -54,5 +54,7 @@ describe('AdminLayout appearance settings', () => {
     expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-radius: 14px');
     expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-opacity: 0.86');
     expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-blur: 18px');
+    expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
+    expect(wrapper.get('.admin-nav').text()).toContain('文件夹新增书签导入导出书签管理Nodesk');
   });
 });

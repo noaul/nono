@@ -13,6 +13,9 @@ import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 
+const props = withDefaults(defineProps<{ mode?: 'create' | 'manage' }>(), {
+  mode: 'manage',
+});
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
@@ -30,10 +33,8 @@ const isInitialLoading = ref(true);
 const isSaving = ref(false);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
-const movingLinkIds = ref(new Set<number>());
 const searchTerm = ref('');
 const selectedLinkIds = ref(new Set<number>());
-const bulkFolderId = ref(0);
 const duplicateGroups = ref<DuplicateLinkGroup[]>([]);
 const isBulkWorking = ref(false);
 const isLoadingDuplicates = ref(false);
@@ -132,7 +133,6 @@ async function load() {
     [folders.value, links.value] = await Promise.all([apiRequest<Folder[]>('/api/admin/folders'), apiRequest<Link[]>('/api/admin/links')]);
     ensureCategorySelection();
     ensureCreationSelection();
-    if (!bulkFolderId.value && activeFolder.value) bulkFolderId.value = activeFolder.value.id;
     selectedLinkIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载书签失败');
@@ -144,13 +144,11 @@ async function load() {
 function selectCategory(category: Folder) {
   selectedCategoryId.value = category.id;
   selectedFolderId.value = preferredFolderId(category.id);
-  bulkFolderId.value = selectedFolderId.value;
   clearManagementState();
 }
 
 function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
-  bulkFolderId.value = folder.id;
   clearManagementState();
 }
 
@@ -158,12 +156,6 @@ function clearManagementState() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
   cancelInlineEdit();
-  stopSorting();
-}
-
-function edit(link: Link) {
-  Object.assign(form, link);
-  formCategoryId.value = categoryIdForFolder(link.folderId);
   stopSorting();
 }
 
@@ -356,24 +348,6 @@ function toggleAllFilteredLinks() {
   selectedLinkIds.value = next;
 }
 
-async function bulkMoveSelected() {
-  const ids = [...selectedLinkIds.value];
-  if (!ids.length || !bulkFolderId.value) return;
-
-  isBulkWorking.value = true;
-  try {
-    const result = await apiRequest<BulkLinkResult>('/api/admin/links/bulk-move', { method: 'POST', body: jsonBody({ ids, folderId: bulkFolderId.value }) });
-    const movedIds = new Set(ids);
-    links.value = links.value.map((link) => (movedIds.has(link.id) ? { ...link, folderId: bulkFolderId.value } : link));
-    selectedLinkIds.value = new Set();
-    notifySuccess(`已移动 ${result.moved ?? ids.length} 个书签`);
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '批量移动失败');
-  } finally {
-    isBulkWorking.value = false;
-  }
-}
-
 async function bulkDeleteSelected() {
   const ids = [...selectedLinkIds.value];
   if (!ids.length) return;
@@ -434,36 +408,8 @@ function folderName(folderId: number) {
   return folders.value.find((folder) => folder.id === folderId)?.name || '-';
 }
 
-async function updateLinkFolder(link: Link, folderId: number) {
-  if (!folderId || folderId === link.folderId || movingLinkIds.value.has(link.id)) return;
-  movingLinkIds.value = new Set([...movingLinkIds.value, link.id]);
-  try {
-    const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, {
-      method: 'PUT',
-      body: jsonBody({ folderId }),
-    });
-    links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved, folderId } : item));
-    if (editingLinkId.value === link.id) {
-      inlineForm.folderId = folderId;
-      inlineForm.categoryId = categoryIdForFolder(folderId);
-    }
-    notifySuccess('书签位置已更新');
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '书签位置更新失败');
-  } finally {
-    const next = new Set(movingLinkIds.value);
-    next.delete(link.id);
-    movingLinkIds.value = next;
-  }
-}
-
-function moveLinkToFolder(link: Link, event: Event) {
-  void updateLinkFolder(link, Number((event.target as HTMLSelectElement).value));
-}
-
-function moveLinkToNotab(link: Link, event: Event) {
-  const categoryId = Number((event.target as HTMLSelectElement).value);
-  void updateLinkFolder(link, preferredFolderId(categoryId));
+function categoryName(folderId: number) {
+  return folderById.value.get(categoryIdForFolder(folderId))?.name || '-';
 }
 
 function startSorting() {
@@ -525,8 +471,8 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="书签管理">
-    <section class="admin-card">
+  <AdminLayout :title="props.mode === 'create' ? '新增书签' : '书签管理'">
+    <section v-if="props.mode === 'create'" class="admin-card">
       <div class="admin-card-head">
         <div>
           <h2>{{ form.id ? '编辑书签' : '新增书签' }}</h2>
@@ -593,7 +539,7 @@ onMounted(load);
       </form>
     </section>
 
-    <section class="admin-card">
+    <section v-else class="admin-card">
       <div class="admin-card-head">
         <div>
           <h2>书签管理</h2>
@@ -639,14 +585,6 @@ onMounted(load);
             <button class="button secondary" data-testid="select-all-links" type="button" :disabled="!filteredLinks.length || isBulkWorking" @click="toggleAllFilteredLinks">
               {{ allFilteredSelected ? '取消全选' : '全选当前' }}
             </button>
-            <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
-              <optgroup v-for="group in categoryFolderGroups" :key="group.category.id" :label="group.category.name">
-                <option v-for="folder in group.folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-              </optgroup>
-            </select>
-            <button class="button secondary" data-testid="bulk-move" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkMoveSelected">
-              <MoveDown :size="17" /> 移动
-            </button>
             <button class="button secondary" data-testid="check-link-health" type="button" :disabled="isCheckingHealth || (!selectedCount && !filteredLinks.length)" @click="checkLinkHealth">
               <Activity :size="17" /> {{ isCheckingHealth ? '检查中' : '健康检查' }}
             </button>
@@ -685,7 +623,7 @@ onMounted(load);
                   :data-testid="`inline-link-name-${link.id}`"
                   maxlength="24"
                 />
-                <button v-else class="text-button" type="button" :disabled="sortMode" @click="edit(link)">{{ link.name }}</button>
+                <span v-else :data-testid="`link-name-${link.id}`">{{ link.name }}</span>
               </span>
               <span class="url-cell" data-label="链接">
                 <input
@@ -707,17 +645,7 @@ onMounted(load);
                 >
                   <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
                 </select>
-                <select
-                  v-else
-                  :value="link.folderId"
-                  class="table-location-select"
-                  :data-testid="`link-folder-${link.id}`"
-                  aria-label="更改书签文件夹"
-                  :disabled="sortMode || movingLinkIds.has(link.id)"
-                  @change="moveLinkToFolder(link, $event)"
-                >
-                  <option v-for="folder in foldersForCategory(categoryIdForFolder(link.folderId))" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-                </select>
+                <template v-else>{{ folderName(link.folderId) }}</template>
               </span>
               <span data-label="notab">
                 <select
@@ -730,17 +658,7 @@ onMounted(load);
                 >
                   <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
                 </select>
-                <select
-                  v-else
-                  :value="categoryIdForFolder(link.folderId)"
-                  class="table-location-select"
-                  :data-testid="`link-notab-${link.id}`"
-                  aria-label="更改书签 notab"
-                  :disabled="sortMode || movingLinkIds.has(link.id)"
-                  @change="moveLinkToNotab(link, $event)"
-                >
-                  <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
-                </select>
+                <template v-else>{{ categoryName(link.folderId) }}</template>
               </span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
@@ -830,8 +748,7 @@ onMounted(load);
 }
 
 .inline-link-input,
-.inline-link-select,
-.table-location-select {
+.inline-link-select {
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(148, 163, 184, 0.46);
   border-radius: 7px;
@@ -844,8 +761,7 @@ onMounted(load);
 }
 
 .inline-link-input:focus,
-.inline-link-select:focus,
-.table-location-select:focus {
+.inline-link-select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
@@ -862,8 +778,7 @@ onMounted(load);
   }
 
   .inline-link-input,
-  .inline-link-select,
-  .table-location-select {
+  .inline-link-select {
     width: 100%;
   }
 }

@@ -288,6 +288,26 @@ describe('visual contracts', () => {
     expect(source).toContain('/api/admin/links/reorder');
     expect(source).toContain('sortMode');
     expect(source).toContain('to="/admin/bookmarks"');
+    expect(source).toContain("mode?: 'create' | 'manage'");
+    expect(source).not.toContain('data-testid="bulk-folder"');
+    expect(source).not.toContain('data-testid="bulk-move"');
+  });
+
+  it('routes bookmark creation and Nodesk management into the admin shell', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
+    const nodeskSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'), 'utf8');
+
+    expect(routerSource).toContain("path: '/admin/add-bookmark'");
+    expect(routerSource).toContain("path: '/admin/nodesk'");
+    expect(layoutSource).toContain("to: '/admin/add-bookmark', label: '新增书签'");
+    expect(layoutSource).toContain("to: '/admin/nodesk', label: 'Nodesk'");
+    expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
+    expect(nodeskSource).toContain('/blog/write');
+    expect(nodeskSource).toContain('/blog/blog');
+    expect(nodeskSource).toContain('/blog/pictures');
   });
 
   it('uses a visible native file input for bookmark imports', async () => {
