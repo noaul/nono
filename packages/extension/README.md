@@ -45,6 +45,17 @@ packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
 
 解压后按“加载已解压版本”的方式安装。
 
+## Chrome Web Store 发布资源
+
+商店图标、截图和宣传图位于 `store-assets/`。这些文件已经按 Chrome Web Store 的尺寸导出为无透明层的 24-bit PNG：
+
+- `webstore-icon-128.png`
+- `screenshot-1280x800.png`
+- `promo-small-440x280.png`
+- `promo-marquee-1400x560.png`
+
+资源清单及生成来源见 `store-assets/README.md`。
+
 ## 配置
 
 1. 在 Nono 后台的 Token 页面创建 API Token。
