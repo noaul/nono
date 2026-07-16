@@ -3,6 +3,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
+import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
 import { checkLinksHealth } from '../../services/link-health.service.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 
@@ -19,7 +20,9 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const body = request.body as any;
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
-    return sendOk(reply, await services.repo.createLink({ folderId: folder.id, name: body.name, url: normalizeUrl(body.url), icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()) }));
+    const url = normalizeUrl(body.url);
+    const name = body.nameMode === 'manual' ? String(body.name || '').trim() || shortenBookmarkName('', url) : shortenBookmarkName(body.name, url);
+    return sendOk(reply, await services.repo.createLink({ folderId: folder.id, name, url, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()) }));
   });
 
   app.put('/api/admin/links/reorder', async (request, reply) => {
@@ -53,7 +56,9 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const ids = uniqueNumericIds(body.ids);
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
-    for (const id of ids) await services.repo.updateLink(user.id, id, { folderId: folder.id });
+    for (const [index, id] of ids.entries()) {
+      await services.repo.updateLink(user.id, id, { folderId: folder.id, sortOrder: createSortOrder(index) });
+    }
     return sendOk(reply, { moved: ids.length });
   });
 
@@ -61,8 +66,10 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any).ids);
-    for (const id of ids) await services.repo.deleteLink(user.id, id);
-    return sendOk(reply, { deleted: ids.length });
+    const ownedIds = new Set((await services.repo.listLinks(user.id)).map((link) => link.id));
+    const deleteIds = ids.filter((id) => ownedIds.has(id));
+    await services.repo.deleteLinks(user.id, deleteIds);
+    return sendOk(reply, { deleted: deleteIds.length });
   });
 
   app.post('/api/admin/links/health-check', async (request, reply) => {
@@ -79,6 +86,15 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     if (!user) return;
     const body = { ...(request.body as any) };
     if (body.url) body.url = normalizeUrl(body.url);
+    if ('folderId' in body) {
+      const folder = await services.repo.getFolder(user.id, Number(body.folderId));
+      if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+      body.folderId = folder.id;
+      const links = await services.repo.listLinks(user.id);
+      const current = links.find((link) => link.id === Number((request.params as any).id));
+      if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+      if (current.folderId !== Number(body.folderId)) body.sortOrder = createSortOrder();
+    }
     return sendOk(reply, await services.repo.updateLink(user.id, Number((request.params as any).id), body));
   });
 

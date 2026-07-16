@@ -8,13 +8,13 @@ export interface PortalSettings {
 
 export const portalDefaults: PortalSettings = {
 	enabled: true,
-	url: '',
+	url: '/',
 	label: '返回网址导航',
 	imageUrl: '/images/avatar.png',
 	openInNewTab: false
 }
 
-export function getPortalSettings(value: unknown, fallbackUrl = process.env.NEXT_PUBLIC_NONO_URL || 'http://localhost:3000'): PortalSettings {
+export function getPortalSettings(value: unknown, fallbackUrl = process.env.NEXT_PUBLIC_NONO_URL || portalDefaults.url): PortalSettings {
 	const record = isRecord(value) ? value : {}
 
 	return {

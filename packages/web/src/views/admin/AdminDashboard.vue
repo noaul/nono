@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { ArrowRight, Bot, ExternalLink, Folder as FolderIcon, Globe, KeyRound, Link2, ListChecks, Lock, Settings, Upload } from 'lucide-vue-next';
+import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
@@ -30,7 +31,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="admin-dashboard">
+  <AdminLayout title="控制台总览">
     <section class="dashboard-hero">
       <div class="dashboard-hero-copy">
         <p>运营中枢</p>
@@ -135,7 +136,7 @@ onMounted(async () => {
               <small>补充工具、资料和外部入口</small>
             </div>
           </RouterLink>
-          <RouterLink to="/admin/bookmarks">
+          <RouterLink to="/admin/add-bookmark">
             <Upload :size="17" />
             <div>
               <strong>导入浏览器书签</strong>
@@ -184,7 +185,7 @@ onMounted(async () => {
         </div>
       </section>
     </div>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>

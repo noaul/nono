@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
+import { buildApp, FetchLlmClient } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
@@ -58,6 +58,25 @@ describe('Nono Fastify app', () => {
     expect(session.json().data).toMatchObject({ authenticated: true, setupRequired: false });
   });
 
+  it('serves the setup admin site through the root navigation alias', async () => {
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: {
+        username: 'nono',
+        email: 'nono@nono.test',
+        displayName: 'Nono',
+        password: adminPassword,
+      },
+    });
+    expect(setup.statusCode).toBe(200);
+
+    const navigation = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+
+    expect(navigation.statusCode).toBe(200);
+    expect(navigation.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
+  });
+
   it('keeps disabled registration and unauthenticated errors in the unified response envelope', async () => {
     const register = await app.inject({
       method: 'POST',
@@ -103,7 +122,12 @@ describe('Nono Fastify app', () => {
         settings: {
           analytics: { enabled: true },
           appearance: {
+            cardColor: 'transparent',
             cardRadius: 999,
+            searchColor: '#A1B2C3',
+            bookmarkTextColor: '#112233',
+            categoryTextColor: null,
+            tabColor: '#DDEEFF',
             modalOpacity: '38',
             tabBlur: -12,
             adminBlur: {},
@@ -116,7 +140,12 @@ describe('Nono Fastify app', () => {
     expect(updated.json().data.settings).toMatchObject({
       analytics: { enabled: true },
       appearance: {
+        cardColor: '#f7f8fb',
         cardRadius: 24,
+        searchColor: '#a1b2c3',
+        bookmarkTextColor: '#112233',
+        categoryTextColor: '#ffffff',
+        tabColor: '#ddeeff',
         modalOpacity: 38,
         tabBlur: 0,
         adminBlur: 10,
@@ -243,6 +272,130 @@ describe('Nono Fastify app', () => {
     expect(await repo.listLinks(1)).toHaveLength(1);
   });
 
+  it('promotes folders below the Bookmarks wrapper and ignores sibling roots', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>',
+      '<DT><H3>Outside</H3><DL><p><DT><A HREF="https://outside.example/">Outside link</A></DL><p>',
+      '<DT><H3>Bookmarks</H3><DL><p>',
+      '<DT><H3>Work</H3><DL><p><DT><A HREF="https://work.example/">Work link</A></DL><p>',
+      '<DT><H3>Life</H3><DL><p><DT><A HREF="https://life.example/">Life link</A></DL><p>',
+      '</DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json().data.folders).toEqual([
+      expect.objectContaining({ tempId: 'folder-3', parentTempId: null, name: 'Work' }),
+      expect.objectContaining({ tempId: 'folder-4', parentTempId: null, name: 'Life' }),
+    ]);
+    expect(preview.json().data.links.map((link: any) => link.name)).toEqual(['Work link', 'Life link']);
+    expect(preview.json().data.summary).toMatchObject({ ignoredFolders: 1, ignoredLinks: 1 });
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    expect((await repo.listFolders(1)).map((folder) => ({ name: folder.name, parentId: folder.parentId }))).toEqual([
+      { name: 'Work', parentId: null },
+      { name: 'Life', parentId: null },
+    ]);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Work link', 'Life link']);
+  });
+
+  it('treats the Chrome Bookmarks bar as an import wrapper', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>',
+      '<DT><H3>Bookmarks bar</H3><DL><p>',
+      '<DT><H3>Lighting</H3><DL><p>',
+      '<DT><H3>微光</H3><DL><p><DT><A HREF="https://glimmer.example/">微光</A></DL><p>',
+      '<DT><H3>Gather</H3><DL><p><DT><A HREF="https://gather.example/">Gather</A></DL><p>',
+      '</DL><p></DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(preview.statusCode).toBe(200);
+    const previewFolders = preview.json().data.folders;
+    const lighting = previewFolders.find((folder: any) => folder.name === 'Lighting');
+    expect(previewFolders.map((folder: any) => folder.name)).toEqual(['Lighting', '微光', 'Gather']);
+    expect(lighting.parentTempId).toBeNull();
+    expect(previewFolders.find((folder: any) => folder.name === '微光').parentTempId).toBe(lighting.tempId);
+    expect(previewFolders.find((folder: any) => folder.name === 'Gather').parentTempId).toBe(lighting.tempId);
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: { html },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    const importedFolders = await repo.listFolders(1);
+    const importedLighting = importedFolders.find((folder) => folder.name === 'Lighting');
+    expect(importedFolders.map((folder) => folder.name)).toEqual(['Lighting', '微光', 'Gather']);
+    expect(importedLighting?.parentId).toBeNull();
+    expect(importedFolders.find((folder) => folder.name === '微光')?.parentId).toBe(importedLighting?.id);
+    expect(importedFolders.find((folder) => folder.name === 'Gather')?.parentId).toBe(importedLighting?.id);
+  });
+
+  it('imports only selected preview folders and links', async () => {
+    const cookie = await setupAdmin();
+    const html = [
+      '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Bookmarks</H3><DL><p>',
+      '<DT><H3>Work</H3><DL><p>',
+      '<DT><A HREF="https://one.example/">One</A>',
+      '<DT><A HREF="https://two.example/">Two</A>',
+      '</DL><p>',
+      '<DT><H3>Skip me</H3><DL><p><DT><A HREF="https://skip.example/">Skip</A></DL><p>',
+      '</DL><p></DL><p>',
+    ].join('');
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/preview',
+      headers: { cookie },
+      payload: { html },
+    });
+    const data = preview.json().data;
+    const work = data.folders.find((folder: any) => folder.name === 'Work');
+    const one = data.links.find((link: any) => link.name === 'One');
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/admin/bookmarks/import',
+      headers: { cookie },
+      payload: {
+        html,
+        selection: {
+          folderTempIds: [work.tempId],
+          linkTempIds: [one.tempId],
+        },
+      },
+    });
+
+    expect(imported.statusCode).toBe(200);
+    expect(imported.json().data).toMatchObject({ addedFolders: 1, addedLinks: 1 });
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['Work']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['One']);
+  });
+
   it('uses PostgreSQL-safe sort order values when importing bookmarks', async () => {
     const cookie = await setupAdmin();
     const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><H3>Tools</H3><DL><p><DT><A HREF="https://example.com/">Example</A></DL><p></DL><p>';
@@ -259,6 +412,38 @@ describe('Nono Fastify app', () => {
     const [link] = await repo.listLinks(1);
     expect(folder.sortOrder).toBeLessThanOrEqual(2_147_483_647);
     expect(link.sortOrder).toBeLessThanOrEqual(2_147_483_647);
+  });
+
+  it('appends newly created folders and links after existing items', async () => {
+    const cookie = await setupAdmin();
+    const firstFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'First', sortOrder: 1000 } });
+    const secondFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Second' } });
+    const folderId = firstFolder.json().data.id;
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'One', url: 'https://one.example/', sortOrder: 1000 } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Two', url: 'https://two.example/' } });
+
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['First', 'Second']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['One', 'Two']);
+    expect(secondFolder.json().data.sortOrder).toBeLessThanOrEqual(firstFolder.json().data.sortOrder);
+  });
+
+  it('moves a folder to the end of another notab', async () => {
+    const cookie = await setupAdmin();
+    const source = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Source' } });
+    const target = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Target' } });
+    const existing = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Existing', parentId: target.json().data.id, sortOrder: 1000 } });
+    const moving = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Moving', parentId: source.json().data.id, sortOrder: 2000 } });
+
+    const moved = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/folders/${moving.json().data.id}`,
+      headers: { cookie },
+      payload: { parentId: target.json().data.id },
+    });
+
+    expect(moved.statusCode).toBe(200);
+    expect(moved.json().data.parentId).toBe(target.json().data.id);
+    expect(moved.json().data.sortOrder).toBeLessThanOrEqual(existing.json().data.sortOrder);
   });
 
   it('skips browser-only bookmark URLs and data icons during import', async () => {
@@ -391,6 +576,27 @@ describe('Nono Fastify app', () => {
     expect(await repo.listLinks(1)).toHaveLength(0);
   });
 
+  it('bulk deletes selected folder trees and their bookmarks', async () => {
+    const cookie = await setupAdmin();
+    const root = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Root' } });
+    const child = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Child', parentId: root.json().data.id } });
+    const keep = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Keep' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: child.json().data.id, name: 'Delete', url: 'https://delete.example/' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: keep.json().data.id, name: 'Keep', url: 'https://keep.example/' } });
+
+    const result = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders/bulk-delete',
+      headers: { cookie },
+      payload: { ids: [root.json().data.id, root.json().data.id, 0] },
+    });
+
+    expect(result.statusCode).toBe(200);
+    expect(result.json().data).toEqual({ deletedFolders: 2, deletedLinks: 1 });
+    expect((await repo.listFolders(1)).map((folder) => folder.name)).toEqual(['Keep']);
+    expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Keep']);
+  });
+
   it('checks selected admin link health without writing link state', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Quality' } });
@@ -417,7 +623,11 @@ describe('Nono Fastify app', () => {
 
     expect(health.statusCode).toBe(200);
     expect(health.json().data.summary).toMatchObject({ total: 3, ok: 1, broken: 1, invalid: 1, timeout: 0 });
-    expect(health.json().data.results.map((result: any) => result.status)).toEqual(['ok', 'broken', 'invalid']);
+    expect(Object.fromEntries(health.json().data.results.map((result: any) => [result.id, result.status]))).toEqual({
+      [ok.json().data.id]: 'ok',
+      [broken.json().data.id]: 'broken',
+      [invalid.id]: 'invalid',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -465,5 +675,112 @@ describe('Nono Fastify app', () => {
     expect(saved.statusCode).toBe(200);
     expect(saved.json().data.url).toBe('https://example.com/article');
     expect(await repo.listLinks(1)).toHaveLength(1);
+  });
+
+  it('persists a custom LLM API base URL and passes it to bookmark analysis', async () => {
+    const llmClient = { complete: vi.fn().mockResolvedValue('{"suggestedName":"AI result"}') };
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
+    const cookie = await setupAdmin();
+    await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Reading', description: '只收录深度阅读和长篇资料' } });
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/account/llm',
+      headers: { cookie },
+      payload: {
+        provider: 'openai',
+        model: 'custom-model',
+        apiKey: 'secret-key',
+        baseUrl: 'https://gateway.example.com/v1/',
+        reasoningEffort: 'high',
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data).toMatchObject({
+      llmProvider: 'openai',
+      llmModel: 'custom-model',
+      llmBaseUrl: 'https://gateway.example.com/v1',
+      llmReasoningEffort: 'high',
+      hasLlmApiKey: true,
+    });
+
+    const analysis = await app.inject({
+      method: 'POST',
+      url: '/api/ai/analyze',
+      headers: { cookie },
+      payload: { url: 'https://example.com/article', title: 'Example' },
+    });
+
+    expect(analysis.statusCode).toBe(200);
+    expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({
+      provider: 'openai',
+      model: 'custom-model',
+      baseUrl: 'https://gateway.example.com/v1',
+      reasoningEffort: 'high',
+      prompt: expect.stringContaining('只收录深度阅读和长篇资料'),
+    }));
+  });
+
+  it('tests an unsaved LLM connection with the selected reasoning depth', async () => {
+    const llmClient = { complete: vi.fn().mockResolvedValue('{"ok":true}') };
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
+    const cookie = await setupAdmin();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/account/llm/test',
+      headers: { cookie },
+      payload: {
+        provider: 'openai',
+        model: 'gpt-5-mini',
+        apiKey: 'test-key',
+        baseUrl: 'https://gateway.example.com/v1',
+        reasoningEffort: 'medium',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toMatchObject({ ok: true, model: 'gpt-5-mini', reasoningEffort: 'medium' });
+    expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: 'test-key',
+      reasoningEffort: 'medium',
+      prompt: 'Return exactly this JSON: {"ok":true}',
+    }));
+  });
+
+  it('resolves custom OpenAI-compatible and Claude API endpoints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '{}' } }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ type: 'text', text: '{}' }] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new FetchLlmClient();
+
+    await client.complete({
+      provider: 'openai',
+      apiKey: 'key',
+      model: 'model',
+      baseUrl: 'https://openrouter.example/api/v1',
+      prompt: 'hello',
+    });
+    await client.complete({
+      provider: 'claude',
+      apiKey: 'key',
+      model: 'model',
+      baseUrl: 'https://claude-gateway.example/v1/',
+      prompt: 'hello',
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://openrouter.example/api/v1/chat/completions');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://claude-gateway.example/v1/messages');
+    vi.unstubAllGlobals();
   });
 });

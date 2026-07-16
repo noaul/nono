@@ -3,6 +3,7 @@ import type { Repository } from './services/repository.js';
 
 export type Role = 'admin' | 'user';
 export type LlmProvider = 'openai' | 'claude';
+export type LlmReasoningEffort = 'none' | 'low' | 'medium' | 'high';
 
 export interface AuthUser {
   id: number;
@@ -16,11 +17,12 @@ export interface AppServices {
   repo: Repository;
   sessionSecret: string;
   encryptionKey: string;
+  nodeskContentDir: string;
   llmClient?: LlmClient;
 }
 
 export interface LlmClient {
-  complete(input: { provider: LlmProvider; apiKey: string; model: string; prompt: string }): Promise<string>;
+  complete(input: { provider: LlmProvider; apiKey: string; model: string; baseUrl?: string | null; prompt: string; reasoningEffort?: LlmReasoningEffort | null }): Promise<string>;
 }
 
 export interface AuthedRequest extends FastifyRequest {

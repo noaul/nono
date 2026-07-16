@@ -1,10 +1,15 @@
 export interface AppearanceSettings {
+  cardColor: string;
   cardRadius: number;
   cardOpacity: number;
   cardBlur: number;
+  searchColor: string;
   searchRadius: number;
   searchOpacity: number;
   searchBlur: number;
+  bookmarkTextColor: string;
+  categoryTextColor: string;
+  tabColor: string;
   modalRadius: number;
   modalOpacity: number;
   modalBlur: number;
@@ -17,24 +22,42 @@ export interface AppearanceSettings {
 }
 
 export const appearanceDefaults: AppearanceSettings = {
+  cardColor: '#f7f8fb',
   cardRadius: 8,
-  cardOpacity: 52,
-  cardBlur: 8,
+  cardOpacity: 26,
+  cardBlur: 18,
+  searchColor: '#f7f8fb',
   searchRadius: 28,
-  searchOpacity: 26,
-  searchBlur: 14,
+  searchOpacity: 34,
+  searchBlur: 20,
+  bookmarkTextColor: '#ffffff',
+  categoryTextColor: '#ffffff',
+  tabColor: '#f7f8fb',
   modalRadius: 8,
   modalOpacity: 85,
   modalBlur: 24,
   tabRadius: 28,
-  tabOpacity: 12,
+  tabOpacity: 26,
   tabBlur: 10,
   adminRadius: 8,
   adminOpacity: 72,
   adminBlur: 10,
 };
 
-const limits: Record<keyof AppearanceSettings, readonly [number, number]> = {
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor' | 'tabColor'>;
+type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
+
+const numericKeys: NumericAppearanceKey[] = [
+  'cardRadius', 'cardOpacity', 'cardBlur',
+  'searchRadius', 'searchOpacity', 'searchBlur',
+  'modalRadius', 'modalOpacity', 'modalBlur',
+  'tabRadius', 'tabOpacity', 'tabBlur',
+  'adminRadius', 'adminOpacity', 'adminBlur',
+];
+
+const colorKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor', 'tabColor'];
+
+const limits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],
   cardOpacity: [12, 90],
   cardBlur: [0, 32],
@@ -66,23 +89,48 @@ function normalizedNumber(value: unknown, fallback: number, min: number, max: nu
   return Math.min(max, Math.max(min, Math.round(number)));
 }
 
+function normalizedHex(value: unknown, fallback: string) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : fallback;
+}
+
+function hexToRgb(hex: string) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}`;
+}
+
 export function getAppearanceSettings(settings?: Record<string, unknown> | null): AppearanceSettings {
   const saved = isRecord(settings?.appearance) ? settings.appearance : {};
-  return (Object.keys(appearanceDefaults) as Array<keyof AppearanceSettings>).reduce((result, key) => {
+  const result = { ...appearanceDefaults };
+  for (const key of numericKeys) {
     const [min, max] = limits[key];
     result[key] = normalizedNumber(saved[key], appearanceDefaults[key], min, max);
-    return result;
-  }, { ...appearanceDefaults });
+  }
+  for (const key of colorKeys) {
+    result[key] = normalizedHex(saved[key], appearanceDefaults[key]);
+  }
+  return result;
 }
 
 export function toAppearanceCssVars(appearance: AppearanceSettings): Record<string, string> {
   return {
+    '--public-card-color': appearance.cardColor,
+    '--public-card-color-rgb': hexToRgb(appearance.cardColor),
     '--public-card-radius': `${appearance.cardRadius}px`,
     '--public-card-opacity': (appearance.cardOpacity / 100).toFixed(2),
     '--public-card-blur': `${appearance.cardBlur}px`,
+    '--public-search-color': appearance.searchColor,
+    '--public-search-color-rgb': hexToRgb(appearance.searchColor),
     '--public-search-radius': `${appearance.searchRadius}px`,
     '--public-search-opacity': (appearance.searchOpacity / 100).toFixed(2),
     '--public-search-blur': `${appearance.searchBlur}px`,
+    '--public-bookmark-text': appearance.bookmarkTextColor,
+    '--public-bookmark-text-rgb': hexToRgb(appearance.bookmarkTextColor),
+    '--public-category-text': appearance.categoryTextColor,
+    '--public-category-text-rgb': hexToRgb(appearance.categoryTextColor),
+    '--public-tab-color': appearance.tabColor,
+    '--public-tab-color-rgb': hexToRgb(appearance.tabColor),
     '--public-modal-radius': `${appearance.modalRadius}px`,
     '--public-modal-opacity': (appearance.modalOpacity / 100).toFixed(2),
     '--public-modal-blur': `${appearance.modalBlur}px`,

@@ -4,13 +4,14 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   Bot,
   Compass,
+  FilePlus2,
   Folder,
   Home,
   KeyRound,
+  Layers,
   Link2,
   LogOut,
   Settings,
-  Upload,
   User,
   Users,
 } from 'lucide-vue-next';
@@ -37,14 +38,15 @@ const navSections = [
     items: [
       { to: '/admin', label: '总览', title: '控制台总览', icon: Home },
       { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
+      { to: '/admin/notabs', label: 'Notab 管理', title: 'Notab 管理', icon: Layers },
       { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
+      { to: '/admin/add-bookmark', label: '新增书签', title: '新增书签', icon: FilePlus2 },
       { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
     ],
   },
   {
     label: '自动化',
     items: [
-      { to: '/admin/bookmarks', label: '导入导出', title: '浏览器书签', icon: Upload },
       { to: '/admin/llm', label: 'LLM', title: 'AI 智能收藏', icon: Bot },
       { to: '/admin/tokens', label: 'Token', title: 'API Token', icon: KeyRound },
     ],
@@ -104,9 +106,9 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench figma-admin-shell" :style="appearanceStyle">
+  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell" :style="appearanceStyle">
     <aside class="workbench-sidebar glass-surface">
-      <RouterLink class="sidebar-brand" to="/admin">
+      <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
         <div>
           <h1>Nono 控制台</h1>

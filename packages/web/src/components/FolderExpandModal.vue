@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
   align-items: center;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(8, 10, 14, 0.75);
+  background: rgba(8, 16, 18, 0.42);
   display: grid;
   inset: 0;
   padding: 40px 36px;
@@ -121,13 +121,15 @@ onBeforeUnmount(() => {
 }
 
 .folder-expand-modal {
-  background: rgba(15, 18, 25, var(--public-modal-opacity, 0.85));
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85));
   backdrop-filter: blur(var(--public-modal-blur, 24px));
   -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: var(--public-modal-radius, 8px);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.04);
-  color: #f3f4f6;
+  box-shadow:
+    0 32px 80px rgba(5, 15, 18, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  color: #17211d;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 20px;
@@ -144,7 +146,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(51, 65, 61, 0.14);
   padding-bottom: 16px;
 }
 
@@ -155,7 +157,7 @@ onBeforeUnmount(() => {
 }
 
 .expand-folder-icon {
-  color: rgba(255, 255, 255, 0.92);
+  color: #52615c;
   font-size: 22px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
 }
@@ -165,15 +167,15 @@ onBeforeUnmount(() => {
   font-weight: 800;
   letter-spacing: 0;
   margin: 0;
-  color: #ffffff;
+  color: #17211d;
 }
 
 .folder-expand-close {
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.54);
+  border: 1px solid rgba(51, 65, 61, 0.18);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #52615c;
   cursor: pointer;
   display: inline-flex;
   height: 36px;
@@ -190,9 +192,9 @@ onBeforeUnmount(() => {
 
 .folder-expand-close:hover,
 .folder-expand-close:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(var(--accent-rgb), 0.34);
+  color: var(--accent);
   transform: translateY(-1px) scale(1.03);
 }
 
@@ -208,7 +210,7 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   overflow-y: auto;
   padding-right: 6px;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: rgba(51, 65, 61, 0.22) transparent;
   scrollbar-width: thin;
 }
 
@@ -217,16 +219,16 @@ onBeforeUnmount(() => {
 }
 
 .expanded-link-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(51, 65, 61, 0.22);
   border-radius: 99px;
 }
 
 .expanded-link {
   align-items: center;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(51, 65, 61, 0.12);
   border-radius: 8px;
-  color: rgba(243, 244, 246, 0.9);
+  color: #26332f;
   display: grid;
   gap: 12px;
   grid-template-columns: 46px minmax(0, 1fr);
@@ -242,12 +244,12 @@ onBeforeUnmount(() => {
 
 .expanded-link:hover,
 .expanded-link:focus-visible {
-  background: rgba(var(--accent-rgb), 0.06);
+  background: rgba(255, 255, 255, 0.78);
   border-color: rgba(var(--accent-rgb), 0.25);
   color: var(--accent);
   outline: none;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.08);
+  box-shadow: 0 8px 24px rgba(5, 15, 18, 0.1);
 }
 
 .expanded-link:active {
@@ -262,14 +264,14 @@ onBeforeUnmount(() => {
 
 .expanded-link-icon {
   align-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(51, 65, 61, 0.12);
   border-radius: 8px;
   display: inline-flex;
   height: 44px;
   justify-content: center;
   width: 44px;
-  color: rgba(255, 255, 255, 0.3);
+  color: #6b7873;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -307,7 +309,7 @@ onBeforeUnmount(() => {
 }
 
 .expanded-link small {
-  color: rgba(255, 255, 255, 0.4);
+  color: #6b7873;
   font-size: 12px;
   font-weight: 500;
 }
@@ -320,7 +322,7 @@ mark {
 }
 
 .expanded-empty {
-  color: rgba(255, 255, 255, 0.45);
+  color: #6b7873;
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 0;

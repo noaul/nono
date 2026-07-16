@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Check, ChevronDown, Search } from 'lucide-vue-next';
-import { SEARCH_ENGINES, getEngine, getSelectedEngineId, setSelectedEngineId } from '@/utils/searchEngines';
+import { getEngine, getSelectedEngineId, setSelectedEngineId, type SearchEngineSettings } from '@/utils/searchEngines';
 
-defineProps<{ modelValue: string; placeholder?: string }>();
+const props = defineProps<{ modelValue: string; placeholder?: string; searchEngines: SearchEngineSettings }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string]; submit: []; 'engine-change': [engineId: string] }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerRef = ref<HTMLElement | null>(null);
 const pickerOpen = ref(false);
-const engineId = ref(getSelectedEngineId());
-const engine = computed(() => getEngine(engineId.value));
+const engineId = ref(getSelectedEngineId(props.searchEngines));
+const enabledEngines = computed(() => props.searchEngines.items.filter((item) => item.enabled));
+const engine = computed(() => getEngine(engineId.value, props.searchEngines));
+
+watch(() => props.searchEngines, (settings) => {
+  engineId.value = getSelectedEngineId(settings);
+}, { deep: true });
 
 function pickEngine(id: string) {
   engineId.value = id;
@@ -62,7 +67,7 @@ defineExpose({
         <ChevronDown class="engine-caret" :size="13" />
       </button>
       <ul v-if="pickerOpen" class="engine-menu" role="listbox" :aria-activedescendant="`engine-${engineId}`">
-        <li v-for="option in SEARCH_ENGINES" :key="option.id">
+        <li v-for="option in enabledEngines" :key="option.id">
           <button
             :id="`engine-${option.id}`"
             class="engine-option"
@@ -94,25 +99,24 @@ defineExpose({
 <style scoped>
 .search-bar {
   align-items: center;
-  backdrop-filter: blur(14px) saturate(1.12);
-  backdrop-filter: blur(var(--public-search-blur, 14px)) saturate(1.12);
-  -webkit-backdrop-filter: blur(14px) saturate(1.12);
-  -webkit-backdrop-filter: blur(var(--public-search-blur, 14px)) saturate(1.12);
-  background: rgba(10, 14, 18, 0.26);
-  background: rgba(10, 14, 18, var(--public-search-opacity, 0.26));
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 10px;
   min-height: 52px;
+  min-width: 0;
   margin: 0 auto;
   max-width: 680px;
   padding: 0 6px 0 10px;
   position: relative;
   width: 100%;
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 14px 40px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -121,12 +125,12 @@ defineExpose({
 }
 
 .search-bar:focus-within {
-  background: rgba(12, 18, 24, 0.34);
-  border-color: rgba(var(--accent-soft-rgb), 0.38);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.08));
+  border-color: rgba(var(--accent-soft-rgb), 0.46);
   box-shadow:
-    0 16px 44px rgba(0, 0, 0, 0.22),
+    0 16px 44px rgba(0, 0, 0, 0.16),
     0 0 0 3px rgba(var(--accent-bright-rgb), 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
 }
 
 .engine-picker {
@@ -139,7 +143,7 @@ defineExpose({
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  color: rgba(226, 232, 240, 0.85);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.88);
   cursor: pointer;
   display: inline-flex;
   gap: 4px;
@@ -171,7 +175,7 @@ defineExpose({
 }
 
 .engine-caret {
-  color: rgba(226, 232, 240, 0.55);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.62);
 }
 
 .engine-menu {
@@ -227,7 +231,7 @@ defineExpose({
 .search-bar input {
   background: transparent;
   border: 0;
-  color: #fff;
+  color: var(--public-bookmark-text, #ffffff);
   flex: 1;
   min-width: 0;
   outline: 0;
@@ -236,13 +240,13 @@ defineExpose({
 }
 
 .search-bar input::placeholder {
-  color: rgba(226, 232, 240, 0.56);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.62);
 }
 
 .search-kbd {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
-  color: rgba(226, 232, 240, 0.5);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.58);
   flex: 0 0 auto;
   font-family: inherit;
   font-size: 12px;

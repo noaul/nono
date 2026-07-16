@@ -29,7 +29,7 @@ export default function HiCard() {
 	const avatar = (
 		<span className='group relative mx-auto block w-fit rounded-full focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-[var(--color-brand)]'>
 			<img
-				src={portal.imageUrl || '/images/avatar.png'}
+				src={portal.imageUrl || siteContent.meta.avatarUrl || '/images/avatar.png'}
 				alt={portal.enabled && portal.url ? portal.label : `${username} avatar`}
 				className='mx-auto rounded-full object-cover transition-transform duration-200 group-hover:scale-[1.03]'
 				style={{ width: 120, height: 120, boxShadow: '0 16px 32px -5px #E2D9CE' }}

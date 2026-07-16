@@ -17,7 +17,9 @@ import { bookmarkRoutes } from './routes/admin/bookmarks.js';
 import { tokenRoutes } from './routes/admin/tokens.js';
 import { userRoutes } from './routes/admin/users.js';
 import { accountRoutes } from './routes/admin/account.js';
+import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
+import { nodeskRoutes } from './routes/nodesk.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
@@ -29,6 +31,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     repo: overrides.repo || createPrismaRepository(),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: overrides.encryptionKey || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
     llmClient: overrides.llmClient || new FetchLlmClient(),
   };
 
@@ -55,7 +58,9 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await tokenRoutes(app, services);
   await userRoutes(app, services);
   await accountRoutes(app, services);
+  await metaRoutes(app, services);
   await aiRoutes(app, services);
+  await nodeskRoutes(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
@@ -81,7 +86,7 @@ function envOrThrow(name: string) {
   return 'dev-only-session-secret-change-me';
 }
 
-class FetchLlmClient implements LlmClient {
+export class FetchLlmClient implements LlmClient {
   async complete(input: Parameters<LlmClient['complete']>[0]) {
     if (input.provider === 'claude') return completeClaude(input);
     return completeOpenAi(input);
@@ -89,12 +94,13 @@ class FetchLlmClient implements LlmClient {
 }
 
 async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.openai.com/v1', 'chat/completions'), {
     method: 'POST',
     headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       model: input.model,
       response_format: { type: 'json_object' },
+      ...(supportsOpenAiReasoning(input.model, input.reasoningEffort) ? { reasoning_effort: input.reasoningEffort } : {}),
       messages: [
         { role: 'system', content: 'Return valid compact JSON only.' },
         { role: 'user', content: input.prompt },
@@ -107,7 +113,8 @@ async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
 }
 
 async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const thinkingBudget = claudeThinkingBudget(input.reasoningEffort);
+  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.anthropic.com/v1', 'messages'), {
     method: 'POST',
     headers: {
       'x-api-key': input.apiKey,
@@ -116,7 +123,8 @@ async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
     },
     body: JSON.stringify({
       model: input.model,
-      max_tokens: 500,
+      max_tokens: thinkingBudget ? thinkingBudget + 1024 : 500,
+      ...(thinkingBudget ? { thinking: { type: 'enabled', budget_tokens: thinkingBudget } } : {}),
       system: 'Return valid compact JSON only.',
       messages: [{ role: 'user', content: input.prompt }],
     }),
@@ -124,4 +132,21 @@ async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
   if (!response.ok) throw new Error(`Claude request failed: ${response.status}`);
   const payload = (await response.json()) as any;
   return payload.content?.find((item: any) => item.type === 'text')?.text || '{}';
+}
+
+function resolveLlmEndpoint(baseUrl: string | null | undefined, officialBaseUrl: string, endpoint: string) {
+  const base = (baseUrl || officialBaseUrl).replace(/\/+$/, '');
+  if (base.endsWith(`/${endpoint}`)) return base;
+  return `${base}/${endpoint}`;
+}
+
+function supportsOpenAiReasoning(model: string, effort: string | null | undefined) {
+  return Boolean(effort && effort !== 'none' && /^(o[1-9]|gpt-5)/i.test(model));
+}
+
+function claudeThinkingBudget(effort: string | null | undefined) {
+  if (effort === 'low') return 1024;
+  if (effort === 'medium') return 2048;
+  if (effort === 'high') return 4096;
+  return 0;
 }

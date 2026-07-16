@@ -38,19 +38,26 @@ function startService(name, cwd, entrypoint, port) {
 }
 
 function targetFor(url = '/') {
-  if (url === '/blog' || url.startsWith('/blog/')) {
+  if (url === '/nodesk' || url.startsWith('/nodesk/') || url.startsWith('/nodesk?')) {
     return { name: 'blog', port: blogPort, path: url };
   }
 
   const pathname = url.split('?', 1)[0];
   if (blogPublicFiles.has(pathname) || blogPublicPrefixes.some(prefix => pathname.startsWith(prefix))) {
-    return { name: 'blog', port: blogPort, path: `/blog${url}` };
+    return { name: 'blog', port: blogPort, path: `/nodesk${url}` };
   }
 
   return { name: 'nono', port: nonoPort, path: url };
 }
 
 function proxyRequest(request, response) {
+  const url = request.url || '/';
+  if (url === '/blog' || url.startsWith('/blog/') || url.startsWith('/blog?')) {
+    response.writeHead(308, { location: url.replace('/blog', '/nodesk') });
+    response.end();
+    return;
+  }
+
   const target = targetFor(request.url);
   const proxy = http.request({
     hostname: '127.0.0.1',

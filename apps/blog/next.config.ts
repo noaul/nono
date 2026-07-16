@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH === '/blog' ? '/blog' : ''
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
 const contentSecurityPolicy = [
 	"default-src 'self'",
@@ -10,13 +10,13 @@ const contentSecurityPolicy = [
 	"font-src 'self' data: https://fonts.gstatic.cn",
 	"img-src 'self' data: blob: https:",
 	"media-src 'self' blob:",
-	"connect-src 'self' https://api.github.com https://github.com https://*.google-analytics.com https://*.analytics.google.com",
+	"connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com",
 	"frame-src 'self' https://player.bilibili.com",
 	"worker-src 'self' blob:",
 	"object-src 'none'",
 	"base-uri 'self'",
 	"form-action 'self'",
-	"frame-ancestors 'none'",
+	"frame-ancestors 'self'",
 	'upgrade-insecure-requests'
 ].join('; ')
 
@@ -64,7 +64,7 @@ const nextConfig: NextConfig = {
 					{ key: 'Content-Security-Policy', value: contentSecurityPolicy },
 					{ key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
 					{ key: 'X-Content-Type-Options', value: 'nosniff' },
-					{ key: 'X-Frame-Options', value: 'DENY' },
+					{ key: 'X-Frame-Options', value: 'SAMEORIGIN' },
 					{ key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 					{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }
 				]

@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { getPortalSettings, normalizePortalHref, normalizePortalImage } from '../src/lib/portal.ts'
 
+test('portal settings return to the same-origin navigation by default', () => {
+	assert.equal(getPortalSettings({}).url, '/')
+})
+
 test('portal settings prefer saved values and fall back to the deployment URL', () => {
 	assert.deepEqual(getPortalSettings({}, 'https://nono.example.com'), {
 		enabled: true,

@@ -16,9 +16,10 @@ export async function bookmarkRoutes(app: FastifyInstance, services: AppServices
   app.post('/api/admin/bookmarks/import', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const html = String((request.body as any)?.html || '');
+    const body = request.body as any;
+    const html = String(body?.html || '');
     if (!html.trim()) throw Object.assign(new Error('Bookmark HTML is required'), { statusCode: 400 });
-    return sendOk(reply, await importBookmarks(services.repo, user.id, html));
+    return sendOk(reply, await importBookmarks(services.repo, user.id, html, body?.selection));
   });
 
   app.get('/api/admin/bookmarks/export', async (request, reply) => {

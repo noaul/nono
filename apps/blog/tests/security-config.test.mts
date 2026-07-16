@@ -24,6 +24,10 @@ test('adds baseline response security headers', async () => {
 	for (const header of ['Content-Security-Policy', 'Referrer-Policy', 'X-Content-Type-Options', 'X-Frame-Options', 'Permissions-Policy']) {
 		assert.match(config, new RegExp(header))
 	}
+
+	assert.match(config, /frame-ancestors 'self'/)
+	assert.match(config, /X-Frame-Options', value: 'SAMEORIGIN'/)
+	assert.doesNotMatch(config, /api\.github\.com|https:\/\/github\.com/)
 })
 
 test('keeps production log sampling at ten percent or lower', async () => {

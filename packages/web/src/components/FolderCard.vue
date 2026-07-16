@@ -6,26 +6,17 @@ import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
+import { compactBookmarkLabel } from '@/utils/bookmark-name';
 
-const props = withDefaults(defineProps<{ folder: Folder; depth?: number; parentName?: string; highlight?: string }>(), {
+const props = withDefaults(defineProps<{ folder: Folder; depth?: number; highlight?: string }>(), {
   depth: 0,
-  parentName: '',
   highlight: '',
 });
 defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
 
-// 12 tiles = 6 rows x 2 cols, matching the previous 308px fixed panel capacity.
-const MAX_VISIBLE_LINKS = 12;
-
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
 const faviconUrls = computed(() => new Map((folder.value.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)])));
-const overflowing = computed(() => (folder.value.links?.length || 0) > MAX_VISIBLE_LINKS);
-const visibleLinks = computed(() => {
-  const links = folder.value.links || [];
-  return overflowing.value ? links.slice(0, MAX_VISIBLE_LINKS - 1) : links;
-});
-const hiddenCount = computed(() => Math.max(0, (folder.value.links?.length || 0) - visibleLinks.value.length));
 
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
@@ -38,10 +29,7 @@ function handleFaviconError(linkId: string | number) {
       <span class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
         <FolderGlyph class="title-icon" :icon="folder.icon" :size="18" />
-        <div class="title-copy">
-          <small v-if="props.parentName" class="folder-parent-label">{{ props.parentName }}</small>
-          <h2>{{ folder.name }}</h2>
-        </div>
+        <h2>{{ folder.name }}</h2>
       </div>
       <button v-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
         <Lock :size="16" />
@@ -56,8 +44,8 @@ function handleFaviconError(linkId: string | number) {
       </div>
       <span>分类已锁定，请输入密码解锁</span>
     </div>
-    <div v-else class="large-links folder-glass-panel">
-      <a v-for="link in visibleLinks" :key="link.id" class="large-link" :href="link.url" target="_blank" rel="noreferrer">
+    <div v-else class="large-links folder-glass-panel" :class="{ 'is-scrollable': (folder.links || []).length > 15 }">
+      <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" :title="link.name" target="_blank" rel="noreferrer">
         <img
           v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
           :src="faviconUrls.get(link.id)"
@@ -67,24 +55,13 @@ function handleFaviconError(linkId: string | number) {
           decoding="async"
           @error="handleFaviconError(link.id)"
         />
-        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="18" />
+        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="16" />
         <span>
-          <template v-for="(segment, index) in splitHighlight(link.name, props.highlight)" :key="index">
+          <template v-for="(segment, index) in splitHighlight(compactBookmarkLabel(link.name), props.highlight)" :key="index">
             <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
           </template>
         </span>
       </a>
-      <button
-        v-if="overflowing"
-        class="large-link link-overflow-more"
-        type="button"
-        data-testid="folder-overflow-more"
-        :title="`展开查看全部 ${folder.links?.length || 0} 个链接`"
-        @click="$emit('expand', folder)"
-      >
-        <Maximize2 :size="15" class="large-link-icon" />
-        <span>+{{ hiddenCount }} 更多</span>
-      </button>
     </div>
   </section>
 </template>
@@ -95,10 +72,9 @@ function handleFaviconError(linkId: string | number) {
   gap: 12px;
   grid-template-rows: 38px auto;
   height: auto;
-  min-height: 190px;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 445px 358px;
+  contain-intrinsic-size: 398px 264px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -120,6 +96,7 @@ function handleFaviconError(linkId: string | number) {
 }
 
 h2 {
+  color: var(--public-category-text, #ffffff);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0;
@@ -129,7 +106,6 @@ h2 {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ffffff;
 }
 
 .nav-bg-visible .large-folder h2 {
@@ -144,49 +120,34 @@ h2 {
   min-width: 0;
 }
 
-.title-copy {
-  display: grid;
-  min-width: 0;
-}
-
-.folder-parent-label {
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .title-icon {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.92);
   font-size: 18px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .large-links {
-  background: rgba(10, 14, 18, 0.52);
-  background: rgba(10, 14, 18, var(--public-card-opacity, 0.52));
-  backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
-  -webkit-backdrop-filter: blur(var(--public-card-blur, 8px)) saturate(1.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
+  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
-  gap: 8px;
-  grid-auto-rows: 40px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 4px;
+  grid-auto-rows: 30px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: auto;
-  min-height: 140px;
-  max-height: 308px;
-  overflow: hidden;
-  padding: 16px;
+  height: 214px;
+  max-height: 214px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding: 15px 4px 15px 16px;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  scrollbar-width: thin;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
-    0 14px 34px rgba(0, 0, 0, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 34px rgba(0, 0, 0, 0.08);
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -195,11 +156,17 @@ h2 {
 
 .large-folder:hover .large-links,
 .large-folder:focus-within .large-links {
-  background: rgba(10, 14, 18, 0.68);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.08));
+  border-color: rgba(255, 255, 255, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 16px 36px rgba(0, 0, 0, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 36px rgba(0, 0, 0, 0.1);
+}
+
+.large-links.is-scrollable {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .large-link {
@@ -207,13 +174,14 @@ h2 {
   background: rgba(255, 255, 255, 0);
   border: 1px solid rgba(255, 255, 255, 0);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.94);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
-  gap: 8px;
+  gap: 2px;
   justify-content: flex-start;
-  min-height: 40px;
+  min-height: 30px;
+  min-width: 0;
   overflow: hidden;
-  padding: 4px 10px;
+  padding: 2px 0 2px 5px;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -226,7 +194,7 @@ h2 {
 .large-link:focus-visible {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  color: var(--public-bookmark-text, #ffffff);
   outline: none;
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -242,8 +210,9 @@ h2 {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -255,30 +224,13 @@ h2 {
 
 .link-favicon {
   border-radius: 4px;
-  height: 18px;
+  height: 16px;
   object-fit: contain;
-  width: 18px;
+  width: 16px;
 }
 
 .fallback-link-icon {
   opacity: 0.82;
-}
-
-/* Overflow tile takes the last grid cell and hands off to the expand modal */
-.link-overflow-more {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px dashed rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.66);
-  cursor: pointer;
-  font: inherit;
-}
-
-.link-overflow-more:hover,
-.link-overflow-more:focus-visible {
-  background: rgba(var(--accent-rgb), 0.1);
-  border-color: rgba(var(--accent-rgb), 0.4);
-  border-style: solid;
-  color: var(--accent-soft);
 }
 
 mark {
@@ -294,10 +246,10 @@ mark {
   gap: 12px;
   justify-content: center;
   align-items: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
-  height: 308px;
+  height: 214px;
   padding: 24px;
   text-align: center;
 }
@@ -310,7 +262,7 @@ mark {
   height: 56px;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.52);
   transition: var(--transition-smooth);
 }
 
@@ -322,7 +274,7 @@ mark {
 }
 
 .locked span {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.68);
 }
 
 .folder-expand,
@@ -331,7 +283,7 @@ mark {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
   cursor: pointer;
   display: inline-flex;
   height: 32px;
@@ -353,7 +305,7 @@ mark {
 .lock-btn:focus-visible {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.36);
-  color: #ffffff;
+  color: var(--public-category-text, #ffffff);
   outline: none;
   transform: translateY(-1px) scale(1.03);
 }
@@ -368,7 +320,7 @@ mark {
 .icon-button.secondary.lock-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
 }
 
 .icon-button.secondary.lock-btn:hover {
@@ -379,15 +331,14 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 150px;
+    contain-intrinsic-size: auto 264px;
     grid-template-rows: 38px auto;
     height: auto;
   }
 
   .large-links {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    height: auto;
-    min-height: 80px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    height: 214px;
   }
 
   .large-links.locked {

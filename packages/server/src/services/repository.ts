@@ -11,6 +11,8 @@ export interface UserRecord {
   llmProvider?: string | null;
   llmApiKey?: string | null;
   llmModel?: string | null;
+  llmBaseUrl?: string | null;
+  llmReasoningEffort?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,11 +94,13 @@ export interface Repository {
   updateFolder(userId: number, id: number, input: Partial<FolderRecord>): Promise<FolderRecord>;
   reorderFolders(userId: number, ids: number[]): Promise<void>;
   deleteFolder(userId: number, id: number): Promise<void>;
+  deleteFolders(userId: number, ids: number[]): Promise<void>;
   listLinks(userId: number): Promise<LinkRecord[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
   reorderLinks(userId: number, ids: number[]): Promise<void>;
   deleteLink(userId: number, id: number): Promise<void>;
+  deleteLinks(userId: number, ids: number[]): Promise<void>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null): Promise<ApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
@@ -112,6 +116,8 @@ export function publicUser(user: UserRecord) {
     role: user.role,
     llmProvider: user.llmProvider,
     llmModel: user.llmModel,
+    llmBaseUrl: user.llmBaseUrl,
+    llmReasoningEffort: user.llmReasoningEffort,
     hasLlmApiKey: Boolean(user.llmApiKey),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -229,8 +235,15 @@ export class MemoryRepository implements Repository {
   }
 
   async deleteFolder(userId: number, id: number) {
+    await this.deleteFolders(userId, [id]);
+  }
+
+  async deleteFolders(userId: number, rootIds: number[]) {
     const all = await this.listFolders(userId);
-    const ids = collectFolderIds(all, id);
+    const ids = new Set<number>();
+    for (const rootId of rootIds) {
+      for (const id of collectFolderIds(all, rootId)) ids.add(id);
+    }
     this.folders = this.folders.filter((folder) => !ids.has(folder.id));
     this.links = this.links.filter((link) => !ids.has(link.folderId));
   }
@@ -262,8 +275,13 @@ export class MemoryRepository implements Repository {
   }
 
   async deleteLink(userId: number, id: number) {
-    const link = await this.requiredLink(userId, id);
-    this.links = this.links.filter((item) => item.id !== link.id);
+    await this.deleteLinks(userId, [id]);
+  }
+
+  async deleteLinks(userId: number, ids: number[]) {
+    const ownedIds = new Set((await this.listLinks(userId)).map((link) => link.id));
+    const deletedIds = new Set(ids.filter((id) => ownedIds.has(id)));
+    this.links = this.links.filter((item) => !deletedIds.has(item.id));
   }
 
   async listTokens(userId: number) {

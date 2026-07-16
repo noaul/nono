@@ -95,3 +95,78 @@ test('pins patched transitive build dependencies', async () => {
 		assert.match(workspace, new RegExp(override.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 	}
 })
+
+test('deploys the integrated site at /nodesk with legacy /blog redirects', async () => {
+	const nextConfig = await read('next.config.ts')
+	const compose = await readRepositoryFile('docker-compose.yml')
+	const gateway = await readRepositoryFile('docker/gateway.mjs')
+
+	assert.match(nextConfig, /NEXT_PUBLIC_BASE_PATH === '\/nodesk'/)
+	assert.match(compose, /NEXT_PUBLIC_BASE_PATH:\s*\/nodesk/)
+	assert.match(compose, /BLOG_NAVIGATION_URL:-\/nodesk/)
+	assert.match(compose, /nodesk_content:\/app\/nodesk-content/)
+	assert.match(gateway, /url === '\/nodesk'/)
+	assert.match(gateway, /replace\('\/blog', '\/nodesk'\)/)
+})
+
+test('uses the Nono session and local content API instead of GitHub tokens', async () => {
+	const auth = await read('src/lib/auth.ts')
+	const client = await read('src/lib/github-client.ts')
+
+	assert.match(auth, /\/api\/auth\/session/)
+	assert.doesNotMatch(auth, /privateKey|installationId|github_token/)
+	assert.match(client, /\/api\/admin\/nodesk\/files/)
+	assert.doesNotMatch(client, /api\.github\.com/)
+})
+
+test('hydrates editable Nodesk content from the VPS runtime store', async () => {
+	const contentClient = await read('src/lib/nodesk-content.ts')
+	const configStore = await read('src/app/(home)/stores/config-store.ts')
+
+	assert.match(contentClient, /\/api\/nodesk\/content\//)
+	assert.match(configStore, /hydrateRuntimeConfig/)
+	for (const [file, key] of [
+		['src/app/projects/page.tsx', 'projects'],
+		['src/app/share/page.tsx', 'shares'],
+		['src/app/bloggers/page.tsx', 'bloggers'],
+		['src/app/about/page.tsx', 'about'],
+		['src/app/snippets/page.tsx', 'snippets']
+	] as const) {
+		assert.match(await read(file), new RegExp(`loadNodeskContent.*${key}`, 's'))
+	}
+})
+
+test('keeps the home navigation focused on articles and projects', async () => {
+	const navCard = await read('src/components/nav-card.tsx')
+
+	assert.match(navCard, /label: '近期文章'/)
+	assert.match(navCard, /label: '我的项目'/)
+	assert.doesNotMatch(navCard, /label: '关于网站'/)
+	assert.doesNotMatch(navCard, /label: '推荐分享'/)
+	assert.doesNotMatch(navCard, /label: '优秀博客'/)
+})
+
+test('supports persisted calendar schedules and cache-safe avatar assets', async () => {
+	const siteContent = await read('src/config/site-content.json')
+	const calendar = await read('src/app/(home)/calendar-card.tsx')
+	const sitePush = await read('src/app/(home)/services/push-site-content.ts')
+
+	assert.match(siteContent, /"calendarEvents"/)
+	assert.match(calendar, /管理日程/)
+	assert.match(calendar, /pushSiteContent/)
+	assert.match(sitePush, /avatarAssetPath/)
+	assert.match(sitePush, /meta\.avatarUrl/)
+})
+
+test('places music on the lower left and summarizes the next three days beside it', async () => {
+	const music = await read('src/components/music-card.tsx')
+	const styles = await read('src/config/card-styles.json')
+	const summary = await read('src/components/schedule-summary-card.tsx')
+
+	assert.match(music, /navCardStyles/)
+	assert.match(music, /cardKey='musicCard'/)
+	assert.match(styles, /"scheduleCard"/)
+	assert.match(summary, /最近日程/)
+	assert.match(summary, /未来三天/)
+	assert.match(summary, /cardKey='scheduleCard'/)
+})

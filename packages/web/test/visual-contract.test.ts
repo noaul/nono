@@ -73,6 +73,39 @@ describe('visual contracts', () => {
     expect(wrapper.findAll('.large-link')).toHaveLength(2);
   });
 
+  it('renders every bookmark and only enables inner scrolling after fifteen items', () => {
+    const links = Array.from({ length: 16 }, (_, index) => ({
+      id: index + 1,
+      folderId: 1,
+      name: `书签 ${index + 1}`,
+      url: `https://example.com/${index + 1}`,
+      sortOrder: 100 - index,
+    }));
+    const wrapper = mount(FolderCard, {
+      props: {
+        folder: {
+          id: 1,
+          userId: 1,
+          name: '常用工具',
+          sortOrder: 100,
+          locked: false,
+          links,
+        },
+      },
+    });
+
+    expect(wrapper.findAll('.large-link')).toHaveLength(16);
+    expect(wrapper.get('.large-links').classes()).toContain('is-scrollable');
+    expect(wrapper.find('[data-testid="folder-overflow-more"]').exists()).toBe(false);
+  });
+
+  it('lets the page own the mouse wheel when a folder has at most fifteen bookmarks', () => {
+    const links = Array.from({ length: 15 }, (_, index) => ({ id: index + 1, folderId: 1, name: `书签 ${index + 1}`, url: `https://example.com/${index + 1}`, sortOrder: 100 - index }));
+    const wrapper = mount(FolderCard, { props: { folder: { id: 1, userId: 1, name: '常用工具', sortOrder: 100, locked: false, links } } });
+
+    expect(wrapper.get('.large-links').classes()).not.toContain('is-scrollable');
+  });
+
   it('keeps the public background image on its own layer with color as fallback only', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -92,7 +125,9 @@ describe('visual contracts', () => {
     expect(source).toContain('nav-bg-loaded');
     expect(source).toContain('getAppearanceSettings');
     expect(source).toContain('toAppearanceCssVars');
+    expect(source).toContain('--public-card-color-rgb');
     expect(source).toContain('--public-card-opacity');
+    expect(source).toContain('--public-search-color-rgb');
     expect(source).toContain('--public-search-blur');
     expect(source).toContain('.nav-page::before');
     expect(source).toMatch(/background:\s*var\(--nav-bg-color,\s*#090a0f\)/);
@@ -107,11 +142,18 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('--folder-card-width: 445px');
-    expect(css).toContain('max-width: 2048px');
-    expect(css).toContain('gap: 38px 32px');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*var\(--folder-card-width\)\)/);
-    expect(css).toContain('justify-content: center');
+    expect(css).toContain('max-width: 2600px');
+    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 32px;/);
+    expect(css).toContain('gap: 24px 20px');
+    expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2250px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(min-width: 2500px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 24px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(3,/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 20px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?gap:\s*24px;/);
+    expect(css).not.toContain('@media (max-width: 820px)');
+    expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
     expect(css).not.toContain('--folder-panel-width');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
@@ -124,15 +166,25 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    // Elastic card: folders shrink to fit few links and cap growth with an overflow tile instead of an inner scrollbar.
+    // Fixed card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('min-height: 190px');
-    expect(source).toContain('contain-intrinsic-size: 445px 358px');
-    expect(source).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
-    expect(source).toContain('grid-auto-rows: 40px');
-    expect(source).toContain('max-height: 308px');
-    expect(source).toContain('link-overflow-more');
-    expect(source).not.toContain('overflow-y: auto');
+    expect(source).toContain('contain-intrinsic-size: 398px 264px');
+    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(source).toContain('grid-auto-rows: 30px');
+    expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*12px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*15px 4px 15px 16px;/);
+    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*30px;[\s\S]*?padding:\s*2px 0 2px 5px;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
+    expect(source).toContain(':size="16"');
+    expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 214px;[\s\S]*?max-height: 214px;/);
+    expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
+    expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
+    expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/);
+    expect(source).not.toContain('link-overflow-more');
+    expect(source).not.toContain('MAX_VISIBLE_LINKS');
+    expect(source).not.toContain('visibleLinks');
     expect(source).toContain('border-radius: 8px');
     expect(source).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(source).toContain('var(--public-card-radius');
@@ -147,7 +199,16 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
-    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?min-height: 80px/);
+    expect(source).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 214px;/,
+    );
+
+    const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
+    expect(navigationSource).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.nav-header,[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/,
+    );
+    expect(searchBarSource).toMatch(/\.search-bar \{[\s\S]*?min-width: 0;/);
   });
 
   it('makes the folder expand control interactive', async () => {
@@ -200,9 +261,23 @@ describe('visual contracts', () => {
     expect(expandModalSource).toContain('expanded-link-grid');
     expect(expandModalSource).toContain('<FolderGlyph class="expand-folder-icon"');
     expect(expandModalSource).toContain('getFaviconUrl(link.url, link.icon)');
+    expect(expandModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
+    expect(expandModalSource).not.toContain('background: rgba(15, 18, 25, var(--public-modal-opacity');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
     expect(folderCardSource).toContain('large-link:active');
+  });
+
+  it('uses the folder surface color for the unlock modal and its appearance preview', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const unlockModalSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderUnlockModal.vue'), 'utf8');
+    const appearanceEditorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
+
+    expect(unlockModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
+    expect(appearanceEditorSource).toContain('background: rgba(var(--public-card-color-rgb), var(--public-modal-opacity))');
+    expect(unlockModalSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
+    expect(appearanceEditorSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
   });
 
   it('exposes a persisted manual sorting endpoint from bookmark management', async () => {
@@ -212,13 +287,45 @@ describe('visual contracts', () => {
 
     expect(source).toContain('/api/admin/links/reorder');
     expect(source).toContain('sortMode');
-    expect(source).toContain('to="/admin/bookmarks"');
+    expect(source).not.toContain('to="/admin/bookmarks"');
+    expect(source).toContain("mode?: 'create' | 'manage'");
+    expect(source).not.toContain('data-testid="bulk-folder"');
+    expect(source).not.toContain('data-testid="bulk-move"');
+  });
+
+  it('keeps bookmark creation in the admin shell without embedding Nodesk', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
+
+    expect(routerSource).toContain("path: '/admin/add-bookmark'");
+    expect(routerSource).not.toContain("path: '/admin/nodesk'");
+    expect(layoutSource).toContain("to: '/admin/add-bookmark', label: '新增书签'");
+    expect(layoutSource).not.toContain("to: '/admin/nodesk', label: 'Nodesk'");
+    expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
+    expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/add-bookmark'");
+    expect(layoutSource).not.toContain("label: '导入导出'");
+    expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
+  });
+
+  it('combines bookmark creation and browser import/export in one page', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
+    const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
+
+    expect(linksSource).toContain('<BookmarkTransferPanel v-if="props.mode === \'create\'" />');
+    expect(linksSource).not.toContain('to="/admin/bookmarks"');
+    expect(transferSource).toContain('/api/admin/bookmarks/preview');
+    expect(transferSource).toContain('/api/admin/bookmarks/import');
+    expect(transferSource).toContain('/api/admin/bookmarks/export');
   });
 
   it('uses a visible native file input for bookmark imports', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/BookmarksView.vue'), 'utf8');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
     expect(source).toContain('class="native-file-input"');
     expect(source).toContain('id="bookmark-html-file"');
@@ -279,14 +386,40 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const css = readStyle('admin');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(css).toContain('.glass-workbench');
     expect(css).toContain('.glass-workbench::before');
     expect(css).toContain('.glass-surface');
+    expect(layoutSource).toContain('admin-glass-enabled');
+    expect(css).toContain('--admin-surface-blur: 20px');
+    expect(css).toContain('--admin-surface-opacity: 0.66');
+    expect(css).toContain('--admin-control-height: 42px');
+    expect(css).toContain('--admin-control-radius: 8px');
+    expect(css).toContain('--admin-control-bg: rgba(255, 255, 255, 0.56)');
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('-webkit-backdrop-filter: blur');
-    expect(css).toContain('rgba(255, 255, 255, 0.62)');
+    expect(css).toContain('.glass-workbench.admin-glass-enabled .workbench-stage > .admin-card');
+    expect(css).toContain('.glass-workbench:not(.admin-glass-enabled) .glass-surface');
     expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
+  });
+
+  it('keeps admin content fluid across browser zoom levels', () => {
+    const css = readStyle('admin');
+
+    expect(css).toMatch(/\.workbench-stage > \* \{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*none;/);
+  });
+
+  it('keeps admin forms visually unified across zoom breakpoints', async () => {
+    const css = readStyle('admin');
+
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?background:\s*var\(--admin-control-bg\)/);
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?min-height:\s*var\(--admin-control-height\)/);
+    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?border-radius:\s*var\(--admin-control-radius\)/);
+    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*1fr/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*1fr/);
   });
 
   it('defines the Figma-inspired admin frame and component tokens', async () => {
@@ -342,19 +475,21 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const html = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
-    const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon.svg'), 'utf8');
-    const adminFavicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-admin.svg'), 'utf8');
+    const favicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-32.png'));
+    const adminFavicon = fs.readFileSync(path.resolve(process.cwd(), 'public/favicon-admin-32.png'));
+    const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const app = fs.readFileSync(path.resolve(process.cwd(), 'src/App.vue'), 'utf8');
 
     expect(html).toContain('rel="icon"');
-    expect(html).toContain('/favicon.svg');
-    expect(html).toContain('theme-color');
-    expect(favicon).toContain('<svg');
-    expect(favicon).toContain('#35BFAB');
-    expect(adminFavicon).toContain('<svg');
-    expect(adminFavicon).toContain('#FF6B6B');
-    expect(app).toContain("'/favicon-admin.svg'");
-    expect(app).toContain("'/favicon.svg'");
+    expect(html).toContain('/favicon-32.png');
+    expect(html).toContain('/favicon-192.png');
+    expect(html).toContain('/apple-touch-icon.png');
+    expect(html).toContain('name="theme-color" content="#5b5ce2"');
+    expect(favicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(adminFavicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(app).toContain("const variant = isAdmin ? '-admin' : ''");
+    expect(app).toContain('`/favicon${variant}-${size}.png`');
+    expect(app).toContain('`/apple-touch-icon${variant}.png`');
   });
 
   it('defines token governance styles', async () => {
@@ -372,6 +507,8 @@ describe('visual contracts', () => {
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
+    const siteConfigSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/SiteConfigView.vue'), 'utf8');
+    const publicStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/public.css'), 'utf8');
 
     expect(navigationSource).toContain('search-result-summary');
     expect(navigationSource).toContain('public-empty-state');
@@ -379,10 +516,13 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--public-glass-bg');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
+    expect(navigationSource).toContain('rgba(var(--public-tab-color-rgb');
+    expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*15px/);
     expect(folderCardSource).toContain('--public-folder-depth');
-    expect(folderCardSource).toContain('folder-parent-label');
-    expect(folderCardSource).toContain('rgba(255, 255, 255, 0.18)');
-    expect(folderCardSource).toContain('background: rgba(10, 14, 18, 0.52)');
+    expect(folderCardSource).not.toContain('folder-parent-label');
+    expect(folderCardSource).toContain('rgba(var(--public-card-color-rgb');
+    expect(folderCardSource).toContain('var(--public-bookmark-text');
+    expect(folderCardSource).toContain('var(--public-category-text');
     expect(folderCardSource).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(folderCardSource).toContain('.large-folder:hover .large-links');
     expect(folderCardSource).toContain('getFaviconUrl');
@@ -391,12 +531,14 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('engine-picker');
     expect(searchBarSource).toContain('engine-trigger');
     expect(searchBarSource).not.toContain('search-provider-badge');
-    expect(searchBarSource).toContain('rgba(10, 14, 18, 0.26)');
-    expect(searchBarSource).toContain('blur(14px)');
+    expect(searchBarSource).toContain('rgba(var(--public-search-color-rgb');
+    expect(searchBarSource).toContain('var(--public-bookmark-text');
     expect(searchBarSource).toContain('var(--public-search-radius');
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');
+    expect(siteConfigSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
+    expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);
   });
 
   it('keeps expensive visual effects off repeated admin and public surfaces', async () => {
@@ -420,16 +562,18 @@ describe('visual contracts', () => {
     expect(source).not.toContain("import AdminDashboard from '@/views/admin/AdminDashboard.vue'");
   });
 
-  it('provides selectable folder icon presets in admin folder management', async () => {
+  it('provides a compact searchable folder icon modal in admin folder management', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const foldersSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const pickerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/FolderIconPicker.vue'), 'utf8');
 
-    expect(source).toContain('folderIconOptions');
-    expect(source).toContain('folder-icon-picker');
-    expect(source).toContain('folder-icon-option');
-    expect(source).toContain('chooseIcon(icon)');
-    expect(source).toContain('aria-pressed');
+    expect(foldersSource).toContain('<FolderIconPicker v-model="form.icon"');
+    expect(foldersSource).toContain('<FolderIconPicker v-model="inlineForm.icon"');
+    expect(pickerSource).toContain('folder-icon-dialog');
+    expect(pickerSource).toContain('folder-icon-search');
+    expect(pickerSource).toContain("['recommended', 'recent', 'all']");
+    expect(pickerSource).toContain('folder-icon-option');
   });
 
   it('reuses semantic folder glyphs across admin folder surfaces', async () => {

@@ -8,6 +8,7 @@ import { CARD_SPACING } from '@/consts'
 import shareList from '@/app/share/list.json'
 import Link from 'next/link'
 import { HomeDraggableLayer } from './home-draggable-layer'
+import { loadNodeskContent } from '@/lib/nodesk-content'
 
 type ShareItem = {
 	name: string
@@ -27,8 +28,11 @@ export default function ShareCard() {
 	const socialButtonsStyles = cardStyles.socialButtons
 
 	useEffect(() => {
-		const randomIndex = Math.floor(Math.random() * shareList.length)
-		setRandomItem(shareList[randomIndex])
+		void loadNodeskContent<ShareItem[]>('shares', shareList as ShareItem[]).then(items => {
+			if (!items.length) return
+			const randomIndex = Math.floor(Math.random() * items.length)
+			setRandomItem(items[randomIndex])
+		})
 	}, [])
 
 	if (!randomItem) {

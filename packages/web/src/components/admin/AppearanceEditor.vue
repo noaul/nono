@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Gauge, LayoutGrid, RotateCcw, Search, SlidersHorizontal } from 'lucide-vue-next';
+import { Gauge, LayoutGrid, RotateCcw, Search, SlidersHorizontal, Type } from 'lucide-vue-next';
 import { appearanceDefaults, toAppearanceCssVars, type AppearanceSettings } from '@/utils/appearance';
 
 const props = defineProps<{ appearance: AppearanceSettings; previewBg: string }>();
@@ -14,6 +14,7 @@ const previewStyle = computed(() => ({
 function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
   const values: Record<typeof preset, AppearanceSettings> = {
     performance: {
+      ...appearanceDefaults,
       cardRadius: 6, cardOpacity: 72, cardBlur: 0,
       searchRadius: 24, searchOpacity: 62, searchBlur: 0,
       modalRadius: 8, modalOpacity: 90, modalBlur: 0,
@@ -22,8 +23,9 @@ function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
     },
     balanced: { ...appearanceDefaults },
     clear: {
-      cardRadius: 12, cardOpacity: 68, cardBlur: 16,
-      searchRadius: 30, searchOpacity: 60, searchBlur: 20,
+      ...appearanceDefaults,
+      cardRadius: 12, cardOpacity: 22, cardBlur: 22,
+      searchRadius: 30, searchOpacity: 30, searchBlur: 26,
       modalRadius: 16, modalOpacity: 88, modalBlur: 30,
       tabRadius: 24, tabOpacity: 64, tabBlur: 20,
       adminRadius: 12, adminOpacity: 84, adminBlur: 16,
@@ -63,6 +65,13 @@ function resetAppearance() {
       >
         <fieldset>
           <legend><LayoutGrid :size="16" /> 文件夹卡片</legend>
+          <label class="color-field">
+            <span>玻璃底色</span>
+            <span class="color-control">
+              <input v-model="appearance.cardColor" data-testid="card-color" type="color" />
+              <code>{{ appearance.cardColor }}</code>
+            </span>
+          </label>
           <label class="range-field">
             <span>圆角 <output>{{ appearance.cardRadius }}px</output></span>
             <input v-model.number="appearance.cardRadius" data-testid="card-radius" type="range" min="0" max="24" step="1" />
@@ -78,6 +87,13 @@ function resetAppearance() {
         </fieldset>
         <fieldset>
           <legend><Search :size="16" /> 搜索框</legend>
+          <label class="color-field">
+            <span>玻璃底色</span>
+            <span class="color-control">
+              <input v-model="appearance.searchColor" data-testid="search-color" type="color" />
+              <code>{{ appearance.searchColor }}</code>
+            </span>
+          </label>
           <label class="range-field">
             <span>圆角 <output>{{ appearance.searchRadius }}px</output></span>
             <input v-model.number="appearance.searchRadius" data-testid="search-radius" type="range" min="8" max="40" step="1" />
@@ -89,6 +105,23 @@ function resetAppearance() {
           <label class="range-field">
             <span>高斯模糊 <output>{{ appearance.searchBlur }}px</output></span>
             <input v-model.number="appearance.searchBlur" data-testid="search-blur" type="range" min="0" max="32" step="1" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend><Type :size="16" /> 公开页文字</legend>
+          <label class="color-field">
+            <span>书签与搜索文字</span>
+            <span class="color-control">
+              <input v-model="appearance.bookmarkTextColor" data-testid="bookmark-text-color" type="color" />
+              <code>{{ appearance.bookmarkTextColor }}</code>
+            </span>
+          </label>
+          <label class="color-field">
+            <span>notab 与文件夹标题</span>
+            <span class="color-control">
+              <input v-model="appearance.categoryTextColor" data-testid="category-text-color" type="color" />
+              <code>{{ appearance.categoryTextColor }}</code>
+            </span>
           </label>
         </fieldset>
         <fieldset>
@@ -108,6 +141,13 @@ function resetAppearance() {
         </fieldset>
         <fieldset>
           <legend>文件夹标签栏</legend>
+          <label class="color-field">
+            <span>玻璃底色</span>
+            <span class="color-control">
+              <input v-model="appearance.tabColor" data-testid="tab-color" type="color" />
+              <code>{{ appearance.tabColor }}</code>
+            </span>
+          </label>
           <label class="range-field">
             <span>圆角 <output>{{ appearance.tabRadius }}px</output></span>
             <input v-model.number="appearance.tabRadius" data-testid="tab-radius" type="range" min="0" max="28" step="1" />
@@ -151,6 +191,7 @@ function resetAppearance() {
           <div class="preview-links"><span>GitHub</span><span>设计资源</span><span>开发文档</span><span>灵感收藏</span></div>
         </div>
         <div class="preview-modal-backdrop">
+          <span class="preview-zone-label">弹窗效果预览</span>
           <div class="preview-modal"><strong>解锁文件夹</strong><span>输入密码后继续访问</span></div>
         </div>
         <div class="preview-admin"><strong>后台表面</strong><span>运营数据与快捷操作</span></div>
@@ -241,6 +282,39 @@ legend {
   gap: 7px;
 }
 
+.color-field {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.color-field > span:first-child {
+  color: #475569;
+  font-size: 12px;
+}
+
+.color-control {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.color-control input {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  height: 30px;
+  padding: 0;
+  width: 38px;
+}
+
+.color-control code {
+  color: #64748b;
+  font-size: 11px;
+  min-width: 62px;
+}
+
 .range-field span {
   color: #475569;
   display: flex;
@@ -284,6 +358,15 @@ legend {
   position: absolute;
 }
 
+.appearance-preview[data-interacting='true'] .preview-tabs,
+.appearance-preview[data-interacting='true'] .preview-search,
+.appearance-preview[data-interacting='true'] .preview-folder,
+.appearance-preview[data-interacting='true'] .preview-modal,
+.appearance-preview[data-interacting='true'] .preview-admin {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 .preview-tabs,
 .preview-search,
 .preview-folder,
@@ -295,7 +378,7 @@ legend {
 .preview-tabs {
   align-items: center;
   backdrop-filter: blur(var(--public-tab-blur));
-  background: rgba(255, 255, 255, var(--public-tab-opacity));
+  background: rgba(var(--public-tab-color-rgb), var(--public-tab-opacity));
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--public-tab-radius);
   display: flex;
@@ -305,6 +388,7 @@ legend {
 }
 
 .preview-tabs span {
+  color: var(--public-category-text);
   border-radius: calc(var(--public-tab-radius) - 4px);
   font-size: 11px;
   padding: 6px 12px;
@@ -318,7 +402,7 @@ legend {
 .preview-search {
   align-items: center;
   backdrop-filter: blur(var(--public-search-blur));
-  background: rgba(10, 14, 18, var(--public-search-opacity));
+  background: rgba(var(--public-search-color-rgb), var(--public-search-opacity));
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--public-search-radius);
   display: flex;
@@ -327,12 +411,13 @@ legend {
   grid-column: 1 / -1;
   min-height: 42px;
   padding: 0 14px;
+  color: var(--public-bookmark-text);
 }
 
 .preview-folder {
   backdrop-filter: blur(var(--public-card-blur));
-  background: rgba(10, 14, 18, var(--public-card-opacity));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(var(--public-card-color-rgb), var(--public-card-opacity));
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--public-card-radius);
   display: grid;
   gap: 14px;
@@ -359,17 +444,33 @@ legend {
 .preview-modal-backdrop {
   align-items: center;
   background: rgba(7, 10, 14, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
   display: grid;
+  gap: 8px;
   grid-column: 1 / -1;
+  justify-items: center;
   min-height: 130px;
-  padding: 18px;
+  padding: 14px 18px 18px;
+}
+
+.preview-zone-label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 700;
+  justify-self: start;
+  letter-spacing: 0.04em;
 }
 
 .preview-modal {
   backdrop-filter: blur(var(--public-modal-blur));
-  background: rgba(17, 20, 28, var(--public-modal-opacity));
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-card-color-rgb), var(--public-modal-opacity));
+  border: 1px solid rgba(51, 65, 61, 0.2);
   border-radius: var(--public-modal-radius);
+  box-shadow:
+    0 18px 42px rgba(5, 15, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: #17211d;
   display: grid;
   gap: 7px;
   justify-self: center;
@@ -378,16 +479,8 @@ legend {
   width: 100%;
 }
 
-.appearance-preview[data-interacting='true'] .preview-tabs,
-.appearance-preview[data-interacting='true'] .preview-search,
-.appearance-preview[data-interacting='true'] .preview-folder,
-.appearance-preview[data-interacting='true'] .preview-modal,
-.appearance-preview[data-interacting='true'] .preview-admin {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
 .preview-folder strong {
+  color: var(--public-category-text);
   font-size: 14px;
 }
 
@@ -400,6 +493,7 @@ legend {
 .preview-links span {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
+  color: var(--public-bookmark-text);
   font-size: 11px;
   overflow: hidden;
   padding: 9px;

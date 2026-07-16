@@ -44,7 +44,13 @@ export function SiteSettings({
 }: SiteSettingsProps) {
 	return (
 		<div className='space-y-6'>
-			<FaviconAvatarUpload faviconItem={faviconItem} setFaviconItem={setFaviconItem} avatarItem={avatarItem} setAvatarItem={setAvatarItem} />
+			<FaviconAvatarUpload
+				faviconItem={faviconItem}
+				setFaviconItem={setFaviconItem}
+				avatarItem={avatarItem}
+				setAvatarItem={setAvatarItem}
+				currentAvatarUrl={formData.meta.avatarUrl || '/images/avatar.png'}
+			/>
 
 			<SiteMetaForm formData={formData} setFormData={setFormData} />
 

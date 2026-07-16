@@ -112,18 +112,19 @@ onBeforeUnmount(() => {
 }
 
 .modal {
-  background: rgba(17, 20, 28, var(--public-modal-opacity, 0.85));
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85));
   backdrop-filter: blur(var(--public-modal-blur, 24px));
   -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(51, 65, 61, 0.2);
   border-radius: var(--public-modal-radius, 8px);
+  color: #17211d;
   display: grid;
   gap: 20px;
   margin: 0 auto;
   max-width: 380px;
   padding: 28px;
   width: 100%;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: 0 24px 60px rgba(5, 15, 18, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.72);
   animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -134,9 +135,9 @@ onBeforeUnmount(() => {
 }
 
 .modal-icon-lock {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(51, 65, 61, 0.14);
+  color: #52615c;
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -148,18 +149,38 @@ onBeforeUnmount(() => {
   font-size: 18px;
   font-weight: 800;
   margin: 0;
-  color: #ffffff;
+  color: #17211d;
 }
 
 .password-hint {
-  color: rgba(255, 255, 255, 0.5);
+  color: #52615c;
   font-size: 13px;
   margin: 0;
   line-height: 1.4;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.48);
   padding: 8px 12px;
   border-radius: 6px;
-  border-left: 3px solid rgba(255, 255, 255, 0.2);
+  border-left: 3px solid rgba(var(--accent-rgb), 0.42);
+}
+
+.modal .field label {
+  color: #52615c;
+}
+
+.modal .field input {
+  background: rgba(255, 255, 255, 0.62);
+  border-color: rgba(51, 65, 61, 0.22);
+  color: #17211d;
+}
+
+.modal .field input::placeholder {
+  color: rgba(82, 97, 92, 0.48);
+}
+
+.modal .button.secondary {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(51, 65, 61, 0.18);
+  color: #26332f;
 }
 
 .modal-actions {

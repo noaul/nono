@@ -2,8 +2,21 @@ import { create } from 'zustand'
 import siteContent from '@/config/site-content.json'
 import cardStyles from '@/config/card-styles.json'
 import { getPortalSettings } from '@/lib/portal'
+import { loadNodeskContent } from '@/lib/nodesk-content'
 
-export type SiteContent = typeof siteContent
+export type CalendarEvent = {
+	id: string
+	date: string
+	title: string
+	time?: string
+	note?: string
+}
+
+type SiteContentBase = typeof siteContent
+export type SiteContent = Omit<SiteContentBase, 'calendarEvents' | 'meta'> & {
+	meta: SiteContentBase['meta'] & { avatarUrl?: string }
+	calendarEvents?: CalendarEvent[]
+}
 export type CardStyles = typeof cardStyles
 
 interface ConfigStore {
@@ -17,18 +30,33 @@ interface ConfigStore {
 	resetCardStyles: () => void
 	regenerateBubbles: () => void
 	setConfigDialogOpen: (open: boolean) => void
+	hydrateRuntimeConfig: () => Promise<void>
 }
 
 function createInitialSiteContent(): SiteContent {
+	return normalizeSiteContent(siteContent)
+}
+
+function normalizeSiteContent(content: SiteContent): SiteContent {
 	return {
 		...siteContent,
-		portal: getPortalSettings(siteContent.portal)
+		...content,
+		meta: { ...siteContent.meta, ...content.meta },
+		calendarEvents: content.calendarEvents ?? [],
+		portal: getPortalSettings({ ...siteContent.portal, ...content.portal })
 	}
+}
+
+function normalizeCardStyles(content: Partial<CardStyles>): CardStyles {
+	const merged = Object.fromEntries(
+		Object.entries(cardStyles).map(([key, defaultStyle]) => [key, { ...defaultStyle, ...(content[key as keyof CardStyles] || {}) }])
+	) as CardStyles
+	return merged
 }
 
 export const useConfigStore = create<ConfigStore>((set, get) => ({
 	siteContent: createInitialSiteContent(),
-	cardStyles: { ...cardStyles },
+	cardStyles: normalizeCardStyles(cardStyles),
 	regenerateKey: 0,
 	configDialogOpen: false,
 	setSiteContent: (content: SiteContent) => {
@@ -41,12 +69,22 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 		set({ siteContent: createInitialSiteContent() })
 	},
 	resetCardStyles: () => {
-		set({ cardStyles: { ...cardStyles } })
+		set({ cardStyles: normalizeCardStyles(cardStyles) })
 	},
 	regenerateBubbles: () => {
 		set(state => ({ regenerateKey: state.regenerateKey + 1 }))
 	},
 	setConfigDialogOpen: (open: boolean) => {
 		set({ configDialogOpen: open })
+	},
+	hydrateRuntimeConfig: async () => {
+		const [runtimeSiteContent, runtimeCardStyles] = await Promise.all([
+			loadNodeskContent<SiteContent>('site', get().siteContent),
+			loadNodeskContent<CardStyles>('card-styles', get().cardStyles)
+		])
+		set({
+			siteContent: normalizeSiteContent(runtimeSiteContent),
+			cardStyles: normalizeCardStyles(runtimeCardStyles)
+		})
 	}
 }))

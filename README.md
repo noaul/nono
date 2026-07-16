@@ -10,7 +10,10 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 ## 功能
 
 - 多用户认证：Cookie session + Bearer API Token
-- 管理后台：站点配置、文件夹、链接、用户、Token、LLM 设置
+- 管理后台：站点配置、Notab、文件夹、链接、用户、Token、LLM 设置
+- Notab 管理：独立更名、拖动排序和带影响统计的删除确认
+- 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
+- 自适应后台：内容区随工作区流体铺满，浏览器缩放和宽屏下保持左右对齐
 - 浏览器书签：Netscape Bookmark HTML 导入和导出
 - AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
 - 公开导航：`/:username`，默认搜索为 Google
@@ -70,29 +73,23 @@ docker compose up -d --build
 
 ```text
 Nono: http://127.0.0.1:3000
-Blog: http://127.0.0.1:3000/blog
+Nodesk: http://127.0.0.1:3000/nodesk
 ```
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
 
-正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为同域名下的 `/blog` 地址，例如：
+正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为 Nodesk 的完整公网地址。站内互跳默认使用同域名相对路径 `/` 与 `/nodesk`，无需绑定服务器 IP：
 
 ```text
 NONO_PUBLIC_URL=https://example.com
-BLOG_PUBLIC_URL=https://example.com/blog
+BLOG_PUBLIC_URL=https://example.com/nodesk
+NONO_NAVIGATION_URL=/
+BLOG_NAVIGATION_URL=/nodesk
 ```
 
-两端公开页面的中心图片和右上角入口可以在各自后台配置；Docker 构建参数会作为初始跳转地址，后台保存的设置优先。
+`NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和 Nodesk 元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在后台覆盖，后台保存的设置优先。旧 `/blog` 地址会以 308 重定向到 `/nodesk`。
 
-博客后台通过 GitHub App 提交文章与图片时，默认写入当前 `nono` 仓库的 `apps/blog` 目录：
-
-```text
-NEXT_PUBLIC_GITHUB_REPO=nono
-NEXT_PUBLIC_GITHUB_BRANCH=main
-NEXT_PUBLIC_GITHUB_ROOT_PATH=apps/blog
-```
-
-GitHub App 必须安装到 `nono` 仓库并拥有 Contents 写权限。
+Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 
 ## 旧数据迁移
 
@@ -112,4 +109,12 @@ npm run migrate:json -w packages/server -- data/nono.json
 npm run build -w packages/extension
 ```
 
-在 Chrome 扩展管理页加载 `packages/extension/dist`，填入服务地址和后台创建的 API Token，即可一键分析当前网页并确认保存。
+开发安装：在 Chrome 扩展管理页开启“开发者模式”，选择“加载已解压的扩展程序”，打开 `packages/extension/dist`。
+
+打包安装文件：
+
+```text
+packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
+```
+
+插件设置中填入 Nono 服务地址和后台创建的 API Token。插件会自动读取当前网页并记住上次使用的文件夹；可在弹窗中选择“Notab → 文件夹”后收藏，也可通过右键菜单直接保存到上次文件夹。AI 整理仅在需要时手动触发。更完整的安装、权限和快捷键说明见 `packages/extension/README.md`。

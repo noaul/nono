@@ -17,6 +17,7 @@ for (const file of required) {
 }
 
 await fs.cp(path.join(root, 'shared'), path.join(dist, 'shared'), { recursive: true });
+await fs.cp(path.join(root, 'icons'), path.join(dist, 'icons'), { recursive: true });
 
 const manifest = JSON.parse(await fs.readFile(path.join(dist, 'manifest.json'), 'utf8'));
 if (manifest.manifest_version !== 3) throw new Error('Manifest V3 is required');

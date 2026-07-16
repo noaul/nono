@@ -46,6 +46,8 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
           llmProvider: input.llmProvider || null,
           llmApiKey: input.llmApiKey || null,
           llmModel: input.llmModel || null,
+          llmBaseUrl: input.llmBaseUrl || null,
+          llmReasoningEffort: input.llmReasoningEffort || null,
           sites: { create: toSiteCreate(defaultSite(0, input.username)) as any },
         },
       })) as any;
@@ -90,8 +92,11 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       })));
     },
     async deleteFolder(userId, id) {
-      const folder = await prisma.folder.findFirstOrThrow({ where: { userId, id } });
-      await prisma.folder.delete({ where: { id: folder.id } });
+      await prisma.folder.deleteMany({ where: { userId, id } });
+    },
+    async deleteFolders(userId, ids) {
+      if (!ids.length) return;
+      await prisma.folder.deleteMany({ where: { userId, id: { in: ids } } });
     },
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
@@ -115,6 +120,10 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     async deleteLink(userId, id) {
       const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });
       await prisma.link.delete({ where: { id: link.id } });
+    },
+    async deleteLinks(userId, ids) {
+      if (!ids.length) return;
+      await prisma.link.deleteMany({ where: { id: { in: ids }, folder: { userId } } });
     },
     async listTokens(userId) {
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;

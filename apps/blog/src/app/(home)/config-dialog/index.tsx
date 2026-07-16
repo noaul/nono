@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { toast } from 'sonner'
 import { DialogModal } from '@/components/dialog-modal'
@@ -11,6 +11,7 @@ import type { SiteContent, CardStyles } from '../stores/config-store'
 import { SiteSettings, type FileItem, type ArtImageUploads, type BackgroundImageUploads, type SocialButtonImageUploads } from './site-settings'
 import { ColorConfig } from './color-config'
 import { HomeLayout } from './home-layout'
+import { avatarAssetPath } from '@/lib/site-assets'
 
 interface ConfigDialogProps {
 	open: boolean
@@ -20,7 +21,7 @@ interface ConfigDialogProps {
 type TabType = 'site' | 'color' | 'layout'
 
 export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
-	const { isAuth, setPrivateKey } = useAuthStore()
+	const { isAuth } = useAuthStore()
 	const { siteContent, setSiteContent, cardStyles, setCardStyles, regenerateBubbles } = useConfigStore()
 	const [formData, setFormData] = useState<SiteContent>(siteContent)
 	const [cardStylesData, setCardStylesData] = useState<CardStyles>(cardStyles)
@@ -28,7 +29,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 	const [originalCardStyles, setOriginalCardStyles] = useState<CardStyles>(cardStyles)
 	const [isSaving, setIsSaving] = useState(false)
 	const [activeTab, setActiveTab] = useState<TabType>('site')
-	const keyInputRef = useRef<HTMLInputElement>(null)
 	const [faviconItem, setFaviconItem] = useState<FileItem | null>(null)
 	const [avatarItem, setAvatarItem] = useState<FileItem | null>(null)
 	const [artImageUploads, setArtImageUploads] = useState<ArtImageUploads>({})
@@ -79,28 +79,18 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		}
 	}, [faviconItem, avatarItem, artImageUploads, backgroundImageUploads, socialButtonImageUploads])
 
-	const handleChoosePrivateKey = async (file: File) => {
-		try {
-			const text = await file.text()
-			setPrivateKey(text)
-			await handleSave()
-		} catch (error) {
-			console.error('Failed to read private key:', error)
-			toast.error('读取密钥文件失败')
-		}
-	}
-
 	const handleSaveClick = () => {
 		if (!isAuth) {
-			keyInputRef.current?.click()
-		} else {
-			handleSave()
+			toast.error('请先登录 Nono 后台')
+			return
 		}
+		void handleSave()
 	}
 
 	const handleSave = async () => {
 		setIsSaving(true)
 		try {
+			const nextSiteContent = applyAvatarUpload(formData, avatarItem)
 			// Calculate removed art images so that we can delete files in repo
 			const originalArtImages = originalData.artImages ?? []
 			const currentArtImages = formData.artImages ?? []
@@ -112,7 +102,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			const removedBackgroundImages = originalBackgroundImages.filter(orig => !currentBackgroundImages.some(current => current.id === orig.id))
 
 			await pushSiteContent(
-				formData,
+				nextSiteContent,
 				cardStylesData,
 				faviconItem,
 				avatarItem,
@@ -122,7 +112,8 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 				removedBackgroundImages,
 				socialButtonImageUploads
 			)
-			setSiteContent(formData)
+			setSiteContent(nextSiteContent)
+			setFormData(nextSiteContent)
 			setCardStyles(cardStylesData)
 			updateThemeVariables(formData.theme)
 			setFaviconItem(null)
@@ -219,7 +210,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		onClose()
 	}
 
-	const buttonText = isAuth ? '保存' : '导入密钥'
+	const buttonText = '保存'
 
 	const tabs: { id: TabType; label: string }[] = [
 		{ id: 'site', label: '网站设置' },
@@ -229,18 +220,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 
 	return (
 		<>
-			<input
-				ref={keyInputRef}
-				type='file'
-				accept='.pem'
-				className='hidden'
-				onChange={async e => {
-					const f = e.target.files?.[0]
-					if (f) await handleChoosePrivateKey(f)
-					if (e.currentTarget) e.currentTarget.value = ''
-				}}
-			/>
-
 			<DialogModal open={open} onClose={handleCancel} className='card scrollbar-none max-h-[90vh] min-h-[600px] w-[640px] overflow-y-auto'>
 				<div className='mb-6 flex items-center justify-between'>
 					<div className='flex gap-1'>
@@ -301,4 +280,19 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			</DialogModal>
 		</>
 	)
+}
+
+function applyAvatarUpload(siteContent: SiteContent, avatarItem: FileItem | null): SiteContent {
+	if (avatarItem?.type !== 'file') return siteContent
+
+	const avatarUrl = avatarAssetPath(avatarItem)
+	const previousAvatarUrl = siteContent.meta.avatarUrl || '/images/avatar.png'
+	return {
+		...siteContent,
+		meta: { ...siteContent.meta, avatarUrl },
+		portal:
+			siteContent.portal.imageUrl === previousAvatarUrl || siteContent.portal.imageUrl === '/images/avatar.png'
+				? { ...siteContent.portal, imageUrl: avatarUrl }
+				: siteContent.portal
+	}
 }

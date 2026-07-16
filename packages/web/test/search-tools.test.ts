@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { splitHighlight } from '../src/utils/highlight';
-import { getSelectedEngineId, resolveSearchTemplate, setSelectedEngineId } from '../src/utils/searchEngines';
+import {
+  getSearchEngineSettings,
+  getSelectedEngineId,
+  resolveSearchTemplate,
+  setSelectedEngineId,
+} from '../src/utils/searchEngines';
 
 const store = new Map<string, string>();
 
@@ -52,5 +57,21 @@ describe('search engine selection', () => {
   it('ignores unknown persisted values', () => {
     localStorage.setItem('nono:search-engine', 'altavista');
     expect(getSelectedEngineId()).toBe('default');
+  });
+
+  it('normalizes custom engines and falls back to the configured default', () => {
+    const settings = getSearchEngineSettings({
+      searchEngines: {
+        defaultId: 'docs',
+        items: [
+          { id: 'disabled', label: 'Disabled', short: 'D', template: 'https://disabled.example/?q={query}', enabled: false },
+          { id: 'docs', label: 'Docs', short: '文', template: 'https://docs.example/search?q={query}', enabled: true },
+        ],
+      },
+    });
+
+    localStorage.setItem('nono:search-engine', 'disabled');
+    expect(getSelectedEngineId(settings)).toBe('docs');
+    expect(resolveSearchTemplate(undefined, settings)).toBe('https://docs.example/search?q={query}');
   });
 });

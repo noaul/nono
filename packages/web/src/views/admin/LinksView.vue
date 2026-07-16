@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
@@ -12,13 +14,20 @@ import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 
+const props = withDefaults(defineProps<{ mode?: 'create' | 'manage' }>(), {
+  mode: 'manage',
+});
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
+const selectedCategoryId = ref<number>(0);
 const selectedFolderId = ref<number>(0);
 const sortMode = ref(false);
 const draftLinkIds = shallowRef<number[]>([]);
 const form = reactive({ id: 0, folderId: 0, name: '', url: '', icon: '', description: '' });
+const formCategoryId = ref(0);
+const quickCategoryId = ref(0);
+const quickFolderId = ref(0);
 const error = ref('');
 const message = ref('');
 const isInitialLoading = ref(true);
@@ -27,18 +36,35 @@ const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const searchTerm = ref('');
 const selectedLinkIds = ref(new Set<number>());
-const bulkFolderId = ref(0);
 const duplicateGroups = ref<DuplicateLinkGroup[]>([]);
 const isBulkWorking = ref(false);
 const isLoadingDuplicates = ref(false);
 const healthResults = ref<LinkHealthResult[]>([]);
 const healthSummary = ref<LinkHealthSummary | null>(null);
 const isCheckingHealth = ref(false);
+const editingLinkId = ref<number | null>(null);
+const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
+const newFolderTarget = ref<'form' | 'quick' | null>(null);
+const newFolderName = ref('');
+const isCreatingFolder = ref(false);
 
-const activeFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || folders.value[0]);
+const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
+const categoryFolders = computed(() => sortedFolders.value.filter((folder) => !folder.parentId || !folderById.value.has(folder.parentId)));
+const categoryFolderGroups = computed(() => categoryFolders.value.map((category) => ({
+  category,
+  folders: folderTree(category.id),
+})));
+const formCategoryFolders = computed(() => foldersForCategory(formCategoryId.value));
+const quickCategoryFolders = computed(() => foldersForCategory(quickCategoryId.value));
+const selectedCategoryFolders = computed(() => {
+  return categoryFolderGroups.value.find((item) => item.category.id === selectedCategoryId.value)?.folders || [];
+});
+const activeFolder = computed(() => selectedCategoryFolders.value.find((folder) => folder.id === selectedFolderId.value));
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
+const allFilteredSelected = computed(() => filteredLinks.value.length > 0 && filteredLinks.value.every((link) => selectedLinkIds.value.has(link.id)));
 const filteredLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
   const base = sortMode.value
@@ -48,13 +74,66 @@ const filteredLinks = computed(() => {
   return base.filter((link) => [link.name, link.url, link.description || ''].join(' ').toLowerCase().includes(query));
 });
 
+function folderTree(rootId: number) {
+  const result: Folder[] = [];
+  const visit = (folder: Folder) => {
+    result.push(folder);
+    for (const child of sortedFolders.value.filter((item) => item.parentId === folder.id)) visit(child);
+  };
+  const root = folderById.value.get(rootId);
+  if (root) visit(root);
+  return result;
+}
+
+function preferredFolderId(categoryId: number) {
+  return sortedFolders.value.find((folder) => folder.parentId === categoryId)?.id || categoryId;
+}
+
+function foldersForCategory(categoryId: number) {
+  return categoryFolderGroups.value.find((item) => item.category.id === categoryId)?.folders || [];
+}
+
+function categoryIdForFolder(folderId: number) {
+  let folder = folderById.value.get(folderId);
+  const visited = new Set<number>();
+  while (folder?.parentId && !visited.has(folder.id)) {
+    visited.add(folder.id);
+    folder = folderById.value.get(folder.parentId);
+  }
+  return folder?.id || 0;
+}
+
+function ensureCreationSelection() {
+  const firstCategoryId = categoryFolders.value[0]?.id || 0;
+  if (!categoryFolders.value.some((folder) => folder.id === formCategoryId.value)) {
+    formCategoryId.value = categoryIdForFolder(form.folderId) || firstCategoryId;
+  }
+  if (!formCategoryFolders.value.some((folder) => folder.id === form.folderId)) {
+    form.folderId = preferredFolderId(formCategoryId.value);
+  }
+  if (!categoryFolders.value.some((folder) => folder.id === quickCategoryId.value)) {
+    quickCategoryId.value = firstCategoryId;
+  }
+  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
+    quickFolderId.value = preferredFolderId(quickCategoryId.value);
+  }
+}
+
+function ensureCategorySelection() {
+  if (!categoryFolders.value.some((folder) => folder.id === selectedCategoryId.value)) {
+    selectedCategoryId.value = categoryFolders.value[0]?.id || 0;
+  }
+  if (!selectedCategoryFolders.value.some((folder) => folder.id === selectedFolderId.value)) {
+    selectedFolderId.value = preferredFolderId(selectedCategoryId.value);
+  }
+}
+
 async function load() {
   isInitialLoading.value = true;
   try {
     [folders.value, links.value] = await Promise.all([apiRequest<Folder[]>('/api/admin/folders'), apiRequest<Link[]>('/api/admin/links')]);
-    if (!selectedFolderId.value && folders.value[0]) selectedFolderId.value = folders.value[0].id;
-    if (!form.folderId && folders.value[0]) form.folderId = folders.value[0].id;
-    if (!bulkFolderId.value && folders.value[0]) bulkFolderId.value = folders.value[0].id;
+    ensureCategorySelection();
+    ensureCreationSelection();
     selectedLinkIds.value = new Set();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载书签失败');
@@ -63,21 +142,149 @@ async function load() {
   }
 }
 
+function selectCategory(category: Folder) {
+  selectedCategoryId.value = category.id;
+  selectedFolderId.value = preferredFolderId(category.id);
+  clearManagementState();
+}
+
 function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
-  form.folderId = folder.id;
+  clearManagementState();
+}
+
+function clearManagementState() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
+  cancelInlineEdit();
   stopSorting();
 }
 
-function edit(link: Link) {
-  Object.assign(form, link);
+function startInlineEdit(link: Link) {
+  Object.assign(inlineForm, {
+    name: link.name,
+    url: link.url,
+    categoryId: categoryIdForFolder(link.folderId),
+    folderId: link.folderId,
+  });
+  editingLinkId.value = link.id;
   stopSorting();
+}
+
+function cancelInlineEdit() {
+  editingLinkId.value = null;
+}
+
+function selectInlineCategory() {
+  inlineForm.folderId = preferredFolderId(inlineForm.categoryId);
+}
+
+function selectFolderOption(target: 'form' | 'quick', event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value === '__new__') {
+    newFolderTarget.value = target;
+    newFolderName.value = '';
+    return;
+  }
+  const folderId = Number(value);
+  if (!Number.isInteger(folderId) || folderId < 1) return;
+  if (target === 'form') form.folderId = folderId;
+  else quickFolderId.value = folderId;
+  if (newFolderTarget.value === target) newFolderTarget.value = null;
+}
+
+function cancelNewFolder() {
+  newFolderTarget.value = null;
+  newFolderName.value = '';
+}
+
+async function createFolderFromDropdown(target: 'form' | 'quick') {
+  const name = newFolderName.value.trim();
+  const parentId = target === 'form' ? formCategoryId.value : quickCategoryId.value;
+  if (!name || !parentId || isCreatingFolder.value) return;
+  isCreatingFolder.value = true;
+  try {
+    const saved = await apiRequest<Folder>('/api/admin/folders', {
+      method: 'POST',
+      body: jsonBody({ parentId, name, icon: '', description: '' }),
+    });
+    folders.value = [...folders.value, saved];
+    if (target === 'form') form.folderId = saved.id;
+    else quickFolderId.value = saved.id;
+    cancelNewFolder();
+    notifySuccess(`已新建文件夹「${saved.name}」`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '新建文件夹失败');
+  } finally {
+    isCreatingFolder.value = false;
+  }
+}
+
+async function saveInlineEdit(link: Link) {
+  if (!inlineForm.name.trim() || !inlineForm.url.trim() || !inlineForm.folderId) return;
+  try {
+    const payload = {
+      name: inlineForm.name.trim(),
+      url: inlineForm.url.trim(),
+      folderId: inlineForm.folderId,
+    };
+    const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, { method: 'PUT', body: jsonBody(payload) });
+    links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved } : item));
+    editingLinkId.value = null;
+    notifySuccess('书签已更新');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '书签更新失败');
+  }
+}
+
+const quickUrl = ref('');
+const isQuickAdding = ref(false);
+
+async function quickAdd() {
+  const url = quickUrl.value.trim();
+  if (!url || isQuickAdding.value) return;
+  if (!/^https?:\/\//i.test(url)) {
+    notifyError('请以 http 或 https 开头');
+    return;
+  }
+  const folderId = quickFolderId.value;
+  if (!folderId) {
+    notifyError('请先创建一个文件夹');
+    return;
+  }
+  isQuickAdding.value = true;
+  try {
+    const meta = await apiRequest<{ title: string; description: string }>(`/api/admin/fetch-meta?url=${encodeURIComponent(url)}`).catch(() => ({ title: '', description: '' }));
+    const fallbackName = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        return url;
+      }
+    })();
+    const saved = await apiRequest<Link>('/api/admin/links', {
+      method: 'POST',
+      body: jsonBody({ folderId, name: (meta.title || fallbackName).slice(0, 24), url, icon: '', description: meta.description || '' }),
+    });
+    links.value = [...links.value, saved];
+    quickUrl.value = '';
+    notifySuccess(`已添加「${saved.name}」`);
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '快速添加失败');
+  } finally {
+    isQuickAdding.value = false;
+  }
 }
 
 function reset() {
-  Object.assign(form, { id: 0, folderId: activeFolder.value?.id || folders.value[0]?.id || 0, name: '', url: '', icon: '', description: '' });
+  Object.assign(form, {
+    id: 0,
+    folderId: preferredFolderId(formCategoryId.value) || sortedFolders.value[0]?.id || 0,
+    name: '',
+    url: '',
+    icon: '',
+    description: '',
+  });
 }
 
 async function save() {
@@ -88,7 +295,7 @@ async function save() {
     const saved = form.id
       ? await apiRequest<Link>(`/api/admin/links/${form.id}`, { method: 'PUT', body: jsonBody(form) })
       : await apiRequest<Link>('/api/admin/links', { method: 'POST', body: jsonBody(form) });
-    links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [saved, ...links.value];
+    links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [...links.value, saved];
     message.value = form.id ? '书签已更新' : '书签已新增';
     notifySuccess(message.value);
     reset();
@@ -132,22 +339,14 @@ function toggleLinkSelection(id: number, event: Event) {
   selectedLinkIds.value = next;
 }
 
-async function bulkMoveSelected() {
-  const ids = [...selectedLinkIds.value];
-  if (!ids.length || !bulkFolderId.value) return;
-
-  isBulkWorking.value = true;
-  try {
-    const result = await apiRequest<BulkLinkResult>('/api/admin/links/bulk-move', { method: 'POST', body: jsonBody({ ids, folderId: bulkFolderId.value }) });
-    const movedIds = new Set(ids);
-    links.value = links.value.map((link) => (movedIds.has(link.id) ? { ...link, folderId: bulkFolderId.value } : link));
-    selectedLinkIds.value = new Set();
-    notifySuccess(`已移动 ${result.moved ?? ids.length} 个书签`);
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '批量移动失败');
-  } finally {
-    isBulkWorking.value = false;
+function toggleAllFilteredLinks() {
+  const next = new Set(selectedLinkIds.value);
+  if (allFilteredSelected.value) {
+    for (const link of filteredLinks.value) next.delete(link.id);
+  } else {
+    for (const link of filteredLinks.value) next.add(link.id);
   }
+  selectedLinkIds.value = next;
 }
 
 async function bulkDeleteSelected() {
@@ -210,6 +409,10 @@ function folderName(folderId: number) {
   return folders.value.find((folder) => folder.id === folderId)?.name || '-';
 }
 
+function categoryName(folderId: number) {
+  return folderById.value.get(categoryIdForFolder(folderId))?.name || '-';
+}
+
 function startSorting() {
   searchTerm.value = '';
   selectedLinkIds.value = new Set();
@@ -253,42 +456,90 @@ async function saveSorting() {
   }
 }
 
-watch(activeFolder, (folder) => {
-  if (folder && !form.id) form.folderId = folder.id;
+watch(formCategoryId, (categoryId) => {
+  if (!formCategoryFolders.value.some((folder) => folder.id === form.folderId)) {
+    form.folderId = preferredFolderId(categoryId);
+  }
+});
+
+watch(quickCategoryId, (categoryId) => {
+  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
+    quickFolderId.value = preferredFolderId(categoryId);
+  }
 });
 
 onMounted(load);
 </script>
 
 <template>
-  <div class="links-admin-view">
-    <section class="admin-card">
+  <AdminLayout :title="props.mode === 'create' ? '新增书签' : '书签管理'">
+    <section v-if="props.mode === 'create'" class="admin-card">
       <div class="admin-card-head">
         <div>
           <h2>{{ form.id ? '编辑书签' : '新增书签' }}</h2>
           <p>把链接放进指定文件夹后，会立即出现在你的公开导航页。</p>
         </div>
-        <div class="toolbar">
-          <RouterLink class="button secondary" to="/admin/bookmarks">导入书签</RouterLink>
-          <button class="button" type="button" :disabled="isSaving" @click="save">
-            <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
-          </button>
-        </div>
+        <button class="button" type="button" :disabled="isSaving" @click="save">
+          <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
+        </button>
       </div>
       <p class="warning-line">隐私与法律免责声明：你所添加的每一个链接都将负法律责任。</p>
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
+      <form class="quick-add-bar" @submit.prevent="quickAdd">
+        <input
+          v-model="quickUrl"
+          data-testid="quick-add-url"
+          type="url"
+          placeholder="粘贴 URL 回车即添加 — 自动抓取标题和介绍"
+          :disabled="isQuickAdding"
+        />
+        <select v-model.number="quickCategoryId" data-testid="quick-link-category" aria-label="目标 notab" :disabled="isQuickAdding">
+          <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+        </select>
+        <select :value="quickFolderId" data-testid="quick-link-folder" aria-label="目标文件夹" :disabled="isQuickAdding" @change="selectFolderOption('quick', $event)">
+          <option v-for="folder in quickCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+          <option value="__new__">＋ 新建文件夹</option>
+        </select>
+        <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
+          {{ isQuickAdding ? '抓取中…' : '快速添加' }}
+        </button>
+        <div v-if="newFolderTarget === 'quick'" class="new-folder-composer quick-folder-composer">
+          <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('quick')" />
+          <button class="button" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('quick')"><Plus :size="16" /> 新建</button>
+          <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="16" /></button>
+        </div>
+      </form>
       <form class="bookmark-create-grid" @submit.prevent="save">
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
         <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>
-        <div class="field"><label>文件夹</label><select v-model.number="form.folderId" required><option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option></select></div>
+        <div class="field">
+          <label>所属 notab</label>
+          <select v-model.number="formCategoryId" data-testid="create-link-category" required>
+            <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>文件夹</label>
+          <select :value="form.folderId" data-testid="create-link-folder" required @change="selectFolderOption('form', $event)">
+            <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            <option value="__new__">＋ 新建文件夹</option>
+          </select>
+          <div v-if="newFolderTarget === 'form'" class="new-folder-composer">
+            <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('form')" />
+            <button class="button compact" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('form')"><Plus :size="15" /> 新建</button>
+            <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="15" /></button>
+          </div>
+        </div>
         <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="可为空" /><button type="button" title="图标">☝</button></div></div>
         <div class="field wide"><label>介绍</label><input v-model="form.description" placeholder="鼠标经过时的提示语，也可用于站内搜索" /></div>
         <div class="field action-field"><label>操作</label><button class="button" type="submit" :disabled="isSaving"><Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}</button></div>
       </form>
     </section>
 
-    <section class="admin-card">
+    <BookmarkTransferPanel v-if="props.mode === 'create'" />
+
+    <section v-if="props.mode === 'manage'" class="admin-card">
       <div class="admin-card-head">
         <div>
           <h2>书签管理</h2>
@@ -303,19 +554,36 @@ onMounted(load);
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
-        <div class="folder-pills">
-          <button v-for="folder in folders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
-            <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
-          </button>
+        <div class="management-filter-group">
+          <div class="management-filter-label">notab</div>
+          <nav class="folder-pills" aria-label="书签 notab">
+            <button
+              v-for="category in categoryFolders"
+              :key="category.id"
+              class="folder-pill"
+              :class="{ active: category.id === selectedCategoryId }"
+              :aria-pressed="category.id === selectedCategoryId"
+              :data-testid="`link-category-${category.id}`"
+              type="button"
+              @click="selectCategory(category)"
+            >
+              <FolderGlyph :icon="category.icon" :size="15" />{{ category.name }}
+            </button>
+          </nav>
+        </div>
+        <div class="management-filter-group">
+          <div class="management-filter-label">文件夹</div>
+          <div class="folder-pills">
+            <button v-for="folder in selectedCategoryFolders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
+              <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
+            </button>
+          </div>
         </div>
         <div v-if="!sortMode" class="bulk-action-bar">
           <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
           <div class="bulk-controls">
-            <select data-testid="bulk-folder" v-model.number="bulkFolderId" :disabled="isBulkWorking">
-              <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-            </select>
-            <button class="button secondary" data-testid="bulk-move" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkMoveSelected">
-              <MoveDown :size="17" /> 移动
+            <button class="button secondary" data-testid="select-all-links" type="button" :disabled="!filteredLinks.length || isBulkWorking" @click="toggleAllFilteredLinks">
+              {{ allFilteredSelected ? '取消全选' : '全选当前' }}
             </button>
             <button class="button secondary" data-testid="check-link-health" type="button" :disabled="isCheckingHealth || (!selectedCount && !filteredLinks.length)" @click="checkLinkHealth">
               <Activity :size="17" /> {{ isCheckingHealth ? '检查中' : '健康检查' }}
@@ -335,6 +603,7 @@ onMounted(load);
             <span>名称</span>
             <span>链接</span>
             <span>文件夹</span>
+            <span>notab</span>
             <span>操作</span>
           </div>
           <SortableList :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
@@ -346,17 +615,66 @@ onMounted(load);
                 <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整书签顺序"><GripVertical :size="18" /></button>
                 <Link2 v-else :size="16" />
               </span>
-              <button class="text-button" data-label="名称" type="button" :disabled="sortMode" @click="edit(link)">{{ link.name }}</button>
-              <span class="url-cell" data-label="链接">{{ link.url }}</span>
-              <span data-label="文件夹">{{ folderName(link.folderId) }}</span>
+              <span data-label="名称">
+                <input
+                  v-if="editingLinkId === link.id"
+                  v-model="inlineForm.name"
+                  class="inline-link-input"
+                  :data-testid="`inline-link-name-${link.id}`"
+                  maxlength="24"
+                />
+                <span v-else :data-testid="`link-name-${link.id}`">{{ link.name }}</span>
+              </span>
+              <span class="url-cell" data-label="链接">
+                <input
+                  v-if="editingLinkId === link.id"
+                  v-model="inlineForm.url"
+                  class="inline-link-input"
+                  :data-testid="`inline-link-url-${link.id}`"
+                  type="url"
+                />
+                <template v-else>{{ link.url }}</template>
+              </span>
+              <span data-label="文件夹">
+                <select
+                  v-if="editingLinkId === link.id"
+                  v-model.number="inlineForm.folderId"
+                  class="inline-link-select"
+                  :data-testid="`inline-link-folder-${link.id}`"
+                  aria-label="书签文件夹"
+                >
+                  <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+                </select>
+                <template v-else>{{ folderName(link.folderId) }}</template>
+              </span>
+              <span data-label="notab">
+                <select
+                  v-if="editingLinkId === link.id"
+                  v-model.number="inlineForm.categoryId"
+                  class="inline-link-select"
+                  :data-testid="`inline-link-category-${link.id}`"
+                  aria-label="书签 notab"
+                  @change="selectInlineCategory"
+                >
+                  <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
+                <template v-else>{{ categoryName(link.folderId) }}</template>
+              </span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
                   <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
                   <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
                 </template>
                 <template v-else>
-                  <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
-                  <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                  <template v-if="editingLinkId === link.id">
+                    <button class="icon-button success" :data-testid="`save-inline-link-${link.id}`" title="保存快速修改" @click="saveInlineEdit(link)"><Save :size="16" /></button>
+                    <button class="icon-button secondary" title="取消快速修改" @click="cancelInlineEdit"><X :size="16" /></button>
+                  </template>
+                  <template v-else>
+                    <button class="icon-button secondary" :data-testid="`edit-link-${link.id}`" title="快速修改名称、链接和文件夹" @click="startInlineEdit(link)"><Pencil :size="16" /></button>
+                    <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
+                    <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                  </template>
                 </template>
               </span>
             </article>
@@ -372,5 +690,96 @@ onMounted(load);
         </div>
       </template>
     </section>
-  </div>
+  </AdminLayout>
 </template>
+
+<style scoped>
+.management-filter-group {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  padding: 11px 0;
+}
+
+.management-filter-group + .management-filter-group {
+  margin-bottom: 10px;
+}
+
+.management-filter-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.management-filter-group .folder-pills {
+  margin: 0;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.management-filter-group .folder-pill {
+  flex: 0 0 auto;
+}
+
+.new-folder-composer {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto 36px;
+  margin-top: 6px;
+}
+
+.new-folder-composer input {
+  min-width: 0;
+}
+
+.new-folder-composer .button,
+.new-folder-composer .icon-button {
+  min-height: 36px;
+}
+
+.quick-folder-composer {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+.inline-link-input,
+.inline-link-select {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.46);
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  min-height: 34px;
+  min-width: 0;
+  padding: 6px 9px;
+  width: 100%;
+}
+
+.inline-link-input:focus,
+.inline-link-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .management-filter-group {
+    gap: 4px;
+    grid-template-columns: 1fr;
+  }
+
+  .management-filter-label {
+    line-height: 1.4;
+  }
+
+  .inline-link-input,
+  .inline-link-select {
+    width: 100%;
+  }
+}
+</style>

@@ -5,16 +5,6 @@ import AppearanceEditor from '../src/components/admin/AppearanceEditor.vue';
 import { appearanceDefaults } from '../src/utils/appearance';
 
 describe('admin performance contract', () => {
-  it('uses one persistent admin shell for all admin child routes', () => {
-    const routerSource = fs.readFileSync('src/router/index.ts', 'utf8');
-
-    expect(routerSource).toContain("path: '/admin'");
-    expect(routerSource).toMatch(/path:\s*'\/admin'[\s\S]*?children:\s*\[/);
-    expect(routerSource).toMatch(/path:\s*'site'[\s\S]*?component:\s*SiteConfigView/);
-    expect(routerSource).toMatch(/path:\s*'folders'[\s\S]*?component:\s*FoldersView/);
-    expect(routerSource).toMatch(/path:\s*'links'[\s\S]*?component:\s*LinksView/);
-  });
-
   it('turns off live preview blur while a range control is being dragged', async () => {
     const wrapper = mount(AppearanceEditor, {
       props: {
