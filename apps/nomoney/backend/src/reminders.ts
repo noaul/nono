@@ -106,7 +106,7 @@ function insertReminderLog(
 }
 
 function renderDigest(items: DueItem[]): string {
-  const lines = ['Moneypulse 资产到期提醒', ''];
+  const lines = ['NoMoney 资产到期提醒', ''];
   for (const item of items) {
     lines.push(
       `- ${item.assetType}: ${item.name}`,

@@ -24,7 +24,7 @@
     "test:e2e:install": "playwright install chromium",
     "test:blog": "pnpm --dir apps/blog test",
     "test:nomoney": "npm --prefix apps/nomoney test",
-    "test:gateway": "node --test tests/gateway-routing.test.mjs",
+    "test:gateway": "node --test tests/gateway-routing.test.mjs tests/nomoney-docker-contract.test.mjs",
     "test:all": "npm test && npm run test:blog && npm run test:nomoney && npm run test:gateway",
     "typecheck:blog": "pnpm --dir apps/blog typecheck",
     "install:blog": "pnpm --dir apps/blog install --frozen-lockfile",

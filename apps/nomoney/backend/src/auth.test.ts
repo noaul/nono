@@ -45,6 +45,20 @@ describe('auth flow', () => {
     expect(login.body.user.email).toBe('owner@example.com');
   });
 
+  test('scopes the session cookie to the configured application path', async () => {
+    const context = await createTestContext();
+    context.cookiePath = '/nomoney';
+    const app = createApp(context);
+    const response = await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    });
+
+    const cookies = response.headers['set-cookie'];
+    expect(Array.isArray(cookies) ? cookies.join(';') : String(cookies)).toContain('Path=/nomoney');
+  });
+
   test('setup cannot run twice', async () => {
     const context = await createTestContext();
     const app = createApp(context);
@@ -72,6 +86,7 @@ describe('auth flow', () => {
       db,
       jwtSecret: 'test-secret',
       cookieSecure: false,
+      cookiePath: '/',
       now: () => new Date('2026-05-22T01:00:00.000Z'),
       mailer: {
         sent: [],

@@ -79,8 +79,8 @@ export function registerSettingsRoutes(router: Router, context: AppContext): voi
       await context.mailer.send({
         to: settings.smtpTo,
         from: settings.smtpFrom,
-        subject: 'Moneypulse test email',
-        text: 'Moneypulse email delivery is configured.'
+        subject: 'NoMoney test email',
+        text: 'NoMoney email delivery is configured.'
       });
       res.status(204).end();
     })

@@ -74,10 +74,10 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white dark:border-white/10 dark:bg-ink-900 md:block">
         <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5 dark:border-white/10">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-xs font-semibold text-white dark:border-white/10 dark:bg-white dark:text-slate-950">
-            MP
+            NM
           </div>
           <div>
-            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">Moneypulse</div>
+            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">NoMoney</div>
             <div className="font-mono text-[11px] text-slate-400">{copy('单用户资产账本', 'single-user ledger')}</div>
           </div>
         </div>
@@ -98,9 +98,9 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
             <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
-                  MP
+                  NM
                 </div>
-                <span className="text-sm font-semibold">Moneypulse</span>
+                <span className="text-sm font-semibold">NoMoney</span>
               </div>
               <IconButton onClick={() => setMobileOpen(false)} title="关闭">
                 <X size={16} />
@@ -118,7 +118,7 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
               <Menu size={20} />
             </button>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : 'Moneypulse'}</h1>
+              <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : 'NoMoney'}</h1>
               <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy('个人资产费用工作台', 'Personal finance operations workspace')}</p>
             </div>
           </div>

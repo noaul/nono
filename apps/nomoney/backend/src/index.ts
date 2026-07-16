@@ -25,6 +25,7 @@ const context = {
   db,
   jwtSecret: jwtSecret ?? 'development-only-secret',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
+  cookiePath: process.env.COOKIE_PATH ?? '/',
   now: () => new Date(),
   mailer: createSmtpMailer()
 };
@@ -47,5 +48,5 @@ cron.schedule(
 );
 
 app.listen(port, () => {
-  console.log(`Moneypulse listening on port ${port}`);
+  console.log(`NoMoney listening on port ${port}`);
 });

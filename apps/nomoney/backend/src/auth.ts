@@ -170,7 +170,7 @@ function cookieOptions(context: AppContext) {
     httpOnly: true,
     sameSite: 'lax' as const,
     secure: context.cookieSecure,
-    path: '/'
+    path: context.cookiePath
   };
 }
 

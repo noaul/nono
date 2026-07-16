@@ -25,7 +25,7 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: (user: User) =
   };
 
   return (
-    <AuthFrame title="登录 Moneypulse" subtitle="进入你的个人资产与费用工作台。">
+    <AuthFrame title="登录 NoMoney" subtitle="进入你的个人资产与费用工作台。">
       <form onSubmit={submit} className="space-y-4">
         <Field label="用户名">
           <input className={inputClass} value={username} autoComplete="username" onChange={(e) => setUsername(e.target.value)} />
@@ -88,10 +88,10 @@ function AuthFrame({ title, subtitle, children }: { title: string; subtitle: str
       <section className="hidden border-r border-slate-200 bg-white px-10 py-8 dark:border-white/10 dark:bg-ink-900 lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
-            MP
+             NM
           </div>
           <div>
-            <div className="text-sm font-semibold">Moneypulse</div>
+             <div className="text-sm font-semibold">NoMoney</div>
             <div className="font-mono text-[11px] text-slate-400">asset cost control</div>
           </div>
         </div>

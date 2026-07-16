@@ -10,6 +10,7 @@ export async function createTestContext(): Promise<AppContext> {
     db,
     jwtSecret: 'test-secret',
     cookieSecure: false,
+    cookiePath: '/',
     now: () => new Date('2026-05-22T01:00:00.000Z'),
     fetch: async () => new Response(JSON.stringify([]), {
       status: 200,

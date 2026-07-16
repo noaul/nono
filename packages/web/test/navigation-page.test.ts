@@ -106,6 +106,18 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
+  it('places the NoMoney service entry after the Notab buttons', async () => {
+    const wrapper = await mountNavigationPage();
+    const tabs = wrapper.get('.folder-tabs');
+    const entry = tabs.get('[data-testid="nomoney-entry"]');
+
+    expect(entry.attributes('href')).toBe('/nomoney');
+    expect(entry.text()).toContain('NoMoney');
+    expect(entry.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
+    expect(tabs.element.lastElementChild).toBe(entry.element);
+    expect(tabs.findAll('button.active')).toHaveLength(1);
+  });
+
   it('applies modal, tab, and admin-compatible appearance variables from saved settings', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {

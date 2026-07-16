@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ArrowUpRight } from 'lucide-vue-next';
+import { ArrowUpRight, WalletCards } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -412,6 +412,11 @@ onUnmounted(() => {
         >
           {{ tab.name }}
         </button>
+        <span class="tab-service-separator" aria-hidden="true"></span>
+        <a class="tab-service-link" href="/nomoney" data-testid="nomoney-entry">
+          <WalletCards :size="15" />
+          <span>NoMoney</span>
+        </a>
       </nav>
 
       <div class="adaptive-folder-grid">
@@ -788,6 +793,47 @@ h1 {
 .folder-tabs button:active {
   transform: translateY(1px) scale(0.97);
   transition-duration: 0.12s;
+}
+
+.tab-service-separator {
+  align-self: center;
+  background: rgba(255, 255, 255, 0.3);
+  flex: 0 0 1px;
+  height: 20px;
+  margin: 0 5px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-service-link {
+  align-items: center;
+  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
+  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.84);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 650;
+  gap: 6px;
+  padding: 6px 12px;
+  position: relative;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  z-index: 1;
+}
+
+.tab-service-link:hover,
+.tab-service-link:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--public-category-text, #ffffff);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.tab-service-link:active {
+  transform: translateY(1px) scale(0.97);
 }
 
 .folder-tabs button.active {

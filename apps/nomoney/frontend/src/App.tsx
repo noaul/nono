@@ -43,7 +43,7 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950 dark:bg-ink-950 dark:text-white">
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-500 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-          Moneypulse loading
+          NoMoney loading
         </div>
       </div>
     );

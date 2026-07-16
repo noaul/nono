@@ -1,12 +1,13 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
+import { targetFor } from './gateway-routing.mjs';
 
 const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
 const blogPort = numberFromEnv('BLOG_INTERNAL_PORT', 2025);
+const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
 const children = new Set();
-const blogPublicPrefixes = ['/blogs/', '/images/', '/live2d/', '/music/'];
-const blogPublicFiles = new Set(['/favicon.png', '/manifest.json']);
+const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort };
 let shuttingDown = false;
 let server;
 
@@ -15,7 +16,7 @@ function numberFromEnv(name, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-function startService(name, cwd, entrypoint, port) {
+function startService(name, cwd, entrypoint, port, extraEnv = {}) {
   const child = spawn(process.execPath, [entrypoint], {
     cwd,
     env: {
@@ -23,6 +24,7 @@ function startService(name, cwd, entrypoint, port) {
       PORT: String(port),
       HOST: '0.0.0.0',
       HOSTNAME: '0.0.0.0',
+      ...extraEnv,
     },
     stdio: 'inherit',
   });
@@ -37,19 +39,6 @@ function startService(name, cwd, entrypoint, port) {
   });
 }
 
-function targetFor(url = '/') {
-  if (url === '/nodesk' || url.startsWith('/nodesk/') || url.startsWith('/nodesk?')) {
-    return { name: 'blog', port: blogPort, path: url };
-  }
-
-  const pathname = url.split('?', 1)[0];
-  if (blogPublicFiles.has(pathname) || blogPublicPrefixes.some(prefix => pathname.startsWith(prefix))) {
-    return { name: 'blog', port: blogPort, path: `/nodesk${url}` };
-  }
-
-  return { name: 'nono', port: nonoPort, path: url };
-}
-
 function proxyRequest(request, response) {
   const url = request.url || '/';
   if (url === '/blog' || url.startsWith('/blog/') || url.startsWith('/blog?')) {
@@ -58,7 +47,7 @@ function proxyRequest(request, response) {
     return;
   }
 
-  const target = targetFor(request.url);
+  const target = targetFor(request.url, servicePorts);
   const proxy = http.request({
     hostname: '127.0.0.1',
     port: target.port,
@@ -90,7 +79,7 @@ function proxyRequest(request, response) {
 }
 
 function proxyUpgrade(request, socket, head) {
-  const target = targetFor(request.url);
+  const target = targetFor(request.url, servicePorts);
   const proxy = http.request({
     hostname: '127.0.0.1',
     port: target.port,
@@ -127,6 +116,18 @@ function shutdown(exitCode = 0) {
 
 startService('nono', '/app/nono', 'packages/server/dist/server.js', nonoPort);
 startService('blog', '/app/blog', 'server.js', blogPort);
+startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
+  APP_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
+  JWT_SECRET: process.env.NOMONEY_JWT_SECRET || '',
+  COOKIE_SECURE: process.env.NOMONEY_COOKIE_SECURE || 'true',
+  COOKIE_PATH: '/nomoney',
+  SMTP_HOST: process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST || '',
+  SMTP_PORT: process.env.NOMONEY_SMTP_PORT || process.env.SMTP_PORT || '587',
+  SMTP_USER: process.env.NOMONEY_SMTP_USER || process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS || '',
+  SMTP_FROM: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM || '',
+  SMTP_TO: process.env.NOMONEY_SMTP_TO || process.env.SMTP_TO || '',
+});
 
 server = http.createServer(proxyRequest);
 server.on('upgrade', proxyUpgrade);

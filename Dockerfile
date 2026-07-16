@@ -31,12 +31,32 @@ ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 COPY apps/blog/ ./
 RUN pnpm build
 
+FROM node:22-alpine AS nomoney-deps
+WORKDIR /app/nomoney
+COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
+COPY apps/nomoney/backend/package.json ./backend/package.json
+COPY apps/nomoney/frontend/package.json ./frontend/package.json
+RUN npm ci
+
+FROM nomoney-deps AS nomoney-build
+WORKDIR /app/nomoney
+COPY apps/nomoney/ ./
+RUN npm run build
+
+FROM node:22-alpine AS nomoney-runtime-deps
+WORKDIR /app/nomoney
+COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
+COPY apps/nomoney/backend/package.json ./backend/package.json
+COPY apps/nomoney/frontend/package.json ./frontend/package.json
+RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache clean --force
+
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001
 ENV BLOG_INTERNAL_PORT=2025
+ENV NOMONEY_INTERNAL_PORT=2030
 ENV HOSTNAME=0.0.0.0
 COPY --from=nono-build /app/nono/package.json ./nono/package.json
 COPY --from=nono-build /app/nono/node_modules ./nono/node_modules
@@ -49,6 +69,12 @@ COPY --from=blog-build /app/blog/public ./nodesk-seed/public
 COPY --from=blog-build /app/blog/src ./nodesk-seed/src
 COPY --from=blog-build /app/blog/.next/standalone ./blog
 COPY --from=blog-build /app/blog/.next/static ./blog/.next/static
+COPY --from=nomoney-build /app/nomoney/package.json ./nomoney/package.json
+COPY --from=nomoney-build /app/nomoney/backend/package.json ./nomoney/backend/package.json
+COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_modules
+COPY --from=nomoney-build /app/nomoney/backend/dist ./nomoney/backend/dist
+COPY --from=nomoney-build /app/nomoney/backend/public ./nomoney/backend/public
 COPY docker/gateway.mjs ./gateway.mjs
+COPY docker/gateway-routing.mjs ./gateway-routing.mjs
 EXPOSE 3000
 CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec node ./gateway.mjs"]

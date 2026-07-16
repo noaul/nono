@@ -40,10 +40,21 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       NODESK_CONTENT_DIR: /app/nodesk-content
       NODESK_SEED_DIR: /app/nodesk-seed
+      NOMONEY_INTERNAL_PORT: 2030
+      NOMONEY_DATA_DIR: /app/nomoney-data
+      NOMONEY_JWT_SECRET: ${NOMONEY_JWT_SECRET:?NOMONEY_JWT_SECRET is required}
+      NOMONEY_COOKIE_SECURE: ${NOMONEY_COOKIE_SECURE:-false}
+      NOMONEY_SMTP_HOST: ${NOMONEY_SMTP_HOST:-}
+      NOMONEY_SMTP_PORT: ${NOMONEY_SMTP_PORT:-587}
+      NOMONEY_SMTP_USER: ${NOMONEY_SMTP_USER:-}
+      NOMONEY_SMTP_PASS: ${NOMONEY_SMTP_PASS:-}
+      NOMONEY_SMTP_FROM: ${NOMONEY_SMTP_FROM:-}
+      NOMONEY_SMTP_TO: ${NOMONEY_SMTP_TO:-}
     volumes:
       - nodesk_content:/app/nodesk-content
+      - nomoney_data:/app/nomoney-data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz >/dev/null && wget -qO- http://127.0.0.1:3000/nomoney/api/health >/dev/null"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -52,3 +63,4 @@ services:
 volumes:
   nono_pg_data:
   nodesk_content:
+  nomoney_data:

@@ -55,6 +55,7 @@ export interface AppContext {
   db: DbClient;
   jwtSecret: string;
   cookieSecure: boolean;
+  cookiePath: string;
   now: () => Date;
   mailer: Mailer;
   fetch?: typeof fetch;
