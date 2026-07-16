@@ -100,12 +100,13 @@ test('deploys the integrated site at /nodesk with legacy /blog redirects', async
 	const nextConfig = await read('next.config.ts')
 	const compose = await readRepositoryFile('docker-compose.yml')
 	const gateway = await readRepositoryFile('docker/gateway.mjs')
+	const gatewayRouting = await readRepositoryFile('docker/gateway-routing.mjs')
 
 	assert.match(nextConfig, /NEXT_PUBLIC_BASE_PATH === '\/nodesk'/)
 	assert.match(compose, /NEXT_PUBLIC_BASE_PATH:\s*\/nodesk/)
 	assert.match(compose, /BLOG_NAVIGATION_URL:-\/nodesk/)
 	assert.match(compose, /nodesk_content:\/app\/nodesk-content/)
-	assert.match(gateway, /url === '\/nodesk'/)
+	assert.match(gatewayRouting, /url === '\/nodesk'/)
 	assert.match(gateway, /replace\('\/blog', '\/nodesk'\)/)
 })
 
