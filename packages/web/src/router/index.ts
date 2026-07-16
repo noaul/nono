@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import NavigationPage from '@/views/NavigationPage.vue';
+import PrivacyView from '@/views/PrivacyView.vue';
 
 const LoginView = () => import('@/views/LoginView.vue');
 const RegisterView = () => import('@/views/RegisterView.vue');
@@ -22,6 +23,7 @@ export const router = createRouter({
     { path: '/login', component: LoginView },
     { path: '/register', component: RegisterView },
     { path: '/setup', component: SetupView },
+    { path: '/privacy', component: PrivacyView },
     { path: '/admin', component: AdminDashboard, meta: { requiresAuth: true } },
     { path: '/admin/site', component: SiteConfigView, meta: { requiresAuth: true } },
     { path: '/admin/notabs', component: NotabsView, meta: { requiresAuth: true } },
