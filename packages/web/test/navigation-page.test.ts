@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -188,6 +190,16 @@ describe('NavigationPage public workflow', () => {
     expect(center.attributes('target')).toBe('_blank');
     expect(center.attributes('rel')).toBe('noreferrer');
     expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
+  });
+
+  it('switches notabs without enter and leave transitions on the folder grid', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+
+    expect(source).toContain('<div class="adaptive-folder-grid">');
+    expect(source).not.toContain('<TransitionGroup tag="div" name="folder-card" class="adaptive-folder-grid">');
+    expect(source).not.toContain('.folder-card-enter-active');
+    expect(source).not.toContain('.folder-card-leave-active');
+    expect(source).not.toContain('.folder-card-move');
   });
 
   it('renders large folder collections in incremental batches', async () => {

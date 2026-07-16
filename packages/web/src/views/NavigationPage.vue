@@ -414,7 +414,7 @@ onUnmounted(() => {
         </button>
       </nav>
 
-      <TransitionGroup tag="div" name="folder-card" class="adaptive-folder-grid">
+      <div class="adaptive-folder-grid">
         <FolderCard
           v-for="folder in renderedFolders"
           :key="folder.id"
@@ -425,7 +425,7 @@ onUnmounted(() => {
           @verify="verifying = $event"
           @expand="expandedFolder = $event"
         />
-      </TransitionGroup>
+      </div>
       <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
         继续加载更多文件夹
       </button>
@@ -855,38 +855,6 @@ mark {
 
   .adaptive-folder-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.folder-card-enter-active {
-  transition:
-    opacity var(--nono-dur-slow, 340ms) var(--nono-ease-standard),
-    transform var(--nono-dur-slow, 340ms) var(--nono-ease-spring);
-}
-
-.folder-card-leave-active {
-  position: absolute;
-  transition: opacity var(--nono-dur-fast, 120ms) ease;
-}
-
-.folder-card-move {
-  transition: transform var(--nono-dur-slow, 340ms) var(--nono-ease-standard);
-}
-
-.folder-card-enter-from {
-  opacity: 0;
-  transform: translateY(14px) scale(0.98);
-}
-
-.folder-card-leave-to {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .folder-card-enter-active,
-  .folder-card-leave-active,
-  .folder-card-move {
-    transition: none;
   }
 }
 
