@@ -502,6 +502,7 @@
 }
 
 .app-workbench .sortable-list[data-dragging='true'] .sortable-admin-row {
+  contain: paint;
   transition: none;
 }
 
@@ -2542,6 +2543,12 @@
   box-shadow:
     0 12px 30px rgba(31, 41, 55, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.glass-workbench > .workbench-sidebar.glass-surface,
+.glass-workbench > .workbench-main > .workbench-topbar.glass-surface {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .glass-workbench .panel,

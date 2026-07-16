@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Gauge, LayoutGrid, RotateCcw, Search, SlidersHorizontal } from 'lucide-vue-next';
 import { appearanceDefaults, toAppearanceCssVars, type AppearanceSettings } from '@/utils/appearance';
 
 const props = defineProps<{ appearance: AppearanceSettings; previewBg: string }>();
+const previewInteracting = ref(false);
 
 const previewStyle = computed(() => ({
   ...toAppearanceCssVars(props.appearance),
@@ -54,7 +55,12 @@ function resetAppearance() {
     </header>
 
     <div class="appearance-layout">
-      <div class="appearance-controls">
+      <div
+        class="appearance-controls"
+        @pointerdown="previewInteracting = true"
+        @pointerup="previewInteracting = false"
+        @pointercancel="previewInteracting = false"
+      >
         <fieldset>
           <legend><LayoutGrid :size="16" /> 文件夹卡片</legend>
           <label class="range-field">
@@ -132,7 +138,12 @@ function resetAppearance() {
         </fieldset>
       </div>
 
-      <div data-testid="appearance-preview" class="appearance-preview" :style="previewStyle">
+      <div
+        data-testid="appearance-preview"
+        class="appearance-preview"
+        :data-interacting="String(previewInteracting)"
+        :style="previewStyle"
+      >
         <nav class="preview-tabs"><span class="active">常用</span><span>开发</span><span>设计</span></nav>
         <div class="preview-search"><Search :size="15" /><span>搜索书签...</span></div>
         <div class="preview-folder">
@@ -365,6 +376,15 @@ legend {
   max-width: 260px;
   padding: 18px;
   width: 100%;
+}
+
+.appearance-preview[data-interacting='true'] .preview-tabs,
+.appearance-preview[data-interacting='true'] .preview-search,
+.appearance-preview[data-interacting='true'] .preview-folder,
+.appearance-preview[data-interacting='true'] .preview-modal,
+.appearance-preview[data-interacting='true'] .preview-admin {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .preview-folder strong {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Plus, Save, Trash2, X } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
@@ -262,7 +261,7 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="书签管理">
+  <div class="links-admin-view">
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -373,5 +372,5 @@ onMounted(load);
         </div>
       </template>
     </section>
-  </AdminLayout>
+  </div>
 </template>

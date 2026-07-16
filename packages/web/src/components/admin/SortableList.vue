@@ -36,7 +36,7 @@ function handleEnd(event: SortableEvent) {
 onMounted(() => {
   if (!root.value) return;
   sortable = Sortable.create(root.value, {
-    animation: 100,
+    animation: 80,
     dataIdAttr: 'data-id',
     draggable: '.sortable-admin-row',
     handle: '.drag-handle',
@@ -44,11 +44,11 @@ onMounted(() => {
     chosenClass: 'sortable-row-chosen',
     dragClass: 'sortable-row-dragging',
     easing: 'cubic-bezier(0.2, 0, 0, 1)',
-    forceFallback: false,
+    forceFallback: true,
     fallbackOnBody: true,
-    fallbackTolerance: 4,
-    swapThreshold: 0.65,
-    invertSwap: true,
+    fallbackTolerance: 3,
+    swapThreshold: 0.55,
+    invertSwap: false,
     emptyInsertThreshold: 8,
     delay: 120,
     delayOnTouchOnly: true,

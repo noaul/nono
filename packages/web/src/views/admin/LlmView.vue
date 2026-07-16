@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { Save } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
 
@@ -32,15 +31,13 @@ async function save() {
 </script>
 
 <template>
-  <AdminLayout title="AI 智能收藏">
-    <form class="panel grid" @submit.prevent="save">
-      <p v-if="message" class="notice">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
-      <p class="notice">API Key 会在后端用 AES-256-GCM 加密存储。{{ hasKey ? '当前已配置 Key。' : '当前未配置 Key。' }}</p>
-      <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>
-      <div class="field"><label>模型</label><input v-model="form.model" /></div>
-      <div class="field"><label>API Key</label><input v-model="form.apiKey" type="password" placeholder="留空则保留现有 Key" /></div>
-      <button class="button" type="submit"><Save :size="17" /> 保存 LLM 配置</button>
-    </form>
-  </AdminLayout>
+  <form class="panel grid" @submit.prevent="save">
+    <p v-if="message" class="notice">{{ message }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p class="notice">API Key 会在后端用 AES-256-GCM 加密存储。{{ hasKey ? '当前已配置 Key。' : '当前未配置 Key。' }}</p>
+    <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>
+    <div class="field"><label>模型</label><input v-model="form.model" /></div>
+    <div class="field"><label>API Key</label><input v-model="form.apiKey" type="password" placeholder="留空则保留现有 Key" /></div>
+    <button class="button" type="submit"><Save :size="17" /> 保存 LLM 配置</button>
+  </form>
 </template>

@@ -44,17 +44,18 @@ describe('SortableList', () => {
     expect(sortableMocks.create).toHaveBeenCalledOnce();
     const options = sortableMocks.create.mock.calls[0][1];
     expect(options).toMatchObject({
-      animation: 100,
+      animation: 80,
       dataIdAttr: 'data-id',
       draggable: '.sortable-admin-row',
       handle: '.drag-handle',
       ghostClass: 'sortable-row-ghost',
       chosenClass: 'sortable-row-chosen',
       dragClass: 'sortable-row-dragging',
-      forceFallback: false,
+      forceFallback: true,
       fallbackOnBody: true,
-      swapThreshold: 0.65,
-      invertSwap: true,
+      fallbackTolerance: 3,
+      swapThreshold: 0.55,
+      invertSwap: false,
     });
 
     options.onStart();

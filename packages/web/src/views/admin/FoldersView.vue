@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { FolderPlus, GripVertical, MoveDown, MoveUp, Save, Trash2, X } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -203,7 +202,7 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="文件夹">
+  <div class="folders-admin-view">
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -303,7 +302,7 @@ onMounted(load);
         </div>
       </div>
     </section>
-  </AdminLayout>
+  </div>
 </template>
 
 <style scoped>

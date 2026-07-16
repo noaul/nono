@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Download, Eye, Upload } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BookmarkImportPreview } from '@/api/types';
 
@@ -81,7 +80,7 @@ watch(html, () => {
 </script>
 
 <template>
-  <AdminLayout title="浏览器书签">
+  <div class="bookmarks-admin-view">
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -129,7 +128,7 @@ watch(html, () => {
         </div>
       </div>
     </section>
-  </AdminLayout>
+  </div>
 </template>
 
 <style scoped>

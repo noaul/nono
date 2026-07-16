@@ -5,6 +5,7 @@ import NavigationPage from '@/views/NavigationPage.vue';
 const LoginView = () => import('@/views/LoginView.vue');
 const RegisterView = () => import('@/views/RegisterView.vue');
 const SetupView = () => import('@/views/SetupView.vue');
+const AdminShellView = () => import('@/views/admin/AdminShellView.vue');
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const FoldersView = () => import('@/views/admin/FoldersView.vue');
@@ -22,15 +23,22 @@ export const router = createRouter({
     { path: '/login', component: LoginView },
     { path: '/register', component: RegisterView },
     { path: '/setup', component: SetupView },
-    { path: '/admin', component: AdminDashboard, meta: { requiresAuth: true } },
-    { path: '/admin/site', component: SiteConfigView, meta: { requiresAuth: true } },
-    { path: '/admin/folders', component: FoldersView, meta: { requiresAuth: true } },
-    { path: '/admin/links', component: LinksView, meta: { requiresAuth: true } },
-    { path: '/admin/bookmarks', component: BookmarksView, meta: { requiresAuth: true } },
-    { path: '/admin/users', component: UsersView, meta: { requiresAuth: true, requiresAdmin: true } },
-    { path: '/admin/account', component: AccountView, meta: { requiresAuth: true } },
-    { path: '/admin/llm', component: LlmView, meta: { requiresAuth: true } },
-    { path: '/admin/tokens', component: TokensView, meta: { requiresAuth: true } },
+    {
+      path: '/admin',
+      component: AdminShellView,
+      meta: { requiresAuth: true },
+      children: [
+        { path: '', component: AdminDashboard, meta: { title: '控制台总览' } },
+        { path: 'site', component: SiteConfigView, meta: { title: '站点配置' } },
+        { path: 'folders', component: FoldersView, meta: { title: '文件夹' } },
+        { path: 'links', component: LinksView, meta: { title: '书签管理' } },
+        { path: 'bookmarks', component: BookmarksView, meta: { title: '浏览器书签' } },
+        { path: 'users', component: UsersView, meta: { title: '用户管理', requiresAdmin: true } },
+        { path: 'account', component: AccountView, meta: { title: '账户设置' } },
+        { path: 'llm', component: LlmView, meta: { title: 'AI 智能收藏' } },
+        { path: 'tokens', component: TokensView, meta: { title: 'API Token' } },
+      ],
+    },
     { path: '/:username', component: NavigationPage },
   ],
 });

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Save } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -57,8 +56,7 @@ async function save() {
 </script>
 
 <template>
-  <AdminLayout title="站点配置">
-    <form class="site-config-form" @submit.prevent="save">
+  <form class="site-config-form" @submit.prevent="save">
       <div v-if="message || error" class="site-config-feedback" aria-live="polite">
         <p v-if="message" class="notice">{{ message }}</p>
         <p v-if="error" class="error">{{ error }}</p>
@@ -142,8 +140,7 @@ async function save() {
         <span>设置保存后立即应用到公开导航页</span>
         <button class="button" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
       </footer>
-    </form>
-  </AdminLayout>
+  </form>
 </template>
 
 <style scoped>
