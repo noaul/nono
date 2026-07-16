@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { ArrowRight, Bot, ExternalLink, Folder as FolderIcon, Globe, KeyRound, Link2, ListChecks, Lock, Settings, Upload } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
@@ -31,7 +30,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="控制台总览">
     <section class="dashboard-hero">
       <div class="dashboard-hero-copy">
         <p>运营中枢</p>
@@ -185,7 +183,6 @@ onMounted(async () => {
         </div>
       </section>
     </div>
-  </AdminLayout>
 </template>
 
 <style scoped>

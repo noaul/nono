@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { Save, Trash2 } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
@@ -33,7 +32,6 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="用户管理">
     <div class="grid">
       <section class="panel grid">
         <p v-if="message" class="notice">{{ message }}</p>
@@ -58,5 +56,4 @@ onMounted(load);
         </article>
       </section>
     </div>
-  </AdminLayout>
 </template>

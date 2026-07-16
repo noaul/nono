@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import '@/styles/admin.css';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   Bot,
   Compass,
@@ -11,11 +11,13 @@ import {
   Layers,
   Link2,
   LogOut,
+  Menu,
   Settings,
   User,
   Users,
+  X,
 } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { apiRequest } from '@/api/client';
 import type { Site } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
@@ -23,13 +25,17 @@ import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 
-const props = defineProps<{ title: string }>();
+const props = withDefaults(defineProps<{ title?: string }>(), {
+  title: '',
+});
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const siteSettings = ref<Record<string, unknown>>({});
 const appearanceStyle = computed(() => toAppearanceCssVars(getAppearanceSettings(siteSettings.value)));
 const userMenuOpen = ref(false);
+const mobileNavOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 
 const navSections = [
@@ -66,7 +72,8 @@ const visibleNavSections = computed(() =>
     .filter((section) => section.items.length),
 );
 const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) => section.items.map((item) => ({ ...item, sectionLabel: section.label }))));
-const activeNavItem = computed(() => flatNavItems.value.find((item) => item.title === props.title || item.label === props.title) || flatNavItems.value[0]);
+const pageTitle = computed(() => props.title || String(route?.meta?.title || '控制台总览'));
+const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.title === pageTitle.value || item.label === pageTitle.value) || flatNavItems.value[0]);
 const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
 const operatorRole = computed(() => (auth.isAdmin ? '管理员' : '成员'));
 const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
@@ -98,6 +105,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onDocumentKeydown);
 });
 
+watch(() => route?.path, () => {
+  mobileNavOpen.value = false;
+  userMenuOpen.value = false;
+});
+
 async function logout() {
   userMenuOpen.value = false;
   await auth.logout();
@@ -107,7 +119,7 @@ async function logout() {
 
 <template>
   <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell" :style="appearanceStyle">
-    <aside class="workbench-sidebar glass-surface">
+    <aside class="workbench-sidebar glass-surface" :class="{ 'is-mobile-open': mobileNavOpen }">
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
         <div>
@@ -135,9 +147,22 @@ async function logout() {
 
     <div class="workbench-main">
       <header class="workbench-topbar glass-surface">
-        <div class="page-title">
-          <p><strong>{{ activeNavItem?.sectionLabel || '运营' }}</strong></p>
-          <h1>{{ title }}</h1>
+        <div class="topbar-title-group">
+          <button
+            class="mobile-nav-toggle"
+            type="button"
+            title="打开后台导航"
+            aria-label="打开后台导航"
+            :aria-expanded="mobileNavOpen"
+            @click="mobileNavOpen = !mobileNavOpen"
+          >
+            <X v-if="mobileNavOpen" :size="18" />
+            <Menu v-else :size="18" />
+          </button>
+          <div class="page-title">
+            <p><strong>{{ activeNavItem?.sectionLabel || '运营' }}</strong></p>
+            <h1>{{ pageTitle }}</h1>
+          </div>
         </div>
         <div ref="userMenuRef" class="topbar-user">
           <button
@@ -166,9 +191,17 @@ async function logout() {
       </header>
 
       <main class="workbench-stage">
-        <slot />
+        <slot><RouterView /></slot>
       </main>
     </div>
+
+    <button
+      v-if="mobileNavOpen"
+      class="mobile-nav-backdrop"
+      type="button"
+      aria-label="关闭后台导航"
+      @click="mobileNavOpen = false"
+    ></button>
 
     <ToastHost />
     <ConfirmDialog />

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Pencil, Save, Square, Trash2, X } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
@@ -397,7 +396,6 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="文件夹">
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -581,7 +579,6 @@ onMounted(load);
         </div>
       </div>
     </section>
-  </AdminLayout>
 </template>
 
 <style scoped>

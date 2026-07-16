@@ -38,4 +38,40 @@
   --nono-dur-base: 240ms;
   --nono-dur-slow: 340ms;
   --nono-focus-ring: 0 0 0 3px rgb(15 118 110 / 18%);
+
+  --admin-sidebar-width: 256px;
+  --admin-topbar-height: 64px;
+  --admin-content-max: 1280px;
+  --admin-control-height: 40px;
+  --admin-control-height-sm: 32px;
+  --admin-icon-button-size: 36px;
+  --admin-radius-card: 8px;
+  --admin-radius-control: 8px;
+  --admin-motion-fast: 160ms;
+  --admin-motion-standard: 200ms;
+
+  --admin-canvas: #f6f7f9;
+  --admin-surface: rgba(255, 255, 255, 0.82);
+  --admin-surface-elevated: #ffffff;
+  --admin-border: rgba(15, 23, 42, 0.12);
+  --admin-border-strong: rgba(15, 23, 42, 0.2);
+  --admin-text: #111827;
+  --admin-text-muted: #667085;
+  --admin-accent: var(--nono-accent);
+  --admin-danger: #b4233a;
+  --admin-success: #067647;
+  --admin-warning: #b54708;
+}
+
+.admin-theme-dark {
+  --admin-canvas: #111214;
+  --admin-surface: rgba(28, 29, 32, 0.9);
+  --admin-surface-elevated: #222327;
+  --admin-border: rgba(255, 255, 255, 0.1);
+  --admin-border-strong: rgba(255, 255, 255, 0.18);
+  --admin-text: #f4f4f5;
+  --admin-text-muted: #a1a1aa;
+  --admin-danger: #fb7185;
+  --admin-success: #34d399;
+  --admin-warning: #fbbf24;
 }

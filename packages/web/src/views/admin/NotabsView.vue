@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import { GripVertical, Layers, MoveDown, MoveUp, Pencil, Save, Trash2, X } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -178,7 +177,6 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="Notab 管理">
     <section class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -263,7 +261,6 @@ onMounted(load);
         </div>
       </div>
     </section>
-  </AdminLayout>
 </template>
 
 <style scoped>

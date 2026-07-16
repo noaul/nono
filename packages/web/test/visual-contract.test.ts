@@ -34,6 +34,27 @@ describe('visual contracts', () => {
       '--nono-surface-blur',
       '--nono-ease-standard',
       '--nono-focus-ring',
+      '--admin-sidebar-width: 256px',
+      '--admin-topbar-height: 64px',
+      '--admin-content-max: 1280px',
+      '--admin-control-height: 40px',
+      '--admin-control-height-sm: 32px',
+      '--admin-icon-button-size: 36px',
+      '--admin-radius-card: 8px',
+      '--admin-radius-control: 8px',
+      '--admin-motion-fast: 160ms',
+      '--admin-motion-standard: 200ms',
+      '--admin-canvas',
+      '--admin-surface',
+      '--admin-surface-elevated',
+      '--admin-border',
+      '--admin-border-strong',
+      '--admin-text',
+      '--admin-text-muted',
+      '--admin-accent: var(--nono-accent)',
+      '--admin-danger',
+      '--admin-success',
+      '--admin-warning',
     ]) {
       expect(tokens).toContain(token);
     }
@@ -449,6 +470,21 @@ describe('visual contracts', () => {
     expect(css).toContain('[data-label]::before');
     expect(css).toContain('.admin-search-input');
     expect(css).toContain('.row-actions .icon-button');
+  });
+
+  it('uses the compact NoMoney workspace geometry for the admin shell and controls', () => {
+    const css = readStyle('admin');
+
+    expect(css).toMatch(/\.workbench-sidebar\s*\{[\s\S]*?width:\s*var\(--admin-sidebar-width\)/);
+    expect(css).toMatch(/\.workbench-main\s*\{[\s\S]*?margin-left:\s*var\(--admin-sidebar-width\)/);
+    expect(css).toMatch(/\.workbench-topbar\s*\{[\s\S]*?min-height:\s*var\(--admin-topbar-height\)/);
+    expect(css).toMatch(/\.workbench-stage\s*\{[\s\S]*?max-width:\s*var\(--admin-content-max\)/);
+    expect(css).toMatch(/\.app-workbench \.nav-button\s*\{[\s\S]*?min-height:\s*var\(--admin-control-height\)/);
+    expect(css).toContain('min-height: var(--admin-control-height);');
+    expect(css).toContain('border-radius: var(--admin-radius-control);');
+    expect(css).toContain('height: var(--admin-icon-button-size);');
+    expect(css).toContain('width: var(--admin-icon-button-size);');
+    expect(css).toMatch(/\.app-workbench \.admin-table-row\s*\{[\s\S]*?contain:\s*paint/);
   });
 
   it('defines phase 2 admin operation styles', async () => {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { KeyRound, Plus, Trash2 } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
@@ -49,7 +48,6 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout title="API Token">
     <div class="token-summary-grid">
       <section>
         <span>Token 总数</span>
@@ -99,5 +97,4 @@ onMounted(load);
         </article>
       </section>
     </div>
-  </AdminLayout>
 </template>

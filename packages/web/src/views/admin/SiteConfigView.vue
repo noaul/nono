@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -133,7 +132,6 @@ function setDefaultSearchEngine(id: string) {
 </script>
 
 <template>
-  <AdminLayout title="站点配置">
     <form class="site-config-form" @submit.prevent="save">
       <div v-if="message || error" class="site-config-feedback" aria-live="polite">
         <p v-if="message" class="notice">{{ message }}</p>
@@ -314,7 +312,6 @@ function setDefaultSearchEngine(id: string) {
         <button class="button" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
       </footer>
     </form>
-  </AdminLayout>
 </template>
 
 <style scoped>

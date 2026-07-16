@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
@@ -472,7 +471,6 @@ onMounted(load);
 </script>
 
 <template>
-  <AdminLayout :title="props.mode === 'create' ? '新增书签' : '书签管理'">
     <section v-if="props.mode === 'create'" class="admin-card">
       <div class="admin-card-head">
         <div>
@@ -690,7 +688,6 @@ onMounted(load);
         </div>
       </template>
     </section>
-  </AdminLayout>
 </template>
 
 <style scoped>

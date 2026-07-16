@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { FlaskConical, Save } from 'lucide-vue-next';
-import AdminLayout from '@/components/AdminLayout.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
 
@@ -53,7 +52,6 @@ function reasoningLabel(value: string) {
 </script>
 
 <template>
-  <AdminLayout title="AI 智能收藏">
     <form class="panel grid" @submit.prevent="save">
       <p v-if="message" class="notice">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
@@ -81,7 +79,6 @@ function reasoningLabel(value: string) {
         <button class="button" type="submit"><Save :size="17" /> 保存 LLM 配置</button>
       </div>
     </form>
-  </AdminLayout>
 </template>
 
 <style scoped>

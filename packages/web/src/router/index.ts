@@ -6,6 +6,7 @@ import PrivacyView from '@/views/PrivacyView.vue';
 const LoginView = () => import('@/views/LoginView.vue');
 const RegisterView = () => import('@/views/RegisterView.vue');
 const SetupView = () => import('@/views/SetupView.vue');
+const AdminLayout = () => import('@/components/AdminLayout.vue');
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const NotabsView = () => import('@/views/admin/NotabsView.vue');
@@ -24,17 +25,24 @@ export const router = createRouter({
     { path: '/register', component: RegisterView },
     { path: '/setup', component: SetupView },
     { path: '/privacy', component: PrivacyView },
-    { path: '/admin', component: AdminDashboard, meta: { requiresAuth: true } },
-    { path: '/admin/site', component: SiteConfigView, meta: { requiresAuth: true } },
-    { path: '/admin/notabs', component: NotabsView, meta: { requiresAuth: true } },
-    { path: '/admin/folders', component: FoldersView, meta: { requiresAuth: true } },
-    { path: '/admin/add-bookmark', component: LinksView, props: { mode: 'create' }, meta: { requiresAuth: true } },
-    { path: '/admin/links', component: LinksView, meta: { requiresAuth: true } },
-    { path: '/admin/bookmarks', redirect: '/admin/add-bookmark' },
-    { path: '/admin/users', component: UsersView, meta: { requiresAuth: true, requiresAdmin: true } },
-    { path: '/admin/account', component: AccountView, meta: { requiresAuth: true } },
-    { path: '/admin/llm', component: LlmView, meta: { requiresAuth: true } },
-    { path: '/admin/tokens', component: TokensView, meta: { requiresAuth: true } },
+    {
+      path: '/admin',
+      component: AdminLayout,
+      meta: { requiresAuth: true },
+      children: [
+        { path: '', component: AdminDashboard, meta: { title: '控制台总览' } },
+        { path: '/admin/site', component: SiteConfigView, meta: { title: '站点配置' } },
+        { path: '/admin/notabs', component: NotabsView, meta: { title: 'Notab 管理' } },
+        { path: '/admin/folders', component: FoldersView, meta: { title: '文件夹' } },
+        { path: '/admin/add-bookmark', component: LinksView, props: { mode: 'create' }, meta: { title: '新增书签' } },
+        { path: '/admin/links', component: LinksView, props: { mode: 'manage' }, meta: { title: '书签管理' } },
+        { path: '/admin/bookmarks', redirect: '/admin/add-bookmark' },
+        { path: '/admin/users', component: UsersView, meta: { title: '用户管理', requiresAdmin: true } },
+        { path: '/admin/account', component: AccountView, meta: { title: '账户设置' } },
+        { path: '/admin/llm', component: LlmView, meta: { title: 'AI 智能收藏' } },
+        { path: '/admin/tokens', component: TokensView, meta: { title: 'API Token' } },
+      ],
+    },
     { path: '/:username', component: NavigationPage },
   ],
 });
