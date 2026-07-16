@@ -1,0 +1,9 @@
+node_modules/
+backend/dist/
+backend/public/
+frontend/dist/
+data/
+.env
+.git/
+coverage/
+npm-debug.log*

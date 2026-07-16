@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Moneypulse">
+  <rect width="64" height="64" rx="16" fill="#0b0d10"/>
+  <path d="M14 43V21h6.5L32 35.8 43.5 21H50v22h-7V32.6L33.9 44h-3.8L21 32.6V43h-7z" fill="#f8fafc"/>
+  <path d="M9 48h10l4-8 6 14 6-25 6 19h14" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="51" cy="48" r="3" fill="#38bdf8"/>
+</svg>

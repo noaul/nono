@@ -8,3 +8,7 @@ data/
 .favicon-cache/
 .DS_Store
 packages/server/prisma/migrations/dev.db*
+apps/nomoney/backend/public/
+apps/nomoney/data/
+apps/nomoney/.env
+apps/nomoney/node_modules/

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+backend/public/
+coverage/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+.env
+.env.local
+data/
+*.db
+*.sqlite
+*.sqlite3
+npm-debug.log*
+.DS_Store

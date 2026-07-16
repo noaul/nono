@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body {
+    @apply bg-slate-50 text-slate-950 antialiased dark:bg-ink-950 dark:text-slate-100;
+    margin: 0; min-width: 320px; min-height: 100vh;
+  }
+  ::selection {
+    @apply bg-brand-500/25 text-slate-950 dark:text-white;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 ease-out dark:border-white/10 dark:bg-ink-850;
+  }
+  .card-hover {
+    @apply card hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:hover:border-white/20;
+  }
+  .panel {
+    @apply rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-ink-900;
+  }
+  .muted-panel {
+    @apply rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03];
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mp-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes mp-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes mp-drawer-in {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes mp-live-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgb(34 197 94 / 0.35);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgb(34 197 94 / 0);
+    }
+  }
+
+  .motion-fade-in {
+    animation: mp-fade-in 180ms ease-out both;
+  }
+
+  .motion-drawer {
+    animation: mp-drawer-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-card,
+  .motion-row,
+  .motion-list > *,
+  .motion-stack > * {
+    animation: mp-fade-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: opacity, transform;
+  }
+
+  .motion-stack > * {
+    animation-duration: 220ms;
+  }
+
+  .live-dot {
+    animation: mp-live-pulse 1.8s ease-in-out infinite;
+  }
+
+  .motion-list > *:nth-child(2),
+  .motion-stack > *:nth-child(2) { animation-delay: 35ms; }
+  .motion-list > *:nth-child(3),
+  .motion-stack > *:nth-child(3) { animation-delay: 70ms; }
+  .motion-list > *:nth-child(4),
+  .motion-stack > *:nth-child(4) { animation-delay: 105ms; }
+  .motion-list > *:nth-child(5) { animation-delay: 140ms; }
+  .motion-list > *:nth-child(6) { animation-delay: 175ms; }
+}
+
+button, input, select, textarea { font: inherit; }
+button { @apply active:translate-y-px; }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105 / 0.8) transparent;
+}

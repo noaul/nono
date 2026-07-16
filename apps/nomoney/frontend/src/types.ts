@@ -1,0 +1,170 @@
+export type Currency = 'CNY' | 'USD' | 'GBP' | 'EUR';
+export type BillingCycle = 'monthly' | 'quarterly' | 'annual' | 'biennial';
+export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
+export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+
+export interface AssetItem {
+  id: number;
+  assetType: AssetType;
+  amountMinorUnits: number;
+  currency: Currency;
+  displayAmountMinorUnits?: number | null;
+  displayCurrency?: Currency;
+  displayExchangeRateDate?: string | null;
+  billingCycle: BillingCycle;
+  nextDueDate: string | null;
+  expireDate?: string | null;
+  autoRenew: boolean;
+  paymentMethod: string | null;
+  renewalUrl: string | null;
+  status: AssetStatus;
+  tags: string[];
+  notes: string | null;
+  archivedAt: string | null;
+  [key: string]: unknown;
+}
+
+export interface ExpenseItem {
+  id: number;
+  assetType: AssetType;
+  assetId: number;
+  assetLabel: string | null;
+  amountMinorUnits: number;
+  currency: Currency;
+  paidAt: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  category: 'renewal' | 'monthly' | 'setup' | 'other';
+  notes: string | null;
+}
+
+export interface DashboardSummary {
+  predictedMonthly: Partial<Record<Currency, number>>;
+  predictedYearly: Partial<Record<Currency, number>>;
+  actualYearly: Partial<Record<Currency, number>>;
+  assetCounts: Record<string, number>;
+  expiringCount: number;
+  dueBuckets?: {
+    overdue: number;
+    today: number;
+    week: number;
+    month: number;
+  };
+  nextDueItems?: DueItem[];
+  phoneStats?: {
+    total: number;
+    domestic: number;
+    foreign: number;
+    monthlyRentByCurrency: Partial<Record<Currency, number>>;
+    carriers: Array<{ carrier: string; count: number }>;
+  };
+  currencyTotals?: {
+    predictedMonthly: Partial<Record<Currency, number>>;
+    predictedYearly: Partial<Record<Currency, number>>;
+    actualYearly: Partial<Record<Currency, number>>;
+  };
+}
+
+export interface DueItem {
+  assetType: AssetType;
+  assetId: number;
+  name: string;
+  dueDate: string;
+  daysLeft: number;
+  amountMinorUnits: number;
+  currency: Currency;
+  billingCycle: BillingCycle;
+  autoRenew: boolean;
+  renewalUrl: string | null;
+  status: AssetStatus;
+}
+
+export interface SettingsValue {
+  reminderDays: number[];
+  reminderEnabled: boolean;
+  defaultCurrency: Currency;
+  timezone: string;
+  language: 'zh' | 'en';
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpTo: string;
+  webdavUrl: string;
+  webdavUsername: string;
+  webdavPassword: string;
+  webdavPath: string;
+  webdavFolderPath: string;
+  webdavBackupFilename: string;
+  webdavEncryptionKey: string;
+  webdavPasswordSet?: boolean;
+  webdavEncryptionKeySet?: boolean;
+}
+
+export interface ListMeta {
+  total: number;
+  limit: number;
+  offset: number;
+  registrarAccounts?: Array<{
+    registrar: string;
+    account: string;
+    value: string;
+    count: number;
+  }>;
+  renewalTotals?: {
+    count: number;
+    windowStart: string;
+    windowEnd: string;
+    byCurrency: Partial<Record<Currency, number>>;
+    displayCurrency: Currency;
+    convertedTotal: {
+      amountMinorUnits: number;
+      currency: Currency;
+      exchangeRateDate: string | null;
+    };
+    yearlyTotal?: {
+      count: number;
+      windowStart: string;
+      windowEnd: string;
+      byCurrency: Partial<Record<Currency, number>>;
+      convertedTotal: {
+        amountMinorUnits: number;
+        currency: Currency;
+        exchangeRateDate: string | null;
+      };
+    };
+  };
+}
+
+export interface ListResponse<T> {
+  items: T[];
+  meta?: ListMeta;
+}
+
+export interface AssetLookupItem {
+  assetType: AssetType;
+  assetId: number;
+  label: string;
+  provider: string | null;
+  status: AssetStatus | string;
+  currency: Currency;
+  amountMinorUnits: number;
+}
+
+export interface ReminderLogItem {
+  id: number;
+  runId: string;
+  assetType: AssetType;
+  assetId: number;
+  dueDate: string;
+  daysBefore: number;
+  sentAt: string;
+  status: 'sent' | 'failed';
+  errorMessage: string | null;
+}
