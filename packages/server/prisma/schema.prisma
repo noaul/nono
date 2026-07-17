@@ -8,22 +8,32 @@ datasource db {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  username     String     @unique
-  email        String     @unique
-  displayName  String
-  passwordHash String
-  role         String     @default("user")
-  llmProvider  String?
-  llmApiKey    String?
-  llmModel     String?
-  llmBaseUrl   String?
-  llmReasoningEffort String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  sites        Site[]
-  folders      Folder[]
-  apiTokens    ApiToken[]
+  id                       Int                       @id @default(autoincrement())
+  username                 String                    @unique
+  email                    String                    @unique
+  displayName              String
+  passwordHash             String
+  role                     String                    @default("user")
+  llmProvider              String?
+  llmApiKey                String?
+  llmModel                 String?
+  llmBaseUrl               String?
+  llmReasoningEffort       String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  sites                    Site[]
+  folders                  Folder[]
+  apiTokens                ApiToken[]
+  noStarAccount            NoStarAccount?
+  noStarRepositories       NoStarRepository[]
+  noStarReleases           NoStarRelease[]
+  noStarCategories         NoStarCategory[]
+  noStarAiProfiles         NoStarAiProfile[]
+  noStarWebDavConfigs      NoStarWebDavConfig[]
+  noStarAssetFilters       NoStarAssetFilter[]
+  noStarSettings           NoStarSetting[]
+  noStarEmbeddingConfigs   NoStarEmbeddingConfig[]
+  noStarVectorSearchConfig NoStarVectorSearchConfig?
 }
 
 model Site {
@@ -79,14 +89,14 @@ model Link {
 }
 
 model ApiToken {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique @map("token")
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique @map("token")
   tokenPrefix String
-  name      String
-  expiresAt DateTime?
-  createdAt DateTime  @default(now())
+  name        String
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
 }
 
 model AppConfig {
@@ -94,4 +104,203 @@ model AppConfig {
   allowRegistration Boolean @default(false)
   defaultRole       String  @default("user")
   settings          Json    @default("{}")
+}
+
+model NoStarAccount {
+  id                   Int       @id @default(autoincrement())
+  userId               Int       @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubLogin          String?
+  githubName           String?
+  githubAvatarUrl      String?
+  githubTokenEncrypted String?
+  lastSyncAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model NoStarRepository {
+  id                   Int             @id @default(autoincrement())
+  userId               Int
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubId             BigInt
+  name                 String
+  fullName             String
+  description          String?
+  htmlUrl              String
+  stargazersCount      Int             @default(0)
+  language             String?
+  githubCreatedAt      DateTime?
+  githubUpdatedAt      DateTime?
+  githubPushedAt       DateTime?
+  starredAt            DateTime?
+  ownerLogin           String
+  ownerAvatarUrl       String?
+  topics               Json            @default("[]")
+  aiSummary            String?
+  aiTags               Json            @default("[]")
+  aiPlatforms          Json            @default("[]")
+  analyzedAt           DateTime?
+  analysisFailed       Boolean         @default(false)
+  customDescription    String?
+  customTags           Json            @default("[]")
+  customCategory       String?
+  categoryLocked       Boolean         @default(false)
+  lastEditedAt         DateTime?
+  subscribedToReleases Boolean         @default(false)
+  vectorIndexedAt      DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  releases             NoStarRelease[]
+
+  @@unique([userId, githubId])
+  @@unique([userId, fullName])
+  @@index([userId, starredAt])
+  @@index([userId, customCategory])
+}
+
+model NoStarRelease {
+  id           Int              @id @default(autoincrement())
+  userId       Int
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubId     BigInt
+  repositoryId Int
+  repository   NoStarRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  tagName      String
+  name         String?
+  body         String?
+  publishedAt  DateTime?
+  htmlUrl      String?
+  assets       Json             @default("[]")
+  zipballUrl   String?
+  tarballUrl   String?
+  repoFullName String
+  repoName     String
+  prerelease   Boolean          @default(false)
+  draft        Boolean          @default(false)
+  isRead       Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([userId, githubId])
+  @@index([userId, publishedAt])
+  @@index([repositoryId])
+}
+
+model NoStarCategory {
+  id          String   @id @default(uuid())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId    String?
+  name        String
+  description String?
+  icon        String   @default("folder")
+  keywords    Json     @default("[]")
+  color       String?
+  sortOrder   Int      @default(0)
+  isCustom    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, legacyId])
+  @@index([userId, sortOrder])
+}
+
+model NoStarAiProfile {
+  id              String   @id @default(uuid())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  apiType         String   @default("openai")
+  baseUrl         String
+  apiKeyEncrypted String?
+  model           String
+  isActive        Boolean  @default(false)
+  customPrompt    String?
+  useCustomPrompt Boolean  @default(false)
+  concurrency     Int      @default(1)
+  reasoningEffort String?
+  mimoPlan        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model NoStarWebDavConfig {
+  id                String   @id @default(uuid())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  url               String
+  username          String
+  passwordEncrypted String?
+  path              String   @default("/")
+  isActive          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model NoStarAssetFilter {
+  id          String   @id @default(uuid())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  keywords    Json     @default("[]")
+  platform    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, sortOrder])
+}
+
+model NoStarSetting {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+}
+
+model NoStarEmbeddingConfig {
+  id              String                     @id @default(uuid())
+  userId          Int
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  apiType         String                     @default("openai")
+  baseUrl         String                     @default("")
+  apiKeyEncrypted String?
+  model           String                     @default("")
+  dimensions      Int                        @default(1536)
+  isActive        Boolean                    @default(false)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  vectorConfigs   NoStarVectorSearchConfig[]
+
+  @@index([userId, isActive])
+}
+
+model NoStarVectorSearchConfig {
+  id                 Int                    @id @default(autoincrement())
+  userId             Int                    @unique
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled            Boolean                @default(false)
+  workerUrl          String                 @default("")
+  authTokenEncrypted String?
+  embeddingConfigId  String?
+  embeddingConfig    NoStarEmbeddingConfig? @relation(fields: [embeddingConfigId], references: [id], onDelete: SetNull)
+  indexMode          String                 @default("readme")
+  readmeMaxChars     Int                    @default(6000)
+  status             Json?
+  lastSyncAt         DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 }
