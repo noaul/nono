@@ -114,9 +114,27 @@ describe('NavigationPage public workflow', () => {
 
     expect(noMoney.attributes('href')).toBe('/nomoney');
     expect(noStar.attributes('href')).toBe('/nostar');
+    expect(noMoney.attributes('target')).toBe('_blank');
+    expect(noStar.attributes('target')).toBe('_blank');
+    expect(noMoney.attributes('rel')).toBe('noreferrer');
+    expect(noStar.attributes('rel')).toBe('noreferrer');
     expect(noMoney.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
     expect(tabs.element.lastElementChild).toBe(noStar.element);
     expect(tabs.findAll('button.active')).toHaveLength(1);
+  });
+
+  it('migrates saved NoMoney and NoStar entries to open in a new tab', async () => {
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      navigationEntriesVersion: 2,
+      navigationEntries: [
+        { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+        { id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true, openInNewTab: false },
+      ],
+    }));
+
+    const wrapper = await mountNavigationPage();
+    expect(wrapper.get('[data-testid="navigation-entry-nomoney"]').attributes('target')).toBe('_blank');
+    expect(wrapper.get('[data-testid="navigation-entry-nostar"]').attributes('target')).toBe('_blank');
   });
 
   it('renders enabled custom service entries from site settings', async () => {

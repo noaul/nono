@@ -7,7 +7,7 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     url: '/nomoney',
     icon: 'wallet-cards',
     enabled: true,
-    openInNewTab: false,
+    openInNewTab: true,
   },
   {
     id: 'nostar',
@@ -15,7 +15,7 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     url: '/nostar',
     icon: 'star',
     enabled: true,
-    openInNewTab: false,
+    openInNewTab: true,
   },
 ];
 
@@ -72,7 +72,9 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
       url,
       icon: typeof value.icon === 'string' ? value.icon.trim().slice(0, 40) : 'link',
       enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
-      openInNewTab: typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
+      openInNewTab: id === 'nomoney' || id === 'nostar'
+        ? true
+        : typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
     }];
   });
 }
