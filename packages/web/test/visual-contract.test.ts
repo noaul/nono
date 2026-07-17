@@ -573,6 +573,10 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('var(--public-search-radius');
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');
+    expect(searchBarSource).toMatch(/\.search-bar \{[\s\S]*?z-index:\s*40/);
+    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?rgba\(var\(--public-card-color-rgb/);
+    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?blur\(var\(--public-card-blur/);
+    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?var\(--public-card-radius/);
     expect(siteConfigSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
     expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);

@@ -113,6 +113,7 @@ defineExpose({
   padding: 0 6px 0 10px;
   position: relative;
   width: 100%;
+  z-index: 40;
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
@@ -179,12 +180,15 @@ defineExpose({
 }
 
 .engine-menu {
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(15, 18, 25, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--public-card-radius, 8px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 34px rgba(0, 0, 0, 0.12);
   display: grid;
   gap: 2px;
   left: 0;
@@ -194,7 +198,7 @@ defineExpose({
   padding: 6px;
   position: absolute;
   top: calc(100% + 10px);
-  z-index: 30;
+  z-index: 50;
 }
 
 .engine-option {
@@ -202,7 +206,7 @@ defineExpose({
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: rgba(243, 244, 246, 0.88);
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   cursor: pointer;
   display: flex;
   font: inherit;
