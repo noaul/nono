@@ -258,7 +258,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     const fetchDebugState = async () => {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        const res = await fetch('/api/logs/debug', {
+        const res = await fetch('/api/nostar/logs/debug', {
           headers: { Authorization: `Bearer ${secret}` },
         });
         if (res.ok) {
@@ -336,7 +336,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     const fetchBackend = async () => {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        const res = await fetch('/api/logs?limit=2000', { headers: { Authorization: `Bearer ${secret}` } });
+        const res = await fetch('/api/nostar/logs?limit=2000', { headers: { Authorization: `Bearer ${secret}` } });
         if (res.ok) {
           const raw = await res.json();
           const logs = Array.isArray(raw) ? raw : [];
@@ -409,7 +409,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     const next = !backendDebug;
     try {
       const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-      const res = await fetch('/api/logs/debug', {
+      const res = await fetch('/api/nostar/logs/debug', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
         body: JSON.stringify({ enabled: next }),
@@ -428,7 +428,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     if ((selectedScope === 'backend' || selectedScope === 'all') && backendAvailable) {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        await fetch('/api/logs', { method: 'DELETE', headers: { Authorization: `Bearer ${secret}` } });
+        await fetch('/api/nostar/logs', { method: 'DELETE', headers: { Authorization: `Bearer ${secret}` } });
         setBackendEntries([]); setBackendLogCount(0);
       } catch { /* Backend unreachable */ }
     }
@@ -439,7 +439,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     setIsRefreshing(true);
     try {
       const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-      const res = await fetch('/api/logs?limit=2000', { headers: { Authorization: `Bearer ${secret}` } });
+      const res = await fetch('/api/nostar/logs?limit=2000', { headers: { Authorization: `Bearer ${secret}` } });
       if (res.ok) {
         const raw = await res.json();
         setBackendEntries(Array.isArray(raw) ? raw : []);
@@ -464,7 +464,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
       if (selectedScope !== 'frontend' && backendAvailable) {
         try {
           const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-          const res = await fetch(`/api/logs?limit=2000&level=${minLevelName}`, { headers: { Authorization: `Bearer ${secret}` } });
+          const res = await fetch(`/api/nostar/logs?limit=2000&level=${minLevelName}`, { headers: { Authorization: `Bearer ${secret}` } });
           if (res.ok) { const raw = await res.json(); backendLogs = Array.isArray(raw) ? raw.filter((e: LogEntry) => selectedLevels.has(e.level)) : []; }
         } catch { /* Backend unreachable */ }
       }
@@ -484,7 +484,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
         appVersion,
       };
       const exportData = {
-        format: 'github-stars-manager-logs-v1',
+        format: 'nostar-logs-v1',
         exportDate: new Date().toISOString(),
         appVersion, environment,
         sanitizationNote: t('所有 Token、API Key、密码、邮箱已脱敏为 ***格式', 'All tokens, API keys, passwords, and emails have been masked as ***<last4>'),
@@ -493,7 +493,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url;
-      a.download = `github-stars-manager-logs-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `nostar-logs-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } catch { /* Export failed */ } finally { setIsExporting(false); }
   }, [selectedScope, selectedLevels, backendAvailable, frontendDebug, backendDebug, t]);

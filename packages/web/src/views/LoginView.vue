@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { requiresDocumentNavigation, resolveInternalRedirect } from '@/utils/redirect';
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const username = ref('admin');
 const password = ref('');
 const error = ref('');
@@ -13,7 +15,12 @@ async function submit() {
   error.value = '';
   try {
     await auth.login({ username: username.value, password: password.value });
-    await router.push('/admin');
+    const nextPath = resolveInternalRedirect(route.query.next, '/admin');
+    if (requiresDocumentNavigation(nextPath)) {
+      window.location.assign(nextPath);
+      return;
+    }
+    await router.push(nextPath);
   } catch (event) {
     error.value = event instanceof Error ? event.message : '登录失败';
   }

@@ -53,22 +53,34 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
     setRpcForm(rpcDownloadConfig);
   }, [rpcDownloadConfig]);
 
-  // Load RPC config from backend on mount (to get hasSecret flag)
+  // Load user-scoped network settings from Nono on mount.
   useEffect(() => {
-    const loadRpcConfig = async () => {
+    const loadNetworkConfig = async () => {
       try {
         const base = await getRpcBaseUrl();
         const authHeaders: Record<string, string> = {};
         if (backendApiSecret) {
           authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
         }
-        const resp = await fetch(`${base}/settings/rpc-download`, { headers: authHeaders });
-        if (resp.ok) {
-          const data = await resp.json();
+        const [proxyResponse, rpcResponse] = await Promise.all([
+          fetch(`${base}/settings/proxy`, { headers: authHeaders }),
+          fetch(`${base}/settings/rpc-download`, { headers: authHeaders }),
+        ]);
+        if (proxyResponse.ok) {
+          const data = await proxyResponse.json();
+          setProxyConfig({
+            enabled: data.enabled ?? false,
+            type: data.type === 'socks5' ? 'socks5' : 'http',
+            host: data.host || '',
+            port: data.port || 7890,
+            username: data.username || undefined,
+          });
+        }
+        if (rpcResponse.ok) {
+          const data = await rpcResponse.json();
           if (data.hasSecret) {
             setHasStoredSecret(true);
           }
-          // Merge backend state into store (enabled/host/port)
           if (data.enabled !== undefined || data.host || data.port) {
             setRpcDownloadConfig({
               enabled: data.enabled ?? rpcDownloadConfig.enabled,
@@ -79,7 +91,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
         }
       } catch { /* best effort */ }
     };
-    loadRpcConfig();
+    loadNetworkConfig();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canUseProxy = isElectron() || backend.isAvailable;
@@ -106,7 +118,8 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
         if (backendApiSecret) {
           authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
         }
-        const resp = await fetch('/api/settings/proxy', {
+        const base = await getRpcBaseUrl();
+        const resp = await fetch(`${base}/settings/proxy`, {
           method: 'PUT',
           headers: authHeaders,
           body: JSON.stringify(form),
@@ -141,7 +154,8 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
         if (backendApiSecret) {
           authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
         }
-        const resp = await fetch('/api/settings/proxy/test', {
+        const base = await getRpcBaseUrl();
+        const resp = await fetch(`${base}/settings/proxy/test`, {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify(form),
@@ -268,7 +282,8 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   if (backendApiSecret) {
                     authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
                   }
-                  await fetch('/api/settings/proxy', {
+                  const base = await getRpcBaseUrl();
+                  await fetch(`${base}/settings/proxy`, {
                     method: 'PUT',
                     headers: authHeaders,
                     body: JSON.stringify(newForm),

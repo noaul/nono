@@ -4,6 +4,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 
 - `apps/blog`：Next.js 博客、文章与图片管理
 - `apps/nomoney`：NoMoney 资产、账单与提醒管理
+- `apps/nostar`：NoStar GitHub Stars 整理、AI 分析与 Release 追踪
 - `packages/server`：Fastify + Prisma + PostgreSQL API
 - `packages/web`：Vue 3 + Vite + Pinia + Vue Router
 - `packages/extension`：Chrome Manifest V3 一键收藏插件
@@ -20,7 +21,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 公开导航：`/:username`，默认搜索为 Google
 - 统一 API 响应：`{ code, data, message }`
 - 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
-- 一体化 Docker：单个业务镜像内包含 Nono、Nodesk 与 NoMoney，外加 PostgreSQL
+- 一体化 Docker：单个业务镜像内包含 Nono、Nodesk、NoMoney 与 NoStar，外加 PostgreSQL
 
 ## 本地开发
 
@@ -70,12 +71,13 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。`ENCRYPTION_KEY` 必须是 64 位十六进制字符串，可用 `openssl rand -hex 32` 生成；生产环境缺失、格式错误或仍为旧公开默认值时，服务会拒绝启动。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建三套应用，启动前运行 Prisma migration，再由内置网关统一转发：
+请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。`ENCRYPTION_KEY` 必须是 64 位十六进制字符串，可用 `openssl rand -hex 32` 生成；生产环境缺失、格式错误或仍为旧公开默认值时，服务会拒绝启动。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建全部应用，启动前运行 Prisma migration，再由内置网关统一转发：
 
 ```text
 Nono: http://127.0.0.1:3000
 Nodesk: http://127.0.0.1:3000/nodesk
 NoMoney: http://127.0.0.1:3000/nomoney
+NoStar: http://127.0.0.1:3000/nostar
 ```
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
@@ -97,6 +99,8 @@ Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久�
 
 NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 MoneyPulse 数据迁移、生产切换和回滚步骤见 [NoMoney 部署迁移手册](docs/deployment/nomoney-production-migration.md)。
 
+NoStar 使用 Nono Session 登录，仓库、Release、分类和配置按 Nono 用户隔离并存入 PostgreSQL。GitHub Token、AI Key、WebDAV 密码、代理密码和 aria2 密钥使用 Nono 的 `ENCRYPTION_KEY` 加密；NoStar AI 配置也可在 Nono 后台的 LLM 页面管理。
+
 ## 旧数据迁移
 
 旧版 `data/nono.json` 可以迁移到 PostgreSQL：
@@ -106,6 +110,15 @@ npm run migrate:json -w packages/server -- data/nono.json
 ```
 
 旧版密码哈希不可逆，迁移脚本会为迁移用户设置临时密码，默认是 `Password2026!`。可以通过 `MIGRATED_ADMIN_PASSWORD` 覆盖。
+
+旧 GithubStars SQLite 数据可迁入指定 Nono 用户。先执行演练，确认统计后再去掉 `--dry-run`；正式迁移会自动备份源数据库：
+
+```bash
+npm run migrate:nostar -- --sqlite /path/to/data.db --username admin --dry-run
+npm run migrate:nostar -- --sqlite /path/to/data.db --username admin
+```
+
+迁移脚本会自动读取数据库同目录的 `.encryption-key`。也可使用 `--source-key <64-hex>` 显式传入旧密钥。
 
 ## 浏览器插件
 

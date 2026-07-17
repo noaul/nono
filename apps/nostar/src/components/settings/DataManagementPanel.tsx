@@ -550,7 +550,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `github-stars-manager-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `nostar-backup-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

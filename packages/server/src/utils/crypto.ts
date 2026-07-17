@@ -24,10 +24,12 @@ export function createSessionToken(user: { id: number; username: string }, secre
 
 export function verifySessionToken(token: string | undefined, secret: string) {
   if (!token) return null;
-  const [payload, signature] = token.split('.');
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
   if (!payload || !signature) return null;
-  const actual = Buffer.from(sign(payload, secret), 'base64url');
-  const expected = Buffer.from(signature, 'base64url');
+  const actual = Buffer.from(sign(payload, secret), 'ascii');
+  const expected = Buffer.from(signature, 'ascii');
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   try {
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));

@@ -39,7 +39,7 @@ export const DebugModeIndicator: React.FC = () => {
     if (backend.isAvailable) {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        await fetch('/api/logs/debug', {
+        await fetch('/api/nostar/logs/debug', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
           body: JSON.stringify({ enabled: false }),

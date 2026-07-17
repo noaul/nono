@@ -112,24 +112,26 @@ describe('ForkTimeline owner filtering', () => {
     storeState.setForkIsRefreshing = vi.fn((refreshing: boolean) => {
       storeState.forkIsRefreshing = refreshing;
     });
-    MockGitHubApiService.mockImplementation(() => ({
-      getUserOrganizations: vi.fn().mockResolvedValue([
-        {
-          id: 10,
-          login: 'team-org',
-          avatar_url: 'https://github.com/team-org.png',
-          description: null,
-          html_url: 'https://github.com/team-org',
-        },
-      ]),
-      getUserForks: vi.fn().mockResolvedValue([personalFork, orgFork]),
-      getOrganizationForks: vi.fn().mockResolvedValue([orgFork]),
-      checkForkSyncNeeded: vi.fn().mockResolvedValue({ needsSync: false }),
-      getRepositoryWorkflows: vi.fn().mockResolvedValue([]),
-      getBranches: vi.fn().mockResolvedValue(['main']),
-      syncFork: vi.fn().mockResolvedValue({ hasUpdates: false, sourceUpdatedAt: null, mergeType: 'none' }),
-      triggerWorkflowRun: vi.fn().mockResolvedValue(undefined),
-    } as unknown as GitHubApiService));
+    MockGitHubApiService.mockImplementation(function MockGitHubApiServiceConstructor() {
+      return {
+        getUserOrganizations: vi.fn().mockResolvedValue([
+          {
+            id: 10,
+            login: 'team-org',
+            avatar_url: 'https://github.com/team-org.png',
+            description: null,
+            html_url: 'https://github.com/team-org',
+          },
+        ]),
+        getUserForks: vi.fn().mockResolvedValue([personalFork, orgFork]),
+        getOrganizationForks: vi.fn().mockResolvedValue([orgFork]),
+        checkForkSyncNeeded: vi.fn().mockResolvedValue({ needsSync: false }),
+        getRepositoryWorkflows: vi.fn().mockResolvedValue([]),
+        getBranches: vi.fn().mockResolvedValue(['main']),
+        syncFork: vi.fn().mockResolvedValue({ hasUpdates: false, sourceUpdatedAt: null, mergeType: 'none' }),
+        triggerWorkflowRun: vi.fn().mockResolvedValue(undefined),
+      } as unknown as GitHubApiService;
+    });
   });
 
   it('shows only personal-account forks by default', async () => {
@@ -169,9 +171,11 @@ describe('ForkTimeline owner filtering', () => {
   });
 
   it('warns when organization owners cannot be loaded', async () => {
-    MockGitHubApiService.mockImplementation(() => ({
-      getUserOrganizations: vi.fn().mockRejectedValue(new Error('missing scope')),
-    } as unknown as GitHubApiService));
+    MockGitHubApiService.mockImplementation(function MockFailingGitHubApiService() {
+      return {
+        getUserOrganizations: vi.fn().mockRejectedValue(new Error('missing scope')),
+      } as unknown as GitHubApiService;
+    });
 
     render(<ForkTimeline />);
 

@@ -145,7 +145,7 @@ function App() {
           return;
         }
         setNonoSession('redirecting');
-        window.location.replace(`/admin/login?next=${encodeURIComponent('/nostar')}`);
+        window.location.replace(`/login?next=${encodeURIComponent('/nostar/')}`);
       } catch (error) {
         logger.error('app', 'Failed to load Nono session', error);
         if (!cancelled) setNonoSession('error');
