@@ -71,7 +71,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。`ENCRYPTION_KEY` 必须是 64 位十六进制字符串，可用 `openssl rand -hex 32` 生成；生产环境缺失、格式错误或仍为旧公开默认值时，服务会拒绝启动。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建全部应用，启动前运行 Prisma migration，再由内置网关统一转发：
+请先修改 `.env` 里的 `POSTGRES_PASSWORD`、`DATABASE_URL`、`SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。数据库密码建议使用 `openssl rand -hex 32` 生成，并确保 `DATABASE_URL` 中的密码与 `POSTGRES_PASSWORD` 一致。`ENCRYPTION_KEY` 必须是 64 位十六进制字符串，也可用 `openssl rand -hex 32` 生成；生产环境缺失、格式错误或仍为旧公开默认值时，服务会拒绝启动。PostgreSQL 默认只绑定 `127.0.0.1:5433`，Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建全部应用，启动前运行 Prisma migration，再由内置网关统一转发：
 
 ```text
 Nono: http://127.0.0.1:3000
@@ -81,6 +81,17 @@ NoStar: http://127.0.0.1:3000/nostar
 ```
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
+
+已有 PostgreSQL 数据卷不能只通过修改 `.env` 完成密码轮换。先进入数据库执行交互式密码修改，再更新 `.env` 中的 `POSTGRES_PASSWORD` 和 `DATABASE_URL`，最后重建业务容器：
+
+```bash
+docker compose exec postgres psql -U "${POSTGRES_USER:-nono}" -d "${POSTGRES_DB:-nono}"
+\password nono
+\q
+docker compose up -d --force-recreate postgres app
+```
+
+若修改了 `POSTGRES_USER`，将 `\password nono` 中的角色名替换为实际用户名。密码输入过程不会写入 shell 历史；轮换后使用 `docker compose ps` 和 `/healthz` 确认数据库与应用均健康。
 
 正式部署时将 `NONO_PUBLIC_URL` 设置为站点根地址，将 `BLOG_PUBLIC_URL` 设置为 Nodesk 的完整公网地址。站内互跳默认使用同域名相对路径 `/` 与 `/nodesk`，无需绑定服务器 IP：
 

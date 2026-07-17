@@ -528,8 +528,8 @@ describe('visual contracts', () => {
     expect(favicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
     expect(adminFavicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
     expect(app).toContain("const variant = isAdmin ? '-admin' : ''");
-    expect(app).toContain('`/favicon${variant}-${size}.png`');
-    expect(app).toContain('`/apple-touch-icon${variant}.png`');
+    expect(app).toContain("`/favicon${variant}-${size}.png${isAdmin ? '' : '?v=20260717b'}`");
+    expect(app).toContain("`/apple-touch-icon${variant}.png${isAdmin ? '' : '?v=20260717b'}`");
   });
 
   it('defines token governance styles', async () => {

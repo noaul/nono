@@ -14,7 +14,7 @@ describe('backendAdapter', () => {
   });
 
   it('does not mark a backend as available when health passes but authenticated routes reject it', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) {
         return jsonResponse({ status: 'ok', version: 'test', timestamp: 'now' });
@@ -34,7 +34,7 @@ describe('backendAdapter', () => {
   });
 
   it('marks a backend as available when health and authenticated routes pass', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) {
         return jsonResponse({ status: 'ok', version: 'test', timestamp: 'now' });
@@ -52,7 +52,7 @@ describe('backendAdapter', () => {
   });
 
   it('uses the NoStar API mount and same-origin session credentials', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) {
         return jsonResponse({ status: 'ok', version: 'test', timestamp: 'now' });

@@ -1,7 +1,7 @@
 import { translateBackendError } from '../utils/backendErrors';
 import { logger } from './logger';
 
-import { Repository, Release, AIConfig, WebDAVConfig, EmbeddingConfig, VectorSearchConfig } from '../types';
+import { Repository, Release, AIConfig, WebDAVConfig, EmbeddingConfig, VectorSearchConfig, type SecretStatus } from '../types';
 import { isReadmeCandidateItem, type GitHubReadmeCandidateItem } from '../utils/readmeVariants';
 
 interface GitHubContentResponse {
@@ -13,6 +13,8 @@ interface GitHubTreeResponse {
   tree?: GitHubReadmeCandidateItem[];
   truncated?: boolean;
 }
+
+type VectorSearchConfigResponse = VectorSearchConfig & { authTokenStatus?: SecretStatus };
 
 class BackendAdapter {
   private _backendUrl: string | null = null;
@@ -637,14 +639,14 @@ class BackendAdapter {
     if (!res.ok) await this.throwTranslatedError(res, 'Sync vector search config error');
   }
 
-  async fetchVectorSearchConfig(): Promise<VectorSearchConfig> {
+  async fetchVectorSearchConfig(): Promise<VectorSearchConfigResponse> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
     const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/vector-search?decrypt=true`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch vector search config error');
-    return res.json() as Promise<VectorSearchConfig>;
+    return res.json() as Promise<VectorSearchConfigResponse>;
   }
 
 

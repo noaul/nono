@@ -21,6 +21,15 @@ const navigationPayload = {
         id: 1,
         userId: 1,
         parentId: null,
+        name: 'Baseline Notab',
+        sortOrder: 100,
+        locked: false,
+        links: [],
+      },
+      {
+        id: 2,
+        userId: 1,
+        parentId: 1,
         name: 'Baseline Folder',
         sortOrder: 100,
         locked: false,
@@ -51,8 +60,8 @@ test('renders the public navigation shell without overflow and records timing', 
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Nono Baseline' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: '文件夹' })).toBeVisible();
-  await expect(page.getByTestId('public-folder-card-1')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'notab' })).toBeVisible();
+  await expect(page.getByTestId('public-folder-card-2')).toBeVisible();
 
   const viewport = page.viewportSize();
   const baseline = await page.evaluate(() => {

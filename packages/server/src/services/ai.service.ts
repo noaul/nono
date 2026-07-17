@@ -53,6 +53,11 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
 
 export async function saveAnalyzedBookmark(services: AppServices, user: AuthUser, input: AnalyzeInput & { folderId?: number; folderName?: string; name?: string; description?: string }) {
   let folderId = input.folderId;
+  if (folderId) {
+    const folder = await services.repo.getFolder(user.id, folderId);
+    if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+    folderId = folder.id;
+  }
   if (!folderId && input.folderName) {
     const folder = await services.repo.createFolder({ userId: user.id, parentId: null, name: input.folderName, icon: 'sparkles', description: 'AI 自动创建', sortOrder: createSortOrder(), passwordHash: null, passwordHint: null });
     folderId = folder.id;

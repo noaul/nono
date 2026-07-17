@@ -35,9 +35,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/nomoney/package-lock.json
+            apps/nostar/package-lock.json
 
       - name: Install Nono dependencies
         run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
 
       - name: Test Nono
         run: npm test
@@ -50,6 +57,12 @@ jobs:
 
       - name: Build Nono
         run: npm run build:nono
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test browser smoke flows
+        run: npm run test:e2e
 
       - name: Install Blog dependencies
         working-directory: apps/blog
@@ -81,4 +94,28 @@ jobs:
 
       - name: Build NoMoney
         working-directory: apps/nomoney
+        run: npm run build
+
+      - name: Install NoStar dependencies
+        working-directory: apps/nostar
+        run: npm ci
+
+      - name: Test NoStar
+        working-directory: apps/nostar
+        run: npm run test:run
+
+      - name: Lint NoStar
+        working-directory: apps/nostar
+        run: npm run lint
+
+      - name: Check NoStar types
+        working-directory: apps/nostar
+        run: npm run typecheck
+
+      - name: Audit NoStar dependencies
+        working-directory: apps/nostar
+        run: npm audit --audit-level=high
+
+      - name: Build NoStar
+        working-directory: apps/nostar
         run: npm run build

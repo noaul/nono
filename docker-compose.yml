@@ -4,15 +4,15 @@ services:
     container_name: nono-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: nono
-      POSTGRES_USER: nono
-      POSTGRES_PASSWORD: nono
+      POSTGRES_DB: ${POSTGRES_DB:-nono}
+      POSTGRES_USER: ${POSTGRES_USER:-nono}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - nono_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nono -d nono"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,7 +35,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://nono:nono@postgres:5432/nono?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nono}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-nono}?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       GATEWAY_TRUST_FORWARDED_HEADERS: ${GATEWAY_TRUST_FORWARDED_HEADERS:-false}

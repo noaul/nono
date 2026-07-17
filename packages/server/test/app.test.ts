@@ -26,6 +26,35 @@ async function setupAdmin() {
   return Array.isArray(cookie) ? cookie[0] : String(cookie);
 }
 
+async function setupUser(adminCookie: string, username = 'reader') {
+  await app.inject({
+    method: 'PUT',
+    url: '/api/admin/config',
+    headers: { cookie: adminCookie },
+    payload: { allowRegistration: true },
+  });
+  const registered = await app.inject({
+    method: 'POST',
+    url: '/api/auth/register',
+    payload: {
+      username,
+      email: `${username}@nono.test`,
+      displayName: username,
+      password: 'Reader2026!',
+    },
+  });
+  const login = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { username, password: 'Reader2026!' },
+  });
+  const cookie = login.headers['set-cookie'];
+  return {
+    cookie: Array.isArray(cookie) ? cookie[0] : String(cookie),
+    userId: registered.json().data.user.id as number,
+  };
+}
+
 describe('Nono Fastify app', () => {
   beforeEach(async () => {
     repo = new MemoryRepository(false);
@@ -814,6 +843,65 @@ describe('Nono Fastify app', () => {
       payload: { parentId: child.json().data.id },
     });
     expect(descendantParent.statusCode).toBe(400);
+  });
+
+  it('does not allow folder updates to change server-owned fields', async () => {
+    const adminCookie = await setupAdmin();
+    const reader = await setupUser(adminCookie);
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie: adminCookie },
+      payload: { name: 'Owned by admin' },
+    });
+    const folderId = folder.json().data.id;
+    const originalCreatedAt = folder.json().data.createdAt;
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/folders/${folderId}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        name: 'Still owned by admin',
+        userId: reader.userId,
+        id: folderId + 1000,
+        createdAt: '2000-01-01T00:00:00.000Z',
+        passwordHash: 'attacker-controlled',
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data).toMatchObject({ id: folderId, userId: 1, name: 'Still owned by admin' });
+    expect(updated.json().data.createdAt).toBe(originalCreatedAt);
+    expect(updated.json().data.passwordHash).toBeNull();
+    expect((await repo.listFolders(reader.userId)).some((item) => item.id === folderId)).toBe(false);
+  });
+
+  it('does not allow AI save to write into another user folder', async () => {
+    const adminCookie = await setupAdmin();
+    const reader = await setupUser(adminCookie);
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie: adminCookie },
+      payload: { name: 'Admin only' },
+    });
+
+    const saved = await app.inject({
+      method: 'POST',
+      url: '/api/ai/save',
+      headers: { cookie: reader.cookie },
+      payload: {
+        folderId: folder.json().data.id,
+        url: 'https://cross-user.example/',
+        title: 'Cross-user write',
+      },
+    });
+
+    expect(saved.statusCode).toBe(404);
+    expect(saved.json()).toMatchObject({ code: 404, message: 'Folder not found' });
+    expect(await repo.listLinks(1)).toHaveLength(0);
+    expect(await repo.listLinks(reader.userId)).toHaveLength(0);
   });
 
   it('falls back when LLM is not configured and saves the confirmed bookmark', async () => {

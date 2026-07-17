@@ -201,6 +201,8 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
         workerUrl: formWorkerUrl,
         authToken: formAuthToken,
         embeddingConfigId: '',
+        indexMode: formIndexMode,
+        readmeMaxChars: formReadmeMaxChars,
       });
       const result = await service.testConnection();
       setWorkerTestResult(result);
@@ -222,7 +224,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
     } finally {
       setTestingWorker(false);
     }
-  }, [formWorkerUrl, formAuthToken, setVectorSearchStatus]);
+  }, [formWorkerUrl, formAuthToken, formIndexMode, formReadmeMaxChars, setVectorSearchStatus]);
 
   // 未索引数量（已分析、未失败、未向量索引或内容已更新）
   const unindexedCount = repositories.filter((r) => {
@@ -258,6 +260,8 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       workerUrl: formWorkerUrl,
       authToken: formAuthToken,
       embeddingConfigId: activeEmbeddingConfig || '',
+      indexMode: formIndexMode,
+      readmeMaxChars: formReadmeMaxChars,
     });
     // 复用单个 GitHubApiService 实例，保留 rate-limit state
     const githubApi = githubToken ? new GitHubApiService(githubToken) : null;
@@ -266,7 +270,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
           githubApi.getRepositoryReadme(owner, repo, signal)
       : undefined;
     return { embeddingClient, vectorService, readmeFetcher };
-  }, [activeConfig, formApiType, formBaseUrl, formApiKey, formModel, formDimensions, formWorkerUrl, formAuthToken, activeEmbeddingConfig, githubToken]);
+  }, [activeConfig, formApiType, formBaseUrl, formApiKey, formModel, formDimensions, formWorkerUrl, formAuthToken, formIndexMode, formReadmeMaxChars, activeEmbeddingConfig, githubToken]);
 
   const handleRebuildIndex = useCallback(async () => {
     const clients = createClients();

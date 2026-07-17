@@ -500,6 +500,10 @@ type PersistedAppState = Partial<
     | 'lastSync'
     | 'aiConfigs'
     | 'activeAIConfig'
+    | 'embeddingConfigs'
+    | 'activeEmbeddingConfig'
+    | 'vectorSearchConfig'
+    | 'vectorSearchStatus'
     | 'webdavConfigs'
     | 'activeWebDAVConfig'
     | 'lastBackup'
@@ -650,10 +654,10 @@ const mergeVectorSearchConfig = (
 ): VectorSearchConfig => {
   const currentVersion = isKnownEmbeddingFormatVersion(current.embeddingFormatVersion)
     ? current.embeddingFormatVersion
-    : defaultVectorSearchConfig.embeddingFormatVersion;
+    : EMBEDDING_FORMAT_VERSION;
   const patchVersion = patch.embeddingFormatVersion;
   const embeddingFormatVersion = isKnownEmbeddingFormatVersion(patchVersion)
-    ? Math.max(currentVersion, patchVersion)
+    ? Math.max(currentVersion, patchVersion ?? currentVersion)
     : currentVersion;
 
   return {
@@ -1325,7 +1329,7 @@ export const useAppStore = create<AppState & AppActions>()(
           : applyPatches(state.searchResults);
         const similarResultsResult = state.similarView
           ? applyPatches(state.similarView.similarResults)
-          : { repositories: state.similarView?.similarResults ?? [], changed: false };
+          : { repositories: [] as Repository[], changed: false };
 
         if (!repositoriesResult.changed && !searchResultsResult.changed && !similarResultsResult.changed) {
           return state;

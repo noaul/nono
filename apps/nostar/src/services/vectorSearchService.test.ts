@@ -190,13 +190,14 @@ describe('embedWithFallback', () => {
     });
     const longText = 'y'.repeat(8000);
     const result = await embedWithFallback([longText], client, undefined, 6000);
+    const embedMock = vi.mocked(client.embed);
     expect(result[0]).not.toBeNull();
     // 4 calls: 1 batch attempt + 3 per-item candidates [8000, 4000, 2000]
-    expect(client.embed.mock.calls.length).toBe(4);
+    expect(embedMock.mock.calls.length).toBe(4);
     // Verify per-item candidate lengths (calls 1-3, call 0 is the batch)
-    const call1 = client.embed.mock.calls[1][0] as string[];
-    const call2 = client.embed.mock.calls[2][0] as string[];
-    const call3 = client.embed.mock.calls[3][0] as string[];
+    const call1 = embedMock.mock.calls[1][0] as string[];
+    const call2 = embedMock.mock.calls[2][0] as string[];
+    const call3 = embedMock.mock.calls[3][0] as string[];
     expect(call1[0].length).toBe(8000);  // original
     expect(call2[0].length).toBe(4000);  // firstLimit = min(6000, 8000/2) = 4000
     expect(call3[0].length).toBe(2000);  // secondLimit = max(256, 4000/2) = 2000

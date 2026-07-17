@@ -15,7 +15,7 @@ describe('GitHubApiService backend integration', () => {
   });
 
   it('automatically uses the authenticated Nono proxy when the backend is available', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });
       if (url.endsWith('/settings')) return jsonResponse({ github_token_status: 'ok' });

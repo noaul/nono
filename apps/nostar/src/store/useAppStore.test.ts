@@ -243,7 +243,7 @@ describe('useAppStore vector search config normalization', () => {
 describe('useAppStore GitHub authentication', () => {
   beforeEach(() => {
     useAppStore.setState({
-      user: { id: 1, login: 'au', avatar_url: '' },
+      user: { id: 1, login: 'au', name: 'AU', avatar_url: '', email: null },
       githubToken: null,
       isAuthenticated: false,
     });

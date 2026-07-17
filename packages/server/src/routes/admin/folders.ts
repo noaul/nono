@@ -1,9 +1,21 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { hashPassword } from '../../utils/crypto.js';
 import { createSortOrder } from '../../utils/sort-order.js';
+import type { FolderRecord } from '../../services/repository.js';
+
+const folderUpdateSchema = z.object({
+  parentId: z.union([z.number().int().positive(), z.null(), z.literal('')]).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  icon: z.string().max(120).optional(),
+  description: z.string().max(1000).optional(),
+  sortOrder: z.number().finite().optional(),
+  password: z.string().max(200).optional(),
+  passwordHint: z.string().max(120).optional(),
+});
 
 export async function folderRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/folders', async (request, reply) => {
@@ -48,12 +60,13 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
   app.put('/api/admin/folders/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const body = request.body as any;
     const id = Number((request.params as any).id);
-    const input = { ...body };
+    const { password, parentId, ...fields } = folderUpdateSchema.parse(request.body);
+    const input: Partial<FolderRecord> = { ...fields };
+    if (parentId !== undefined) input.parentId = normalizeParentId(parentId);
+    if (password !== undefined) input.passwordHash = password ? await hashPassword(password) : null;
     if ('parentId' in input) {
-      input.parentId = normalizeParentId(input.parentId);
-      await assertValidParent(services, user.id, id, input.parentId);
+      await assertValidParent(services, user.id, id, input.parentId ?? null);
       const current = await services.repo.getFolder(user.id, id);
       if (!current) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
       if ((current.parentId ?? null) !== input.parentId) input.sortOrder = createSortOrder();

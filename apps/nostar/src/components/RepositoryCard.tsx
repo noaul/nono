@@ -469,6 +469,8 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
         workerUrl: vectorSearchConfig.workerUrl,
         authToken: vectorSearchConfig.authToken,
         embeddingConfigId: activeEmbeddingConfig || '',
+        indexMode: vectorSearchConfig.indexMode,
+        readmeMaxChars: vectorSearchConfig.readmeMaxChars,
       });
 
       const similar = await findSimilarRepositories(repository, {
