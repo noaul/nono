@@ -2,6 +2,7 @@ import { backend } from './backendAdapter';
 import { useAppStore } from '../store/useAppStore';
 import { mergeRepositoriesPreservingLocalMetadata } from '../utils/repositoryMerge';
 import { logger } from './logger';
+import { SERVER_MANAGED_GITHUB_TOKEN } from './githubApi';
 
 // Prevent sync loops: when we pull data FROM backend and update store,
 // the store subscription would trigger a push TO backend. This flag blocks that.
@@ -495,9 +496,9 @@ export function startAutoSync(): () => void {
 
   if (backend.isAvailable) {
     void backend.isTokenStoredOnServer().then((stored) => {
-      if (stored && useAppStore.getState().githubToken) {
-        useAppStore.getState().setGitHubToken(null);
-        logger.info('sync.security', 'Cleared local GitHub token because it is stored on the server');
+      if (stored && useAppStore.getState().githubToken !== SERVER_MANAGED_GITHUB_TOKEN) {
+        useAppStore.getState().setGitHubToken(SERVER_MANAGED_GITHUB_TOKEN);
+        logger.info('sync.security', 'Replaced local GitHub token with a server-managed marker');
       }
     }).catch(() => {
       // Token cleanup is best-effort and must not block synchronization.

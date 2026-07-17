@@ -22,6 +22,7 @@ import {
   WorkflowDefinition,
 } from '../types';
 import { logger } from './logger';
+import { backend } from './backendAdapter';
 import { isReadmeCandidateItem, type GitHubReadmeCandidateItem } from '../utils/readmeVariants';
 
 interface GitHubContentResponse {
@@ -48,6 +49,7 @@ interface GitHubRateLimitResponse {
 }
 
 const GITHUB_API_BASE = 'https://api.github.com';
+export const SERVER_MANAGED_GITHUB_TOKEN = '__nono_server_managed__';
 
 interface GitHubSearchRepoResponse {
   items: (Repository & { forks_count?: number })[];
@@ -89,6 +91,7 @@ export class GitHubApiService {
 
   constructor(token: string) {
     this.token = token;
+    this.backendUrl = backend.backendUrl;
   }
 
   /**
