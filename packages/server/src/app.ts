@@ -25,22 +25,25 @@ import { nostarRoutes } from './routes/nostar.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
-import { fetchPublicResource, resolvePublicAddress } from './utils/safe-fetch.js';
+import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 export async function buildApp(overrides: Partial<AppServices> = {}) {
   const prisma = overrides.prisma || new PrismaClient();
+  const safeRequester = overrides.safeRequester || requestSafeResource;
   const services: AppServices = {
     prisma,
     repo: overrides.repo || createPrismaRepository(prisma),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
     nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
-    llmClient: overrides.llmClient || new FetchLlmClient(),
+    llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
     publicFetcher: overrides.publicFetcher || fetchPublicResource,
     publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
+    safeRequester,
+    privateOutboundHosts: overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS),
   };
 
   const app = fastify({
@@ -128,14 +131,16 @@ function corsOriginPolicy() {
 }
 
 export class FetchLlmClient implements LlmClient {
+  constructor(private readonly requester = requestSafeResource) {}
+
   async complete(input: Parameters<LlmClient['complete']>[0]) {
-    if (input.provider === 'claude') return completeClaude(input);
-    return completeOpenAi(input);
+    if (input.provider === 'claude') return completeClaude(input, this.requester);
+    return completeOpenAi(input, this.requester);
   }
 }
 
-async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
-  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.openai.com/v1', 'chat/completions'), {
+async function completeOpenAi(input: Parameters<LlmClient['complete']>[0], requester = requestSafeResource) {
+  const response = await requester(resolveLlmEndpoint(input.baseUrl, 'https://api.openai.com/v1', 'chat/completions'), {
     method: 'POST',
     headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -147,15 +152,18 @@ async function completeOpenAi(input: Parameters<LlmClient['complete']>[0]) {
         { role: 'user', content: input.prompt },
       ],
     }),
+    allowPrivateHosts: input.allowPrivateHosts,
+    timeoutMs: 120000,
+    maxBytes: 8 * 1024 * 1024,
   });
-  if (!response.ok) throw new Error(`OpenAI request failed: ${response.status}`);
-  const payload = (await response.json()) as any;
+  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(`OpenAI request failed: ${response.statusCode}`);
+  const payload = JSON.parse(response.body.toString('utf8')) as any;
   return payload.choices?.[0]?.message?.content || '{}';
 }
 
-async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
+async function completeClaude(input: Parameters<LlmClient['complete']>[0], requester = requestSafeResource) {
   const thinkingBudget = claudeThinkingBudget(input.reasoningEffort);
-  const response = await fetch(resolveLlmEndpoint(input.baseUrl, 'https://api.anthropic.com/v1', 'messages'), {
+  const response = await requester(resolveLlmEndpoint(input.baseUrl, 'https://api.anthropic.com/v1', 'messages'), {
     method: 'POST',
     headers: {
       'x-api-key': input.apiKey,
@@ -169,9 +177,12 @@ async function completeClaude(input: Parameters<LlmClient['complete']>[0]) {
       system: 'Return valid compact JSON only.',
       messages: [{ role: 'user', content: input.prompt }],
     }),
+    allowPrivateHosts: input.allowPrivateHosts,
+    timeoutMs: 120000,
+    maxBytes: 8 * 1024 * 1024,
   });
-  if (!response.ok) throw new Error(`Claude request failed: ${response.status}`);
-  const payload = (await response.json()) as any;
+  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(`Claude request failed: ${response.statusCode}`);
+  const payload = JSON.parse(response.body.toString('utf8')) as any;
   return payload.content?.find((item: any) => item.type === 'text')?.text || '{}';
 }
 
@@ -190,4 +201,8 @@ function claudeThinkingBudget(effort: string | null | undefined) {
   if (effort === 'medium') return 2048;
   if (effort === 'high') return 4096;
   return 0;
+}
+
+function parseHostList(value: string | undefined) {
+  return (value || '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
 }

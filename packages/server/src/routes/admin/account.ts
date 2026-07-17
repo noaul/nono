@@ -75,6 +75,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
       model,
       baseUrl,
       reasoningEffort: reasoningEffort as any,
+      allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [],
       prompt: 'Return exactly this JSON: {"ok":true}',
     });
     return sendOk(reply, { ok: true, provider, model, reasoningEffort });

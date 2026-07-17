@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import type { Repository } from './services/repository.js';
-import type { fetchPublicResource, resolvePublicAddress } from './utils/safe-fetch.js';
+import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
 export type LlmProvider = 'openai' | 'claude';
@@ -24,10 +24,12 @@ export interface AppServices {
   llmClient?: LlmClient;
   publicFetcher?: typeof fetchPublicResource;
   publicAddressResolver?: typeof resolvePublicAddress;
+  safeRequester: typeof requestSafeResource;
+  privateOutboundHosts: string[];
 }
 
 export interface LlmClient {
-  complete(input: { provider: LlmProvider; apiKey: string; model: string; baseUrl?: string | null; prompt: string; reasoningEffort?: LlmReasoningEffort | null }): Promise<string>;
+  complete(input: { provider: LlmProvider; apiKey: string; model: string; baseUrl?: string | null; prompt: string; reasoningEffort?: LlmReasoningEffort | null; allowPrivateHosts?: string[] }): Promise<string>;
 }
 
 export interface AuthedRequest extends FastifyRequest {

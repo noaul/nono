@@ -16,9 +16,16 @@ export interface PublicFetchOptions {
   timeoutMs?: number;
 }
 
+export interface SafeRequestOptions extends PublicFetchOptions {
+  method?: string;
+  body?: string | Buffer;
+  allowPrivateHosts?: string[];
+  signal?: AbortSignal;
+}
+
 type LookupAddress = { address: string; family: 4 | 6 };
 type Lookup = (hostname: string) => Promise<LookupAddress[]>;
-type Request = (url: URL, address: LookupAddress, options: PublicFetchOptions) => Promise<PublicFetchResult>;
+type Request = (url: URL, address: LookupAddress, options: SafeRequestOptions) => Promise<PublicFetchResult>;
 
 const blockedV4 = new BlockList();
 for (const [network, prefix] of [
@@ -74,19 +81,45 @@ export async function fetchPublicResource(
   options: PublicFetchOptions = {},
   dependencies: { lookup?: Lookup; request?: Request } = {},
 ): Promise<PublicFetchResult> {
+  return requestSafeResource(rawUrl, { ...options, method: 'GET' }, dependencies);
+}
+
+export async function requestSafeResource(
+  rawUrl: string,
+  options: SafeRequestOptions = {},
+  dependencies: { lookup?: Lookup; request?: Request } = {},
+): Promise<PublicFetchResult> {
   const lookup = dependencies.lookup || defaultLookup;
   const request = dependencies.request || requestOnce;
   let url = parsePublicUrl(rawUrl);
   const maxRedirects = options.maxRedirects ?? 3;
+  let requestOptions: SafeRequestOptions = {
+    ...options,
+    method: (options.method || 'GET').toUpperCase(),
+    headers: { ...(options.headers || {}) },
+  };
 
   for (let redirectCount = 0; ; redirectCount += 1) {
-    const address = await resolvePublicAddress(url.hostname, lookup);
-    const response = await request(url, address, options);
+    const address = await resolveRequestAddress(url.hostname, requestOptions.allowPrivateHosts || [], lookup);
+    const response = await request(url, address, requestOptions);
     const location = firstHeader(response.headers.location);
     if (!isRedirect(response.statusCode) || !location) return response;
     if (redirectCount >= maxRedirects) throw new Error('Too many redirects');
-    url = parsePublicUrl(new URL(location, url).href);
+    const nextUrl = parsePublicUrl(new URL(location, url).href);
+    requestOptions = redirectedOptions(requestOptions, response.statusCode, url, nextUrl);
+    url = nextUrl;
   }
+}
+
+async function resolveRequestAddress(hostname: string, allowPrivateHosts: string[], lookup: Lookup) {
+  const host = stripIpv6Brackets(hostname).toLowerCase();
+  const allowlist = new Set(allowPrivateHosts.map((item) => stripIpv6Brackets(item.trim()).toLowerCase()).filter(Boolean));
+  if (!allowlist.has(host)) return resolvePublicAddress(host, lookup);
+
+  const literalFamily = isIP(host);
+  const addresses = literalFamily ? [{ address: host, family: literalFamily as 4 | 6 }] : await lookup(host);
+  if (!addresses.length) throw new Error('Target address could not be resolved');
+  return addresses[0];
 }
 
 function parsePublicUrl(rawUrl: string) {
@@ -102,7 +135,7 @@ async function defaultLookup(hostname: string): Promise<LookupAddress[]> {
   return results.map(({ address, family }) => ({ address, family: family as 4 | 6 }));
 }
 
-function requestOnce(url: URL, address: LookupAddress, options: PublicFetchOptions): Promise<PublicFetchResult> {
+function requestOnce(url: URL, address: LookupAddress, options: SafeRequestOptions): Promise<PublicFetchResult> {
   const transport = url.protocol === 'https:' ? https : http;
   const maxBytes = options.maxBytes ?? 512 * 1024;
   const timeoutMs = options.timeoutMs ?? 5000;
@@ -114,7 +147,7 @@ function requestOnce(url: URL, address: LookupAddress, options: PublicFetchOptio
         family: address.family,
         port: url.port || undefined,
         path: `${url.pathname}${url.search}`,
-        method: 'GET',
+        method: options.method || 'GET',
         servername: url.protocol === 'https:' && !isIP(stripIpv6Brackets(url.hostname)) ? url.hostname : undefined,
         headers: { ...options.headers, host: url.host },
       },
@@ -133,10 +166,32 @@ function requestOnce(url: URL, address: LookupAddress, options: PublicFetchOptio
         response.on('error', reject);
       },
     );
+    if (options.signal) {
+      if (options.signal.aborted) request.destroy(new Error('Request aborted'));
+      else options.signal.addEventListener('abort', () => request.destroy(new Error('Request aborted')), { once: true });
+    }
     request.setTimeout(timeoutMs, () => request.destroy(new Error('Request timed out')));
     request.on('error', reject);
-    request.end();
+    request.end(options.body);
   });
+}
+
+function redirectedOptions(options: SafeRequestOptions, statusCode: number, previousUrl: URL, nextUrl: URL): SafeRequestOptions {
+  const headers = { ...(options.headers || {}) };
+  if (previousUrl.origin !== nextUrl.origin) {
+    for (const name of Object.keys(headers)) {
+      if (['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'api-key'].includes(name.toLowerCase())) delete headers[name];
+    }
+  }
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (statusCode === 303 || ((statusCode === 301 || statusCode === 302) && method === 'POST')) {
+    for (const name of Object.keys(headers)) {
+      if (['content-length', 'content-type'].includes(name.toLowerCase())) delete headers[name];
+    }
+    return { ...options, method: 'GET', body: undefined, headers };
+  }
+  return { ...options, headers };
 }
 
 function isRedirect(statusCode: number) {

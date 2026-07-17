@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 import { encryptSecret, hashPassword } from '../src/utils/crypto.js';
@@ -13,10 +13,12 @@ describe('NoStar routes', () => {
   let repo: MemoryRepository;
   const repositoryQueries: Array<Record<string, unknown>> = [];
   const settings = new Map<string, unknown>();
+  let safeRequester: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     repositoryQueries.length = 0;
     settings.clear();
+    safeRequester = vi.fn(async () => ({ statusCode: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"ok":true}') }));
     repo = new MemoryRepository(false);
     const prisma = {
       noStarRepository: {
@@ -55,7 +57,17 @@ describe('NoStar routes', () => {
           mimoPlan: null,
         }] : [],
       },
-      noStarWebDavConfig: { findMany: async () => [] },
+      noStarWebDavConfig: {
+        findMany: async () => [],
+        findUnique: async ({ where }: any) => where.userId_legacyId.userId === 2 && where.userId_legacyId.legacyId === 'webdav-1'
+          ? {
+              legacyId: 'webdav-1',
+              url: 'https://dav.example/root/',
+              username: 'reader',
+              passwordEncrypted: encryptSecret('dav-secret', encryptionKey),
+            }
+          : null,
+      },
       noStarAssetFilter: { findMany: async () => [] },
       noStarEmbeddingConfig: { findMany: async () => [] },
       noStarVectorSearchConfig: { findUnique: async () => null },
@@ -80,7 +92,7 @@ describe('NoStar routes', () => {
         },
       },
     };
-    app = await buildApp({ repo, prisma: prisma as any, sessionSecret, encryptionKey });
+    app = await buildApp({ repo, prisma: prisma as any, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
   });
 
   afterEach(async () => {
@@ -126,7 +138,7 @@ describe('NoStar routes', () => {
     expect(repositoryQueries).toEqual([{ userId: 1 }, { userId: 2 }]);
   });
 
-  it('stores network settings separately for each Nono user and masks passwords', async () => {
+  it('restricts server network proxy settings to administrators', async () => {
     const adminCookie = await setupAdmin();
     const readerCookie = await loginSecondUser();
 
@@ -136,7 +148,7 @@ describe('NoStar routes', () => {
       headers: { cookie: adminCookie },
       payload: { enabled: true, type: 'http', host: 'proxy.internal', port: 8080, username: 'admin', password: 'admin-secret' },
     });
-    await app.inject({
+    const readerUpdate = await app.inject({
       method: 'PUT',
       url: '/api/nostar/settings/proxy',
       headers: { cookie: readerCookie },
@@ -145,11 +157,81 @@ describe('NoStar routes', () => {
 
     const adminResponse = await app.inject({ method: 'GET', url: '/api/nostar/settings/proxy', headers: { cookie: adminCookie } });
     const readerResponse = await app.inject({ method: 'GET', url: '/api/nostar/settings/proxy', headers: { cookie: readerCookie } });
+    const readerRpcResponse = await app.inject({ method: 'GET', url: '/api/nostar/settings/rpc-download', headers: { cookie: readerCookie } });
 
     expect(adminResponse.json()).toMatchObject({ type: 'http', host: 'proxy.internal', port: 8080, hasPassword: true });
-    expect(readerResponse.json()).toMatchObject({ type: 'socks5', host: '127.0.0.1', port: 1080, hasPassword: true });
+    expect(readerUpdate.statusCode).toBe(403);
+    expect(readerResponse.statusCode).toBe(403);
+    expect(readerRpcResponse.statusCode).toBe(403);
     expect(JSON.stringify(adminResponse.json())).not.toContain('admin-secret');
-    expect(JSON.stringify(readerResponse.json())).not.toContain('reader-secret');
+  });
+
+  it('uses the safe requester for ordinary-user AI calls', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+    safeRequester.mockResolvedValueOnce({
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.from('{"choices":[{"message":{"content":"ok"}}]}'),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/ai',
+      headers: { cookie: readerCookie },
+      payload: {
+        config: { apiType: 'openai', baseUrl: 'https://ai.example', apiKey: 'key', model: 'model' },
+        body: { model: 'model', messages: [] },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith(
+      'https://ai.example/v1/chat/completions',
+      expect.objectContaining({ method: 'POST', allowPrivateHosts: [] }),
+    );
+  });
+
+  it('uses the safe requester for WebDAV and does not expose private hosts to ordinary users', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+    safeRequester.mockResolvedValueOnce({
+      statusCode: 207,
+      headers: { 'content-type': 'application/xml' },
+      body: Buffer.from('<multistatus/>'),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/webdav',
+      headers: { cookie: readerCookie },
+      payload: { configId: 'webdav-1', method: 'PROPFIND', path: '/backup/' },
+    });
+
+    expect(response.statusCode).toBe(207);
+    expect(safeRequester).toHaveBeenCalledWith(
+      'https://dav.example/root/backup/',
+      expect.objectContaining({ method: 'PROPFIND', allowPrivateHosts: [] }),
+    );
+  });
+
+  it('does not echo upstream AI response bodies from connection tests', async () => {
+    const adminCookie = await setupAdmin();
+    safeRequester.mockResolvedValueOnce({
+      statusCode: 500,
+      headers: { 'content-type': 'text/plain' },
+      body: Buffer.from('internal-service-secret'),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nostar/ai/test',
+      headers: { cookie: adminCookie },
+      payload: { apiType: 'openai', baseUrl: 'https://ai.example', apiKey: 'key', model: 'model' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).not.toContain('internal-service-secret');
   });
 
   it('exports only the authenticated user data with masked secrets', async () => {

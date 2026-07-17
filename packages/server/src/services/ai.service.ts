@@ -41,6 +41,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
       model: account.llmModel || defaultModel(account.llmProvider),
       baseUrl: account.llmBaseUrl,
       reasoningEffort: account.llmReasoningEffort as any,
+      allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [],
       prompt,
     });
     const result = JSON.parse(raw);

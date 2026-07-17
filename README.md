@@ -95,6 +95,8 @@ BLOG_NAVIGATION_URL=/nodesk
 
 若容器端口仅由同机 Nginx/Caddy 反向代理访问，可设置 `GATEWAY_TRUST_FORWARDED_HEADERS=true`，让登录限流按真实客户端 IP 计算；容器端口直接暴露公网时应保持 `false`。默认 CORS 仅允许 Chrome 扩展来源，若还需独立网页跨域调用，可在 `CORS_ORIGIN` 中填写逗号分隔的完整 Origin 白名单。
 
+服务端发起的自定义 LLM、NoStar AI、WebDAV 和 aria2 请求默认禁止访问回环、私网、链路本地及云 metadata 地址，并会在每次重定向后重新校验。管理员确实需要访问自建内网服务时，可在 `PRIVATE_OUTBOUND_HOSTS` 中填写逗号分隔的精确主机名或 IP，例如 `llm.lan,192.168.1.20`；该白名单不会授予普通用户私网访问权限。NoStar 的 HTTP/SOCKS 代理和 aria2 RPC 配置仅管理员可管理。
+
 Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 
 NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 MoneyPulse 数据迁移、生产切换和回滚步骤见 [NoMoney 部署迁移手册](docs/deployment/nomoney-production-migration.md)。

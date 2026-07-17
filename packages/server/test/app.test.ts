@@ -275,6 +275,28 @@ describe('Nono Fastify app', () => {
     expect(unsafe.statusCode).toBe(400);
   });
 
+  it('sends LLM requests through the safe outbound requester', async () => {
+    const requester = vi.fn(async () => ({
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.from('{"choices":[{"message":{"content":"{\\"ok\\":true}"}}]}'),
+    }));
+    const client = new FetchLlmClient(requester as any);
+
+    await expect(client.complete({
+      provider: 'openai',
+      apiKey: 'secret',
+      model: 'gpt-4o-mini',
+      baseUrl: 'https://api.example/v1',
+      prompt: 'test',
+    })).resolves.toBe('{"ok":true}');
+
+    expect(requester).toHaveBeenCalledWith(
+      'https://api.example/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
   it('normalizes navigation entries and rejects unsafe entry URLs', async () => {
     const cookie = await setupAdmin();
     const updated = await app.inject({
@@ -893,17 +915,18 @@ describe('Nono Fastify app', () => {
   });
 
   it('resolves custom OpenAI-compatible and Claude API endpoints', async () => {
-    const fetchMock = vi.fn()
+    const requester = vi.fn()
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: '{}' } }] }),
+        statusCode: 200,
+        headers: {},
+        body: Buffer.from('{"choices":[{"message":{"content":"{}"}}]}'),
       })
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ type: 'text', text: '{}' }] }),
+        statusCode: 200,
+        headers: {},
+        body: Buffer.from('{"content":[{"type":"text","text":"{}"}]}'),
       });
-    vi.stubGlobal('fetch', fetchMock);
-    const client = new FetchLlmClient();
+    const client = new FetchLlmClient(requester as any);
 
     await client.complete({
       provider: 'openai',
@@ -920,8 +943,7 @@ describe('Nono Fastify app', () => {
       prompt: 'hello',
     });
 
-    expect(fetchMock.mock.calls[0][0]).toBe('https://openrouter.example/api/v1/chat/completions');
-    expect(fetchMock.mock.calls[1][0]).toBe('https://claude-gateway.example/v1/messages');
-    vi.unstubAllGlobals();
+    expect(requester.mock.calls[0][0]).toBe('https://openrouter.example/api/v1/chat/completions');
+    expect(requester.mock.calls[1][0]).toBe('https://claude-gateway.example/v1/messages');
   });
 });

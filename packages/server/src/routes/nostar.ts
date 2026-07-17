@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import axios, { type AxiosRequestConfig } from 'axios';
 import { SocksProxyAgent } from 'socks-proxy-agent';
-import { requireAuth } from '../plugins/auth.js';
+import { requireAdmin, requireAuth } from '../plugins/auth.js';
 import { sendOk } from '../plugins/responses.js';
 import type { AppServices, AuthUser } from '../types.js';
 import { decryptSecret, encryptSecret } from '../utils/crypto.js';
@@ -40,6 +40,9 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const updates = asRecord(request.body);
+    if (user.role !== 'admin' && [PROXY_SETTING_KEY, RPC_SETTING_KEY].some((key) => key in updates)) {
+      return reply.status(403).send({ error: 'Administrator access required', code: 'ADMIN_REQUIRED' });
+    }
     await services.prisma.$transaction(async (tx) => {
       for (const [key, value] of Object.entries(updates)) {
         if (key === 'github_token') {
@@ -63,13 +66,13 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/nostar/settings/proxy', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     return publicProxyConfig(await storedConfig(services, user.id, PROXY_SETTING_KEY));
   });
 
   app.put('/api/nostar/settings/proxy', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, PROXY_SETTING_KEY);
@@ -79,7 +82,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.post('/api/nostar/settings/proxy/test', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, PROXY_SETTING_KEY);
@@ -98,13 +101,13 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/nostar/settings/rpc-download', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     return publicRpcConfig(await storedConfig(services, user.id, RPC_SETTING_KEY));
   });
 
   app.put('/api/nostar/settings/rpc-download', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, RPC_SETTING_KEY);
@@ -114,16 +117,16 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.post('/api/nostar/settings/rpc-download/test', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     const existing = await storedConfig(services, user.id, RPC_SETTING_KEY);
     const config = rpcConfigForRequest(asRecord(request.body), existing, services.encryptionKey);
     if (!config.host || !config.port) return { success: false, error: 'Host and port are required' };
-    return callAria2(config, 'aria2.getVersion', [], 'test');
+    return callAria2(services, user, config, 'aria2.getVersion', [], 'test');
   });
 
   app.post('/api/nostar/download/rpc', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await adminOnly(request, reply, services);
     if (!user) return;
     const stored = await storedConfig(services, user.id, RPC_SETTING_KEY);
     const config = rpcConfigForRequest({}, stored, services.encryptionKey);
@@ -134,7 +137,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const url = text(input.url);
     if (!isHttpUrl(url)) return reply.status(400).send({ success: false, error: 'A valid HTTP(S) URL is required' });
     const options = text(input.filename) ? [{ out: text(input.filename) }] : [];
-    return callAria2(config, 'aria2.addUri', [[url], ...options], 'download');
+    return callAria2(services, user, config, 'aria2.addUri', [[url], ...options], 'download');
   });
 
   app.get('/api/nostar/logs/debug', async (request, reply) => {
@@ -305,15 +308,17 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
       throw Object.assign(new Error('请完整填写 API 地址、模型和 API Key'), { statusCode: 400 });
     }
     const target = aiTarget({ apiType, baseUrl, apiKey, model });
-    const response = await fetch(target.url, {
+    const response = await services.safeRequester(target.url, {
       method: 'POST',
       headers: target.headers,
       body: JSON.stringify(aiTestBody(apiType, model)),
       signal: AbortSignal.timeout(30000),
+      timeoutMs: 30000,
+      maxBytes: 1024 * 1024,
+      allowPrivateHosts: privateHostsFor(user, services),
     });
-    if (!response.ok) {
-      const detail = (await response.text()).slice(0, 300);
-      throw Object.assign(new Error(`连接失败：HTTP ${response.status}${detail ? ` · ${detail}` : ''}`), { statusCode: 400 });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Object.assign(new Error(`连接失败：HTTP ${response.statusCode}`), { statusCode: 400 });
     }
     return sendOk(reply, { ok: true, model, apiType });
   });
@@ -433,10 +438,10 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
-    const proxy = await userProxyConfig(services, user.id);
+    const proxy = await userProxyConfig(services, user);
     const body = asRecord(request.body);
     if (!body.query) return reply.status(400).send({ error: 'query required', code: 'QUERY_REQUIRED' });
-    return proxyJson(reply, 'https://api.github.com/graphql', {
+    return proxyJson(reply, services, user, 'https://api.github.com/graphql', {
       method: 'POST',
       headers: githubHeaders(token, { 'content-type': 'application/json' }),
       body: JSON.stringify({ query: body.query, variables: body.variables }),
@@ -447,12 +452,12 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
-    const proxy = await userProxyConfig(services, user.id);
+    const proxy = await userProxyConfig(services, user);
     const target = new URL(text(asRecord(request.body).url));
     if (target.protocol !== 'https:' || !['gist.githubusercontent.com', 'raw.githubusercontent.com'].includes(target.hostname)) {
       return reply.status(400).send({ error: 'Invalid GitHub raw URL', code: 'INVALID_GITHUB_RAW_URL' });
     }
-    const response = await externalRequest(target.toString(), {
+    const response = await outboundRequest(services, user, target.toString(), {
       method: 'GET',
       headers: githubHeaders(token),
       timeout: 60000,
@@ -465,7 +470,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
-    const proxy = await userProxyConfig(services, user.id);
+    const proxy = await userProxyConfig(services, user);
     const input = asRecord(request.body);
     const rawSuffix = request.url.split('/api/nostar/proxy/github/')[1] || '';
     const suffix = rawSuffix.replace(/^\/+/, '');
@@ -479,7 +484,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const extraHeaders = asRecord(input.headers);
     delete extraHeaders.authorization;
     delete extraHeaders.Authorization;
-    return proxyJson(reply, `https://api.github.com/${suffix}`, {
+    return proxyJson(reply, services, user, `https://api.github.com/${suffix}`, {
       method,
       headers: githubHeaders(token, extraHeaders),
       body: method === 'GET' || input.body === undefined
@@ -492,7 +497,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
-    const proxy = await userProxyConfig(services, user.id);
+    const proxy = await userProxyConfig(services, user);
     const inline = asRecord(input.config);
     let apiType = text(inline.apiType) || 'openai';
     let baseUrl = text(inline.baseUrl);
@@ -520,7 +525,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const effectiveBody = reasoningEffort && !('reasoning' in requestBody)
       ? { ...requestBody, reasoning: { effort: reasoningEffort === 'minimal' ? 'low' : reasoningEffort } }
       : requestBody;
-    return proxyJson(reply, target.url, {
+    return proxyJson(reply, services, user, target.url, {
       method: 'POST',
       headers: target.headers,
       body: JSON.stringify(effectiveBody),
@@ -532,7 +537,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
-    const proxy = await userProxyConfig(services, user.id);
+    const proxy = await userProxyConfig(services, user);
     const config = await services.prisma.noStarWebDavConfig.findUnique({
       where: { userId_legacyId: { userId: user.id, legacyId: text(input.configId) } },
     });
@@ -546,7 +551,7 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     delete headers.authorization;
     delete headers.Authorization;
     headers.authorization = `Basic ${Buffer.from(`${config.username}:${decryptSecret(config.passwordEncrypted, services.encryptionKey)}`).toString('base64')}`;
-    const response = await externalRequest(targetUrl.toString(), {
+    const response = await outboundRequest(services, user, targetUrl.toString(), {
       method,
       headers: headers as Record<string, string>,
       data: ['GET', 'HEAD'].includes(method) ? undefined : typeof input.body === 'string' ? input.body : undefined,
@@ -559,6 +564,10 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
 
 async function authed(request: FastifyRequest, reply: FastifyReply, services: AppServices): Promise<AuthUser | null> {
   return requireAuth(request, reply, services);
+}
+
+async function adminOnly(request: FastifyRequest, reply: FastifyReply, services: AppServices): Promise<AuthUser | null> {
+  return requireAdmin(request, reply, services);
 }
 
 function repositoryData(repo: AnyRecord) {
@@ -773,8 +782,8 @@ function githubHeaders(token: string, extra: AnyRecord = {}) {
   } as Record<string, string>;
 }
 
-async function proxyJson(reply: FastifyReply, url: string, init: RequestInit, proxy?: RuntimeProxyConfig | null) {
-  const response = await externalRequest(url, {
+async function proxyJson(reply: FastifyReply, services: AppServices, user: AuthUser, url: string, init: RequestInit, proxy?: RuntimeProxyConfig | null) {
+  const response = await outboundRequest(services, user, url, {
     method: init.method,
     headers: normalizeHeaders(init.headers),
     data: init.body,
@@ -866,8 +875,9 @@ function proxyConfigForRequest(input: AnyRecord, existing: AnyRecord, encryption
   };
 }
 
-async function userProxyConfig(services: AppServices, userId: number): Promise<RuntimeProxyConfig | null> {
-  const stored = await storedConfig(services, userId, PROXY_SETTING_KEY);
+async function userProxyConfig(services: AppServices, user: AuthUser): Promise<RuntimeProxyConfig | null> {
+  if (user.role !== 'admin') return null;
+  const stored = await storedConfig(services, user.id, PROXY_SETTING_KEY);
   if (!stored.enabled) return null;
   return proxyConfigForRequest({}, stored, services.encryptionKey);
 }
@@ -1191,17 +1201,20 @@ function rpcConfigForRequest(input: AnyRecord, existing: AnyRecord, encryptionKe
   };
 }
 
-async function callAria2(config: RuntimeRpcConfig, method: string, params: unknown[], id: string) {
+async function callAria2(services: AppServices, user: AuthUser, config: RuntimeRpcConfig, method: string, params: unknown[], id: string) {
   try {
     const rpcParams = config.secret ? [`token:${config.secret}`, ...params] : params;
-    const response = await fetch(`http://${config.host}:${config.port}/jsonrpc`, {
+    const response = await services.safeRequester(`http://${config.host}:${config.port}/jsonrpc`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id, method, params: rpcParams }),
       signal: AbortSignal.timeout(method === 'aria2.addUri' ? 10000 : 5000),
+      timeoutMs: method === 'aria2.addUri' ? 10000 : 5000,
+      maxBytes: 1024 * 1024,
+      allowPrivateHosts: privateHostsFor(user, services),
     });
-    const data = asRecord(await response.json());
-    if (!response.ok) return { success: false, error: `aria2 returned HTTP ${response.status}` };
+    const data = asRecord(JSON.parse(response.body.toString('utf8')));
+    if (response.statusCode < 200 || response.statusCode >= 300) return { success: false, error: `aria2 returned HTTP ${response.statusCode}` };
     if (data.error) return { success: false, error: text(asRecord(data.error).message) || 'RPC error' };
     return method === 'aria2.getVersion'
       ? { success: true, version: text(asRecord(data.result).version) || undefined }
@@ -1209,6 +1222,30 @@ async function callAria2(config: RuntimeRpcConfig, method: string, params: unkno
   } catch (error) {
     return { success: false, error: errorMessage(error) };
   }
+}
+
+async function outboundRequest(
+  services: AppServices,
+  user: AuthUser,
+  url: string,
+  config: AxiosRequestConfig,
+  proxy?: RuntimeProxyConfig | null,
+) {
+  if (proxy?.enabled) return externalRequest(url, config, proxy);
+  const response = await services.safeRequester(url, {
+    method: String(config.method || 'GET'),
+    headers: config.headers as Record<string, string> | undefined,
+    body: typeof config.data === 'string' || Buffer.isBuffer(config.data) ? config.data : undefined,
+    timeoutMs: config.timeout && config.timeout > 0 ? config.timeout : 120000,
+    maxBytes: typeof config.maxContentLength === 'number' && config.maxContentLength > 0 ? config.maxContentLength : 50 * 1024 * 1024,
+    signal: config.signal as AbortSignal | undefined,
+    allowPrivateHosts: privateHostsFor(user, services),
+  });
+  return { status: response.statusCode, headers: response.headers, data: response.body.toString('utf8') };
+}
+
+function privateHostsFor(user: AuthUser, services: AppServices) {
+  return user.role === 'admin' ? services.privateOutboundHosts : [];
 }
 
 async function externalRequest(url: string, config: AxiosRequestConfig, proxy?: RuntimeProxyConfig | null) {
