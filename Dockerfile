@@ -75,6 +75,7 @@ COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_module
 COPY --from=nomoney-build /app/nomoney/backend/dist ./nomoney/backend/dist
 COPY --from=nomoney-build /app/nomoney/backend/public ./nomoney/backend/public
 COPY docker/gateway.mjs ./gateway.mjs
+COPY docker/gateway-headers.mjs ./gateway-headers.mjs
 COPY docker/gateway-routing.mjs ./gateway-routing.mjs
 EXPOSE 3000
 CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec node ./gateway.mjs"]

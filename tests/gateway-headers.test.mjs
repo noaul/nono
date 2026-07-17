@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import { forwardedHeaders } from '../docker/gateway-headers.mjs';
 
@@ -48,4 +49,9 @@ test('falls back to the socket address for malformed forwarded values', () => {
 
   assert.equal(headers['x-forwarded-for'], '192.0.2.9');
   assert.equal(headers['x-forwarded-proto'], 'http');
+});
+
+test('packages the trusted forwarding helper in the runtime image', () => {
+  const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
+  assert.match(dockerfile, /COPY docker\/gateway-headers\.mjs \.\/gateway-headers\.mjs/);
 });
