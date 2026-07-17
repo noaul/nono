@@ -112,6 +112,8 @@ Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久�
 
 NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 MoneyPulse 数据迁移、生产切换和回滚步骤见 [NoMoney 部署迁移手册](docs/deployment/nomoney-production-migration.md)。
 
+Compose 更新部署可使用提交号镜像、部署后路由/NoStar 分块验收和自动回滚，见 [Compose 验收与回滚部署](docs/deployment/compose-verified-deploy.md)。
+
 NoStar 使用 Nono Session 登录，仓库、Release、分类和配置按 Nono 用户隔离并存入 PostgreSQL。GitHub Token、AI Key、WebDAV 密码、代理密码和 aria2 密钥使用 Nono 的 `ENCRYPTION_KEY` 加密；NoStar AI 配置也可在 Nono 后台的 LLM 页面管理。
 
 ## 旧数据迁移

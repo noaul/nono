@@ -58,6 +58,10 @@ jobs:
       - name: Build Nono
         run: npm run build:nono
 
+      - name: Install NoStar dependencies
+        working-directory: apps/nostar
+        run: npm ci
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
@@ -95,10 +99,6 @@ jobs:
       - name: Build NoMoney
         working-directory: apps/nomoney
         run: npm run build
-
-      - name: Install NoStar dependencies
-        working-directory: apps/nostar
-        run: npm ci
 
       - name: Test NoStar
         working-directory: apps/nostar

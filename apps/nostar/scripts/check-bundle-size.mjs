@@ -8,7 +8,7 @@ const distDir = resolve(appDir, 'dist');
 const manifest = JSON.parse(readFileSync(resolve(distDir, '.vite', 'manifest.json'), 'utf8'));
 const maxInitialGzipBytes = Number(process.env.NOSTAR_MAX_INITIAL_JS_GZIP_KB || 150) * 1024;
 const maxDefaultRouteGzipBytes = Number(process.env.NOSTAR_MAX_DEFAULT_ROUTE_JS_GZIP_KB || 200) * 1024;
-const maxChunkGzipBytes = Number(process.env.NOSTAR_MAX_CHUNK_GZIP_KB || 320) * 1024;
+const maxChunkGzipBytes = Number(process.env.NOSTAR_MAX_CHUNK_GZIP_KB || 180) * 1024;
 
 const entryKeys = Object.entries(manifest)
   .filter(([, chunk]) => chunk.isEntry && chunk.file.endsWith('.js'))

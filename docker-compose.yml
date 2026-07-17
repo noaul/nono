@@ -18,6 +18,7 @@ services:
       retries: 5
 
   app:
+    image: ${NONO_APP_IMAGE:-nono-app:latest}
     build:
       context: .
       args:

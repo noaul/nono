@@ -6,10 +6,9 @@ import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import { Copy, Check, Download } from 'lucide-react';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github.min.css';
 import { useAppStore } from '../store/useAppStore';
 import { safeWriteText, getClipboardErrorMessage } from '../utils/clipboardUtils';
+import { hljs, normalizeHighlightLanguage } from '../services/highlight';
 
 interface MarkdownRendererProps {
   content: string;
@@ -71,6 +70,10 @@ const CodeBlock: React.FC<{
 
   const codeLines = useMemo(() => codeText.split('\n'), [codeText]);
   const showLineNumbers = codeLines.length > 3;
+  const highlightLanguage = useMemo(
+    () => normalizeHighlightLanguage(normalizedLanguage),
+    [normalizedLanguage],
+  );
 
   useEffect(() => {
     if (codeRef.current) {
@@ -80,7 +83,7 @@ const CodeBlock: React.FC<{
         console.warn('highlight.js failed:', error);
       }
     }
-  }, [children, normalizedLanguage]);
+  }, [children, highlightLanguage]);
 
   const handleCopy = useCallback(async () => {
     setCopyError(null);
@@ -193,7 +196,7 @@ const CodeBlock: React.FC<{
                 ))}
               </span>
             )}
-            <code ref={codeRef} className={`text-sm font-mono leading-6 text-gray-800 dark:text-[#e6edf3] ${showLineNumbers ? 'block min-w-0 flex-1' : ''} ${normalizedLanguage ? `language-${normalizedLanguage}` : ''}`}>
+            <code ref={codeRef} className={`text-sm font-mono leading-6 text-gray-800 dark:text-[#e6edf3] ${showLineNumbers ? 'block min-w-0 flex-1' : ''} language-${highlightLanguage}`}>
               {codeText}
             </code>
           </pre>

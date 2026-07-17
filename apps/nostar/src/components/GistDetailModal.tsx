@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import hljs from 'highlight.js';
 import { AlertCircle, Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { Modal } from './Modal';
 import type { Gist, GistFile } from '../types';
@@ -8,7 +7,7 @@ import { safeWriteText } from '../utils/clipboardUtils';
 import { createGitHubApiService } from '../services/githubApiFactory';
 import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
-import 'highlight.js/styles/github.min.css';
+import { hljs, normalizeHighlightLanguage } from '../services/highlight';
 
 interface GistDetailModalProps {
   gist: Gist | null;
@@ -24,6 +23,7 @@ interface HighlightedCodeProps {
 const HighlightedCode: React.FC<HighlightedCodeProps> = ({ file, onContentLoaded }) => {
   const codeRef = useRef<HTMLElement>(null);
   const language = inferGistCodeLanguage(file.filename, file.language);
+  const highlightLanguage = normalizeHighlightLanguage(language);
   const githubToken = useAppStore(state => state.githubToken);
   const language2 = useAppStore(state => state.language);
   const t = (zh: string, en: string) => language2 === 'zh' ? zh : en;
@@ -86,7 +86,7 @@ const HighlightedCode: React.FC<HighlightedCodeProps> = ({ file, onContentLoaded
     } catch {
       // Highlight.js can fail for obscure aliases; plaintext keeps the modal usable.
     }
-  }, [content, language]);
+  }, [content, highlightLanguage]);
 
   if (isLoadingRaw) {
     return (
@@ -119,7 +119,7 @@ const HighlightedCode: React.FC<HighlightedCodeProps> = ({ file, onContentLoaded
 
   return (
     <pre className="max-h-[60vh] overflow-auto rounded-lg bg-light-surface p-4 text-sm leading-6 dark:bg-black/30">
-      <code ref={codeRef} className={`language-${language} font-mono text-gray-800 dark:text-[#e6edf3]`}>
+      <code ref={codeRef} className={`language-${highlightLanguage} font-mono text-gray-800 dark:text-[#e6edf3]`}>
         {content || ''}
       </code>
     </pre>
