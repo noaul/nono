@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { KeyRound, Plus, Trash2 } from 'lucide-vue-next';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
@@ -48,6 +49,9 @@ onMounted(load);
 </script>
 
 <template>
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="自动化" title="API Token" description="管理浏览器扩展和脚本使用的访问凭据。" />
+
     <div class="token-summary-grid">
       <section>
         <span>Token 总数</span>
@@ -70,31 +74,48 @@ onMounted(load);
         <strong>{{ summary.expired }}</strong>
       </section>
     </div>
-    <div class="grid two">
-      <form class="panel grid" @submit.prevent="createToken">
-        <div class="field"><label>名称</label><input data-testid="token-name" v-model="form.name" /></div>
-        <div class="field">
-          <label>过期预设</label>
-          <select data-testid="token-expiry-preset" @change="setExpiryPreset(($event.target as HTMLSelectElement).value)">
-            <option value="">不过期</option>
-            <option value="7">7 天</option>
-            <option value="30">30 天</option>
-            <option value="90">90 天</option>
-          </select>
-        </div>
-        <div class="field"><label>过期时间</label><input v-model="form.expiresAt" type="datetime-local" /></div>
-        <button class="button" type="submit"><Plus :size="17" /> 创建 Token</button>
-        <p v-if="createdToken" class="token-created-secret">{{ createdToken }}</p>
-      </form>
-      <section class="panel list">
-        <EmptyState v-if="!tokens.length" title="还没有 API Token" description="创建一个 Token 供浏览器扩展或脚本访问接口。" />
-        <article v-for="token in tokens" :key="token.id" class="row">
+    <div class="admin-settings-grid">
+      <form class="admin-section" @submit.prevent="createToken">
+        <header class="admin-section-head">
           <div>
-            <div class="row-title"><KeyRound :size="15" /> {{ token.name }}</div>
-            <div class="row-subtitle">{{ token.token }} · {{ token.expiresAt || '不过期' }}</div>
+            <h2><Plus :size="18" /> 创建 Token</h2>
+            <p>按用途命名，并按需设置有效期。</p>
           </div>
-          <button class="icon-button danger" :data-testid="`revoke-token-${token.id}`" title="撤销" @click="remove(token)"><Trash2 :size="17" /></button>
-        </article>
+        </header>
+        <div class="grid">
+          <div class="field"><label>名称</label><input data-testid="token-name" v-model="form.name" /></div>
+          <div class="field">
+            <label>过期预设</label>
+            <select data-testid="token-expiry-preset" @change="setExpiryPreset(($event.target as HTMLSelectElement).value)">
+              <option value="">不过期</option>
+              <option value="7">7 天</option>
+              <option value="30">30 天</option>
+              <option value="90">90 天</option>
+            </select>
+          </div>
+          <div class="field"><label>过期时间</label><input v-model="form.expiresAt" type="datetime-local" /></div>
+          <button class="button" type="submit"><Plus :size="17" /> 创建 Token</button>
+          <p v-if="createdToken" class="token-created-secret">{{ createdToken }}</p>
+        </div>
+      </form>
+      <section class="admin-section">
+        <header class="admin-section-head">
+          <div>
+            <h2><KeyRound :size="18" /> 已创建 Token</h2>
+            <p>撤销后对应扩展或脚本会立即失去访问权限。</p>
+          </div>
+        </header>
+        <div class="list">
+          <EmptyState v-if="!tokens.length" title="还没有 API Token" description="创建一个 Token 供浏览器扩展或脚本访问接口。" />
+          <article v-for="token in tokens" :key="token.id" class="row">
+            <div>
+              <div class="row-title"><KeyRound :size="15" /> {{ token.name }}</div>
+              <div class="row-subtitle">{{ token.token }} · {{ token.expiresAt || '不过期' }}</div>
+            </div>
+            <button class="icon-button danger" :data-testid="`revoke-token-${token.id}`" title="撤销" @click="remove(token)"><Trash2 :size="17" /></button>
+          </article>
+        </div>
       </section>
     </div>
+  </div>
 </template>

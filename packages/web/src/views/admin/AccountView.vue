@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
-import { Save } from 'lucide-vue-next';
+import { KeyRound, Save } from 'lucide-vue-next';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 
 const form = reactive({ currentPassword: '', newPassword: '' });
@@ -22,11 +24,27 @@ async function save() {
 </script>
 
 <template>
-    <form class="panel grid" @submit.prevent="save">
-      <p v-if="message" class="notice">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
-      <div class="field"><label>当前密码</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
-      <div class="field"><label>新密码</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
-      <button class="button" type="submit"><Save :size="17" /> 修改密码</button>
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="系统" title="账户设置" description="更新当前账户的登录密码。">
+      <template #actions>
+        <button class="button" form="account-password-form" type="submit"><Save :size="17" /> 修改密码</button>
+      </template>
+    </AdminPageHeader>
+
+    <AdminStateBanner v-if="message" :message="message" tone="success" />
+    <AdminStateBanner v-if="error" :message="error" tone="error" />
+
+    <form id="account-password-form" class="admin-section" @submit.prevent="save">
+      <header class="admin-section-head">
+        <div>
+          <h2><KeyRound :size="18" /> 登录密码</h2>
+          <p>修改后请使用新密码登录。</p>
+        </div>
+      </header>
+      <div class="admin-settings-grid">
+        <div class="field"><label>当前密码</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
+        <div class="field"><label>新密码</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
+      </div>
     </form>
+  </div>
 </template>

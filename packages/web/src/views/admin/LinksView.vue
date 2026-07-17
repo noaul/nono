@@ -2,6 +2,8 @@
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
@@ -471,19 +473,30 @@ onMounted(load);
 </script>
 
 <template>
-    <section v-if="props.mode === 'create'" class="admin-card">
-      <div class="admin-card-head">
-        <div>
-          <h2>{{ form.id ? '编辑书签' : '新增书签' }}</h2>
-          <p>把链接放进指定文件夹后，会立即出现在你的公开导航页。</p>
-        </div>
+  <div class="admin-page-stack">
+    <AdminPageHeader
+      eyebrow="导航内容"
+      :title="props.mode === 'create' ? (form.id ? '编辑书签' : '新增书签') : '书签管理'"
+      :description="props.mode === 'create' ? '快速抓取网页信息，或手动完善名称、位置和介绍。' : '按 Notab 和文件夹筛选，集中编辑、迁移、排序或删除书签。'"
+    >
+      <template v-if="props.mode === 'create'" #actions>
         <button class="button" type="button" :disabled="isSaving" @click="save">
           <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
         </button>
+      </template>
+    </AdminPageHeader>
+
+    <AdminStateBanner v-if="message" :message="message" tone="success" />
+    <AdminStateBanner v-if="error" :message="error" tone="error" />
+
+    <section v-if="props.mode === 'create'" class="admin-section">
+      <div class="admin-section-head">
+        <div>
+          <h2>添加方式</h2>
+          <p>把链接放进指定文件夹后，会立即出现在你的公开导航页。</p>
+        </div>
       </div>
-      <p class="warning-line">隐私与法律免责声明：你所添加的每一个链接都将负法律责任。</p>
-      <p v-if="message" class="notice">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
+      <AdminStateBanner message="隐私与法律免责声明：你所添加的每一个链接都将负法律责任。" tone="warning" />
       <form class="quick-add-bar" @submit.prevent="quickAdd">
         <input
           v-model="quickUrl"
@@ -537,10 +550,10 @@ onMounted(load);
 
     <BookmarkTransferPanel v-if="props.mode === 'create'" />
 
-    <section v-if="props.mode === 'manage'" class="admin-card">
-      <div class="admin-card-head">
+    <section v-if="props.mode === 'manage'" class="admin-section">
+      <div class="admin-section-head">
         <div>
-          <h2>书签管理</h2>
+          <h2>书签列表</h2>
           <p>先选择文件夹，再编辑、迁移、排序或删除其中的书签。</p>
         </div>
         <div class="toolbar">
@@ -688,6 +701,7 @@ onMounted(load);
         </div>
       </template>
     </section>
+  </div>
 </template>
 
 <style scoped>

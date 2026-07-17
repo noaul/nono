@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { ArrowRight, Bot, ExternalLink, Folder as FolderIcon, Globe, KeyRound, Link2, ListChecks, Lock, Settings, Upload } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 
@@ -30,15 +31,19 @@ onMounted(async () => {
 </script>
 
 <template>
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="运营" title="控制台总览" description="查看内容规模、公开入口和待处理事项。">
+      <template #actions>
+        <RouterLink class="button secondary" to="/admin/site"><Settings :size="17" /> 站点设置</RouterLink>
+        <RouterLink class="button" to="/admin/links"><Link2 :size="17" /> 管理书签</RouterLink>
+      </template>
+    </AdminPageHeader>
+
     <section class="dashboard-hero">
       <div class="dashboard-hero-copy">
         <p>运营中枢</p>
         <h2>{{ site?.name || 'Nono' }}</h2>
         <span>{{ site?.description || '把分散的工具、资料和浏览器书签整理成一个稳定的个人导航入口。' }}</span>
-        <div class="dashboard-hero-actions">
-          <RouterLink class="button" to="/admin/links"><Link2 :size="17" /> 管理书签</RouterLink>
-          <RouterLink class="button secondary" to="/admin/site"><Settings :size="17" /> 调整站点</RouterLink>
-        </div>
       </div>
       <div class="dashboard-hero-panel">
         <div>
@@ -183,6 +188,7 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+  </div>
 </template>
 
 <style scoped>

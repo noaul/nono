@@ -3190,6 +3190,74 @@
   padding: 16px 18px;
 }
 
+.admin-page-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-page-stack > .admin-page-header {
+  margin-bottom: 0;
+}
+
+.admin-section {
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  min-width: 0;
+  padding: 18px;
+}
+
+.admin-section-head {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+.admin-section-head h2 {
+  align-items: center;
+  color: var(--admin-text);
+  display: flex;
+  font-size: 16px;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-section-head p {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.admin-settings-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.admin-settings-grid > *,
+.admin-settings-grid .wide {
+  min-width: 0;
+}
+
+.admin-settings-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.admin-section-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .admin-page-heading {
   min-width: 0;
 }
@@ -3237,6 +3305,62 @@
 .admin-state-banner--info { background: #eff8ff; color: #175cd3; }
 .admin-state-banner--warning { background: #fffaeb; color: var(--admin-warning); }
 .admin-state-banner--error { background: #fff1f3; color: var(--admin-danger); }
+
+@media (max-width: 900px) {
+  .admin-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-settings-grid .wide {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 961px) and (max-width: 1180px) {
+  .workbench-sidebar {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    grid-template-columns: none;
+    grid-template-rows: none;
+    padding: 16px 14px;
+  }
+
+  .sidebar-brand {
+    grid-template-columns: 42px minmax(0, 1fr);
+    min-height: auto;
+  }
+
+  .sidebar-brand p,
+  .operator-role-badge,
+  .nav-section > p {
+    display: block;
+  }
+
+  .workbench-nav {
+    display: grid;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .nav-section {
+    display: grid;
+  }
+
+  .app-workbench .nav-button,
+  .app-workbench .nav-button.nav-button-plain {
+    display: grid;
+    flex: initial;
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 4px 8px;
+  }
+
+  .workbench-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
 
 @media (max-width: 960px) {
   .workbench-sidebar {

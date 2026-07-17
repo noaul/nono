@@ -2,6 +2,8 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Pencil, Save, Square, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -396,8 +398,14 @@ onMounted(load);
 </script>
 
 <template>
-    <section class="admin-card">
-      <div class="admin-card-head">
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="导航内容" title="文件夹" description="创建文件夹，并按 Notab 管理归属、排序和访问设置。" />
+
+    <AdminStateBanner v-if="message" :message="message" tone="success" />
+    <AdminStateBanner v-if="error" :message="error" tone="error" />
+
+    <section class="admin-section">
+      <div class="admin-section-head">
         <div>
           <h2>新增文件夹</h2>
           <p>用于组织你的导航分类，可选图标、访问密码和引导语。</p>
@@ -406,8 +414,6 @@ onMounted(load);
           <FolderPlus :size="18" /> {{ isSaving ? '保存中' : '新增文件夹' }}
         </button>
       </div>
-      <p v-if="message" class="notice">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
       <form class="admin-form-grid" @submit.prevent="save">
         <div class="field"><label>图标</label><FolderIconPicker v-model="form.icon" test-id="create-folder-icon-picker" /></div>
         <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
@@ -427,8 +433,8 @@ onMounted(load);
       </form>
     </section>
 
-    <section class="admin-card">
-      <div class="admin-card-head">
+    <section class="admin-section">
+      <div class="admin-section-head">
         <div>
           <h2>文件夹管理</h2>
           <p>{{ sortMode ? '拖动当前 notab 下的文件夹，完成后统一保存。' : '管理 notab、文件夹位置、AI 归类提示、访问密码和展示顺序。' }}</p>
@@ -579,6 +585,7 @@ onMounted(load);
         </div>
       </div>
     </section>
+  </div>
 </template>
 
 <style scoped>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -132,11 +134,16 @@ function setDefaultSearchEngine(id: string) {
 </script>
 
 <template>
-    <form class="site-config-form" @submit.prevent="save">
-      <div v-if="message || error" class="site-config-feedback" aria-live="polite">
-        <p v-if="message" class="notice">{{ message }}</p>
-        <p v-if="error" class="error">{{ error }}</p>
-      </div>
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="运营" title="站点配置" description="统一管理公开主页、搜索、跳转入口和视觉主题。">
+      <template #actions>
+        <button class="button" form="site-config-form" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
+      </template>
+    </AdminPageHeader>
+    <AdminStateBanner v-if="message" :message="message" tone="success" />
+    <AdminStateBanner v-if="error" :message="error" tone="error" />
+
+    <form id="site-config-form" class="site-config-form" @submit.prevent="save">
 
       <section class="admin-card site-basics">
         <header class="admin-card-head">
@@ -307,11 +314,8 @@ function setDefaultSearchEngine(id: string) {
 
       <AppearanceEditor :appearance="appearance" :preview-bg="form.backgroundColor" />
 
-      <footer class="site-config-actions">
-        <span>设置保存后立即应用到公开导航页</span>
-        <button class="button" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
-      </footer>
     </form>
+  </div>
 </template>
 
 <style scoped>

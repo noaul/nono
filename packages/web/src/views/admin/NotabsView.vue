@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import { GripVertical, Layers, MoveDown, MoveUp, Pencil, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
@@ -177,10 +178,13 @@ onMounted(load);
 </script>
 
 <template>
-    <section class="admin-card">
-      <div class="admin-card-head">
+  <div class="admin-page-stack">
+    <AdminPageHeader eyebrow="导航内容" title="Notab 管理" description="集中更名、排序或删除导航页的顶级 Notab。" />
+
+    <section class="admin-section">
+      <div class="admin-section-head">
         <div>
-          <h2>Notab 管理</h2>
+          <h2>Notab 列表</h2>
           <p>{{ sortMode ? '拖动 Notab 调整前台分类顺序，完成后统一保存。' : '集中更名、排序或删除导航页的顶级 Notab。' }}</p>
         </div>
         <div class="toolbar">
@@ -261,6 +265,7 @@ onMounted(load);
         </div>
       </div>
     </section>
+  </div>
 </template>
 
 <style scoped>
