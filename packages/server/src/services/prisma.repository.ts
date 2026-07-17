@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { Repository, SiteRecord } from './repository.js';
 import { defaultSite } from './repository.js';
+import { generateApiToken, hashApiToken } from '../utils/crypto.js';
 
 export function createPrismaRepository(prisma = new PrismaClient()): Repository {
   return {
@@ -129,11 +130,17 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;
     },
     async createToken(userId, name, expiresAt) {
-      const { generateApiToken } = await import('../utils/crypto.js');
-      return (await prisma.apiToken.create({ data: { userId, name, token: generateApiToken(), expiresAt } })) as any;
+      const token = generateApiToken();
+      const record = await prisma.apiToken.create({
+        data: { userId, name, tokenHash: hashApiToken(token), tokenPrefix: token.slice(0, 10), expiresAt },
+      });
+      return { ...record, token } as any;
     },
     async findToken(token) {
-      return (await prisma.apiToken.findFirst({ where: { token, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, include: { user: true } })) as any;
+      return (await prisma.apiToken.findFirst({
+        where: { tokenHash: hashApiToken(token), OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        include: { user: true },
+      })) as any;
     },
     async deleteToken(userId, id) {
       await prisma.apiToken.deleteMany({ where: { userId, id } });

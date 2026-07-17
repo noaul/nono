@@ -37,7 +37,8 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://nono:nono@postgres:5432/nono?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      GATEWAY_TRUST_FORWARDED_HEADERS: ${GATEWAY_TRUST_FORWARDED_HEADERS:-false}
       NODESK_CONTENT_DIR: /app/nodesk-content
       NODESK_SEED_DIR: /app/nodesk-seed
       NOMONEY_INTERNAL_PORT: 2030

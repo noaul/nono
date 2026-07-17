@@ -42,6 +42,12 @@ jobs:
       - name: Test Nono
         run: npm test
 
+      - name: Test combined gateway contracts
+        run: npm run test:gateway
+
+      - name: Audit Nono dependencies
+        run: npm audit --audit-level=high
+
       - name: Build Nono
         run: npm run build:nono
 
@@ -60,3 +66,19 @@ jobs:
       - name: Build Blog
         working-directory: apps/blog
         run: pnpm build
+
+      - name: Install NoMoney dependencies
+        working-directory: apps/nomoney
+        run: npm ci
+
+      - name: Test NoMoney
+        working-directory: apps/nomoney
+        run: npm test
+
+      - name: Audit NoMoney dependencies
+        working-directory: apps/nomoney
+        run: npm audit --audit-level=high
+
+      - name: Build NoMoney
+        working-directory: apps/nomoney
+        run: npm run build

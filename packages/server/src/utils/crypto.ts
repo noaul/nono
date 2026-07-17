@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -25,7 +25,10 @@ export function createSessionToken(user: { id: number; username: string }, secre
 export function verifySessionToken(token: string | undefined, secret: string) {
   if (!token) return null;
   const [payload, signature] = token.split('.');
-  if (!payload || !signature || sign(payload, secret) !== signature) return null;
+  if (!payload || !signature) return null;
+  const actual = Buffer.from(sign(payload, secret), 'base64url');
+  const expected = Buffer.from(signature, 'base64url');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   try {
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     return decoded.exp >= Date.now() ? decoded : null;
@@ -36,6 +39,10 @@ export function verifySessionToken(token: string | undefined, secret: string) {
 
 export function generateApiToken() {
   return `nono_${randomBytes(24).toString('base64url')}`;
+}
+
+export function hashApiToken(token: string) {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 export function encryptSecret(value: string, keyHex: string) {
@@ -56,8 +63,10 @@ export function decryptSecret(value: string | null | undefined, keyHex: string) 
 }
 
 function normalizeKey(keyHex: string) {
-  const cleaned = keyHex && keyHex.length >= 64 ? keyHex.slice(0, 64) : '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-  return Buffer.from(cleaned, 'hex');
+  if (!/^[0-9a-fA-F]{64}$/.test(keyHex)) {
+    throw new Error('Encryption key must be 64 hexadecimal characters');
+  }
+  return Buffer.from(keyHex, 'hex');
 }
 
 function sign(payload: string, secret: string) {

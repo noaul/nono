@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../types.js';
 import { sendOk } from '../plugins/responses.js';
 import { verifyPassword } from '../utils/crypto.js';
+import type { FolderRecord, LinkRecord, SiteRecord } from '../services/repository.js';
 
 export async function navigationRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/navigation/:username', async (request, reply) => {
@@ -19,12 +20,8 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
       else linksByFolder.set(link.folderId, [link]);
     }
     return sendOk(reply, {
-      site,
-      folders: folders.map((folder) => ({
-        ...folder,
-        links: folder.passwordHash ? [] : linksByFolder.get(folder.id) || [],
-        locked: Boolean(folder.passwordHash),
-      })),
+      site: publicSite(site),
+      folders: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [])),
     });
   });
 
@@ -53,7 +50,7 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
           search_url_template: site.searchUrlTemplate,
           local_search_first: site.localSearchFirst,
         },
-        folder_with_links: folders.map((folder) => ({ ...folder, links: linksByFolder.get(folder.id) || [] })),
+        folder_with_links: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [])),
         target: { id: site.user.id, name: site.user.username },
         me: null,
       },
@@ -78,4 +75,40 @@ async function findNavigationSite(services: AppServices, slug: string) {
   const users = await services.repo.listUsers();
   const admin = users.find((user) => user.role === 'admin');
   return admin ? services.repo.getSite(admin.id) : null;
+}
+
+function publicSite(site: SiteRecord) {
+  return {
+    id: site.id,
+    userId: site.userId,
+    name: site.name,
+    description: site.description,
+    slug: site.slug,
+    backgroundImage: site.backgroundImage || null,
+    backgroundColor: site.backgroundColor,
+    fontColor: site.fontColor,
+    searchUrlTemplate: site.searchUrlTemplate,
+    localSearchFirst: site.localSearchFirst,
+    settings: site.settings,
+    createdAt: site.createdAt,
+    updatedAt: site.updatedAt,
+  };
+}
+
+function publicFolder(folder: FolderRecord, links: LinkRecord[]) {
+  const locked = Boolean(folder.passwordHash);
+  return {
+    id: folder.id,
+    userId: folder.userId,
+    parentId: folder.parentId || null,
+    name: folder.name,
+    icon: folder.icon || null,
+    description: folder.description || null,
+    sortOrder: folder.sortOrder,
+    passwordHint: folder.passwordHint || null,
+    createdAt: folder.createdAt,
+    updatedAt: folder.updatedAt,
+    locked,
+    links: locked ? [] : links,
+  };
 }

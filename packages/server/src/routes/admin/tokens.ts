@@ -17,10 +17,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     const tokens = await services.repo.listTokens(user.id);
     return sendOk(
       reply,
-      tokens.map((token) => ({
-        ...token,
-        token: `${token.token.slice(0, 10)}...`,
-      })),
+      tokens.map(publicToken),
     );
   });
 
@@ -38,7 +35,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, {
       id: record.id,
       name: record.name,
-      token: `${record.token.slice(0, 10)}...`,
+      token: `${record.tokenPrefix}...`,
       expiresAt: record.expiresAt || null,
       createdAt: record.createdAt,
       user: { id: record.user.id, username: record.user.username, displayName: record.user.displayName, role: record.user.role },
@@ -52,7 +49,13 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
     assertFutureExpiry(expiresAt);
     const token = await services.repo.createToken(user.id, input.name, expiresAt);
-    return sendOk(reply, token);
+    return sendOk(reply, {
+      id: token.id,
+      name: token.name,
+      token: token.token,
+      expiresAt: token.expiresAt || null,
+      createdAt: token.createdAt,
+    });
   });
 
   app.delete('/api/admin/tokens/:id', async (request, reply) => {
@@ -83,4 +86,14 @@ function summarizeTokens(tokens: ApiTokenRecord[]) {
     },
     { total: 0, active: 0, expired: 0, neverExpires: 0, expiringSoon: 0 },
   );
+}
+
+function publicToken(token: ApiTokenRecord) {
+  return {
+    id: token.id,
+    name: token.name,
+    token: `${token.tokenPrefix}...`,
+    expiresAt: token.expiresAt || null,
+    createdAt: token.createdAt,
+  };
 }

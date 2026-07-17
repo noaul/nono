@@ -1,4 +1,4 @@
-import { generateApiToken } from '../utils/crypto.js';
+import { generateApiToken, hashApiToken } from '../utils/crypto.js';
 import type { Role } from '../types.js';
 
 export interface UserRecord {
@@ -62,10 +62,15 @@ export interface LinkRecord {
 export interface ApiTokenRecord {
   id: number;
   userId: number;
-  token: string;
+  tokenHash: string;
+  tokenPrefix: string;
   name: string;
   expiresAt?: Date | null;
   createdAt: Date;
+}
+
+export interface CreatedApiTokenRecord extends ApiTokenRecord {
+  token: string;
 }
 
 export interface AppConfigRecord {
@@ -102,7 +107,7 @@ export interface Repository {
   deleteLink(userId: number, id: number): Promise<void>;
   deleteLinks(userId: number, ids: number[]): Promise<void>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
-  createToken(userId: number, name: string, expiresAt?: Date | null): Promise<ApiTokenRecord>;
+  createToken(userId: number, name: string, expiresAt?: Date | null): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
   deleteToken(userId: number, id: number): Promise<void>;
 }
@@ -289,13 +294,23 @@ export class MemoryRepository implements Repository {
   }
 
   async createToken(userId: number, name: string, expiresAt?: Date | null) {
-    const token = { id: nextId(this.tokens), userId, token: generateApiToken(), name, expiresAt, createdAt: new Date() };
-    this.tokens.push(token);
-    return token;
+    const token = generateApiToken();
+    const record = {
+      id: nextId(this.tokens),
+      userId,
+      tokenHash: hashApiToken(token),
+      tokenPrefix: token.slice(0, 10),
+      name,
+      expiresAt,
+      createdAt: new Date(),
+    };
+    this.tokens.push(record);
+    return { ...record, token };
   }
 
   async findToken(token: string) {
-    const record = this.tokens.find((item) => item.token === token && (!item.expiresAt || item.expiresAt > new Date()));
+    const tokenHash = hashApiToken(token);
+    const record = this.tokens.find((item) => item.tokenHash === tokenHash && (!item.expiresAt || item.expiresAt > new Date()));
     if (!record) return null;
     const user = await this.findUserById(record.userId);
     return user ? { ...record, user } : null;

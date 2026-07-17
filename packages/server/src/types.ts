@@ -1,5 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 import type { Repository } from './services/repository.js';
+import type { fetchPublicResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
 export type LlmProvider = 'openai' | 'claude';
@@ -19,6 +20,8 @@ export interface AppServices {
   encryptionKey: string;
   nodeskContentDir: string;
   llmClient?: LlmClient;
+  publicFetcher?: typeof fetchPublicResource;
+  publicAddressResolver?: typeof resolvePublicAddress;
 }
 
 export interface LlmClient {

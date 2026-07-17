@@ -58,25 +58,27 @@ export async function metaRoutes(app: FastifyInstance, services: AppServices) {
       return reply.status(400).send({ code: 400, data: null, message: '无法抓取该地址' });
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        redirect: 'follow',
+      const response = await services.publicFetcher!(url, {
+        timeoutMs: FETCH_TIMEOUT_MS,
+        maxBytes: MAX_HTML_BYTES,
         headers: { 'user-agent': 'Mozilla/5.0 (compatible; NonoBot/1.0)', accept: 'text/html' },
       });
-      const contentType = response.headers.get('content-type') || '';
-      if (!response.ok || !contentType.includes('text/html')) {
+      const contentType = headerValue(response.headers['content-type']);
+      if (response.statusCode < 200 || response.statusCode >= 300 || !contentType.includes('text/html')) {
         return sendOk(reply, { title: '', description: '' });
       }
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const html = buffer.subarray(0, MAX_HTML_BYTES).toString('utf8');
+      const html = response.body.toString('utf8');
       return sendOk(reply, extractPageMeta(html));
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Target address is not public') {
+        return reply.status(400).send({ code: 400, data: null, message: '无法抓取该地址' });
+      }
       return sendOk(reply, { title: '', description: '' });
-    } finally {
-      clearTimeout(timer);
     }
   });
+}
+
+function headerValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || '' : value || '';
 }

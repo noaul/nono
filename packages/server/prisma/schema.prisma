@@ -82,7 +82,8 @@ model ApiToken {
   id        Int       @id @default(autoincrement())
   userId    Int
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique
+  tokenHash String    @unique @map("token")
+  tokenPrefix String
   name      String
   expiresAt DateTime?
   createdAt DateTime  @default(now())

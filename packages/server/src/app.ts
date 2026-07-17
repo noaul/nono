@@ -23,26 +23,31 @@ import { nodeskRoutes } from './routes/nodesk.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
+import { fetchPublicResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 export async function buildApp(overrides: Partial<AppServices> = {}) {
   const services: AppServices = {
     repo: overrides.repo || createPrismaRepository(),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
-    encryptionKey: overrides.encryptionKey || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
     nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
     llmClient: overrides.llmClient || new FetchLlmClient(),
+    publicFetcher: overrides.publicFetcher || fetchPublicResource,
+    publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
   };
 
   const app = fastify({
     bodyLimit: 2 * 1024 * 1024,
     logger: process.env.NODE_ENV === 'test' ? false : { level: process.env.LOG_LEVEL || 'info' },
+    trustProxy: '127.0.0.1',
   });
 
   await app.register(cookie);
   await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cors, { origin: process.env.CORS_ORIGIN || true, credentials: true });
+  await app.register(cors, { origin: corsOriginPolicy(), credentials: true });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await responsePlugin(app);
 
@@ -50,7 +55,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 
   await authRoutes(app, services);
   await navigationRoutes(app, services);
-  await faviconRoutes(app);
+  await faviconRoutes(app, services);
   await siteRoutes(app, services);
   await folderRoutes(app, services);
   await linkRoutes(app, services);
@@ -84,6 +89,31 @@ function envOrThrow(name: string) {
   if (value && value !== 'change-me-in-production') return value;
   if (process.env.NODE_ENV === 'production') throw new Error(`${name} must be configured in production`);
   return 'dev-only-session-secret-change-me';
+}
+
+function resolveEncryptionKey(override: string | undefined) {
+  const value = override || process.env.ENCRYPTION_KEY || (process.env.NODE_ENV === 'production' ? '' : DEFAULT_ENCRYPTION_KEY);
+  if (process.env.NODE_ENV === 'production' && (!value || value === DEFAULT_ENCRYPTION_KEY)) {
+    throw new Error('ENCRYPTION_KEY must be configured in production');
+  }
+  if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error('ENCRYPTION_KEY must be 64 hexadecimal characters');
+  }
+  return value;
+}
+
+function corsOriginPolicy() {
+  const allowedOrigins = new Set(
+    (process.env.CORS_ORIGIN || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  );
+
+  return (origin: string | undefined, callback: (error: Error | null, allowed: boolean) => void) => {
+    const allowed = !origin || allowedOrigins.has(origin) || /^chrome-extension:\/\/[a-p]{32}$/.test(origin);
+    callback(null, allowed);
+  };
 }
 
 export class FetchLlmClient implements LlmClient {

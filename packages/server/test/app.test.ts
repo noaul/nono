@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp, FetchLlmClient } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
+import { hashApiToken } from '../src/utils/crypto.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -33,6 +34,7 @@ describe('Nono Fastify app', () => {
 
   afterEach(async () => {
     await app.close();
+    vi.unstubAllEnvs();
   });
 
   it('returns a unified health response', async () => {
@@ -40,6 +42,37 @@ describe('Nono Fastify app', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ code: 0, data: { ok: true }, message: '' });
+  });
+
+  it('does not reflect arbitrary browser origins but allows Chrome extensions', async () => {
+    const untrusted = await app.inject({ method: 'GET', url: '/healthz', headers: { origin: 'https://evil.example' } });
+    expect(untrusted.headers['access-control-allow-origin']).toBeUndefined();
+
+    const extensionOrigin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+    const extension = await app.inject({ method: 'GET', url: '/healthz', headers: { origin: extensionOrigin } });
+    expect(extension.headers['access-control-allow-origin']).toBe(extensionOrigin);
+  });
+
+  it('requires a valid non-default encryption key in production', async () => {
+    const buildError = async () => {
+      try {
+        const candidate = await buildApp({ repo: new MemoryRepository(false), sessionSecret });
+        await candidate.close();
+        return '';
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    };
+
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('ENCRYPTION_KEY', '');
+    expect(await buildError()).toBe('ENCRYPTION_KEY must be configured in production');
+
+    vi.stubEnv('ENCRYPTION_KEY', encryptionKey);
+    expect(await buildError()).toBe('ENCRYPTION_KEY must be configured in production');
+
+    vi.stubEnv('ENCRYPTION_KEY', 'z'.repeat(64));
+    expect(await buildError()).toBe('ENCRYPTION_KEY must be 64 hexadecimal characters');
   });
 
   it('initializes an admin, logs in, and exposes the current session', async () => {
@@ -56,6 +89,29 @@ describe('Nono Fastify app', () => {
     const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: setupCookie } });
     expect(session.statusCode).toBe(200);
     expect(session.json().data).toMatchObject({ authenticated: true, setupRequired: false });
+  });
+
+  it('keeps login rate limits isolated by the forwarded client address', async () => {
+    await setupAdmin();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        remoteAddress: '127.0.0.1',
+        headers: { 'x-forwarded-for': '203.0.113.10' },
+        payload: { username: 'admin', password: 'WrongPassword2026!' },
+      });
+      expect(response.statusCode).toBe(401);
+    }
+
+    const otherClient = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      remoteAddress: '127.0.0.1',
+      headers: { 'x-forwarded-for': '203.0.113.11' },
+      payload: { username: 'admin', password: 'WrongPassword2026!' },
+    });
+    expect(otherClient.statusCode).toBe(401);
   });
 
   it('serves the setup admin site through the root navigation alias', async () => {
@@ -75,6 +131,38 @@ describe('Nono Fastify app', () => {
 
     expect(navigation.statusCode).toBe(200);
     expect(navigation.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
+  });
+
+  it('never exposes private records or locked links through public navigation APIs', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'Private', password: 'Folder2026!', passwordHint: 'Personal hint' },
+    });
+    const folderId = folder.json().data.id;
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie },
+      payload: { folderId, name: 'Secret', url: 'https://secret.example/' },
+    });
+
+    const navigation = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+    const navigationBody = navigation.json();
+    const publicFolder = navigationBody.data.folders.find((item: any) => item.id === folderId);
+    expect(navigation.statusCode).toBe(200);
+    expect(navigationBody.data.site).not.toHaveProperty('user');
+    expect(publicFolder).toMatchObject({ id: folderId, locked: true, passwordHint: 'Personal hint', links: [] });
+    expect(publicFolder).not.toHaveProperty('passwordHash');
+    expect(JSON.stringify(navigationBody)).not.toContain('llmApiKey');
+
+    const legacy = await app.inject({ method: 'GET', url: '/api/v1/allsiteandlinks/admin' });
+    const legacyFolder = legacy.json().data.folder_with_links.find((item: any) => item.id === folderId);
+    expect(legacy.statusCode).toBe(200);
+    expect(legacyFolder).toMatchObject({ id: folderId, locked: true, passwordHint: 'Personal hint', links: [] });
+    expect(legacyFolder).not.toHaveProperty('passwordHash');
   });
 
   it('keeps disabled registration and unauthenticated errors in the unified response envelope', async () => {
@@ -101,6 +189,11 @@ describe('Nono Fastify app', () => {
     });
     expect(tokenResponse.statusCode).toBe(200);
     const token = tokenResponse.json().data.token;
+    expect(repo.tokens[0]).toMatchObject({ tokenHash: hashApiToken(token), tokenPrefix: token.slice(0, 10) });
+    expect(JSON.stringify(repo.tokens[0])).not.toContain(token);
+
+    const listedTokens = await app.inject({ method: 'GET', url: '/api/admin/tokens', headers: { cookie } });
+    expect(JSON.stringify(listedTokens.json())).not.toContain(hashApiToken(token));
 
     const folders = await app.inject({
       method: 'POST',

@@ -16,10 +16,21 @@ function imageResponse() {
 }
 
 let app: FastifyInstance;
+let publicFetcher: ReturnType<typeof vi.fn>;
+let publicAddressResolver: ReturnType<typeof vi.fn>;
 
 describe('favicon proxy', () => {
   beforeEach(async () => {
-    app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey });
+    publicFetcher = vi.fn(async (url: string) => {
+      const response = await globalThis.fetch(url);
+      return {
+        statusCode: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: Buffer.from(await response.arrayBuffer()),
+      };
+    });
+    publicAddressResolver = vi.fn().mockResolvedValue({ address: '93.184.216.34', family: 4 });
+    app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey, publicFetcher, publicAddressResolver } as any);
   });
 
   afterEach(async () => {
@@ -32,6 +43,13 @@ describe('favicon proxy', () => {
       const response = await app.inject({ method: 'GET', url: `/api/favicon?domain=${encodeURIComponent(domain)}` });
       expect(response.statusCode).toBe(400);
     }
+  });
+
+  it('rejects domains that resolve to private infrastructure', async () => {
+    publicAddressResolver.mockRejectedValue(new Error('Target address is not public'));
+    const response = await app.inject({ method: 'GET', url: '/api/favicon?domain=metadata.google.internal.example' });
+    expect(response.statusCode).toBe(400);
+    expect(publicFetcher).not.toHaveBeenCalled();
   });
 
   it('proxies an icon and serves repeat requests from cache', async () => {

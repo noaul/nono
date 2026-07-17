@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { targetFor } from './gateway-routing.mjs';
+import { forwardedHeaders } from './gateway-headers.mjs';
 
 const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
@@ -8,6 +9,7 @@ const blogPort = numberFromEnv('BLOG_INTERNAL_PORT', 2025);
 const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
 const children = new Set();
 const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort };
+const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
 let shuttingDown = false;
 let server;
 
@@ -48,17 +50,17 @@ function proxyRequest(request, response) {
   }
 
   const target = targetFor(request.url, servicePorts);
+  const headers = forwardedHeaders({
+    headers: request.headers,
+    remoteAddress: request.socket.remoteAddress,
+    trustForwardedHeaders,
+  });
   const proxy = http.request({
     hostname: '127.0.0.1',
     port: target.port,
     method: request.method,
     path: target.path,
-    headers: {
-      ...request.headers,
-      host: request.headers.host,
-      'x-forwarded-host': request.headers.host || '',
-      'x-forwarded-proto': request.headers['x-forwarded-proto'] || 'http',
-    },
+    headers,
   }, upstream => {
     response.writeHead(upstream.statusCode || 502, upstream.headers);
     upstream.pipe(response);
@@ -80,12 +82,17 @@ function proxyRequest(request, response) {
 
 function proxyUpgrade(request, socket, head) {
   const target = targetFor(request.url, servicePorts);
+  const headers = forwardedHeaders({
+    headers: request.headers,
+    remoteAddress: request.socket.remoteAddress,
+    trustForwardedHeaders,
+  });
   const proxy = http.request({
     hostname: '127.0.0.1',
     port: target.port,
     method: request.method,
     path: target.path,
-    headers: request.headers,
+    headers,
   });
 
   proxy.on('upgrade', (upstream, upstreamSocket, upstreamHead) => {

@@ -8,6 +8,7 @@ const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 let app: FastifyInstance;
+let publicFetcher: ReturnType<typeof vi.fn>;
 
 async function setupCookie() {
   const response = await app.inject({
@@ -21,7 +22,15 @@ async function setupCookie() {
 
 describe('fetch-meta endpoint', () => {
   beforeEach(async () => {
-    app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey });
+    publicFetcher = vi.fn(async (url: string) => {
+      const response = await globalThis.fetch(url);
+      return {
+        statusCode: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: Buffer.from(await response.arrayBuffer()),
+      };
+    });
+    app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey, publicFetcher } as any);
   });
 
   afterEach(async () => {
@@ -40,6 +49,17 @@ describe('fetch-meta endpoint', () => {
       const response = await app.inject({ method: 'GET', url: `/api/admin/fetch-meta?url=${encodeURIComponent(url)}`, headers: { cookie } });
       expect(response.statusCode).toBe(400);
     }
+  });
+
+  it('rejects public-looking hostnames that resolve to private infrastructure', async () => {
+    const cookie = await setupCookie();
+    publicFetcher.mockRejectedValue(new Error('Target address is not public'));
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/fetch-meta?url=https%3A%2F%2Fmetadata.example%2F',
+      headers: { cookie },
+    });
+    expect(response.statusCode).toBe(400);
   });
 
   it('extracts title and description from fetched html', async () => {

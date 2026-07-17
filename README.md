@@ -70,7 +70,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建三套应用，启动前运行 Prisma migration，再由内置网关统一转发：
+请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。`ENCRYPTION_KEY` 必须是 64 位十六进制字符串，可用 `openssl rand -hex 32` 生成；生产环境缺失、格式错误或仍为旧公开默认值时，服务会拒绝启动。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建三套应用，启动前运行 Prisma migration，再由内置网关统一转发：
 
 ```text
 Nono: http://127.0.0.1:3000
@@ -90,6 +90,8 @@ BLOG_NAVIGATION_URL=/nodesk
 ```
 
 `NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和 Nodesk 元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在后台覆盖，后台保存的设置优先。旧 `/blog` 地址会以 308 重定向到 `/nodesk`。
+
+若容器端口仅由同机 Nginx/Caddy 反向代理访问，可设置 `GATEWAY_TRUST_FORWARDED_HEADERS=true`，让登录限流按真实客户端 IP 计算；容器端口直接暴露公网时应保持 `false`。默认 CORS 仅允许 Chrome 扩展来源，若还需独立网页跨域调用，可在 `CORS_ORIGIN` 中填写逗号分隔的完整 Origin 白名单。
 
 Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 
