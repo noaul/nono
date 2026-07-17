@@ -1,0 +1,2631 @@
+import { create } from 'zustand';
+import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
+import {
+  AppState,
+  Gist,
+  GistCategoryId,
+  GistSearchFilters,
+  Repository,
+  Release,
+  ForkRepo,
+  AIConfig,
+  WebDAVConfig,
+  EmbeddingConfig,
+  VectorSearchConfig,
+  VectorSearchStatus,
+  VectorIndexingState,
+  ProxyConfig,
+  RpcDownloadConfig,
+  SearchFilters,
+  GitHubUser,
+  Category,
+  AssetFilter,
+  UpdateNotification,
+  AnalysisProgress,
+  DiscoveryChannel,
+  DiscoveryChannelId,
+  DiscoveryRepo,
+  DiscoveryPlatform,
+  ProgrammingLanguage,
+  SortBy,
+  SortOrder,
+  TrendingTimeRange,
+  TopicCategory,
+  SubscriptionChannel,
+  CustomReleaseRepository,
+  ReleaseSourceId,
+  ReleaseSourceSettings,
+  defaultSubscriptionChannels,
+  defaultReleaseSourceSettings,
+  HeaderMenuId,
+  HeaderMenuItem,
+  defaultHeaderMenuConfig,
+} from '../types';
+import { indexedDBStorage } from '../services/indexedDbStorage';
+import { EMBEDDING_FORMAT_VERSION } from '../services/vectorSearchService';
+import {
+  WATCH_CUSTOM_RELEASE_SOURCE_ID,
+  normalizeReleaseSourceSettings,
+  normalizeRepoKey,
+} from '../utils/releaseSources';
+import { logger } from '../services/logger';
+import { PRESET_FILTERS } from '../constants/presetFilters';
+import {
+  mergeRepositoryAnalysisSnapshotsSync,
+  saveRepositoryAnalysisSnapshot,
+} from '../services/repositoryAnalysisStorage';
+
+const BACKEND_SECRET_SESSION_KEY = 'github-stars-manager-backend-secret';
+
+/** Menu IDs that must always remain visible — enforced at store level */
+const REQUIRED_HEADER_MENU_IDS: ReadonlySet<HeaderMenuId> = new Set(['repositories', 'settings']);
+
+const scheduleIdleTask = (callback: () => void): number => {
+  if (typeof window === 'undefined') {
+    return setTimeout(callback, 0) as unknown as number;
+  }
+
+  if ('requestIdleCallback' in window) {
+    return window.requestIdleCallback(callback, { timeout: 3000 });
+  }
+
+  return globalThis.setTimeout(callback, 0) as unknown as number;
+};
+
+const cancelIdleTask = (id: number): void => {
+  if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+    window.cancelIdleCallback(id);
+    return;
+  }
+
+  clearTimeout(id);
+};
+
+let persistTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let persistIdleTaskId: number | null = null;
+let latestPersistName: string | null = null;
+let latestPersistValue: StorageValue<unknown> | null = null;
+let persistWriteVersion = 0;
+let persistFlushListenersRegistered = false;
+
+const cancelPendingPersistTasks = (): void => {
+  if (persistTimeoutId) {
+    clearTimeout(persistTimeoutId);
+    persistTimeoutId = null;
+  }
+
+  if (persistIdleTaskId !== null) {
+    cancelIdleTask(persistIdleTaskId);
+    persistIdleTaskId = null;
+  }
+};
+
+const writePersistSnapshot = (
+  name: string,
+  value: StorageValue<unknown>,
+  version: number,
+  source: 'idle' | 'flush'
+): void => {
+  if (latestPersistValue === null || latestPersistName !== name || persistWriteVersion !== version) {
+    return;
+  }
+
+  const startedAt = performance.now();
+  try {
+    const str = JSON.stringify(value);
+    const stringifyMs = Math.round(performance.now() - startedAt);
+    const writeStartedAt = performance.now();
+    void Promise.resolve(indexedDBStorage.setItem(name, str))
+      .then(() => {
+        const writeMs = Math.round(performance.now() - writeStartedAt);
+        if (writeMs > 50) {
+          logger.warn('store.persist', 'Large state IndexedDB write completed', {
+            source,
+            writeMs,
+            bytes: str.length,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        const writeMs = Math.round(performance.now() - writeStartedAt);
+        logger.errorFromError('store.persist', 'IndexedDB write failed', error, {
+          source,
+          writeMs,
+          bytes: str.length,
+        });
+      });
+    if (stringifyMs > 50) {
+      logger.warn('store.persist', 'Large state stringify completed', {
+        source,
+        stringifyMs,
+        bytes: str.length,
+      });
+    }
+  } catch (e) {
+    logger.errorFromError('store.persist', 'Failed to stringify state for persistence', e);
+  }
+};
+
+const flushPendingPersistSnapshot = (): void => {
+  if (latestPersistName === null || latestPersistValue === null) return;
+
+  cancelPendingPersistTasks();
+  writePersistSnapshot(latestPersistName, latestPersistValue, persistWriteVersion, 'flush');
+};
+
+const registerPersistFlushListeners = (): void => {
+  if (persistFlushListenersRegistered || typeof window === 'undefined') return;
+  persistFlushListenersRegistered = true;
+
+  window.addEventListener('pagehide', flushPendingPersistSnapshot);
+  window.addEventListener('beforeunload', flushPendingPersistSnapshot);
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushPendingPersistSnapshot();
+      }
+    });
+  }
+};
+
+// Create a debounced storage to avoid frequent JSON.stringify calls on large state objects
+// which causes V8 JIT assertion failures (EXC_BREAKPOINT) on macOS ARM64.
+const debouncedPersistStorage: PersistStorage<unknown> = {
+  getItem: async (name) => {
+    const str = await indexedDBStorage.getItem(name);
+    if (!str) return null;
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: StorageValue<unknown>) => {
+    registerPersistFlushListeners();
+    latestPersistName = name;
+    latestPersistValue = value;
+    persistWriteVersion++;
+    const scheduledVersion = persistWriteVersion;
+
+    cancelPendingPersistTasks();
+    persistTimeoutId = setTimeout(() => {
+      persistTimeoutId = null;
+      persistIdleTaskId = scheduleIdleTask(() => {
+        persistIdleTaskId = null;
+        writePersistSnapshot(name, value, scheduledVersion, 'idle');
+      });
+    }, 1000);
+  },
+  removeItem: (name) => {
+    latestPersistName = null;
+    latestPersistValue = null;
+    persistWriteVersion++;
+    cancelPendingPersistTasks();
+    void Promise.resolve(indexedDBStorage.removeItem(name)).catch((error: unknown) => {
+      logger.errorFromError('store.persist', 'Failed to remove persisted state snapshot', error);
+    });
+  }
+};
+
+const readSessionBackendSecret = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return window.sessionStorage.getItem(BACKEND_SECRET_SESSION_KEY);
+};
+
+const writeSessionBackendSecret = (secret: string | null): void => {
+  if (typeof window === 'undefined') return;
+  if (secret) {
+    window.sessionStorage.setItem(BACKEND_SECRET_SESSION_KEY, secret);
+  } else {
+    window.sessionStorage.removeItem(BACKEND_SECRET_SESSION_KEY);
+  }
+};
+
+const areRepositoryRecordsEqual = (a: Repository, b: Repository): boolean => {
+  if (a === b) return true;
+
+  const keys = new Set<keyof Repository>([
+    ...(Object.keys(a) as Array<keyof Repository>),
+    ...(Object.keys(b) as Array<keyof Repository>),
+  ]);
+
+  for (const key of keys) {
+    if (!Object.is(a[key], b[key])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const replaceRepositoryInList = (
+  repositories: Repository[],
+  repo: Repository
+): { repositories: Repository[]; changed: boolean; found: boolean } => {
+  const index = repositories.findIndex((item) => item.id === repo.id);
+  if (index === -1) {
+    return { repositories, changed: false, found: false };
+  }
+
+  if (areRepositoryRecordsEqual(repositories[index], repo)) {
+    return { repositories, changed: false, found: true };
+  }
+
+  const nextRepositories = repositories.slice();
+  nextRepositories[index] = repo;
+  return { repositories: nextRepositories, changed: true, found: true };
+};
+
+const areGistRecordsEqual = (a: Gist, b: Gist): boolean => {
+  if (a === b) return true;
+  return JSON.stringify(a) === JSON.stringify(b);
+};
+
+const replaceGistInList = (
+  gists: Gist[],
+  gist: Gist
+): { gists: Gist[]; changed: boolean; found: boolean } => {
+  const index = gists.findIndex((item) => item.id === gist.id);
+  if (index === -1) {
+    return { gists, changed: false, found: false };
+  }
+
+  if (areGistRecordsEqual(gists[index], gist)) {
+    return { gists, changed: false, found: true };
+  }
+
+  const nextGists = gists.slice();
+  nextGists[index] = gist;
+  return { gists: nextGists, changed: true, found: true };
+};
+
+interface AppActions {
+  // Auth actions
+  setUser: (user: GitHubUser | null) => void;
+  setGitHubToken: (token: string | null) => void;
+  logout: () => void;
+  
+  // Repository actions
+  setRepositories: (repos: Repository[]) => void;
+  updateRepository: (repo: Repository) => void;
+  /** 批量更新多个仓库的指定字段，保留当前过滤的 searchResults 不被重置 */
+  updateRepositoriesMetadata: (updates: { id: number; patch: Partial<Repository> }[]) => void;
+  addRepository: (repo: Repository) => void;
+  setLoading: (loading: boolean) => void;
+  setSyncingStars: (syncing: boolean) => void;
+  setLastSync: (timestamp: string) => void;
+  deleteRepository: (repoId: number) => void;
+  setAnalyzingRepository: (repoId: number, isAnalyzing: boolean) => void;
+
+  // Gist actions
+  setGists: (gists: Gist[]) => void;
+  setStarredGists: (gists: Gist[]) => void;
+  updateGist: (gist: Gist) => void;
+  deleteGist: (gistId: string) => void;
+  setGistSearchFilters: (filters: Partial<GistSearchFilters>) => void;
+  setGistSearchResults: (results: Gist[]) => void;
+  setSelectedGistCategory: (category: GistCategoryId) => void;
+  setAnalyzingGist: (gistId: string, isAnalyzing: boolean) => void;
+  
+  // AI actions
+  addAIConfig: (config: AIConfig) => void;
+  updateAIConfig: (id: string, updates: Partial<AIConfig>) => void;
+  deleteAIConfig: (id: string) => void;
+  setActiveAIConfig: (id: string | null) => void;
+  setAIConfigs: (configs: AIConfig[]) => void;
+  
+  // WebDAV actions
+  addWebDAVConfig: (config: WebDAVConfig) => void;
+  updateWebDAVConfig: (id: string, updates: Partial<WebDAVConfig>) => void;
+  deleteWebDAVConfig: (id: string) => void;
+  setActiveWebDAVConfig: (id: string | null) => void;
+  setWebDAVConfigs: (configs: WebDAVConfig[]) => void;
+  setLastBackup: (timestamp: string) => void;
+
+  // Embedding actions
+  addEmbeddingConfig: (config: EmbeddingConfig) => void;
+  updateEmbeddingConfig: (id: string, updates: Partial<EmbeddingConfig>) => void;
+  deleteEmbeddingConfig: (id: string) => void;
+  setActiveEmbeddingConfig: (id: string | null) => void;
+  setEmbeddingConfigs: (configs: EmbeddingConfig[]) => void;
+
+  // Vector Search actions
+  setVectorSearchConfig: (config: Partial<VectorSearchConfig>) => void;
+  setVectorSearchStatus: (status: VectorSearchStatus | undefined) => void;
+  setVectorIndexingState: (state: Partial<VectorIndexingState>) => void;
+
+  // Similar repositories view actions
+  enterSimilarView: (repos: Repository[], anchor: Repository) => void;
+  resetSimilarView: () => void;
+  exitSimilarView: () => void;
+  
+  // Search actions
+  setSearchFilters: (filters: Partial<SearchFilters>) => void;
+  setSearchResults: (results: Repository[]) => void;
+  
+  // Release actions
+  setReleases: (releases: Release[]) => void;
+  addReleases: (releases: Release[]) => void;
+  toggleReleaseSubscription: (repoId: number) => void;
+  batchUnsubscribeReleases: (repoIds: number[]) => void;
+  removeReleasesByRepoId: (repoId: number) => void;
+  removeReleasesByRepoFullName: (fullName: string) => void;
+  markReleaseAsRead: (releaseId: number) => void;
+  markAllReleasesAsRead: () => void;
+  setReleaseSourceSettings: (settings: ReleaseSourceSettings) => void;
+  setReleaseEnabledSources: (sourceIds: ReleaseSourceId[]) => void;
+  toggleReleaseSource: (sourceId: ReleaseSourceId) => void;
+  setReleaseSourceRepositories: (sourceId: ReleaseSourceId, repos: CustomReleaseRepository[]) => void;
+  addReleaseSourceRepository: (sourceId: ReleaseSourceId, repo: CustomReleaseRepository) => void;
+  removeReleaseSourceRepository: (sourceId: ReleaseSourceId, fullName: string) => void;
+  updateReleaseSourceRepository: (sourceId: ReleaseSourceId, fullName: string, updates: Partial<CustomReleaseRepository>) => void;
+
+  // Fork actions
+  setForks: (forks: ForkRepo[]) => void;
+  addForks: (forks: ForkRepo[]) => void;
+  updateFork: (fork: ForkRepo) => void;
+  markForkAsRead: (forkId: number) => void;
+  markAllForksAsRead: () => void;
+  
+  // Category actions
+  addCustomCategory: (category: Category) => void;
+  updateCustomCategory: (id: string, updates: Partial<Category>) => void;
+  updateDefaultCategory: (id: string, updates: Partial<Category>) => void;
+  resetDefaultCategory: (id: string) => void;
+  resetDefaultCategoryNameIcon: (id: string) => void;
+  resetDefaultCategoryKeywords: (id: string) => void;
+  deleteCustomCategory: (id: string) => void;
+  hideDefaultCategory: (id: string) => void;
+  showDefaultCategory: (id: string) => void;
+  setCategoryOrder: (order: string[]) => void;
+  reorderCategories: (oldIndex: number, newIndex: number) => void;
+  setCollapsedSidebarCategoryCount: (count: number) => void;
+
+  // Asset Filter actions
+  addAssetFilter: (filter: AssetFilter) => void;
+  updateAssetFilter: (id: string, updates: Partial<AssetFilter>) => void;
+  deleteAssetFilter: (id: string) => void;
+  
+  // UI actions
+  setTheme: (theme: 'light' | 'dark') => void;
+  setCurrentView: (view: 'repositories' | 'gists' | 'releases' | 'forks' | 'settings' | 'subscription') => void;
+  setSelectedCategory: (category: string) => void;
+  setLanguage: (language: 'zh' | 'en') => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  setReadmeModalOpen: (open: boolean) => void;
+  setHeaderMenuConfig: (config: HeaderMenuItem[]) => void;
+
+  // Hydration state
+  setHasHydrated: (hydrated: boolean) => void;
+  
+  // Update actions
+  setUpdateNotification: (notification: UpdateNotification | null) => void;
+  dismissUpdateNotification: () => void;
+
+  // Update Analysis Progress
+  setAnalysisProgress: (newProgress: AnalysisProgress) => void;
+
+  // Backend actions
+  setBackendApiSecret: (secret: string | null) => void;
+
+  // Proxy actions
+  setProxyConfig: (updates: Partial<ProxyConfig>) => void;
+
+  // RPC Download actions
+  setRpcDownloadConfig: (updates: Partial<RpcDownloadConfig>) => void;
+
+  // Release Timeline View actions
+  setReleaseViewMode: (mode: 'timeline' | 'repository') => void;
+  setReleaseShowMode: (mode: 'all' | 'unread') => void;
+  setReleaseLatestMode: (mode: 'all' | 'latest') => void;
+  setReleaseSelectedFilters: (filters: string[]) => void;
+  toggleReleaseSelectedFilter: (filterId: string) => void;
+  clearReleaseSelectedFilters: () => void;
+  setReleaseSearchQuery: (query: string) => void;
+  toggleReleaseExpandedRepository: (repoId: number) => void;
+  setReleaseExpandedRepositories: (repoIds: Set<number>) => void;
+  setReleaseIsRefreshing: (refreshing: boolean) => void;
+  setIncludePreRelease: (include: boolean) => void;
+
+  // Backup/Export key inclusion preference
+  setIncludeKeysInBackup: (include: boolean) => void;
+
+  // Fork Timeline View actions
+  setForkViewMode: (mode: 'timeline' | 'repository') => void;
+  setForkSelectedFilters: (filters: string[]) => void;
+  toggleForkSelectedFilter: (filterId: string) => void;
+  clearForkSelectedFilters: () => void;
+  setForkSearchQuery: (query: string) => void;
+  toggleForkExpandedRepository: (repoId: number) => void;
+  setForkExpandedRepositories: (repoIds: Set<number>) => void;
+  setForkIsRefreshing: (refreshing: boolean) => void;
+
+  // Discovery actions
+  setSelectedDiscoveryChannel: (channel: DiscoveryChannelId) => void;
+  setDiscoveryLoading: (channel: DiscoveryChannelId, loading: boolean) => void;
+  setDiscoveryLoadingMore: (channel: DiscoveryChannelId, loading: boolean) => void;
+  setDiscoveryLoadMoreError: (channel: DiscoveryChannelId, error: string | null) => void;
+  setDiscoveryRepos: (channel: DiscoveryChannelId, repos: DiscoveryRepo[], append?: boolean) => void;
+  setDiscoveryLastRefresh: (channel: DiscoveryChannelId, timestamp: string) => void;
+  updateDiscoveryRepo: (repo: DiscoveryRepo) => void;
+  toggleDiscoveryChannel: (channelId: DiscoveryChannelId) => void;
+  setDiscoveryPlatform: (platform: DiscoveryPlatform) => void;
+  setDiscoveryLanguage: (language: ProgrammingLanguage) => void;
+  setDiscoverySortBy: (sortBy: SortBy) => void;
+  setDiscoverySortOrder: (sortOrder: SortOrder) => void;
+  setDiscoverySearchQuery: (query: string) => void;
+  setDiscoverySelectedTopic: (topic: TopicCategory | null) => void;
+  setDiscoveryHasMore: (channel: DiscoveryChannelId, hasMore: boolean) => void;
+  setDiscoveryNextPage: (channel: DiscoveryChannelId, page: number) => void;
+  setDiscoveryTotalCount: (channel: DiscoveryChannelId, count: number) => void;
+  setDiscoveryScrollPosition: (channel: DiscoveryChannelId, position: number) => void;
+  setTrendingTimeRange: (range: TrendingTimeRange) => void;
+  appendDiscoveryRepos: (channel: DiscoveryChannelId, repos: DiscoveryRepo[]) => void;
+}
+
+const initialSearchFilters: SearchFilters = {
+  query: '',
+  tags: [],
+  languages: [],
+  platforms: [],
+  sortBy: 'stars',
+  sortOrder: 'desc',
+  isAnalyzed: undefined,
+  isSubscribed: undefined,
+  isEdited: undefined,
+  isCategoryLocked: undefined,
+  analysisFailed: undefined,
+};
+
+const initialGistSearchFilters: GistSearchFilters = {
+  query: '',
+  sortBy: 'updated',
+  sortOrder: 'desc',
+  isAnalyzed: undefined,
+};
+
+type PersistedAppState = Partial<
+  Pick<
+    AppState,
+    | 'user'
+    | 'githubToken'
+    | 'isAuthenticated'
+    | 'repositories'
+    | 'gists'
+    | 'starredGists'
+    | 'gistSearchFilters'
+    | 'gistSearchResults'
+    | 'selectedGistCategory'
+    | 'lastSync'
+    | 'aiConfigs'
+    | 'activeAIConfig'
+    | 'webdavConfigs'
+    | 'activeWebDAVConfig'
+    | 'lastBackup'
+    | 'releases'
+    | 'releaseSourceSettings'
+    | 'customCategories'
+    | 'hiddenDefaultCategoryIds'
+    | 'defaultCategoryOverrides'
+    | 'categoryOrder'
+    | 'collapsedSidebarCategoryCount'
+    | 'assetFilters'
+    | 'theme'
+    | 'currentView'
+    | 'selectedCategory'
+    | 'language'
+    | 'searchFilters'
+    | 'isSidebarCollapsed'
+    | 'forks'
+    | 'forkViewMode'
+    | 'forkSelectedFilters'
+    | 'forkSearchQuery'
+    | 'forkExpandedRepositories'
+    | 'releaseViewMode'
+    | 'releaseShowMode'
+    | 'releaseLatestMode'
+    | 'releaseSelectedFilters'
+    | 'releaseSearchQuery'
+    | 'includePreRelease'
+    | 'includeKeysInBackup'
+    | 'discoveryChannels'
+    | 'discoveryRepos'
+    | 'discoveryLastRefresh'
+    | 'discoveryTotalCount'
+    | 'discoveryHasMore'
+    | 'discoveryNextPage'
+    | 'selectedDiscoveryChannel'
+    | 'discoveryPlatform'
+    | 'discoveryLanguage'
+    | 'discoverySortBy'
+    | 'discoverySortOrder'
+    | 'proxyConfig'
+    | 'rpcDownloadConfig'
+    | 'subscriptionRepos'
+    | 'subscriptionLastRefresh'
+    | 'subscriptionIsLoading'
+    | 'subscriptionChannels'
+    | 'headerMenuConfig'
+  >
+> & {
+  releaseSubscriptions?: unknown;
+  readReleases?: unknown;
+  readForks?: unknown;
+  analyzingGistIds?: unknown;
+  releaseExpandedRepositories?: unknown;
+  forkExpandedRepositories?: unknown;
+};
+
+const normalizeNumberSet = (value: unknown): Set<number> => {
+  if (value instanceof Set) {
+    return new Set(Array.from(value).filter((item): item is number => typeof item === 'number'));
+  }
+
+  if (Array.isArray(value)) {
+    return new Set(value.filter((item): item is number => typeof item === 'number'));
+  }
+
+  return new Set<number>();
+};
+
+// 新安装/重置配置的默认：已是最新格式版本，避免首次增量索引被误判为需要全量重建
+const defaultVectorSearchConfig: VectorSearchConfig = {
+  enabled: false,
+  workerUrl: '',
+  authToken: '',
+  embeddingConfigId: '',
+  indexMode: 'readme',
+  readmeMaxChars: 6000,
+  searchThreshold: 0.35,
+  searchTopK: 30,
+  enableHyDE: true,
+  enableReranking: true,
+  embeddingFormatVersion: EMBEDDING_FORMAT_VERSION,
+};
+
+// 持久化历史配置缺失 embeddingFormatVersion 时的回退版本：旧值为 1，确保旧用户触发一次重建
+export const LEGACY_EMBEDDING_FORMAT_VERSION = 1;
+
+export const isKnownEmbeddingFormatVersion = (value: unknown): value is number => (
+  typeof value === 'number'
+  && Number.isInteger(value)
+  && value >= LEGACY_EMBEDDING_FORMAT_VERSION
+  && value <= EMBEDDING_FORMAT_VERSION
+);
+
+const normalizeVectorSearchConfig = (
+  raw: unknown,
+  embeddingConfigs: unknown
+): VectorSearchConfig => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...defaultVectorSearchConfig };
+  }
+
+  const config = raw as Record<string, unknown>;
+  const configId = typeof config.embeddingConfigId === 'string' ? config.embeddingConfigId : '';
+  // 仅在确实存在 embeddingConfigId 时才查找 embedding 配置，避免每次 hydration 都遍历 embeddingConfigs
+  const hasValidConfig = configId
+    ? (Array.isArray(embeddingConfigs)
+        ? embeddingConfigs.some((cfg) => cfg && typeof cfg === 'object' && (cfg as { id?: unknown }).id === configId)
+        : false)
+    : false;
+  const searchThreshold = typeof config.searchThreshold === 'number' && Number.isFinite(config.searchThreshold) && config.searchThreshold >= 0 && config.searchThreshold <= 1
+    ? config.searchThreshold
+    : defaultVectorSearchConfig.searchThreshold;
+  const searchTopK = typeof config.searchTopK === 'number' && Number.isInteger(config.searchTopK) && config.searchTopK >= 5 && config.searchTopK <= 50
+    ? config.searchTopK
+    : defaultVectorSearchConfig.searchTopK;
+  // 持久化的 embeddingFormatVersion 缺失或越界时一律回落到 legacy 版本 1，触发一次全量重建；
+  // 不使用 defaultVectorSearchConfig.embeddingFormatVersion（= 最新版），否则旧用户会跳过重建
+  const embeddingFormatVersion = isKnownEmbeddingFormatVersion(config.embeddingFormatVersion)
+    ? config.embeddingFormatVersion
+    : LEGACY_EMBEDDING_FORMAT_VERSION;
+
+  return {
+    ...defaultVectorSearchConfig,
+    enabled: config.enabled === true && hasValidConfig,
+    workerUrl: typeof config.workerUrl === 'string' ? config.workerUrl : defaultVectorSearchConfig.workerUrl,
+    authToken: typeof config.authToken === 'string' ? config.authToken : defaultVectorSearchConfig.authToken,
+    embeddingConfigId: hasValidConfig ? configId : defaultVectorSearchConfig.embeddingConfigId,
+    indexMode: config.indexMode === 'description' ? 'description' : 'readme',
+    readmeMaxChars: typeof config.readmeMaxChars === 'number' && config.readmeMaxChars > 0
+      ? config.readmeMaxChars
+      : defaultVectorSearchConfig.readmeMaxChars,
+    searchThreshold,
+    searchTopK,
+    enableHyDE: typeof config.enableHyDE === 'boolean'
+      ? config.enableHyDE
+      : defaultVectorSearchConfig.enableHyDE,
+    enableReranking: typeof config.enableReranking === 'boolean'
+      ? config.enableReranking
+      : defaultVectorSearchConfig.enableReranking,
+    embeddingFormatVersion,
+  };
+};
+
+const mergeVectorSearchConfig = (
+  current: VectorSearchConfig,
+  patch: Partial<VectorSearchConfig>
+): VectorSearchConfig => {
+  const currentVersion = isKnownEmbeddingFormatVersion(current.embeddingFormatVersion)
+    ? current.embeddingFormatVersion
+    : defaultVectorSearchConfig.embeddingFormatVersion;
+  const patchVersion = patch.embeddingFormatVersion;
+  const embeddingFormatVersion = isKnownEmbeddingFormatVersion(patchVersion)
+    ? Math.max(currentVersion, patchVersion)
+    : currentVersion;
+
+  return {
+    ...current,
+    ...patch,
+    embeddingFormatVersion,
+  };
+};
+
+export const normalizePersistedState = (
+  persisted: PersistedAppState | undefined,
+  currentState: AppState & AppActions
+): Partial<AppState & AppActions> => {
+  const safePersisted = persisted ?? {};
+  const defaultDiscoveryChannelIds = new Set(defaultDiscoveryChannels.map((channel) => channel.id));
+
+  const repositories = Array.isArray(safePersisted.repositories) ? safePersisted.repositories : [];
+  const gists = Array.isArray(safePersisted.gists) ? safePersisted.gists : [];
+  const starredGists = Array.isArray(safePersisted.starredGists) ? safePersisted.starredGists : [];
+  const releases = Array.isArray(safePersisted.releases) ? safePersisted.releases : [];
+
+  // Migration for old users: mark repos with existing releases as already synced
+  const migratedRepositories = repositories.map(repo => {
+    const hasExistingRelease = releases.some(r => r.repository?.id === repo.id);
+    if (hasExistingRelease && !repo.has_fetched_releases) {
+      // Backfill last_release_fetch_time from the latest persisted release timestamp
+      const repoReleases = releases.filter(r => r.repository?.id === repo.id);
+      const latestReleaseTime = repoReleases.length > 0
+        ? Math.max(...repoReleases.map(r => new Date(r.published_at).getTime()))
+        : null;
+      return {
+        ...repo,
+        has_fetched_releases: true,
+        last_release_fetch_time: repo.last_release_fetch_time || (latestReleaseTime ? new Date(latestReleaseTime).toISOString() : new Date().toISOString())
+      };
+    }
+    return repo;
+  });
+
+  // Default includePreRelease to true if not set (backward compatibility)
+  const includePreRelease = safePersisted.includePreRelease !== undefined
+    ? safePersisted.includePreRelease
+    : true;
+
+  return {
+    ...currentState,
+    ...safePersisted,
+    theme:
+      safePersisted.theme === 'light' || safePersisted.theme === 'dark'
+        ? safePersisted.theme
+        : 'dark',
+    repositories: migratedRepositories,
+    gists,
+    starredGists,
+    gistSearchResults: Array.isArray(safePersisted.gistSearchResults) ? safePersisted.gistSearchResults : gists,
+    selectedGistCategory: safePersisted.selectedGistCategory === 'starred' || safePersisted.selectedGistCategory === 'mine'
+      ? safePersisted.selectedGistCategory
+      : 'all',
+    // 不恢复 analyzingGistIds：异步分析任务无法在页面重载后存活，
+    // 恢复会导致 Gist 卡片永久卡在“分析中”状态。
+    analyzingGistIds: new Set<string>(),
+    releases,
+    searchResults: migratedRepositories,
+    releaseSubscriptions: normalizeNumberSet(safePersisted.releaseSubscriptions),
+    releaseSourceSettings: normalizeReleaseSourceSettings(safePersisted.releaseSourceSettings),
+    readReleases: normalizeNumberSet(safePersisted.readReleases),
+    readForks: normalizeNumberSet(safePersisted.readForks),
+    forks: Array.isArray(safePersisted.forks) ? safePersisted.forks : [],
+    forkViewMode: safePersisted.forkViewMode || 'timeline',
+    forkSelectedFilters: Array.isArray(safePersisted.forkSelectedFilters) ? safePersisted.forkSelectedFilters : [],
+    forkSearchQuery: typeof safePersisted.forkSearchQuery === 'string' ? safePersisted.forkSearchQuery : '',
+    forkExpandedRepositories: normalizeNumberSet(safePersisted.forkExpandedRepositories),
+    releaseExpandedRepositories: normalizeNumberSet(safePersisted.releaseExpandedRepositories),
+    includePreRelease,
+    searchFilters: {
+      ...initialSearchFilters,
+      ...safePersisted.searchFilters,
+      sortBy: safePersisted.searchFilters?.sortBy || 'stars',
+      sortOrder: safePersisted.searchFilters?.sortOrder || 'desc',
+    },
+    gistSearchFilters: {
+      ...initialGistSearchFilters,
+      ...safePersisted.gistSearchFilters,
+      sortBy: safePersisted.gistSearchFilters?.sortBy || 'updated',
+      sortOrder: safePersisted.gistSearchFilters?.sortOrder || 'desc',
+    },
+    webdavConfigs: Array.isArray(safePersisted.webdavConfigs) ? safePersisted.webdavConfigs : [],
+    embeddingConfigs: Array.isArray(safePersisted.embeddingConfigs) ? safePersisted.embeddingConfigs : [],
+    activeEmbeddingConfig: typeof safePersisted.activeEmbeddingConfig === 'string' ? safePersisted.activeEmbeddingConfig : null,
+    vectorSearchConfig: normalizeVectorSearchConfig(
+      safePersisted.vectorSearchConfig,
+      safePersisted.embeddingConfigs
+    ),
+    customCategories: Array.isArray(safePersisted.customCategories) ? safePersisted.customCategories : [],
+    hiddenDefaultCategoryIds: (() => {
+      const persistedIds = (safePersisted as Record<string, unknown>).hiddenDefaultCategoryIds;
+      return Array.isArray(persistedIds)
+        ? persistedIds.filter((id): id is string => typeof id === 'string')
+        : [];
+    })(),
+    defaultCategoryOverrides: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).defaultCategoryOverrides;
+      return persisted && typeof persisted === 'object' && !Array.isArray(persisted)
+        ? persisted as Record<string, Partial<Category>>
+        : {};
+    })(),
+    categoryOrder: Array.isArray(safePersisted.categoryOrder) ? safePersisted.categoryOrder.filter((id: unknown): id is string => typeof id === 'string') : [],
+    collapsedSidebarCategoryCount: typeof safePersisted.collapsedSidebarCategoryCount === 'number' && safePersisted.collapsedSidebarCategoryCount > 0 ? safePersisted.collapsedSidebarCategoryCount : 20,
+    assetFilters: Array.isArray(safePersisted.assetFilters) && safePersisted.assetFilters.length > 0 ? safePersisted.assetFilters : defaultPresetFilters,
+    language: safePersisted.language || 'zh',
+    isAuthenticated: !!(safePersisted.user && safePersisted.githubToken),
+    releaseViewMode: safePersisted.releaseViewMode || 'timeline',
+    releaseShowMode: safePersisted.releaseShowMode === 'unread' ? 'unread' : 'all',
+    releaseLatestMode: safePersisted.releaseLatestMode === 'latest' ? 'latest' : 'all',
+    releaseSelectedFilters: Array.isArray(safePersisted.releaseSelectedFilters) ? safePersisted.releaseSelectedFilters : [],
+    releaseSearchQuery: typeof safePersisted.releaseSearchQuery === 'string' ? safePersisted.releaseSearchQuery : '',
+    discoveryChannels: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryChannels;
+      if (!Array.isArray(persisted)) return defaultDiscoveryChannels;
+
+      return defaultDiscoveryChannels.map((defaultChannel) => {
+        const persistedChannel = persisted.find((channel: unknown) => {
+          return (channel as Record<string, unknown>)?.id === defaultChannel.id;
+        }) as Record<string, unknown> | undefined;
+
+        if (!persistedChannel) {
+          return defaultChannel;
+        }
+
+        return {
+      ...defaultChannel,
+      enabled: persistedChannel.enabled !== false,
+    };
+      });
+    })(),
+    discoveryRepos: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryRepos;
+      if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+        const persistedRepos = persisted as Record<DiscoveryChannelId, DiscoveryRepo[]>;
+        return {
+          'trending': persistedRepos['trending'] || [],
+          'hot-release': persistedRepos['hot-release'] || [],
+          'most-popular': persistedRepos['most-popular'] || [],
+          'topic': persistedRepos['topic'] || [],
+          'search': persistedRepos['search'] || [],
+        };
+      }
+      return { 'trending': [], 'hot-release': [], 'most-popular': [], 'topic': [], 'search': [] } as Record<DiscoveryChannelId, DiscoveryRepo[]>;
+    })(),
+    discoveryLastRefresh: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryLastRefresh;
+      if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+        const persistedRefresh = persisted as Record<string, string | null>;
+        return {
+          'trending': persistedRefresh['trending'] || null,
+          'hot-release': persistedRefresh['hot-release'] || null,
+          'most-popular': persistedRefresh['most-popular'] || null,
+          'topic': persistedRefresh['topic'] || null,
+          'search': persistedRefresh['search'] || null,
+        };
+      }
+      return { 'trending': null, 'hot-release': null, 'most-popular': null, 'topic': null, 'search': null };
+    })(),
+    discoveryTotalCount: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryTotalCount;
+      if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+        const persistedCount = persisted as Record<string, number>;
+        return {
+          'trending': persistedCount['trending'] || 0,
+          'hot-release': persistedCount['hot-release'] || 0,
+          'most-popular': persistedCount['most-popular'] || 0,
+          'topic': persistedCount['topic'] || 0,
+          'search': persistedCount['search'] || 0,
+        };
+      }
+      return { 'trending': 0, 'hot-release': 0, 'most-popular': 0, 'topic': 0, 'search': 0 };
+    })(),
+    selectedDiscoveryChannel: defaultDiscoveryChannelIds.has(safePersisted.selectedDiscoveryChannel as DiscoveryChannelId)
+      ? safePersisted.selectedDiscoveryChannel as DiscoveryChannelId
+      : 'trending',
+    // discoveryIsLoading 不持久化，始终重置为 false（防止旧数据格式异常）
+    discoveryIsLoading: { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false },
+    discoveryIsLoadingMore: { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false },
+    discoveryLoadMoreError: { 'trending': null, 'hot-release': null, 'most-popular': null, 'topic': null, 'search': null },
+    // discoveryHasMore 从持久化恢复，确保对象格式
+    discoveryHasMore: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryHasMore;
+      if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+        const persistedHasMore = persisted as Record<string, boolean>;
+        return {
+          'trending': persistedHasMore['trending'] || false,
+          'hot-release': persistedHasMore['hot-release'] || false,
+          'most-popular': persistedHasMore['most-popular'] || false,
+          'topic': persistedHasMore['topic'] || false,
+          'search': persistedHasMore['search'] || false,
+        };
+      }
+      return { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false };
+    })(),
+    // discoveryNextPage 从持久化恢复，确保对象格式
+    discoveryNextPage: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).discoveryNextPage;
+      if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+        const persistedPage = persisted as Record<string, number>;
+        return {
+          'trending': persistedPage['trending'] || 1,
+          'hot-release': persistedPage['hot-release'] || 1,
+          'most-popular': persistedPage['most-popular'] || 1,
+          'topic': persistedPage['topic'] || 1,
+          'search': persistedPage['search'] || 1,
+        };
+      }
+      return { 'trending': 1, 'hot-release': 1, 'most-popular': 1, 'topic': 1, 'search': 1 };
+    })(),
+    // discoveryScrollPositions 不持久化，始终重置为 0
+    discoveryScrollPositions: { 'trending': 0, 'hot-release': 0, 'most-popular': 0, 'topic': 0, 'search': 0 },
+  trendingTimeRange: 'weekly' as TrendingTimeRange,
+    // 确保 subscription 相关状态包含 trending 键
+    subscriptionRepos: {
+      'most-stars': [],
+      'most-forks': [],
+      'most-dev': [],
+      'trending': [],
+      ...(safePersisted.subscriptionRepos as Record<string, unknown> || {}),
+    },
+    subscriptionLastRefresh: {
+      'most-stars': null,
+      'most-forks': null,
+      'most-dev': null,
+      'trending': null,
+      ...((safePersisted as Record<string, unknown>).subscriptionLastRefresh as Record<string, unknown> || {}),
+    },
+    subscriptionIsLoading: {
+      'most-stars': false,
+      'most-forks': false,
+      'most-dev': false,
+      'trending': false,
+      ...((safePersisted as Record<string, unknown>).subscriptionIsLoading as Record<string, unknown> || {}),
+    },
+    // 确保 subscriptionChannels 包含 trending，且所有频道都有 nameEn（兼容旧数据）
+    subscriptionChannels: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).subscriptionChannels;
+      const defaultChannelsMap = new Map(defaultSubscriptionChannels.map(ch => [ch.id, ch]));
+      if (!Array.isArray(persisted)) return defaultSubscriptionChannels;
+      // 合并：使用 persisted 的频道，但补全缺失的字段（nameEn、trending 等）
+      return persisted.map((ch: unknown) => {
+        const chRecord = ch as Record<string, unknown>;
+        const defaultCh = defaultChannelsMap.get(chRecord.id as string);
+        if (defaultCh) {
+          return {
+            ...(chRecord as Partial<SubscriptionChannel>),
+            name: defaultCh.name, // 始终使用中文名称（默认定义）
+            nameEn: (chRecord.nameEn as string) || defaultCh.nameEn || (chRecord.name as string) || defaultCh.nameEn,
+            icon: (chRecord.icon as string) || defaultCh.icon,
+            description: (chRecord.description as string) || defaultCh.description,
+          } as unknown as SubscriptionChannel;
+        }
+        return chRecord as unknown as SubscriptionChannel;
+      }).concat(
+        defaultSubscriptionChannels.filter(dch => !persisted.some((ch: unknown) => (ch as Record<string, unknown>).id === dch.id))
+      );
+    })(),
+    proxyConfig: (() => {
+      const p = (safePersisted as Record<string, unknown>).proxyConfig;
+      if (p && typeof p === 'object') {
+        const obj = p as Record<string, unknown>;
+        const validType = obj.type === 'http' || obj.type === 'socks5' ? obj.type : 'http';
+        const validHost = typeof obj.host === 'string' ? obj.host : '';
+        const validPort = typeof obj.port === 'number' && Number.isFinite(obj.port) ? obj.port : 7890;
+        return {
+          enabled: typeof obj.enabled === 'boolean' ? obj.enabled : false,
+          type: validType as import('../types').ProxyType,
+          host: validHost,
+          port: validPort,
+          username: typeof obj.username === 'string' ? obj.username : undefined,
+          // password 不从持久化恢复，仅在内存中
+        };
+      }
+      return { enabled: false, type: 'http' as const, host: '', port: 7890 };
+    })(),
+    rpcDownloadConfig: (() => {
+      const r = (safePersisted as Record<string, unknown>).rpcDownloadConfig;
+      if (r && typeof r === 'object') {
+        const obj = r as Record<string, unknown>;
+        return {
+          enabled: typeof obj.enabled === 'boolean' ? obj.enabled : false,
+          host: typeof obj.host === 'string' ? obj.host : '',
+          port: typeof obj.port === 'number' && Number.isFinite(obj.port) ? obj.port : 6800,
+          secret: typeof obj.secret === 'string' ? obj.secret : undefined,
+        };
+      }
+      return { enabled: false, host: '', port: 6800 };
+    })(),
+    headerMenuConfig: (() => {
+      const persisted = (safePersisted as Record<string, unknown>).headerMenuConfig;
+      if (!Array.isArray(persisted)) return defaultHeaderMenuConfig;
+      // 合并：确保所有默认菜单都存在，保留用户自定义的 visible/order
+      // 防御性过滤：跳过非对象或 null 的损坏数据
+      const persistedMap = new Map(
+        persisted
+          .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+          .map((item) => [item.id, item])
+      );
+      return defaultHeaderMenuConfig.map((defaultItem) => {
+        const persistedItem = persistedMap.get(defaultItem.id);
+        if (!persistedItem) return defaultItem;
+        const isRequired = REQUIRED_HEADER_MENU_IDS.has(defaultItem.id);
+        return {
+          ...defaultItem,
+          visible: isRequired ? true : (typeof persistedItem.visible === 'boolean' ? persistedItem.visible : defaultItem.visible),
+          order: typeof persistedItem.order === 'number' ? persistedItem.order : defaultItem.order,
+        };
+      });
+    })(),
+  };
+};
+
+const defaultCategories: Category[] = [
+  {
+    id: 'all',
+    name: '全部分类',
+    icon: '📁',
+    keywords: []
+  },
+  {
+    id: 'web',
+    name: 'Web应用',
+    icon: '🌐',
+    keywords: ['web应用', 'web', 'website', 'frontend', 'react', 'vue', 'angular']
+  },
+  {
+    id: 'mobile',
+    name: '移动应用',
+    icon: '📱',
+    keywords: ['移动应用', 'mobile', 'android', 'ios', 'flutter', 'react-native']
+  },
+  {
+    id: 'desktop',
+    name: '桌面应用',
+    icon: '💻',
+    keywords: ['桌面应用', 'desktop', 'electron', 'gui', 'qt', 'gtk']
+  },
+  {
+    id: 'database',
+    name: '数据库',
+    icon: '🗄️',
+    keywords: ['数据库', 'database', 'sql', 'nosql', 'mongodb', 'mysql', 'postgresql']
+  },
+  {
+    id: 'ai',
+    name: 'AI/机器学习',
+    icon: '🤖',
+    keywords: ['ai工具', 'ai', 'ml', 'machine learning', 'deep learning', 'neural']
+  },
+  {
+    id: 'devtools',
+    name: '开发工具',
+    icon: '🔧',
+    keywords: ['开发工具', 'tool', 'cli', 'build', 'deploy', 'debug', 'test', 'automation']
+  },
+  {
+    id: 'security',
+    name: '安全工具',
+    icon: '🛡️',
+    keywords: ['安全工具', 'security', 'encryption', 'auth', 'vulnerability']
+  },
+  {
+    id: 'game',
+    name: '游戏',
+    icon: '🎮',
+    keywords: ['游戏', 'game', 'gaming', 'unity', 'unreal', 'godot']
+  },
+  {
+    id: 'design',
+    name: '设计工具',
+    icon: '🎨',
+    keywords: ['设计工具', 'design', 'ui', 'ux', 'graphics', 'image']
+  },
+  {
+    id: 'productivity',
+    name: '效率工具',
+    icon: '⚡',
+    keywords: ['效率工具', 'productivity', 'note', 'todo', 'calendar', 'task']
+  },
+  {
+    id: 'education',
+    name: '教育学习',
+    icon: '📚',
+    keywords: ['教育学习', 'education', 'learning', 'tutorial', 'course']
+  },
+  {
+    id: 'social',
+    name: '社交网络',
+    icon: '👥',
+    keywords: ['社交网络', 'social', 'chat', 'messaging', 'communication']
+  },
+  {
+    id: 'analytics',
+    name: '数据分析',
+    icon: '📊',
+    keywords: ['数据分析', 'analytics', 'data', 'visualization', 'chart']
+  }
+];
+
+// 导出默认分类供其他模块使用
+export { defaultCategories };
+
+// 预设筛选器图标映射
+const PRESET_FILTER_ICONS: Record<string, string> = {
+  'preset-windows': 'Monitor',
+  'preset-macos': 'Apple',
+  'preset-linux': 'Terminal',
+  'preset-android': 'Smartphone',
+  'preset-source': 'Package',
+};
+
+// 默认预设筛选器
+const defaultPresetFilters: AssetFilter[] = PRESET_FILTERS.map(pf => ({
+  ...pf,
+  isPreset: true,
+  icon: PRESET_FILTER_ICONS[pf.id] || 'Package',
+}));
+
+const defaultDiscoveryChannels: DiscoveryChannel[] = [
+  {
+    id: 'trending',
+    name: '趋势',
+    nameEn: 'Trending',
+    icon: 'trending',
+    description: 'GitHub 趋势仓库，支持今日/本周/本月筛选',
+    enabled: true,
+  },
+  {
+    id: 'hot-release',
+    name: '热门发布',
+    nameEn: 'Hot Release',
+    icon: 'rocket',
+    description: '最近14天内活跃更新的仓库',
+    enabled: true,
+  },
+  {
+    id: 'most-popular',
+    name: '最受欢迎',
+    nameEn: 'Most Popular',
+    icon: 'star',
+    description: '星标数超过1000的稳定热门仓库',
+    enabled: true,
+  },
+  {
+    id: 'topic',
+    name: '主题探索',
+    nameEn: 'Topic',
+    icon: 'tag',
+    description: '按主题分类浏览仓库',
+    enabled: true,
+  },
+  {
+    id: 'search',
+    name: '搜索发现',
+    nameEn: 'Search',
+    icon: 'search',
+    description: '自定义搜索发现新项目',
+    enabled: true,
+  },
+];
+
+export const useAppStore = create<AppState & AppActions>()(
+  persist(
+    (set) => ({
+      // Initial state
+      user: null,
+      githubToken: null,
+      isAuthenticated: false,
+      repositories: [],
+      gists: [],
+      starredGists: [],
+      gistSearchFilters: initialGistSearchFilters,
+      gistSearchResults: [],
+      selectedGistCategory: 'all',
+      analyzingGistIds: new Set<string>(),
+      isLoading: false,
+      isSyncingStars: false,
+      lastSync: null,
+      analyzingRepositoryIds: new Set<number>(),
+      aiConfigs: [],
+      activeAIConfig: null,
+      embeddingConfigs: [],
+      activeEmbeddingConfig: null,
+      vectorSearchConfig: { ...defaultVectorSearchConfig },
+      vectorSearchStatus: { connected: false, vectorCount: 0, dimensions: 0 },
+      vectorIndexingState: { isIndexing: false, phase: null, phaseDone: 0, phaseTotal: 0, result: null },
+      similarView: null,
+      webdavConfigs: [],
+      activeWebDAVConfig: null,
+      lastBackup: null,
+      searchFilters: initialSearchFilters,
+      searchResults: [],
+      releases: [],
+      releaseSubscriptions: new Set<number>(),
+      releaseSourceSettings: defaultReleaseSourceSettings,
+      readReleases: new Set<number>(),
+      customCategories: [],
+      hiddenDefaultCategoryIds: [],
+      defaultCategoryOverrides: {},
+      categoryOrder: [],
+      collapsedSidebarCategoryCount: 20,
+      assetFilters: defaultPresetFilters,
+      theme: 'dark',
+      hasHydrated: false,
+      currentView: 'repositories',
+      selectedCategory: 'all',
+      language: 'zh',
+      updateNotification: null,
+      analysisProgress: { current: 0, total: 0 },
+      backendApiSecret: readSessionBackendSecret(),
+      proxyConfig: { enabled: false, type: 'http', host: '', port: 7890 },
+      rpcDownloadConfig: { enabled: false, host: '', port: 6800 },
+      isSidebarCollapsed: false,
+      readmeModalOpen: false,
+      releaseViewMode: 'timeline',
+      releaseShowMode: 'all',
+      releaseLatestMode: 'all',
+      releaseSelectedFilters: [],
+      releaseSearchQuery: '',
+      releaseExpandedRepositories: new Set<number>(),
+      releaseIsRefreshing: false,
+      includePreRelease: true,
+      includeKeysInBackup: false,
+
+      forks: [],
+      readForks: new Set<number>(),
+      forkViewMode: 'timeline',
+      forkSelectedFilters: [],
+      forkSearchQuery: '',
+      forkExpandedRepositories: new Set<number>(),
+      forkIsRefreshing: false,
+
+      discoveryChannels: defaultDiscoveryChannels,
+      discoveryRepos: { 'trending': [], 'hot-release': [], 'most-popular': [], 'topic': [], 'search': [] },
+      discoveryLastRefresh: { 'trending': null, 'hot-release': null, 'most-popular': null, 'topic': null, 'search': null },
+      discoveryIsLoading: { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false },
+      discoveryIsLoadingMore: { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false },
+      discoveryLoadMoreError: { 'trending': null, 'hot-release': null, 'most-popular': null, 'topic': null, 'search': null },
+      selectedDiscoveryChannel: 'trending',
+      discoveryPlatform: 'All',
+      discoveryLanguage: 'All',
+      discoverySortBy: 'BestMatch',
+      discoverySortOrder: 'Descending',
+      discoverySearchQuery: '',
+      discoverySelectedTopic: null,
+      discoveryHasMore: { 'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false },
+      discoveryNextPage: { 'trending': 1, 'hot-release': 1, 'most-popular': 1, 'topic': 1, 'search': 1 },
+      discoveryTotalCount: { 'trending': 0, 'hot-release': 0, 'most-popular': 0, 'topic': 0, 'search': 0 },
+      discoveryScrollPositions: { 'trending': 0, 'hot-release': 0, 'most-popular': 0, 'topic': 0, 'search': 0 },
+  trendingTimeRange: 'weekly' as TrendingTimeRange,
+
+      // Subscription
+      subscriptionRepos: { 'most-stars': [], 'most-forks': [], 'most-dev': [], 'trending': [] },
+      subscriptionLastRefresh: { 'most-stars': null, 'most-forks': null, 'most-dev': null, 'trending': null },
+      subscriptionIsLoading: { 'most-stars': false, 'most-forks': false, 'most-dev': false, 'trending': false },
+      subscriptionChannels: defaultSubscriptionChannels,
+      headerMenuConfig: defaultHeaderMenuConfig,
+
+      // Auth actions
+      setUser: (user) => {
+        logger.info('store.setUser', 'Setting user', { hasUser: !!user });
+        set({ user, isAuthenticated: !!user });
+      },
+      setGitHubToken: (token) => {
+        logger.info('store.setGitHubToken', 'Setting GitHub token', { hasToken: !!token });
+        set({ githubToken: token });
+      },
+      logout: () => set({
+        user: null,
+        githubToken: null,
+        isAuthenticated: false,
+        repositories: [],
+        gists: [],
+        starredGists: [],
+        gistSearchResults: [],
+        analyzingGistIds: new Set(),
+        releases: [],
+        releaseSubscriptions: new Set(),
+        releaseSourceSettings: defaultReleaseSourceSettings,
+        readReleases: new Set(),
+        forks: [],
+        readForks: new Set(),
+        analyzingRepositoryIds: new Set(),
+        searchResults: [],
+        similarView: null,
+        lastSync: null,
+      }),
+
+      // Repository actions
+      setRepositories: (repositories) => {
+        const restoredRepositories = mergeRepositoryAnalysisSnapshotsSync(repositories);
+        restoredRepositories.forEach((repo) => {
+          void saveRepositoryAnalysisSnapshot(repo);
+        });
+        set((state) => {
+          const restoredById = new Map(restoredRepositories.map((repo) => [repo.id, repo]));
+          const similarView = state.similarView
+            ? {
+                ...state.similarView,
+                similarResults: state.similarView.similarResults
+                  .map((repo) => restoredById.get(repo.id))
+                  .filter((repo): repo is Repository => repo !== undefined),
+              }
+            : state.similarView;
+
+          return {
+            repositories: restoredRepositories,
+            searchResults: restoredRepositories,
+            similarView,
+          };
+        });
+      },
+      updateRepository: (repo) => {
+        void saveRepositoryAnalysisSnapshot(repo);
+        set((state) => {
+          const repositoriesResult = replaceRepositoryInList(state.repositories, repo);
+          const searchResultsResult = state.searchResults === state.repositories
+            ? repositoriesResult
+            : replaceRepositoryInList(state.searchResults, repo);
+          const similarResultsResult = state.similarView
+            ? replaceRepositoryInList(state.similarView.similarResults, repo)
+            : null;
+
+          if (!repositoriesResult.changed && !searchResultsResult.changed && !similarResultsResult?.changed) {
+            return state;
+          }
+
+          return {
+            repositories: repositoriesResult.repositories,
+            searchResults: searchResultsResult.repositories,
+            similarView: similarResultsResult
+              ? { ...state.similarView!, similarResults: similarResultsResult.repositories }
+              : state.similarView,
+          };
+        });
+      },
+      updateRepositoriesMetadata: (updates) => set((state) => {
+        if (!updates.length) return state;
+        const patchMap = new Map(updates.map((u) => [u.id, u.patch]));
+
+        const applyPatches = (list: Repository[]): { repositories: Repository[]; changed: boolean } => {
+          let changed = false;
+          // 用 Map 索引避免多次 findIndex
+          const indexById = new Map(list.map((r, i) => [r.id, i]));
+          const next = list.slice();
+          for (const [id, patch] of patchMap) {
+            const idx = indexById.get(id);
+            if (idx === undefined) continue;
+            const merged = { ...next[idx], ...patch };
+            if (!areRepositoryRecordsEqual(next[idx], merged)) {
+              next[idx] = merged;
+              changed = true;
+            }
+          }
+          return { repositories: next, changed };
+        };
+
+        const repositoriesResult = applyPatches(state.repositories);
+        const searchResultsResult = state.searchResults === state.repositories
+          ? repositoriesResult
+          : applyPatches(state.searchResults);
+        const similarResultsResult = state.similarView
+          ? applyPatches(state.similarView.similarResults)
+          : { repositories: state.similarView?.similarResults ?? [], changed: false };
+
+        if (!repositoriesResult.changed && !searchResultsResult.changed && !similarResultsResult.changed) {
+          return state;
+        }
+
+        if (repositoriesResult.changed) {
+          repositoriesResult.repositories.forEach((repo) => {
+            if (patchMap.has(repo.id)) {
+              void saveRepositoryAnalysisSnapshot(repo);
+            }
+          });
+        }
+
+        return {
+          repositories: repositoriesResult.repositories,
+          searchResults: searchResultsResult.repositories,
+          similarView: state.similarView
+            ? { ...state.similarView, similarResults: similarResultsResult.repositories }
+            : state.similarView,
+        };
+      }),
+      addRepository: (repo) => set((state) => {
+        // 检查是否已存在相同 full_name 的仓库
+        const existingRepoIndex = state.repositories.findIndex(r => r.full_name === repo.full_name);
+        let updatedRepositories;
+        
+        if (existingRepoIndex >= 0) {
+          // 如果存在，更新现有仓库（保留ID）
+          updatedRepositories = [...state.repositories];
+          updatedRepositories[existingRepoIndex] = {
+            ...repo,
+            id: updatedRepositories[existingRepoIndex].id,
+            // 保留自定义编辑的内容
+            custom_description: updatedRepositories[existingRepoIndex].custom_description,
+            custom_tags: updatedRepositories[existingRepoIndex].custom_tags,
+            custom_category: updatedRepositories[existingRepoIndex].custom_category,
+            category_locked: updatedRepositories[existingRepoIndex].category_locked,
+            last_edited: updatedRepositories[existingRepoIndex].last_edited,
+            subscribed_to_releases: updatedRepositories[existingRepoIndex].subscribed_to_releases,
+          };
+        } else {
+          // 如果不存在，添加新仓库（生成新ID）
+          // 使用 timestamp + random 确保唯一性，避免并发时的竞态条件
+          const timestamp = Date.now();
+          const random = Math.floor(Math.random() * 10000);
+          const maxExistingId = state.repositories.length > 0
+            ? Math.max(...state.repositories.map(r => r.id))
+            : 0;
+          const newId = Math.max(timestamp, maxExistingId + 1) + random;
+          updatedRepositories = [...state.repositories, { ...repo, id: newId }];
+        }
+        
+        return {
+          repositories: updatedRepositories,
+          searchResults: updatedRepositories
+        };
+      }),
+      setLoading: (isLoading) => set({ isLoading }),
+      setSyncingStars: (isSyncingStars) => set({ isSyncingStars }),
+      setLastSync: (lastSync) => set({ lastSync }),
+      deleteRepository: (repoId) => set((state) => {
+        const nextReleaseSubscriptions = new Set(state.releaseSubscriptions);
+        nextReleaseSubscriptions.delete(repoId);
+
+        const filteredReleases = state.releases.filter(release => release.repository.id !== repoId);
+        const remainingReleaseIds = new Set(filteredReleases.map(release => release.id));
+        const nextReadReleases = new Set(
+          Array.from(state.readReleases).filter(releaseId => remainingReleaseIds.has(releaseId))
+        );
+
+        return {
+          repositories: state.repositories.filter(r => r.id !== repoId),
+          searchResults: state.searchResults.filter(r => r.id !== repoId),
+          similarView: state.similarView
+            ? { ...state.similarView, similarResults: state.similarView.similarResults.filter(r => r.id !== repoId) }
+            : state.similarView,
+          releases: filteredReleases,
+          releaseSubscriptions: nextReleaseSubscriptions,
+          readReleases: nextReadReleases,
+        };
+      }),
+      setAnalyzingRepository: (repoId, isAnalyzing) => set((state) => {
+        const alreadyAnalyzing = state.analyzingRepositoryIds.has(repoId);
+        if (alreadyAnalyzing === isAnalyzing) {
+          return state;
+        }
+
+        const nextAnalyzingIds = new Set(state.analyzingRepositoryIds);
+        if (isAnalyzing) {
+          nextAnalyzingIds.add(repoId);
+        } else {
+          nextAnalyzingIds.delete(repoId);
+        }
+        return { analyzingRepositoryIds: nextAnalyzingIds };
+      }),
+
+      // Gist actions
+      setGists: (gists) => set((state) => ({
+        gists,
+        gistSearchResults: state.gistSearchFilters.query ? state.gistSearchResults : gists,
+      })),
+      setStarredGists: (starredGists) => set({ starredGists }),
+      updateGist: (gist) => set((state) => {
+        const gistsResult = replaceGistInList(state.gists, gist);
+        const starredResult = replaceGistInList(state.starredGists, gist);
+        const searchResult = replaceGistInList(state.gistSearchResults, gist);
+        const isMine = !!state.user?.login && gist.owner?.login === state.user.login;
+
+        return {
+          gists: gistsResult.found
+            ? gistsResult.gists
+            : isMine
+              ? [gist, ...state.gists]
+              : state.gists,
+          starredGists: starredResult.found ? starredResult.gists : state.starredGists,
+          gistSearchResults: searchResult.found ? searchResult.gists : state.gistSearchResults,
+        };
+      }),
+      deleteGist: (gistId) => set((state) => {
+        const nextAnalyzingIds = new Set(state.analyzingGistIds);
+        nextAnalyzingIds.delete(gistId);
+        return {
+          gists: state.gists.filter(gist => gist.id !== gistId),
+          starredGists: state.starredGists.filter(gist => gist.id !== gistId),
+          gistSearchResults: state.gistSearchResults.filter(gist => gist.id !== gistId),
+          analyzingGistIds: nextAnalyzingIds,
+        };
+      }),
+      setGistSearchFilters: (filters) => set((state) => ({
+        gistSearchFilters: { ...state.gistSearchFilters, ...filters },
+      })),
+      setGistSearchResults: (gistSearchResults) => set({ gistSearchResults }),
+      setSelectedGistCategory: (selectedGistCategory) => set({ selectedGistCategory }),
+      setAnalyzingGist: (gistId, isAnalyzing) => set((state) => {
+        const alreadyAnalyzing = state.analyzingGistIds.has(gistId);
+        if (alreadyAnalyzing === isAnalyzing) {
+          return state;
+        }
+
+        const nextAnalyzingIds = new Set(state.analyzingGistIds);
+        if (isAnalyzing) {
+          nextAnalyzingIds.add(gistId);
+        } else {
+          nextAnalyzingIds.delete(gistId);
+        }
+        return { analyzingGistIds: nextAnalyzingIds };
+      }),
+
+      // AI actions
+      addAIConfig: (config) => set((state) => ({
+        aiConfigs: [...state.aiConfigs, config]
+      })),
+      updateAIConfig: (id, updates) => set((state) => ({
+        aiConfigs: state.aiConfigs.map(config => 
+          config.id === id ? { ...config, ...updates } : config
+        )
+      })),
+      deleteAIConfig: (id) => set((state) => ({
+        aiConfigs: state.aiConfigs.filter(config => config.id !== id),
+        activeAIConfig: state.activeAIConfig === id ? null : state.activeAIConfig
+      })),
+      setActiveAIConfig: (activeAIConfig) => set({ activeAIConfig }),
+      setAIConfigs: (aiConfigs) => set({ aiConfigs }),
+
+      // WebDAV actions
+      addWebDAVConfig: (config) => set((state) => ({
+        webdavConfigs: [...state.webdavConfigs, config]
+      })),
+      updateWebDAVConfig: (id, updates) => set((state) => ({
+        webdavConfigs: state.webdavConfigs.map(config => 
+          config.id === id ? { ...config, ...updates } : config
+        )
+      })),
+      deleteWebDAVConfig: (id) => set((state) => ({
+        webdavConfigs: state.webdavConfigs.filter(config => config.id !== id),
+        activeWebDAVConfig: state.activeWebDAVConfig === id ? null : state.activeWebDAVConfig
+      })),
+      setActiveWebDAVConfig: (activeWebDAVConfig) => set({ activeWebDAVConfig }),
+      setWebDAVConfigs: (webdavConfigs) => set({ webdavConfigs }),
+      setLastBackup: (lastBackup) => set({ lastBackup }),
+
+      // Embedding actions
+      addEmbeddingConfig: (config) => set((state) => ({
+        embeddingConfigs: [...state.embeddingConfigs, config]
+      })),
+      updateEmbeddingConfig: (id, updates) => set((state) => ({
+        embeddingConfigs: state.embeddingConfigs.map(config =>
+          config.id === id ? { ...config, ...updates } : config
+        )
+      })),
+      deleteEmbeddingConfig: (id) => set((state) => ({
+        embeddingConfigs: state.embeddingConfigs.filter(config => config.id !== id),
+        activeEmbeddingConfig: state.activeEmbeddingConfig === id ? null : state.activeEmbeddingConfig,
+        vectorSearchConfig: state.vectorSearchConfig.embeddingConfigId === id
+          ? { ...state.vectorSearchConfig, embeddingConfigId: '', enabled: false }
+          : state.vectorSearchConfig,
+      })),
+      setActiveEmbeddingConfig: (activeEmbeddingConfig) => set({ activeEmbeddingConfig }),
+      setEmbeddingConfigs: (embeddingConfigs) => set((state) => {
+        const ids = new Set(embeddingConfigs.map(config => config.id));
+        const activeEmbeddingConfig = state.activeEmbeddingConfig && ids.has(state.activeEmbeddingConfig)
+          ? state.activeEmbeddingConfig
+          : null;
+        const vectorSearchConfig = ids.has(state.vectorSearchConfig.embeddingConfigId)
+          ? state.vectorSearchConfig
+          : { ...state.vectorSearchConfig, embeddingConfigId: '', enabled: false };
+        return { embeddingConfigs, activeEmbeddingConfig, vectorSearchConfig };
+      }),
+
+      // Vector Search actions
+      setVectorSearchConfig: (config) => set((state) => ({
+        vectorSearchConfig: mergeVectorSearchConfig(state.vectorSearchConfig, config)
+      })),
+      setVectorSearchStatus: (status) => set({ vectorSearchStatus: status }),
+      setVectorIndexingState: (indexingState) => set((state) => ({
+        vectorIndexingState: { ...state.vectorIndexingState, ...indexingState }
+      })),
+
+      // Similar repositories view actions
+      /**
+       * 进入"查找相似仓库"视图：保存当前相似结果、锚点仓库，并快照进入前的
+       * searchResults/searchFilters 用于重置恢复（链式查找时保留首次快照）。
+       */
+      enterSimilarView: (repos, anchor) => set((state) => ({
+        similarView: {
+          active: true,
+          anchorRepoFullName: anchor.full_name,
+          anchorRepoName: anchor.name,
+          similarResults: repos,
+          // 链式查找时保留首次进入的快照，避免覆盖重置目标
+          originalSearchResults: state.similarView?.originalSearchResults ?? state.searchResults,
+          originalSearchFilters: state.similarView?.originalSearchFilters ?? state.searchFilters,
+        },
+        // 进入相似视图时清空搜索条件，避免与搜索结果混淆（相似视图是列表的"替代"视图）
+        searchFilters: { ...initialSearchFilters },
+      })),
+      /**
+       * 重置相似视图：恢复进入前的搜索结果与条件（回到"查找相似之前"的状态）。
+       */
+      resetSimilarView: () => set((state) => ({
+        // 重置恢复进入前的搜索结果与条件（回到"查找相似之前"的状态）
+        searchResults: state.similarView?.originalSearchResults ?? state.repositories,
+        searchFilters: state.similarView?.originalSearchFilters ?? { ...initialSearchFilters },
+        similarView: null,
+      })),
+      /**
+       * 退出相似视图（不恢复进入前的搜索状态）：用于用户发起新搜索或切换分类时，
+       * 避免把旧快照覆盖到新的搜索/分类结果上。
+       */
+      exitSimilarView: () => set({ similarView: null }),
+
+      // Search actions
+      setSearchFilters: (filters) => set((state) => {
+        const newFilters = { ...state.searchFilters, ...filters };
+        
+        // 处理互斥筛选器：isAnalyzed 和 analysisFailed 不能同时设置
+        if (filters.isAnalyzed !== undefined && filters.isAnalyzed !== null) {
+          // 如果设置了 isAnalyzed，清除 analysisFailed
+          newFilters.analysisFailed = undefined;
+        }
+        if (filters.analysisFailed !== undefined && filters.analysisFailed !== null) {
+          // 如果设置了 analysisFailed，清除 isAnalyzed
+          newFilters.isAnalyzed = undefined;
+        }
+        
+        return { searchFilters: newFilters };
+      }),
+      setSearchResults: (searchResults) => set({ searchResults }),
+
+      // Release actions
+      setReleases: (releases) => set({ releases }),
+      addReleases: (newReleases) => set((state) => {
+        const existingIds = new Set(state.releases.map(r => r.id));
+        const uniqueReleases = newReleases.filter(r => !existingIds.has(r.id));
+        return { releases: [...state.releases, ...uniqueReleases] };
+      }),
+      toggleReleaseSubscription: (repoId) => set((state) => {
+        const newSubscriptions = new Set(state.releaseSubscriptions);
+        const wasSubscribed = newSubscriptions.has(repoId);
+        
+        if (wasSubscribed) {
+          newSubscriptions.delete(repoId);
+        } else {
+          newSubscriptions.add(repoId);
+        }
+        
+        return { releaseSubscriptions: newSubscriptions };
+      }),
+      batchUnsubscribeReleases: (repoIds) => set((state) => {
+        const newSubscriptions = new Set(state.releaseSubscriptions);
+        repoIds.forEach(repoId => {
+          newSubscriptions.delete(repoId);
+        });
+        return { releaseSubscriptions: newSubscriptions };
+      }),
+      removeReleasesByRepoId: (repoId) => set((state) => {
+        const filteredReleases = state.releases.filter(release => release.repository.id !== repoId);
+        const remainingReleaseIds = new Set(filteredReleases.map(r => r.id));
+        const nextReadReleases = new Set(
+          Array.from(state.readReleases).filter(releaseId => remainingReleaseIds.has(releaseId))
+        );
+        const nextExpandedRepos = new Set(state.releaseExpandedRepositories);
+        nextExpandedRepos.delete(repoId);
+        return {
+          releases: filteredReleases,
+          readReleases: nextReadReleases,
+          releaseExpandedRepositories: nextExpandedRepos,
+        };
+      }),
+      removeReleasesByRepoFullName: (fullName) => set((state) => {
+        const targetKey = normalizeRepoKey(fullName);
+        const filteredReleases = state.releases.filter(release => normalizeRepoKey(release.repository.full_name) !== targetKey);
+        const remainingReleaseIds = new Set(filteredReleases.map(r => r.id));
+        const removedRepoIds = new Set(
+          state.releases
+            .filter(release => normalizeRepoKey(release.repository.full_name) === targetKey)
+            .map(release => release.repository.id)
+        );
+        const nextExpandedRepos = new Set(state.releaseExpandedRepositories);
+        removedRepoIds.forEach(repoId => nextExpandedRepos.delete(repoId));
+        return {
+          releases: filteredReleases,
+          readReleases: new Set(Array.from(state.readReleases).filter(releaseId => remainingReleaseIds.has(releaseId))),
+          releaseExpandedRepositories: nextExpandedRepos,
+        };
+      }),
+      setReleaseSourceSettings: (settings) => set({ releaseSourceSettings: normalizeReleaseSourceSettings(settings) }),
+      setReleaseEnabledSources: (sourceIds) => set((state) => ({
+        releaseSourceSettings: normalizeReleaseSourceSettings({
+          ...state.releaseSourceSettings,
+          enabledSourceIds: sourceIds,
+        }),
+      })),
+      toggleReleaseSource: (sourceId) => set((state) => {
+        const settings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        const enabled = new Set(settings.enabledSourceIds);
+        if (enabled.has(sourceId)) {
+          if (enabled.size === 1) return state;
+          enabled.delete(sourceId);
+        } else {
+          enabled.add(sourceId);
+        }
+        return {
+          releaseSourceSettings: {
+            ...settings,
+            enabledSourceIds: Array.from(enabled),
+          },
+        };
+      }),
+      setReleaseSourceRepositories: (sourceId, repos) => set((state) => {
+        const settings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        const listKey = sourceId === WATCH_CUSTOM_RELEASE_SOURCE_ID ? 'watchCustomReleaseRepos' : 'customReleaseRepos';
+        return {
+          releaseSourceSettings: normalizeReleaseSourceSettings({
+            ...settings,
+            [listKey]: repos,
+          }),
+        };
+      }),
+      addReleaseSourceRepository: (sourceId, repo) => set((state) => {
+        const settings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        const listKey = sourceId === WATCH_CUSTOM_RELEASE_SOURCE_ID ? 'watchCustomReleaseRepos' : 'customReleaseRepos';
+        const repoKey = normalizeRepoKey(repo.full_name);
+        if (settings[listKey].some(item => normalizeRepoKey(item.full_name) === repoKey)) {
+          return state;
+        }
+        return {
+          releaseSourceSettings: {
+            ...settings,
+            [listKey]: [...settings[listKey], repo],
+          },
+        };
+      }),
+      removeReleaseSourceRepository: (sourceId, fullName) => set((state) => {
+        const settings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        const listKey = sourceId === WATCH_CUSTOM_RELEASE_SOURCE_ID ? 'watchCustomReleaseRepos' : 'customReleaseRepos';
+        const repoKey = normalizeRepoKey(fullName);
+        return {
+          releaseSourceSettings: {
+            ...settings,
+            [listKey]: settings[listKey].filter(repo => normalizeRepoKey(repo.full_name) !== repoKey),
+          },
+        };
+      }),
+      updateReleaseSourceRepository: (sourceId, fullName, updates) => set((state) => {
+        const settings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        const listKey = sourceId === WATCH_CUSTOM_RELEASE_SOURCE_ID ? 'watchCustomReleaseRepos' : 'customReleaseRepos';
+        const repoKey = normalizeRepoKey(fullName);
+        return {
+          releaseSourceSettings: {
+            ...settings,
+            [listKey]: settings[listKey].map(repo =>
+              normalizeRepoKey(repo.full_name) === repoKey ? { ...repo, ...updates } : repo
+            ),
+          },
+        };
+      }),
+      markReleaseAsRead: (releaseId) => set((state) => {
+        const newReadReleases = new Set(state.readReleases);
+        newReadReleases.add(releaseId);
+
+        // In 'latest' mode, marking the latest release as read also marks all other releases of that repo
+        if (state.releaseLatestMode === 'latest') {
+          const markedRelease = state.releases.find(r => r.id === releaseId);
+          if (markedRelease) {
+            const repoId = markedRelease.repository.id;
+            const repoReleases = state.releases.filter(r => r.repository.id === repoId);
+            const latestRepoRelease = repoReleases.reduce((latest, r) =>
+              r.published_at > latest.published_at ? r : latest
+            , repoReleases[0]);
+            if (latestRepoRelease && latestRepoRelease.id === releaseId) {
+              repoReleases.forEach(r => newReadReleases.add(r.id));
+            }
+          }
+        }
+
+        return { readReleases: newReadReleases };
+      }),
+      markAllReleasesAsRead: () => set((state) => {
+        const allReleaseIds = new Set(state.releases.map(r => r.id));
+        return { readReleases: allReleaseIds };
+      }),
+
+      // Category actions
+      addCustomCategory: (category) => set((state) => ({
+        customCategories: [...state.customCategories, { ...category, isCustom: true }]
+      })),
+      updateCustomCategory: (id, updates) => set((state) => {
+        const targetCategory = state.customCategories.find(category => category.id === id);
+        const nextCategories = state.customCategories.map(category => 
+          category.id === id ? { ...category, ...updates } : category
+        );
+
+        if (!targetCategory || !updates.name || updates.name === targetCategory.name) {
+          return { customCategories: nextCategories };
+        }
+
+        const nextRepositories = state.repositories.map(repo =>
+          repo.custom_category === targetCategory.name
+            ? { ...repo, custom_category: updates.name, last_edited: new Date().toISOString() }
+            : repo
+        );
+
+        return {
+          customCategories: nextCategories,
+          repositories: nextRepositories,
+          searchResults: state.searchResults.map(repo =>
+            repo.custom_category === targetCategory.name
+              ? { ...repo, custom_category: updates.name, last_edited: new Date().toISOString() }
+              : repo
+          )
+        };
+      }),
+      updateDefaultCategory: (id, updates) => set((state) => {
+        const defaultCat = defaultCategories.find(c => c.id === id);
+        if (!defaultCat) return {};
+
+        const originalName = defaultCat.name;
+        const displayedName = state.language === 'en' ? translateCategoryName(originalName) : originalName;
+        const originalIcon = defaultCat.icon;
+        const originalKeywords = defaultCat.keywords || [];
+        const currentOverride = state.defaultCategoryOverrides[id];
+        const currentName = currentOverride?.name || originalName;
+        const newName = updates.name;
+
+        const filteredUpdates: { name?: string; icon?: string; keywords?: string[] } = {};
+        
+        if (updates.name !== undefined && updates.name !== '' && updates.name !== originalName && updates.name !== displayedName) {
+          filteredUpdates.name = updates.name;
+        }
+        if (updates.icon !== undefined && updates.icon !== originalIcon) {
+          filteredUpdates.icon = updates.icon;
+        }
+        if (updates.keywords !== undefined) {
+          const sortedOriginal = [...originalKeywords].sort().join(',');
+          const sortedNew = [...updates.keywords].sort().join(',');
+          if (sortedNew !== sortedOriginal) {
+            filteredUpdates.keywords = updates.keywords;
+          }
+        }
+
+        const existingOverride = state.defaultCategoryOverrides[id] || {};
+        const mergedOverride = { ...existingOverride, ...filteredUpdates };
+        
+        for (const key of ['name', 'icon', 'keywords'] as const) {
+          if (key in mergedOverride) {
+            if (key === 'keywords') {
+              const sortedOriginal = [...originalKeywords].sort().join(',');
+              const sortedMerged = [...(mergedOverride.keywords || [])].sort().join(',');
+              if (sortedMerged === sortedOriginal) {
+                delete mergedOverride.keywords;
+              }
+            } else if (key === 'name' && (mergedOverride.name === originalName || mergedOverride.name === displayedName || mergedOverride.name === '')) {
+              delete mergedOverride.name;
+            } else if (key === 'icon' && mergedOverride.icon === originalIcon) {
+              delete mergedOverride.icon;
+            }
+          }
+        }
+
+        const nextOverrides = { ...state.defaultCategoryOverrides };
+        if (Object.keys(mergedOverride).length === 0) {
+          delete nextOverrides[id];
+        } else {
+          nextOverrides[id] = mergedOverride;
+        }
+
+        const currentDisplayedName = currentOverride?.name ?? displayedName;
+        if (!newName || newName === currentName || newName === currentDisplayedName) {
+          return { defaultCategoryOverrides: nextOverrides };
+        }
+
+        const currentNameVariants = getCategoryNameVariants(originalName, currentName);
+        // Avoid self-rewrite when newName already matches the displayed default name.
+
+        const nextRepositories = state.repositories.map(repo =>
+          currentNameVariants.includes(repo.custom_category || '')
+            ? { ...repo, custom_category: newName, last_edited: new Date().toISOString() }
+            : repo
+        );
+
+        return {
+          defaultCategoryOverrides: nextOverrides,
+          repositories: nextRepositories,
+          searchResults: state.searchResults.map(repo =>
+            currentNameVariants.includes(repo.custom_category || '')
+              ? { ...repo, custom_category: newName, last_edited: new Date().toISOString() }
+              : repo
+          )
+        };
+      }),
+      resetDefaultCategory: (id) => set((state) => {
+        const defaultCat = defaultCategories.find(c => c.id === id);
+        if (!defaultCat) return {};
+
+        const override = state.defaultCategoryOverrides[id];
+        if (!override) return {};
+
+        const overriddenName = override.name;
+        const originalName = defaultCat.name;
+
+        const nextOverrides = { ...state.defaultCategoryOverrides };
+        delete nextOverrides[id];
+
+        if (!overriddenName || overriddenName === originalName) {
+          return { defaultCategoryOverrides: nextOverrides };
+        }
+
+        const overriddenNameVariants = getCategoryNameVariants(originalName, overriddenName);
+
+        const nextRepositories = state.repositories.map(repo =>
+          overriddenNameVariants.includes(repo.custom_category || '')
+            ? { ...repo, custom_category: originalName, last_edited: new Date().toISOString() }
+            : repo
+        );
+
+        return {
+          defaultCategoryOverrides: nextOverrides,
+          repositories: nextRepositories,
+          searchResults: state.searchResults.map(repo =>
+            overriddenNameVariants.includes(repo.custom_category || '')
+              ? { ...repo, custom_category: originalName, last_edited: new Date().toISOString() }
+              : repo
+          )
+        };
+      }),
+      resetDefaultCategoryNameIcon: (id) => set((state) => {
+        const defaultCat = defaultCategories.find(c => c.id === id);
+        if (!defaultCat) return {};
+
+        const override = state.defaultCategoryOverrides[id];
+        if (!override) return {};
+
+        const overriddenName = override.name;
+        const originalName = defaultCat.name;
+
+        const nextOverride = { ...override };
+        delete nextOverride.name;
+        delete nextOverride.icon;
+
+        const nextOverrides = { ...state.defaultCategoryOverrides };
+        if (Object.keys(nextOverride).length === 0) {
+          delete nextOverrides[id];
+        } else {
+          nextOverrides[id] = nextOverride;
+        }
+
+        if (!overriddenName || overriddenName === originalName) {
+          return { defaultCategoryOverrides: nextOverrides };
+        }
+
+        const overriddenNameVariants = getCategoryNameVariants(originalName, overriddenName);
+
+        const nextRepositories = state.repositories.map(repo =>
+          overriddenNameVariants.includes(repo.custom_category || '')
+            ? { ...repo, custom_category: originalName, last_edited: new Date().toISOString() }
+            : repo
+        );
+
+        return {
+          defaultCategoryOverrides: nextOverrides,
+          repositories: nextRepositories,
+          searchResults: state.searchResults.map(repo =>
+            overriddenNameVariants.includes(repo.custom_category || '')
+              ? { ...repo, custom_category: originalName, last_edited: new Date().toISOString() }
+              : repo
+          )
+        };
+      }),
+      resetDefaultCategoryKeywords: (id) => set((state) => {
+        const override = state.defaultCategoryOverrides[id];
+        if (!override) return {};
+
+        const nextOverride = { ...override };
+        delete nextOverride.keywords;
+
+        const nextOverrides = { ...state.defaultCategoryOverrides };
+        if (Object.keys(nextOverride).length === 0) {
+          delete nextOverrides[id];
+        } else {
+          nextOverrides[id] = nextOverride;
+        }
+
+        return { defaultCategoryOverrides: nextOverrides };
+      }),
+      deleteCustomCategory: (id) => set((state) => {
+        const targetCategory = state.customCategories.find(category => category.id === id);
+        const nextSelectedCategory = state.selectedCategory === id ? 'all' : state.selectedCategory;
+
+        if (!targetCategory) {
+          return {
+            customCategories: state.customCategories.filter(category => category.id !== id),
+            selectedCategory: nextSelectedCategory
+          };
+        }
+
+        const clearedRepositories = state.repositories.map(repo =>
+          repo.custom_category === targetCategory.name
+            ? { ...repo, custom_category: undefined, category_locked: false, last_edited: new Date().toISOString() }
+            : repo
+        );
+
+        return {
+          customCategories: state.customCategories.filter(category => category.id !== id),
+          repositories: clearedRepositories,
+          searchResults: state.searchResults.map(repo =>
+            repo.custom_category === targetCategory.name
+              ? { ...repo, custom_category: undefined, category_locked: false, last_edited: new Date().toISOString() }
+              : repo
+          ),
+          selectedCategory: nextSelectedCategory
+        };
+      }),
+      hideDefaultCategory: (id) => set((state) => ({
+        hiddenDefaultCategoryIds: state.hiddenDefaultCategoryIds.includes(id)
+          ? state.hiddenDefaultCategoryIds
+          : [...state.hiddenDefaultCategoryIds, id],
+        selectedCategory: state.selectedCategory === id ? 'all' : state.selectedCategory
+      })),
+      showDefaultCategory: (id) => set((state) => ({
+        hiddenDefaultCategoryIds: state.hiddenDefaultCategoryIds.filter(categoryId => categoryId !== id)
+      })),
+      setCategoryOrder: (order) => set({ categoryOrder: order }),
+      reorderCategories: (oldIndex, newIndex) => set((state) => {
+        const allCategories = getAllCategories(state.customCategories, state.language, state.hiddenDefaultCategoryIds, state.defaultCategoryOverrides);
+        const orderedCategories = sortCategoriesByOrder(allCategories, state.categoryOrder);
+        const newOrder = orderedCategories.map(c => c.id);
+        const [movedId] = newOrder.splice(oldIndex, 1);
+        newOrder.splice(newIndex, 0, movedId);
+        return { categoryOrder: newOrder };
+      }),
+      setCollapsedSidebarCategoryCount: (count) => set({ collapsedSidebarCategoryCount: count }),
+
+      // Asset Filter actions
+      addAssetFilter: (filter) => set((state) => ({
+        assetFilters: [...state.assetFilters, filter]
+      })),
+      updateAssetFilter: (id, updates) => set((state) => ({
+        assetFilters: state.assetFilters.map(filter => 
+          filter.id === id ? { ...filter, ...updates } : filter
+        )
+      })),
+      deleteAssetFilter: (id) => set((state) => ({
+        assetFilters: state.assetFilters.filter(filter => filter.id !== id)
+      })),
+
+      // UI actions
+      setTheme: (theme) => set({ theme }),
+      setCurrentView: (currentView) => set({ currentView }),
+      setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
+      setLanguage: (language) => set({ language }),
+      setSidebarCollapsed: (isSidebarCollapsed) => set({ isSidebarCollapsed }),
+      setReadmeModalOpen: (readmeModalOpen) => set({ readmeModalOpen }),
+      setHeaderMenuConfig: (config) => set({
+        headerMenuConfig: config.map(item =>
+          REQUIRED_HEADER_MENU_IDS.has(item.id) ? { ...item, visible: true } : item
+        ),
+      }),
+
+      // Hydration state
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      
+      // Update actions
+      setUpdateNotification: (notification) => set({ updateNotification: notification }),
+      dismissUpdateNotification: () => set({ updateNotification: null }),
+      setAnalysisProgress: (newProgress) => set({ analysisProgress: newProgress }),
+      setBackendApiSecret: (backendApiSecret) => {
+        writeSessionBackendSecret(backendApiSecret);
+        set({ backendApiSecret });
+      },
+      setProxyConfig: (updates) => set((state) => ({
+        proxyConfig: { ...state.proxyConfig, ...updates }
+      })),
+      setRpcDownloadConfig: (updates) => set((state) => ({
+        rpcDownloadConfig: { ...state.rpcDownloadConfig, ...updates }
+      })),
+
+      // Release Timeline View actions
+      setReleaseViewMode: (releaseViewMode) => set({ releaseViewMode }),
+      setReleaseShowMode: (releaseShowMode) => set({ releaseShowMode }),
+      setReleaseLatestMode: (releaseLatestMode) => set({ releaseLatestMode }),
+      setReleaseSelectedFilters: (releaseSelectedFilters) => set({ releaseSelectedFilters }),
+      toggleReleaseSelectedFilter: (filterId) => set((state) => ({
+        releaseSelectedFilters: state.releaseSelectedFilters.includes(filterId)
+          ? state.releaseSelectedFilters.filter(id => id !== filterId)
+          : [...state.releaseSelectedFilters, filterId]
+      })),
+      clearReleaseSelectedFilters: () => set({ releaseSelectedFilters: [] }),
+      setReleaseSearchQuery: (releaseSearchQuery) => set({ releaseSearchQuery }),
+      toggleReleaseExpandedRepository: (repoId) => set((state) => {
+        const newSet = new Set(state.releaseExpandedRepositories);
+        if (newSet.has(repoId)) {
+          newSet.delete(repoId);
+        } else {
+          newSet.add(repoId);
+        }
+        return { releaseExpandedRepositories: newSet };
+      }),
+      setReleaseExpandedRepositories: (releaseExpandedRepositories) => set({ releaseExpandedRepositories }),
+      setReleaseIsRefreshing: (releaseIsRefreshing) => set({ releaseIsRefreshing }),
+      setIncludePreRelease: (includePreRelease) => set({ includePreRelease }),
+      setIncludeKeysInBackup: (includeKeysInBackup) => set({ includeKeysInBackup }),
+
+      // Fork actions
+      setForks: (forks) => set({ forks }),
+      addForks: (newForks) => set((state) => {
+        const existingIds = new Set(state.forks.map(f => f.id));
+        const uniqueForks = newForks.filter(f => !existingIds.has(f.id));
+        return { forks: [...state.forks, ...uniqueForks] };
+      }),
+      updateFork: (fork) => set((state) => ({
+        forks: state.forks.map(f => f.id === fork.id ? fork : f),
+      })),
+      markForkAsRead: (forkId) => set((state) => {
+        const newReadForks = new Set(state.readForks);
+        newReadForks.add(forkId);
+        return { readForks: newReadForks };
+      }),
+      markAllForksAsRead: () => set((state) => {
+        const allForkIds = new Set(state.forks.map(f => f.id));
+        return { readForks: allForkIds };
+      }),
+
+      // Fork Timeline View actions
+      setForkViewMode: (forkViewMode) => set({ forkViewMode }),
+      setForkSelectedFilters: (forkSelectedFilters) => set({ forkSelectedFilters }),
+      toggleForkSelectedFilter: (filterId) => set((state) => ({
+        forkSelectedFilters: state.forkSelectedFilters.includes(filterId)
+          ? state.forkSelectedFilters.filter(id => id !== filterId)
+          : [...state.forkSelectedFilters, filterId]
+      })),
+      clearForkSelectedFilters: () => set({ forkSelectedFilters: [] }),
+      setForkSearchQuery: (forkSearchQuery) => set({ forkSearchQuery }),
+      toggleForkExpandedRepository: (repoId) => set((state) => {
+        const newSet = new Set(state.forkExpandedRepositories);
+        if (newSet.has(repoId)) {
+          newSet.delete(repoId);
+        } else {
+          newSet.add(repoId);
+        }
+        return { forkExpandedRepositories: newSet };
+      }),
+      setForkExpandedRepositories: (forkExpandedRepositories) => set({ forkExpandedRepositories }),
+      setForkIsRefreshing: (forkIsRefreshing) => set({ forkIsRefreshing }),
+
+    // Discovery actions
+    setSelectedDiscoveryChannel: (selectedDiscoveryChannel) => set((state) => ({
+      selectedDiscoveryChannel,
+      discoveryRepos: {
+        ...state.discoveryRepos,
+        [selectedDiscoveryChannel]: []
+      },
+      discoveryNextPage: {
+        ...state.discoveryNextPage,
+        [selectedDiscoveryChannel]: 1
+      },
+      discoveryHasMore: {
+        ...state.discoveryHasMore,
+        [selectedDiscoveryChannel]: false
+      },
+      discoveryTotalCount: {
+        ...state.discoveryTotalCount,
+        [selectedDiscoveryChannel]: 0
+      },
+      discoveryIsLoadingMore: {
+        ...state.discoveryIsLoadingMore,
+        [selectedDiscoveryChannel]: false
+      },
+      discoveryLoadMoreError: {
+        ...state.discoveryLoadMoreError,
+        [selectedDiscoveryChannel]: null
+      }
+    })),
+    setDiscoveryLoading: (channel, loading) => set((state) => ({
+      discoveryIsLoading: { ...state.discoveryIsLoading, [channel]: loading },
+    })),
+    setDiscoveryLoadingMore: (channel, loading) => set((state) => ({
+      discoveryIsLoadingMore: { ...state.discoveryIsLoadingMore, [channel]: loading },
+    })),
+    setDiscoveryLoadMoreError: (channel, error) => set((state) => ({
+      discoveryLoadMoreError: { ...state.discoveryLoadMoreError, [channel]: error },
+    })),
+    setDiscoveryRepos: (channel, repos, append = false) => set((state) => ({
+      discoveryRepos: { 
+        ...state.discoveryRepos, 
+        [channel]: append ? [...(state.discoveryRepos[channel] || []), ...repos] : repos 
+      },
+    })),
+    setDiscoveryLastRefresh: (channel, timestamp) => set((state) => ({
+      discoveryLastRefresh: { ...state.discoveryLastRefresh, [channel]: timestamp },
+    })),
+    updateDiscoveryRepo: (repo) => set((state) => {
+      const channel = repo.channel;
+      const channelRepos = state.discoveryRepos[channel] || [];
+      return {
+        discoveryRepos: {
+          ...state.discoveryRepos,
+          [channel]: channelRepos.map(r => r.id === repo.id ? repo : r),
+        },
+      };
+    }),
+    toggleDiscoveryChannel: (channelId) => set((state) => ({
+      discoveryChannels: state.discoveryChannels.map(ch =>
+        ch.id === channelId ? { ...ch, enabled: !ch.enabled } : ch
+      ),
+    })),
+    setDiscoveryPlatform: (discoveryPlatform) => set({ discoveryPlatform }),
+    setDiscoveryLanguage: (discoveryLanguage) => set({ discoveryLanguage }),
+    setDiscoverySortBy: (discoverySortBy) => set({ discoverySortBy }),
+    setDiscoverySortOrder: (discoverySortOrder) => set({ discoverySortOrder }),
+    setDiscoverySearchQuery: (discoverySearchQuery) => set({ discoverySearchQuery }),
+    setDiscoverySelectedTopic: (discoverySelectedTopic) => set({ discoverySelectedTopic }),
+    setDiscoveryHasMore: (channel, hasMore) => set((state) => ({
+      discoveryHasMore: { ...state.discoveryHasMore, [channel]: hasMore },
+    })),
+    setDiscoveryNextPage: (channel, page) => set((state) => ({
+      discoveryNextPage: { ...state.discoveryNextPage, [channel]: page },
+    })),
+    setDiscoveryTotalCount: (channel, count) => set((state) => ({
+      discoveryTotalCount: { ...state.discoveryTotalCount, [channel]: count },
+    })),
+    setTrendingTimeRange: (range) => set({ trendingTimeRange: range }),
+  setDiscoveryScrollPosition: (channel, position) => set((state) => ({
+      discoveryScrollPositions: { ...state.discoveryScrollPositions, [channel]: position },
+    })),
+    appendDiscoveryRepos: (channel, repos) => set((state) => ({
+      discoveryRepos: { 
+        ...state.discoveryRepos, 
+        [channel]: [...(state.discoveryRepos[channel] || []), ...repos] 
+      },
+    })),
+    }),
+    {
+      name: 'github-stars-manager',
+      version: 9,
+      storage: debouncedPersistStorage,
+      partialize: (state) => ({
+        // 持久化用户信息和认证状态
+        user: state.user,
+        githubToken: state.githubToken,
+        isAuthenticated: state.isAuthenticated,
+
+        // 持久化仓库数据
+        repositories: state.repositories,
+        lastSync: state.lastSync,
+
+        // 持久化 Gist 数据
+        gists: state.gists,
+        starredGists: state.starredGists,
+        gistSearchFilters: {
+          sortBy: state.gistSearchFilters.sortBy,
+          sortOrder: state.gistSearchFilters.sortOrder,
+        },
+        selectedGistCategory: state.selectedGistCategory,
+        analyzingGistIds: Array.from(state.analyzingGistIds),
+
+        // 持久化AI配置
+        aiConfigs: state.aiConfigs,
+        activeAIConfig: state.activeAIConfig,
+
+        // 持久化Embedding配置
+        embeddingConfigs: state.embeddingConfigs,
+        activeEmbeddingConfig: state.activeEmbeddingConfig,
+
+        // 持久化向量搜索配置
+        vectorSearchConfig: state.vectorSearchConfig,
+        // 持久化向量搜索状态（vectorCount 等，跨重启保留）
+        vectorSearchStatus: state.vectorSearchStatus,
+
+        // 持久化WebDAV配置
+        webdavConfigs: state.webdavConfigs,
+        activeWebDAVConfig: state.activeWebDAVConfig,
+        lastBackup: state.lastBackup,
+
+        // 持久化Release订阅、来源和已读状态
+        releaseSubscriptions: Array.from(state.releaseSubscriptions),
+        releaseSourceSettings: state.releaseSourceSettings,
+        readReleases: Array.from(state.readReleases),
+        releases: state.releases,
+
+        // 持久化Fork数据
+        forks: state.forks,
+        readForks: Array.from(state.readForks),
+
+        // 持久化自定义分类
+        customCategories: state.customCategories,
+        hiddenDefaultCategoryIds: state.hiddenDefaultCategoryIds,
+        categoryOrder: state.categoryOrder,
+        collapsedSidebarCategoryCount: state.collapsedSidebarCategoryCount,
+        defaultCategoryOverrides: state.defaultCategoryOverrides,
+
+        // 持久化资源过滤器
+        assetFilters: state.assetFilters,
+
+        // 持久化UI设置
+        theme: state.theme,
+        currentView: state.currentView,
+        selectedCategory: state.selectedCategory,
+        language: state.language,
+        isSidebarCollapsed: state.isSidebarCollapsed,
+        headerMenuConfig: state.headerMenuConfig,
+
+        // backendApiSecret: 保留在内存中，不持久化（安全考虑）
+
+        // 持久化搜索排序设置
+        searchFilters: {
+          sortBy: state.searchFilters.sortBy,
+          sortOrder: state.searchFilters.sortOrder,
+        },
+
+        // 持久化Release页面视图设置
+        releaseViewMode: state.releaseViewMode,
+        releaseShowMode: state.releaseShowMode,
+        releaseLatestMode: state.releaseLatestMode,
+        releaseSelectedFilters: state.releaseSelectedFilters,
+        releaseSearchQuery: state.releaseSearchQuery,
+        releaseExpandedRepositories: Array.from(state.releaseExpandedRepositories),
+        includePreRelease: state.includePreRelease,
+        includeKeysInBackup: state.includeKeysInBackup,
+
+        // 持久化Fork页面视图设置
+        forkViewMode: state.forkViewMode,
+        forkSelectedFilters: state.forkSelectedFilters,
+        forkSearchQuery: state.forkSearchQuery,
+        forkExpandedRepositories: Array.from(state.forkExpandedRepositories),
+
+      // 持久化发现设置
+      discoveryChannels: state.discoveryChannels,
+      selectedDiscoveryChannel: state.selectedDiscoveryChannel,
+      // discoveryRepos 不持久化，它是极其庞大的 JSON 对象。
+      // 在 Electron 41/v8/macOS 上的 IDB partialize 阶段，
+      // 由于频繁序列化这个可能达数MB的大对象，会触发底层 JIT CHECK assertion failed (brk 0) 导致崩溃。
+      // 这里的会话级运行时数据都取消持久化：
+      // discoveryRepos
+      // discoveryLastRefresh
+      // discoveryTotalCount
+      // discoveryHasMore
+      // discoveryNextPage
+      discoveryPlatform: state.discoveryPlatform,
+      discoveryLanguage: state.discoveryLanguage,
+      discoverySortBy: state.discoverySortBy,
+      discoverySortOrder: state.discoverySortOrder,
+      discoverySelectedTopic: state.discoverySelectedTopic,
+      // 持久化代理配置，但排除密码（安全考虑）
+      proxyConfig: {
+        enabled: state.proxyConfig.enabled,
+        type: state.proxyConfig.type,
+        host: state.proxyConfig.host,
+        port: state.proxyConfig.port,
+        username: state.proxyConfig.username,
+        // password 不持久化，仅保留在内存中
+      },
+      // 持久化 RPC 下载配置（含密钥，确保重启后不丢失）
+      rpcDownloadConfig: {
+        enabled: state.rpcDownloadConfig.enabled,
+        host: state.rpcDownloadConfig.host,
+        port: state.rpcDownloadConfig.port,
+        secret: state.rpcDownloadConfig.secret,
+      },
+      }),
+      migrate: (persistedState) => {
+        // 版本升级适配处理
+        const state = persistedState as PersistedAppState | undefined;
+
+        if (state && !state.releaseSourceSettings) {
+          console.log('Migrating from old version: initializing releaseSourceSettings');
+          state.releaseSourceSettings = defaultReleaseSourceSettings;
+        } else if (state) {
+          state.releaseSourceSettings = normalizeReleaseSourceSettings(state.releaseSourceSettings);
+        }
+
+        // 从旧版本升级时，确保 categoryOrder 字段存在
+        if (state && !Array.isArray(state.categoryOrder)) {
+          console.log('Migrating from old version: initializing categoryOrder');
+          state.categoryOrder = [];
+        }
+
+        // 从旧版本升级时，确保 collapsedSidebarCategoryCount 字段存在
+        if (state && typeof state.collapsedSidebarCategoryCount !== 'number') {
+          console.log('Migrating from old version: initializing collapsedSidebarCategoryCount');
+          state.collapsedSidebarCategoryCount = 20;
+        }
+
+        // 从旧版本升级时，确保 defaultCategoryOverrides 字段存在
+        if (state && typeof state.defaultCategoryOverrides !== 'object') {
+          console.log('Migrating from old version: initializing defaultCategoryOverrides');
+          state.defaultCategoryOverrides = {};
+        }
+
+        // 从旧版本升级时，确保 vectorSearchStatus 字段存在（vectorCount 等）
+        if (state && !state.vectorSearchStatus) {
+          console.log('Migrating from old version: initializing vectorSearchStatus');
+          state.vectorSearchStatus = { connected: false, vectorCount: 0, dimensions: 0 };
+        }
+
+        // 迁移仓库数据中的旧标记
+        if (state && Array.isArray(state.repositories)) {
+          let migratedCount = 0;
+          state.repositories = state.repositories.map((repo: Repository) => {
+            // 将旧的 '__EMPTY__' 标记转换为空字符串（表示用户明确清空）
+            if (repo.custom_description === '__EMPTY__') {
+              migratedCount++;
+              return { ...repo, custom_description: '' };
+            }
+            return repo;
+          });
+          if (migratedCount > 0) {
+            console.log(`Migrated ${migratedCount} repositories: converted '__EMPTY__' to empty string`);
+          }
+        }
+
+  if (state && !state.selectedDiscoveryChannel) {
+    state.selectedDiscoveryChannel = 'trending';
+  }
+  if (state && (!state.discoveryChannels || !Array.isArray(state.discoveryChannels))) {
+    state.discoveryChannels = defaultDiscoveryChannels;
+  } else if (state && Array.isArray(state.discoveryChannels)) {
+    const persistedChannels = state.discoveryChannels as unknown[];
+    state.discoveryChannels = defaultDiscoveryChannels.map((defaultChannel) => {
+      const persistedChannel = persistedChannels.find((channel) => {
+        return (channel as Record<string, unknown>)?.id === defaultChannel.id;
+      }) as Record<string, unknown> | undefined;
+
+      if (!persistedChannel) {
+        return defaultChannel;
+      }
+
+      return {
+      ...defaultChannel,
+      enabled: persistedChannel.enabled !== false,
+    };
+    });
+  }
+  // 迁移订阅频道（版本 4→5：daily-dev → most-dev，新增 trending，补全 nameEn）
+  const defaultChannelsMap = new Map(defaultSubscriptionChannels.map(ch => [ch.id, ch]));
+  if (state && !Array.isArray(state.subscriptionChannels)) {
+    console.log('Migrating: initializing subscription channels');
+    state.subscriptionChannels = defaultSubscriptionChannels;
+  } else if (state && Array.isArray(state.subscriptionChannels)) {
+    state.subscriptionChannels = state.subscriptionChannels.map((ch: unknown) => {
+      const chRecord = ch as Record<string, unknown>;
+      const defaultCh = defaultChannelsMap.get(chRecord.id as string);
+      if (chRecord.id === 'daily-dev' || chRecord.id === 'most-dev') {
+        return { ...chRecord, id: 'most-dev', name: '热门开发者', nameEn: 'Top Developers', icon: '👤' } as unknown as SubscriptionChannel;
+      }
+      if (defaultCh) {
+        return {
+          ...(chRecord as Partial<SubscriptionChannel>),
+          name: defaultCh.name, // 始终使用中文名称
+          nameEn: (chRecord.nameEn as string) || defaultCh.nameEn || (chRecord.name as string) || defaultCh.nameEn,
+          icon: (chRecord.icon as string) || defaultCh.icon,
+          description: (chRecord.description as string) || defaultCh.description,
+        } as unknown as SubscriptionChannel;
+      }
+      return chRecord as unknown as SubscriptionChannel;
+    });
+    // 确保 trending 频道存在（如果缺失则添加）
+    const hasTrending = state.subscriptionChannels.some((ch: SubscriptionChannel) => ch.id === 'trending');
+    if (!hasTrending) {
+      console.log('Migrating: adding trending channel');
+      state.subscriptionChannels.push({
+        id: 'trending',
+        name: '热门趋势',
+        nameEn: 'Trending',
+        icon: 'trending',
+        description: 'GitHub 上近期最受关注的项目 Top 10',
+        enabled: true,
+      } as SubscriptionChannel);
+    }
+  }
+  if (state && !state.discoveryPlatform) {
+    state.discoveryPlatform = 'All';
+  }
+  // 版本 6→7：新增 includeKeysInBackup（默认 false，安全优先）
+  if (state && typeof state.includeKeysInBackup !== 'boolean') {
+    console.log('Migrating: initializing includeKeysInBackup to false (security first)');
+    state.includeKeysInBackup = false;
+  }
+  if (state && !state.discoveryLanguage) {
+    state.discoveryLanguage = 'All';
+  }
+  if (state && !state.discoverySortBy) {
+    state.discoverySortBy = 'BestMatch';
+  }
+  if (state && !state.discoverySortOrder) {
+    state.discoverySortOrder = 'Descending';
+  }
+  // discoveryIsLoading 不应持久化，migrate 时始终重置防止旧数据格式异常导致 spread 崩溃
+  if (state) {
+    (state as Record<string, unknown>).discoveryIsLoading = {
+      'trending': false, 'hot-release': false, 'most-popular': false, 'topic': false, 'search': false,
+    };
+    // discoveryScrollPositions 同样不应持久化，重置以避免 stale 滚动位置
+    (state as Record<string, unknown>).discoveryScrollPositions = {
+      'trending': 0, 'hot-release': 0, 'most-popular': 0, 'topic': 0, 'search': 0,
+    };
+  }
+
+  // v5→v6: 初始化 proxyConfig
+  if (state && !(state as Record<string, unknown>).proxyConfig) {
+    (state as Record<string, unknown>).proxyConfig = { enabled: false, type: 'http', host: '', port: 7890 };
+  }
+
+  // 初始化 rpcDownloadConfig
+  if (state && !(state as Record<string, unknown>).rpcDownloadConfig) {
+    (state as Record<string, unknown>).rpcDownloadConfig = { enabled: false, host: '', port: 6800 };
+  }
+
+  // v8→v9: 初始化 headerMenuConfig
+  if (state && !Array.isArray((state as Record<string, unknown>).headerMenuConfig)) {
+    (state as Record<string, unknown>).headerMenuConfig = defaultHeaderMenuConfig;
+  }
+
+  // 初始化 embeddingConfigs
+  if (state && !Array.isArray((state as Record<string, unknown>).embeddingConfigs)) {
+    (state as Record<string, unknown>).embeddingConfigs = [];
+  }
+  if (state && typeof (state as Record<string, unknown>).activeEmbeddingConfig !== 'string') {
+    (state as Record<string, unknown>).activeEmbeddingConfig = null;
+  }
+
+  // 初始化/迁移 vectorSearchConfig
+  if (state) {
+    const stateRecord = state as Record<string, unknown>;
+    stateRecord.vectorSearchConfig = normalizeVectorSearchConfig(
+      stateRecord.vectorSearchConfig,
+      stateRecord.embeddingConfigs
+    );
+  }
+
+        return state as PersistedAppState;
+      },
+      merge: (persistedState, currentState) => {
+        const normalized = normalizePersistedState(
+          persistedState as PersistedAppState | undefined,
+          currentState as AppState & AppActions
+        );
+
+        logger.info('store.hydrate', 'Store rehydrated', {
+          isAuthenticated: normalized.isAuthenticated,
+          repositoriesCount: normalized.repositories?.length || 0,
+          gistsCount: normalized.gists?.length || 0,
+          lastSync: normalized.lastSync,
+          language: normalized.language,
+          webdavConfigsCount: normalized.webdavConfigs?.length || 0,
+          customCategoriesCount: normalized.customCategories?.length || 0,
+        });
+
+        return {
+          ...currentState,
+          ...normalized,
+        };
+      },
+      onRehydrateStorage: (state) => {
+        const hydrationStart = Date.now();
+        return (_rehydratedState, error) => {
+          const elapsedMs = Date.now() - hydrationStart;
+          if (error) {
+            logger.errorFromError('store.hydrate', 'Store hydration failed', error, { elapsedMs });
+          } else {
+            logger.info('store.hydrate', 'Store hydration complete', { elapsedMs });
+          }
+          state.setHasHydrated(true);
+        };
+      },
+    }
+  )
+);
+
+// Helper function to sort categories by order
+export const sortCategoriesByOrder = (
+  categories: Category[],
+  categoryOrder: string[]
+): Category[] => {
+  if (!categoryOrder || categoryOrder.length === 0) {
+    return categories;
+  }
+
+  const orderMap = new Map(categoryOrder.map((id, index) => [id, index]));
+
+  return [...categories].sort((a, b) => {
+    const orderA = orderMap.get(a.id);
+    const orderB = orderMap.get(b.id);
+
+    // 如果两个都有顺序，按顺序排序
+    if (orderA !== undefined && orderB !== undefined) {
+      return orderA - orderB;
+    }
+    // 如果只有a有顺序，a排在前面
+    if (orderA !== undefined) return -1;
+    // 如果只有b有顺序，b排在前面
+    if (orderB !== undefined) return 1;
+    // 都没有顺序，保持原顺序
+    return 0;
+  });
+};
+
+// Helper function to get all categories (default + custom)
+export const getAllCategories = (
+  customCategories: Category[],
+  language: 'zh' | 'en' = 'zh',
+  hiddenDefaultCategoryIds: string[] = [],
+  defaultCategoryOverrides: Record<string, Partial<Category>> = {}
+): Category[] => {
+  const translatedDefaults = defaultCategories
+    .filter(cat => !hiddenDefaultCategoryIds.includes(cat.id))
+    .map(cat => {
+      const override = defaultCategoryOverrides[cat.id];
+      const baseName = language === 'en' ? translateCategoryName(cat.name) : cat.name;
+      return {
+        ...cat,
+        name: baseName,
+        ...(override ? { name: override.name ?? baseName, icon: override.icon ?? cat.icon, keywords: override.keywords ?? cat.keywords } : {})
+      };
+    });
+
+  return [...translatedDefaults, ...customCategories];
+};
+
+// Helper function to translate category names
+const translateCategoryName = (zhName: string): string => {
+  const translations: Record<string, string> = {
+    '全部分类': 'All Categories',
+    'Web应用': 'Web Apps',
+    '移动应用': 'Mobile Apps',
+    '桌面应用': 'Desktop Apps',
+    '数据库': 'Database',
+    'AI/机器学习': 'AI/Machine Learning',
+    '开发工具': 'Development Tools',
+    '安全工具': 'Security Tools',
+    '游戏': 'Games',
+    '设计工具': 'Design Tools',
+    '效率工具': 'Productivity Tools',
+    '教育学习': 'Education',
+    '社交网络': 'Social Network',
+    '数据分析': 'Data Analytics'
+  };
+  
+  return translations[zhName] || zhName;
+};
+
+// Helper function to get all possible name variants for a category (original + translated)
+const getCategoryNameVariants = (originalName: string, overrideName?: string): string[] => {
+  const variants = new Set<string>();
+  
+  // Add original name
+  variants.add(originalName);
+  
+  // Add translated name
+  const translated = translateCategoryName(originalName);
+  if (translated !== originalName) {
+    variants.add(translated);
+  }
+  
+  // Add override name if provided and different
+  if (overrideName && overrideName !== originalName) {
+    variants.add(overrideName);
+    // Also add translated version of override if it matches a known pattern
+    const overrideTranslated = translateCategoryName(overrideName);
+    if (overrideTranslated !== overrideName) {
+      variants.add(overrideTranslated);
+    }
+  }
+  
+  return Array.from(variants);
+};

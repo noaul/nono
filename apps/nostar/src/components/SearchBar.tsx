@@ -1,0 +1,1495 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, X, SlidersHorizontal, Monitor, Smartphone, Globe, Terminal, Package, CheckCircle, Bell, BellOff, Apple, Bot, Edit3, Lock, Unlock, AlertCircle, ChevronDown, RefreshCw, Clock } from 'lucide-react';
+import { useAppStore, getAllCategories } from '../store/useAppStore';
+import { AIService } from '../services/aiService';
+import { EmbeddingClient, VectorSearchService } from '../services/vectorSearchService';
+import { GitHubApiService } from '../services/githubApi';
+import { forceSyncToBackend } from '../services/autoSync';
+import { Repository } from '../types';
+import { useSearchShortcuts } from '../hooks/useSearchShortcuts';
+import { useDialog } from '../hooks/useDialog';
+import { isRepoCustomized } from '../utils/repoUtils';
+import { NumberInput } from './ui/NumberInput';
+
+type SortBy = 'stars' | 'updated' | 'name' | 'starred';
+
+const sortOptions: { value: SortBy; labelZh: string; labelEn: string }[] = [
+  { value: 'stars', labelZh: '按星标排序', labelEn: 'Sort by Stars' },
+  { value: 'updated', labelZh: '按更新排序', labelEn: 'Sort by Updated' },
+  { value: 'name', labelZh: '按名称排序', labelEn: 'Sort by Name' },
+  { value: 'starred', labelZh: '按加星时间排序', labelEn: 'Sort by Starred Time' },
+];
+
+interface SortByDropdownProps {
+  value: SortBy;
+  onChange: (value: SortBy) => void;
+  t: (zh: string, en: string) => string;
+}
+
+const SortByDropdown: React.FC<SortByDropdownProps> = ({ value, onChange, t }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selected = sortOptions.find(o => o.value === value);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-gray-600 transition-colors"
+      >
+        <span>{t(selected?.labelZh ?? '', selected?.labelEn ?? '')}</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] shadow-lg py-1 z-40 overflow-hidden">
+          {sortOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`flex w-full items-center px-4 py-2 text-sm transition-colors ${
+                value === option.value
+                  ? 'bg-brand-indigo/15 text-brand-indigo dark:bg-brand-indigo/20 dark:text-white'
+                  : 'text-gray-900 dark:text-text-secondary hover:bg-light-bg dark:hover:bg-white/10'
+              }`}
+            >
+              {t(option.labelZh, option.labelEn)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const SearchBar: React.FC = () => {
+  const {
+    searchFilters,
+    repositories,
+    releaseSubscriptions,
+    aiConfigs,
+    activeAIConfig,
+    language,
+    setSearchFilters,
+    setSearchResults,
+    customCategories,
+    hiddenDefaultCategoryIds,
+    defaultCategoryOverrides,
+    githubToken,
+    lastSync,
+    setRepositories,
+    setLastSync,
+    isSyncingStars,
+    setSyncingStars,
+  } = useAppStore();
+
+  const { toast } = useDialog();
+  
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(searchFilters.query);
+  const [isSearching, setIsSearching] = useState(false);
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
+  const [isRealTimeSearch, setIsRealTimeSearch] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  
+  const allCategories = useMemo(() => 
+    getAllCategories(customCategories, language, hiddenDefaultCategoryIds, defaultCategoryOverrides),
+    [customCategories, language, hiddenDefaultCategoryIds, defaultCategoryOverrides]
+  );
+  
+  const statusStats = useMemo(() => {
+    const stats = {
+      analyzed: 0,      // 已AI分析（成功）
+      notAnalyzed: 0,   // 未AI分析
+      failed: 0,        // 分析失败
+      subscribed: 0,    // 已订阅Release
+      notSubscribed: 0, // 未订阅Release
+      edited: 0,        // 已编辑
+      notEdited: 0,     // 未编辑
+      locked: 0,        // 分类已锁定
+      notLocked: 0,     // 分类未锁定
+    };
+    
+    repositories.forEach(repo => {
+      // AI分析状态统计
+      if (repo.analyzed_at && repo.analysis_failed) {
+        stats.failed++;
+      } else if (repo.analyzed_at && !repo.analysis_failed) {
+        stats.analyzed++;
+      } else {
+        stats.notAnalyzed++;
+      }
+      
+      // 订阅状态统计
+      if (releaseSubscriptions.has(repo.id)) {
+        stats.subscribed++;
+      } else {
+        stats.notSubscribed++;
+      }
+      
+      // 自定义状态统计
+      if (isRepoCustomized(repo, allCategories)) {
+        stats.edited++;
+      } else {
+        stats.notEdited++;
+      }
+
+      // 锁定状态统计
+      const isCategoryLocked = !!repo.category_locked;
+      if (isCategoryLocked) {
+        stats.locked++;
+      } else {
+        stats.notLocked++;
+      }
+    });
+    
+    return stats;
+  }, [repositories, releaseSubscriptions, allCategories]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const skipNextTextSearchRef = useRef(false);
+  const vectorScoreMapRef = useRef<{ query: string; scores: Map<string, number> } | null>(null);
+  const [searchPhase, setSearchPhase] = useState<string | null>(null);
+  const filterChipBaseClass = 'flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm border transition-colors';
+  const filterChipActiveClass = 'bg-brand-indigo text-white border-brand-indigo shadow-sm dark:bg-brand-indigo/80 dark:text-white dark:border-brand-indigo/70 font-medium';
+  const filterChipInactiveClass = 'bg-white border-black/[0.06] text-gray-700 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary';
+  const filterTagBaseClass = 'px-3 py-1.5 rounded-lg text-sm border transition-colors';
+
+  useEffect(() => {
+    // Extract unique languages, tags, and platforms from repositories
+    const languages = [...new Set(repositories.map(r => r.language).filter(Boolean))] as string[];
+    // 标签包含AI标签、GitHub topics和用户自定义标签
+    const tags = [...new Set([
+      ...repositories.flatMap(r => r.ai_tags || []),
+      ...repositories.flatMap(r => r.topics || []),
+      ...repositories.flatMap(r => r.custom_tags || [])
+    ])];
+    const platforms = [...new Set(repositories.flatMap(r => r.ai_platforms || []))] as string[];
+
+    setAvailableLanguages(languages);
+    setAvailableTags(tags);
+    setAvailablePlatforms(platforms);
+
+    // Generate search suggestions from available data
+    const suggestions = [
+      ...languages.slice(0, 5),
+      ...tags.slice(0, 10),
+      ...platforms.slice(0, 5)
+    ].filter(Boolean);
+    setSearchSuggestions([...new Set(suggestions)]);
+
+    // Load search history from localStorage
+    const savedHistory = localStorage.getItem('github-stars-search-history');
+    if (savedHistory) {
+      try {
+        const history = JSON.parse(savedHistory);
+        setSearchHistory(Array.isArray(history) ? history.slice(0, 10) : []);
+      } catch (error) {
+        console.warn('Failed to load search history:', error);
+      }
+    }
+  }, [repositories]);
+
+  useEffect(() => {
+    const performSearch = async () => {
+      // Skip if vector search just set results
+      if (skipNextTextSearchRef.current) {
+        skipNextTextSearchRef.current = false;
+        return;
+      }
+      // Check if vector search is still enabled
+      const vsEnabled = useAppStore.getState().vectorSearchConfig.enabled;
+      if (!vsEnabled) {
+        vectorScoreMapRef.current = null;
+      }
+      if (!searchFilters.query) {
+        vectorScoreMapRef.current = null;
+        performBasicFilter();
+      } else if (vectorScoreMapRef.current && vectorScoreMapRef.current.query === searchFilters.query && vsEnabled) {
+        // Vector results exist for this exact query and vector search is enabled — re-apply filters and re-sort by score
+        const { scores } = vectorScoreMapRef.current;
+        const reFiltered = applyFilters(repositories.filter(r => scores.has(String(r.id))));
+        const reSorted = reFiltered.sort(
+          (a, b) => (scores.get(String(b.id)) ?? 0) - (scores.get(String(a.id)) ?? 0)
+        );
+        setSearchResults(reSorted);
+      } else {
+        // Query changed or vector search disabled — clear stale ref and do text search
+        vectorScoreMapRef.current = null;
+      }
+      if (!vectorScoreMapRef.current) {
+        const textResults = performBasicTextSearch(repositories, searchFilters.query);
+        const finalFiltered = applyFilters(textResults);
+        setSearchResults(finalFiltered);
+      }
+    };
+
+    performSearch();
+    // Search helpers are intentionally kept as local closures; the explicit deps below
+    // cover the state they read without causing a search loop on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchFilters.languages, searchFilters.tags, searchFilters.platforms, searchFilters.isAnalyzed, searchFilters.isSubscribed, searchFilters.isEdited, searchFilters.isCategoryLocked, searchFilters.analysisFailed, searchFilters.minStars, searchFilters.maxStars, searchFilters.sortBy, searchFilters.sortOrder, searchFilters.query, repositories, releaseSubscriptions, allCategories]);
+
+  // Real-time search effect for repository name matching
+  useEffect(() => {
+    if (searchQuery.trim() && isRealTimeSearch && !isComposing) {
+      const timeoutId = setTimeout(() => {
+        performRealTimeSearch(searchQuery);
+      }, 300); // 300ms debounce to avoid too frequent searches
+
+      return () => clearTimeout(timeoutId);
+    } else if (!searchQuery.trim()) {
+      // Reset to show all repositories when search is empty or whitespace-only
+      performBasicFilter();
+    }
+    // Search helpers are intentionally kept as local closures; the explicit deps below
+    // cover the state they read without causing a search loop on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, isRealTimeSearch, isComposing, repositories, allCategories]);
+
+  const updateRealTimeSearchState = (value: string) => {
+    setIsRealTimeSearch(Boolean(value.trim()));
+  };
+
+  // Handle composition events for IME input (Chinese/Japanese/Korean).
+  // Track composition separately so the debounce pauses for preedit text without
+  // relying on composition events to re-arm real-time search after typing.
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    setIsComposing(false);
+    updateRealTimeSearchState(e.currentTarget.value);
+  };
+
+  const performRealTimeSearch = (query: string) => {
+    const startTime = performance.now();
+    
+    if (!query.trim()) {
+      performBasicFilter();
+      return;
+    }
+
+    // Real-time search only matches repository names for fast response
+    const normalizedQuery = query.toLowerCase();
+    const filtered = repositories.filter(repo => {
+      return repo.name.toLowerCase().includes(normalizedQuery) ||
+             repo.full_name.toLowerCase().includes(normalizedQuery);
+    });
+
+    // Apply other filters
+    const finalFiltered = applyFilters(filtered);
+    setSearchResults(finalFiltered);
+    
+    const endTime = performance.now();
+    console.log(`Real-time search completed in ${(endTime - startTime).toFixed(2)}ms`);
+  };
+
+  const performBasicFilter = () => {
+    const filtered = applyFilters(repositories);
+    setSearchResults(filtered);
+  };
+
+  const performBasicTextSearch = (repos: typeof repositories, query: string) => {
+    const normalizedQuery = query.toLowerCase();
+    
+    return repos.filter(repo => {
+      const searchableText = [
+        repo.name,
+        repo.full_name,
+        repo.description || '',
+        repo.custom_description || '',
+        repo.language || '',
+        ...(repo.topics || []),
+        repo.ai_summary || '',
+        ...(repo.ai_tags || []),
+        ...(repo.ai_platforms || []),
+        ...(repo.custom_tags || []),
+      ].join(' ').toLowerCase();
+      
+      const queryWords = normalizedQuery.split(/\s+/);
+      return queryWords.every(word => searchableText.includes(word));
+    });
+  };
+
+  const applyFilters = (repos: typeof repositories) => {
+    let filtered = repos;
+
+    // Language filter
+    if (searchFilters.languages.length > 0) {
+      filtered = filtered.filter(repo => 
+        repo.language && searchFilters.languages.includes(repo.language)
+      );
+    }
+
+    // Tag filter - 包含AI标签、GitHub topics和用户自定义标签
+    if (searchFilters.tags.length > 0) {
+      filtered = filtered.filter(repo => {
+        const repoTags = [
+          ...(repo.ai_tags || []),
+          ...(repo.topics || []),
+          ...(repo.custom_tags || [])
+        ];
+        return searchFilters.tags.some(tag => repoTags.includes(tag));
+      });
+    }
+
+    // Platform filter
+    if (searchFilters.platforms.length > 0) {
+      filtered = filtered.filter(repo => {
+        const repoPlatforms = repo.ai_platforms || [];
+        return searchFilters.platforms.some(platform => repoPlatforms.includes(platform));
+      });
+    }
+
+    // AI analyzed filter - 与 analysisFailed 互斥
+    if (searchFilters.isAnalyzed !== undefined && searchFilters.analysisFailed === undefined) {
+      filtered = filtered.filter(repo => 
+        searchFilters.isAnalyzed ? (!!repo.analyzed_at && !repo.analysis_failed) : !repo.analyzed_at
+      );
+    }
+
+    // Release subscription filter
+    if (searchFilters.isSubscribed !== undefined) {
+      filtered = filtered.filter(repo => 
+        searchFilters.isSubscribed ? releaseSubscriptions.has(repo.id) : !releaseSubscriptions.has(repo.id)
+      );
+    }
+
+    // 自定义筛选
+    if (searchFilters.isEdited !== undefined) {
+      filtered = filtered.filter(repo =>
+        searchFilters.isEdited ? isRepoCustomized(repo, allCategories) : !isRepoCustomized(repo, allCategories)
+      );
+    }
+
+    // Category locked filter - 检查分类是否被锁定
+    if (searchFilters.isCategoryLocked !== undefined) {
+      filtered = filtered.filter(repo => {
+        const isLocked = !!repo.category_locked;
+        return searchFilters.isCategoryLocked ? isLocked : !isLocked;
+      });
+    }
+
+    // Analysis failed filter - 检查分析是否失败（需要有分析记录且标记为失败），与 isAnalyzed 互斥
+    if (searchFilters.analysisFailed !== undefined && searchFilters.isAnalyzed === undefined) {
+      filtered = filtered.filter(repo => {
+        const hasFailed = !!(repo.analyzed_at && repo.analysis_failed);
+        return searchFilters.analysisFailed ? hasFailed : !hasFailed;
+      });
+    }
+
+    // Star count filter
+    if (searchFilters.minStars !== undefined) {
+      filtered = filtered.filter(repo => repo.stargazers_count >= searchFilters.minStars!);
+    }
+    if (searchFilters.maxStars !== undefined) {
+      filtered = filtered.filter(repo => repo.stargazers_count <= searchFilters.maxStars!);
+    }
+
+    // Sort
+    const getSortValue = (repo: Repository): number | string => {
+      switch (searchFilters.sortBy) {
+        case 'stars':
+          return repo.stargazers_count;
+        case 'updated':
+          return new Date(repo.pushed_at || repo.updated_at).getTime();
+        case 'name':
+          return repo.name.toLowerCase();
+        case 'starred':
+          return repo.starred_at ? new Date(repo.starred_at).getTime() : 0;
+        default:
+          return new Date(repo.pushed_at || repo.updated_at).getTime();
+      }
+    };
+
+    filtered.sort((a, b) => {
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+      if (aValue < bValue) return searchFilters.sortOrder === 'desc' ? 1 : -1;
+      if (aValue > bValue) return searchFilters.sortOrder === 'desc' ? -1 : 1;
+      return 0;
+    });
+
+    // 如果分类锁定筛选导致结果为0，自动清除该筛选条件
+    if (searchFilters.isCategoryLocked !== undefined && filtered.length === 0) {
+      // 检查是否是分类锁定筛选导致的结果为空
+      const filteredWithoutCategoryLock = repos.filter(repo => {
+        // 复制当前的筛选条件，但排除分类锁定
+        let tempFiltered = true;
+
+        // Language filter
+        if (searchFilters.languages.length > 0) {
+          tempFiltered = tempFiltered && !!(repo.language && searchFilters.languages.includes(repo.language));
+        }
+
+        // Tag filter
+        if (searchFilters.tags.length > 0) {
+          const repoTags = [...(repo.ai_tags || []), ...(repo.topics || []), ...(repo.custom_tags || [])];
+          tempFiltered = tempFiltered && searchFilters.tags.some(tag => repoTags.includes(tag));
+        }
+
+        // Platform filter
+        if (searchFilters.platforms.length > 0) {
+          const repoPlatforms = repo.ai_platforms || [];
+          tempFiltered = tempFiltered && searchFilters.platforms.some(platform => repoPlatforms.includes(platform));
+        }
+
+        // AI analyzed filter
+        if (searchFilters.isAnalyzed !== undefined && searchFilters.analysisFailed === undefined) {
+          tempFiltered = tempFiltered && (searchFilters.isAnalyzed ? (!!repo.analyzed_at && !repo.analysis_failed) : !repo.analyzed_at);
+        }
+
+        // Release subscription filter
+        if (searchFilters.isSubscribed !== undefined) {
+          tempFiltered = tempFiltered && (searchFilters.isSubscribed ? releaseSubscriptions.has(repo.id) : !releaseSubscriptions.has(repo.id));
+        }
+
+        // Edited filter
+        if (searchFilters.isEdited !== undefined) {
+          const customized = isRepoCustomized(repo, allCategories);
+          tempFiltered = tempFiltered && (searchFilters.isEdited ? customized : !customized);
+        }
+
+        // Analysis failed filter
+        if (searchFilters.analysisFailed !== undefined && searchFilters.isAnalyzed === undefined) {
+          const hasFailed = !!(repo.analyzed_at && repo.analysis_failed);
+          tempFiltered = tempFiltered && (searchFilters.analysisFailed ? hasFailed : !hasFailed);
+        }
+
+        // Star count filter
+        if (searchFilters.minStars !== undefined) {
+          tempFiltered = tempFiltered && repo.stargazers_count >= searchFilters.minStars;
+        }
+        if (searchFilters.maxStars !== undefined) {
+          tempFiltered = tempFiltered && repo.stargazers_count <= searchFilters.maxStars;
+        }
+
+        return tempFiltered;
+      });
+
+      // 如果去掉分类锁定筛选后有结果，说明是分类锁定导致的结果为空，自动清除
+      if (filteredWithoutCategoryLock.length > 0) {
+        console.log('分类锁定筛选导致结果为空，自动清除该筛选条件');
+        setSearchFilters({ isCategoryLocked: undefined });
+        // 返回去掉分类锁定筛选的结果
+        return filteredWithoutCategoryLock.sort((a, b) => {
+          const aValue = getSortValue(a);
+          const bValue = getSortValue(b);
+          if (aValue < bValue) return searchFilters.sortOrder === 'desc' ? 1 : -1;
+          if (aValue > bValue) return searchFilters.sortOrder === 'desc' ? -1 : 1;
+          return 0;
+        });
+      }
+    }
+
+    return filtered;
+  };
+
+  const handleAISearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    // Switch to AI search mode and trigger advanced search
+    setIsRealTimeSearch(false);
+    setShowSearchHistory(false);
+    setShowSuggestions(false);
+    
+    // Add to search history if not empty and not already in history
+    if (searchQuery.trim() && !searchHistory.includes(searchQuery.trim())) {
+      const newHistory = [searchQuery.trim(), ...searchHistory.slice(0, 9)];
+      setSearchHistory(newHistory);
+      localStorage.setItem('github-stars-search-history', JSON.stringify(newHistory));
+    }
+    
+    // Trigger AI search immediately
+    setIsSearching(true);
+    setSearchPhase(null);
+    vectorScoreMapRef.current = null;
+    console.log('🔍 Starting AI search for query:', searchQuery);
+
+    try {
+      let filtered = repositories;
+
+      // ====== 向量搜索分支 ======
+      const vsConfig = useAppStore.getState().vectorSearchConfig;
+      const embConfigs = useAppStore.getState().embeddingConfigs;
+      const activeEmbConfig = embConfigs.find(c => c.id === vsConfig?.embeddingConfigId);
+
+      if (vsConfig?.enabled && vsConfig?.workerUrl && activeEmbConfig) {
+        try {
+          const embeddingClient = new EmbeddingClient(activeEmbConfig);
+          const vectorService = new VectorSearchService(vsConfig);
+
+          // 1. HyDE 查询预处理：用 LLM 生成理想仓库描述再嵌入（可选，5 秒超时降级）
+          let embeddingQuery = searchQuery;
+          const hydeConfig = aiConfigs.find(config => config.id === activeAIConfig);
+          if (vsConfig.enableHyDE !== false && hydeConfig) {
+            const hydeAbort = new AbortController();
+            let hydeTimer: ReturnType<typeof setTimeout> | null = null;
+            try {
+              setSearchPhase(t('AI 分析查询...', 'AI analyzing query...'));
+              const hydeService = new AIService(hydeConfig, language);
+              embeddingQuery = await Promise.race([
+                hydeService.generateHyDEQuery(searchQuery, hydeAbort.signal).catch(() => searchQuery),
+                new Promise<string>((resolve) => {
+                  hydeTimer = setTimeout(() => {
+                    hydeAbort.abort();
+                    resolve(searchQuery);
+                  }, 5000);
+                }),
+              ]);
+              if (embeddingQuery !== searchQuery) {
+                console.log('🔮 HyDE generated:', embeddingQuery.slice(0, 100));
+              }
+            } catch (hydeError) {
+              console.warn('HyDE failed, using raw query:', hydeError);
+              embeddingQuery = searchQuery;
+            } finally {
+              if (hydeTimer) clearTimeout(hydeTimer);
+            }
+          }
+
+          // 2. 前端调用 Embedding API 生成查询向量
+          setSearchPhase(t('生成查询向量...', 'Generating query vector...'));
+          const queryVectors = await embeddingClient.embed([embeddingQuery], 'query');
+          if (queryVectors && queryVectors.length > 0) {
+            // 2. 前端将查询向量发送到 Worker
+            setSearchPhase(t('检索向量库...', 'Searching vector index...'));
+            const vectorResults = await vectorService.query(queryVectors[0], {
+              topK: vsConfig.searchTopK ?? 30,
+              threshold: vsConfig.searchThreshold ?? 0.35,
+            });
+
+            if (vectorResults.length > 0) {
+              // 3. 轻量关键词加分：精确匹配的字段给予分数微调
+              const queryLower = searchQuery.toLowerCase();
+              const boostedResults = vectorResults.map(r => {
+                let bonus = 0;
+                const name = (r.metadata?.full_name || '').toLowerCase();
+                const desc = (r.metadata?.description || '').toLowerCase();
+                const tags = (r.metadata?.tags || []).map(tag => tag.toLowerCase());
+                if (name.includes(queryLower)) bonus += 0.05;
+                if (desc.includes(queryLower)) bonus += 0.03;
+                if (tags.some(tag => tag.includes(queryLower))) bonus += 0.02;
+                return { ...r, score: r.score + bonus };
+              });
+
+              // 4. 从本地仓库数据中取出匹配结果，按相似度排序
+              const scoreMap = new Map(boostedResults.map(r => [r.id, r.score]));
+              const scoredRepos = filtered
+                .filter(repo => scoreMap.has(String(repo.id)))
+                .map(repo => ({
+                  repo,
+                  score: scoreMap.get(String(repo.id)) || 0,
+                }))
+                .sort((a, b) => b.score - a.score)
+                .map(item => item.repo);
+
+              if (scoredRepos.length > 0) {
+                // 4. AI 语义重排序：用 LLM 对向量搜索结果做真正的语义排序
+                let reranked = scoredRepos;
+                let rerankSucceeded = false;
+                const rerankConfig = aiConfigs.find(config => config.id === activeAIConfig);
+                if (rerankConfig && vsConfig.enableReranking !== false) {
+                  try {
+                    setSearchPhase(t('AI 语义重排序...', 'AI semantic reranking...'));
+                    const rerankService = new AIService(rerankConfig, language);
+                    reranked = await rerankService.searchRepositoriesWithSemanticReranking(scoredRepos, searchQuery);
+                    rerankSucceeded = true;
+                    console.log('🤖 AI semantically reranked results:', reranked.length);
+                  } catch (rerankError) {
+                    console.warn('AI semantic reranking failed, using vector order:', rerankError);
+                  }
+                }
+
+                // 保存 LLM 重排序顺序，applyFilters 可能按 UI 排序覆盖它
+                const rerankOrder = rerankSucceeded
+                  ? new Map(reranked.map((repo, index) => [String(repo.id), index]))
+                  : null;
+                const finalFiltered = applyFilters([...reranked]);
+                if (rerankOrder) {
+                  // 恢复 LLM 语义排序顺序
+                  finalFiltered.sort((a, b) =>
+                    (rerankOrder.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER)
+                    - (rerankOrder.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER)
+                  );
+                } else {
+                  finalFiltered.sort((a, b) => (scoreMap.get(String(b.id)) ?? 0) - (scoreMap.get(String(a.id)) ?? 0));
+                }
+                console.log('🎯 Vector search results:', finalFiltered.length);
+                vectorScoreMapRef.current = { query: searchQuery, scores: scoreMap };
+                skipNextTextSearchRef.current = true;
+                setSearchResults(finalFiltered);
+                setSearchFilters({ query: searchQuery });
+                return;
+              }
+            }
+          }
+          // 向量搜索无结果 → 继续走关键词搜索
+          console.log('⚠️ Vector search returned no results, falling back to keyword search');
+        } catch (vectorError) {
+          console.warn('❌ Vector search failed, falling back to keyword search:', vectorError);
+        }
+      }
+      // ====== 向量搜索分支结束 ======
+
+      const activeConfig = aiConfigs.find(config => config.id === activeAIConfig);
+      console.log('🤖 AI Config found:', !!activeConfig, 'Active AI Config ID:', activeAIConfig);
+      console.log('📋 Available AI Configs:', aiConfigs.length);
+      console.log('🔧 AI Configs:', aiConfigs.map(c => ({ id: c.id, name: c.name, hasApiKey: !!c.apiKey })));
+
+      if (activeConfig) {
+        try {
+          console.log('🚀 Calling AI service...');
+          setSearchPhase(t('AI 语义分析...', 'AI semantic analysis...'));
+          const aiService = new AIService(activeConfig, language);
+
+          // 先尝试AI搜索
+          const aiResults = await aiService.searchRepositoriesWithReranking(filtered, searchQuery);
+          console.log('✅ AI search completed, results:', aiResults.length);
+          
+          filtered = aiResults;
+        } catch (error) {
+          console.warn('❌ AI search failed, falling back to basic search:', error);
+          filtered = performBasicTextSearch(filtered, searchQuery);
+          console.log('🔄 Basic search fallback results:', filtered.length);
+        }
+      } else {
+        console.log('⚠️ No AI config found, using basic text search');
+        // Basic text search if no AI config
+        filtered = performBasicTextSearch(filtered, searchQuery);
+        console.log('📝 Basic search results:', filtered.length);
+      }
+      
+      // Apply other filters and update results
+      const finalFiltered = applyFilters(filtered);
+      console.log('🎯 Final filtered results:', finalFiltered.length);
+      console.log('📋 Final filtered repositories:', finalFiltered.map(r => r.name));
+      setSearchResults(finalFiltered);
+      
+      // Update search filters to mark that AI search was performed
+      setSearchFilters({ query: searchQuery });
+    } catch (error) {
+      console.error('💥 Search failed:', error);
+    } finally {
+      setIsSearching(false);
+      setSearchPhase(null);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsRealTimeSearch(false);
+    setSearchFilters({ query: '' });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    if (!value.trim() && searchFilters.query) {
+      setSearchFilters({ query: '' });
+    }
+
+    // Keep real-time search armed whenever the input has searchable text.
+    // A separate composing flag pauses debounce while IME preedit text is active.
+    updateRealTimeSearchState(value);
+
+    // Show search history when input is focused and empty
+    if (!value && searchHistory.length > 0) {
+      setShowSearchHistory(true);
+      setShowSuggestions(false);
+    } else if (value && value.length >= 2) {
+      // Show suggestions when user types 2+ characters
+      const filteredSuggestions = searchSuggestions.filter(suggestion =>
+        suggestion.toLowerCase().includes(value.toLowerCase()) && 
+        suggestion.toLowerCase() !== value.toLowerCase()
+      ).slice(0, 5);
+      
+      if (filteredSuggestions.length > 0) {
+        setShowSuggestions(true);
+        setShowSearchHistory(false);
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSearchHistory(false);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (!searchQuery && searchHistory.length > 0) {
+      setShowSearchHistory(true);
+    }
+  };
+
+  const handleInputBlur = () => {
+    // Delay hiding to allow clicking on history/suggestion items
+    setTimeout(() => {
+      setShowSearchHistory(false);
+      setShowSuggestions(false);
+    }, 200);
+  };
+
+  const handleHistoryItemClick = (historyQuery: string) => {
+    setSearchQuery(historyQuery);
+    setIsRealTimeSearch(false);
+    setSearchFilters({ query: historyQuery });
+    setShowSearchHistory(false);
+
+    const textResults = performBasicTextSearch(repositories, historyQuery);
+    const finalFiltered = applyFilters(textResults);
+    setSearchResults(finalFiltered);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion);
+    setIsRealTimeSearch(true);
+    setShowSuggestions(false);
+  };
+
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('github-stars-search-history');
+    setShowSearchHistory(false);
+  };
+
+
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      handleAISearch();
+    }
+  };
+
+  const handleLanguageToggle = (language: string) => {
+    const newLanguages = searchFilters.languages.includes(language)
+      ? searchFilters.languages.filter(l => l !== language)
+      : [...searchFilters.languages, language];
+    setSearchFilters({ languages: newLanguages });
+  };
+
+  const handleTagToggle = (tag: string) => {
+    const newTags = searchFilters.tags.includes(tag)
+      ? searchFilters.tags.filter(t => t !== tag)
+      : [...searchFilters.tags, tag];
+    setSearchFilters({ tags: newTags });
+  };
+
+  const handlePlatformToggle = (platform: string) => {
+    const newPlatforms = searchFilters.platforms.includes(platform)
+      ? searchFilters.platforms.filter(p => p !== platform)
+      : [...searchFilters.platforms, platform];
+    setSearchFilters({ platforms: newPlatforms });
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setIsRealTimeSearch(false);
+    setSearchFilters({
+      query: '',
+      tags: [],
+      languages: [],
+      platforms: [],
+      sortBy: 'stars',
+      sortOrder: 'desc',
+      minStars: undefined,
+      maxStars: undefined,
+      isAnalyzed: undefined,
+      isSubscribed: undefined,
+      isEdited: undefined,
+      isCategoryLocked: undefined,
+      analysisFailed: undefined,
+    });
+  };
+
+  const activeFiltersCount =
+    searchFilters.languages.length +
+    searchFilters.tags.length +
+    searchFilters.platforms.length +
+    (searchFilters.minStars !== undefined ? 1 : 0) +
+    (searchFilters.maxStars !== undefined ? 1 : 0) +
+    (searchFilters.isAnalyzed !== undefined ? 1 : 0) +
+    (searchFilters.isSubscribed !== undefined ? 1 : 0) +
+    (searchFilters.isEdited !== undefined ? 1 : 0) +
+    (searchFilters.isCategoryLocked !== undefined ? 1 : 0) +
+    (searchFilters.analysisFailed !== undefined ? 1 : 0);
+
+  const getPlatformIcon = (platform: string) => {
+    const platformLower = platform.toLowerCase();
+    
+    switch (platformLower) {
+      case 'mac':
+      case 'macos':
+      case 'ios':
+        return Apple;
+      case 'windows':
+      case 'win':
+        return Monitor;
+      case 'linux':
+        return Terminal;
+      case 'android':
+        return Smartphone;
+      case 'web':
+        return Globe;
+      case 'cli':
+        return Terminal;
+      case 'docker':
+        return Package;
+      default:
+        return Monitor;
+    }
+  };
+
+  const getPlatformDisplayName = (platform: string) => {
+    const platformLower = platform.toLowerCase();
+    const nameMap: Record<string, string> = {
+      mac: 'macOS',
+      macos: 'macOS',
+      windows: 'Windows',
+      win: 'Windows',
+      linux: 'Linux',
+      ios: 'iOS',
+      android: 'Android',
+      web: 'Web',
+      cli: 'CLI',
+      docker: 'Docker',
+    };
+    return nameMap[platformLower] || platform;
+  };
+
+  const t = (zh: string, en: string) => language === 'zh' ? zh : en;
+
+  const handleStarSync = async () => {
+    if (!githubToken) {
+      toast(t('GitHub token 未找到，请重新登录。', 'GitHub token not found. Please login again.'), 'error');
+      return;
+    }
+
+    setSyncingStars(true);
+    try {
+      const githubApi = new GitHubApiService(githubToken);
+      const newRepositories = await githubApi.getAllStarredRepositories();
+
+      const storeRepos = useAppStore.getState().repositories;
+      const existingRepoMap = new Map(storeRepos.map(repo => [repo.id, repo]));
+      const mergedRepositories = newRepositories.map(newRepo => {
+        const existing = existingRepoMap.get(newRepo.id);
+        if (existing) {
+          return {
+            ...existing,
+            name: newRepo.name,
+            full_name: newRepo.full_name,
+            description: newRepo.description,
+            html_url: newRepo.html_url,
+            stargazers_count: newRepo.stargazers_count,
+            forks_count: newRepo.forks_count,
+            forks: newRepo.forks,
+            language: newRepo.language,
+            updated_at: newRepo.updated_at,
+            pushed_at: newRepo.pushed_at,
+            starred_at: newRepo.starred_at,
+            owner: newRepo.owner,
+            topics: newRepo.topics,
+          };
+        }
+        return newRepo;
+      });
+
+      const existingRepoIds = new Set(storeRepos.map(repo => repo.id));
+      const newRepoCount = newRepositories.filter(repo => !existingRepoIds.has(repo.id)).length;
+
+      setRepositories(mergedRepositories);
+      await forceSyncToBackend();
+
+      setLastSync(new Date().toISOString());
+
+      if (newRepoCount > 0) {
+        toast(t(`同步完成！发现 ${newRepoCount} 个新仓库。`, `Sync completed! Found ${newRepoCount} new repositories.`), 'success');
+      } else {
+        toast(t('同步完成！所有仓库都是最新的。', 'Sync completed! All repositories are up to date.'), 'info');
+      }
+
+    } catch (error) {
+      console.error('Sync failed:', error);
+      if (error instanceof Error && error.message.includes('token')) {
+        toast(t('GitHub token 已过期或无效，请重新登录。', 'GitHub token has expired or is invalid. Please login again.'), 'error');
+      } else {
+        toast(t('同步失败，请检查网络连接或稍后重试。', 'Sync failed. Please check your network connection or try again later.'), 'error');
+      }
+    } finally {
+      setSyncingStars(false);
+    }
+  };
+
+  const formatLastSync = (timestamp: string | null) => {
+    if (!timestamp) return t('从未同步', 'Never');
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return t('从未同步', 'Never');
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours < 1) return t('刚刚', 'Just now');
+    if (diffHours < 24) return t(`${diffHours}小时前`, `${diffHours}h ago`);
+    return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
+  };
+
+  // 全局快捷键支持（Ctrl/Cmd+K、Ctrl/Cmd+Shift+F、/、Escape）
+  useSearchShortcuts({
+    onFocusSearch: () => {
+      searchInputRef.current?.focus();
+      if (!searchQuery && searchHistory.length > 0) {
+        setShowSearchHistory(true);
+      }
+    },
+    onClearSearch: () => {
+      handleClearSearch();
+      searchInputRef.current?.focus();
+    },
+    onToggleFilters: () => {
+      setShowFilters(prev => !prev);
+    },
+  });
+
+  return (
+    <div className="bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-4 sm:p-6 mb-6">
+      {/* Search Input */}
+      <div className="relative mb-4 z-40">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary w-5 h-5" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          placeholder={t(
+            "输入关键词实时搜索，或使用AI搜索进行语义理解",
+            "Type keywords for real-time search, or use AI search for semantic understanding"
+          )}
+          value={searchQuery}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          className="w-full pl-10 pr-24 sm:pr-40 py-3 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary placeholder-gray-500 dark:placeholder-gray-400"
+        />
+
+        {/* Search History Dropdown */}
+        {showSearchHistory && searchHistory.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+            <div className="p-2 border-b border-black/[0.04] dark:border-white/[0.04] flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-900 dark:text-text-secondary">
+                {t('搜索历史', 'Search History')}
+              </span>
+              <button
+                onClick={clearSearchHistory}
+                className="text-xs text-gray-500 dark:text-text-tertiary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-700 dark:text-text-secondary transition-colors"
+              >
+                {t('清除', 'Clear')}
+              </button>
+            </div>
+            {searchHistory.map((historyQuery, index) => (
+              <button
+                key={index}
+                onClick={() => handleHistoryItemClick(historyQuery)}
+                className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-text-secondary hover:bg-light-bg dark:hover:bg-white/10 transition-colors flex items-center space-x-2"
+              >
+                <Search className="w-4 h-4 text-gray-400 dark:text-text-quaternary" />
+                <span className="truncate">{historyQuery}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search Suggestions Dropdown */}
+        {showSuggestions && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+            <div className="p-2 border-b border-black/[0.04] dark:border-white/[0.04]">
+              <span className="text-sm font-medium text-gray-900 dark:text-text-secondary">
+                {t('搜索建议', 'Search Suggestions')}
+              </span>
+            </div>
+            {searchSuggestions
+              .filter(suggestion =>
+                suggestion.toLowerCase().includes(searchQuery.toLowerCase()) && 
+                suggestion.toLowerCase() !== searchQuery.toLowerCase()
+              )
+              .slice(0, 5)
+              .map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-text-secondary hover:bg-light-bg dark:hover:bg-white/10 transition-colors flex items-center space-x-2"
+                >
+                  <div className="w-4 h-4 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-gray-100 dark:bg-white/[0.04] rounded-full"></div>
+                  </div>
+                  <span className="truncate">{suggestion}</span>
+                </button>
+              ))}
+          </div>
+        )}
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              className="p-1.5 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-300 transition-colors"
+              title={t('清除搜索', 'Clear search')}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={handleAISearch}
+            disabled={isSearching}
+            className="flex items-center space-x-1 px-2.5 sm:px-4 py-1.5 bg-brand-indigo text-white rounded-lg hover:bg-brand-hover transition-colors text-sm font-medium disabled:opacity-50"
+            title={activeAIConfig
+              ? t('使用配置的AI服务进行语义搜索和重排序', 'Use configured AI service for semantic search and reranking')
+              : t('使用本地智能排序算法进行搜索', 'Use local intelligent ranking algorithm for search')}
+          >
+            <Bot className="w-4 h-4" />
+            <span className="hidden sm:inline">{isSearching ? t('AI搜索中...', 'AI Searching...') : t('AI搜索', 'AI Search')}</span>
+          </button>
+          {isSearching && searchPhase && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse whitespace-nowrap">
+              {searchPhase}
+            </span>
+          )}
+          <div className="group relative">
+            <AlertCircle className="w-4 h-4 text-gray-400 dark:text-text-quaternary cursor-help" />
+            <div className="absolute right-0 top-full mt-2 w-80 max-w-xs p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[9999] whitespace-normal break-words">
+              <p className="font-medium mb-1 text-gray-900 dark:text-white">
+                {t('关于AI搜索', 'About AI Search')}
+              </p>
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                {activeAIConfig ? t(
+                  'AI语义搜索模式：使用配置的AI服务进行智能语义理解和重排序。AI将分析查询意图，理解上下文关系，并提供语义相关的搜索结果。支持自然语言查询和概念匹配。',
+                  'AI semantic search mode: Uses configured AI service for intelligent semantic understanding and reranking. AI analyzes query intent, understands context, and provides semantically relevant results. Supports natural language queries and concept matching.'
+                ) : t(
+                  '回退模式：基础文本搜索与默认排序。当未配置AI服务时，系统将使用基础文本匹配进行搜索（支持名称、描述、标签、语言等字段），并应用标准的排序和过滤控制。此为轻量级搜索方案，无语义理解能力。',
+                  'Fallback mode: Basic text search with default sorting. When no AI service is configured, the system uses basic text matching for search (supports name, description, tags, language, etc.) and applies standard sort and filter controls. This is a lightweight search solution without semantic understanding capabilities.'
+                )}
+              </p>
+              <div className="absolute bottom-full right-4 w-2 h-2 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Status Indicator */}
+      {searchQuery && (
+        <div className="mb-4 flex items-center justify-between text-sm">
+          <div className="flex items-center space-x-2">
+            {isRealTimeSearch ? (
+              <div className="flex items-center space-x-2 text-brand-violet dark:text-brand-violet">
+                <div className="w-2 h-2 bg-brand-violet rounded-full animate-pulse"></div>
+                <span>{t('实时搜索模式 - 匹配仓库名称', 'Real-time search mode - matching repository names')}</span>
+              </div>
+            ) : searchFilters.query ? (
+              <div className="flex items-center space-x-2 text-gray-700 dark:text-text-secondary ">
+                <Bot className="w-4 h-4" />
+                <span>{t('AI语义搜索模式 - 智能匹配和排序', 'AI semantic search mode - intelligent matching and ranking')}</span>
+              </div>
+            ) : null}
+          </div>
+          {isRealTimeSearch && (
+            <div className="text-gray-500 dark:text-text-tertiary">
+              {t('按回车键或点击AI搜索进行深度搜索', 'Press Enter or click AI Search for deep search')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filter Controls */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+              showFilters || activeFiltersCount > 0
+                ? 'bg-brand-indigo/20 text-gray-700 dark:text-text-secondary dark:bg-brand-indigo/20 '
+                : 'bg-white border border-black/[0.06] text-gray-700 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>{t('过滤器', 'Filters')}</span>
+            {activeFiltersCount > 0 && (
+              <span className="bg-brand-indigo text-white rounded-full px-2 py-0.5 text-xs">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-700 dark:text-text-tertiary hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span>{t('清除全部', 'Clear all')}</span>
+            </button>
+          )}
+
+        </div>
+
+        {/* Sort Controls + Sync Button */}
+        <div className="flex items-center gap-2 relative z-30">
+          <SortByDropdown
+            value={searchFilters.sortBy}
+            onChange={(value) => setSearchFilters({ sortBy: value as 'stars' | 'updated' | 'name' | 'starred' })}
+            t={t}
+          />
+          <button
+            onClick={() => setSearchFilters({
+              sortOrder: searchFilters.sortOrder === 'desc' ? 'asc' : 'desc'
+            })}
+            className="px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-gray-600 transition-colors"
+          >
+            {searchFilters.sortOrder === 'desc' ? '↓' : '↑'}
+          </button>
+
+          {/* Sync Button */}
+          <div className="flex items-center gap-2 ml-1">
+            <button
+              onClick={handleStarSync}
+              disabled={isSyncingStars}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 bg-brand-indigo text-white hover:bg-brand-hover"
+              title={t('同步星标仓库列表', 'Sync starred repositories')}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingStars ? 'animate-spin' : ''}`} />
+              <span className="whitespace-nowrap">{t('同步', 'Sync')}</span>
+            </button>
+            <div className="group relative">
+              <Clock className="w-4 h-4 text-gray-400 dark:text-text-quaternary cursor-help" />
+              <div className="absolute right-0 top-full mt-2 w-max p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[9999] whitespace-nowrap">
+                <p className="font-medium">
+                  {t('最近更新时间', 'Last synced')}
+                </p>
+                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                  {formatLastSync(lastSync)}
+                </p>
+                <div className="absolute bottom-full right-1 w-2 h-2 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <div className="mt-6 pt-6 border-t border-black/[0.06] dark:border-white/[0.04] space-y-6">
+          {/* Status Filters */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">
+              {t('状态过滤', 'Status Filters')}
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {/* 已AI分析 - 仅在存在已分析仓库或当前已选择时显示，且与"分析失败"互斥 */}
+              {(statusStats.analyzed > 0 || searchFilters.isAnalyzed === true) && searchFilters.analysisFailed !== true && (
+                <button
+                  onClick={() => setSearchFilters({ 
+                    isAnalyzed: searchFilters.isAnalyzed === true ? undefined : true 
+                  })}
+                  title={t('显示已完成AI分析的仓库', 'Show repositories with AI analysis completed')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isAnalyzed === true
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{t('已AI分析', 'AI Analyzed')}</span>
+                  <span className="text-xs opacity-70">({statusStats.analyzed})</span>
+                </button>
+              )}
+              {/* 未AI分析 - 仅在存在未分析仓库时显示 */}
+              {statusStats.notAnalyzed > 0 && (
+                <button
+                  onClick={() => setSearchFilters({ 
+                    isAnalyzed: searchFilters.isAnalyzed === false ? undefined : false 
+                  })}
+                  title={t('显示尚未进行AI分析的仓库', 'Show repositories without AI analysis')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isAnalyzed === false
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                  <span>{t('未AI分析', 'Not Analyzed')}</span>
+                  <span className="text-xs opacity-70">({statusStats.notAnalyzed})</span>
+                </button>
+              )}
+              {/* 分析失败 - 仅在存在失败仓库或当前已选择时显示，且与"已AI分析"互斥 */}
+              {(statusStats.failed > 0 || searchFilters.analysisFailed === true) && searchFilters.isAnalyzed !== true && (
+                <button
+                  onClick={() => setSearchFilters({ 
+                    analysisFailed: searchFilters.analysisFailed === true ? undefined : true 
+                  })}
+                  title={t('显示AI分析失败的仓库', 'Show repositories with failed AI analysis')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.analysisFailed === true
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{t('分析失败', 'Analysis Failed')}</span>
+                  <span className="text-xs opacity-70">({statusStats.failed})</span>
+                </button>
+              )}
+              {/* 已订阅Release - 仅在存在已订阅仓库或当前已选择时显示 */}
+              {(statusStats.subscribed > 0 || searchFilters.isSubscribed === true) && (
+                <button
+                  onClick={() => setSearchFilters({ 
+                    isSubscribed: searchFilters.isSubscribed === true ? undefined : true 
+                  })}
+                  title={t('显示已订阅Release通知的仓库', 'Show repositories subscribed to release notifications')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isSubscribed === true
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <Bell className="w-4 h-4" />
+                  <span>{t('已订阅Release', 'Subscribed to Releases')}</span>
+                  <span className="text-xs opacity-70">({statusStats.subscribed})</span>
+                </button>
+              )}
+              {/* 未订阅Release - 仅在存在未订阅仓库时显示 */}
+              {statusStats.notSubscribed > 0 && (
+                <button
+                  onClick={() => setSearchFilters({ 
+                    isSubscribed: searchFilters.isSubscribed === false ? undefined : false 
+                  })}
+                  title={t('显示未订阅Release通知的仓库', 'Show repositories not subscribed to releases')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isSubscribed === false
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <BellOff className="w-4 h-4" />
+                  <span>{t('未订阅Release', 'Not Subscribed to Releases')}</span>
+                  <span className="text-xs opacity-70">({statusStats.notSubscribed})</span>
+                </button>
+              )}
+              {/* 已自定义 - 仅在存在已自定义仓库或当前已选择时显示 */}
+              {(statusStats.edited > 0 || searchFilters.isEdited === true) && (
+                <button
+                  onClick={() => setSearchFilters({
+                    isEdited: searchFilters.isEdited === true ? undefined : true
+                  })}
+                  title={t('显示已自定义的仓库（包括自定义描述、标签、分类）', 'Show customized repositories (including custom description, tags, category)')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isEdited === true
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>{t('已自定义', 'Customized')}</span>
+                  <span className="text-xs opacity-70">({statusStats.edited})</span>
+                </button>
+              )}
+              {/* 分类已锁定 - 仅在存在已锁定仓库或当前已选择时显示 */}
+              {(statusStats.locked > 0 || searchFilters.isCategoryLocked === true) && (
+                <button
+                  onClick={() => setSearchFilters({
+                    isCategoryLocked: searchFilters.isCategoryLocked === true ? undefined : true
+                  })}
+                  title={t('显示分类已锁定的仓库（同步时不会自动更改分类）', 'Show repositories with locked category (won\'t auto-change during sync)')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isCategoryLocked === true
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>{t('分类已锁定', 'Category Locked')}</span>
+                  <span className="text-xs opacity-70">({statusStats.locked})</span>
+                </button>
+              )}
+              {/* 分类未锁定 - 仅在存在未锁定仓库或当前已选择时显示 */}
+              {(statusStats.notLocked > 0 || searchFilters.isCategoryLocked === false) && (
+                <button
+                  onClick={() => setSearchFilters({
+                    isCategoryLocked: searchFilters.isCategoryLocked === false ? undefined : false
+                  })}
+                  title={t('显示分类未锁定的仓库（同步时可能会被自动更改分类）', 'Show repositories with unlocked category (may be auto-changed during sync)')}
+                  className={`${filterChipBaseClass} ${
+                    searchFilters.isCategoryLocked === false
+                      ? filterChipActiveClass
+                      : filterChipInactiveClass
+                  }`}
+                >
+                  <Unlock className="w-4 h-4" />
+                  <span>{t('分类未锁定', 'Category Unlocked')}</span>
+                  <span className="text-xs opacity-70">({statusStats.notLocked})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Languages */}
+          {availableLanguages.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">
+                {t('编程语言', 'Programming Languages')}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {availableLanguages.slice(0, 12).map(language => (
+                  <button
+                    key={language}
+                    onClick={() => handleLanguageToggle(language)}
+                    className={`${filterTagBaseClass} ${
+                      searchFilters.languages.includes(language)
+                        ? filterChipActiveClass
+                        : filterChipInactiveClass
+                    }`}
+                  >
+                    {language}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Platforms */}
+          {availablePlatforms.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">
+                {t('支持平台', 'Supported Platforms')}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {availablePlatforms.map(platform => (
+                  <button
+                    key={platform}
+                    onClick={() => handlePlatformToggle(platform)}
+                    className={`${filterChipBaseClass} ${
+                      searchFilters.platforms.includes(platform)
+                        ? filterChipActiveClass
+                        : filterChipInactiveClass
+                    }`}
+                  >
+                    {React.createElement(getPlatformIcon(platform), { className: "w-4 h-4" })}
+                    <span>{getPlatformDisplayName(platform)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {availableTags.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">
+                {t('标签', 'Tags')}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.slice(0, 15).map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagToggle(tag)}
+                    className={`${filterTagBaseClass} ${
+                      searchFilters.tags.includes(tag)
+                        ? filterChipActiveClass
+                        : filterChipInactiveClass
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Star Range */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">
+              {t('Star数量范围', 'Star Count Range')}
+            </h4>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4 sm:gap-4">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700 dark:text-text-tertiary">
+                  {t('最小:', 'Min:')}
+                </label>
+                <NumberInput
+                  value={searchFilters.minStars}
+                  onChange={(v) => setSearchFilters({ minStars: v })}
+                  min={0}
+                  step={1}
+                  placeholder="0"
+                  allowUndefined
+                  className="w-24 text-sm py-1.5 dark:bg-white/[0.04]"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700 dark:text-text-tertiary">
+                  {t('最大:', 'Max:')}
+                </label>
+                <NumberInput
+                  value={searchFilters.maxStars}
+                  onChange={(v) => setSearchFilters({ maxStars: v })}
+                  min={0}
+                  step={1}
+                  placeholder="∞"
+                  allowUndefined
+                  className="w-24 text-sm py-1.5 dark:bg-white/[0.04]"
+                />
+              </div>
+            </div>
+            {searchFilters.minStars !== undefined && searchFilters.maxStars !== undefined && searchFilters.minStars > searchFilters.maxStars && (
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1.5 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {t('最小值不能大于最大值', 'Min cannot be greater than max')}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {[
+                { label: '1K', value: 1000 },
+                { label: '5K', value: 5000 },
+                { label: '10K', value: 10000 },
+                { label: '50K', value: 50000 },
+                { label: '100K', value: 100000 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setSearchFilters({ minStars: preset.value })}
+                  className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  ≥{preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+    </div>
+  );
+};

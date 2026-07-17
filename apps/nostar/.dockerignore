@@ -1,0 +1,13 @@
+.git
+.github
+.tmp
+node_modules
+server/node_modules
+dist
+server/dist
+upload
+versions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.local

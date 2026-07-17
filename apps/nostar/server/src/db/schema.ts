@@ -1,0 +1,153 @@
+import type Database from 'better-sqlite3';
+
+function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((col) => col.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+export function initializeSchema(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_version (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS repositories (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      full_name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      html_url TEXT NOT NULL,
+      stargazers_count INTEGER DEFAULT 0,
+      language TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      pushed_at TEXT,
+      starred_at TEXT,
+      owner_login TEXT NOT NULL,
+      owner_avatar_url TEXT,
+      topics TEXT,
+      ai_summary TEXT,
+      ai_tags TEXT,
+      ai_platforms TEXT,
+      analyzed_at TEXT,
+      analysis_failed INTEGER DEFAULT 0,
+      custom_description TEXT,
+      custom_tags TEXT,
+      custom_category TEXT,
+      category_locked INTEGER DEFAULT 0,
+      last_edited TEXT,
+      subscribed_to_releases INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS releases (
+      id INTEGER PRIMARY KEY,
+      tag_name TEXT NOT NULL,
+      name TEXT,
+      body TEXT,
+      published_at TEXT,
+      html_url TEXT,
+      assets TEXT,
+      repo_id INTEGER NOT NULL,
+      repo_full_name TEXT NOT NULL,
+      repo_name TEXT NOT NULL,
+      prerelease INTEGER DEFAULT 0,
+      draft INTEGER DEFAULT 0,
+      is_read INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      icon TEXT NOT NULL DEFAULT '📁',
+      keywords TEXT,
+      color TEXT,
+      sort_order INTEGER DEFAULT 0,
+      is_custom INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_configs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      api_type TEXT DEFAULT 'openai',
+      base_url TEXT NOT NULL,
+      api_key_encrypted TEXT NOT NULL,
+      model TEXT NOT NULL,
+      is_active INTEGER DEFAULT 0,
+      custom_prompt TEXT,
+      use_custom_prompt INTEGER DEFAULT 0,
+      concurrency INTEGER DEFAULT 1,
+      reasoning_effort TEXT,
+      mimo_plan TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS webdav_configs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      username TEXT NOT NULL,
+      password_encrypted TEXT NOT NULL,
+      path TEXT NOT NULL DEFAULT '/',
+      is_active INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS asset_filters (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      keywords TEXT,
+      platform TEXT,
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS embedding_configs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      api_type TEXT NOT NULL DEFAULT 'openai',
+      base_url TEXT NOT NULL DEFAULT '',
+      api_key_encrypted TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      dimensions INTEGER NOT NULL DEFAULT 1536,
+      is_active INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS vector_search_configs (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      enabled INTEGER NOT NULL DEFAULT 0,
+      worker_url TEXT NOT NULL DEFAULT '',
+      auth_token_encrypted TEXT NOT NULL DEFAULT '',
+      embedding_config_id TEXT,
+      index_mode TEXT NOT NULL DEFAULT 'readme',
+      readme_max_chars INTEGER NOT NULL DEFAULT 6000,
+      status_json TEXT,
+      last_sync_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  addColumnIfMissing(db, 'ai_configs', 'reasoning_effort', 'TEXT');
+  addColumnIfMissing(db, 'ai_configs', 'mimo_plan', 'TEXT');
+  addColumnIfMissing(db, 'repositories', 'category_locked', 'INTEGER DEFAULT 0');
+  addColumnIfMissing(db, 'releases', 'zipball_url', 'TEXT');
+  addColumnIfMissing(db, 'releases', 'tarball_url', 'TEXT');
+  addColumnIfMissing(db, 'categories', 'description', 'TEXT');
+  addColumnIfMissing(db, 'categories', 'color', 'TEXT');
+  addColumnIfMissing(db, 'categories', 'sort_order', 'INTEGER DEFAULT 0');
+  addColumnIfMissing(db, 'asset_filters', 'description', 'TEXT');
+  addColumnIfMissing(db, 'asset_filters', 'platform', 'TEXT');
+  addColumnIfMissing(db, 'asset_filters', 'sort_order', 'INTEGER DEFAULT 0');
+  addColumnIfMissing(db, 'vector_search_configs', 'index_mode', "TEXT NOT NULL DEFAULT 'readme'");
+  addColumnIfMissing(db, 'vector_search_configs', 'readme_max_chars', 'INTEGER NOT NULL DEFAULT 6000');
+  addColumnIfMissing(db, 'repositories', 'vector_indexed_at', 'TEXT');
+}

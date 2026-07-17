@@ -1,0 +1,277 @@
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import { LoginScreen } from './components/LoginScreen';
+import { Header } from './components/Header';
+import { SearchBar } from './components/SearchBar';
+import { RepositoryList } from './components/RepositoryList';
+import { CategorySidebar } from './components/CategorySidebar';
+import { ReleaseTimeline } from './components/ReleaseTimeline';
+import { ForkTimeline } from './components/ForkTimeline';
+import { SettingsPanel } from './components/SettingsPanel';
+import { DebugModeIndicator } from './components/DebugModeIndicator';
+import { DiscoveryView } from './components/DiscoveryView';
+import { GistView } from './components/GistView';
+import { BackToTop } from './components/BackToTop';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useAppStore } from './store/useAppStore';
+import { useAutoUpdateCheck } from './hooks/useAutoUpdateCheck';
+import { logger } from './services/logger';
+import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
+import { backend } from './services/backendAdapter';
+import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
+import type { AppState, SearchFilters } from './types';
+
+/**
+ * Check if any search/filter/sort condition is active (non-default).
+ * Used to decide whether to display searchResults or the full repository list.
+ */
+function hasActiveSearchFilters(filters: SearchFilters): boolean {
+  return (
+    !!filters.query.trim() ||
+    filters.languages.length > 0 ||
+    filters.tags.length > 0 ||
+    filters.platforms.length > 0 ||
+    filters.minStars !== undefined ||
+    filters.maxStars !== undefined ||
+    filters.isAnalyzed !== undefined ||
+    filters.isSubscribed !== undefined ||
+    filters.isEdited !== undefined ||
+    filters.isCategoryLocked !== undefined ||
+    filters.analysisFailed !== undefined ||
+    filters.sortBy !== 'stars' ||
+    filters.sortOrder !== 'desc'
+  );
+}
+
+/**
+ * Main repository view combining category sidebar, search bar, and repository list.
+ * Switches between search results and full list based on active search filters.
+ */
+const RepositoriesView = React.memo(({
+  repositories,
+  searchResults,
+  searchFilters,
+  selectedCategory,
+  onCategorySelect
+}: {
+  repositories: AppState['repositories'];
+  searchResults: AppState['searchResults'];
+  searchFilters: AppState['searchFilters'];
+  selectedCategory: string;
+  onCategorySelect: (category: string) => void;
+}) => {
+  const isActive = hasActiveSearchFilters(searchFilters);
+  const similarView = useAppStore((state) => state.similarView);
+  const exitSimilarView = useAppStore((state) => state.exitSimilarView);
+
+  // 相似视图下用户发起搜索时，自动退出相似视图（搜索优先于相似浏览，避免界面歧义）
+  useEffect(() => {
+    if (similarView?.active && isActive) {
+      exitSimilarView();
+    }
+  }, [similarView?.active, isActive, exitSimilarView]);
+
+  // 相似仓库视图激活时，列表数据源切换为相似结果，且忽略分类过滤
+  const listRepositories = similarView?.active
+    ? similarView.similarResults
+    : (isActive ? searchResults : repositories);
+
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+      <CategorySidebar
+        repositories={repositories}
+        selectedCategory={selectedCategory}
+        onCategorySelect={onCategorySelect}
+      />
+      <div className="flex-1 space-y-6">
+        <SearchBar />
+        <RepositoryList
+          repositories={listRepositories}
+          selectedCategory={similarView?.active ? 'all' : selectedCategory}
+        />
+      </div>
+    </div>
+  );
+});
+RepositoriesView.displayName = 'RepositoriesView';
+
+const ReleasesView = React.memo(() => <ReleaseTimeline />);
+ReleasesView.displayName = 'ReleasesView';
+
+const GistsView = React.memo(() => <GistView />);
+GistsView.displayName = 'GistsView';
+
+const ForksView = React.memo(() => <ForkTimeline />);
+ForksView.displayName = 'ForksView';
+
+const SettingsView = React.memo(() => <SettingsPanel />);
+SettingsView.displayName = 'SettingsView';
+
+function App() {
+  const [nonoSession, setNonoSession] = useState<'loading' | 'authenticated' | 'redirecting' | 'error'>('loading');
+  const {
+    isAuthenticated,
+    currentView,
+    selectedCategory,
+    theme,
+    hasHydrated,
+    searchResults,
+    searchFilters,
+    repositories,
+    setSelectedCategory,
+  } = useAppStore();
+
+  useAutoUpdateCheck();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+        if (!response.ok) throw new Error(`Session request failed: ${response.status}`);
+        const payload = await response.json() as { data?: { authenticated?: boolean } };
+        if (cancelled) return;
+        if (payload.data?.authenticated) {
+          setNonoSession('authenticated');
+          return;
+        }
+        setNonoSession('redirecting');
+        window.location.replace(`/admin/login?next=${encodeURIComponent('/nostar')}`);
+      } catch (error) {
+        logger.error('app', 'Failed to load Nono session', error);
+        if (!cancelled) setNonoSession('error');
+      }
+    };
+
+    loadSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Restore persisted frontend debug level at startup so capture is active
+  // app-wide, not only after DiagnosticLogsPanel mounts.
+  useEffect(() => {
+    if (sessionStorage.getItem('gsm:frontend-debug') === 'true') {
+      logger.setLevel('debug');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    const initBackend = async () => {
+      try {
+        await backend.init();
+        if (backend.isAvailable && !cancelled) {
+          await syncFromBackend();
+          if (!cancelled) {
+            unsubscribe = startAutoSync();
+          }
+        }
+      } catch (err) {
+        console.error('Failed to initialize backend:', err);
+      }
+    };
+
+    initBackend();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        stopAutoSync(unsubscribe);
+      }
+    };
+  }, []);
+
+  const handleCategorySelect = useCallback((category: string) => {
+    // 相似仓库视图下点击分类 = 离开相似视图并切换到该分类，避免交互歧义
+    if (useAppStore.getState().similarView?.active) {
+      useAppStore.getState().exitSimilarView();
+    }
+    setSelectedCategory(category);
+  }, [setSelectedCategory]);
+
+  const currentViewContent = useMemo(() => {
+    switch (currentView) {
+      case 'repositories':
+        return (
+          <RepositoriesView
+            repositories={repositories}
+            searchResults={searchResults}
+            searchFilters={searchFilters}
+            selectedCategory={selectedCategory}
+            onCategorySelect={handleCategorySelect}
+          />
+        );
+      case 'gists':
+        return <GistsView />;
+      case 'releases':
+        return <ReleasesView />;
+      case 'forks':
+        return <ForksView />;
+      case 'subscription':
+        return (
+          <ErrorBoundary>
+            <DiscoveryView />
+          </ErrorBoundary>
+        );
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return null;
+    }
+  }, [currentView, repositories, searchResults, searchFilters, selectedCategory, handleCategorySelect]);
+
+  if (nonoSession === 'error') {
+    return (
+      <div className="min-h-screen bg-light-bg dark:bg-marketing-black flex items-center justify-center p-6">
+        <button
+          type="button"
+          className="rounded-lg bg-brand-indigo px-4 py-2 font-medium text-white"
+          onClick={() => window.location.reload()}
+        >
+          重新连接
+        </button>
+      </div>
+    );
+  }
+
+  // Wait for both the Nono session and the local NoStar store before rendering private data.
+  if (nonoSession !== 'authenticated' || !hasHydrated) {
+    return (
+      <div className="min-h-screen bg-light-bg dark:bg-marketing-black flex items-center justify-center">
+        <div className="text-gray-900 dark:text-text-primary text-lg font-medium animate-pulse">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <div className="min-h-screen bg-light-bg dark:bg-marketing-black text-gray-900 dark:text-text-primary transition-colors duration-200">
+      <UpdateNotificationBanner />
+      <Header />
+      <main className="max-w-[1280px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {currentViewContent}
+      </main>
+      <BackToTop />
+      <DebugModeIndicator />
+    </div>
+  );
+}
+
+export default App;
