@@ -429,7 +429,7 @@ onMounted(load);
             </button>
           </div>
         </div>
-        <div class="bulk-action-bar">
+        <div id="bookmark-tools" class="bulk-action-bar">
           <strong>{{ sortMode ? '调整书签顺序' : selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
           <div class="bulk-list-tools">
             <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
@@ -556,7 +556,7 @@ onMounted(load);
               <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
             </span>
           </article>
-          <button v-else-if="!sortMode" class="add-list-row" data-testid="add-link-row" type="button" title="新增书签" @click="startCreateLink"><Plus :size="18" /></button>
+          <button v-else-if="!sortMode" id="new-bookmark" class="add-list-row" data-testid="add-link-row" type="button" title="新增书签" @click="startCreateLink"><Plus :size="18" /></button>
         </div>
         <div v-if="sortMode" class="sort-footer sticky-sort-footer">
           <strong>{{ activeFolder?.name || '未选择文件夹' }} · {{ filteredLinks.length }} 个书签<span v-if="sortMode"> · 更改尚未保存</span></strong>
@@ -568,7 +568,7 @@ onMounted(load);
       </template>
     </section>
 
-    <BookmarkTransferPanel />
+    <BookmarkTransferPanel id="bookmark-import" />
   </div>
 </template>
 

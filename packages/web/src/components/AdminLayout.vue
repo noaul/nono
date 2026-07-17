@@ -129,7 +129,15 @@ async function logout() {
       <nav class="admin-nav workbench-nav" aria-label="后台导航">
         <section v-for="section in visibleNavSections" :key="section.label" class="nav-section">
           <p>{{ section.label }}</p>
-          <RouterLink v-for="item in section.items" :key="item.to" class="nav-button nav-button-plain" :to="item.to">
+          <RouterLink
+            v-for="item in section.items"
+            :key="item.to"
+            class="nav-button nav-button-plain"
+            :class="{ 'router-link-active': route?.path === item.to }"
+            :to="item.to"
+            active-class="nav-route-match"
+            exact-active-class="nav-route-exact"
+          >
             <span class="nav-icon"><component :is="item.icon" :size="17" /></span>
             <span class="nav-label">{{ item.label }}</span>
           </RouterLink>

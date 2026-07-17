@@ -337,7 +337,7 @@ describe('visual contracts', () => {
     const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
     const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
-    expect(linksSource).toContain('<BookmarkTransferPanel />');
+    expect(linksSource).toContain('<BookmarkTransferPanel id="bookmark-import" />');
     expect(linksSource).not.toContain('to="/admin/bookmarks"');
     expect(transferSource).toContain('/api/admin/bookmarks/preview');
     expect(transferSource).toContain('/api/admin/bookmarks/import');
@@ -396,12 +396,12 @@ describe('visual contracts', () => {
     expect(css).toContain('.workbench-sidebar');
     expect(css).toContain('.workbench-topbar');
     expect(css).toContain('.user-menu');
-    expect(css).toContain('.dashboard-hero');
+    expect(css).toContain('.dashboard-shortcut-grid');
     expect(css).toContain('.ops-metric-card');
-    expect(css).toContain('.operations-grid');
-    expect(dashboardSource).toContain('dashboard-hero');
+    expect(css).toContain('.dashboard-shortcut');
+    expect(dashboardSource).not.toContain('dashboard-hero');
     expect(dashboardSource).toContain('ops-metric-card');
-    expect(dashboardSource).toContain('operations-grid');
+    expect(dashboardSource).toContain('dashboard-shortcut-grid');
   });
 
   it('defines the admin glassmorphism surface system', async () => {
@@ -620,7 +620,7 @@ describe('visual contracts', () => {
     const folders = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
     const links = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
 
-    expect(dashboard).toContain('<FolderGlyph :icon="folder.icon"');
+    expect(dashboard).toContain('<FolderIcon :size="20"');
     expect(folders).toContain('<FolderGlyph :icon="folder.icon"');
     expect(links).toContain('<FolderGlyph :icon="folder.icon"');
   });
