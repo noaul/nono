@@ -1,4 +1,0 @@
-dist/
-node_modules/
-data/*.db
-data/.encryption-key

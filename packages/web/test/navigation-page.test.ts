@@ -106,15 +106,16 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
-  it('places the NoMoney service entry after the Notab buttons', async () => {
+  it('places NoMoney and NoStar after the Notab buttons', async () => {
     const wrapper = await mountNavigationPage();
     const tabs = wrapper.get('.folder-tabs');
-    const entry = tabs.get('[data-testid="navigation-entry-nomoney"]');
+    const noMoney = tabs.get('[data-testid="navigation-entry-nomoney"]');
+    const noStar = tabs.get('[data-testid="navigation-entry-nostar"]');
 
-    expect(entry.attributes('href')).toBe('/nomoney');
-    expect(entry.text()).toContain('NoMoney');
-    expect(entry.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
-    expect(tabs.element.lastElementChild).toBe(entry.element);
+    expect(noMoney.attributes('href')).toBe('/nomoney');
+    expect(noStar.attributes('href')).toBe('/nostar');
+    expect(noMoney.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
+    expect(tabs.element.lastElementChild).toBe(noStar.element);
     expect(tabs.findAll('button.active')).toHaveLength(1);
   });
 
@@ -130,9 +131,21 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage();
     const entries = wrapper.findAll('[data-testid^="navigation-entry-"]');
 
-    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status']);
+    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status', 'NoStar']);
     expect(wrapper.get('[data-testid="navigation-entry-status"]').attributes('href')).toBe('/status');
     expect(wrapper.find('[data-testid="navigation-entry-hidden"]').exists()).toBe(false);
+  });
+
+  it('respects an explicitly saved versioned entry list', async () => {
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      navigationEntriesVersion: 2,
+      navigationEntries: [
+        { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+      ],
+    }));
+
+    const wrapper = await mountNavigationPage();
+    expect(wrapper.find('[data-testid="navigation-entry-nostar"]').exists()).toBe(false);
   });
 
   it('applies modal, tab, and admin-compatible appearance variables from saved settings', async () => {

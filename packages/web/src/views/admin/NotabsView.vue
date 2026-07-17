@@ -9,7 +9,7 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { Folder, Link, NavigationEntry, Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
-import { defaultNavigationEntries, getNavigationEntries } from '@/utils/navigationEntries';
+import { defaultNavigationEntries, getNavigationEntries, navigationEntriesVersion } from '@/utils/navigationEntries';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
 
 const confirmApi = useConfirm();
@@ -118,6 +118,7 @@ async function saveNavigationEntries() {
         label: entry.label.trim(),
         url: entry.url.trim(),
       })),
+      navigationEntriesVersion,
     };
     const saved = await apiRequest<Site>('/api/admin/site', {
       method: 'PUT',

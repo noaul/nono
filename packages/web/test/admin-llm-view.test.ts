@@ -28,6 +28,7 @@ describe('LlmView', () => {
         llmReasoningEffort: 'medium',
         hasLlmApiKey: true,
       })
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ ok: true });
 
     const wrapper = mount(LlmView, {
@@ -60,6 +61,7 @@ describe('LlmView', () => {
   it('tests the current LLM connection without saving the form', async () => {
     apiRequest
       .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-5-mini', hasLlmApiKey: true })
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce({ ok: true, model: 'gpt-5-mini', reasoningEffort: 'high' });
 
     const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
@@ -73,5 +75,24 @@ describe('LlmView', () => {
       body: JSON.stringify({ provider: 'openai', model: 'gpt-5-mini', apiKey: '', baseUrl: '', reasoningEffort: 'high' }),
     });
     expect(wrapper.text()).toContain('连接成功');
+  });
+
+  it('adds and saves a NoStar AI profile from the Nono admin page', async () => {
+    apiRequest
+      .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-4o-mini', hasLlmApiKey: false })
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ saved: 1 });
+
+    const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
+    await settle(wrapper);
+    await wrapper.get('[data-testid="add-nostar-ai-profile"]').trigger('click');
+    await wrapper.get('[data-testid="nostar-profile-name-0"]').setValue('仓库分析');
+    await wrapper.get('[data-testid="save-nostar-ai-profiles"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/nostar/ai', {
+      method: 'PUT',
+      body: expect.stringContaining('仓库分析'),
+    });
   });
 });

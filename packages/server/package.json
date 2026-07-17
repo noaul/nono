@@ -13,7 +13,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
-    "migrate:json": "tsx src/scripts/migrate-from-json.ts"
+    "migrate:json": "tsx src/scripts/migrate-from-json.ts",
+    "migrate:nostar": "tsx src/scripts/migrate-nostar-sqlite.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

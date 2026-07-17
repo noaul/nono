@@ -43,6 +43,16 @@ WORKDIR /app/nomoney
 COPY apps/nomoney/ ./
 RUN npm run build
 
+FROM node:22-alpine AS nostar-deps
+WORKDIR /app/nostar
+COPY apps/nostar/package.json apps/nostar/package-lock.json ./
+RUN npm ci
+
+FROM nostar-deps AS nostar-build
+WORKDIR /app/nostar
+COPY apps/nostar/ ./
+RUN npm run build
+
 FROM node:22-alpine AS nomoney-runtime-deps
 WORKDIR /app/nomoney
 COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
@@ -64,6 +74,7 @@ COPY --from=nono-build /app/nono/packages/server/package.json ./nono/packages/se
 COPY --from=nono-build /app/nono/packages/server/dist ./nono/packages/server/dist
 COPY --from=nono-build /app/nono/packages/server/prisma ./nono/packages/server/prisma
 COPY --from=nono-build /app/nono/packages/web/dist ./nono/packages/web/dist
+COPY --from=nostar-build /app/nostar/dist ./nono/packages/web/dist/nostar
 COPY --from=blog-build /app/blog/public ./blog/public
 COPY --from=blog-build /app/blog/public ./nodesk-seed/public
 COPY --from=blog-build /app/blog/src ./nodesk-seed/src

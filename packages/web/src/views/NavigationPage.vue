@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Link2, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Link2, Star, WalletCards } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -108,6 +108,7 @@ const navigationEntries = computed(() => getNavigationEntries(payload.value?.sit
 const navigationEntryIcons = {
   activity: Activity,
   link: Link2,
+  star: Star,
   'wallet-cards': WalletCards,
 };
 

@@ -9,7 +9,17 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     enabled: true,
     openInNewTab: false,
   },
+  {
+    id: 'nostar',
+    label: 'NoStar',
+    url: '/nostar',
+    icon: 'star',
+    enabled: true,
+    openInNewTab: false,
+  },
 ];
+
+export const navigationEntriesVersion = 2;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -35,8 +45,15 @@ function normalizeId(value: unknown, index: number) {
 }
 
 export function getNavigationEntries(settings: unknown): NavigationEntry[] {
-  const source = isRecord(settings) && Array.isArray(settings.navigationEntries)
+  const saved = isRecord(settings) && Array.isArray(settings.navigationEntries)
     ? settings.navigationEntries
+    : null;
+  const savedVersion = isRecord(settings) ? Number(settings.navigationEntriesVersion || 0) : 0;
+  const savedIds = new Set((saved || []).map((value, index) => isRecord(value) ? normalizeId(value.id, index) : ''));
+  const source = saved
+    ? savedVersion >= navigationEntriesVersion
+      ? saved
+      : [...saved, ...defaultNavigationEntries.filter((entry) => !savedIds.has(entry.id))]
     : defaultNavigationEntries;
   const used = new Set<string>();
   return source.flatMap((value, index) => {

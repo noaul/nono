@@ -317,6 +317,18 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     });
   });
 
+  app.post('/api/nostar/proxy/github-raw', async (request, reply) => {
+    const user = await authed(request, reply, services);
+    if (!user) return;
+    const token = await githubTokenFor(services, user.id);
+    const target = new URL(text(asRecord(request.body).url));
+    if (target.protocol !== 'https:' || !['gist.githubusercontent.com', 'raw.githubusercontent.com'].includes(target.hostname)) {
+      return reply.status(400).send({ error: 'Invalid GitHub raw URL', code: 'INVALID_GITHUB_RAW_URL' });
+    }
+    const response = await fetch(target, { headers: githubHeaders(token), signal: AbortSignal.timeout(60000) });
+    return reply.status(response.status).type(response.headers.get('content-type') || 'text/plain; charset=utf-8').send(await response.text());
+  });
+
   app.post('/api/nostar/proxy/github/*', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
@@ -337,7 +349,9 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     return proxyJson(reply, `https://api.github.com/${suffix}`, {
       method,
       headers: githubHeaders(token, extraHeaders),
-      body: method === 'GET' || input.body === undefined ? undefined : JSON.stringify(input.body),
+      body: method === 'GET' || input.body === undefined
+        ? undefined
+        : typeof input.body === 'string' ? input.body : JSON.stringify(input.body),
     });
   });
 

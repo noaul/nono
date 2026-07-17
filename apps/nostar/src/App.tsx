@@ -19,6 +19,7 @@ import { UpdateNotificationBanner } from './components/UpdateNotificationBanner'
 import { backend } from './services/backendAdapter';
 import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
 import type { AppState, SearchFilters } from './types';
+import { getStorageScope, setStorageScope } from './services/storageScope';
 
 /**
  * Check if any search/filter/sort condition is active (non-default).
@@ -129,9 +130,17 @@ function App() {
       try {
         const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
         if (!response.ok) throw new Error(`Session request failed: ${response.status}`);
-        const payload = await response.json() as { data?: { authenticated?: boolean } };
+        const payload = await response.json() as { data?: { authenticated?: boolean; user?: { id?: number } } };
         if (cancelled) return;
         if (payload.data?.authenticated) {
+          const userId = payload.data.user?.id;
+          if (userId && getStorageScope() !== String(userId)) {
+            if (setStorageScope(userId)) {
+              window.location.reload();
+              return;
+            }
+            useAppStore.getState().logout();
+          }
           setNonoSession('authenticated');
           return;
         }

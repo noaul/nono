@@ -45,7 +45,7 @@ class BackendAdapter {
                 logger.info('backendAdapter', 'Backend connected', { url: baseUrl });
                 return;
               }
-              logger.warn('backendAdapter', 'Backend found but API secret was rejected', { url: baseUrl });
+              logger.warn('backendAdapter', 'Backend found but the Nono session was rejected', { url: baseUrl });
               this._backendUrl = null;
             }
           }

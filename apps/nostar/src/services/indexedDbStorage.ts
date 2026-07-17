@@ -1,4 +1,5 @@
 import type { StateStorage } from 'zustand/middleware';
+import { scopedStorageKey } from './storageScope';
 
 export const DB_NAME = 'github-stars-manager-db';
 const STORE_NAME = 'app_state';
@@ -117,58 +118,66 @@ const idbDelete = async (key: string): Promise<void> => {
 export const indexedDBStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
+    const storageName = scopedStorageKey(name);
 
     // Hard fallback for environments without IndexedDB
     if (!canUseIndexedDB()) {
-      return safeLocalStorageGet(name);
+      return safeLocalStorageGet(storageName);
     }
 
     try {
-      const idbValue = await withTimeout(idbGet(name));
+      const idbValue = await withTimeout(idbGet(storageName));
       if (idbValue !== null) return idbValue;
 
-      // Migration path: restore existing localStorage snapshot into IndexedDB
-      const legacyValue = safeLocalStorageGet(name);
+      // The first scoped user inherits the previous unscoped snapshot once.
+      const legacyIdbValue = storageName !== name ? await withTimeout(idbGet(name)) : null;
+      const legacyValue = safeLocalStorageGet(storageName) ?? legacyIdbValue ?? (storageName !== name ? safeLocalStorageGet(name) : null);
       if (legacyValue !== null) {
-        await withTimeout(idbSet(name, legacyValue));
-        safeLocalStorageRemove(name);
+        await withTimeout(idbSet(storageName, legacyValue));
+        safeLocalStorageRemove(storageName);
+        if (storageName !== name) {
+          safeLocalStorageRemove(name);
+          if (legacyIdbValue !== null) await withTimeout(idbDelete(name));
+        }
         console.info('[storage] migrated state from localStorage to IndexedDB');
       }
       return legacyValue;
     } catch (error) {
       console.warn('[storage] IndexedDB get failed, fallback to localStorage:', error);
-      return safeLocalStorageGet(name);
+      return safeLocalStorageGet(storageName);
     }
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return;
+    const storageName = scopedStorageKey(name);
 
     // Primary path: IndexedDB first (large data friendly)
     if (canUseIndexedDB()) {
       try {
-        await withTimeout(idbSet(name, value));
-        safeLocalStorageRemove(name);
+        await withTimeout(idbSet(storageName, value));
+        safeLocalStorageRemove(storageName);
         return;
       } catch (error) {
         console.warn('[storage] IndexedDB set failed, fallback to localStorage:', error);
       }
     }
 
-    if (!safeLocalStorageSet(name, value)) {
+    if (!safeLocalStorageSet(storageName, value)) {
       throw new Error('[storage] localStorage fallback write failed');
     }
   },
 
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
+    const storageName = scopedStorageKey(name);
 
-    safeLocalStorageRemove(name);
+    safeLocalStorageRemove(storageName);
 
     if (!canUseIndexedDB()) return;
 
     try {
-      await withTimeout(idbDelete(name));
+      await withTimeout(idbDelete(storageName));
     } catch (error) {
       console.warn('[storage] IndexedDB remove failed:', error);
     }
