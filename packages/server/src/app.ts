@@ -7,6 +7,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import { PrismaClient } from '@prisma/client';
 import { authRoutes } from './routes/auth.js';
 import { navigationRoutes } from './routes/navigation.js';
 import { faviconRoutes } from './routes/favicon.js';
@@ -20,6 +21,7 @@ import { accountRoutes } from './routes/admin/account.js';
 import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
 import { nodeskRoutes } from './routes/nodesk.js';
+import { nostarRoutes } from './routes/nostar.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
@@ -29,8 +31,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 export async function buildApp(overrides: Partial<AppServices> = {}) {
+  const prisma = overrides.prisma || new PrismaClient();
   const services: AppServices = {
-    repo: overrides.repo || createPrismaRepository(),
+    prisma,
+    repo: overrides.repo || createPrismaRepository(prisma),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
     nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
@@ -66,12 +70,19 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await metaRoutes(app, services);
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);
+  await nostarRoutes(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
+    const noStarIndex = path.join(webDist, 'nostar/index.html');
     await app.register(fastifyStatic, { root: webDist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) return sendError(reply, 404, 'Not found');
+      const pathname = request.url.split('?', 1)[0];
+      if (pathname === '/nostar') return reply.redirect('/nostar/');
+      if (request.url.startsWith('/nostar/') && fs.existsSync(noStarIndex)) {
+        return reply.type('text/html; charset=utf-8').send(fs.readFileSync(noStarIndex, 'utf8'));
+      }
       return reply.type('text/html; charset=utf-8').send(fs.readFileSync(path.join(webDist, 'index.html'), 'utf8'));
     });
   } else {

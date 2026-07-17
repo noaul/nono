@@ -1,4 +1,5 @@
 import type { FastifyRequest } from 'fastify';
+import type { PrismaClient } from '@prisma/client';
 import type { Repository } from './services/repository.js';
 import type { fetchPublicResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
@@ -15,6 +16,7 @@ export interface AuthUser {
 }
 
 export interface AppServices {
+  prisma: PrismaClient;
   repo: Repository;
   sessionSecret: string;
   encryptionKey: string;
