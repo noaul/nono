@@ -126,3 +126,18 @@ PostgreSQL 和 Nodesk 在本次集成中没有格式迁移，通常不需要恢�
 - Nodesk 归档包含根目录项在内共 `384` 项，候选卷实际内容 `383` 项，数量一致
 - Cookie 路径、认证接口、全部公开路径和容器重启持久化验证通过
 - 线上 `8188` 和独立 MoneyPulse `18096` 未切换、未停止
+
+## 2026-07-17 nc48 正式切换结果
+
+- 部署提交：`184ea29`
+- 最终备份：`/opt/backups/nono-nomoney-cutover-20260717-082227`
+- 旧 Nono 镜像标签：`nono-app:pre-nomoney-20260717-082227`
+- 生产入口：`https://noaul.com/nomoney`
+- 生产容器：`nono`，绑定 `127.0.0.1:8188`
+- NoMoney 生产卷：`nono_nomoney_data`
+- 独立 `moneypulse-app-1` 已停止但未删除，可用于回滚
+- 临时候选容器、卷、网络和镜像标签已清理
+
+正式切换后的内部与公网路径 `/`、`/admin`、`/nodesk`、`/nomoney`、`/nomoney/dashboard`、`/healthz` 和 `/nomoney/api/health` 均返回 `200`。NoMoney Cookie 实测包含 `Path=/nomoney`、`HttpOnly`、`Secure` 和 `SameSite=Lax`。生产 SQLite 的逻辑哈希在容器重启前后保持一致，PostgreSQL、Nodesk 和 NoMoney 数据数量均与切换前备份一致。
+
+第一次切换尝试在生成 SHA-256 清单时因相对路径错误触发失败保护。自动回滚成功恢复旧 Nono 和独立 MoneyPulse，两个服务健康检查均返回 `200`。修正清单生成目录后第二次切换成功，证明本手册中的回滚路径可用。
