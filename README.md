@@ -3,6 +3,7 @@
 Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工具。当前版本已经从零依赖单体 Node.js 应用重构为 monorepo：
 
 - `apps/blog`：Next.js 博客、文章与图片管理
+- `apps/nomoney`：NoMoney 资产、账单与提醒管理
 - `packages/server`：Fastify + Prisma + PostgreSQL API
 - `packages/web`：Vue 3 + Vite + Pinia + Vue Router
 - `packages/extension`：Chrome Manifest V3 一键收藏插件
@@ -19,7 +20,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 公开导航：`/:username`，默认搜索为 Google
 - 统一 API 响应：`{ code, data, message }`
 - 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
-- 一体化 Docker：单个业务镜像内包含导航与博客，外加 PostgreSQL
+- 一体化 Docker：单个业务镜像内包含 Nono、Nodesk 与 NoMoney，外加 PostgreSQL
 
 ## 本地开发
 
@@ -69,11 +70,12 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-请先修改 `.env` 里的 `SESSION_SECRET` 和 `ENCRYPTION_KEY`。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库的 `apps/blog` 构建博客，启动前运行 Prisma migration，再由内置网关统一转发：
+请先修改 `.env` 里的 `SESSION_SECRET`、`ENCRYPTION_KEY` 和 `NOMONEY_JWT_SECRET`。Compose 会启动 PostgreSQL 和一个一体化业务容器。业务镜像直接从本仓库构建三套应用，启动前运行 Prisma migration，再由内置网关统一转发：
 
 ```text
 Nono: http://127.0.0.1:3000
 Nodesk: http://127.0.0.1:3000/nodesk
+NoMoney: http://127.0.0.1:3000/nomoney
 ```
 
 `docker compose ps` 中只会看到 `nono` 与 `nono-postgres` 两个容器，不再单独运行博客容器，也不再依赖相邻目录或外部 Git 构建上下文。
@@ -90,6 +92,8 @@ BLOG_NAVIGATION_URL=/nodesk
 `NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和 Nodesk 元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在后台覆盖，后台保存的设置优先。旧 `/blog` 地址会以 308 重定向到 `/nodesk`。
 
 Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
+
+NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 MoneyPulse 数据迁移、生产切换和回滚步骤见 [NoMoney 部署迁移手册](docs/deployment/nomoney-production-migration.md)。
 
 ## 旧数据迁移
 
