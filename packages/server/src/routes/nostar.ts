@@ -11,6 +11,9 @@ type AnyRecord = Record<string, any>;
 const PROXY_SETTING_KEY = 'proxy_config';
 const RPC_SETTING_KEY = 'rpc_download_config';
 const DEBUG_SETTING_KEY = 'diagnostic_debug';
+const NOSTAR_AI_OPTIONS_KEY = 'nostar_ai_options';
+const SHARED_AI_CONFIG_ID = 'nono-shared-llm';
+const SERVER_MANAGED_AI_KEY = '__nono_server_managed__';
 
 export async function nostarRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/nostar/health', async () => ({
@@ -22,11 +25,13 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   app.get('/api/nostar/settings', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const [rows, account] = await Promise.all([
+    const [rows, account, nonoAccount] = await Promise.all([
       services.prisma.noStarSetting.findMany({ where: { userId: user.id } }),
       services.prisma.noStarAccount.findUnique({ where: { userId: user.id } }),
+      services.repo.findUserById(user.id),
     ]);
     const settings = Object.fromEntries(rows.map((row) => [row.key, maskSettingValue(row.key, row.value, services.encryptionKey)]));
+    if (hasSharedLlm(nonoAccount)) settings.activeAIConfig = SHARED_AI_CONFIG_ID;
     if (account?.githubTokenEncrypted) {
       settings.github_token = maskSecret(decryptSecret(account.githubTokenEncrypted, services.encryptionKey));
       settings.github_token_status = 'ok';
@@ -242,68 +247,46 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
   app.get('/api/nostar/configs/ai', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const decrypt = asRecord(request.query).decrypt === 'true';
-    const rows = await services.prisma.noStarAiProfile.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
-    return rows.map((row) => ({
-      id: row.legacyId,
-      name: row.name,
-      apiType: row.apiType,
-      baseUrl: row.baseUrl,
-      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, decrypt),
-      model: row.model,
-      isActive: row.isActive,
-      customPrompt: row.customPrompt || '',
-      useCustomPrompt: row.useCustomPrompt,
-      concurrency: row.concurrency,
-      reasoningEffort: row.reasoningEffort || undefined,
-      mimoPlan: row.mimoPlan || undefined,
-    }));
+    const config = await sharedAiConfig(services, user.id);
+    return config ? [config] : [];
   });
 
   app.get('/api/admin/nostar/ai', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const rows = await services.prisma.noStarAiProfile.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
-    return sendOk(reply, rows.map((row) => ({
-      id: row.legacyId,
-      name: row.name,
-      apiType: row.apiType,
-      baseUrl: row.baseUrl,
-      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, false),
-      model: row.model,
-      isActive: row.isActive,
-      customPrompt: row.customPrompt || '',
-      useCustomPrompt: row.useCustomPrompt,
-      concurrency: row.concurrency,
-      reasoningEffort: row.reasoningEffort || 'none',
-    })));
+    const config = await sharedAiConfig(services, user.id);
+    return sendOk(reply, config ? [config] : []);
   });
 
   app.put('/api/admin/nostar/ai', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
     const profiles = arrayField(request.body, 'profiles');
-    await replaceAiProfiles(services, user.id, profiles);
-    return sendOk(reply, { saved: profiles.length });
+    await saveNoStarAiOptions(services, user.id, profiles[0] || {});
+    return sendOk(reply, { saved: profiles.length ? 1 : 0 });
+  });
+
+  app.get('/api/admin/nostar/ai-options', async (request, reply) => {
+    const user = await authed(request, reply, services);
+    if (!user) return;
+    return sendOk(reply, await noStarAiOptions(services, user.id));
+  });
+
+  app.put('/api/admin/nostar/ai-options', async (request, reply) => {
+    const user = await authed(request, reply, services);
+    if (!user) return;
+    return sendOk(reply, await saveNoStarAiOptions(services, user.id, asRecord(request.body)));
   });
 
   app.post('/api/admin/nostar/ai/test', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const input = asRecord(request.body);
-    const existing = input.id
-      ? await services.prisma.noStarAiProfile.findUnique({ where: { userId_legacyId: { userId: user.id, legacyId: text(input.id) } } })
-      : null;
-    const apiType = text(input.apiType || existing?.apiType) || 'openai';
-    const baseUrl = text(input.baseUrl || existing?.baseUrl);
-    const model = text(input.model || existing?.model);
-    const rawKey = text(input.apiKey);
-    const apiKey = rawKey && !rawKey.startsWith('***')
-      ? rawKey
-      : decryptSecret(existing?.apiKeyEncrypted, services.encryptionKey);
-    if (!baseUrl || !model || (!apiKey && apiType !== 'ollama')) {
-      throw Object.assign(new Error('请完整填写 API 地址、模型和 API Key'), { statusCode: 400 });
-    }
+    const account = await services.repo.findUserById(user.id);
+    if (!hasSharedLlm(account)) throw Object.assign(new Error('请先配置通用 LLM'), { statusCode: 400 });
+    const apiType = account.llmProvider === 'claude' ? 'claude' : 'openai';
+    const baseUrl = account.llmBaseUrl || defaultLlmBaseUrl(apiType);
+    const model = account.llmModel || '';
+    const apiKey = decryptSecret(account.llmApiKey, services.encryptionKey);
     const target = aiTarget({ apiType, baseUrl, apiKey, model });
     const response = await fetch(target.url, {
       method: 'POST',
@@ -322,8 +305,8 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     const user = await authed(request, reply, services);
     if (!user) return;
     const configs = arrayField(request.body, 'configs');
-    await replaceAiProfiles(services, user.id, configs);
-    return { synced: configs.length, skipped: 0, errors: [] };
+    if (configs[0]) await saveNoStarAiOptions(services, user.id, configs[0]);
+    return { synced: configs.length ? 1 : 0, skipped: 0, errors: [] };
   });
 
   app.get('/api/nostar/configs/webdav', async (request, reply) => {
@@ -501,15 +484,13 @@ export async function nostarRoutes(app: FastifyInstance, services: AppServices) 
     let reasoningEffort = nullableText(inline.reasoningEffort);
 
     if (input.configId) {
-      const profile = await services.prisma.noStarAiProfile.findUnique({
-        where: { userId_legacyId: { userId: user.id, legacyId: text(input.configId) } },
-      });
-      if (!profile) return reply.status(404).send({ error: 'AI config not found', code: 'AI_CONFIG_NOT_FOUND' });
-      apiType = profile.apiType;
-      baseUrl = profile.baseUrl;
-      apiKey = decryptSecret(profile.apiKeyEncrypted, services.encryptionKey);
-      model = profile.model;
-      reasoningEffort = profile.reasoningEffort;
+      const account = await services.repo.findUserById(user.id);
+      if (!hasSharedLlm(account)) return reply.status(404).send({ error: 'AI config not found', code: 'AI_CONFIG_NOT_FOUND' });
+      apiType = account.llmProvider === 'claude' ? 'claude' : 'openai';
+      baseUrl = account.llmBaseUrl || defaultLlmBaseUrl(apiType);
+      apiKey = decryptSecret(account.llmApiKey, services.encryptionKey);
+      model = account.llmModel || '';
+      reasoningEffort = account.llmReasoningEffort || null;
     }
 
     if (!baseUrl || !model || (!apiKey && apiType !== 'ollama')) {
@@ -821,6 +802,66 @@ async function saveStoredConfig(services: AppServices, userId: number, key: stri
     update: { value: normalizeJson(value) },
     create: { userId, key, value: normalizeJson(value) },
   });
+}
+
+function hasSharedLlm(account: AnyRecord | null | undefined) {
+  return Boolean(account?.llmProvider && account?.llmApiKey && account?.llmModel);
+}
+
+function defaultLlmBaseUrl(apiType: string) {
+  return apiType === 'claude' ? 'https://api.anthropic.com' : 'https://api.openai.com';
+}
+
+async function noStarAiOptions(services: AppServices, userId: number) {
+  const stored = await storedConfig(services, userId, NOSTAR_AI_OPTIONS_KEY);
+  if (Object.keys(stored).length) {
+    return {
+      customPrompt: text(stored.customPrompt),
+      useCustomPrompt: Boolean(stored.useCustomPrompt),
+      concurrency: boundedInt(stored.concurrency, 1, 1, 32),
+    };
+  }
+
+  const [legacy] = await services.prisma.noStarAiProfile.findMany({
+    where: { userId },
+    orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
+    take: 1,
+  });
+  return {
+    customPrompt: legacy?.customPrompt || '',
+    useCustomPrompt: Boolean(legacy?.useCustomPrompt),
+    concurrency: boundedInt(legacy?.concurrency, 1, 1, 32),
+  };
+}
+
+async function saveNoStarAiOptions(services: AppServices, userId: number, input: AnyRecord) {
+  const options = {
+    customPrompt: text(input.customPrompt ?? input.custom_prompt).slice(0, 8000),
+    useCustomPrompt: Boolean(input.useCustomPrompt ?? input.use_custom_prompt),
+    concurrency: boundedInt(input.concurrency, 1, 1, 32),
+  };
+  await saveStoredConfig(services, userId, NOSTAR_AI_OPTIONS_KEY, options);
+  return options;
+}
+
+async function sharedAiConfig(services: AppServices, userId: number) {
+  const account = await services.repo.findUserById(userId);
+  if (!hasSharedLlm(account)) return null;
+  const options = await noStarAiOptions(services, userId);
+  const apiType = account!.llmProvider === 'claude' ? 'claude' : 'openai';
+  return {
+    id: SHARED_AI_CONFIG_ID,
+    name: 'Nono LLM',
+    apiType,
+    baseUrl: account!.llmBaseUrl || defaultLlmBaseUrl(apiType),
+    apiKey: SERVER_MANAGED_AI_KEY,
+    model: account!.llmModel,
+    isActive: true,
+    customPrompt: options.customPrompt,
+    useCustomPrompt: options.useCustomPrompt,
+    concurrency: options.concurrency,
+    reasoningEffort: account!.llmReasoningEffort || 'none',
+  };
 }
 
 function publicProxyConfig(value: AnyRecord) {

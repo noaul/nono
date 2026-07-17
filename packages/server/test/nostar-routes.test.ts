@@ -126,6 +126,48 @@ describe('NoStar routes', () => {
     expect(repositoryQueries).toEqual([{ userId: 1 }, { userId: 2 }]);
   });
 
+  it('uses the bookmark LLM connection as the single NoStar AI config', async () => {
+    const adminCookie = await setupAdmin();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/account/llm',
+      headers: { cookie: adminCookie },
+      payload: {
+        provider: 'claude',
+        apiKey: 'shared-bookmark-key',
+        model: 'claude-sonnet-4-5',
+        baseUrl: 'https://llm.example.com/v1',
+        reasoningEffort: 'high',
+      },
+    });
+
+    const configResponse = await app.inject({
+      method: 'GET',
+      url: '/api/nostar/configs/ai?decrypt=true',
+      headers: { cookie: adminCookie },
+    });
+    const settingsResponse = await app.inject({
+      method: 'GET',
+      url: '/api/nostar/settings',
+      headers: { cookie: adminCookie },
+    });
+
+    expect(configResponse.statusCode).toBe(200);
+    expect(configResponse.json()).toEqual([expect.objectContaining({
+      id: 'nono-shared-llm',
+      name: 'Nono LLM',
+      apiType: 'claude',
+      baseUrl: 'https://llm.example.com/v1',
+      apiKey: '__nono_server_managed__',
+      model: 'claude-sonnet-4-5',
+      isActive: true,
+      reasoningEffort: 'high',
+    })]);
+    expect(settingsResponse.json().activeAIConfig).toBe('nono-shared-llm');
+    expect(JSON.stringify(configResponse.json())).not.toContain('shared-bookmark-key');
+    expect(JSON.stringify(configResponse.json())).not.toContain('secret-ai-key');
+  });
+
   it('stores network settings separately for each Nono user and masks passwords', async () => {
     const adminCookie = await setupAdmin();
     const readerCookie = await loginSecondUser();

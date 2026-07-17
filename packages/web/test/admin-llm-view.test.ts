@@ -46,7 +46,7 @@ describe('LlmView', () => {
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/account/llm', {
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/account/llm', {
       method: 'PUT',
       body: JSON.stringify({
         provider: 'openai',
@@ -77,22 +77,46 @@ describe('LlmView', () => {
     expect(wrapper.text()).toContain('连接成功');
   });
 
-  it('adds and saves a NoStar AI profile from the Nono admin page', async () => {
+  it('loads NoStar analysis options beside the shared LLM connection', async () => {
     apiRequest
       .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-4o-mini', hasLlmApiKey: false })
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ saved: 1 });
+      .mockResolvedValueOnce({ customPrompt: '仓库分析', useCustomPrompt: true, concurrency: 3 });
 
     const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
     await settle(wrapper);
-    await wrapper.get('[data-testid="add-nostar-ai-profile"]').trigger('click');
-    await wrapper.get('[data-testid="nostar-profile-name-0"]').setValue('仓库分析');
-    await wrapper.get('[data-testid="save-nostar-ai-profiles"]').trigger('click');
+
+    expect((wrapper.get('[data-testid="nostar-custom-prompt"]').element as HTMLTextAreaElement).value).toBe('仓库分析');
+    expect((wrapper.get('[data-testid="nostar-concurrency"]').element as HTMLInputElement).value).toBe('3');
+  });
+
+  it('saves bookmark and NoStar AI through one shared configuration form', async () => {
+    apiRequest
+      .mockResolvedValueOnce({
+        llmProvider: 'openai',
+        llmModel: 'gpt-5-mini',
+        llmBaseUrl: 'https://gateway.example.com/v1',
+        llmReasoningEffort: 'medium',
+        hasLlmApiKey: true,
+      })
+      .mockResolvedValueOnce({ customPrompt: 'old prompt', useCustomPrompt: true, concurrency: 2 })
+      .mockResolvedValue({ ok: true });
+
+    const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
     await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/nostar/ai', {
+    expect(wrapper.find('[data-testid="add-nostar-ai-profile"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="nostar-custom-prompt"]').setValue('new repository prompt');
+    await wrapper.get('[data-testid="nostar-concurrency"]').setValue(4);
+    await wrapper.get('form').trigger('submit');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/account/llm', {
       method: 'PUT',
-      body: expect.stringContaining('仓库分析'),
+      body: expect.stringContaining('gpt-5-mini'),
+    });
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/nostar/ai-options', {
+      method: 'PUT',
+      body: JSON.stringify({ customPrompt: 'new repository prompt', useCustomPrompt: true, concurrency: 4 }),
     });
   });
 });
