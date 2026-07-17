@@ -240,6 +240,29 @@ describe('useAppStore vector search config normalization', () => {
   });
 });
 
+describe('useAppStore GitHub authentication', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      user: { id: 1, login: 'au', avatar_url: '' },
+      githubToken: null,
+      isAuthenticated: false,
+    });
+  });
+
+  it('restores authentication when a server-managed token marker is applied', () => {
+    useAppStore.getState().setGitHubToken('__nono_server_managed__');
+
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('clears authentication when the token is removed', () => {
+    useAppStore.getState().setGitHubToken('__nono_server_managed__');
+    useAppStore.getState().setGitHubToken(null);
+
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+  });
+});
+
 describe('useAppStore repository performance guards', () => {
   beforeEach(() => {
     localStorage.clear();

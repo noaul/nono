@@ -1224,7 +1224,10 @@ export const useAppStore = create<AppState & AppActions>()(
       },
       setGitHubToken: (token) => {
         logger.info('store.setGitHubToken', 'Setting GitHub token', { hasToken: !!token });
-        set({ githubToken: token });
+        set((state) => ({
+          githubToken: token,
+          isAuthenticated: Boolean(state.user && token),
+        }));
       },
       logout: () => set({
         user: null,

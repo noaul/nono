@@ -6,8 +6,11 @@ import { SERVER_MANAGED_GITHUB_TOKEN } from './githubApi';
 const store = vi.hoisted(() => {
   const state = {
     githubToken: null as string | null,
+    user: { id: 1, login: 'au' },
+    isAuthenticated: false,
     setGitHubToken(token: string | null) {
       state.githubToken = token;
+      state.isAuthenticated = Boolean(state.user && token);
     },
   };
   const useAppStore = Object.assign(
@@ -35,6 +38,7 @@ describe('autoSync GitHub token handling', () => {
     const unsubscribe = startAutoSync();
     await vi.waitFor(() => {
       expect(store.state.githubToken).toBe(SERVER_MANAGED_GITHUB_TOKEN);
+      expect(store.state.isAuthenticated).toBe(true);
     });
     stopAutoSync(unsubscribe);
   });
