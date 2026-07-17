@@ -14,11 +14,11 @@ watch(
 
     document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]').forEach((favicon) => {
       const size = favicon.sizes.value === '192x192' ? 192 : 32;
-      favicon.href = `/favicon${variant}-${size}.png`;
+      favicon.href = `/favicon${variant}-${size}.png${isAdmin ? '' : '?v=20260717b'}`;
     });
 
     const appleTouchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-    if (appleTouchIcon) appleTouchIcon.href = `/apple-touch-icon${variant}.png`;
+    if (appleTouchIcon) appleTouchIcon.href = `/apple-touch-icon${variant}.png${isAdmin ? '' : '?v=20260717b'}`;
   },
   { immediate: true },
 );

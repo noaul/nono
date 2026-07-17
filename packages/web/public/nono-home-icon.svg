@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Nono home icon</title>
+  <desc id="desc">Two clean connected rings in blue and violet.</desc>
+  <defs>
+    <linearGradient id="ring" x1="104" y1="132" x2="408" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35C9E6"/>
+      <stop offset="0.42" stop-color="#4F7CF5"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="82" y1="72" x2="430" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDF7FB"/>
+      <stop offset="0.5" stop-color="#DDE5FF"/>
+      <stop offset="1" stop-color="#E8DDFE"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="232" fill="#FFFFFF"/>
+  <circle cx="256" cy="256" r="223" fill="none" stroke="url(#edge)" stroke-width="14"/>
+
+  <path
+    d="M263 196C233 160 178 153 140 181C96 213 91 277 126 316C162 356 226 351 263 308L311 251C340 217 390 239 390 281C390 320 350 345 316 326"
+    fill="none"
+    stroke="url(#ring)"
+    stroke-width="54"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
