@@ -3,6 +3,7 @@ import { Github, Key, ArrowRight, AlertCircle, Moon, Sun } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GitHubApiService } from '../services/githubApi';
 import { backend } from '../services/backendAdapter';
+import { logger } from '../services/logger';
 import { safeReadText } from '../utils/clipboardUtils';
 
 export const LoginScreen: React.FC = () => {
@@ -33,16 +34,16 @@ export const LoginScreen: React.FC = () => {
         try {
           await backend.syncSettings({ github_token: token });
         } catch (backendError) {
-          console.warn('Failed to save GitHub token to backend:', backendError);
+          logger.warn('authentication', 'Failed to save GitHub token to backend', backendError);
           setError(language === 'zh'
             ? '已登录，但 GitHub Token 未能保存到后端，README 等后端代理功能可能不可用。'
             : 'Signed in, but failed to save GitHub token to backend. README and other backend proxy features may be unavailable.');
         }
       }
 
-      console.log('Successfully authenticated user:', user);
+      logger.info('authentication', 'GitHub authentication succeeded');
     } catch (error) {
-      console.error('Authentication failed:', error);
+      logger.errorFromError('authentication', 'GitHub authentication failed', error);
       setError(
         error instanceof Error 
           ? error.message 
@@ -67,7 +68,7 @@ export const LoginScreen: React.FC = () => {
         setError('');
       } else {
         // 读取剪贴板失败，让浏览器/系统默认行为继续兜底
-        console.warn('Clipboard read failed:', result.error);
+        logger.warn('authentication', 'Clipboard read failed', result.error);
       }
     }
   };

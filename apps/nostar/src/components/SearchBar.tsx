@@ -9,6 +9,7 @@ import { Repository } from '../types';
 import { useSearchShortcuts } from '../hooks/useSearchShortcuts';
 import { useDialog } from '../hooks/useDialog';
 import { isRepoCustomized } from '../utils/repoUtils';
+import { logger } from '../services/logger';
 import { NumberInput } from './ui/NumberInput';
 
 type SortBy = 'stars' | 'updated' | 'name' | 'starred';
@@ -206,7 +207,7 @@ export const SearchBar: React.FC = () => {
         const history = JSON.parse(savedHistory);
         setSearchHistory(Array.isArray(history) ? history.slice(0, 10) : []);
       } catch (error) {
-        console.warn('Failed to load search history:', error);
+        logger.warn('search', 'Failed to load search history', error);
       }
     }
   }, [repositories]);
@@ -304,7 +305,10 @@ export const SearchBar: React.FC = () => {
     setSearchResults(finalFiltered);
     
     const endTime = performance.now();
-    console.log(`Real-time search completed in ${(endTime - startTime).toFixed(2)}ms`);
+    logger.debug('search', 'Real-time search completed', {
+      durationMs: Number((endTime - startTime).toFixed(2)),
+      resultCount: finalFiltered.length,
+    });
   };
 
   const performBasicFilter = () => {
@@ -492,7 +496,7 @@ export const SearchBar: React.FC = () => {
 
       // 如果去掉分类锁定筛选后有结果，说明是分类锁定导致的结果为空，自动清除
       if (filteredWithoutCategoryLock.length > 0) {
-        console.log('分类锁定筛选导致结果为空，自动清除该筛选条件');
+        logger.debug('search', 'Cleared category-lock filter after an empty result');
         setSearchFilters({ isCategoryLocked: undefined });
         // 返回去掉分类锁定筛选的结果
         return filteredWithoutCategoryLock.sort((a, b) => {
@@ -527,7 +531,7 @@ export const SearchBar: React.FC = () => {
     setIsSearching(true);
     setSearchPhase(null);
     vectorScoreMapRef.current = null;
-    console.log('🔍 Starting AI search for query:', searchQuery);
+    logger.debug('search', 'AI search started');
 
     try {
       let filtered = repositories;
@@ -561,10 +565,10 @@ export const SearchBar: React.FC = () => {
                 }),
               ]);
               if (embeddingQuery !== searchQuery) {
-                console.log('🔮 HyDE generated:', embeddingQuery.slice(0, 100));
+                logger.debug('search', 'HyDE query generated');
               }
             } catch (hydeError) {
-              console.warn('HyDE failed, using raw query:', hydeError);
+              logger.warn('search', 'HyDE failed; using the original query', hydeError);
               embeddingQuery = searchQuery;
             } finally {
               if (hydeTimer) clearTimeout(hydeTimer);
@@ -618,9 +622,9 @@ export const SearchBar: React.FC = () => {
                     const rerankService = new AIService(rerankConfig, language);
                     reranked = await rerankService.searchRepositoriesWithSemanticReranking(scoredRepos, searchQuery);
                     rerankSucceeded = true;
-                    console.log('🤖 AI semantically reranked results:', reranked.length);
+                    logger.debug('search', 'AI semantic reranking completed', { resultCount: reranked.length });
                   } catch (rerankError) {
-                    console.warn('AI semantic reranking failed, using vector order:', rerankError);
+                    logger.warn('search', 'AI semantic reranking failed; using vector order', rerankError);
                   }
                 }
 
@@ -638,7 +642,7 @@ export const SearchBar: React.FC = () => {
                 } else {
                   finalFiltered.sort((a, b) => (scoreMap.get(String(b.id)) ?? 0) - (scoreMap.get(String(a.id)) ?? 0));
                 }
-                console.log('🎯 Vector search results:', finalFiltered.length);
+                logger.debug('search', 'Vector search completed', { resultCount: finalFiltered.length });
                 vectorScoreMapRef.current = { query: searchQuery, scores: scoreMap };
                 skipNextTextSearchRef.current = true;
                 setSearchResults(finalFiltered);
@@ -648,51 +652,51 @@ export const SearchBar: React.FC = () => {
             }
           }
           // 向量搜索无结果 → 继续走关键词搜索
-          console.log('⚠️ Vector search returned no results, falling back to keyword search');
+          logger.debug('search', 'Vector search returned no results; using keyword search');
         } catch (vectorError) {
-          console.warn('❌ Vector search failed, falling back to keyword search:', vectorError);
+          logger.warn('search', 'Vector search failed; using keyword search', vectorError);
         }
       }
       // ====== 向量搜索分支结束 ======
 
       const activeConfig = aiConfigs.find(config => config.id === activeAIConfig);
-      console.log('🤖 AI Config found:', !!activeConfig, 'Active AI Config ID:', activeAIConfig);
-      console.log('📋 Available AI Configs:', aiConfigs.length);
-      console.log('🔧 AI Configs:', aiConfigs.map(c => ({ id: c.id, name: c.name, hasApiKey: !!c.apiKey })));
+      logger.debug('search', 'AI configuration resolved', {
+        configured: Boolean(activeConfig),
+        availableConfigCount: aiConfigs.length,
+      });
 
       if (activeConfig) {
         try {
-          console.log('🚀 Calling AI service...');
+          logger.debug('search', 'Calling AI search service');
           setSearchPhase(t('AI 语义分析...', 'AI semantic analysis...'));
           const aiService = new AIService(activeConfig, language);
 
           // 先尝试AI搜索
           const aiResults = await aiService.searchRepositoriesWithReranking(filtered, searchQuery);
-          console.log('✅ AI search completed, results:', aiResults.length);
+          logger.debug('search', 'AI search completed', { resultCount: aiResults.length });
           
           filtered = aiResults;
         } catch (error) {
-          console.warn('❌ AI search failed, falling back to basic search:', error);
+          logger.warn('search', 'AI search failed; using basic search', error);
           filtered = performBasicTextSearch(filtered, searchQuery);
-          console.log('🔄 Basic search fallback results:', filtered.length);
+          logger.debug('search', 'Basic search fallback completed', { resultCount: filtered.length });
         }
       } else {
-        console.log('⚠️ No AI config found, using basic text search');
+        logger.debug('search', 'No AI configuration found; using basic search');
         // Basic text search if no AI config
         filtered = performBasicTextSearch(filtered, searchQuery);
-        console.log('📝 Basic search results:', filtered.length);
+        logger.debug('search', 'Basic search completed', { resultCount: filtered.length });
       }
       
       // Apply other filters and update results
       const finalFiltered = applyFilters(filtered);
-      console.log('🎯 Final filtered results:', finalFiltered.length);
-      console.log('📋 Final filtered repositories:', finalFiltered.map(r => r.name));
+      logger.debug('search', 'Search filters applied', { resultCount: finalFiltered.length });
       setSearchResults(finalFiltered);
       
       // Update search filters to mark that AI search was performed
       setSearchFilters({ query: searchQuery });
     } catch (error) {
-      console.error('💥 Search failed:', error);
+      logger.errorFromError('search', 'Search failed', error);
     } finally {
       setIsSearching(false);
       setSearchPhase(null);
@@ -934,7 +938,7 @@ export const SearchBar: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('Sync failed:', error);
+      logger.errorFromError('search', 'Repository sync failed', error);
       if (error instanceof Error && error.message.includes('token')) {
         toast(t('GitHub token 已过期或无效，请重新登录。', 'GitHub token has expired or is invalid. Please login again.'), 'error');
       } else {

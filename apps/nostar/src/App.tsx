@@ -1,15 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
-import { LoginScreen } from './components/LoginScreen';
 import { Header } from './components/Header';
-import { SearchBar } from './components/SearchBar';
-import { RepositoryList } from './components/RepositoryList';
-import { CategorySidebar } from './components/CategorySidebar';
-import { ReleaseTimeline } from './components/ReleaseTimeline';
-import { ForkTimeline } from './components/ForkTimeline';
-import { SettingsPanel } from './components/SettingsPanel';
 import { DebugModeIndicator } from './components/DebugModeIndicator';
-import { DiscoveryView } from './components/DiscoveryView';
-import { GistView } from './components/GistView';
 import { BackToTop } from './components/BackToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppStore } from './store/useAppStore';
@@ -18,94 +9,23 @@ import { logger } from './services/logger';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { backend } from './services/backendAdapter';
 import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
-import type { AppState, SearchFilters } from './types';
 import { getStorageScope, setStorageScope } from './services/storageScope';
 
-/**
- * Check if any search/filter/sort condition is active (non-default).
- * Used to decide whether to display searchResults or the full repository list.
- */
-function hasActiveSearchFilters(filters: SearchFilters): boolean {
+const LoginScreen = React.lazy(() => import('./components/LoginScreen').then((module) => ({ default: module.LoginScreen })));
+const RepositoriesView = React.lazy(() => import('./views/RepositoriesView'));
+const GistView = React.lazy(() => import('./components/GistView').then((module) => ({ default: module.GistView })));
+const ReleaseTimeline = React.lazy(() => import('./components/ReleaseTimeline').then((module) => ({ default: module.ReleaseTimeline })));
+const ForkTimeline = React.lazy(() => import('./components/ForkTimeline').then((module) => ({ default: module.ForkTimeline })));
+const DiscoveryView = React.lazy(() => import('./components/DiscoveryView').then((module) => ({ default: module.DiscoveryView })));
+const SettingsPanel = React.lazy(() => import('./components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })));
+
+function ViewFallback() {
   return (
-    !!filters.query.trim() ||
-    filters.languages.length > 0 ||
-    filters.tags.length > 0 ||
-    filters.platforms.length > 0 ||
-    filters.minStars !== undefined ||
-    filters.maxStars !== undefined ||
-    filters.isAnalyzed !== undefined ||
-    filters.isSubscribed !== undefined ||
-    filters.isEdited !== undefined ||
-    filters.isCategoryLocked !== undefined ||
-    filters.analysisFailed !== undefined ||
-    filters.sortBy !== 'stars' ||
-    filters.sortOrder !== 'desc'
-  );
-}
-
-/**
- * Main repository view combining category sidebar, search bar, and repository list.
- * Switches between search results and full list based on active search filters.
- */
-const RepositoriesView = React.memo(({
-  repositories,
-  searchResults,
-  searchFilters,
-  selectedCategory,
-  onCategorySelect
-}: {
-  repositories: AppState['repositories'];
-  searchResults: AppState['searchResults'];
-  searchFilters: AppState['searchFilters'];
-  selectedCategory: string;
-  onCategorySelect: (category: string) => void;
-}) => {
-  const isActive = hasActiveSearchFilters(searchFilters);
-  const similarView = useAppStore((state) => state.similarView);
-  const exitSimilarView = useAppStore((state) => state.exitSimilarView);
-
-  // 相似视图下用户发起搜索时，自动退出相似视图（搜索优先于相似浏览，避免界面歧义）
-  useEffect(() => {
-    if (similarView?.active && isActive) {
-      exitSimilarView();
-    }
-  }, [similarView?.active, isActive, exitSimilarView]);
-
-  // 相似仓库视图激活时，列表数据源切换为相似结果，且忽略分类过滤
-  const listRepositories = similarView?.active
-    ? similarView.similarResults
-    : (isActive ? searchResults : repositories);
-
-  return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
-      <CategorySidebar
-        repositories={repositories}
-        selectedCategory={selectedCategory}
-        onCategorySelect={onCategorySelect}
-      />
-      <div className="flex-1 space-y-6">
-        <SearchBar />
-        <RepositoryList
-          repositories={listRepositories}
-          selectedCategory={similarView?.active ? 'all' : selectedCategory}
-        />
-      </div>
+    <div className="flex min-h-[520px] items-center justify-center" aria-label="Loading view">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-300 border-t-brand-indigo dark:border-gray-700 dark:border-t-brand-indigo" />
     </div>
   );
-});
-RepositoriesView.displayName = 'RepositoriesView';
-
-const ReleasesView = React.memo(() => <ReleaseTimeline />);
-ReleasesView.displayName = 'ReleasesView';
-
-const GistsView = React.memo(() => <GistView />);
-GistsView.displayName = 'GistsView';
-
-const ForksView = React.memo(() => <ForkTimeline />);
-ForksView.displayName = 'ForksView';
-
-const SettingsView = React.memo(() => <SettingsPanel />);
-SettingsView.displayName = 'SettingsView';
+}
 
 function App() {
   const [nonoSession, setNonoSession] = useState<'loading' | 'authenticated' | 'redirecting' | 'error'>('loading');
@@ -188,7 +108,7 @@ function App() {
           }
         }
       } catch (err) {
-        console.error('Failed to initialize backend:', err);
+        logger.errorFromError('app', 'Failed to initialize backend', err);
       }
     };
 
@@ -223,11 +143,11 @@ function App() {
           />
         );
       case 'gists':
-        return <GistsView />;
+        return <GistView />;
       case 'releases':
-        return <ReleasesView />;
+        return <ReleaseTimeline />;
       case 'forks':
-        return <ForksView />;
+        return <ForkTimeline />;
       case 'subscription':
         return (
           <ErrorBoundary>
@@ -235,7 +155,7 @@ function App() {
           </ErrorBoundary>
         );
       case 'settings':
-        return <SettingsView />;
+        return <SettingsPanel />;
       default:
         return null;
     }
@@ -267,7 +187,11 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen />;
+    return (
+      <React.Suspense fallback={<ViewFallback />}>
+        <LoginScreen />
+      </React.Suspense>
+    );
   }
 
   return (
@@ -275,7 +199,9 @@ function App() {
       <UpdateNotificationBanner />
       <Header />
       <main className="max-w-[1280px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {currentViewContent}
+        <React.Suspense fallback={<ViewFallback />}>
+          {currentViewContent}
+        </React.Suspense>
       </main>
       <BackToTop />
       <DebugModeIndicator />

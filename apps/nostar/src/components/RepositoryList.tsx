@@ -13,6 +13,7 @@ import { AIService } from '../services/aiService';
 import { AIAnalysisOptimizer, AnalysisResult } from '../services/aiAnalysisOptimizer';
 import { resolveCategoryAssignment, getAICategory, getDefaultCategory, computeCustomCategory, matchesCategory } from '../utils/categoryUtils';
 import { forceSyncToBackend } from '../services/autoSync';
+import { logger } from '../services/logger';
 import { useDialog } from '../hooks/useDialog';
 
 interface RepositoryListProps {
@@ -376,13 +377,13 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
         categoryNames,
         (completed, total, currentConcurrency) => {
           setAnalysisProgress({ current: completed, total });
-          console.log(`AI Analysis Progress: ${completed}/${total}, Concurrency: ${currentConcurrency}`);
+          logger.debug('repositories', 'AI analysis progress', { completed, total, currentConcurrency });
         },
         handleResult
       );
 
       const stats = optimizerRef.current!.getStats();
-      console.log('AI Analysis Stats:', stats);
+      logger.debug('repositories', 'AI analysis completed', stats);
 
       if (hasAnalysisChanges) {
         await forceSyncToBackend();
@@ -399,7 +400,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
 
       toast(completionMessage, 'success');
     } catch (error) {
-      console.error('AI analysis failed:', error);
+      logger.errorFromError('repositories', 'AI analysis failed', error);
       const errorMessage = language === 'zh'
         ? 'AI分析失败，请检查AI配置和网络连接。'
         : 'AI analysis failed. Please check AI configuration and network connection.';
@@ -427,10 +428,10 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
     if (optimizerRef.current) {
       if (newPausedState) {
         optimizerRef.current.pause();
-        console.log('Analysis paused');
+        logger.debug('repositories', 'AI analysis paused');
       } else {
         optimizerRef.current.resume();
-        console.log('Analysis resumed');
+        logger.debug('repositories', 'AI analysis resumed');
       }
     }
   };
@@ -454,7 +455,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
         optimizerRef.current.abort();
       }
       setIsPaused(false);
-      console.log('Stop requested by user');
+      logger.debug('repositories', 'AI analysis stop requested');
     }
   };
 
@@ -556,7 +557,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
         }
         successCount++;
       } catch (error) {
-        console.error(`Failed to restore ${repo.full_name}:`, error);
+        logger.errorFromError('repositories', 'Failed to restore repository', error);
         failedRepos.push(repo.full_name);
       }
     }
@@ -622,7 +623,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               await githubApi.unstarRepository(owner, name);
               successIds.push(repo.id);
             } catch (error) {
-              console.error(`Failed to unstar ${repo.full_name}:`, error);
+              logger.errorFromError('repositories', 'Failed to unstar repository', error);
             }
           }
 
@@ -736,13 +737,13 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               categoryNames,
               (completed, total, currentConcurrency) => {
                 setAnalysisProgress({ current: completed, total });
-                console.log(`Bulk AI Analysis Progress: ${completed}/${total}, Concurrency: ${currentConcurrency}`);
+                logger.debug('repositories', 'Bulk AI analysis progress', { completed, total, currentConcurrency });
               },
               handleResult
             );
 
             const stats = optimizerRef.current!.getStats();
-            console.log('Bulk AI Analysis Stats:', stats);
+            logger.debug('repositories', 'Bulk AI analysis completed', stats);
 
             await forceSyncToBackend();
             toast(language === 'zh'
@@ -751,7 +752,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               failedCount > 0 ? 'error' : 'success'
             );
           } catch (error) {
-            console.error('Bulk AI analysis failed:', error);
+            logger.errorFromError('repositories', 'Bulk AI analysis failed', error);
             toast(language === 'zh' ? '批量AI分析失败' : 'Bulk AI analysis failed', 'error');
           } finally {
             // 确保状态重置
@@ -778,7 +779,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               }
               successCount++;
             } catch (error) {
-              console.error(`Failed to subscribe ${repo.full_name}:`, error);
+              logger.errorFromError('repositories', 'Failed to subscribe to repository releases', error);
             }
           }
 
@@ -810,7 +811,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               const updatedRepo = { ...repo, subscribed_to_releases: false };
               updateRepository(updatedRepo);
             } catch (error) {
-              console.error(`Failed to update repository ${repo.full_name}:`, error);
+              logger.errorFromError('repositories', 'Failed to update repository subscription', error);
               failedRepos.push(repo.full_name);
             }
           }
@@ -854,7 +855,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                 skippedCount++;
               }
             } catch (error) {
-              console.error(`Failed to lock category for ${repo.full_name}:`, error);
+              logger.errorFromError('repositories', 'Failed to lock repository category', error);
               failedRepos.push(repo.full_name);
             }
           }
@@ -892,7 +893,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               });
               successCount++;
             } catch (error) {
-              console.error(`Failed to unlock category for ${repo.full_name}:`, error);
+              logger.errorFromError('repositories', 'Failed to unlock repository category', error);
               failedRepos.push(repo.full_name);
             }
           }
@@ -921,7 +922,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
       // 清除选择
       handleDeselectAll();
     } catch (error) {
-      console.error('Bulk action failed:', error);
+      logger.errorFromError('repositories', 'Bulk action failed', error);
       toast(language === 'zh' ? '批量操作失败' : 'Bulk action failed', 'error');
     }
   };
@@ -951,7 +952,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
           last_edited: new Date().toISOString()
         });
       } catch (error) {
-        console.error(`Failed to categorize ${repo.full_name}:`, error);
+        logger.errorFromError('repositories', 'Failed to categorize repository', error);
         failedRepos.push(repo.full_name);
       }
     }

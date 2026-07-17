@@ -877,6 +877,89 @@ describe('Nono Fastify app', () => {
     expect((await repo.listFolders(reader.userId)).some((item) => item.id === folderId)).toBe(false);
   });
 
+  it('does not allow link updates to change server-owned fields', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'Reading' },
+    });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie },
+      payload: { folderId: folder.json().data.id, name: 'Original', url: 'https://original.example/' },
+    });
+    const linkId = link.json().data.id;
+    const originalCreatedAt = link.json().data.createdAt;
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/links/${linkId}`,
+      headers: { cookie },
+      payload: {
+        name: 'Updated',
+        url: 'https://updated.example/path',
+        icon: 'bookmark',
+        description: 'Allowed fields still update',
+        sortOrder: 42,
+        id: linkId + 1000,
+        createdAt: '2000-01-01T00:00:00.000Z',
+        updatedAt: '2000-01-01T00:00:00.000Z',
+        serverOnly: 'attacker-controlled',
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data).toMatchObject({
+      id: linkId,
+      folderId: folder.json().data.id,
+      name: 'Updated',
+      url: 'https://updated.example/path',
+      icon: 'bookmark',
+      description: 'Allowed fields still update',
+      sortOrder: 42,
+    });
+    expect(updated.json().data.createdAt).toBe(originalCreatedAt);
+    expect(updated.json().data).not.toHaveProperty('serverOnly');
+  });
+
+  it('does not allow link updates to move into another user folder', async () => {
+    const adminCookie = await setupAdmin();
+    const reader = await setupUser(adminCookie);
+    const adminFolder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie: adminCookie },
+      payload: { name: 'Admin folder' },
+    });
+    const readerFolder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie: reader.cookie },
+      payload: { name: 'Reader folder' },
+    });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: adminCookie },
+      payload: { folderId: adminFolder.json().data.id, name: 'Admin link', url: 'https://admin.example/' },
+    });
+
+    const moved = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/links/${link.json().data.id}`,
+      headers: { cookie: adminCookie },
+      payload: { folderId: readerFolder.json().data.id },
+    });
+
+    expect(moved.statusCode).toBe(404);
+    expect(moved.json()).toMatchObject({ code: 404, message: 'Folder not found' });
+    expect((await repo.listLinks(1))[0].folderId).toBe(adminFolder.json().data.id);
+    expect(await repo.listLinks(reader.userId)).toHaveLength(0);
+  });
+
   it('does not allow AI save to write into another user folder', async () => {
     const adminCookie = await setupAdmin();
     const reader = await setupUser(adminCookie);

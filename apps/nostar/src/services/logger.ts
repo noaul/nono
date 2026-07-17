@@ -23,6 +23,10 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   error: 3,
 };
 
+export function shouldForwardToConsole(isDevelopment: boolean, diagnosticEnabled: boolean): boolean {
+  return isDevelopment || diagnosticEnabled;
+}
+
 class Logger {
   private buffer: LogEntry[] = [];
   private maxEntries = 2000;
@@ -33,7 +37,11 @@ class Logger {
 
     // Sanitize at write time — buffer never contains secrets
     const sanitizedMessage = typeof message === 'string' ? sanitizeForLog(message) as string : String(message);
-    const sanitizedData = data !== undefined ? sanitizeForLog(data) : undefined;
+    const sanitizedData = data instanceof Error
+      ? sanitizeError(data)
+      : data !== undefined
+        ? sanitizeForLog(data)
+        : undefined;
 
     const entry: LogEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -88,6 +96,10 @@ class Logger {
   }
 
   private forwardToConsole(entry: LogEntry): void {
+    const diagnosticEnabled = typeof window !== 'undefined'
+      && window.sessionStorage.getItem('gsm:frontend-debug') === 'true';
+    if (!shouldForwardToConsole(import.meta.env.DEV, diagnosticEnabled)) return;
+
     const prefix = `[${entry.module}]`;
     const dataStr = entry.data !== undefined ? entry.data : '';
     switch (entry.level) {

@@ -119,3 +119,7 @@ jobs:
       - name: Build NoStar
         working-directory: apps/nostar
         run: npm run build
+
+      - name: Check NoStar bundle budget
+        working-directory: apps/nostar
+        run: npm run bundle:check

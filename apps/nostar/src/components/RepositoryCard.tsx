@@ -9,12 +9,21 @@ import { analyzeRepository, createFailedAnalysisResult } from '../services/aiAna
 import { forceSyncToBackend } from '../services/autoSync';
 import { GitHubApiService } from '../services/githubApi';
 import { formatDistanceToNow } from 'date-fns';
-import { RepositoryEditModal } from './RepositoryEditModal';
-import { ReadmeModal } from './ReadmeModal';
 import { FloatingTooltip } from './FloatingTooltip';
 import { shallow } from 'zustand/shallow';
 import { useDialog } from '../hooks/useDialog';
 import { logger } from '../services/logger';
+
+const RepositoryEditModal = React.lazy(() => import('./RepositoryEditModal').then((module) => ({ default: module.RepositoryEditModal })));
+const ReadmeModal = React.lazy(() => import('./ReadmeModal').then((module) => ({ default: module.ReadmeModal })));
+
+function ModalLoadingFallback() {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" aria-label="Loading dialog">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+    </div>
+  );
+}
 
 // Selection-aware button component to centralize selectionMode disable logic
 interface SelectionAwareButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -1189,21 +1198,25 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
 
       {/* Repository Edit Modal - Using portal to render outside card container */}
       {editModalOpen && createPortal(
-        <RepositoryEditModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          repository={repository}
-        />,
+        <React.Suspense fallback={<ModalLoadingFallback />}>
+          <RepositoryEditModal
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            repository={repository}
+          />
+        </React.Suspense>,
         document.body
       )}
 
       {/* README Modal - Using portal to render outside card container */}
       {readmeModalOpen && createPortal(
-        <ReadmeModal
-          isOpen={readmeModalOpen}
-          onClose={() => setReadmeModalOpen(false)}
-          repository={repository}
-        />,
+        <React.Suspense fallback={<ModalLoadingFallback />}>
+          <ReadmeModal
+            isOpen={readmeModalOpen}
+            onClose={() => setReadmeModalOpen(false)}
+            repository={repository}
+          />
+        </React.Suspense>,
         document.body
       )}
     </div>

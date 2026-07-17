@@ -1,11 +1,22 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
 import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
 import { checkLinksHealth } from '../../services/link-health.service.js';
+import type { LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
+
+const linkUpdateSchema = z.object({
+  folderId: z.coerce.number().int().positive().optional(),
+  name: z.string().optional(),
+  url: z.string().optional(),
+  icon: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  sortOrder: z.coerce.number().finite().optional(),
+});
 
 export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/links', async (request, reply) => {
@@ -84,7 +95,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.put('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const body = { ...(request.body as any) };
+    const body: Partial<LinkRecord> = linkUpdateSchema.parse(request.body);
     if (body.url) body.url = normalizeUrl(body.url);
     if ('folderId' in body) {
       const folder = await services.repo.getFolder(user.id, Number(body.folderId));
