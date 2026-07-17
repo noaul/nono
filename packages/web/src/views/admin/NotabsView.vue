@@ -277,7 +277,7 @@ onMounted(load);
         </button>
       </div>
       <div class="entry-list">
-        <div class="entry-editor-row entry-editor-fixed">
+        <div class="entry-editor-row">
           <span class="entry-icon"><Link2 :size="17" /></span>
           <input v-model="portal.label" aria-label="Nodesk 名称" maxlength="60" />
           <input v-model="portal.url" aria-label="Nodesk 地址" maxlength="2048" />
@@ -427,10 +427,6 @@ onMounted(load);
   grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 38px;
 }
 
-.entry-editor-fixed {
-  grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 68px;
-}
-
 .entry-icon,
 .entry-kind {
   align-items: center;
@@ -466,13 +462,11 @@ onMounted(load);
 }
 
 @media (max-width: 720px) {
-  .entry-editor-row,
-  .entry-editor-fixed {
+  .entry-editor-row {
     grid-template-columns: 32px minmax(0, 1fr) 38px;
   }
 
   .entry-editor-row > input:nth-of-type(2),
-  .entry-editor-fixed > input:nth-of-type(2),
   .compact-toggle {
     grid-column: 2 / -1;
   }

@@ -55,7 +55,7 @@ function reasoningLabel(value: string) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="自动化" title="AI 智能收藏" description="配置插件用于命名和归类书签的模型服务。">
+    <AdminPageHeader eyebrow="自动化" title="AI 智能收藏">
       <template #actions>
         <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? '测试中' : '测试连接' }}</button>
         <button class="button" form="llm-settings-form" type="submit"><Save :size="17" /> 保存配置</button>
@@ -68,10 +68,7 @@ function reasoningLabel(value: string) {
 
     <form id="llm-settings-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
-        <div>
-          <h2><Bot :size="18" /> 模型连接</h2>
-          <p>选择服务商、模型和推理深度。</p>
-        </div>
+        <h2><Bot :size="18" /> 模型连接</h2>
       </header>
       <div class="admin-settings-grid">
         <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>

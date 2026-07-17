@@ -135,7 +135,7 @@ function setDefaultSearchEngine(id: string) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="运营" title="站点配置" description="统一管理公开主页、搜索、跳转入口和视觉主题。">
+    <AdminPageHeader eyebrow="运营" title="站点配置">
       <template #actions>
         <button class="button" form="site-config-form" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
       </template>
@@ -147,10 +147,7 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card site-basics">
         <header class="admin-card-head">
-          <div>
-            <h2><Palette :size="18" /> 基础信息</h2>
-            <p>站点内容、发布路径与背景风格</p>
-          </div>
+          <h2><Palette :size="18" /> 基础信息</h2>
         </header>
         <div class="config-fields">
           <div class="field"><label>站点名</label><input v-model="form.name" /></div>
@@ -175,10 +172,7 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card search-engine-editor">
         <header class="admin-card-head">
-          <div>
-            <h2><Search :size="18" /> 搜索引擎</h2>
-            <p>自定义公开导航页可选的搜索入口，并指定默认项</p>
-          </div>
+          <h2><Search :size="18" /> 搜索引擎</h2>
           <button class="button secondary" data-testid="add-search-engine" type="button" @click="addSearchEngine">
             <Plus :size="16" /> 新增引擎
           </button>
@@ -241,10 +235,7 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card portal-editor">
         <header class="admin-card-head">
-          <div>
-            <h2><Link2 :size="18" /> 博客联动</h2>
-            <p>配置公开导航页中心图片、标题和右上角的博客入口</p>
-          </div>
+          <h2><Link2 :size="18" /> 博客联动</h2>
           <label class="portal-enabled">
             <input v-model="portal.enabled" type="checkbox" />
             <span>启用入口</span>
@@ -285,10 +276,7 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card theme-wall-card">
         <header class="admin-card-head">
-          <div>
-            <h2><Palette :size="18" /> 主题预设</h2>
-            <p>一键应用整套配色与质感，应用后仍可在下方单独微调</p>
-          </div>
+          <h2><Palette :size="18" /> 主题预设</h2>
         </header>
         <div class="theme-wall">
           <button

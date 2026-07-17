@@ -32,7 +32,7 @@ onMounted(async () => {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="运营" title="控制台总览" description="查看内容规模、公开入口和待处理事项。">
+    <AdminPageHeader eyebrow="运营" title="控制台总览">
       <template #actions>
         <RouterLink class="button secondary" to="/admin/site"><Settings :size="17" /> 站点设置</RouterLink>
         <RouterLink class="button" to="/admin/links"><Link2 :size="17" /> 管理书签</RouterLink>

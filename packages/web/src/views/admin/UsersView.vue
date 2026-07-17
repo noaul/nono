@@ -35,15 +35,12 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="系统" title="用户管理" description="设置注册策略并维护成员资料与权限。" />
+    <AdminPageHeader eyebrow="系统" title="用户管理" />
     <AdminStateBanner v-if="message" :message="message" tone="success" />
 
     <section class="admin-section">
       <header class="admin-section-head">
-        <div>
-          <h2><Users :size="18" /> 注册策略</h2>
-          <p>控制新用户注册和默认权限。</p>
-        </div>
+        <h2><Users :size="18" /> 注册策略</h2>
       </header>
       <div class="admin-settings-grid">
         <label class="switch-row"><input v-model="config.allowRegistration" type="checkbox" /><span><strong>开放注册</strong><small>允许新用户创建账户</small></span></label>
@@ -54,10 +51,7 @@ onMounted(load);
 
     <section class="admin-section">
       <header class="admin-section-head">
-        <div>
-          <h2>成员列表</h2>
-          <p>直接编辑成员显示名、邮箱和角色。</p>
-        </div>
+        <h2>成员列表</h2>
       </header>
       <div class="list">
         <EmptyState v-if="!users.length" title="还没有其他用户" description="开放注册或手动创建后，成员会出现在这里。" />

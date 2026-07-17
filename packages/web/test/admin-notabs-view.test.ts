@@ -139,6 +139,25 @@ describe('NotabsView admin workflow', () => {
     }));
   });
 
+  it('uses the same column layout for fixed and custom navigation entries', async () => {
+    apiRequest
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({
+        settings: {
+          portal: { enabled: true, label: 'Nodesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
+          navigationEntries: [{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false }],
+        },
+      });
+
+    const wrapper = mountNotabsView();
+    await settle(wrapper);
+
+    const rows = wrapper.findAll('.entry-editor-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].classes()).toEqual(rows[1].classes());
+  });
+
   it('renames a Notab inline and saves explicitly', async () => {
     apiRequest
       .mockResolvedValueOnce([

@@ -50,7 +50,7 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="自动化" title="API Token" description="管理浏览器扩展和脚本使用的访问凭据。" />
+    <AdminPageHeader eyebrow="自动化" title="API Token" />
 
     <div class="token-summary-grid">
       <section>
@@ -77,10 +77,7 @@ onMounted(load);
     <div class="admin-settings-grid">
       <form class="admin-section" @submit.prevent="createToken">
         <header class="admin-section-head">
-          <div>
-            <h2><Plus :size="18" /> 创建 Token</h2>
-            <p>按用途命名，并按需设置有效期。</p>
-          </div>
+          <h2><Plus :size="18" /> 创建 Token</h2>
         </header>
         <div class="grid">
           <div class="field"><label>名称</label><input data-testid="token-name" v-model="form.name" /></div>
@@ -100,10 +97,7 @@ onMounted(load);
       </form>
       <section class="admin-section">
         <header class="admin-section-head">
-          <div>
-            <h2><KeyRound :size="18" /> 已创建 Token</h2>
-            <p>撤销后对应扩展或脚本会立即失去访问权限。</p>
-          </div>
+          <h2><KeyRound :size="18" /> 已创建 Token</h2>
         </header>
         <div class="list">
           <EmptyState v-if="!tokens.length" title="还没有 API Token" description="创建一个 Token 供浏览器扩展或脚本访问接口。" />

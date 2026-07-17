@@ -42,10 +42,7 @@ function resetAppearance() {
 <template>
   <section class="admin-card appearance-editor">
     <header class="admin-card-head">
-      <div>
-        <h2><SlidersHorizontal :size="18" /> 玻璃质感</h2>
-        <p>所有调整都会即时显示在右侧预览</p>
-      </div>
+      <h2><SlidersHorizontal :size="18" /> 玻璃质感</h2>
       <div class="preset-group" aria-label="外观预设">
         <button type="button" @click="applyPreset('performance')"><Gauge :size="15" /> 性能</button>
         <button type="button" @click="applyPreset('balanced')">均衡</button>

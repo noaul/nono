@@ -401,14 +401,6 @@ onMounted(load);
     <section class="admin-section compact-admin-section">
       <div class="admin-section-head">
         <h2>书签列表</h2>
-        <div class="toolbar">
-          <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
-          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
-          <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates" @click="loadDuplicates">
-            <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
-          </button>
-          <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" :disabled="sortMode" :placeholder="sortMode ? '排序时暂停搜索' : '搜索名称、链接或介绍'" />
-        </div>
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
       <template v-else>
@@ -437,9 +429,17 @@ onMounted(load);
             </button>
           </div>
         </div>
-        <div v-if="!sortMode" class="bulk-action-bar">
-          <strong>{{ selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
-          <div class="bulk-controls">
+        <div class="bulk-action-bar">
+          <strong>{{ sortMode ? '调整书签顺序' : selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
+          <div class="bulk-list-tools">
+            <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
+            <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
+            <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates || sortMode" @click="loadDuplicates">
+              <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
+            </button>
+            <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" :disabled="sortMode" :placeholder="sortMode ? '排序时暂停搜索' : '搜索名称、链接或介绍'" />
+          </div>
+          <div v-if="!sortMode" class="bulk-controls">
             <button class="button secondary" data-testid="select-all-links" type="button" :disabled="!filteredLinks.length || isBulkWorking" @click="toggleAllFilteredLinks">
               {{ allFilteredSelected ? '取消全选' : '全选当前' }}
             </button>
@@ -573,6 +573,26 @@ onMounted(load);
 </template>
 
 <style scoped>
+.bulk-action-bar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.bulk-list-tools {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bulk-list-tools .admin-search-input {
+  flex: 1 1 240px;
+  max-width: 320px;
+  min-width: 180px;
+}
+
 .add-list-row {
   align-items: center;
   background: rgba(255, 255, 255, 0.35);
@@ -592,6 +612,29 @@ onMounted(load);
 
 .inline-create-link-row {
   border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+@media (max-width: 1280px) {
+  .bulk-action-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-list-tools {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .bulk-list-tools .admin-search-input {
+    max-width: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .bulk-list-tools,
+  .bulk-list-tools .button,
+  .bulk-list-tools .admin-search-input {
+    width: 100%;
+  }
 }
 
 .management-filter-group {

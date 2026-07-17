@@ -100,6 +100,21 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.find('[data-testid="bulk-move"]').exists()).toBe(false);
   });
 
+  it('keeps search and list tools inside the batch action bar', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Inbox', sortOrder: 100 }])
+      .mockResolvedValueOnce([{ id: 10, folderId: 1, name: 'One', url: 'https://one.example/', sortOrder: 100 }]);
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    const bulkBar = wrapper.get('.bulk-action-bar');
+    expect(bulkBar.find('[data-testid="start-link-sort"]').exists()).toBe(true);
+    expect(bulkBar.find('[data-testid="load-duplicates"]').exists()).toBe(true);
+    expect(bulkBar.find('[data-testid="link-search"]').exists()).toBe(true);
+    expect(wrapper.get('.admin-section-head').find('.toolbar').exists()).toBe(false);
+  });
+
   it('filters bookmarks by category then folder and saves inline changes', async () => {
     apiRequest
       .mockResolvedValueOnce([
