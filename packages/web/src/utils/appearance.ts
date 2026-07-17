@@ -8,6 +8,11 @@ export interface AppearanceSettings {
   searchOpacity: number;
   searchBlur: number;
   bookmarkTextColor: string;
+  bookmarkTextSize: number;
+  notabTextColor: string;
+  notabTextSize: number;
+  folderTextColor: string;
+  folderTextSize: number;
   categoryTextColor: string;
   tabColor: string;
   modalRadius: number;
@@ -31,6 +36,11 @@ export const appearanceDefaults: AppearanceSettings = {
   searchOpacity: 34,
   searchBlur: 20,
   bookmarkTextColor: '#ffffff',
+  bookmarkTextSize: 14,
+  notabTextColor: '#ffffff',
+  notabTextSize: 15,
+  folderTextColor: '#ffffff',
+  folderTextSize: 18,
   categoryTextColor: '#ffffff',
   tabColor: '#f7f8fb',
   modalRadius: 8,
@@ -44,18 +54,19 @@ export const appearanceDefaults: AppearanceSettings = {
   adminBlur: 10,
 };
 
-type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor' | 'tabColor'>;
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'notabTextColor' | 'folderTextColor' | 'categoryTextColor' | 'tabColor'>;
 type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
 
 const numericKeys: NumericAppearanceKey[] = [
   'cardRadius', 'cardOpacity', 'cardBlur',
   'searchRadius', 'searchOpacity', 'searchBlur',
+  'bookmarkTextSize', 'notabTextSize', 'folderTextSize',
   'modalRadius', 'modalOpacity', 'modalBlur',
   'tabRadius', 'tabOpacity', 'tabBlur',
   'adminRadius', 'adminOpacity', 'adminBlur',
 ];
 
-const colorKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor', 'tabColor'];
+const colorKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'notabTextColor', 'folderTextColor', 'categoryTextColor', 'tabColor'];
 
 const limits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],
@@ -64,6 +75,9 @@ const limits: Record<NumericAppearanceKey, readonly [number, number]> = {
   searchRadius: [8, 40],
   searchOpacity: [12, 90],
   searchBlur: [0, 32],
+  bookmarkTextSize: [12, 18],
+  notabTextSize: [12, 18],
+  folderTextSize: [12, 22],
   modalRadius: [0, 32],
   modalOpacity: [20, 96],
   modalBlur: [0, 40],
@@ -110,6 +124,16 @@ export function getAppearanceSettings(settings?: Record<string, unknown> | null)
   for (const key of colorKeys) {
     result[key] = normalizedHex(saved[key], appearanceDefaults[key]);
   }
+  result.notabTextColor = normalizedHex(saved.notabTextColor, result.categoryTextColor);
+  result.folderTextColor = normalizedHex(saved.folderTextColor, result.categoryTextColor);
+  result.categoryTextColor = result.folderTextColor;
+  result.tabColor = result.searchColor;
+  result.tabRadius = result.searchRadius;
+  result.tabOpacity = result.searchOpacity;
+  result.tabBlur = result.searchBlur;
+  result.modalRadius = result.cardRadius;
+  result.modalOpacity = result.cardOpacity;
+  result.modalBlur = result.cardBlur;
   return result;
 }
 
@@ -127,18 +151,22 @@ export function toAppearanceCssVars(appearance: AppearanceSettings): Record<stri
     '--public-search-blur': `${appearance.searchBlur}px`,
     '--public-bookmark-text': appearance.bookmarkTextColor,
     '--public-bookmark-text-rgb': hexToRgb(appearance.bookmarkTextColor),
-    '--public-category-text': appearance.categoryTextColor,
-    '--public-category-text-rgb': hexToRgb(appearance.categoryTextColor),
-    '--public-tab-color': appearance.tabColor,
-    '--public-tab-color-rgb': hexToRgb(appearance.tabColor),
-    '--public-modal-radius': `${appearance.modalRadius}px`,
-    '--public-modal-opacity': (appearance.modalOpacity / 100).toFixed(2),
-    '--public-modal-blur': `${appearance.modalBlur}px`,
-    '--public-tab-radius': `${appearance.tabRadius}px`,
-    '--public-tab-opacity': (appearance.tabOpacity / 100).toFixed(2),
-    '--public-tab-blur': `${appearance.tabBlur}px`,
-    '--admin-surface-radius': `${appearance.adminRadius}px`,
-    '--admin-surface-opacity': (appearance.adminOpacity / 100).toFixed(2),
-    '--admin-surface-blur': `${appearance.adminBlur}px`,
+    '--public-bookmark-text-size': `${appearance.bookmarkTextSize}px`,
+    '--public-notab-text': appearance.notabTextColor,
+    '--public-notab-text-rgb': hexToRgb(appearance.notabTextColor),
+    '--public-notab-text-size': `${appearance.notabTextSize}px`,
+    '--public-folder-text': appearance.folderTextColor,
+    '--public-folder-text-rgb': hexToRgb(appearance.folderTextColor),
+    '--public-folder-text-size': `${appearance.folderTextSize}px`,
+    '--public-category-text': appearance.folderTextColor,
+    '--public-category-text-rgb': hexToRgb(appearance.folderTextColor),
+    '--public-tab-color': appearance.searchColor,
+    '--public-tab-color-rgb': hexToRgb(appearance.searchColor),
+    '--public-modal-radius': `${appearance.cardRadius}px`,
+    '--public-modal-opacity': (appearance.cardOpacity / 100).toFixed(2),
+    '--public-modal-blur': `${appearance.cardBlur}px`,
+    '--public-tab-radius': `${appearance.searchRadius}px`,
+    '--public-tab-opacity': (appearance.searchOpacity / 100).toFixed(2),
+    '--public-tab-blur': `${appearance.searchBlur}px`,
   };
 }

@@ -17,26 +17,7 @@ describe('AdminLayout appearance settings', () => {
     setActivePinia(pinia);
   });
 
-  it('applies saved admin surface variables to the workbench shell', async () => {
-    mockedApiRequest.mockResolvedValue({
-      id: 1,
-      userId: 1,
-      name: 'Nono',
-      description: '',
-      slug: 'admin',
-      backgroundColor: '#000000',
-      fontColor: '#ffffff',
-      searchUrlTemplate: 'https://www.google.com/search?q={query}',
-      localSearchFirst: true,
-      settings: {
-        appearance: {
-          adminRadius: 14,
-          adminOpacity: 86,
-          adminBlur: 18,
-        },
-      },
-    });
-
+  it('uses a fixed admin surface without loading public appearance settings', async () => {
     const wrapper = mount(AdminLayout, {
       props: { title: '站点配置' },
       global: {
@@ -50,10 +31,8 @@ describe('AdminLayout appearance settings', () => {
 
     await flushPromises();
 
-    expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/site');
-    expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-radius: 14px');
-    expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-opacity: 0.86');
-    expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-blur: 18px');
+    expect(mockedApiRequest).not.toHaveBeenCalled();
+    expect(wrapper.get('.app-workbench').attributes('style')).toBeUndefined();
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
     expect(wrapper.get('.admin-nav').text()).toContain('Notab 管理文件夹书签管理');
     expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');

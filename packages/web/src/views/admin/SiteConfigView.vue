@@ -69,11 +69,23 @@ async function save() {
   message.value = '';
   saving.value = true;
   try {
+    const syncedAppearance = {
+      ...appearance,
+      categoryTextColor: appearance.folderTextColor,
+      tabColor: appearance.searchColor,
+      tabRadius: appearance.searchRadius,
+      tabOpacity: appearance.searchOpacity,
+      tabBlur: appearance.searchBlur,
+      modalRadius: appearance.cardRadius,
+      modalOpacity: appearance.cardOpacity,
+      modalBlur: appearance.cardBlur,
+    };
     const payload = {
       ...form,
+      fontColor: appearance.bookmarkTextColor,
       settings: {
         ...form.settings,
-        appearance: { ...appearance },
+        appearance: syncedAppearance,
         portal: { ...portal },
         theme: { ...theme },
         searchEngines: {
@@ -157,10 +169,6 @@ function setDefaultSearchEngine(id: string) {
           <div class="field color-field">
             <label>背景色</label>
             <div class="color-control"><input v-model="form.backgroundColor" type="color" /><code>{{ form.backgroundColor }}</code></div>
-          </div>
-          <div class="field color-field">
-            <label>字体色</label>
-            <div class="color-control"><input v-model="form.fontColor" type="color" /><code>{{ form.fontColor }}</code></div>
           </div>
           <div class="field wide"><label>旧版默认搜索模板</label><input v-model="form.searchUrlTemplate" /></div>
           <label class="switch-row wide">
@@ -300,7 +308,7 @@ function setDefaultSearchEngine(id: string) {
         </div>
       </section>
 
-      <AppearanceEditor :appearance="appearance" :preview-bg="form.backgroundColor" />
+      <AppearanceEditor :appearance="appearance" />
 
     </form>
   </div>

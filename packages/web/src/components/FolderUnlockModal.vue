@@ -112,12 +112,12 @@ onBeforeUnmount(() => {
 }
 
 .modal {
-  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85));
-  backdrop-filter: blur(var(--public-modal-blur, 24px));
-  -webkit-backdrop-filter: blur(var(--public-modal-blur, 24px));
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
+  backdrop-filter: blur(var(--public-card-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px));
   border: 1px solid rgba(51, 65, 61, 0.2);
-  border-radius: var(--public-modal-radius, 8px);
-  color: #17211d;
+  border-radius: var(--public-card-radius, 8px);
+  color: var(--public-bookmark-text, #ffffff);
   display: grid;
   gap: 20px;
   margin: 0 auto;
@@ -135,9 +135,9 @@ onBeforeUnmount(() => {
 }
 
 .modal-icon-lock {
-  background: rgba(255, 255, 255, 0.56);
-  border: 1px solid rgba(51, 65, 61, 0.14);
-  color: #52615c;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.9);
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -146,25 +146,26 @@ onBeforeUnmount(() => {
 }
 
 .modal h2 {
-  font-size: 18px;
+  font-size: var(--public-folder-text-size, 18px);
   font-weight: 800;
   margin: 0;
-  color: #17211d;
+  color: var(--public-folder-text, #ffffff);
 }
 
 .password-hint {
-  color: #52615c;
-  font-size: 13px;
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.78);
+  font-size: calc(var(--public-bookmark-text-size, 14px) - 1px);
   margin: 0;
   line-height: 1.4;
-  background: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.1);
   padding: 8px 12px;
   border-radius: 6px;
   border-left: 3px solid rgba(var(--accent-rgb), 0.42);
 }
 
 .modal .field label {
-  color: #52615c;
+  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.82);
+  font-size: var(--public-bookmark-text-size, 14px);
 }
 
 .modal .field input {

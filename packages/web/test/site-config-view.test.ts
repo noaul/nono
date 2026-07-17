@@ -29,7 +29,7 @@ describe('SiteConfigView appearance controls', () => {
     apiRequest.mockReset();
   });
 
-  it('loads appearance settings, previews them, and persists them under site settings', async () => {
+  it('loads grouped appearance settings without a preview and persists separate text controls', async () => {
     apiRequest
       .mockResolvedValueOnce({
         id: 1,
@@ -49,6 +49,11 @@ describe('SiteConfigView appearance controls', () => {
             searchColor: '#fef3c7',
             searchRadius: 30, searchOpacity: 32, searchBlur: 16,
             bookmarkTextColor: '#f8fafc',
+            bookmarkTextSize: 14,
+            notabTextColor: '#dbeafe',
+            notabTextSize: 15,
+            folderTextColor: '#e0f2fe',
+            folderTextSize: 18,
             categoryTextColor: '#e0f2fe',
             tabColor: '#bfdbfe',
             modalRadius: 14, modalOpacity: 82, modalBlur: 22,
@@ -74,24 +79,21 @@ describe('SiteConfigView appearance controls', () => {
     const wrapper = mountView();
     await settle(wrapper);
 
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-card-radius: 12px');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-card-color-rgb: 219, 234, 254');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-search-color-rgb: 254, 243, 199');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-tab-color-rgb: 191, 219, 254');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-modal-radius: 14px');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--public-tab-radius: 24px');
-    expect(wrapper.get('[data-testid="appearance-preview"]').attributes('style')).toContain('--admin-surface-radius: 10px');
+    expect(wrapper.find('[data-testid="appearance-preview"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="admin-radius"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="tab-color"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="modal-opacity"]').exists()).toBe(false);
     expect((wrapper.get('[data-testid="portal-label"]').element as HTMLInputElement).value).toBe('我的博客');
     expect((wrapper.get('[data-testid="portal-url"]').element as HTMLInputElement).value).toBe('https://blog.example.com/');
     await wrapper.get('[data-testid="card-radius"]').setValue('16');
     await wrapper.get('[data-testid="card-color"]').setValue('#c4b5fd');
     await wrapper.get('[data-testid="search-color"]').setValue('#fde68a');
     await wrapper.get('[data-testid="bookmark-text-color"]').setValue('#f1f5f9');
-    await wrapper.get('[data-testid="category-text-color"]').setValue('#fefce8');
-    await wrapper.get('[data-testid="tab-color"]').setValue('#ddd6fe');
-    await wrapper.get('[data-testid="modal-opacity"]').setValue('74');
-    await wrapper.get('[data-testid="tab-blur"]').setValue('18');
-    await wrapper.get('[data-testid="admin-radius"]').setValue('12');
+    await wrapper.get('[data-testid="bookmark-text-size"]').setValue('15');
+    await wrapper.get('[data-testid="notab-text-color"]').setValue('#fefce8');
+    await wrapper.get('[data-testid="notab-text-size"]').setValue('16');
+    await wrapper.get('[data-testid="folder-text-color"]').setValue('#ddd6fe');
+    await wrapper.get('[data-testid="folder-text-size"]').setValue('19');
     await wrapper.get('[data-testid="portal-label"]').setValue('前往新博客');
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
@@ -109,15 +111,20 @@ describe('SiteConfigView appearance controls', () => {
       searchOpacity: 32,
       searchBlur: 16,
       bookmarkTextColor: '#f1f5f9',
-      categoryTextColor: '#fefce8',
-      tabColor: '#ddd6fe',
-      modalRadius: 14,
-      modalOpacity: 74,
-      modalBlur: 22,
-      tabRadius: 24,
-      tabOpacity: 28,
-      tabBlur: 18,
-      adminRadius: 12,
+      bookmarkTextSize: 15,
+      notabTextColor: '#fefce8',
+      notabTextSize: 16,
+      folderTextColor: '#ddd6fe',
+      folderTextSize: 19,
+      categoryTextColor: '#ddd6fe',
+      tabColor: '#fde68a',
+      modalRadius: 16,
+      modalOpacity: 58,
+      modalBlur: 10,
+      tabRadius: 30,
+      tabOpacity: 32,
+      tabBlur: 16,
+      adminRadius: 10,
       adminOpacity: 76,
       adminBlur: 9,
     });
@@ -155,8 +162,8 @@ describe('SiteConfigView appearance controls', () => {
     expect((wrapper.get('[data-testid="card-color"]').element as HTMLInputElement).value).toBe('#fff7ed');
     expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffbeb');
     expect((wrapper.get('[data-testid="bookmark-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
-    expect((wrapper.get('[data-testid="category-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
-    expect((wrapper.get('[data-testid="tab-color"]').element as HTMLInputElement).value).toBe('#fff7ed');
+    expect((wrapper.get('[data-testid="notab-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
+    expect((wrapper.get('[data-testid="folder-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
   });
 
   it('adds custom search engines, toggles them, and persists the default engine', async () => {

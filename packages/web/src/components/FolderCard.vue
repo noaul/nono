@@ -96,8 +96,8 @@ function handleFaviconError(linkId: string | number) {
 }
 
 h2 {
-  color: var(--public-category-text, #ffffff);
-  font-size: 18px;
+  color: var(--public-folder-text, #ffffff);
+  font-size: var(--public-folder-text-size, 18px);
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.2;
@@ -121,7 +121,7 @@ h2 {
 }
 
 .title-icon {
-  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.92);
+  color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.92);
   font-size: 18px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
@@ -207,7 +207,7 @@ h2 {
 }
 
 .large-link span {
-  font-size: 14px;
+  font-size: var(--public-bookmark-text-size, 14px);
   font-weight: 600;
   letter-spacing: 0;
   min-width: 0;
@@ -283,7 +283,7 @@ mark {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
+  color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.72);
   cursor: pointer;
   display: inline-flex;
   height: 32px;
@@ -305,7 +305,7 @@ mark {
 .lock-btn:focus-visible {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.36);
-  color: var(--public-category-text, #ffffff);
+  color: var(--public-folder-text, #ffffff);
   outline: none;
   transform: translateY(-1px) scale(1.03);
 }
@@ -320,7 +320,7 @@ mark {
 .icon-button.secondary.lock-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.72);
+  color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.72);
 }
 
 .icon-button.secondary.lock-btn:hover {

@@ -17,10 +17,7 @@ import {
   X,
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
-import { apiRequest } from '@/api/client';
-import type { Site } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
-import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 
@@ -31,8 +28,6 @@ const props = withDefaults(defineProps<{ title?: string }>(), {
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const siteSettings = ref<Record<string, unknown>>({});
-const appearanceStyle = computed(() => toAppearanceCssVars(getAppearanceSettings(siteSettings.value)));
 const userMenuOpen = ref(false);
 const mobileNavOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
@@ -87,15 +82,9 @@ function onDocumentKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') userMenuOpen.value = false;
 }
 
-onMounted(async () => {
+onMounted(() => {
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onDocumentKeydown);
-  try {
-    const site = await apiRequest<Site>('/api/admin/site');
-    siteSettings.value = site.settings || {};
-  } catch {
-    siteSettings.value = {};
-  }
 });
 
 onBeforeUnmount(() => {
@@ -116,7 +105,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell" :style="appearanceStyle">
+  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell">
     <aside class="workbench-sidebar glass-surface" :class="{ 'is-mobile-open': mobileNavOpen }">
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>

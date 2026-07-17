@@ -10,6 +10,11 @@ type AppearanceSettings = {
   searchOpacity: number;
   searchBlur: number;
   bookmarkTextColor: string;
+  bookmarkTextSize: number;
+  notabTextColor: string;
+  notabTextSize: number;
+  folderTextColor: string;
+  folderTextSize: number;
   categoryTextColor: string;
   tabColor: string;
   modalRadius: number;
@@ -33,6 +38,11 @@ export const appearanceDefaults: AppearanceSettings = {
   searchOpacity: 34,
   searchBlur: 20,
   bookmarkTextColor: '#ffffff',
+  bookmarkTextSize: 14,
+  notabTextColor: '#ffffff',
+  notabTextSize: 15,
+  folderTextColor: '#ffffff',
+  folderTextSize: 18,
   categoryTextColor: '#ffffff',
   tabColor: '#f7f8fb',
   modalRadius: 8,
@@ -46,18 +56,19 @@ export const appearanceDefaults: AppearanceSettings = {
   adminBlur: 10,
 };
 
-type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'categoryTextColor' | 'tabColor'>;
+type NumericAppearanceKey = Exclude<keyof AppearanceSettings, 'cardColor' | 'searchColor' | 'bookmarkTextColor' | 'notabTextColor' | 'folderTextColor' | 'categoryTextColor' | 'tabColor'>;
 type ColorAppearanceKey = Exclude<keyof AppearanceSettings, NumericAppearanceKey>;
 
 const numericAppearanceKeys: NumericAppearanceKey[] = [
   'cardRadius', 'cardOpacity', 'cardBlur',
   'searchRadius', 'searchOpacity', 'searchBlur',
+  'bookmarkTextSize', 'notabTextSize', 'folderTextSize',
   'modalRadius', 'modalOpacity', 'modalBlur',
   'tabRadius', 'tabOpacity', 'tabBlur',
   'adminRadius', 'adminOpacity', 'adminBlur',
 ];
 
-const colorAppearanceKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'categoryTextColor', 'tabColor'];
+const colorAppearanceKeys: ColorAppearanceKey[] = ['cardColor', 'searchColor', 'bookmarkTextColor', 'notabTextColor', 'folderTextColor', 'categoryTextColor', 'tabColor'];
 
 const appearanceLimits: Record<NumericAppearanceKey, readonly [number, number]> = {
   cardRadius: [0, 24],
@@ -66,6 +77,9 @@ const appearanceLimits: Record<NumericAppearanceKey, readonly [number, number]> 
   searchRadius: [8, 40],
   searchOpacity: [12, 90],
   searchBlur: [0, 32],
+  bookmarkTextSize: [12, 18],
+  notabTextSize: [12, 18],
+  folderTextSize: [12, 22],
   modalRadius: [0, 32],
   modalOpacity: [20, 96],
   modalBlur: [0, 40],
@@ -107,6 +121,16 @@ function normalizeAppearance(input: unknown) {
   for (const key of colorAppearanceKeys) {
     result[key] = normalizeHex(source[key], appearanceDefaults[key]);
   }
+  result.notabTextColor = normalizeHex(source.notabTextColor, result.categoryTextColor);
+  result.folderTextColor = normalizeHex(source.folderTextColor, result.categoryTextColor);
+  result.categoryTextColor = result.folderTextColor;
+  result.tabColor = result.searchColor;
+  result.tabRadius = result.searchRadius;
+  result.tabOpacity = result.searchOpacity;
+  result.tabBlur = result.searchBlur;
+  result.modalRadius = result.cardRadius;
+  result.modalOpacity = result.cardOpacity;
+  result.modalBlur = result.cardBlur;
   return result;
 }
 

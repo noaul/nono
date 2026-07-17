@@ -195,7 +195,7 @@ describe('visual contracts', () => {
     expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*12px;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*15px 4px 15px 16px;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*30px;[\s\S]*?padding:\s*2px 0 2px 5px;/);
-    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*14px;/);
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*var\(--public-bookmark-text-size, 14px\);/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
@@ -282,23 +282,26 @@ describe('visual contracts', () => {
     expect(expandModalSource).toContain('expanded-link-grid');
     expect(expandModalSource).toContain('<FolderGlyph class="expand-folder-icon"');
     expect(expandModalSource).toContain('getFaviconUrl(link.url, link.icon)');
-    expect(expandModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
-    expect(expandModalSource).not.toContain('background: rgba(15, 18, 25, var(--public-modal-opacity');
+    expect(expandModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26))');
+    expect(expandModalSource).toContain('backdrop-filter: blur(var(--public-card-blur, 18px))');
+    expect(expandModalSource).toContain('var(--public-folder-text');
+    expect(expandModalSource).toContain('var(--public-bookmark-text-size');
     expect(folderCardSource).toContain('large-link:hover');
     expect(folderCardSource).toContain('large-link:focus-visible');
     expect(folderCardSource).toContain('large-link:active');
   });
 
-  it('uses the folder surface color for the unlock modal and its appearance preview', async () => {
+  it('uses the folder surface settings for the unlock modal without rendering a preview', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const unlockModalSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderUnlockModal.vue'), 'utf8');
     const appearanceEditorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
 
-    expect(unlockModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-modal-opacity, 0.85))');
-    expect(appearanceEditorSource).toContain('background: rgba(var(--public-card-color-rgb), var(--public-modal-opacity))');
-    expect(unlockModalSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
-    expect(appearanceEditorSource).not.toContain('background: rgba(17, 20, 28, var(--public-modal-opacity');
+    expect(unlockModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26))');
+    expect(unlockModalSource).toContain('border-radius: var(--public-card-radius, 8px)');
+    expect(unlockModalSource).toContain('var(--public-folder-text');
+    expect(unlockModalSource).toContain('var(--public-bookmark-text');
+    expect(appearanceEditorSource).not.toContain('appearance-preview');
   });
 
   it('exposes a persisted manual sorting endpoint from bookmark management', async () => {
@@ -553,13 +556,13 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--public-glass-bg');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
     expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
-    expect(navigationSource).toContain('rgba(var(--public-tab-color-rgb');
-    expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*15px/);
+    expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
+    expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).not.toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(var(--public-card-color-rgb');
     expect(folderCardSource).toContain('var(--public-bookmark-text');
-    expect(folderCardSource).toContain('var(--public-category-text');
+    expect(folderCardSource).toContain('var(--public-folder-text');
     expect(folderCardSource).toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(folderCardSource).toContain('.large-folder:hover .large-links');
     expect(folderCardSource).toContain('getFaviconUrl');

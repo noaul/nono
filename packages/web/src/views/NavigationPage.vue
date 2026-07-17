@@ -485,6 +485,13 @@ onUnmounted(() => {
   --public-search-blur: 20px;
   --public-tab-color-rgb: 247, 248, 251;
   --public-bookmark-text: #ffffff;
+  --public-bookmark-text-size: 14px;
+  --public-notab-text: #ffffff;
+  --public-notab-text-rgb: 255, 255, 255;
+  --public-notab-text-size: 15px;
+  --public-folder-text: #ffffff;
+  --public-folder-text-rgb: 255, 255, 255;
+  --public-folder-text-size: 18px;
   --public-category-text: #ffffff;
   background:
     radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.2), transparent 28%),
@@ -742,11 +749,11 @@ h1 {
 }
 
 .folder-tabs {
-  backdrop-filter: blur(var(--public-tab-blur, 10px));
-  -webkit-backdrop-filter: blur(var(--public-tab-blur, 10px));
-  background: rgba(var(--public-tab-color-rgb, 247, 248, 251), var(--public-tab-opacity, 0.26));
+  backdrop-filter: blur(var(--public-search-blur, 20px));
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: var(--public-tab-radius, 28px);
+  border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 4px;
   justify-content: safe center;
@@ -774,7 +781,7 @@ h1 {
 
 .tab-indicator {
   background: rgba(var(--accent-rgb), 0.22);
-  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
   height: calc(100% - 10px);
   left: 0;
   pointer-events: none;
@@ -789,12 +796,12 @@ h1 {
 }
 
 .folder-tabs button {
-  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
   flex: 0 0 auto;
   padding: 6px 14px;
-  font-size: 15px;
+  font-size: var(--public-notab-text-size, 15px);
   font-weight: 600;
-  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.8);
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.8);
   position: relative;
   transform: translateZ(0);
   transition:
@@ -806,7 +813,7 @@ h1 {
 
 .folder-tabs button:hover {
   background: rgba(255, 255, 255, 0.16);
-  color: var(--public-category-text, #ffffff);
+  color: var(--public-notab-text, #ffffff);
   transform: translateY(-1px);
 }
 
@@ -827,11 +834,11 @@ h1 {
 
 .tab-service-link {
   align-items: center;
-  border-radius: max(0px, calc(var(--public-tab-radius, 28px) - 4px));
-  color: rgba(var(--public-category-text-rgb, 255, 255, 255), 0.84);
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.84);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: var(--public-notab-text-size, 15px);
   font-weight: 650;
   gap: 6px;
   padding: 6px 12px;
@@ -847,7 +854,7 @@ h1 {
 .tab-service-link:hover,
 .tab-service-link:focus-visible {
   background: rgba(255, 255, 255, 0.16);
-  color: var(--public-category-text, #ffffff);
+  color: var(--public-notab-text, #ffffff);
   outline: none;
   transform: translateY(-1px);
 }
@@ -857,7 +864,7 @@ h1 {
 }
 
 .folder-tabs button.active {
-  color: var(--public-category-text, #ffffff);
+  color: var(--public-notab-text, #ffffff);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.16);
 }
 

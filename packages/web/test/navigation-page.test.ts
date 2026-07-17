@@ -166,15 +166,19 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="navigation-entry-nostar"]').exists()).toBe(false);
   });
 
-  it('applies modal, tab, and admin-compatible appearance variables from saved settings', async () => {
+  it('uses card and search settings as the shared content and navigation glass variables', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {
+        cardRadius: 16,
+        cardOpacity: 78,
+        cardBlur: 20,
+        searchRadius: 18,
+        searchOpacity: 36,
+        searchBlur: 8,
         modalRadius: 16,
-        modalOpacity: 78,
-        modalBlur: 20,
-        tabRadius: 18,
-        tabOpacity: 36,
-        tabBlur: 8,
+        modalOpacity: 90,
+        tabRadius: 24,
+        tabOpacity: 80,
         adminRadius: 12,
         adminOpacity: 84,
         adminBlur: 6,
@@ -188,7 +192,7 @@ describe('NavigationPage public workflow', () => {
     expect(style).toContain('--public-modal-opacity: 0.78');
     expect(style).toContain('--public-tab-radius: 18px');
     expect(style).toContain('--public-tab-opacity: 0.36');
-    expect(style).toContain('--admin-surface-radius: 12px');
+    expect(style).not.toContain('--admin-surface-radius');
   });
 
   it('shows the public background image immediately while keeping preload hints', async () => {

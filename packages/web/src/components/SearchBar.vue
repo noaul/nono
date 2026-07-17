@@ -239,7 +239,7 @@ defineExpose({
   flex: 1;
   min-width: 0;
   outline: 0;
-  font-size: 15px;
+  font-size: var(--public-bookmark-text-size, 14px);
   font-weight: 600;
 }
 
