@@ -131,6 +131,27 @@ const portalSchema = z.object({
   openInNewTab: z.boolean().default(false),
 }).passthrough();
 
+const navigationEntrySchema = z.object({
+  id: z.string().trim().max(80).default(''),
+  label: z.string().trim().min(1).max(60),
+  url: safeWebLocation.refine(Boolean, 'Entry URL is required'),
+  icon: z.string().trim().max(40).default('link'),
+  enabled: z.boolean().default(true),
+  openInNewTab: z.boolean().default(false),
+});
+
+const navigationEntriesSchema = z.array(navigationEntrySchema).max(20).transform((items) => {
+  const usedIds = new Set<string>();
+  return items.map((item, index) => {
+    const baseId = normalizeNavigationEntryId(item.id) || `entry-${index + 1}`;
+    let id = baseId;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `${baseId}-${suffix++}`;
+    usedIds.add(id);
+    return { ...item, id, icon: item.icon || 'link' };
+  });
+});
+
 const searchTemplateSchema = z.string().trim().min(1).max(2048)
   .refine((value) => value.includes('{query}'), 'Search URL template must include {query}')
   .refine((value) => {
@@ -178,8 +199,13 @@ export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   const settings = { ...input };
   if ('appearance' in settings) settings.appearance = appearanceSchema.parse(settings.appearance);
   if ('portal' in settings) settings.portal = portalSchema.parse(settings.portal);
+  if ('navigationEntries' in settings) settings.navigationEntries = navigationEntriesSchema.parse(settings.navigationEntries);
   if ('searchEngines' in settings) settings.searchEngines = searchEngineSettingsSchema.parse(settings.searchEngines);
   return settings;
+}
+
+function normalizeNavigationEntryId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
 function normalizeSearchEngineId(value: string) {

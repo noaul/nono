@@ -73,12 +73,79 @@ describe('NotabsView admin workflow', () => {
     expect(wrapper.get('[data-testid="notab-row-1"]').text()).toContain('2 个书签');
   });
 
+  it('creates a Notab from the add row at the end of the list', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ settings: {} })
+      .mockResolvedValueOnce({ id: 2, userId: 1, name: '生活', icon: 'sparkles', parentId: null, sortOrder: -10 });
+
+    const wrapper = mountNotabsView();
+    await settle(wrapper);
+
+    expect(wrapper.text()).not.toContain('请先在文件夹页面创建');
+    await wrapper.get('[data-testid="add-notab-row"]').trigger('click');
+    await wrapper.get('[data-testid="new-notab-name"]').setValue('生活');
+    await wrapper.get('[data-testid="save-new-notab"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders', {
+      method: 'POST',
+      body: JSON.stringify({ parentId: null, name: '生活', icon: '', description: '' }),
+    });
+    expect(wrapper.get('[data-testid="notab-row-2"]').text()).toContain('生活');
+  });
+
+  it('shows Nodesk and NoMoney entry management above the Notab list and saves custom entries', async () => {
+    apiRequest
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({
+        id: 1,
+        userId: 1,
+        name: 'Nono',
+        description: '',
+        slug: 'admin',
+        backgroundColor: '#000000',
+        fontColor: '#ffffff',
+        searchUrlTemplate: 'https://google.com/search?q={query}',
+        localSearchFirst: true,
+        settings: {
+          portal: { enabled: true, label: 'Nodesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
+          navigationEntries: [{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false }],
+        },
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountNotabsView();
+    await settle(wrapper);
+
+    const entrySection = wrapper.get('[data-testid="entry-management"]');
+    expect(entrySection.text()).toContain('Nodesk');
+    expect((entrySection.findAll('input')[3].element as HTMLInputElement).value).toBe('NoMoney');
+    expect(entrySection.element.compareDocumentPosition(wrapper.get('[data-testid="notab-management"]').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await wrapper.get('[data-testid="add-navigation-entry"]').trigger('click');
+    await wrapper.get('[data-testid="new-entry-label"]').setValue('Status');
+    await wrapper.get('[data-testid="new-entry-url"]').setValue('/status');
+    await wrapper.get('[data-testid="save-navigation-entries"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/site', expect.objectContaining({
+      method: 'PUT',
+      body: expect.stringContaining('"label":"Status"'),
+    }));
+  });
+
   it('renames a Notab inline and saves explicitly', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ settings: {} })
       .mockResolvedValueOnce({ id: 1, userId: 1, name: '研究', parentId: null, sortOrder: 100 });
 
     const wrapper = mountNotabsView();
@@ -104,6 +171,7 @@ describe('NotabsView admin workflow', () => {
         { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ settings: {} })
       .mockResolvedValueOnce({ ok: true });
 
     const wrapper = mountNotabsView();
@@ -112,7 +180,7 @@ describe('NotabsView admin workflow', () => {
     wrapper.findComponent(SortableList).vm.$emit('reorder', [3, 1]);
     await wrapper.vm.$nextTick();
 
-    expect(apiRequest).toHaveBeenCalledTimes(2);
+    expect(apiRequest).toHaveBeenCalledTimes(3);
     expect(wrapper.find('[data-testid="notab-row-2"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="notab-row-3"]').find('.drag-handle').exists()).toBe(true);
 
@@ -138,6 +206,7 @@ describe('NotabsView admin workflow', () => {
         { id: 11, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 90 },
         { id: 12, folderId: 3, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 80 },
       ])
+      .mockResolvedValueOnce({ settings: {} })
       .mockResolvedValueOnce({ ok: true });
 
     const wrapper = mountNotabsView();

@@ -309,7 +309,8 @@ describe('visual contracts', () => {
     expect(source).toContain('/api/admin/links/reorder');
     expect(source).toContain('sortMode');
     expect(source).not.toContain('to="/admin/bookmarks"');
-    expect(source).toContain("mode?: 'create' | 'manage'");
+    expect(source).toContain('data-testid="add-link-row"');
+    expect(source.indexOf('data-testid="start-link-sort"')).toBeLessThan(source.indexOf('class="admin-table bookmark-table'));
     expect(source).not.toContain('data-testid="bulk-folder"');
     expect(source).not.toContain('data-testid="bulk-move"');
   });
@@ -320,12 +321,12 @@ describe('visual contracts', () => {
     const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
-    expect(routerSource).toContain("path: '/admin/add-bookmark'");
+    expect(routerSource).toContain("path: '/admin/add-bookmark', redirect: '/admin/links'");
     expect(routerSource).not.toContain("path: '/admin/nodesk'");
-    expect(layoutSource).toContain("to: '/admin/add-bookmark', label: '新增书签'");
+    expect(layoutSource).not.toContain("to: '/admin/add-bookmark', label: '新增书签'");
     expect(layoutSource).not.toContain("to: '/admin/nodesk', label: 'Nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
-    expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/add-bookmark'");
+    expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/links'");
     expect(layoutSource).not.toContain("label: '导入导出'");
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
   });
@@ -336,7 +337,7 @@ describe('visual contracts', () => {
     const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
     const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
-    expect(linksSource).toContain('<BookmarkTransferPanel v-if="props.mode === \'create\'" />');
+    expect(linksSource).toContain('<BookmarkTransferPanel />');
     expect(linksSource).not.toContain('to="/admin/bookmarks"');
     expect(transferSource).toContain('/api/admin/bookmarks/preview');
     expect(transferSource).toContain('/api/admin/bookmarks/import');
@@ -644,5 +645,16 @@ describe('visual contracts', () => {
     expect(baselineDoc).toContain('npm run test:e2e');
     expect(baselineDoc).toContain('desktop-chromium');
     expect(baselineDoc).toContain('mobile-chromium');
+  });
+
+  it('keeps folder and bookmark tables within the admin stage at scaled desktop widths', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/admin.css'), 'utf8');
+
+    expect(source).toContain('@media (max-width: 1200px)');
+    expect(source).toContain('.app-workbench .folder-table .admin-table-head');
+    expect(source).toContain('.app-workbench .bookmark-table .admin-table-row');
+    expect(source).toContain('min-width: 760px');
   });
 });

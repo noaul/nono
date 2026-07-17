@@ -4,7 +4,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   Bot,
   Compass,
-  FilePlus2,
   Folder,
   Home,
   KeyRound,
@@ -46,7 +45,6 @@ const navSections = [
       { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
       { to: '/admin/notabs', label: 'Notab 管理', title: 'Notab 管理', icon: Layers },
       { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
-      { to: '/admin/add-bookmark', label: '新增书签', title: '新增书签', icon: FilePlus2 },
       { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
     ],
   },

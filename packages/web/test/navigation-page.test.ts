@@ -109,13 +109,30 @@ describe('NavigationPage public workflow', () => {
   it('places the NoMoney service entry after the Notab buttons', async () => {
     const wrapper = await mountNavigationPage();
     const tabs = wrapper.get('.folder-tabs');
-    const entry = tabs.get('[data-testid="nomoney-entry"]');
+    const entry = tabs.get('[data-testid="navigation-entry-nomoney"]');
 
     expect(entry.attributes('href')).toBe('/nomoney');
     expect(entry.text()).toContain('NoMoney');
     expect(entry.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
     expect(tabs.element.lastElementChild).toBe(entry.element);
     expect(tabs.findAll('button.active')).toHaveLength(1);
+  });
+
+  it('renders enabled custom service entries from site settings', async () => {
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      navigationEntries: [
+        { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+        { id: 'status', label: 'Status', url: '/status', icon: 'activity', enabled: true, openInNewTab: false },
+        { id: 'hidden', label: 'Hidden', url: '/hidden', icon: 'link', enabled: false, openInNewTab: false },
+      ],
+    }));
+
+    const wrapper = await mountNavigationPage();
+    const entries = wrapper.findAll('[data-testid^="navigation-entry-"]');
+
+    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status']);
+    expect(wrapper.get('[data-testid="navigation-entry-status"]').attributes('href')).toBe('/status');
+    expect(wrapper.find('[data-testid="navigation-entry-hidden"]').exists()).toBe(false);
   });
 
   it('applies modal, tab, and admin-compatible appearance variables from saved settings', async () => {

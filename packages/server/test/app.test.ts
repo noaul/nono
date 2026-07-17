@@ -265,6 +265,44 @@ describe('Nono Fastify app', () => {
     expect(unsafe.statusCode).toBe(400);
   });
 
+  it('normalizes navigation entries and rejects unsafe entry URLs', async () => {
+    const cookie = await setupAdmin();
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: {
+        settings: {
+          navigationEntries: [
+            { id: 'NoMoney', label: ' NoMoney ', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+            { id: 'NoMoney', label: 'Status', url: 'https://status.example.com', icon: 'activity', enabled: true, openInNewTab: true },
+          ],
+        },
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data.settings.navigationEntries).toEqual([
+      { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+      { id: 'nomoney-2', label: 'Status', url: 'https://status.example.com', icon: 'activity', enabled: true, openInNewTab: true },
+    ]);
+
+    const unsafe = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: {
+        settings: {
+          navigationEntries: [
+            { id: 'unsafe', label: 'Unsafe', url: 'javascript:alert(1)', icon: 'link', enabled: true, openInNewTab: false },
+          ],
+        },
+      },
+    });
+
+    expect(unsafe.statusCode).toBe(400);
+  });
+
   it('summarizes token governance and rejects expired token creation', async () => {
     const cookie = await setupAdmin();
     const neverExpires = await app.inject({

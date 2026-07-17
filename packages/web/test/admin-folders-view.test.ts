@@ -71,7 +71,7 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.text()).toContain('生活');
   });
 
-  it('renders parent selector and indents child folders', async () => {
+  it('indents child folders without exposing top-level Notab creation', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: 'Parent', parentId: null, sortOrder: 100 },
@@ -82,8 +82,42 @@ describe('FoldersView admin workflow', () => {
     const wrapper = mountFoldersView();
     await settle(wrapper);
 
-    expect(wrapper.find('[data-testid="folder-parent"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="folder-parent"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
+  });
+
+  it('creates a folder from the add row and always assigns the active Notab', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 3, userId: 1, name: '资料', icon: '', parentId: 1, sortOrder: -10 });
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+
+    expect(wrapper.find('[data-testid="folder-parent"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('作为 notab（顶级）');
+    await wrapper.get('[data-testid="add-folder-row"]').trigger('click');
+    await wrapper.get('[data-testid="new-folder-name"]').setValue('资料');
+    await wrapper.get('[data-testid="new-folder-password"]').setValue('secret');
+    await wrapper.get('[data-testid="save-new-folder"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders', {
+      method: 'POST',
+      body: JSON.stringify({
+        parentId: 1,
+        name: '资料',
+        icon: '',
+        description: '',
+        password: 'secret',
+        passwordHint: '',
+      }),
+    });
+    expect(wrapper.get('[data-testid="folder-row-3"]').text()).toContain('资料');
   });
 
   it('defaults to the first category and filters the management table by category', async () => {
@@ -133,7 +167,7 @@ describe('FoldersView admin workflow', () => {
     await settle(wrapper);
     await wrapper.get('[data-testid="edit-folder-2"]').trigger('click');
 
-    expect(wrapper.text()).toContain('新增文件夹');
+    expect(wrapper.text()).not.toContain('作为 notab（顶级）');
     expect(wrapper.get('[data-testid="inline-folder-name-2"]').element).toBeInstanceOf(HTMLInputElement);
     expect(wrapper.get('[data-testid="inline-folder-parent-2"]').element).toBeInstanceOf(HTMLSelectElement);
     expect(wrapper.get('[data-testid="inline-folder-icon-picker-2"]').element).toBeInstanceOf(HTMLElement);

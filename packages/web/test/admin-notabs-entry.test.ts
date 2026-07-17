@@ -12,4 +12,13 @@ describe('Notab management entry', () => {
     expect(routerSource).toContain("path: '/admin/notabs'");
     expect(fs.existsSync(viewPath)).toBe(true);
   });
+
+  it('keeps bookmark creation inside bookmark management', () => {
+    const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
+    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
+
+    expect(layoutSource).not.toContain("to: '/admin/add-bookmark', label: '新增书签'");
+    expect(routerSource).toContain("path: '/admin/add-bookmark', redirect: '/admin/links'");
+    expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/links'");
+  });
 });

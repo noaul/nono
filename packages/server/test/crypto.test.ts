@@ -6,9 +6,10 @@ describe('crypto utilities', () => {
     const secret = 'test-session-secret-that-is-long-enough';
     const token = createSessionToken({ id: 7, username: 'admin' }, secret);
     const [payload, signature] = token.split('.');
+    const tamperedSuffix = signature.endsWith('A') ? 'B' : 'A';
 
     expect(verifySessionToken(token, secret)).toMatchObject({ uid: 7, username: 'admin' });
-    expect(verifySessionToken(`${payload}.${signature.slice(0, -1)}A`, secret)).toBeNull();
+    expect(verifySessionToken(`${payload}.${signature.slice(0, -1)}${tamperedSuffix}`, secret)).toBeNull();
     expect(verifySessionToken(`${payload}.short`, secret)).toBeNull();
   });
 

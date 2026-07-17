@@ -33,6 +33,15 @@ export interface PortalSettings {
   openInNewTab: boolean;
 }
 
+export interface NavigationEntry {
+  id: string;
+  label: string;
+  url: string;
+  icon: string;
+  enabled: boolean;
+  openInNewTab: boolean;
+}
+
 export interface Folder {
   id: number;
   userId: number;

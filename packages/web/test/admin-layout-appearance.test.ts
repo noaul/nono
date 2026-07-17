@@ -55,7 +55,8 @@ describe('AdminLayout appearance settings', () => {
     expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-opacity: 0.86');
     expect(wrapper.get('.app-workbench').attributes('style')).toContain('--admin-surface-blur: 18px');
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
-    expect(wrapper.get('.admin-nav').text()).toContain('Notab 管理文件夹新增书签书签管理');
+    expect(wrapper.get('.admin-nav').text()).toContain('Notab 管理文件夹书签管理');
+    expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');
     expect(wrapper.get('.admin-nav').text()).not.toContain('Nodesk');
     expect(wrapper.get('.admin-nav').text()).not.toContain('导入导出');
   });

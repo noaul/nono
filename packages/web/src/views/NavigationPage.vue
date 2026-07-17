@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ArrowUpRight, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Link2, WalletCards } from 'lucide-vue-next';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -12,6 +12,7 @@ import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
+import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 import { getThemeAccentVars } from '@/utils/themes';
 
@@ -103,6 +104,16 @@ const portal = computed(() => getPortalSettings(payload.value?.site.settings, im
 const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
 const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
 const portalRel = computed(() => (portal.value.openInNewTab ? 'noreferrer' : undefined));
+const navigationEntries = computed(() => getNavigationEntries(payload.value?.site.settings).filter((entry) => entry.enabled));
+const navigationEntryIcons = {
+  activity: Activity,
+  link: Link2,
+  'wallet-cards': WalletCards,
+};
+
+function navigationEntryIcon(icon: string) {
+  return navigationEntryIcons[icon as keyof typeof navigationEntryIcons] || Link2;
+}
 const searchEngineSettings = computed(() => getSearchEngineSettings(
   payload.value?.site.settings,
   payload.value?.site.searchUrlTemplate,
@@ -412,10 +423,18 @@ onUnmounted(() => {
         >
           {{ tab.name }}
         </button>
-        <span class="tab-service-separator" aria-hidden="true"></span>
-        <a class="tab-service-link" href="/nomoney" data-testid="nomoney-entry">
-          <WalletCards :size="15" />
-          <span>NoMoney</span>
+        <span v-if="navigationEntries.length" class="tab-service-separator" aria-hidden="true"></span>
+        <a
+          v-for="entry in navigationEntries"
+          :key="entry.id"
+          class="tab-service-link"
+          :href="entry.url"
+          :target="entry.openInNewTab ? '_blank' : undefined"
+          :rel="entry.openInNewTab ? 'noreferrer' : undefined"
+          :data-testid="`navigation-entry-${entry.id}`"
+        >
+          <component :is="navigationEntryIcon(entry.icon)" :size="15" />
+          <span>{{ entry.label }}</span>
         </a>
       </nav>
 

@@ -589,6 +589,27 @@
   grid-template-columns: 56px 64px 1.3fr 1.8fr minmax(130px, 0.8fr) minmax(130px, 0.8fr) 130px;
 }
 
+@media (max-width: 1200px) {
+  .app-workbench .folder-table .admin-table-head,
+  .app-workbench .folder-table .admin-table-row,
+  .app-workbench .bookmark-table .admin-table-head,
+  .app-workbench .bookmark-table .admin-table-row {
+    gap: 10px;
+    min-width: 760px;
+    padding-inline: 12px;
+  }
+
+  .app-workbench .folder-table .admin-table-head,
+  .app-workbench .folder-table .admin-table-row {
+    grid-template-columns: 44px 56px minmax(110px, 1.2fr) 100px 90px minmax(120px, 1.5fr) 110px;
+  }
+
+  .app-workbench .bookmark-table .admin-table-head,
+  .app-workbench .bookmark-table .admin-table-row {
+    grid-template-columns: 44px 44px minmax(100px, 1.2fr) minmax(150px, 1.5fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 96px;
+  }
+}
+
 .app-workbench .admin-table-head {
   background: #fafbfe;
   border-bottom: 1px solid var(--line);
@@ -3207,6 +3228,15 @@
   border-radius: var(--admin-radius-card);
   min-width: 0;
   padding: 18px;
+}
+
+.compact-admin-section {
+  padding: 14px 16px;
+}
+
+.compact-admin-section .admin-section-head {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .admin-section-head {

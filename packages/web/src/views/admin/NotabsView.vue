@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue';
-import { GripVertical, Layers, MoveDown, MoveUp, Pencil, Save, Trash2, X } from 'lucide-vue-next';
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
+import { GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
-import EmptyState from '@/components/admin/EmptyState.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
-import type { Folder, Link } from '@/api/types';
+import type { Folder, Link, NavigationEntry, Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
+import { defaultNavigationEntries, getNavigationEntries } from '@/utils/navigationEntries';
+import { getPortalSettings, portalDefaults } from '@/utils/portal';
 
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
+const site = ref<Site | null>(null);
 const isInitialLoading = ref(true);
 const editingNotabId = ref<number | null>(null);
 const editingName = ref('');
@@ -22,6 +24,12 @@ const deletingNotabIds = ref(new Set<number>());
 const sortMode = ref(false);
 const draftNotabIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
+const isCreatingNotab = ref(false);
+const isSavingNotab = ref(false);
+const newNotab = reactive({ name: '', icon: '', description: '' });
+const portal = reactive({ ...portalDefaults, label: 'Nodesk', url: '/nodesk' });
+const navigationEntries = ref<NavigationEntry[]>(defaultNavigationEntries.map((entry) => ({ ...entry })));
+const isSavingEntries = ref(false);
 
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
 const notabs = computed(() => [...folders.value]
@@ -35,14 +43,94 @@ const displayedNotabs = computed(() => {
 async function load() {
   isInitialLoading.value = true;
   try {
-    [folders.value, links.value] = await Promise.all([
+    const [loadedFolders, loadedLinks, loadedSite] = await Promise.all([
       apiRequest<Folder[]>('/api/admin/folders'),
       apiRequest<Link[]>('/api/admin/links'),
+      apiRequest<Site>('/api/admin/site'),
     ]);
+    folders.value = loadedFolders;
+    links.value = loadedLinks;
+    site.value = loadedSite;
+    Object.assign(portal, getPortalSettings(loadedSite?.settings, '/nodesk'));
+    navigationEntries.value = getNavigationEntries(loadedSite?.settings);
   } catch (event) {
     notifyError(event instanceof Error ? event.message : '加载 Notab 失败');
   } finally {
     isInitialLoading.value = false;
+  }
+}
+
+function startCreateNotab() {
+  Object.assign(newNotab, { name: '', icon: '', description: '' });
+  isCreatingNotab.value = true;
+  stopSorting();
+}
+
+function cancelCreateNotab() {
+  isCreatingNotab.value = false;
+  Object.assign(newNotab, { name: '', icon: '', description: '' });
+}
+
+async function saveNewNotab() {
+  const name = newNotab.name.trim();
+  if (!name || isSavingNotab.value) return;
+  isSavingNotab.value = true;
+  try {
+    const saved = await apiRequest<Folder>('/api/admin/folders', {
+      method: 'POST',
+      body: jsonBody({ parentId: null, name, icon: newNotab.icon, description: newNotab.description }),
+    });
+    folders.value = [...folders.value, saved];
+    cancelCreateNotab();
+    notifySuccess('Notab 已新增');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : 'Notab 新增失败');
+  } finally {
+    isSavingNotab.value = false;
+  }
+}
+
+function addNavigationEntry() {
+  const index = navigationEntries.value.length + 1;
+  navigationEntries.value = [...navigationEntries.value, {
+    id: `entry-${index}`,
+    label: '',
+    url: '',
+    icon: 'link',
+    enabled: true,
+    openInNewTab: false,
+  }];
+}
+
+function removeNavigationEntry(index: number) {
+  navigationEntries.value = navigationEntries.value.filter((_, entryIndex) => entryIndex !== index);
+}
+
+async function saveNavigationEntries() {
+  if (isSavingEntries.value) return;
+  isSavingEntries.value = true;
+  try {
+    const settings = {
+      ...(site.value?.settings || {}),
+      portal: { ...portal },
+      navigationEntries: navigationEntries.value.map((entry) => ({
+        ...entry,
+        label: entry.label.trim(),
+        url: entry.url.trim(),
+      })),
+    };
+    const saved = await apiRequest<Site>('/api/admin/site', {
+      method: 'PUT',
+      body: jsonBody({ settings }),
+    });
+    site.value = saved;
+    Object.assign(portal, getPortalSettings(saved?.settings || settings, '/nodesk'));
+    navigationEntries.value = getNavigationEntries(saved?.settings || settings);
+    notifySuccess('入口设置已保存');
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : '入口设置保存失败');
+  } finally {
+    isSavingEntries.value = false;
   }
 }
 
@@ -179,14 +267,39 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="导航内容" title="Notab 管理" description="集中更名、排序或删除导航页的顶级 Notab。" />
+    <AdminPageHeader eyebrow="导航内容" title="Notab 管理" />
 
-    <section class="admin-section">
+    <section class="admin-section compact-admin-section" data-testid="entry-management">
       <div class="admin-section-head">
-        <div>
-          <h2>Notab 列表</h2>
-          <p>{{ sortMode ? '拖动 Notab 调整前台分类顺序，完成后统一保存。' : '集中更名、排序或删除导航页的顶级 Notab。' }}</p>
+        <h2>入口管理</h2>
+        <button class="button" data-testid="save-navigation-entries" type="button" :disabled="isSavingEntries" @click="saveNavigationEntries">
+          <Save :size="17" /> {{ isSavingEntries ? '保存中' : '保存' }}
+        </button>
+      </div>
+      <div class="entry-list">
+        <div class="entry-editor-row entry-editor-fixed">
+          <span class="entry-icon"><Link2 :size="17" /></span>
+          <input v-model="portal.label" aria-label="Nodesk 名称" maxlength="60" />
+          <input v-model="portal.url" aria-label="Nodesk 地址" maxlength="2048" />
+          <label class="compact-toggle"><input v-model="portal.enabled" type="checkbox" /> 启用</label>
+          <span class="entry-kind">Nodesk</span>
         </div>
+        <div v-for="(entry, index) in navigationEntries" :key="entry.id" class="entry-editor-row">
+          <span class="entry-icon"><Link2 :size="17" /></span>
+          <input v-model="entry.label" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-label' : undefined" aria-label="入口名称" maxlength="60" placeholder="名称" />
+          <input v-model="entry.url" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-url' : undefined" aria-label="入口地址" maxlength="2048" placeholder="/path 或 https://" />
+          <label class="compact-toggle"><input v-model="entry.enabled" type="checkbox" /> 启用</label>
+          <button class="icon-button danger" type="button" title="删除入口" @click="removeNavigationEntry(index)"><Trash2 :size="16" /></button>
+        </div>
+        <button class="add-list-row" data-testid="add-navigation-entry" type="button" title="新增入口" @click="addNavigationEntry">
+          <Plus :size="18" />
+        </button>
+      </div>
+    </section>
+
+    <section class="admin-section compact-admin-section" data-testid="notab-management">
+      <div class="admin-section-head">
+        <h2>Notab 列表</h2>
         <div class="toolbar">
           <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
           <button
@@ -204,7 +317,6 @@ onMounted(load);
       </div>
 
       <LoadingOverlay v-if="isInitialLoading" label="正在加载 Notab" />
-      <EmptyState v-else-if="!notabs.length" title="还没有 Notab" description="请先在文件夹页面创建一个顶级 Notab。" />
       <div v-else class="admin-table notab-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
         <div class="admin-table-head">
           <span>{{ sortMode ? '排序' : '图标' }}</span>
@@ -255,10 +367,21 @@ onMounted(load);
             </span>
           </article>
         </SortableList>
+        <article v-if="isCreatingNotab" class="admin-table-row inline-create-row">
+          <span class="folder-sort-cell"><Plus :size="18" /></span>
+          <span class="notab-name-cell"><input v-model="newNotab.name" data-testid="new-notab-name" maxlength="16" aria-label="新 Notab 名称" @keydown.enter.prevent="saveNewNotab" /></span>
+          <span></span>
+          <span></span>
+          <span class="row-actions">
+            <button class="icon-button success" data-testid="save-new-notab" type="button" title="保存 Notab" :disabled="isSavingNotab" @click="saveNewNotab"><Save :size="16" /></button>
+            <button class="icon-button secondary" type="button" title="取消" @click="cancelCreateNotab"><X :size="16" /></button>
+          </span>
+        </article>
+        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-notab-row" type="button" title="新增 Notab" @click="startCreateNotab"><Plus :size="18" /></button>
       </div>
 
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-        <strong><Layers :size="17" /> {{ displayedNotabs.length }} 个 Notab · 拖动期间不会发起网络请求</strong>
+        <strong>{{ displayedNotabs.length }} 个 Notab</strong>
         <div class="toolbar">
           <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
           <button class="button" data-testid="save-notab-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
@@ -292,7 +415,67 @@ onMounted(load);
   gap: 8px;
 }
 
+.entry-list {
+  display: grid;
+  gap: 8px;
+}
+
+.entry-editor-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 38px;
+}
+
+.entry-editor-fixed {
+  grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 68px;
+}
+
+.entry-icon,
+.entry-kind {
+  align-items: center;
+  color: #64748b;
+  display: inline-flex;
+  font-size: 12px;
+  justify-content: center;
+}
+
+.compact-toggle {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.add-list-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(100, 116, 139, 0.38);
+  border-radius: var(--admin-surface-radius, 8px);
+  color: #64748b;
+  display: flex;
+  justify-content: center;
+  min-height: 42px;
+  width: 100%;
+}
+
+.add-list-row:hover {
+  background: rgba(255, 255, 255, 0.62);
+  color: #0f766e;
+}
+
 @media (max-width: 720px) {
+  .entry-editor-row,
+  .entry-editor-fixed {
+    grid-template-columns: 32px minmax(0, 1fr) 38px;
+  }
+
+  .entry-editor-row > input:nth-of-type(2),
+  .entry-editor-fixed > input:nth-of-type(2),
+  .compact-toggle {
+    grid-column: 2 / -1;
+  }
   .notab-table .admin-table-row {
     grid-template-columns: 1fr !important;
     min-width: 0;

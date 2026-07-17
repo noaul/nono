@@ -184,7 +184,6 @@ watch(html, () => {
     <div class="admin-card-head">
       <div>
         <h2>书签导入导出</h2>
-        <p>支持 Chrome、Edge、Firefox 等浏览器导出的 Netscape Bookmark HTML。</p>
       </div>
       <div class="toolbar">
         <button class="button secondary" data-testid="preview-bookmarks" type="button" :disabled="isPreviewing" @click="previewBookmarks">
@@ -202,7 +201,7 @@ watch(html, () => {
       <label for="bookmark-html-file">选择 HTML</label>
       <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
     </div>
-    <p class="row-subtitle">{{ fileName ? `已选择：${fileName}` : '还没有选择文件，也可以直接把书签 HTML 粘贴到下方。' }}</p>
+    <p v-if="fileName" class="row-subtitle">已选择：{{ fileName }}</p>
     <div class="field">
       <label>Netscape Bookmark HTML</label>
       <textarea v-model="html" placeholder="也可以直接粘贴浏览器导出的书签 HTML" />

@@ -5,7 +5,6 @@ import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
-import EmptyState from '@/components/admin/EmptyState.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -15,9 +14,6 @@ import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 
-const props = withDefaults(defineProps<{ mode?: 'create' | 'manage' }>(), {
-  mode: 'manage',
-});
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
@@ -27,12 +23,11 @@ const sortMode = ref(false);
 const draftLinkIds = shallowRef<number[]>([]);
 const form = reactive({ id: 0, folderId: 0, name: '', url: '', icon: '', description: '' });
 const formCategoryId = ref(0);
-const quickCategoryId = ref(0);
-const quickFolderId = ref(0);
 const error = ref('');
 const message = ref('');
 const isInitialLoading = ref(true);
 const isSaving = ref(false);
+const isCreatingLink = ref(false);
 const isSavingSort = ref(false);
 const deletingIds = ref(new Set<number>());
 const searchTerm = ref('');
@@ -45,9 +40,6 @@ const healthSummary = ref<LinkHealthSummary | null>(null);
 const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
-const newFolderTarget = ref<'form' | 'quick' | null>(null);
-const newFolderName = ref('');
-const isCreatingFolder = ref(false);
 
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
@@ -57,7 +49,6 @@ const categoryFolderGroups = computed(() => categoryFolders.value.map((category)
   folders: folderTree(category.id),
 })));
 const formCategoryFolders = computed(() => foldersForCategory(formCategoryId.value));
-const quickCategoryFolders = computed(() => foldersForCategory(quickCategoryId.value));
 const selectedCategoryFolders = computed(() => {
   return categoryFolderGroups.value.find((item) => item.category.id === selectedCategoryId.value)?.folders || [];
 });
@@ -111,12 +102,6 @@ function ensureCreationSelection() {
   }
   if (!formCategoryFolders.value.some((folder) => folder.id === form.folderId)) {
     form.folderId = preferredFolderId(formCategoryId.value);
-  }
-  if (!categoryFolders.value.some((folder) => folder.id === quickCategoryId.value)) {
-    quickCategoryId.value = firstCategoryId;
-  }
-  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
-    quickFolderId.value = preferredFolderId(quickCategoryId.value);
   }
 }
 
@@ -180,47 +165,6 @@ function selectInlineCategory() {
   inlineForm.folderId = preferredFolderId(inlineForm.categoryId);
 }
 
-function selectFolderOption(target: 'form' | 'quick', event: Event) {
-  const value = (event.target as HTMLSelectElement).value;
-  if (value === '__new__') {
-    newFolderTarget.value = target;
-    newFolderName.value = '';
-    return;
-  }
-  const folderId = Number(value);
-  if (!Number.isInteger(folderId) || folderId < 1) return;
-  if (target === 'form') form.folderId = folderId;
-  else quickFolderId.value = folderId;
-  if (newFolderTarget.value === target) newFolderTarget.value = null;
-}
-
-function cancelNewFolder() {
-  newFolderTarget.value = null;
-  newFolderName.value = '';
-}
-
-async function createFolderFromDropdown(target: 'form' | 'quick') {
-  const name = newFolderName.value.trim();
-  const parentId = target === 'form' ? formCategoryId.value : quickCategoryId.value;
-  if (!name || !parentId || isCreatingFolder.value) return;
-  isCreatingFolder.value = true;
-  try {
-    const saved = await apiRequest<Folder>('/api/admin/folders', {
-      method: 'POST',
-      body: jsonBody({ parentId, name, icon: '', description: '' }),
-    });
-    folders.value = [...folders.value, saved];
-    if (target === 'form') form.folderId = saved.id;
-    else quickFolderId.value = saved.id;
-    cancelNewFolder();
-    notifySuccess(`已新建文件夹「${saved.name}」`);
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '新建文件夹失败');
-  } finally {
-    isCreatingFolder.value = false;
-  }
-}
-
 async function saveInlineEdit(link: Link) {
   if (!inlineForm.name.trim() || !inlineForm.url.trim() || !inlineForm.folderId) return;
   try {
@@ -238,45 +182,6 @@ async function saveInlineEdit(link: Link) {
   }
 }
 
-const quickUrl = ref('');
-const isQuickAdding = ref(false);
-
-async function quickAdd() {
-  const url = quickUrl.value.trim();
-  if (!url || isQuickAdding.value) return;
-  if (!/^https?:\/\//i.test(url)) {
-    notifyError('请以 http 或 https 开头');
-    return;
-  }
-  const folderId = quickFolderId.value;
-  if (!folderId) {
-    notifyError('请先创建一个文件夹');
-    return;
-  }
-  isQuickAdding.value = true;
-  try {
-    const meta = await apiRequest<{ title: string; description: string }>(`/api/admin/fetch-meta?url=${encodeURIComponent(url)}`).catch(() => ({ title: '', description: '' }));
-    const fallbackName = (() => {
-      try {
-        return new URL(url).hostname.replace(/^www\./, '');
-      } catch {
-        return url;
-      }
-    })();
-    const saved = await apiRequest<Link>('/api/admin/links', {
-      method: 'POST',
-      body: jsonBody({ folderId, name: (meta.title || fallbackName).slice(0, 24), url, icon: '', description: meta.description || '' }),
-    });
-    links.value = [...links.value, saved];
-    quickUrl.value = '';
-    notifySuccess(`已添加「${saved.name}」`);
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '快速添加失败');
-  } finally {
-    isQuickAdding.value = false;
-  }
-}
-
 function reset() {
   Object.assign(form, {
     id: 0,
@@ -286,17 +191,37 @@ function reset() {
     icon: '',
     description: '',
   });
+  isCreatingLink.value = false;
+}
+
+function startCreateLink() {
+  reset();
+  formCategoryId.value = selectedCategoryId.value || categoryFolders.value[0]?.id || 0;
+  form.folderId = preferredFolderId(formCategoryId.value);
+  isCreatingLink.value = true;
+  cancelInlineEdit();
+  stopSorting();
 }
 
 async function save() {
+  if (!form.name.trim() || !form.url.trim() || !form.folderId || isSaving.value) return;
   error.value = '';
   message.value = '';
   isSaving.value = true;
   try {
+    const payload = {
+      folderId: form.folderId,
+      name: form.name.trim(),
+      url: form.url.trim(),
+      icon: form.icon,
+      description: form.description,
+    };
     const saved = form.id
-      ? await apiRequest<Link>(`/api/admin/links/${form.id}`, { method: 'PUT', body: jsonBody(form) })
-      : await apiRequest<Link>('/api/admin/links', { method: 'POST', body: jsonBody(form) });
+      ? await apiRequest<Link>(`/api/admin/links/${form.id}`, { method: 'PUT', body: jsonBody(payload) })
+      : await apiRequest<Link>('/api/admin/links', { method: 'POST', body: jsonBody(payload) });
     links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [...links.value, saved];
+    selectedCategoryId.value = categoryIdForFolder(saved.folderId);
+    selectedFolderId.value = saved.folderId;
     message.value = form.id ? '书签已更新' : '书签已新增';
     notifySuccess(message.value);
     reset();
@@ -463,100 +388,22 @@ watch(formCategoryId, (categoryId) => {
   }
 });
 
-watch(quickCategoryId, (categoryId) => {
-  if (!quickCategoryFolders.value.some((folder) => folder.id === quickFolderId.value)) {
-    quickFolderId.value = preferredFolderId(categoryId);
-  }
-});
-
 onMounted(load);
 </script>
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader
-      eyebrow="导航内容"
-      :title="props.mode === 'create' ? (form.id ? '编辑书签' : '新增书签') : '书签管理'"
-      :description="props.mode === 'create' ? '快速抓取网页信息，或手动完善名称、位置和介绍。' : '按 Notab 和文件夹筛选，集中编辑、迁移、排序或删除书签。'"
-    >
-      <template v-if="props.mode === 'create'" #actions>
-        <button class="button" type="button" :disabled="isSaving" @click="save">
-          <Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}
-        </button>
-      </template>
-    </AdminPageHeader>
+    <AdminPageHeader eyebrow="导航内容" title="书签管理" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section v-if="props.mode === 'create'" class="admin-section">
+    <section class="admin-section compact-admin-section">
       <div class="admin-section-head">
-        <div>
-          <h2>添加方式</h2>
-          <p>把链接放进指定文件夹后，会立即出现在你的公开导航页。</p>
-        </div>
-      </div>
-      <AdminStateBanner message="隐私与法律免责声明：你所添加的每一个链接都将负法律责任。" tone="warning" />
-      <form class="quick-add-bar" @submit.prevent="quickAdd">
-        <input
-          v-model="quickUrl"
-          data-testid="quick-add-url"
-          type="url"
-          placeholder="粘贴 URL 回车即添加 — 自动抓取标题和介绍"
-          :disabled="isQuickAdding"
-        />
-        <select v-model.number="quickCategoryId" data-testid="quick-link-category" aria-label="目标 notab" :disabled="isQuickAdding">
-          <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
-        </select>
-        <select :value="quickFolderId" data-testid="quick-link-folder" aria-label="目标文件夹" :disabled="isQuickAdding" @change="selectFolderOption('quick', $event)">
-          <option v-for="folder in quickCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-          <option value="__new__">＋ 新建文件夹</option>
-        </select>
-        <button class="button" type="submit" :disabled="isQuickAdding || !quickUrl.trim()">
-          {{ isQuickAdding ? '抓取中…' : '快速添加' }}
-        </button>
-        <div v-if="newFolderTarget === 'quick'" class="new-folder-composer quick-folder-composer">
-          <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('quick')" />
-          <button class="button" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('quick')"><Plus :size="16" /> 新建</button>
-          <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="16" /></button>
-        </div>
-      </form>
-      <form class="bookmark-create-grid" @submit.prevent="save">
-        <div class="field"><label>名称</label><input v-model="form.name" required maxlength="24" placeholder="最多 24 个字" /></div>
-        <div class="field wide"><label>链接</label><input v-model="form.url" required placeholder="请以 http 或 https 开头" /></div>
-        <div class="field">
-          <label>所属 notab</label>
-          <select v-model.number="formCategoryId" data-testid="create-link-category" required>
-            <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>文件夹</label>
-          <select :value="form.folderId" data-testid="create-link-folder" required @change="selectFolderOption('form', $event)">
-            <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-            <option value="__new__">＋ 新建文件夹</option>
-          </select>
-          <div v-if="newFolderTarget === 'form'" class="new-folder-composer">
-            <input v-model="newFolderName" data-testid="new-link-folder-name" maxlength="16" placeholder="新文件夹名称" @keydown.enter.prevent="createFolderFromDropdown('form')" />
-            <button class="button compact" data-testid="confirm-new-link-folder" type="button" :disabled="isCreatingFolder || !newFolderName.trim()" @click="createFolderFromDropdown('form')"><Plus :size="15" /> 新建</button>
-            <button class="icon-button secondary" type="button" title="取消" @click="cancelNewFolder"><X :size="15" /></button>
-          </div>
-        </div>
-        <div class="field"><label>图标</label><div class="input-with-picker"><input v-model="form.icon" placeholder="可为空" /><button type="button" title="图标">☝</button></div></div>
-        <div class="field wide"><label>介绍</label><input v-model="form.description" placeholder="鼠标经过时的提示语，也可用于站内搜索" /></div>
-        <div class="field action-field"><label>操作</label><button class="button" type="submit" :disabled="isSaving"><Plus :size="18" /> {{ isSaving ? '保存中' : form.id ? '保存书签' : '新增书签' }}</button></div>
-      </form>
-    </section>
-
-    <BookmarkTransferPanel v-if="props.mode === 'create'" />
-
-    <section v-if="props.mode === 'manage'" class="admin-section">
-      <div class="admin-section-head">
-        <div>
-          <h2>书签列表</h2>
-          <p>先选择文件夹，再编辑、迁移、排序或删除其中的书签。</p>
-        </div>
+        <h2>书签列表</h2>
         <div class="toolbar">
+          <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
+          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
           <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates" @click="loadDuplicates">
             <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
           </button>
@@ -606,8 +453,7 @@ onMounted(load);
         </div>
         <LinkDuplicatePanel :groups="duplicateGroups" :folder-name="folderName" />
         <LinkHealthPanel :summary="healthSummary" :results="healthResults" />
-        <EmptyState v-if="!filteredLinks.length" title="没有匹配的书签" description="换一个关键词或选择其他文件夹。" />
-        <div v-else class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
+        <div class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
           <div class="admin-table-head">
             <span>选择</span>
             <span></span>
@@ -690,21 +536,64 @@ onMounted(load);
               </span>
             </article>
           </SortableList>
+          <article v-if="isCreatingLink && !sortMode" class="admin-table-row inline-create-link-row">
+            <span></span>
+            <span class="sort-cell"><Plus :size="17" /></span>
+            <span data-label="名称"><input v-model="form.name" class="inline-link-input" data-testid="new-link-name" maxlength="24" aria-label="新书签名称" /></span>
+            <span class="url-cell" data-label="链接"><input v-model="form.url" class="inline-link-input" data-testid="new-link-url" type="url" aria-label="新书签链接" /></span>
+            <span data-label="文件夹">
+              <select v-model.number="form.folderId" class="inline-link-select" data-testid="new-link-folder" aria-label="新书签文件夹">
+                <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+              </select>
+            </span>
+            <span data-label="notab">
+              <select v-model.number="formCategoryId" class="inline-link-select" data-testid="new-link-category" aria-label="新书签 notab">
+                <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+              </select>
+            </span>
+            <span class="row-actions" data-label="操作">
+              <button class="icon-button success" data-testid="save-new-link" type="button" title="保存书签" :disabled="isSaving" @click="save"><Save :size="16" /></button>
+              <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
+            </span>
+          </article>
+          <button v-else-if="!sortMode" class="add-list-row" data-testid="add-link-row" type="button" title="新增书签" @click="startCreateLink"><Plus :size="18" /></button>
         </div>
-        <div class="sort-footer" :class="{ 'sticky-sort-footer': sortMode }">
+        <div v-if="sortMode" class="sort-footer sticky-sort-footer">
           <strong>{{ activeFolder?.name || '未选择文件夹' }} · {{ filteredLinks.length }} 个书签<span v-if="sortMode"> · 更改尚未保存</span></strong>
           <div class="toolbar">
-            <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
-            <button v-if="sortMode" class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
-            <button v-if="sortMode" class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+            <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
+            <button class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
           </div>
         </div>
       </template>
     </section>
+
+    <BookmarkTransferPanel />
   </div>
 </template>
 
 <style scoped>
+.add-list-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(100, 116, 139, 0.38);
+  border-radius: var(--admin-surface-radius, 8px);
+  color: #64748b;
+  display: flex;
+  justify-content: center;
+  min-height: 42px;
+  width: 100%;
+}
+
+.add-list-row:hover {
+  background: rgba(255, 255, 255, 0.62);
+  color: #0f766e;
+}
+
+.inline-create-link-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
 .management-filter-group {
   align-items: flex-start;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
@@ -734,28 +623,6 @@ onMounted(load);
 
 .management-filter-group .folder-pill {
   flex: 0 0 auto;
-}
-
-.new-folder-composer {
-  align-items: center;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) auto 36px;
-  margin-top: 6px;
-}
-
-.new-folder-composer input {
-  min-width: 0;
-}
-
-.new-folder-composer .button,
-.new-folder-composer .icon-button {
-  min-height: 36px;
-}
-
-.quick-folder-composer {
-  grid-column: 1 / -1;
-  margin-top: 0;
 }
 
 .inline-link-input,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
-import { CheckSquare, FolderPlus, GripVertical, MoveDown, MoveUp, Pencil, Save, Square, Trash2, X } from 'lucide-vue-next';
+import { CheckSquare, GripVertical, MoveDown, MoveUp, Pencil, Plus, Save, Square, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
@@ -21,6 +21,7 @@ const message = ref('');
 const error = ref('');
 const isInitialLoading = ref(true);
 const isSaving = ref(false);
+const isCreatingFolder = ref(false);
 const sortMode = ref(false);
 const draftFolderIds = shallowRef<number[]>([]);
 const isSavingSort = ref(false);
@@ -143,7 +144,7 @@ function selectCategory(id: number) {
   clearFolderSelection();
   cancelInlineEdit();
   stopSorting();
-  if (form.parentId && !visibleFolderIds.value.has(form.parentId)) form.parentId = id;
+  form.parentId = id;
 }
 
 function affectedFolderIds(rootIds: Iterable<number>) {
@@ -216,12 +217,13 @@ function cancelInlineEdit() {
 }
 
 function reset() {
-  Object.assign(form, { id: 0, parentId: null, name: '', icon: '', description: '', password: '', passwordHint: '' });
+  Object.assign(form, { id: 0, parentId: selectedCategoryId.value, name: '', icon: '', description: '', password: '', passwordHint: '' });
+  isCreatingFolder.value = false;
 }
 
 function folderPayload() {
   return {
-    parentId: form.parentId,
+    parentId: selectedCategoryId.value,
     name: form.name,
     icon: form.icon,
     description: form.description,
@@ -234,26 +236,12 @@ function folderDepth(folder: Folder) {
   return folderDepthById.value.get(folder.id) || 0;
 }
 
-function isDescendantOf(folder: Folder, parentId: number) {
-  let cursor = folder.parentId || null;
-  while (cursor) {
-    if (cursor === parentId) return true;
-    const parent = folders.value.find((item) => item.id === cursor);
-    cursor = parent?.parentId || null;
-  }
-  return false;
-}
-
-function selectableParents() {
-  // Two-level model: sub-folders attach to a category (top-level folder).
-  return folders.value.filter((folder) => !folder.parentId && folder.id !== form.id && (!form.id || !isDescendantOf(folder, form.id)));
-}
-
 function inlineSelectableParents(folderId: number) {
   return categoryFolders.value.filter((folder) => folder.id !== folderId);
 }
 
 async function save() {
+  if (!selectedCategoryId.value || !form.name.trim() || isSaving.value) return;
   error.value = '';
   message.value = '';
   isSaving.value = true;
@@ -272,6 +260,14 @@ async function save() {
   } finally {
     isSaving.value = false;
   }
+}
+
+function startCreateFolder() {
+  reset();
+  form.parentId = selectedCategoryId.value;
+  isCreatingFolder.value = true;
+  cancelInlineEdit();
+  stopSorting();
 }
 
 async function moveFolderToNotab(folder: Folder, event: Event) {
@@ -399,53 +395,20 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="导航内容" title="文件夹" description="创建文件夹，并按 Notab 管理归属、排序和访问设置。" />
+    <AdminPageHeader eyebrow="导航内容" title="文件夹" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="admin-section">
+    <section class="admin-section compact-admin-section">
       <div class="admin-section-head">
-        <div>
-          <h2>新增文件夹</h2>
-          <p>用于组织你的导航分类，可选图标、访问密码和引导语。</p>
-        </div>
-        <button class="button" type="button" :disabled="isSaving" @click="save">
-          <FolderPlus :size="18" /> {{ isSaving ? '保存中' : '新增文件夹' }}
-        </button>
-      </div>
-      <form class="admin-form-grid" @submit.prevent="save">
-        <div class="field"><label>图标</label><FolderIconPicker v-model="form.icon" test-id="create-folder-icon-picker" /></div>
-        <div class="field"><label>名称</label><input v-model="form.name" required maxlength="16" placeholder="最多 16 个字" /></div>
-        <div class="field">
-          <label>所属 notab</label>
-          <select data-testid="folder-parent" v-model.number="form.parentId">
-            <option :value="null">作为 notab（顶级）</option>
-            <option v-for="folder in selectableParents()" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
-          </select>
-        </div>
-        <div class="field"><label>密码</label><input v-model="form.password" type="password" /></div>
-        <div class="field"><label>引导语</label><input v-model="form.passwordHint" maxlength="30" placeholder="密码文件夹的提示语" /></div>
-        <div class="field">
-          <label>AI 归类提示</label>
-          <textarea v-model="form.description" data-testid="folder-ai-prompt" maxlength="400" placeholder="例如：只收录文献管理、科研写作和 Zotero 相关网站" />
-        </div>
-      </form>
-    </section>
-
-    <section class="admin-section">
-      <div class="admin-section-head">
-        <div>
-          <h2>文件夹管理</h2>
-          <p>{{ sortMode ? '拖动当前 notab 下的文件夹，完成后统一保存。' : '管理 notab、文件夹位置、AI 归类提示、访问密码和展示顺序。' }}</p>
-        </div>
+        <h2>文件夹管理</h2>
         <div class="toolbar">
           <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
           <button v-if="!sortMode" class="button secondary" data-testid="start-folder-sort" type="button" :disabled="sortableFolders.length < 2" @click="startSorting">
             <GripVertical :size="17" /> 调整顺序
           </button>
           <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
-          <button class="button secondary" type="button" @click="reset">清空表单</button>
         </div>
       </div>
       <LoadingOverlay v-if="isInitialLoading" label="正在加载文件夹" />
@@ -521,7 +484,6 @@ onMounted(load);
               <div class="inline-folder-field">
                 <label :for="`inline-folder-parent-${folder.id}`">所属 notab</label>
                 <select :id="`inline-folder-parent-${folder.id}`" v-model.number="inlineForm.parentId" :data-testid="`inline-folder-parent-${folder.id}`">
-                  <option :value="null">作为 notab（顶级）</option>
                   <option v-for="parent in inlineSelectableParents(folder.id)" :key="parent.id" :value="parent.id">{{ parent.name }}</option>
                 </select>
               </div>
@@ -575,10 +537,43 @@ onMounted(load);
             </template>
           </article>
         </SortableList>
+        <div v-if="isCreatingFolder && !sortMode" class="inline-folder-editor inline-create-folder-row">
+          <div class="inline-folder-field">
+            <label>图标</label>
+            <FolderIconPicker v-model="form.icon" test-id="new-folder-icon-picker" />
+          </div>
+          <div class="inline-folder-field">
+            <label>名称</label>
+            <input v-model="form.name" data-testid="new-folder-name" maxlength="16" @keydown.enter.prevent="save" />
+          </div>
+          <div class="inline-folder-field">
+            <label>所属 notab</label>
+            <select v-model.number="form.parentId" disabled>
+              <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+            </select>
+          </div>
+          <div class="inline-folder-field">
+            <label>密码</label>
+            <input v-model="form.password" data-testid="new-folder-password" type="password" />
+          </div>
+          <div class="inline-folder-field">
+            <label>引导语</label>
+            <input v-model="form.passwordHint" maxlength="30" />
+          </div>
+          <div class="inline-folder-field inline-folder-ai-prompt">
+            <label>AI 归类提示</label>
+            <textarea v-model="form.description" maxlength="400" />
+          </div>
+          <div class="inline-folder-actions">
+            <button class="icon-button success" data-testid="save-new-folder" type="button" title="保存文件夹" :disabled="isSaving" @click="save"><Save :size="16" /></button>
+            <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
+          </div>
+        </div>
+        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-folder-row" type="button" title="新增文件夹" @click="startCreateFolder"><Plus :size="18" /></button>
         </div>
       </template>
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-        <strong>{{ displayedFolders.length }} 个文件夹 · 当前 notab 内拖动，期间不会发起网络请求</strong>
+        <strong>{{ displayedFolders.length }} 个文件夹</strong>
         <div class="toolbar">
           <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
           <button class="button" data-testid="save-folder-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
@@ -589,6 +584,29 @@ onMounted(load);
 </template>
 
 <style scoped>
+.add-list-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(100, 116, 139, 0.38);
+  border-radius: var(--admin-surface-radius, 8px);
+  color: #64748b;
+  display: flex;
+  justify-content: center;
+  min-height: 42px;
+  width: 100%;
+}
+
+.add-list-row:hover {
+  background: rgba(255, 255, 255, 0.62);
+  color: #0f766e;
+}
+
+.inline-create-folder-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
 .category-manager-tabs {
   margin-bottom: 12px;
   overflow-x: auto;
