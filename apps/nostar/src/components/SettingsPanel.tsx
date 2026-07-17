@@ -311,11 +311,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       label: t('通用', 'General'),
       icon: <Globe className="w-5 h-5" />,
     },
-    ...(!backend.isAvailable ? [{
+    {
       id: 'ai',
       label: t('AI配置', 'AI Config'),
       icon: <Bot className="w-5 h-5" />,
-    } as SettingsTabItem] : []),
+    },
     {
       id: 'webdav',
       label: t('WebDAV', 'WebDAV'),
@@ -369,7 +369,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         case 'general':
           return <GeneralPanel t={t} />;
         case 'ai':
-          return backend.isAvailable ? <GeneralPanel t={t} /> : <AIConfigPanel t={t} />;
+          return <AIConfigPanel t={t} />;
         case 'webdav':
           return <WebDAVPanel t={t} />;
         case 'backup':
