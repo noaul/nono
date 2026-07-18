@@ -5,6 +5,8 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { assertStrongPassword } from '../../services/auth.service.js';
 import { publicUser } from '../../services/repository.js';
+import { currentSessionId } from '../../services/session.service.js';
+import { publicPasskey } from '../passkeys.js';
 import { decryptSecret, encryptSecret, hashPassword, verifyPassword } from '../../utils/crypto.js';
 
 const passwordSchema = z.object({
@@ -39,6 +41,47 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
       throw Object.assign(new Error('Current password is incorrect'), { statusCode: 400 });
     }
     await services.repo.updateUser(user.id, { passwordHash: await hashPassword(input.newPassword) });
+    await services.repo.deleteOtherSessions(user.id, currentSessionId(request));
+    return sendOk(reply, { ok: true });
+  });
+
+  app.get('/api/admin/account/security', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const currentId = currentSessionId(request);
+    const [sessions, passkeys] = await Promise.all([
+      services.repo.listSessions(user.id),
+      services.repo.listPasskeys(user.id),
+    ]);
+    return sendOk(reply, {
+      passkeys: passkeys.map(publicPasskey),
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        current: session.id === currentId,
+        userAgent: session.userAgent || '',
+        ipAddress: session.ipAddress || '',
+        lastSeenAt: session.lastSeenAt,
+        expiresAt: session.expiresAt,
+        createdAt: session.createdAt,
+      })),
+    });
+  });
+
+  app.delete('/api/admin/account/sessions/:id', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const id = String((request.params as { id?: string }).id || '');
+    if (id === currentSessionId(request)) {
+      throw Object.assign(new Error('Use logout to end the current session'), { statusCode: 400 });
+    }
+    await services.repo.deleteSession(user.id, id);
+    return sendOk(reply, { ok: true });
+  });
+
+  app.post('/api/admin/account/sessions/revoke-others', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    await services.repo.deleteOtherSessions(user.id, currentSessionId(request));
     return sendOk(reply, { ok: true });
   });
 

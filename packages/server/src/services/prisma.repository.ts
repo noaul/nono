@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { Repository, SiteRecord } from './repository.js';
 import { defaultSite } from './repository.js';
-import { generateApiToken, hashApiToken } from '../utils/crypto.js';
+import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 
 export function createPrismaRepository(prisma = new PrismaClient()): Repository {
   return {
@@ -144,6 +144,90 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     },
     async deleteToken(userId, id) {
       await prisma.apiToken.deleteMany({ where: { userId, id } });
+    },
+    async createSession(userId, input) {
+      const token = generateSessionToken();
+      const record = await prisma.authSession.create({
+        data: {
+          userId,
+          tokenHash: hashSessionToken(token),
+          userAgent: input.userAgent || null,
+          ipAddress: input.ipAddress || null,
+          expiresAt: input.expiresAt,
+        },
+      });
+      return { ...record, token } as any;
+    },
+    async findSession(token) {
+      return (await prisma.authSession.findFirst({
+        where: { tokenHash: hashSessionToken(token), expiresAt: { gt: new Date() } },
+        include: { user: true },
+      })) as any;
+    },
+    async listSessions(userId) {
+      return (await prisma.authSession.findMany({
+        where: { userId, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      })) as any;
+    },
+    async touchSession(id) {
+      await prisma.authSession.updateMany({
+        where: { id, lastSeenAt: { lt: new Date(Date.now() - 5 * 60 * 1000) } },
+        data: { lastSeenAt: new Date() },
+      });
+    },
+    async deleteSession(userId, id) {
+      await prisma.authSession.deleteMany({ where: { userId, id } });
+    },
+    async deleteOtherSessions(userId, currentId) {
+      await prisma.authSession.deleteMany({
+        where: { userId, ...(currentId ? { id: { not: currentId } } : {}) },
+      });
+    },
+    async listPasskeys(userId) {
+      return (await prisma.passkeyCredential.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      })).map((row) => ({ ...row, transports: Array.isArray(row.transports) ? row.transports : [] })) as any;
+    },
+    async findPasskey(id) {
+      const row = await prisma.passkeyCredential.findUnique({ where: { id }, include: { user: true } });
+      return row ? { ...row, transports: Array.isArray(row.transports) ? row.transports : [] } as any : null;
+    },
+    async createPasskey(input) {
+      const row = await prisma.passkeyCredential.create({
+        data: {
+          id: input.id,
+          userId: input.userId,
+          name: input.name,
+          publicKey: Buffer.from(input.publicKey),
+          counter: input.counter,
+          transports: input.transports,
+          deviceType: input.deviceType,
+          backedUp: input.backedUp,
+        },
+      });
+      return { ...row, transports: Array.isArray(row.transports) ? row.transports : [] } as any;
+    },
+    async updatePasskeyCounter(userId, id, counter) {
+      await prisma.passkeyCredential.updateMany({
+        where: { userId, id },
+        data: { counter, lastUsedAt: new Date() },
+      });
+    },
+    async deletePasskey(userId, id) {
+      await prisma.passkeyCredential.deleteMany({ where: { userId, id } });
+    },
+    async createWebAuthnChallenge(input) {
+      return (await prisma.webAuthnChallenge.create({ data: input })) as any;
+    },
+    async consumeWebAuthnChallenge(id, type, userId) {
+      const challenge = await prisma.webAuthnChallenge.findFirst({
+        where: { id, type, userId, expiresAt: { gt: new Date() } },
+      });
+      if (!challenge) return null;
+      const deleted = await prisma.webAuthnChallenge.deleteMany({ where: { id: challenge.id } });
+      return deleted.count === 1 ? challenge as any : null;
     },
   };
 }

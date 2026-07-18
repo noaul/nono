@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AppServices, AuthUser } from '../types.js';
 import { sendError } from './responses.js';
-import { verifySessionToken } from '../utils/crypto.js';
 
 export async function resolveUser(request: FastifyRequest, services: AppServices): Promise<AuthUser | null> {
   const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -10,10 +9,17 @@ export async function resolveUser(request: FastifyRequest, services: AppServices
     return record ? publicAuthUser(record.user) : null;
   }
   const token = (request.cookies as Record<string, string> | undefined)?.nono_session;
-  const session = verifySessionToken(token, services.sessionSecret);
-  if (!session) return null;
-  const user = await services.repo.findUserById(Number(session.uid));
-  return user ? publicAuthUser(user) : null;
+  if (token) {
+    const tracked = await services.repo.findSession(token);
+    if (tracked) {
+      (request as any).authSessionId = tracked.id;
+      if (tracked.lastSeenAt.getTime() < Date.now() - 5 * 60 * 1000) {
+        await services.repo.touchSession(tracked.id);
+      }
+      return publicAuthUser(tracked.user);
+    }
+  }
+  return null;
 }
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply, services: AppServices) {

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { SessionPayload, User } from '@/api/types';
 
@@ -28,6 +29,17 @@ export const useAuthStore = defineStore('auth', {
     },
     async login(input: { username: string; password: string }) {
       const result = await apiRequest<{ user: User }>('/api/auth/login', { method: 'POST', body: jsonBody(input) });
+      this.user = result.user;
+      return result.user;
+    },
+    async loginWithPasskey() {
+      const authentication = await apiRequest<{ options: PublicKeyCredentialRequestOptionsJSON; challengeId: string }>('/api/auth/passkey/options', { method: 'POST' });
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+      const response = await startAuthentication({ optionsJSON: authentication.options });
+      const result = await apiRequest<{ user: User }>('/api/auth/passkey/login', {
+        method: 'POST',
+        body: jsonBody({ challengeId: authentication.challengeId, response }),
+      });
       this.user = result.user;
       return result.user;
     },

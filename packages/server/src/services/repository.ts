@@ -1,4 +1,5 @@
-import { generateApiToken, hashApiToken } from '../utils/crypto.js';
+import { randomUUID } from 'node:crypto';
+import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 import type { Role } from '../types.js';
 
 export interface UserRecord {
@@ -73,6 +74,43 @@ export interface CreatedApiTokenRecord extends ApiTokenRecord {
   token: string;
 }
 
+export interface AuthSessionRecord {
+  id: string;
+  userId: number;
+  tokenHash: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  lastSeenAt: Date;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+export interface CreatedAuthSessionRecord extends AuthSessionRecord {
+  token: string;
+}
+
+export interface PasskeyCredentialRecord {
+  id: string;
+  userId: number;
+  name: string;
+  publicKey: Uint8Array;
+  counter: bigint;
+  transports: string[];
+  deviceType: string;
+  backedUp: boolean;
+  lastUsedAt?: Date | null;
+  createdAt: Date;
+}
+
+export interface WebAuthnChallengeRecord {
+  id: string;
+  userId?: number | null;
+  challenge: string;
+  type: 'registration' | 'authentication';
+  expiresAt: Date;
+  createdAt: Date;
+}
+
 export interface AppConfigRecord {
   id: number;
   allowRegistration: boolean;
@@ -110,6 +148,19 @@ export interface Repository {
   createToken(userId: number, name: string, expiresAt?: Date | null): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
   deleteToken(userId: number, id: number): Promise<void>;
+  createSession(userId: number, input: { userAgent?: string | null; ipAddress?: string | null; expiresAt: Date }): Promise<CreatedAuthSessionRecord>;
+  findSession(token: string): Promise<(AuthSessionRecord & { user: UserRecord }) | null>;
+  listSessions(userId: number): Promise<AuthSessionRecord[]>;
+  touchSession(id: string): Promise<void>;
+  deleteSession(userId: number, id: string): Promise<void>;
+  deleteOtherSessions(userId: number, currentId?: string | null): Promise<void>;
+  listPasskeys(userId: number): Promise<PasskeyCredentialRecord[]>;
+  findPasskey(id: string): Promise<(PasskeyCredentialRecord & { user: UserRecord }) | null>;
+  createPasskey(input: Omit<PasskeyCredentialRecord, 'createdAt' | 'lastUsedAt'>): Promise<PasskeyCredentialRecord>;
+  updatePasskeyCounter(userId: number, id: string, counter: bigint): Promise<void>;
+  deletePasskey(userId: number, id: string): Promise<void>;
+  createWebAuthnChallenge(input: Omit<WebAuthnChallengeRecord, 'id' | 'createdAt'>): Promise<WebAuthnChallengeRecord>;
+  consumeWebAuthnChallenge(id: string, type: WebAuthnChallengeRecord['type'], userId: number | null): Promise<WebAuthnChallengeRecord | null>;
 }
 
 export function publicUser(user: UserRecord) {
@@ -135,6 +186,9 @@ export class MemoryRepository implements Repository {
   folders: FolderRecord[] = [];
   links: LinkRecord[] = [];
   tokens: ApiTokenRecord[] = [];
+  sessions: AuthSessionRecord[] = [];
+  passkeys: PasskeyCredentialRecord[] = [];
+  webAuthnChallenges: WebAuthnChallengeRecord[] = [];
   config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {} };
 
   constructor(seed = true) {
@@ -187,6 +241,9 @@ export class MemoryRepository implements Repository {
     const folderIds = new Set(this.folders.map((folder) => folder.id));
     this.links = this.links.filter((link) => folderIds.has(link.folderId));
     this.tokens = this.tokens.filter((token) => token.userId !== id);
+    this.sessions = this.sessions.filter((session) => session.userId !== id);
+    this.passkeys = this.passkeys.filter((passkey) => passkey.userId !== id);
+    this.webAuthnChallenges = this.webAuthnChallenges.filter((challenge) => challenge.userId !== id);
   }
 
   async getSite(userId: number) {
@@ -318,6 +375,89 @@ export class MemoryRepository implements Repository {
 
   async deleteToken(userId: number, id: number) {
     this.tokens = this.tokens.filter((token) => !(token.userId === userId && token.id === id));
+  }
+
+  async createSession(userId: number, input: { userAgent?: string | null; ipAddress?: string | null; expiresAt: Date }) {
+    const token = generateSessionToken();
+    const now = new Date();
+    const record: AuthSessionRecord = {
+      id: randomUUID(),
+      userId,
+      tokenHash: hashSessionToken(token),
+      userAgent: input.userAgent || null,
+      ipAddress: input.ipAddress || null,
+      lastSeenAt: now,
+      expiresAt: input.expiresAt,
+      createdAt: now,
+    };
+    this.sessions.unshift(record);
+    return { ...record, token };
+  }
+
+  async findSession(token: string) {
+    const tokenHash = hashSessionToken(token);
+    const record = this.sessions.find((session) => session.tokenHash === tokenHash && session.expiresAt > new Date());
+    if (!record) return null;
+    const user = await this.findUserById(record.userId);
+    return user ? { ...record, user } : null;
+  }
+
+  async listSessions(userId: number) {
+    return this.sessions.filter((session) => session.userId === userId && session.expiresAt > new Date());
+  }
+
+  async touchSession(id: string) {
+    const session = this.sessions.find((item) => item.id === id);
+    if (session) session.lastSeenAt = new Date();
+  }
+
+  async deleteSession(userId: number, id: string) {
+    this.sessions = this.sessions.filter((session) => !(session.userId === userId && session.id === id));
+  }
+
+  async deleteOtherSessions(userId: number, currentId?: string | null) {
+    this.sessions = this.sessions.filter((session) => session.userId !== userId || session.id === currentId);
+  }
+
+  async listPasskeys(userId: number) {
+    return this.passkeys.filter((passkey) => passkey.userId === userId);
+  }
+
+  async findPasskey(id: string) {
+    const passkey = this.passkeys.find((item) => item.id === id);
+    if (!passkey) return null;
+    const user = await this.findUserById(passkey.userId);
+    return user ? { ...passkey, user } : null;
+  }
+
+  async createPasskey(input: Omit<PasskeyCredentialRecord, 'createdAt' | 'lastUsedAt'>) {
+    if (this.passkeys.some((item) => item.id === input.id)) {
+      throw Object.assign(new Error('Passkey already registered'), { statusCode: 409 });
+    }
+    const passkey: PasskeyCredentialRecord = { ...input, lastUsedAt: null, createdAt: new Date() };
+    this.passkeys.unshift(passkey);
+    return passkey;
+  }
+
+  async updatePasskeyCounter(userId: number, id: string, counter: bigint) {
+    const passkey = this.passkeys.find((item) => item.userId === userId && item.id === id);
+    if (passkey) Object.assign(passkey, { counter, lastUsedAt: new Date() });
+  }
+
+  async deletePasskey(userId: number, id: string) {
+    this.passkeys = this.passkeys.filter((passkey) => !(passkey.userId === userId && passkey.id === id));
+  }
+
+  async createWebAuthnChallenge(input: Omit<WebAuthnChallengeRecord, 'id' | 'createdAt'>) {
+    const challenge: WebAuthnChallengeRecord = { ...input, id: randomUUID(), createdAt: new Date() };
+    this.webAuthnChallenges.push(challenge);
+    return challenge;
+  }
+
+  async consumeWebAuthnChallenge(id: string, type: WebAuthnChallengeRecord['type'], userId: number | null) {
+    const index = this.webAuthnChallenges.findIndex((item) => item.id === id && item.type === type && (item.userId ?? null) === userId && item.expiresAt > new Date());
+    if (index < 0) return null;
+    return this.webAuthnChallenges.splice(index, 1)[0] || null;
   }
 
   seed() {

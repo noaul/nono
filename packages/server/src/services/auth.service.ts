@@ -1,6 +1,6 @@
 import type { Repository, UserRecord } from './repository.js';
 import type { Role } from '../types.js';
-import { createSessionToken, hashPassword, verifyPassword } from '../utils/crypto.js';
+import { hashPassword, verifyPassword } from '../utils/crypto.js';
 
 export async function setupAdmin(repo: Repository, input: { username: string; email?: string; displayName?: string; password: string }) {
   const users = await repo.listUsers();
@@ -37,10 +37,10 @@ export async function registerUser(repo: Repository, input: { username: string; 
   } as Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>);
 }
 
-export async function loginUser(repo: Repository, input: { username: string; password: string }, sessionSecret: string) {
+export async function loginUser(repo: Repository, input: { username: string; password: string }) {
   const user = await repo.findUserByUsername(input.username);
   if (!user || !(await verifyPassword(input.password, user.passwordHash))) throw Object.assign(new Error('Invalid username or password'), { statusCode: 401 });
-  return { user, token: createSessionToken(user, sessionSecret) };
+  return { user };
 }
 
 export function assertStrongPassword(password: string) {

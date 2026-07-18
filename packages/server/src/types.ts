@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import type { Repository } from './services/repository.js';
+import type { WebAuthnService } from './services/webauthn.service.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
@@ -26,6 +27,10 @@ export interface AppServices {
   publicAddressResolver?: typeof resolvePublicAddress;
   safeRequester: typeof requestSafeResource;
   privateOutboundHosts: string[];
+  webAuthn: WebAuthnService;
+  webAuthnRpName: string;
+  webAuthnRpId: string | null;
+  webAuthnOrigin: string | null;
 }
 
 export interface LlmClient {

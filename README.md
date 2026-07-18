@@ -11,7 +11,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 
 ## 功能
 
-- 多用户认证：Cookie session + Bearer API Token
+- 多用户认证：可撤销设备 Cookie、Passkey 通行密钥、密码与 Bearer API Token
 - 管理后台：站点配置、Notab、文件夹、链接、用户、Token、LLM 设置
 - Notab 管理：独立更名、拖动排序和带影响统计的删除确认
 - 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
@@ -101,6 +101,22 @@ BLOG_PUBLIC_URL=https://example.com/nodesk
 NONO_NAVIGATION_URL=/
 BLOG_NAVIGATION_URL=/nodesk
 ```
+
+### 通行密钥
+
+部署后进入“后台 → 账户设置 → 通行密钥”，填写设备名称并调用 Windows Hello、Touch ID、Face ID 或硬件安全密钥完成注册。登录页随后可以直接选择“使用通行密钥”。密码登录会继续保留，作为无法使用原设备时的恢复方式；“登录设备”区域可以单独退出设备或一次退出其他设备。
+
+除 `localhost` 外，WebAuthn 必须运行在 HTTPS 下。`NONO_PUBLIC_URL` 应填写浏览器实际访问的规范地址，例如 `https://noaul.com`。通常无需再设置以下参数；只有站点经过特殊域名代理时才需要覆盖：
+
+```text
+WEBAUTHN_RP_NAME=Nono
+WEBAUTHN_RP_ID=noaul.com
+WEBAUTHN_ORIGIN=https://noaul.com
+```
+
+通行密钥与域名绑定。更改 `WEBAUTHN_RP_ID` 后，原有通行密钥将不能用于新域名，需要使用密码登录并重新注册。
+
+首次升级到支持设备会话的版本时，旧版无状态 Cookie 会失效，需要重新登录一次。新会话只在数据库保存随机令牌的 SHA-256 哈希，之后可以从账户页面准确撤销。
 
 `NONO_PUBLIC_URL` 与 `BLOG_PUBLIC_URL` 用于公开站点地址和 Nodesk 元数据；`NONO_NAVIGATION_URL` 与 `BLOG_NAVIGATION_URL` 专门控制两端入口。两端公开页面的中心图片和右上角入口也可以在后台覆盖，后台保存的设置优先。旧 `/blog` 地址会以 308 重定向到 `/nodesk`。
 

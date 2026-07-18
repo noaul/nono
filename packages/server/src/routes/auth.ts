@@ -5,6 +5,7 @@ import { sendOk } from '../plugins/responses.js';
 import { resolveUser } from '../plugins/auth.js';
 import { assertStrongPassword, loginUser, registerUser, setupAdmin } from '../services/auth.service.js';
 import { publicUser } from '../services/repository.js';
+import { clearBrowserSession, currentSessionId, issueBrowserSession } from '../services/session.service.js';
 
 const authSchema = z.object({
   username: z.string().trim().min(2).max(40),
@@ -18,8 +19,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     const input = authSchema.parse(request.body);
     assertStrongPassword(input.password);
     const user = await setupAdmin(services.repo, input as any);
-    const { token } = await loginUser(services.repo, { username: user.username, password: input.password }, services.sessionSecret);
-    reply.setCookie('nono_session', token, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 14 });
+    await issueBrowserSession(services.repo, user.id, request, reply);
     return sendOk(reply, { user: publicUser(user) });
   });
 
@@ -34,13 +34,16 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
 
   app.post('/api/auth/login', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const input = authSchema.pick({ username: true, password: true }).parse(request.body);
-    const { user, token } = await loginUser(services.repo, input, services.sessionSecret);
-    reply.setCookie('nono_session', token, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 14 });
+    const { user } = await loginUser(services.repo, input);
+    await issueBrowserSession(services.repo, user.id, request, reply);
     return sendOk(reply, { user: publicUser(user) });
   });
 
-  app.post('/api/auth/logout', async (_request, reply) => {
-    reply.clearCookie('nono_session', { path: '/' });
+  app.post('/api/auth/logout', async (request, reply) => {
+    const user = await resolveUser(request, services);
+    const sessionId = currentSessionId(request);
+    if (user && sessionId) await services.repo.deleteSession(user.id, sessionId);
+    clearBrowserSession(reply);
     return sendOk(reply, { ok: true });
   });
 

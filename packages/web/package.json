@@ -9,6 +9,7 @@
     "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "lucide-vue-next": "^0.554.0",
     "pinia": "^3.0.4",
     "sortablejs": "^1.15.7",

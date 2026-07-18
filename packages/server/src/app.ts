@@ -22,10 +22,12 @@ import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
 import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
+import { passkeyRoutes } from './routes/passkeys.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
+import { defaultWebAuthnService } from './services/webauthn.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -44,6 +46,10 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
     safeRequester,
     privateOutboundHosts: overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS),
+    webAuthn: overrides.webAuthn || defaultWebAuthnService,
+    webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'Nono',
+    webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
+    webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
   };
 
   const app = fastify({
@@ -61,6 +67,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   app.get('/healthz', async (_request, reply) => sendOk(reply, { ok: true }));
 
   await authRoutes(app, services);
+  await passkeyRoutes(app, services);
   await navigationRoutes(app, services);
   await faviconRoutes(app, services);
   await siteRoutes(app, services);
@@ -205,4 +212,13 @@ function claudeThinkingBudget(effort: string | null | undefined) {
 
 function parseHostList(value: string | undefined) {
   return (value || '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
+}
+
+function resolvePublicOrigin(value: string | undefined) {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    throw new Error('WEBAUTHN_ORIGIN or NONO_PUBLIC_URL must be a valid URL');
+  }
 }

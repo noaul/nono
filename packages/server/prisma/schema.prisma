@@ -24,6 +24,9 @@ model User {
   sites                    Site[]
   folders                  Folder[]
   apiTokens                ApiToken[]
+  authSessions             AuthSession[]
+  passkeys                 PasskeyCredential[]
+  webAuthnChallenges       WebAuthnChallenge[]
   noStarAccount            NoStarAccount?
   noStarRepositories       NoStarRepository[]
   noStarReleases           NoStarRelease[]
@@ -34,6 +37,50 @@ model User {
   noStarSettings           NoStarSetting[]
   noStarEmbeddingConfigs   NoStarEmbeddingConfig[]
   noStarVectorSearchConfig NoStarVectorSearchConfig?
+}
+
+model AuthSession {
+  id         String   @id @default(uuid())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ipAddress  String?
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model PasskeyCredential {
+  id         String   @id
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  publicKey  Bytes
+  counter    BigInt   @default(0)
+  transports Json     @default("[]")
+  deviceType String
+  backedUp   Boolean  @default(false)
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model WebAuthnChallenge {
+  id        String   @id @default(uuid())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge String
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, type, expiresAt])
+  @@index([expiresAt])
 }
 
 model Site {
