@@ -586,7 +586,7 @@
 
 .app-workbench .bookmark-table .admin-table-head,
 .app-workbench .bookmark-table .admin-table-row {
-  grid-template-columns: 56px 64px 1.3fr 1.8fr minmax(130px, 0.8fr) minmax(130px, 0.8fr) 130px;
+  grid-template-columns: 56px 64px 1.3fr 1.8fr minmax(130px, 0.8fr) minmax(130px, 0.8fr) 112px 130px;
 }
 
 @media (max-width: 1200px) {
@@ -606,7 +606,7 @@
 
   .app-workbench .bookmark-table .admin-table-head,
   .app-workbench .bookmark-table .admin-table-row {
-    grid-template-columns: 44px 44px minmax(100px, 1.2fr) minmax(150px, 1.5fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 96px;
+    grid-template-columns: 44px 44px minmax(100px, 1.2fr) minmax(150px, 1.5fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 96px 96px;
   }
 }
 
@@ -3388,5 +3388,750 @@
   .app-workbench .nav-button,
   .app-workbench .admin-table-row {
     transition: none;
+  }
+}
+
+/* ChatGPT-inspired neutral admin system */
+.chatgpt-admin-shell {
+  --admin-sidebar-width: 260px;
+  --admin-topbar-height: 56px;
+  --admin-content-max: 1680px;
+  --admin-control-height: 38px;
+  --admin-control-height-sm: 32px;
+  --admin-icon-button-size: 36px;
+  --admin-radius-card: 8px;
+  --admin-radius-control: 8px;
+  --admin-canvas: #ffffff;
+  --admin-surface: #ffffff;
+  --admin-surface-elevated: #ffffff;
+  --admin-border: #e5e5e5;
+  --admin-border-strong: #d6d6d6;
+  --admin-text: #0d0d0d;
+  --admin-text-muted: #6b6b6b;
+  --admin-accent: #0d0d0d;
+  --admin-danger: #c83232;
+  --admin-success: #087f5b;
+  --admin-warning: #9a6700;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f4f4f4;
+  --line: #e5e5e5;
+  --line-soft: #eeeeee;
+  --text: #0d0d0d;
+  --muted: #6b6b6b;
+  --accent: #0d0d0d;
+  --danger: #c83232;
+  background: #ffffff;
+  color-scheme: light;
+  color: #0d0d0d;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.chatgpt-admin-shell::before,
+.chatgpt-admin-shell::after {
+  display: none !important;
+}
+
+.chatgpt-admin-shell .glass-surface,
+.chatgpt-admin-shell.glass-workbench .glass-surface {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none;
+}
+
+.chatgpt-admin-shell .workbench-sidebar {
+  background: #f9f9f9;
+  border: 0;
+  border-right: 1px solid #ececec;
+  box-shadow: none;
+  gap: 12px;
+  padding: 10px 12px 12px;
+  width: var(--admin-sidebar-width);
+}
+
+.chatgpt-admin-shell .sidebar-brand {
+  border-radius: 8px;
+  gap: 10px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  min-height: 42px;
+  padding: 6px 8px;
+}
+
+.chatgpt-admin-shell .sidebar-brand:hover {
+  background: #ececec;
+}
+
+.chatgpt-admin-shell .sidebar-brand .brand-logo {
+  background: #0d0d0d;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  font-size: 13px;
+  height: 28px;
+  width: 28px;
+}
+
+.chatgpt-admin-shell .sidebar-brand h1 {
+  color: #0d0d0d;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chatgpt-admin-shell .sidebar-brand p {
+  display: none;
+}
+
+.chatgpt-admin-shell .workbench-nav {
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.chatgpt-admin-shell .nav-section {
+  gap: 2px;
+}
+
+.chatgpt-admin-shell .nav-section > p {
+  color: #8f8f8f;
+  font-size: 11px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  padding: 0 10px;
+}
+
+.chatgpt-admin-shell .nav-button,
+.chatgpt-admin-shell .nav-button.nav-button-plain {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #404040;
+  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  min-height: 38px;
+  padding: 5px 8px;
+}
+
+.chatgpt-admin-shell .nav-button:hover {
+  background: #ececec;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .nav-button.router-link-active,
+.chatgpt-admin-shell .nav-button.router-link-active.nav-button-plain {
+  background: #e7e7e7;
+  border: 0;
+  box-shadow: none;
+  color: #0d0d0d;
+  font-weight: 600;
+}
+
+.chatgpt-admin-shell .nav-icon,
+.chatgpt-admin-shell .nav-button.router-link-active .nav-icon {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: currentColor;
+  height: 28px;
+  width: 28px;
+}
+
+.chatgpt-admin-shell .nav-label {
+  font-size: 14px;
+  font-weight: inherit;
+}
+
+.chatgpt-admin-shell .operator-card.operator-row {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  gap: 9px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  padding: 7px 8px;
+}
+
+.chatgpt-admin-shell .operator-card.operator-row:hover {
+  background: #ececec;
+}
+
+.chatgpt-admin-shell .operator-avatar,
+.chatgpt-admin-shell .topbar-avatar {
+  background: #2f2f2f;
+  border: 0;
+  color: #ffffff;
+}
+
+.chatgpt-admin-shell .operator-avatar {
+  font-size: 12px;
+  height: 28px;
+  width: 28px;
+}
+
+.chatgpt-admin-shell .operator-card strong {
+  color: #0d0d0d;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chatgpt-admin-shell .operator-role-badge {
+  display: none;
+}
+
+.chatgpt-admin-shell .workbench-main {
+  background: #ffffff;
+  margin-left: var(--admin-sidebar-width);
+}
+
+.chatgpt-admin-shell .workbench-topbar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(255, 255, 255, 0.96);
+  border: 0;
+  border-bottom: 1px solid #eeeeee;
+  box-shadow: none;
+  min-height: var(--admin-topbar-height);
+  padding: 8px 28px;
+}
+
+.chatgpt-admin-shell .workbench-topbar .page-title p {
+  display: none;
+}
+
+.chatgpt-admin-shell .workbench-topbar .page-title h1 {
+  color: #0d0d0d;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.chatgpt-admin-shell .topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.chatgpt-admin-shell .topbar-avatar {
+  font-size: 12px;
+  height: 32px;
+  width: 32px;
+}
+
+.chatgpt-admin-shell .topbar-avatar:hover {
+  background: #0d0d0d;
+}
+
+.chatgpt-admin-shell .user-menu {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 10%);
+  padding: 6px;
+}
+
+.chatgpt-admin-shell .user-menu-head {
+  border-bottom-color: #eeeeee;
+  padding: 9px 10px 10px;
+}
+
+.chatgpt-admin-shell .user-menu-item {
+  border-radius: 6px;
+  color: #262626;
+  min-height: 36px;
+  padding: 7px 9px;
+}
+
+.chatgpt-admin-shell .user-menu-item:hover {
+  background: #f2f2f2;
+}
+
+.chatgpt-admin-shell .workbench-stage {
+  margin: 0 auto;
+  max-width: var(--admin-content-max);
+  padding: 24px 32px 40px;
+  width: 100%;
+}
+
+.chatgpt-admin-shell .admin-page-stack {
+  gap: 16px;
+}
+
+.chatgpt-admin-shell .admin-page-header {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.chatgpt-admin-shell .admin-page-header:not(:has(.admin-page-actions)) {
+  display: none;
+}
+
+.chatgpt-admin-shell .admin-page-heading {
+  display: none;
+}
+
+.chatgpt-admin-shell .admin-page-actions {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.chatgpt-admin-shell.glass-workbench .admin-section,
+.chatgpt-admin-shell.glass-workbench .admin-card,
+.chatgpt-admin-shell.glass-workbench .panel,
+.chatgpt-admin-shell.glass-workbench .dashboard-shortcuts-panel,
+.chatgpt-admin-shell.glass-workbench.admin-glass-enabled .workbench-stage > .admin-card,
+.chatgpt-admin-shell.glass-workbench.admin-glass-enabled .workbench-stage > .panel,
+.chatgpt-admin-shell.glass-workbench.admin-glass-enabled .workbench-stage > * > .admin-card,
+.chatgpt-admin-shell.glass-workbench.admin-glass-enabled .workbench-stage > * > .ops-panel,
+.chatgpt-admin-shell.glass-workbench.admin-glass-enabled .workbench-stage > * > .dashboard-shortcuts-panel {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.chatgpt-admin-shell .admin-section,
+.chatgpt-admin-shell .admin-card,
+.chatgpt-admin-shell .panel {
+  margin: 0;
+  padding: 18px;
+}
+
+.chatgpt-admin-shell .compact-admin-section {
+  padding: 14px 16px 16px;
+}
+
+.chatgpt-admin-shell .admin-section-head,
+.chatgpt-admin-shell .admin-card-head,
+.chatgpt-admin-shell .dashboard-section-head {
+  border-bottom: 1px solid #eeeeee;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.chatgpt-admin-shell .admin-section-head h2,
+.chatgpt-admin-shell .admin-card-head h2,
+.chatgpt-admin-shell .dashboard-section-head h2,
+.chatgpt-admin-shell .panel h2 {
+  color: #0d0d0d;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chatgpt-admin-shell .admin-section-head p,
+.chatgpt-admin-shell .admin-card-head p,
+.chatgpt-admin-shell .row-subtitle {
+  color: #6b6b6b;
+}
+
+.chatgpt-admin-shell input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']),
+.chatgpt-admin-shell textarea,
+.chatgpt-admin-shell select,
+.chatgpt-admin-shell .admin-search-input,
+.chatgpt-admin-shell .inline-link-input,
+.chatgpt-admin-shell .inline-link-select {
+  background: #ffffff;
+  border: 1px solid #d6d6d6;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #0d0d0d;
+  font-size: 14px;
+  min-height: var(--admin-control-height);
+}
+
+.chatgpt-admin-shell input::placeholder,
+.chatgpt-admin-shell textarea::placeholder {
+  color: #8f8f8f;
+}
+
+.chatgpt-admin-shell input:focus-visible,
+.chatgpt-admin-shell textarea:focus-visible,
+.chatgpt-admin-shell select:focus-visible,
+.chatgpt-admin-shell .admin-search-input:focus-visible {
+  border-color: #0d0d0d;
+  box-shadow: 0 0 0 2px rgb(13 13 13 / 10%);
+  outline: none;
+}
+
+.chatgpt-admin-shell .field label {
+  color: #424242;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chatgpt-admin-shell .button,
+.chatgpt-admin-shell .icon-button {
+  background: #171717;
+  border: 1px solid #171717;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  transform: none;
+}
+
+.chatgpt-admin-shell .button:hover,
+.chatgpt-admin-shell .icon-button:hover {
+  background: #2f2f2f;
+  border-color: #2f2f2f;
+  box-shadow: none;
+  transform: none;
+}
+
+.chatgpt-admin-shell .button.secondary,
+.chatgpt-admin-shell .icon-button.secondary,
+.chatgpt-admin-shell .folder-pill,
+.chatgpt-admin-shell.glass-workbench .button.secondary,
+.chatgpt-admin-shell.glass-workbench .icon-button.secondary,
+.chatgpt-admin-shell.glass-workbench .folder-pill {
+  background: #ffffff;
+  border: 1px solid #d6d6d6;
+  color: #262626;
+}
+
+.chatgpt-admin-shell .button.secondary:hover,
+.chatgpt-admin-shell .icon-button.secondary:hover,
+.chatgpt-admin-shell .folder-pill:hover,
+.chatgpt-admin-shell.glass-workbench .button.secondary:hover,
+.chatgpt-admin-shell.glass-workbench .icon-button.secondary:hover,
+.chatgpt-admin-shell.glass-workbench .folder-pill:hover {
+  background: #f2f2f2;
+  border-color: #c7c7c7;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .button.danger,
+.chatgpt-admin-shell .icon-button.danger {
+  background: #c83232;
+  border-color: #c83232;
+  color: #ffffff;
+}
+
+.chatgpt-admin-shell .button.danger:hover,
+.chatgpt-admin-shell .icon-button.danger:hover {
+  background: #a92727;
+  border-color: #a92727;
+}
+
+.chatgpt-admin-shell .icon-button.success {
+  background: #ffffff;
+  border: 1px solid #d6d6d6;
+  color: #087f5b;
+}
+
+.chatgpt-admin-shell .icon-button.success:hover {
+  background: #edf8f4;
+  border-color: #b7ddd2;
+  color: #087f5b;
+}
+
+.chatgpt-admin-shell .folder-pills {
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.chatgpt-admin-shell .folder-pill {
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 34px;
+  padding: 0 11px;
+}
+
+.chatgpt-admin-shell .folder-pill.active {
+  background: #e7e7e7;
+  border-color: #e7e7e7;
+  box-shadow: none;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .management-filter-label {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chatgpt-admin-shell .bulk-action-bar,
+.chatgpt-admin-shell .sort-footer {
+  background: #f7f7f7;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.chatgpt-admin-shell .admin-table,
+.chatgpt-admin-shell.glass-workbench .admin-table {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.chatgpt-admin-shell .admin-table-head {
+  background: #f7f7f7;
+  border-bottom: 1px solid #e5e5e5;
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  min-height: 40px;
+  text-transform: none;
+}
+
+.chatgpt-admin-shell .admin-table-row,
+.chatgpt-admin-shell.glass-workbench .admin-table-row,
+.chatgpt-admin-shell .admin-table-row:nth-child(odd),
+.chatgpt-admin-shell.glass-workbench .admin-table-row:nth-child(odd) {
+  background: #ffffff;
+  border-bottom-color: #eeeeee;
+  color: #262626;
+  font-size: 14px;
+  min-height: 48px;
+}
+
+.chatgpt-admin-shell .admin-table-row:hover,
+.chatgpt-admin-shell.glass-workbench .admin-table-row:hover {
+  background: #f9f9f9;
+}
+
+.chatgpt-admin-shell .bookmark-table .admin-table-head,
+.chatgpt-admin-shell .bookmark-table .admin-table-row {
+  min-width: 1080px;
+}
+
+.chatgpt-admin-shell .drag-handle:hover,
+.chatgpt-admin-shell .drag-handle:focus-visible {
+  background: #ececec;
+  border-color: transparent;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .sortable-row-ghost {
+  background: #eeeeee !important;
+}
+
+.chatgpt-admin-shell .sortable-row-ghost::before {
+  background: #0d0d0d;
+}
+
+.chatgpt-admin-shell .sortable-row-chosen,
+.chatgpt-admin-shell .sortable-row-dragging {
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 9%);
+}
+
+.chatgpt-admin-shell .health-check-panel,
+.chatgpt-admin-shell .import-preview-panel {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.chatgpt-admin-shell .health-check-head,
+.chatgpt-admin-shell .import-preview-head {
+  background: #f7f7f7;
+  border-bottom-color: #e5e5e5;
+}
+
+.chatgpt-admin-shell .health-summary span,
+.chatgpt-admin-shell .preview-stats span,
+.chatgpt-admin-shell .token-summary-grid section {
+  background: #f7f7f7;
+  border-color: #e5e5e5;
+  color: #262626;
+}
+
+.chatgpt-admin-shell .notice,
+.chatgpt-admin-shell.glass-workbench .notice {
+  background: #f0f7f5;
+  border-color: #c9e6dd;
+  color: #087f5b;
+}
+
+.chatgpt-admin-shell .error,
+.chatgpt-admin-shell.glass-workbench .error {
+  background: #fff4f4;
+  border-color: #f1caca;
+  color: #a92727;
+}
+
+.chatgpt-admin-shell .warning-line,
+.chatgpt-admin-shell.glass-workbench .warning-line {
+  background: #fff9e8;
+  border-color: #eddca9;
+  color: #8a5a00;
+}
+
+.chatgpt-admin-shell .ops-metric-grid {
+  gap: 12px;
+}
+
+.chatgpt-admin-shell .ops-metric-card,
+.chatgpt-admin-shell.glass-workbench .ops-metric-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .ops-metric-card:hover {
+  background: #f9f9f9;
+  border-color: #d6d6d6;
+  box-shadow: none;
+  transform: none;
+}
+
+.chatgpt-admin-shell .ops-metric-card > svg:first-child,
+.chatgpt-admin-shell .ops-metric-card.tone-green > svg:first-child,
+.chatgpt-admin-shell .ops-metric-card.tone-blue > svg:first-child,
+.chatgpt-admin-shell .ops-metric-card.tone-amber > svg:first-child,
+.chatgpt-admin-shell .ops-metric-card.tone-rose > svg:first-child {
+  background: #f2f2f2;
+  border: 0;
+  color: #262626;
+}
+
+.chatgpt-admin-shell .dashboard-shortcuts-panel {
+  padding: 16px;
+}
+
+.chatgpt-admin-shell .dashboard-shortcut,
+.chatgpt-admin-shell.glass-workbench .dashboard-shortcut {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #0d0d0d;
+}
+
+.chatgpt-admin-shell .dashboard-shortcut:hover,
+.chatgpt-admin-shell.glass-workbench .dashboard-shortcut:hover {
+  background: #f7f7f7;
+  border-color: #d6d6d6;
+  box-shadow: none;
+  transform: none;
+}
+
+.chatgpt-admin-shell .dashboard-shortcut-icon,
+.chatgpt-admin-shell.glass-workbench .dashboard-shortcut-icon {
+  background: #f2f2f2;
+  border: 0;
+  color: #262626;
+}
+
+.chatgpt-admin-shell .dashboard-shortcut small {
+  color: #6b6b6b;
+}
+
+.chatgpt-admin-shell .mobile-nav-toggle {
+  background: #ffffff;
+  border-color: #d6d6d6;
+  color: #0d0d0d;
+}
+
+.confirm-backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgb(0 0 0 / 42%);
+}
+
+.confirm-dialog {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 16%);
+}
+
+.confirm-dialog .confirm-icon {
+  background: #f2f2f2;
+  color: #424242;
+}
+
+.confirm-dialog .confirm-icon.danger {
+  background: #fff0f0;
+  color: #c83232;
+}
+
+.confirm-dialog .button:not(.secondary) {
+  background: #171717;
+  border-color: #171717;
+  color: #ffffff;
+}
+
+.confirm-dialog .button.secondary,
+.confirm-dialog .icon-button.secondary {
+  background: #ffffff;
+  border-color: #d6d6d6;
+  color: #262626;
+}
+
+.admin-toast {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
+  color: #0d0d0d;
+}
+
+@media (max-width: 1200px) {
+  .chatgpt-admin-shell .workbench-stage {
+    padding-inline: 24px;
+  }
+}
+
+@media (max-width: 960px) {
+  .chatgpt-admin-shell .workbench-sidebar {
+    box-shadow: 12px 0 28px rgb(0 0 0 / 10%);
+    width: min(86vw, var(--admin-sidebar-width));
+  }
+
+  .chatgpt-admin-shell .workbench-main {
+    margin-left: 0;
+  }
+
+  .chatgpt-admin-shell .workbench-topbar {
+    padding-inline: 16px;
+  }
+
+  .chatgpt-admin-shell .workbench-stage {
+    padding: 18px 16px 28px;
+  }
+}
+
+@media (max-width: 720px) {
+  .chatgpt-admin-shell .admin-section,
+  .chatgpt-admin-shell .admin-card,
+  .chatgpt-admin-shell .panel {
+    padding: 14px;
+  }
+
+  .chatgpt-admin-shell .admin-table.mobile-card-table .admin-table-row {
+    background: #ffffff;
+    border-color: #e5e5e5;
+    grid-template-columns: 1fr !important;
+    min-width: 0;
+  }
+
+  .chatgpt-admin-shell .admin-table.mobile-card-table [data-label]::before {
+    color: #6b6b6b;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .chatgpt-admin-shell .admin-table.mobile-card-table .admin-table-row > .row-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chatgpt-admin-shell .admin-table.mobile-card-table .admin-table-row > .row-actions::before {
+    flex: 0 0 86px;
+  }
+
+  .chatgpt-admin-shell .health-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

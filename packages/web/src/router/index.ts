@@ -12,11 +12,13 @@ const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const NotabsView = () => import('@/views/admin/NotabsView.vue');
 const FoldersView = () => import('@/views/admin/FoldersView.vue');
 const LinksView = () => import('@/views/admin/LinksView.vue');
+const AutomationView = () => import('@/views/admin/AutomationView.vue');
 const UsersView = () => import('@/views/admin/UsersView.vue');
 const AccountView = () => import('@/views/admin/AccountView.vue');
 const LlmView = () => import('@/views/admin/LlmView.vue');
 const TokensView = () => import('@/views/admin/TokensView.vue');
 const BackupsView = () => import('@/views/admin/BackupsView.vue');
+const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -38,10 +40,12 @@ export const router = createRouter({
         { path: '/admin/add-bookmark', redirect: '/admin/links' },
         { path: '/admin/links', component: LinksView, meta: { title: '书签管理' } },
         { path: '/admin/bookmarks', redirect: '/admin/links' },
+        { path: '/admin/automation', component: AutomationView, meta: { title: '导入导出' } },
         { path: '/admin/users', component: UsersView, meta: { title: '用户管理', requiresAdmin: true } },
         { path: '/admin/account', component: AccountView, meta: { title: '账户设置' } },
         { path: '/admin/llm', component: LlmView, meta: { title: 'AI 智能收藏' } },
         { path: '/admin/tokens', component: TokensView, meta: { title: 'API Token' } },
+        { path: '/admin/notifications', component: NotificationsView, meta: { title: '通知中心' } },
         { path: '/admin/backups', component: BackupsView, meta: { title: '备份与恢复', requiresAdmin: true } },
       ],
     },

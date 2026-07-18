@@ -12,12 +12,13 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 ## 功能
 
 - 多用户认证：可撤销设备 Cookie、Passkey 通行密钥、密码与 Bearer API Token
-- 管理后台：站点配置、Notab、文件夹、链接、用户、Token、LLM 设置
+- 管理后台：ChatGPT 网页版风格的总览、站点、Notab、文件夹、书签、自动化、通知、账户与系统设置
 - Notab 管理：独立更名、拖动排序和带影响统计的删除确认
 - 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
 - 自适应后台：内容区随工作区流体铺满，浏览器缩放和宽屏下保持左右对齐
-- 浏览器书签：Netscape Bookmark HTML 导入和导出
+- 浏览器书签：在“自动化 → 导入导出”中预览、筛选并处理 Netscape Bookmark HTML
 - 链接健康：持久化检测结果、每日自动补检和重定向地址批量修复
+- 统一通知：集中展示个人书签异常、NoStar Release，以及仅管理员可见的 Nodesk 日程、NoMoney 到期项和备份过期提醒
 - AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
 - 公开导航：`/:username`，默认搜索为 Google
 - 统一 API 响应：`{ code, data, message }`
@@ -127,6 +128,8 @@ WEBAUTHN_ORIGIN=https://noaul.com
 服务端发起的自定义 LLM、NoStar AI、WebDAV 和 aria2 请求默认禁止访问回环、私网、链路本地及云 metadata 地址，并会在每次重定向后重新校验。管理员确实需要访问自建内网服务时，可在 `PRIVATE_OUTBOUND_HOSTS` 中填写逗号分隔的精确主机名或 IP，例如 `llm.lan,192.168.1.20`；该白名单不会授予普通用户私网访问权限。NoStar 的 HTTP/SOCKS 代理和 aria2 RPC 配置仅管理员可管理。
 
 书签管理会保存最近一次链接健康结果，并识别可批量更新的重定向地址。生产环境默认每 24 小时补检一次从未检测或已过期的链接，启动后延迟 60 秒执行首轮；可通过 `LINK_HEALTH_CHECK_ENABLED`、`LINK_HEALTH_CHECK_INTERVAL_HOURS` 和 `LINK_HEALTH_CHECK_START_DELAY_SECONDS` 调整。检测请求使用同一套 SSRF 防护和 `PRIVATE_OUTBOUND_HOSTS` 精确白名单，并发数固定为 4。
+
+后台“通知中心”按 Nono 用户保存已读和忽略状态。普通用户只会聚合自己名下的书签健康异常与未读 NoStar Release；管理员还会看到未来三天 Nodesk 日程、前后 30 天 NoMoney 域名/VPS/订阅到期项，以及缺失或超过 72 小时的全站备份。NoMoney 数据通过容器内 `sqlite3 -readonly` 读取固定表和固定字段，不共享 NoMoney 登录凭证，也不会写入资产数据库。
 
 Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 

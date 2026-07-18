@@ -49,12 +49,19 @@ test.beforeEach(async ({ page }) => {
       }),
     });
   });
+  await page.route('**/api/admin/notifications?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, data: { items: [], unreadCount: 0, generatedAt: '2026-07-18T08:00:00.000Z' }, message: '' }),
+    });
+  });
 });
 
 test('renders account security controls without viewport overflow', async ({ page }) => {
   await page.goto('/admin/account');
 
-  await expect(page.getByRole('main').getByRole('heading', { name: '账户设置' })).toBeVisible();
+  await expect(page.locator('.workbench-topbar').getByRole('heading', { name: '账户设置' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '通行密钥' })).toBeVisible();
   await expect(page.getByText('Windows Hello')).toBeVisible();
   await expect(page.getByText('Chrome on Windows')).toBeVisible();

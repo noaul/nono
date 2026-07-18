@@ -1,0 +1,213 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { createNoMoneyDueReader, createNotificationService } from '../src/services/notification.service.js';
+
+const now = new Date('2026-07-18T08:00:00.000Z');
+
+function createPrisma(options: {
+  links?: any[];
+  releases?: any[];
+  states?: any[];
+} = {}) {
+  const queries = { links: [] as any[], releases: [] as any[], states: [] as any[], upserts: [] as any[] };
+  const prisma = {
+    link: {
+      findMany: vi.fn(async (query: any) => {
+        queries.links.push(query);
+        return options.links || [];
+      }),
+    },
+    noStarRelease: {
+      findMany: vi.fn(async (query: any) => {
+        queries.releases.push(query);
+        return options.releases || [];
+      }),
+    },
+    notificationState: {
+      findMany: vi.fn(async (query: any) => {
+        queries.states.push(query);
+        return options.states || [];
+      }),
+      upsert: vi.fn(async (query: any) => {
+        queries.upserts.push(query);
+        return query.create;
+      }),
+    },
+  };
+  return { prisma: prisma as any, queries };
+}
+
+function createService(overrides: Record<string, unknown> = {}) {
+  const { prisma, queries } = createPrisma(overrides as any);
+  const nodeskReader = vi.fn(async () => ({ calendarEvents: [] }));
+  const noMoneyReader = vi.fn(async () => []);
+  const backupService = { list: vi.fn(async () => []) };
+  const service = createNotificationService({
+    prisma,
+    nodeskReader,
+    noMoneyReader,
+    backupService: backupService as any,
+    now: () => now,
+    ...overrides,
+  } as any);
+  return { service, queries, nodeskReader, noMoneyReader, backupService };
+}
+
+describe('notification service', () => {
+  it('reads only the expected NoMoney tables through a read-only sqlite command', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-notification-nomoney-'));
+    const databasePath = path.join(directory, 'app.db');
+    fs.writeFileSync(databasePath, 'sqlite-placeholder');
+    const run = vi.fn(async () => ({
+      stdout: JSON.stringify([{ asset_type: 'domain', id: 3, name: 'noaul.com', due_date: '2026-07-20', status: 'active' }]),
+      stderr: '',
+    }));
+    try {
+      const items = await createNoMoneyDueReader(directory, run)();
+      expect(run).toHaveBeenCalledWith('sqlite3', [
+        '-readonly',
+        '-json',
+        databasePath,
+        expect.stringContaining("SELECT 'domain' AS asset_type"),
+      ]);
+      expect(items).toEqual([{ assetType: 'domain', id: 3, name: 'noaul.com', dueDate: '2026-07-20', status: 'active' }]);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('scopes personal sources and state to the authenticated user', async () => {
+    const link = {
+      id: 31,
+      name: 'Broken link',
+      url: 'https://broken.example',
+      healthStatus: 'broken',
+      healthStatusCode: 503,
+      healthReason: 'HTTP 503',
+      healthFinalUrl: null,
+      healthCheckedAt: now,
+      folder: { name: 'Work' },
+    };
+    const release = {
+      githubId: BigInt(991),
+      repoFullName: 'owner/tool',
+      tagName: 'v2.0.0',
+      name: 'Stable release',
+      htmlUrl: 'https://github.com/owner/tool/releases/tag/v2.0.0',
+      publishedAt: now,
+      createdAt: now,
+    };
+    const { prisma, queries } = createPrisma({ links: [link], releases: [release] });
+    const nodeskReader = vi.fn();
+    const noMoneyReader = vi.fn();
+    const backupService = { list: vi.fn() };
+    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, backupService: backupService as any, now: () => now } as any);
+
+    const feed = await service.list({ id: 7, role: 'user' } as any);
+
+    expect(queries.links[0].where).toMatchObject({ folder: { userId: 7 } });
+    expect(queries.releases[0].where).toEqual({ userId: 7, isRead: false });
+    expect(queries.states[0].where.userId).toBe(7);
+    expect(feed.items.map((item) => item.source)).toEqual(expect.arrayContaining(['links', 'nostar']));
+    expect(nodeskReader).not.toHaveBeenCalled();
+    expect(noMoneyReader).not.toHaveBeenCalled();
+    expect(backupService.list).not.toHaveBeenCalled();
+  });
+
+  it('aggregates administrator schedules, expiring assets and stale backups', async () => {
+    const { prisma } = createPrisma();
+    const nodeskReader = vi.fn(async () => ({
+      calendarEvents: [
+        { id: 'today', date: '2026-07-18', time: '18:30', title: 'Publish notes', note: 'Final review' },
+        { id: 'soon', date: '2026-07-21', title: 'Renew certificate' },
+        { id: 'later', date: '2026-07-22', title: 'Outside window' },
+      ],
+    }));
+    const noMoneyReader = vi.fn(async () => [
+      { assetType: 'domain', id: 9, name: 'noaul.com', dueDate: '2026-07-20', status: 'active' },
+      { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-20', status: 'active' },
+    ]);
+    const backupService = {
+      list: vi.fn(async () => [{ id: 'old', createdAt: '2026-07-12T08:00:00.000Z' }]),
+    };
+    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, backupService: backupService as any, now: () => now } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any);
+
+    expect(feed.items.filter((item) => item.source === 'nodesk').map((item) => item.title)).toEqual(['Publish notes', 'Renew certificate']);
+    expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(1);
+    expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
+  });
+
+  it('applies per-user read and dismissed state', async () => {
+    const checkedAt = new Date('2026-07-18T07:00:00.000Z');
+    const first = createService({
+      links: [{
+        id: 8,
+        name: 'Timeout link',
+        url: 'https://slow.example',
+        healthStatus: 'timeout',
+        healthStatusCode: null,
+        healthReason: 'Timed out',
+        healthFinalUrl: null,
+        healthCheckedAt: checkedAt,
+        folder: { name: 'Tools' },
+      }],
+    });
+    const initial = await first.service.list({ id: 5, role: 'user' } as any);
+    const key = initial.items[0].key;
+
+    const { prisma } = createPrisma({ states: [{ key, readAt: now, dismissedAt: null }] });
+    const readService = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(),
+      noMoneyReader: vi.fn(),
+      backupService: { list: vi.fn() } as any,
+      now: () => now,
+    } as any);
+    (prisma.link.findMany as any).mockResolvedValueOnce([{
+      id: 8,
+      name: 'Timeout link',
+      url: 'https://slow.example',
+      healthStatus: 'timeout',
+      healthStatusCode: null,
+      healthReason: 'Timed out',
+      healthFinalUrl: null,
+      healthCheckedAt: checkedAt,
+      folder: { name: 'Tools' },
+    }]);
+    const readFeed = await readService.list({ id: 5, role: 'user' } as any);
+    expect(readFeed.items[0].read).toBe(true);
+    expect(readFeed.unreadCount).toBe(0);
+
+    (prisma.notificationState.findMany as any).mockResolvedValueOnce([{ key, readAt: now, dismissedAt: now }]);
+    const dismissedFeed = await readService.list({ id: 5, role: 'user' } as any);
+    expect(dismissedFeed.items).toHaveLength(0);
+  });
+
+  it('marks only a current notification for the current user', async () => {
+    const serviceSetup = createService({
+      releases: [{
+        githubId: BigInt(77),
+        repoFullName: 'owner/tool',
+        tagName: 'v1',
+        name: null,
+        htmlUrl: null,
+        publishedAt: now,
+        createdAt: now,
+      }],
+    });
+    const feed = await serviceSetup.service.list({ id: 4, role: 'user' } as any);
+
+    await serviceSetup.service.markRead({ id: 4, role: 'user' } as any, feed.items[0].key, true);
+
+    expect(serviceSetup.queries.upserts[0]).toMatchObject({
+      where: { userId_key: { userId: 4, key: feed.items[0].key } },
+      update: { readAt: now },
+      create: { userId: 4, key: feed.items[0].key, readAt: now },
+    });
+    await expect(serviceSetup.service.markRead({ id: 4, role: 'user' } as any, 'links:not-current', true)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});

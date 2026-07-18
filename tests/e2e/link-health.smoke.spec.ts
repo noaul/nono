@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const user = {
@@ -7,6 +9,7 @@ const user = {
   displayName: 'Admin',
   role: 'admin',
 };
+const captureDir = process.env.E2E_CAPTURE_DIR || '';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/auth/session', async (route) => {
@@ -21,6 +24,13 @@ test.beforeEach(async ({ page }) => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ code: 0, data: [{ id: 1, userId: 1, parentId: null, name: 'Tools', sortOrder: 100 }], message: '' }),
+    });
+  });
+  await page.route('**/api/admin/notifications?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, data: { items: [], unreadCount: 0, generatedAt: '2026-07-18T08:00:00.000Z' }, message: '' }),
     });
   });
   await page.route(/\/api\/admin\/links\/health-repair(?:\?.*)?$/, async (route) => {
@@ -71,11 +81,14 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('renders persisted health and repairs redirects without viewport overflow', async ({ page }) => {
+test('renders persisted health and repairs redirects without viewport overflow', async ({ page }, testInfo) => {
   await page.goto('/admin/links');
 
   await expect(page.getByRole('heading', { name: '健康检查' })).toBeVisible();
   await expect(page.getByText('重定向 1', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('link-health-10')).toContainText('重定向');
+  await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
+  await expect(page.locator('.workbench-sidebar')).toHaveCSS('background-color', 'rgb(249, 249, 249)');
   await page.getByTestId('repair-link-redirects').click();
   await expect(page.getByRole('heading', { name: '修复重定向链接' })).toBeVisible();
   const repairResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/links/health-repair');
@@ -88,4 +101,14 @@ test('renders persisted health and repairs redirects without viewport overflow',
     clientWidth: document.documentElement.clientWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+
+  if ((page.viewportSize()?.width || 0) <= 720) {
+    const rowColumns = await page.getByTestId('link-row-10').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+    expect(rowColumns).toBe(1);
+  }
+
+  if (captureDir) {
+    fs.mkdirSync(captureDir, { recursive: true });
+    await page.screenshot({ fullPage: true, path: path.join(captureDir, `admin-links-${testInfo.project.name}.png`) });
+  }
 });

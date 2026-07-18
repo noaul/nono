@@ -33,6 +33,7 @@ describe('admin dashboard workbench', () => {
             { path: 'notabs', component: { template: '<div>notabs</div>' } },
             { path: 'folders', component: page },
             { path: 'links', component: page },
+            { path: 'automation', component: page },
             { path: 'llm', component: page },
             { path: 'tokens', component: page },
             { path: 'account', component: page },
@@ -81,7 +82,7 @@ describe('admin dashboard workbench', () => {
     expect(wrapper.find('.dashboard-hero').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('运营中枢');
     expect(wrapper.findAll('.ops-metric-card')).toHaveLength(4);
-    expect(wrapper.findAll('.dashboard-shortcut')).toHaveLength(10);
+    expect(wrapper.findAll('.dashboard-shortcut')).toHaveLength(11);
     expect(wrapper.text()).toContain('1 个 Notab');
     expect(wrapper.text()).toContain('2 个文件夹');
     expect(wrapper.text()).toContain('1 个书签');
@@ -90,12 +91,13 @@ describe('admin dashboard workbench', () => {
     const destinations = wrapper.findAll('.dashboard-shortcut').map((link) => link.attributes('href'));
     expect(destinations).toEqual(expect.arrayContaining([
       '/admin/links#new-bookmark',
-      '/admin/links#bookmark-import',
+      '/admin/automation',
       '/admin/notabs',
       '/admin/folders',
       '/admin/links#bookmark-tools',
       '/admin/llm',
       '/admin/tokens',
+      '/admin/notifications',
       '/nodesk',
       '/nomoney',
     ]));

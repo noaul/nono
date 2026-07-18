@@ -330,18 +330,21 @@ describe('visual contracts', () => {
     expect(layoutSource).not.toContain("to: '/admin/nodesk', label: 'Nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
     expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/links'");
-    expect(layoutSource).not.toContain("label: '导入导出'");
+    expect(layoutSource).toContain("to: '/admin/automation', label: '导入导出'");
+    expect(routerSource).toContain("path: '/admin/automation'");
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
   });
 
-  it('combines bookmark creation and browser import/export in one page', async () => {
+  it('keeps browser import and export in the automation page', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
+    const automationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AutomationView.vue'), 'utf8');
     const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
-    expect(linksSource).toContain('<BookmarkTransferPanel id="bookmark-import" />');
+    expect(linksSource).not.toContain('BookmarkTransferPanel');
     expect(linksSource).not.toContain('to="/admin/bookmarks"');
+    expect(automationSource).toContain('<BookmarkTransferPanel id="bookmark-import" />');
     expect(transferSource).toContain('/api/admin/bookmarks/preview');
     expect(transferSource).toContain('/api/admin/bookmarks/import');
     expect(transferSource).toContain('/api/admin/bookmarks/export');
@@ -377,6 +380,7 @@ describe('visual contracts', () => {
     });
 
     expect(wrapper.find('.app-workbench').exists()).toBe(true);
+    expect(wrapper.find('.chatgpt-admin-shell').exists()).toBe(true);
     expect(wrapper.find('.glass-workbench').exists()).toBe(true);
     expect(wrapper.find('.figma-admin-shell').exists()).toBe(true);
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
@@ -407,26 +411,20 @@ describe('visual contracts', () => {
     expect(dashboardSource).toContain('dashboard-shortcut-grid');
   });
 
-  it('defines the admin glassmorphism surface system', async () => {
+  it('neutralizes the legacy glass surface in the ChatGPT admin theme', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const css = readStyle('admin');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(css).toContain('.glass-workbench');
-    expect(css).toContain('.glass-workbench::before');
-    expect(css).toContain('.glass-surface');
-    expect(layoutSource).toContain('admin-glass-enabled');
-    expect(css).toContain('--admin-surface-blur: 20px');
-    expect(css).toContain('--admin-surface-opacity: 0.66');
-    expect(css).toContain('--admin-control-height: 42px');
-    expect(css).toContain('--admin-control-radius: 8px');
-    expect(css).toContain('--admin-control-bg: rgba(255, 255, 255, 0.56)');
-    expect(css).toContain('backdrop-filter: blur');
-    expect(css).toContain('-webkit-backdrop-filter: blur');
-    expect(css).toContain('.glass-workbench.admin-glass-enabled .workbench-stage > .admin-card');
-    expect(css).toContain('.glass-workbench:not(.admin-glass-enabled) .glass-surface');
-    expect(css).toContain('border: 1px solid rgba(255, 255, 255, 0.46)');
+    expect(layoutSource).toContain('chatgpt-admin-shell');
+    expect(css).toContain('/* ChatGPT-inspired neutral admin system */');
+    expect(css).toMatch(/\.chatgpt-admin-shell \.glass-surface,[\s\S]*?backdrop-filter:\s*none !important/);
+    expect(css).toMatch(/\.chatgpt-admin-shell \.workbench-sidebar\s*\{[\s\S]*?background:\s*#f9f9f9/);
+    expect(css).toMatch(/\.chatgpt-admin-shell \.nav-button\.router-link-active[\s\S]*?background:\s*#e7e7e7/);
+    expect(css).toMatch(/\.chatgpt-admin-shell \.button,[\s\S]*?background:\s*#171717/);
+    expect(css).toMatch(/\.chatgpt-admin-shell \.admin-table-head\s*\{[\s\S]*?background:\s*#f7f7f7/);
   });
 
   it('keeps admin content fluid across browser zoom levels', () => {
@@ -447,17 +445,15 @@ describe('visual contracts', () => {
     expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*1fr/);
   });
 
-  it('defines the Figma-inspired admin frame and component tokens', async () => {
+  it('disables the legacy decorative frame in the neutral admin theme', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const css = readStyle('admin');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
     expect(layoutSource).toContain('figma-admin-shell');
-    expect(css).toContain('--figma-surface');
-    expect(css).toContain('--figma-stroke');
-    expect(css).toContain('.figma-admin-shell::after');
-    expect(css).toContain('linear-gradient(rgba(15, 118, 110, 0.07) 1px, transparent 1px)');
+    expect(layoutSource).toContain('chatgpt-admin-shell');
+    expect(css).toMatch(/\.chatgpt-admin-shell::before,[\s\S]*?\.chatgpt-admin-shell::after[\s\S]*?display:\s*none !important/);
   });
 
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {

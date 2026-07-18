@@ -175,7 +175,7 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹notab');
+    expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹notab状态');
     expect(wrapper.find('[data-testid="link-folder-10"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="link-notab-10"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="link-name-10"]').element.tagName).toBe('SPAN');
@@ -198,10 +198,8 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.text()).toContain('书签导入导出');
-    expect(wrapper.text()).not.toContain('支持 Chrome、Edge、Firefox');
-    expect(wrapper.text()).not.toContain('还没有选择文件');
-    expect(wrapper.find('[data-testid="preview-bookmarks"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('书签导入导出');
+    expect(wrapper.find('[data-testid="preview-bookmarks"]').exists()).toBe(false);
     await wrapper.get('[data-testid="add-link-row"]').trigger('click');
     await wrapper.get('[data-testid="new-link-category"]').setValue('3');
     expect(wrapper.get('[data-testid="new-link-folder"]').findAll('option').map((option) => option.text())).toEqual(['生活', '旅行']);
@@ -318,6 +316,25 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('健康检查');
     expect(wrapper.text()).toContain('异常 1');
     expect(wrapper.text()).toContain('503');
+    expect(wrapper.get('[data-testid="link-health-10"]').text()).toContain('异常');
+    expect(wrapper.get('[data-testid="link-health-10"]').attributes('title')).toContain('Service unavailable');
+  });
+
+  it('shows an explicit unchecked state in the health column', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([{
+        id: 10,
+        folderId: 1,
+        name: 'Unchecked',
+        url: 'https://unchecked.example/',
+        sortOrder: 100,
+      }]);
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="link-health-10"]').text()).toBe('未检测');
   });
 
   it('batch repairs persisted redirect targets and updates the table', async () => {

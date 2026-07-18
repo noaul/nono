@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   Bot,
+  Bell,
   BookOpen,
   CircleDollarSign,
   ExternalLink,
@@ -33,13 +34,14 @@ const averageLinksPerFolder = computed(() => (
 
 const shortcuts = [
   { label: '新增书签', detail: '在列表底部快速创建', to: '/admin/links#new-bookmark', icon: Plus },
-  { label: '导入书签', detail: '预览并导入浏览器书签', to: '/admin/links#bookmark-import', icon: Upload },
+  { label: '导入书签', detail: '预览并导入浏览器书签', to: '/admin/automation', icon: Upload },
   { label: 'Notab 管理', detail: '新增、排序和管理入口', to: '/admin/notabs', icon: Layers },
   { label: '文件夹管理', detail: '整理分类与文件夹顺序', to: '/admin/folders', icon: FolderIcon },
   { label: '书签查重', detail: '检查重复收录的链接', to: '/admin/links#bookmark-tools', icon: ListChecks },
   { label: '健康检查', detail: '检测链接是否仍可访问', to: '/admin/links#bookmark-tools', icon: Activity },
   { label: 'LLM 设置', detail: '配置智能命名和归类', to: '/admin/llm', icon: Bot },
   { label: 'Token 管理', detail: '管理浏览器扩展授权', to: '/admin/tokens', icon: KeyRound },
+  { label: '通知中心', detail: '集中处理异常和到期提醒', to: '/admin/notifications', icon: Bell },
   { label: 'Nodesk', detail: '进入内容与日程页面', to: '/nodesk', icon: BookOpen, external: true },
   { label: 'NoMoney', detail: '进入个人财务页面', to: '/nomoney', icon: CircleDollarSign, external: true },
 ];

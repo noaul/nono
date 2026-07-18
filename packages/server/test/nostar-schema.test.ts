@@ -34,4 +34,9 @@ describe('NoStar Prisma schema', () => {
     expect(schema).toContain('passwordEncrypted');
     expect(schema).not.toMatch(/model NoStarAccount \{[\s\S]*?githubToken\s+String/);
   });
+
+  it('stores notification state per user and stable key', () => {
+    expect(schema).toMatch(/model NotificationState \{[\s\S]*?userId\s+Int[\s\S]*?key\s+String[\s\S]*?readAt\s+DateTime\?[\s\S]*?dismissedAt\s+DateTime\?[\s\S]*?@@unique\(\[userId, key\]\)/);
+    expect(schema).toMatch(/model User \{[\s\S]*?notificationStates\s+NotificationState\[\]/);
+  });
 });

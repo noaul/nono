@@ -27,6 +27,7 @@ model User {
   authSessions             AuthSession[]
   passkeys                 PasskeyCredential[]
   webAuthnChallenges       WebAuthnChallenge[]
+  notificationStates       NotificationState[]
   noStarAccount            NoStarAccount?
   noStarRepositories       NoStarRepository[]
   noStarReleases           NoStarRelease[]
@@ -37,6 +38,20 @@ model User {
   noStarSettings           NoStarSetting[]
   noStarEmbeddingConfigs   NoStarEmbeddingConfig[]
   noStarVectorSearchConfig NoStarVectorSearchConfig?
+}
+
+model NotificationState {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key         String
+  readAt      DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId, updatedAt])
 }
 
 model AuthSession {

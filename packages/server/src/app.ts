@@ -24,6 +24,7 @@ import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
 import { passkeyRoutes } from './routes/passkeys.js';
 import { backupRoutes } from './routes/admin/backups.js';
+import { notificationRoutes } from './routes/admin/notifications.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
@@ -31,6 +32,8 @@ import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from '
 import { defaultWebAuthnService } from './services/webauthn.service.js';
 import { createBackupServiceFromEnv } from './services/backup.service.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
+import { createNoMoneyDueReader, createNotificationService } from './services/notification.service.js';
+import { NodeskContentStore } from './services/nodesk-content.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -39,6 +42,14 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const prisma = overrides.prisma || new PrismaClient();
   const safeRequester = overrides.safeRequester || requestSafeResource;
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
+  const backupService = overrides.backupService || createBackupServiceFromEnv(nodeskContentDir);
+  const nodeskStore = new NodeskContentStore(nodeskContentDir);
+  const notificationService = overrides.notificationService || createNotificationService({
+    prisma,
+    nodeskReader: () => nodeskStore.readPublicJson('site'),
+    noMoneyReader: createNoMoneyDueReader(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data')),
+    backupService,
+  });
   const services: AppServices = {
     prisma,
     repo: overrides.repo || createPrismaRepository(prisma),
@@ -54,7 +65,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'Nono',
     webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
-    backupService: overrides.backupService || createBackupServiceFromEnv(nodeskContentDir),
+    backupService,
+    notificationService,
   };
 
   const app = fastify({
@@ -83,6 +95,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await userRoutes(app, services);
   await accountRoutes(app, services);
   await backupRoutes(app, services);
+  await notificationRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);

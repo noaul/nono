@@ -4,7 +4,6 @@ import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Sav
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
-import BookmarkTransferPanel from '@/components/admin/BookmarkTransferPanel.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -39,6 +38,25 @@ const isCheckingHealth = ref(false);
 const isRepairingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
+
+function healthStatusLabel(status: Link['healthStatus']) {
+  if (status === 'ok') return '正常';
+  if (status === 'redirected') return '重定向';
+  if (status === 'broken') return '异常';
+  if (status === 'timeout') return '超时';
+  if (status === 'invalid') return '无效';
+  return '未检测';
+}
+
+function healthStatusTitle(link: Link) {
+  if (!link.healthStatus) return '尚未执行健康检查';
+  return [
+    healthStatusLabel(link.healthStatus),
+    link.healthStatusCode,
+    link.healthReason,
+    link.healthCheckedAt ? `检测于 ${new Date(link.healthCheckedAt).toLocaleString()}` : '',
+  ].filter(Boolean).join(' · ');
+}
 
 const sortedFolders = computed(() => [...folders.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
 const folderById = computed(() => new Map(folders.value.map((folder) => [folder.id, folder])));
@@ -525,6 +543,7 @@ onMounted(load);
             <span>链接</span>
             <span>文件夹</span>
             <span>notab</span>
+            <span>状态</span>
             <span>操作</span>
           </div>
           <SortableList :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
@@ -581,6 +600,15 @@ onMounted(load);
                 </select>
                 <template v-else>{{ categoryName(link.folderId) }}</template>
               </span>
+              <span
+                class="link-health-cell"
+                :class="`status-${link.healthStatus || 'unchecked'}`"
+                data-label="状态"
+                :data-testid="`link-health-${link.id}`"
+                :title="healthStatusTitle(link)"
+              >
+                <span class="link-health-value"><i aria-hidden="true"></i>{{ healthStatusLabel(link.healthStatus) }}</span>
+              </span>
               <span class="row-actions" data-label="操作">
                 <template v-if="sortMode">
                   <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
@@ -615,6 +643,7 @@ onMounted(load);
                 <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
               </select>
             </span>
+            <span class="link-health-cell status-unchecked" data-label="状态"><span class="link-health-value"><i aria-hidden="true"></i>未检测</span></span>
             <span class="row-actions" data-label="操作">
               <button class="icon-button success" data-testid="save-new-link" type="button" title="保存书签" :disabled="isSaving" @click="save"><Save :size="16" /></button>
               <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
@@ -631,8 +660,6 @@ onMounted(load);
         </div>
       </template>
     </section>
-
-    <BookmarkTransferPanel id="bookmark-import" />
   </div>
 </template>
 
@@ -656,6 +683,38 @@ onMounted(load);
   max-width: 320px;
   min-width: 180px;
 }
+
+.link-health-cell {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.link-health-value {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.link-health-cell i {
+  background: #a3a3a3;
+  border-radius: 50%;
+  flex: 0 0 7px;
+  height: 7px;
+  width: 7px;
+}
+
+.link-health-cell.status-ok { color: #087f5b; }
+.link-health-cell.status-ok i { background: #10a37f; }
+.link-health-cell.status-redirected { color: #9a6700; }
+.link-health-cell.status-redirected i { background: #d97706; }
+.link-health-cell.status-broken,
+.link-health-cell.status-invalid { color: #b42318; }
+.link-health-cell.status-broken i,
+.link-health-cell.status-invalid i { background: #d92d20; }
+.link-health-cell.status-timeout { color: #7c3aed; }
+.link-health-cell.status-timeout i { background: #8b5cf6; }
 
 .add-list-row {
   align-items: center;

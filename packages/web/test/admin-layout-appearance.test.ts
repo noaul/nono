@@ -18,6 +18,7 @@ describe('AdminLayout appearance settings', () => {
   });
 
   it('uses a fixed admin surface without loading public appearance settings', async () => {
+    mockedApiRequest.mockResolvedValue({ items: [], unreadCount: 0, generatedAt: '2026-07-18T08:00:00.000Z' });
     const wrapper = mount(AdminLayout, {
       props: { title: '站点配置' },
       global: {
@@ -31,12 +32,15 @@ describe('AdminLayout appearance settings', () => {
 
     await flushPromises();
 
-    expect(mockedApiRequest).not.toHaveBeenCalled();
+    expect(mockedApiRequest).toHaveBeenCalledTimes(1);
+    expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=5');
     expect(wrapper.get('.app-workbench').attributes('style')).toBeUndefined();
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
     expect(wrapper.get('.admin-nav').text()).toContain('Notab 管理文件夹书签管理');
     expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');
     expect(wrapper.get('.admin-nav').text()).not.toContain('Nodesk');
-    expect(wrapper.get('.admin-nav').text()).not.toContain('导入导出');
+    expect(wrapper.get('.admin-nav').text()).toContain('导入导出');
+    expect(wrapper.get('.admin-nav').text()).toContain('通知中心');
+    expect(wrapper.get('.app-workbench').classes()).toContain('chatgpt-admin-shell');
   });
 });

@@ -141,3 +141,24 @@ export interface ApiTokenSummary {
   neverExpires: number;
   expiringSoon: number;
 }
+
+export type AdminNotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
+export type AdminNotificationSeverity = 'info' | 'warning' | 'critical';
+
+export interface AdminNotification {
+  key: string;
+  source: AdminNotificationSource;
+  severity: AdminNotificationSeverity;
+  title: string;
+  description: string;
+  href: string;
+  occurredAt: string;
+  dueAt: string | null;
+  read: boolean;
+}
+
+export interface AdminNotificationFeed {
+  items: AdminNotification[];
+  unreadCount: number;
+  generatedAt: string;
+}

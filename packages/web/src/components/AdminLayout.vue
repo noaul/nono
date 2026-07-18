@@ -3,6 +3,8 @@ import '@/styles/admin.css';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   Archive,
+  ArrowUpDown,
+  Bell,
   Bot,
   Compass,
   Folder,
@@ -21,6 +23,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
+import NotificationBell from '@/components/admin/NotificationBell.vue';
 
 const props = withDefaults(defineProps<{ title?: string }>(), {
   title: '',
@@ -47,6 +50,7 @@ const navSections = [
   {
     label: '自动化',
     items: [
+      { to: '/admin/automation', label: '导入导出', title: '书签导入导出', icon: ArrowUpDown },
       { to: '/admin/llm', label: 'LLM', title: 'AI 智能收藏', icon: Bot },
       { to: '/admin/tokens', label: 'Token', title: 'API Token', icon: KeyRound },
     ],
@@ -54,6 +58,7 @@ const navSections = [
   {
     label: '系统',
     items: [
+      { to: '/admin/notifications', label: '通知中心', title: '通知中心', icon: Bell },
       { to: '/admin/account', label: '账户', title: '账户设置', icon: User },
       { to: '/admin/backups', label: '备份', title: '备份与恢复', icon: Archive, adminOnly: true },
       { to: '/admin/users', label: '用户', title: '用户管理', icon: Users, adminOnly: true },
@@ -107,13 +112,12 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell">
+  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell chatgpt-admin-shell">
     <aside class="workbench-sidebar glass-surface" :class="{ 'is-mobile-open': mobileNavOpen }">
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
         <div>
-          <h1>Nono 控制台</h1>
-          <p>导航运营后台</p>
+          <h1>Nono</h1>
         </div>
       </RouterLink>
 
@@ -161,28 +165,31 @@ async function logout() {
             <h1>{{ pageTitle }}</h1>
           </div>
         </div>
-        <div ref="userMenuRef" class="topbar-user">
-          <button
-            class="topbar-avatar"
-            type="button"
-            :title="operatorName"
-            aria-haspopup="menu"
-            :aria-expanded="userMenuOpen"
-            @click="userMenuOpen = !userMenuOpen"
-          >
-            {{ operatorInitial }}
-          </button>
-          <div v-if="userMenuOpen" class="user-menu glass-surface" role="menu">
-            <div class="user-menu-head">
-              <strong>{{ operatorName }}</strong>
-              <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>
-            </div>
-            <RouterLink class="user-menu-item" role="menuitem" to="/" @click="userMenuOpen = false">
-              <Compass :size="16" /> 查看主页
-            </RouterLink>
-            <button class="user-menu-item" role="menuitem" type="button" @click="logout">
-              <LogOut :size="16" /> 退出登录
+        <div class="topbar-actions">
+          <NotificationBell />
+          <div ref="userMenuRef" class="topbar-user">
+            <button
+              class="topbar-avatar"
+              type="button"
+              :title="operatorName"
+              aria-haspopup="menu"
+              :aria-expanded="userMenuOpen"
+              @click="userMenuOpen = !userMenuOpen"
+            >
+              {{ operatorInitial }}
             </button>
+            <div v-if="userMenuOpen" class="user-menu glass-surface" role="menu">
+              <div class="user-menu-head">
+                <strong>{{ operatorName }}</strong>
+                <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>
+              </div>
+              <RouterLink class="user-menu-item" role="menuitem" to="/" @click="userMenuOpen = false">
+                <Compass :size="16" /> 查看主页
+              </RouterLink>
+              <button class="user-menu-item" role="menuitem" type="button" @click="logout">
+                <LogOut :size="16" /> 退出登录
+              </button>
+            </div>
           </div>
         </div>
       </header>
