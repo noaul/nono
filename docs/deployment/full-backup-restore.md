@@ -17,7 +17,23 @@ cd /opt/nono
 npm run backup:create -- --dir /opt/nono
 npm run backup:list -- --dir /opt/nono
 npm run backup:verify -- --dir /opt/nono --id 20260718T140000Z
+npm run backup:drill -- --dir /opt/nono --id 20260718T140000Z
 ```
+
+`backup:drill` 会先完成归档与组件校验，再创建临时 PostgreSQL 数据库并执行完整 `pg_restore`，同时把 Nodesk 内容解压到临时目录并校验 NoMoney SQLite。演练不会写入生产数据库、Nodesk 目录或 NoMoney 数据库，结束后会删除临时数据库和目录。
+
+## 自动备份
+
+在“后台 → 备份与恢复”中开启自动备份，并设置：
+
+- 频率：每天或每周。
+- 执行小时：`0–23`，按容器 `TZ` 计算；未配置时使用 `Asia/Shanghai`。
+- 保留天数：超过天数的归档在成功备份后删除。
+- 最大份数：超出数量的最旧归档在成功备份后删除。
+
+调度器每分钟检查一次当前计划窗口，窗口标识和执行结果保存在 PostgreSQL，因此应用重启不会重复执行同一窗口。自动或手动创建成功后都会应用保留策略。失败不会反复每分钟重试，而会记录失败状态并进入通知中心；管理员修复原因后可以点击“创建备份”立即重试。
+
+轮询和启动延迟可通过 `BACKUP_AUTOMATION_POLL_SECONDS` 与 `BACKUP_AUTOMATION_START_DELAY_SECONDS` 调整，默认均为 `60` 秒。轮询最小值为 `10` 秒；日常部署无需修改。
 
 下载后的归档应保存到另一台服务器或受控对象存储。仅保留同一服务器上的 Docker 卷无法应对整机磁盘损坏。
 

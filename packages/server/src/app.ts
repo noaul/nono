@@ -31,6 +31,8 @@ import type { AppServices, LlmClient } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
 import { createBackupServiceFromEnv } from './services/backup.service.js';
+import { createBackupAutomationService } from './services/backup-automation.service.js';
+import { registerBackupAutomationScheduler } from './services/backup-automation.scheduler.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
 import { createNoMoneyDueReader, createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
@@ -40,19 +42,22 @@ const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef
 
 export async function buildApp(overrides: Partial<AppServices> = {}) {
   const prisma = overrides.prisma || new PrismaClient();
+  const repo = overrides.repo || createPrismaRepository(prisma);
   const safeRequester = overrides.safeRequester || requestSafeResource;
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
   const backupService = overrides.backupService || createBackupServiceFromEnv(nodeskContentDir);
+  const backupAutomationService = overrides.backupAutomationService || createBackupAutomationService({ repo, backupService });
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
     prisma,
     nodeskReader: () => nodeskStore.readPublicJson('site'),
     noMoneyReader: createNoMoneyDueReader(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data')),
     backupService,
+    backupAutomationService,
   });
   const services: AppServices = {
     prisma,
-    repo: overrides.repo || createPrismaRepository(prisma),
+    repo,
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
     nodeskContentDir,
@@ -66,6 +71,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
     backupService,
+    backupAutomationService,
     notificationService,
   };
 
@@ -101,6 +107,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await nodeskRoutes(app, services);
   await nostarRoutes(app, services);
   registerLinkHealthScheduler(app, services);
+  registerBackupAutomationScheduler(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {

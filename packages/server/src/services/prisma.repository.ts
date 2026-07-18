@@ -24,6 +24,34 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
         },
       })) as any;
     },
+    async getBackupAutomation() {
+      return (await prisma.backupAutomation.upsert({
+        where: { id: 1 },
+        update: {},
+        create: { id: 1 },
+      })) as any;
+    },
+    async updateBackupAutomation(input) {
+      const data = prune({
+        enabled: input.enabled,
+        cadence: input.cadence,
+        hour: input.hour,
+        weekday: input.weekday,
+        retentionDays: input.retentionDays,
+        maxBackups: input.maxBackups,
+        lastScheduledFor: input.lastScheduledFor,
+        lastStartedAt: input.lastStartedAt,
+        lastCompletedAt: input.lastCompletedAt,
+        lastSuccessAt: input.lastSuccessAt,
+        lastFailureAt: input.lastFailureAt,
+        lastError: input.lastError,
+      });
+      return (await prisma.backupAutomation.upsert({
+        where: { id: 1 },
+        update: data as any,
+        create: { id: 1, ...(data as any) },
+      })) as any;
+    },
     async listUsers() {
       return (await prisma.user.findMany({ orderBy: { id: 'asc' } })) as any;
     },

@@ -5,6 +5,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AuthUser } from '../types.js';
 import type { BackupService, BackupCommandRunner } from './backup.service.js';
 import { runBackupCommand } from './backup.service.js';
+import type { BackupAutomationService, BackupAutomationSnapshot } from './backup-automation.service.js';
 
 export type NotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
@@ -47,6 +48,7 @@ export interface NotificationServiceOptions {
   nodeskReader: () => Promise<unknown>;
   noMoneyReader: () => Promise<NoMoneyDueItem[]>;
   backupService: Pick<BackupService, 'list'>;
+  backupAutomationService?: Pick<BackupAutomationService, 'get'>;
   now?: () => Date;
   timeZone?: string;
   backupStaleHours?: number;
@@ -57,7 +59,7 @@ type RawNotification = Omit<NotificationItem, 'read'>;
 export function createNotificationService(options: NotificationServiceOptions): NotificationService {
   const now = options.now || (() => new Date());
   const timeZone = options.timeZone || process.env.TZ || 'Asia/Shanghai';
-  const backupStaleHours = options.backupStaleHours || 72;
+  const backupStaleHours = options.backupStaleHours;
 
   async function collect(user: AuthUser): Promise<RawNotification[]> {
     const [links, releases] = await Promise.all([
@@ -68,7 +70,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
       ? await Promise.all([
           collectNodeskNotifications(options.nodeskReader, now(), timeZone),
           collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone),
-          collectBackupNotifications(options.backupService, now(), backupStaleHours),
+          collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours),
         ]).then((items) => items.flat())
       : [];
     return [...links, ...releases, ...global].sort(compareNotifications);
@@ -290,10 +292,17 @@ async function collectNoMoneyNotifications(reader: () => Promise<NoMoneyDueItem[
     });
 }
 
-async function collectBackupNotifications(service: Pick<BackupService, 'list'>, current: Date, staleHours: number): Promise<RawNotification[]> {
+async function collectBackupNotifications(
+  service: Pick<BackupService, 'list'>,
+  automationService: Pick<BackupAutomationService, 'get'> | undefined,
+  current: Date,
+  configuredStaleHours?: number,
+): Promise<RawNotification[]> {
+  const automation = await automationService?.get().catch(() => null) || null;
+  const notifications = activeBackupFailure(automation);
   const backups = await service.list().catch(() => []);
   if (!backups.length) {
-    return [{
+    notifications.push({
       key: stableKey('backup', 'missing'),
       source: 'backup',
       severity: 'critical',
@@ -302,21 +311,47 @@ async function collectBackupNotifications(service: Pick<BackupService, 'list'>, 
       href: '/admin/backups',
       occurredAt: current.toISOString(),
       dueAt: null,
-    }];
+    });
+    return notifications;
   }
   const latest = backups.reduce((left, right) => left.createdAt > right.createdAt ? left : right);
+  const staleHours = configuredStaleHours ?? cadenceStaleHours(automation);
   const ageHours = (current.getTime() - new Date(latest.createdAt).getTime()) / 3_600_000;
-  if (!Number.isFinite(ageHours) || ageHours <= staleHours) return [];
+  if (Number.isFinite(ageHours) && ageHours > staleHours) {
+    notifications.push({
+      key: stableKey('backup', `stale:${latest.id}`),
+      source: 'backup',
+      severity: 'warning',
+      title: '全站备份已过期',
+      description: `最近备份创建于 ${latest.createdAt}`,
+      href: '/admin/backups',
+      occurredAt: latest.createdAt,
+      dueAt: null,
+    });
+  }
+  return notifications;
+}
+
+function activeBackupFailure(automation: BackupAutomationSnapshot | null): RawNotification[] {
+  const failureAt = automation?.status.lastFailureAt;
+  const successAt = automation?.status.lastSuccessAt;
+  const error = automation?.status.lastError;
+  if (!failureAt || !error || (successAt && successAt >= failureAt)) return [];
   return [{
-    key: stableKey('backup', `stale:${latest.id}`),
+    key: stableKey('backup', `failure:${failureAt}`),
     source: 'backup',
-    severity: 'warning',
-    title: '全站备份已过期',
-    description: `最近备份创建于 ${latest.createdAt}`,
+    severity: 'critical',
+    title: '自动备份失败',
+    description: error,
     href: '/admin/backups',
-    occurredAt: latest.createdAt,
+    occurredAt: failureAt,
     dueAt: null,
   }];
+}
+
+function cadenceStaleHours(automation: BackupAutomationSnapshot | null) {
+  if (!automation?.settings.enabled) return 72;
+  return automation.settings.cadence === 'weekly' ? 24 * 8 : 48;
 }
 
 function stableKey(source: NotificationSource, identity: string) {

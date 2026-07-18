@@ -14,6 +14,7 @@ test('packages database verification tools in the single application image', () 
 
 test('persists full backups outside the application lifecycle', () => {
   assert.match(compose, /BACKUP_DIR:\s*\/app\/backups/);
+  assert.match(compose, /TZ:\s*\$\{TZ:-Asia\/Shanghai\}/);
   assert.match(compose, /nono_backups:\/app\/backups/);
   assert.match(compose, /\n\s*nono_backups:\s*\n/);
 });
@@ -24,5 +25,6 @@ test('records the immutable deployment commit and exposes guarded backup command
   assert.equal(packageJson.scripts['backup:create'], 'node scripts/backup-compose.mjs create');
   assert.equal(packageJson.scripts['backup:list'], 'node scripts/backup-compose.mjs list');
   assert.equal(packageJson.scripts['backup:verify'], 'node scripts/backup-compose.mjs verify');
+  assert.equal(packageJson.scripts['backup:drill'], 'node scripts/backup-compose.mjs drill');
   assert.equal(packageJson.scripts['backup:restore'], 'node scripts/restore-compose.mjs');
 });

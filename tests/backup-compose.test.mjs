@@ -3,7 +3,7 @@ import test from 'node:test';
 
 const modulePath = '../scripts/backup-compose.mjs';
 
-test('parses create and verify backup commands', async () => {
+test('parses create, verify and drill backup commands', async () => {
   const { parseBackupArgs } = await import(modulePath);
   assert.deepEqual(parseBackupArgs(['create', '--dir', '/opt/nono']), {
     command: 'create',
@@ -15,7 +15,13 @@ test('parses create and verify backup commands', async () => {
     cwd: process.cwd(),
     backupId: '20260718T140000Z',
   });
+  assert.deepEqual(parseBackupArgs(['drill', '--id', '20260718T140000Z']), {
+    command: 'drill',
+    cwd: process.cwd(),
+    backupId: '20260718T140000Z',
+  });
   assert.throws(() => parseBackupArgs(['verify']), /--id/);
+  assert.throws(() => parseBackupArgs(['drill']), /--id/);
 });
 
 test('executes the backup CLI inside the running app container', async () => {

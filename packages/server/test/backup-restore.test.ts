@@ -122,4 +122,19 @@ describe('backup restoration', () => {
     expect(fs.readFileSync(path.join(nodeskContentDir, 'restored.md'), 'utf8')).toBe('restored nodesk');
     expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('new sqlite');
   });
+
+  it('drills a restore into isolated temporary targets without touching production data', async () => {
+    const service = makeService();
+
+    await expect(service.drill(backupId)).resolves.toMatchObject({ id: backupId });
+
+    const createdb = calls.find((call) => call.command === 'createdb');
+    const restore = calls.find((call) => call.command === 'pg_restore' && !call.args.includes('--list'));
+    const dropdb = calls.find((call) => call.command === 'dropdb');
+    expect(createdb?.args.at(-1)).toMatch(/^nono_drill_/);
+    expect(restore?.args).toContain(`--dbname=${createdb?.args.at(-1)}`);
+    expect(dropdb?.args).toEqual(['--if-exists', createdb?.args.at(-1)]);
+    expect(fs.readFileSync(path.join(nodeskContentDir, 'old.md'), 'utf8')).toBe('old nodesk');
+    expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('old sqlite');
+  });
 });

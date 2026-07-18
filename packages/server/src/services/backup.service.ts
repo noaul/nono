@@ -37,6 +37,7 @@ export interface BackupService {
   list(): Promise<BackupRecord[]>;
   create(): Promise<BackupRecord>;
   verify(id: string): Promise<BackupRecord>;
+  drill(id: string): Promise<BackupRecord>;
   restore(id: string): Promise<BackupRecord>;
   resolveDownload(id: string): Promise<BackupDownload>;
   remove(id: string): Promise<boolean>;
@@ -170,7 +171,7 @@ class FileBackupService implements BackupService {
       throw error;
     } finally {
       this.creating = false;
-      await fs.promises.rm(workspace, { recursive: true, force: true });
+      await removeBackupDirectory(workspace);
     }
   }
 
@@ -189,6 +190,33 @@ class FileBackupService implements BackupService {
     return this.withVerifiedWorkspace(id, async (record) => record);
   }
 
+  async drill(id: string) {
+    return this.withVerifiedWorkspace(id, async (record, workspace) => {
+      const postgresEnv = postgresEnvironment(this.options.databaseUrl);
+      const database = `nono_drill_${id.replace(/[^0-9a-z]/gi, '').toLowerCase()}_${randomBytes(3).toString('hex')}`.slice(0, 63);
+      await this.options.run('createdb', ['--template=template0', database], { env: { ...process.env, ...postgresEnv } });
+      try {
+        await this.options.run('pg_restore', [
+          '--exit-on-error',
+          '--no-owner',
+          '--no-acl',
+          `--dbname=${database}`,
+          path.join(workspace, 'postgres.dump'),
+        ], { env: { ...process.env, ...postgresEnv } });
+
+        const nodeskArchive = path.join(workspace, 'nodesk.tar.gz');
+        const nodeskTarget = path.join(workspace, 'nodesk-drill');
+        const listing = await this.options.run('tar', ['-tzf', nodeskArchive]);
+        validateTarEntries(listing.stdout);
+        await fs.promises.mkdir(nodeskTarget, { recursive: true });
+        await this.options.run('tar', ['-xzf', nodeskArchive, '-C', nodeskTarget]);
+      } finally {
+        await this.options.run('dropdb', ['--if-exists', database], { env: { ...process.env, ...postgresEnv } });
+      }
+      return record;
+    });
+  }
+
   async restore(id: string) {
     return this.withVerifiedWorkspace(id, async (record, workspace) => {
       const postgresEnv = postgresEnvironment(this.options.databaseUrl);
@@ -202,7 +230,7 @@ class FileBackupService implements BackupService {
         path.join(workspace, 'postgres.dump'),
       ], { env: { ...process.env, ...postgresEnv } });
 
-      await fs.promises.rm(this.options.nodeskContentDir, { recursive: true, force: true });
+      await removeBackupDirectory(this.options.nodeskContentDir);
       await fs.promises.mkdir(this.options.nodeskContentDir, { recursive: true });
       const nodeskArchive = path.join(workspace, 'nodesk.tar.gz');
       const nodeskListing = await this.options.run('tar', ['-tzf', nodeskArchive]);
@@ -271,9 +299,16 @@ class FileBackupService implements BackupService {
       if (sqlite.stdout.trim() !== 'ok') throw httpError(409, 'NoMoney SQLite integrity check failed');
       return await action(record, workspace);
     } finally {
-      await fs.promises.rm(workspace, { recursive: true, force: true });
+      await removeBackupDirectory(workspace);
     }
   }
+}
+
+export async function removeBackupDirectory(
+  target: string,
+  remove: (target: string, options: { recursive: boolean; force: boolean; maxRetries: number; retryDelay: number }) => Promise<void> = fs.promises.rm,
+) {
+  await remove(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
 
 async function copyVerifiedSqlite(nomoneyDataDir: string, destination: string, run: BackupCommandRunner) {

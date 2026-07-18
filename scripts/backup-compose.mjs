@@ -7,8 +7,8 @@ const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 
 export function parseBackupArgs(argv) {
   const command = argv[0];
-  if (!['create', 'list', 'verify', 'delete'].includes(command)) {
-    throw new Error('Usage: backup-compose <create|list|verify|delete> [--id BACKUP_ID] [--dir PATH]');
+  if (!['create', 'list', 'verify', 'drill', 'delete'].includes(command)) {
+    throw new Error('Usage: backup-compose <create|list|verify|drill|delete> [--id BACKUP_ID] [--dir PATH]');
   }
   const options = { command, cwd: process.cwd(), backupId: '' };
   for (let index = 1; index < argv.length; index += 1) {
@@ -17,14 +17,14 @@ export function parseBackupArgs(argv) {
     else if (argument === '--id') options.backupId = argv[++index];
     else throw new Error(`Unknown argument: ${argument}`);
   }
-  if (['verify', 'delete'].includes(command) && !BACKUP_ID_PATTERN.test(options.backupId || '')) {
+  if (['verify', 'drill', 'delete'].includes(command) && !BACKUP_ID_PATTERN.test(options.backupId || '')) {
     throw new Error('--id must be a valid backup identifier');
   }
   return options;
 }
 
 export function runBackupCompose({ command, cwd, backupId, run = runCommand }) {
-  const backupArgs = [command, ...(['verify', 'delete'].includes(command) ? ['--id', backupId] : [])];
+  const backupArgs = [command, ...(['verify', 'drill', 'delete'].includes(command) ? ['--id', backupId] : [])];
   return run('docker', [
     'compose', 'exec', '-T', 'app', 'node', BACKUP_CLI, ...backupArgs,
   ], { cwd });

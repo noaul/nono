@@ -119,4 +119,18 @@ describe('backup service', () => {
     expect(fs.existsSync(path.join(backupDir, backup.filename))).toBe(false);
     expect(await service.list()).toEqual([]);
   });
+
+  it('configures recursive cleanup to retry transient Windows filesystem errors', async () => {
+    const { removeBackupDirectory } = await import(serviceModulePath);
+    const remove = vi.fn().mockResolvedValue(undefined);
+
+    await removeBackupDirectory(path.join(root, 'workspace'), remove);
+
+    expect(remove).toHaveBeenCalledWith(path.join(root, 'workspace'), {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
+  });
 });

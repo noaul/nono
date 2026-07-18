@@ -141,6 +141,60 @@ describe('notification service', () => {
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
   });
 
+  it('reports the latest automatic backup failure to administrators', async () => {
+    const { prisma } = createPrisma();
+    const backupAutomationService = {
+      get: vi.fn(async () => ({
+        settings: { enabled: true, cadence: 'daily', hour: 3, weekday: 0, retentionDays: 30, maxBackups: 14 },
+        status: {
+          lastScheduledFor: 'daily:2026-07-18@03',
+          lastStartedAt: '2026-07-18T03:00:00.000Z',
+          lastCompletedAt: '2026-07-18T03:00:05.000Z',
+          lastSuccessAt: '2026-07-17T03:00:05.000Z',
+          lastFailureAt: '2026-07-18T03:00:05.000Z',
+          lastError: 'pg_dump failed',
+        },
+      })),
+    };
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
+      noMoneyReader: vi.fn(async () => []),
+      backupService: { list: vi.fn(async () => [{ id: 'recent', createdAt: '2026-07-17T08:00:00.000Z' }]) } as any,
+      backupAutomationService: backupAutomationService as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any);
+
+    expect(feed.items.find((item) => item.title === '自动备份失败')).toMatchObject({
+      source: 'backup',
+      severity: 'critical',
+      description: 'pg_dump failed',
+      href: '/admin/backups',
+    });
+  });
+
+  it('uses the configured weekly cadence when deciding whether a backup is stale', async () => {
+    const { prisma } = createPrisma();
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
+      noMoneyReader: vi.fn(async () => []),
+      backupService: { list: vi.fn(async () => [{ id: 'weekly', createdAt: '2026-07-13T08:00:00.000Z' }]) } as any,
+      backupAutomationService: {
+        get: vi.fn(async () => ({
+          settings: { enabled: true, cadence: 'weekly', hour: 3, weekday: 1, retentionDays: 30, maxBackups: 14 },
+          status: { lastSuccessAt: '2026-07-13T08:00:00.000Z', lastFailureAt: null, lastError: null },
+        })),
+      } as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any);
+    expect(feed.items.filter((item) => item.source === 'backup')).toEqual([]);
+  });
+
   it('applies per-user read and dismissed state', async () => {
     const checkedAt = new Date('2026-07-18T07:00:00.000Z');
     const first = createService({

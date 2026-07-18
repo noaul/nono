@@ -24,7 +24,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 统一 API 响应：`{ code, data, message }`
 - 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
 - 一体化 Docker：单个业务镜像内包含 Nono、Nodesk、NoMoney 与 NoStar，外加 PostgreSQL
-- 全站备份：统一归档 PostgreSQL、Nodesk 与 NoMoney，带校验和、恢复前快照和失败回滚
+- 全站备份：统一归档 PostgreSQL、Nodesk 与 NoMoney，支持每日/每周自动执行、保留清理、隔离恢复演练、校验和与失败回滚
 
 ## 本地开发
 
@@ -137,7 +137,7 @@ NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 Mo
 
 Compose 更新部署可使用提交号镜像、部署后路由/NoStar 分块验收和自动回滚，见 [Compose 验收与回滚部署](docs/deployment/compose-verified-deploy.md)。
 
-管理员可以在“后台 → 备份与恢复”创建、下载和删除全站备份。服务器端创建、校验、恢复与恢复失败回滚命令见 [全站备份与恢复手册](docs/deployment/full-backup-restore.md)。备份保存在独立的 `nono_backups` 命名卷，重建业务容器不会删除。
+管理员可以在“后台 → 备份与恢复”创建、下载和删除全站备份，也可以设置每日或每周执行时间、保留天数和最大份数。调度器按 `Asia/Shanghai`（或容器 `TZ`）计算计划窗口，同一窗口只执行一次；失败状态会显示在备份页并进入通知中心。服务器端创建、校验、隔离恢复演练、恢复与恢复失败回滚命令见 [全站备份与恢复手册](docs/deployment/full-backup-restore.md)。备份保存在独立的 `nono_backups` 命名卷，重建业务容器不会删除。
 
 NoStar 使用 Nono Session 登录，仓库、Release、分类和配置按 Nono 用户隔离并存入 PostgreSQL。GitHub Token、AI Key、WebDAV 密码、代理密码和 aria2 密钥使用 Nono 的 `ENCRYPTION_KEY` 加密；NoStar AI 配置也可在 Nono 后台的 LLM 页面管理。
 

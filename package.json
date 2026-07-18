@@ -43,6 +43,7 @@
     "backup:create": "node scripts/backup-compose.mjs create",
     "backup:list": "node scripts/backup-compose.mjs list",
     "backup:verify": "node scripts/backup-compose.mjs verify",
+    "backup:drill": "node scripts/backup-compose.mjs drill",
     "backup:delete": "node scripts/backup-compose.mjs delete",
     "backup:restore": "node scripts/restore-compose.mjs"
   },

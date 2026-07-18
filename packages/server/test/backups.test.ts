@@ -119,7 +119,60 @@ describe('global backups', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data.backup.id).toBe('20260718T120000Z');
+    expect(response.json().data.automation.status.lastSuccessAt).toEqual(expect.any(String));
     expect(backupService.create).toHaveBeenCalledOnce();
+
+    const automation = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backups/automation',
+      headers: { cookie: adminCookie },
+    });
+    expect(automation.json().data.status.lastSuccessAt).toEqual(expect.any(String));
+  });
+
+  it('reads and updates the automatic backup policy for administrators', async () => {
+    const initial = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backups/automation',
+      headers: { cookie: adminCookie },
+    });
+
+    expect(initial.statusCode).toBe(200);
+    expect(initial.json().data.settings).toMatchObject({
+      enabled: false,
+      cadence: 'daily',
+      hour: 3,
+      weekday: 0,
+      retentionDays: 30,
+      maxBackups: 14,
+    });
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backups/automation',
+      headers: { cookie: adminCookie },
+      payload: {
+        enabled: true,
+        cadence: 'weekly',
+        hour: 4,
+        weekday: 1,
+        retentionDays: 45,
+        maxBackups: 10,
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data.settings).toMatchObject({ enabled: true, cadence: 'weekly', hour: 4, weekday: 1 });
+  });
+
+  it('rejects automatic backup policy access from non-admin users', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backups/automation',
+      headers: { cookie: memberCookie },
+    });
+
+    expect(response.statusCode).toBe(403);
   });
 
   it('downloads only a resolved managed backup archive', async () => {

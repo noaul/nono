@@ -135,9 +135,31 @@ export interface AppConfigRecord {
   settings: Record<string, unknown>;
 }
 
+export type BackupCadence = 'daily' | 'weekly';
+
+export interface BackupAutomationRecord {
+  id: number;
+  enabled: boolean;
+  cadence: BackupCadence;
+  hour: number;
+  weekday: number;
+  retentionDays: number;
+  maxBackups: number;
+  lastScheduledFor?: string | null;
+  lastStartedAt?: Date | null;
+  lastCompletedAt?: Date | null;
+  lastSuccessAt?: Date | null;
+  lastFailureAt?: Date | null;
+  lastError?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Repository {
   getConfig(): Promise<AppConfigRecord>;
   updateConfig(input: Partial<AppConfigRecord>): Promise<AppConfigRecord>;
+  getBackupAutomation(): Promise<BackupAutomationRecord>;
+  updateBackupAutomation(input: Partial<BackupAutomationRecord>): Promise<BackupAutomationRecord>;
   listUsers(): Promise<UserRecord[]>;
   findUserById(id: number): Promise<UserRecord | null>;
   findUserByUsername(username: string): Promise<UserRecord | null>;
@@ -198,6 +220,27 @@ export function publicUser(user: UserRecord) {
   };
 }
 
+function defaultBackupAutomation(): BackupAutomationRecord {
+  const now = new Date();
+  return {
+    id: 1,
+    enabled: false,
+    cadence: 'daily',
+    hour: 3,
+    weekday: 0,
+    retentionDays: 30,
+    maxBackups: 14,
+    lastScheduledFor: null,
+    lastStartedAt: null,
+    lastCompletedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastError: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export class MemoryRepository implements Repository {
   users: UserRecord[] = [];
   sites: SiteRecord[] = [];
@@ -208,6 +251,7 @@ export class MemoryRepository implements Repository {
   passkeys: PasskeyCredentialRecord[] = [];
   webAuthnChallenges: WebAuthnChallengeRecord[] = [];
   config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {} };
+  backupAutomation: BackupAutomationRecord = defaultBackupAutomation();
 
   constructor(seed = true) {
     if (seed) this.seed();
@@ -220,6 +264,15 @@ export class MemoryRepository implements Repository {
   async updateConfig(input: Partial<AppConfigRecord>) {
     this.config = { ...this.config, ...input, id: 1 };
     return this.config;
+  }
+
+  async getBackupAutomation() {
+    return this.backupAutomation;
+  }
+
+  async updateBackupAutomation(input: Partial<BackupAutomationRecord>) {
+    this.backupAutomation = { ...this.backupAutomation, ...input, id: 1, updatedAt: new Date() };
+    return this.backupAutomation;
   }
 
   async listUsers() {

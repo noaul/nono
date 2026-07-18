@@ -2,21 +2,21 @@ import path from 'node:path';
 import { createBackupServiceFromEnv } from '../services/backup.service.js';
 
 interface BackupCliOptions {
-  command: 'create' | 'list' | 'verify' | 'restore' | 'delete';
+  command: 'create' | 'list' | 'verify' | 'drill' | 'restore' | 'delete';
   id: string;
 }
 
 export function parseBackupCliArgs(argv: string[]): BackupCliOptions {
   const command = argv[0] as BackupCliOptions['command'];
-  if (!['create', 'list', 'verify', 'restore', 'delete'].includes(command)) {
-    throw new Error('Usage: backup <create|list|verify|restore|delete> [--id BACKUP_ID]');
+  if (!['create', 'list', 'verify', 'drill', 'restore', 'delete'].includes(command)) {
+    throw new Error('Usage: backup <create|list|verify|drill|restore|delete> [--id BACKUP_ID]');
   }
   let id = '';
   for (let index = 1; index < argv.length; index += 1) {
     if (argv[index] === '--id') id = argv[++index] || '';
     else throw new Error(`Unknown argument: ${argv[index]}`);
   }
-  if (['verify', 'restore', 'delete'].includes(command) && !id) throw new Error('--id is required');
+  if (['verify', 'drill', 'restore', 'delete'].includes(command) && !id) throw new Error('--id is required');
   return { command, id };
 }
 
@@ -26,6 +26,7 @@ export async function runBackupCli(options: BackupCliOptions) {
   if (options.command === 'create') return service.create();
   if (options.command === 'list') return { backups: await service.list() };
   if (options.command === 'verify') return service.verify(options.id);
+  if (options.command === 'drill') return service.drill(options.id);
   if (options.command === 'restore') return service.restore(options.id);
   await service.remove(options.id);
   return { ok: true, id: options.id };

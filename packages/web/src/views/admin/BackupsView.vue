@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { Archive, CheckCircle2, Database, Download, Plus, Trash2 } from 'lucide-vue-next';
+import { Archive, CalendarClock, CheckCircle2, Database, Download, Plus, Save, Trash2 } from 'lucide-vue-next';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
@@ -17,9 +17,30 @@ interface BackupRecord {
   components: Array<'postgres' | 'nodesk' | 'nomoney'>;
 }
 
+interface BackupAutomationSnapshot {
+  settings: {
+    enabled: boolean;
+    cadence: 'daily' | 'weekly';
+    hour: number;
+    weekday: number;
+    retentionDays: number;
+    maxBackups: number;
+  };
+  status: {
+    lastSuccessAt: string | null;
+    lastFailureAt: string | null;
+    lastError: string | null;
+  };
+}
+
 const backups = ref<BackupRecord[]>([]);
 const isLoading = ref(true);
 const isCreating = ref(false);
+const isSavingAutomation = ref(false);
+const automation = ref<BackupAutomationSnapshot>({
+  settings: { enabled: false, cadence: 'daily', hour: 3, weekday: 0, retentionDays: 30, maxBackups: 14 },
+  status: { lastSuccessAt: null, lastFailureAt: null, lastError: null },
+});
 const deletingIds = ref(new Set<string>());
 const message = ref('');
 const error = ref('');
@@ -30,12 +51,34 @@ async function loadBackups() {
   isLoading.value = true;
   error.value = '';
   try {
-    const data = await apiRequest<{ backups: BackupRecord[] }>('/api/admin/backups');
+    const [data, automationData] = await Promise.all([
+      apiRequest<{ backups: BackupRecord[] }>('/api/admin/backups'),
+      apiRequest<BackupAutomationSnapshot>('/api/admin/backups/automation'),
+    ]);
     backups.value = data.backups;
+    automation.value = automationData;
   } catch (event) {
     error.value = event instanceof Error ? event.message : '备份列表加载失败';
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function saveAutomation() {
+  if (isSavingAutomation.value) return;
+  isSavingAutomation.value = true;
+  message.value = '';
+  error.value = '';
+  try {
+    automation.value = await apiRequest<BackupAutomationSnapshot>('/api/admin/backups/automation', {
+      method: 'PUT',
+      body: JSON.stringify(automation.value.settings),
+    });
+    message.value = '自动备份策略已保存';
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : '自动备份策略保存失败';
+  } finally {
+    isSavingAutomation.value = false;
   }
 }
 
@@ -45,8 +88,9 @@ async function createBackup() {
   message.value = '';
   error.value = '';
   try {
-    const data = await apiRequest<{ backup: BackupRecord }>('/api/admin/backups', { method: 'POST' });
+    const data = await apiRequest<{ backup: BackupRecord; automation: BackupAutomationSnapshot }>('/api/admin/backups', { method: 'POST' });
     backups.value = [data.backup, ...backups.value.filter((item) => item.id !== data.backup.id)];
+    automation.value = data.automation;
     message.value = '全站备份已创建并校验';
   } catch (event) {
     error.value = event instanceof Error ? event.message : '创建备份失败';
@@ -106,6 +150,59 @@ onMounted(loadBackups);
 
     <section class="admin-section backup-section">
       <header class="admin-section-head">
+        <h2><CalendarClock :size="18" /> 自动备份</h2>
+        <label class="backup-toggle">
+          <input v-model="automation.settings.enabled" data-testid="backup-automation-enabled" type="checkbox">
+          <span>{{ automation.settings.enabled ? '已开启' : '已关闭' }}</span>
+        </label>
+      </header>
+
+      <div class="backup-policy-grid">
+        <label class="field">
+          <span>频率</span>
+          <select v-model="automation.settings.cadence" class="select" data-testid="backup-cadence">
+            <option value="daily">每天</option>
+            <option value="weekly">每周</option>
+          </select>
+        </label>
+        <label v-if="automation.settings.cadence === 'weekly'" class="field">
+          <span>星期</span>
+          <select v-model.number="automation.settings.weekday" class="select" data-testid="backup-weekday">
+            <option :value="0">星期日</option>
+            <option :value="1">星期一</option>
+            <option :value="2">星期二</option>
+            <option :value="3">星期三</option>
+            <option :value="4">星期四</option>
+            <option :value="5">星期五</option>
+            <option :value="6">星期六</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>执行小时</span>
+          <input v-model.number="automation.settings.hour" class="input" data-testid="backup-hour" type="number" min="0" max="23">
+        </label>
+        <label class="field">
+          <span>保留天数</span>
+          <input v-model.number="automation.settings.retentionDays" class="input" data-testid="backup-retention-days" type="number" min="1" max="3650">
+        </label>
+        <label class="field">
+          <span>最多份数</span>
+          <input v-model.number="automation.settings.maxBackups" class="input" data-testid="backup-max-count" type="number" min="2" max="365">
+        </label>
+        <button class="button backup-policy-save" data-testid="save-backup-automation" type="button" :disabled="isSavingAutomation" @click="saveAutomation">
+          <Save :size="16" /> {{ isSavingAutomation ? '保存中' : '保存策略' }}
+        </button>
+      </div>
+
+      <div class="backup-policy-status">
+        <span>最近成功：{{ automation.status.lastSuccessAt ? formatDate(automation.status.lastSuccessAt) : '暂无' }}</span>
+        <span v-if="automation.status.lastFailureAt" class="is-error">最近失败：{{ formatDate(automation.status.lastFailureAt) }}</span>
+        <span v-if="automation.status.lastError" class="is-error">{{ automation.status.lastError }}</span>
+      </div>
+    </section>
+
+    <section class="admin-section backup-section">
+      <header class="admin-section-head">
         <h2><Archive :size="18" /> 全站备份</h2>
         <span class="backup-count">{{ backups.length }}</span>
       </header>
@@ -153,6 +250,39 @@ onMounted(loadBackups);
 
 <style scoped>
 .backup-section { min-width: 0; }
+
+.backup-toggle {
+  align-items: center;
+  color: var(--admin-text-muted);
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+}
+
+.backup-toggle input { accent-color: var(--admin-accent); height: 16px; width: 16px; }
+
+.backup-policy-grid {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;
+}
+
+.backup-policy-grid .field { display: grid; gap: 6px; min-width: 0; }
+.backup-policy-grid .field > span { color: var(--admin-text-muted); font-size: 12px; }
+.backup-policy-grid .input, .backup-policy-grid .select { height: 38px; width: 100%; }
+.backup-policy-save { height: 38px; white-space: nowrap; }
+
+.backup-policy-status {
+  color: var(--admin-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px 18px;
+  margin-top: 14px;
+}
+
+.backup-policy-status .is-error { color: var(--admin-danger, #c2413b); }
 
 .backup-count {
   align-items: center;
@@ -218,6 +348,8 @@ onMounted(loadBackups);
 .backup-empty { margin: 0; padding: 22px 4px 8px; text-align: center; }
 
 @media (max-width: 720px) {
+  .backup-policy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .backup-policy-save { grid-column: 1 / -1; }
   .backup-row { align-items: start; grid-template-columns: 36px minmax(0, 1fr) auto; }
   .backup-state { align-items: start; grid-column: 2; justify-items: start; }
   .backup-actions { grid-column: 3; grid-row: 1 / span 2; }
