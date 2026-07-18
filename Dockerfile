@@ -62,7 +62,7 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache 
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache postgresql-client sqlite
+RUN apk add --no-cache postgresql16-client sqlite
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001

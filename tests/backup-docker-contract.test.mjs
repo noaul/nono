@@ -8,7 +8,7 @@ const deploy = fs.readFileSync(new URL('../scripts/deploy-compose.mjs', import.m
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('packages database verification tools in the single application image', () => {
-  assert.match(dockerfile, /apk add --no-cache[^\n]*postgresql-client[^\n]*sqlite/);
+  assert.match(dockerfile, /apk add --no-cache[^\n]*postgresql16-client[^\n]*sqlite/);
   assert.match(dockerfile, /packages\/server\/dist/);
 });
 
