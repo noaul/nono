@@ -109,7 +109,7 @@ h2 {
 }
 
 .nav-bg-visible .large-folder h2 {
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 8px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.3);
 }
 
 .title-main {
@@ -123,14 +123,14 @@ h2 {
 .title-icon {
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.92);
   font-size: 18px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  filter: drop-shadow(0 2px 4px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.2));
 }
 
 .large-links {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
   backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.34);
   border-radius: var(--public-card-radius, 8px);
   display: grid;
   gap: 8px 4px;
@@ -142,12 +142,12 @@ h2 {
   overflow-x: hidden;
   overflow-y: hidden;
   padding: 15px 4px 15px 16px;
-  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  scrollbar-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.32) transparent;
   scrollbar-width: thin;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-    0 14px 34px rgba(0, 0, 0, 0.08);
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.42),
+    inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.1),
+    0 14px 34px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.1);
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -157,11 +157,11 @@ h2 {
 .large-folder:hover .large-links,
 .large-folder:focus-within .large-links {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.08));
-  border-color: rgba(255, 255, 255, 0.42);
+  border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
-    0 16px 36px rgba(0, 0, 0, 0.1);
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.52),
+    inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.12),
+    0 16px 36px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.12);
 }
 
 .large-links.is-scrollable {
@@ -171,8 +171,8 @@ h2 {
 
 .large-link {
   align-items: center;
-  background: rgba(255, 255, 255, 0);
-  border: 1px solid rgba(255, 255, 255, 0);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.94);
   display: flex;
@@ -192,16 +192,16 @@ h2 {
 
 .large-link:hover,
 .large-link:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.3);
+  border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   color: var(--public-bookmark-text, #ffffff);
   outline: none;
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 18px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.13), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.18);
 }
 
 .large-link:active {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.42);
   transform: translateY(0) scale(0.985);
   transition-duration: 0.12s;
 }
@@ -255,8 +255,8 @@ mark {
 }
 
 .lock-illustration {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.08);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.12);
   border-radius: 8px;
   width: 56px;
   height: 56px;
@@ -280,8 +280,8 @@ mark {
 .folder-expand,
 .lock-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.16);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.24);
   border-radius: 8px;
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.72);
   cursor: pointer;
@@ -303,8 +303,8 @@ mark {
 .folder-expand:focus-visible,
 .lock-btn:hover,
 .lock-btn:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.32);
+  border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.48);
   color: var(--public-folder-text, #ffffff);
   outline: none;
   transform: translateY(-1px) scale(1.03);
@@ -318,8 +318,8 @@ mark {
 
 /* Outrank base.css .icon-button.secondary without !important */
 .icon-button.secondary.lock-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.16);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.24);
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.72);
 }
 

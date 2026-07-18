@@ -195,6 +195,34 @@ describe('NavigationPage public workflow', () => {
     expect(style).not.toContain('--admin-surface-radius');
   });
 
+  it('renders the selected theme scene and complete public color variables', async () => {
+    const themedPayload = navigationPayload(undefined, {
+      theme: { id: 'verdant-leaves', accent: '#2f855a' },
+    });
+    themedPayload.site.fontColor = '#173b2a';
+    apiRequest.mockResolvedValue(themedPayload);
+
+    const wrapper = await mountNavigationPage();
+    const page = wrapper.get('.nav-page');
+    const scene = wrapper.get('[data-testid="theme-scene"]');
+
+    expect(page.attributes('data-theme-tone')).toBe('light');
+    expect(page.attributes('style')).toContain('--public-page-text: #173b2a');
+    expect(page.attributes('style')).toContain('--public-border-rgb:');
+    expect(page.attributes('style')).toContain('--public-hover-rgb:');
+    expect(scene.attributes('data-scene')).toBe('leaves');
+    expect(scene.attributes('aria-hidden')).toBe('true');
+    expect(scene.findAll('img').length).toBeGreaterThan(0);
+  });
+
+  it('keeps scene decoration out of the interaction and reduced-motion paths', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ThemeScene.vue'), 'utf8');
+
+    expect(source).toContain('pointer-events: none');
+    expect(source).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(source).toContain('@media (max-width: 640px)');
+  });
+
   it('shows the public background image immediately while keeping preload hints', async () => {
     const imageInstances: Array<{ src: string; onload: (() => void) | null; onerror: (() => void) | null; fetchPriority?: string; decoding?: string }> = [];
     class MockImage {

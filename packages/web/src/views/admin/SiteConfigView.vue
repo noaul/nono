@@ -9,7 +9,7 @@ import type { Site } from '@/api/types';
 import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
 import { getSearchEngineSettings, type SearchEngineSettings } from '@/utils/searchEngines';
-import { PUBLIC_THEMES, accentCssVars, type PublicTheme } from '@/utils/themes';
+import { PUBLIC_THEMES, accentCssVars, getTheme, type PublicTheme } from '@/utils/themes';
 
 const form = reactive({
   name: '',
@@ -46,6 +46,10 @@ function themePreviewStyle(preset: PublicTheme) {
     '--theme-card': preset.appearance.cardColor,
     '--theme-search': preset.appearance.searchColor,
     '--theme-tab': preset.appearance.tabColor,
+    '--theme-border': preset.surface.border,
+    '--theme-scene-image': `url(${JSON.stringify(preset.scene.asset)})`,
+    '--theme-scene-opacity': String(Math.min(0.34, preset.scene.opacity + 0.08)),
+    '--theme-scene-blend': preset.scene.blendMode,
   };
 }
 
@@ -61,7 +65,13 @@ onMounted(async () => {
     template: item.template || site.searchUrlTemplate,
   }));
   const savedTheme = (site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
-  if (savedTheme) Object.assign(theme, { id: savedTheme.id || '', accent: savedTheme.accent || '' });
+  if (savedTheme) {
+    const resolvedTheme = getTheme(savedTheme.id);
+    Object.assign(theme, {
+      id: resolvedTheme?.id || savedTheme.id || '',
+      accent: savedTheme.accent || resolvedTheme?.accent || '',
+    });
+  }
 });
 
 async function save() {
@@ -82,7 +92,7 @@ async function save() {
     };
     const payload = {
       ...form,
-      fontColor: appearance.bookmarkTextColor,
+      fontColor: form.fontColor,
       settings: {
         ...form.settings,
         appearance: syncedAppearance,
@@ -337,17 +347,35 @@ function setDefaultSearchEngine(id: string) {
 
 .theme-card {
   background: var(--theme-bg, #0b0d12);
-  border: 2px solid transparent;
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--theme-border, #fff) 42%, transparent);
+  border-radius: 8px;
   color: var(--theme-font, #f3f4f6);
   cursor: pointer;
   display: grid;
   font: inherit;
   gap: 8px;
+  isolation: isolate;
   justify-items: start;
+  min-height: 132px;
+  overflow: hidden;
   padding: 14px;
+  position: relative;
   text-align: left;
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-card::before {
+  background-image: var(--theme-scene-image, none);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  content: '';
+  inset: 0;
+  mix-blend-mode: var(--theme-scene-blend, normal);
+  opacity: var(--theme-scene-opacity, 0.2);
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
 }
 
 .theme-card:hover,
@@ -365,11 +393,13 @@ function setDefaultSearchEngine(id: string) {
 .theme-card strong {
   font-size: 14px;
   font-weight: 800;
+  text-shadow: 0 1px 8px color-mix(in srgb, var(--theme-bg, #000) 72%, transparent);
 }
 
 .theme-card small {
   font-size: 11px;
   opacity: 0.72;
+  text-shadow: 0 1px 8px color-mix(in srgb, var(--theme-bg, #000) 72%, transparent);
 }
 
 .theme-swatch {

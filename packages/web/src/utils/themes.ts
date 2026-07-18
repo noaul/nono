@@ -1,136 +1,333 @@
 import { appearanceDefaults, type AppearanceSettings } from '@/utils/appearance';
 
+export type ThemeTone = 'light' | 'dark';
+export type ThemeSceneKind = 'bubbles' | 'snow' | 'leaves' | 'stars' | 'sunbeams' | 'rain';
+export type ThemeSceneMode = 'texture' | 'particles';
+export type ThemeSceneMotion = 'float' | 'fall' | 'drift' | 'shimmer' | 'breathe' | 'rain';
+
+export type ThemeScene = {
+  kind: ThemeSceneKind;
+  label: string;
+  asset: string;
+  mode: ThemeSceneMode;
+  motion: ThemeSceneMotion;
+  opacity: number;
+  blendMode: 'normal' | 'multiply' | 'screen' | 'soft-light' | 'overlay';
+};
+
+export type ThemeSurface = {
+  border: string;
+  highlight: string;
+  hover: string;
+  shadow: string;
+  overlay: string;
+  accentInk: string;
+};
+
 export type PublicTheme = {
   id: string;
   name: string;
   description: string;
+  tone: ThemeTone;
   backgroundColor: string;
   fontColor: string;
   accent: string;
+  surface: ThemeSurface;
+  scene: ThemeScene;
   appearance: AppearanceSettings;
 };
 
 export const PUBLIC_THEMES: PublicTheme[] = [
   {
-    id: 'midnight-glass',
-    name: '暗夜玻璃',
-    description: '深色底 + 翡翠光晕的默认质感',
-    backgroundColor: '#090a0f',
-    fontColor: '#f3f4f6',
-    accent: '#10b981',
+    id: 'summer-breeze',
+    name: '夏日清爽',
+    description: '水光气泡与薄荷晴空',
+    tone: 'light',
+    backgroundColor: '#dff5f2',
+    fontColor: '#16343a',
+    accent: '#0f8f91',
+    surface: {
+      border: '#ffffff',
+      highlight: '#ffffff',
+      hover: '#ccefeb',
+      shadow: '#527d82',
+      overlay: '#153e46',
+      accentInk: '#f4fffe',
+    },
+    scene: {
+      kind: 'bubbles',
+      label: '水下气泡',
+      asset: '/theme-scenes/summer-bubbles.jpg',
+      mode: 'texture',
+      motion: 'float',
+      opacity: 0.18,
+      blendMode: 'soft-light',
+    },
     appearance: {
       ...appearanceDefaults,
-      cardColor: '#e7eef2',
-      searchColor: '#eef4f7',
-      bookmarkTextColor: '#ffffff',
-      notabTextColor: '#ffffff',
-      folderTextColor: '#ffffff',
-      categoryTextColor: '#ffffff',
-      tabColor: '#e7eef2',
+      cardColor: '#f4fffe',
+      cardRadius: 12,
+      cardOpacity: 58,
+      cardBlur: 18,
+      searchColor: '#f6fffd',
+      searchRadius: 28,
+      searchOpacity: 70,
+      searchBlur: 20,
+      bookmarkTextColor: '#17383d',
+      notabTextColor: '#16454b',
+      folderTextColor: '#0f3d42',
+      categoryTextColor: '#0f3d42',
+      tabColor: '#f6fffd',
+      tabOpacity: 70,
+      tabBlur: 20,
+      modalOpacity: 58,
+      modalBlur: 18,
     },
   },
   {
-    id: 'minimal-light',
-    name: '极简白',
-    description: '浅色清爽，低模糊高可读',
-    backgroundColor: '#eef1f4',
-    fontColor: '#1f2937',
-    accent: '#0f766e',
+    id: 'winter-glow',
+    name: '冬日暖暖',
+    description: '细雪与暖光',
+    tone: 'light',
+    backgroundColor: '#edf3f8',
+    fontColor: '#423832',
+    accent: '#d97745',
+    surface: {
+      border: '#ffffff',
+      highlight: '#fff8e9',
+      hover: '#f7e5d8',
+      shadow: '#66788c',
+      overlay: '#29394a',
+      accentInk: '#fffaf3',
+    },
+    scene: {
+      kind: 'snow',
+      label: '缓落细雪',
+      asset: '/theme-scenes/winter-snowflake.png',
+      mode: 'particles',
+      motion: 'fall',
+      opacity: 0.3,
+      blendMode: 'screen',
+    },
     appearance: {
       ...appearanceDefaults,
-      cardColor: '#ffffff',
-      cardOpacity: 76,
-      cardBlur: 6,
-      searchColor: '#ffffff',
-      searchOpacity: 82,
-      searchBlur: 8,
-      bookmarkTextColor: '#1f2937',
-      notabTextColor: '#1f2937',
-      folderTextColor: '#1f2937',
-      categoryTextColor: '#1f2937',
-      tabColor: '#ffffff',
-      tabOpacity: 82,
-      tabBlur: 6,
+      cardColor: '#fffaf3',
+      cardRadius: 12,
+      cardOpacity: 74,
+      cardBlur: 18,
+      searchColor: '#fffdf8',
+      searchRadius: 28,
+      searchOpacity: 80,
+      searchBlur: 18,
+      bookmarkTextColor: '#3f352f',
+      notabTextColor: '#4a3f38',
+      folderTextColor: '#493a32',
+      categoryTextColor: '#493a32',
+      tabColor: '#fffdf8',
+      tabOpacity: 80,
+      tabBlur: 18,
+      modalOpacity: 74,
+      modalBlur: 18,
     },
   },
   {
-    id: 'neon-violet',
-    name: '霓虹紫蓝',
-    description: '深紫夜色 + 霓虹高亮',
-    backgroundColor: '#0b0716',
-    fontColor: '#ede9fe',
-    accent: '#8b5cf6',
+    id: 'verdant-leaves',
+    name: '绿叶芬芳',
+    description: '真实叶影与雨后青绿',
+    tone: 'light',
+    backgroundColor: '#dfeadf',
+    fontColor: '#173b2a',
+    accent: '#2f855a',
+    surface: {
+      border: '#f8fff9',
+      highlight: '#ffffff',
+      hover: '#d5ead9',
+      shadow: '#405f4b',
+      overlay: '#142f22',
+      accentInk: '#f7fff9',
+    },
+    scene: {
+      kind: 'leaves',
+      label: '真实叶影',
+      asset: '/theme-scenes/verdant-leaves.jpg',
+      mode: 'texture',
+      motion: 'float',
+      opacity: 0.2,
+      blendMode: 'soft-light',
+    },
     appearance: {
       ...appearanceDefaults,
-      cardColor: '#c4b5fd',
-      cardOpacity: 24,
+      cardColor: '#f4faf4',
+      cardRadius: 12,
+      cardOpacity: 64,
       cardBlur: 20,
-      searchColor: '#ddd6fe',
-      searchOpacity: 34,
+      searchColor: '#f7fcf7',
+      searchRadius: 28,
+      searchOpacity: 72,
+      searchBlur: 22,
+      bookmarkTextColor: '#1f4030',
+      notabTextColor: '#244e36',
+      folderTextColor: '#173b2a',
+      categoryTextColor: '#173b2a',
+      tabColor: '#f7fcf7',
+      tabOpacity: 72,
+      tabBlur: 22,
+      modalOpacity: 64,
+      modalBlur: 20,
+    },
+  },
+  {
+    id: 'starlit-night',
+    name: '星光闪耀',
+    description: '深夜星河与暖金微光',
+    tone: 'dark',
+    backgroundColor: '#101622',
+    fontColor: '#f3f4ef',
+    accent: '#f0b86e',
+    surface: {
+      border: '#d8c8ff',
+      highlight: '#ffffff',
+      hover: '#6d5f87',
+      shadow: '#04070d',
+      overlay: '#050713',
+      accentInk: '#24180d',
+    },
+    scene: {
+      kind: 'stars',
+      label: '呼吸星河',
+      asset: '/theme-scenes/starlit-sky.jpg',
+      mode: 'texture',
+      motion: 'shimmer',
+      opacity: 0.4,
+      blendMode: 'screen',
+    },
+    appearance: {
+      ...appearanceDefaults,
+      cardColor: '#d6d1ea',
+      cardRadius: 12,
+      cardOpacity: 20,
+      cardBlur: 22,
+      searchColor: '#d9e6ef',
+      searchRadius: 28,
+      searchOpacity: 24,
       searchBlur: 24,
-      bookmarkTextColor: '#f5f3ff',
-      notabTextColor: '#f5f3ff',
-      folderTextColor: '#f5f3ff',
-      categoryTextColor: '#f5f3ff',
-      tabColor: '#c4b5fd',
-      tabOpacity: 28,
-      tabBlur: 16,
+      bookmarkTextColor: '#f6f4ee',
+      notabTextColor: '#f8dcae',
+      folderTextColor: '#d8e8f2',
+      categoryTextColor: '#d8e8f2',
+      tabColor: '#d9e6ef',
+      tabOpacity: 24,
+      tabBlur: 24,
+      modalOpacity: 20,
+      modalBlur: 22,
     },
   },
   {
-    id: 'warm-paper',
-    name: '暖纸米色',
-    description: '纸质暖色调，柔和低刺激',
-    backgroundColor: '#f3ecdd',
-    fontColor: '#3f2f1e',
-    accent: '#b45309',
+    id: 'clear-day',
+    name: '万物明朗',
+    description: '林间光束与通透明色',
+    tone: 'light',
+    backgroundColor: '#e7f3f5',
+    fontColor: '#203238',
+    accent: '#d9862f',
+    surface: {
+      border: '#ffffff',
+      highlight: '#fffbe6',
+      hover: '#e5efd7',
+      shadow: '#687f78',
+      overlay: '#273b39',
+      accentInk: '#fffdf5',
+    },
+    scene: {
+      kind: 'sunbeams',
+      label: '丁达尔光束',
+      asset: '/theme-scenes/clear-sunbeams.jpg',
+      mode: 'texture',
+      motion: 'breathe',
+      opacity: 0.2,
+      blendMode: 'soft-light',
+    },
     appearance: {
       ...appearanceDefaults,
-      cardColor: '#fff7ed',
+      cardColor: '#fbfff7',
+      cardRadius: 12,
       cardOpacity: 72,
-      cardBlur: 8,
-      searchColor: '#fffbeb',
-      searchOpacity: 78,
-      searchBlur: 10,
-      bookmarkTextColor: '#3f2f1e',
-      notabTextColor: '#3f2f1e',
-      folderTextColor: '#3f2f1e',
-      categoryTextColor: '#3f2f1e',
-      tabColor: '#fff7ed',
-      tabOpacity: 76,
-      tabBlur: 6,
+      cardBlur: 16,
+      searchColor: '#fffef6',
+      searchRadius: 28,
+      searchOpacity: 80,
+      searchBlur: 18,
+      bookmarkTextColor: '#26383c',
+      notabTextColor: '#2e4c50',
+      folderTextColor: '#23433f',
+      categoryTextColor: '#23433f',
+      tabColor: '#fffef6',
+      tabOpacity: 80,
+      tabBlur: 18,
+      modalOpacity: 72,
+      modalBlur: 16,
     },
   },
   {
-    id: 'high-contrast',
-    name: '高对比',
-    description: '纯黑底 + 高亮强调，无障碍友好',
-    backgroundColor: '#000000',
-    fontColor: '#ffffff',
-    accent: '#ffd60a',
+    id: 'rainy-world',
+    name: '雨落万物',
+    description: '玻璃雨痕与湿润雾青',
+    tone: 'light',
+    backgroundColor: '#c7d4d2',
+    fontColor: '#172d31',
+    accent: '#367c87',
+    surface: {
+      border: '#f4fffd',
+      highlight: '#ffffff',
+      hover: '#d4e6e4',
+      shadow: '#394e52',
+      overlay: '#17282c',
+      accentInk: '#f4ffff',
+    },
+    scene: {
+      kind: 'rain',
+      label: '缓落雨痕',
+      asset: '/theme-scenes/rain-window.jpg',
+      mode: 'texture',
+      motion: 'rain',
+      opacity: 0.24,
+      blendMode: 'soft-light',
+    },
     appearance: {
       ...appearanceDefaults,
-      cardColor: '#000000',
-      cardOpacity: 88,
-      cardBlur: 0,
-      searchColor: '#000000',
-      searchOpacity: 90,
-      searchBlur: 0,
-      bookmarkTextColor: '#ffffff',
-      notabTextColor: '#ffffff',
-      folderTextColor: '#ffffff',
-      categoryTextColor: '#ffffff',
-      tabColor: '#000000',
-      modalOpacity: 96,
-      modalBlur: 0,
-      tabOpacity: 90,
-      tabBlur: 0,
+      cardColor: '#e8f1ef',
+      cardRadius: 12,
+      cardOpacity: 52,
+      cardBlur: 22,
+      searchColor: '#eef5f4',
+      searchRadius: 28,
+      searchOpacity: 60,
+      searchBlur: 24,
+      bookmarkTextColor: '#1f3438',
+      notabTextColor: '#234c52',
+      folderTextColor: '#173b40',
+      categoryTextColor: '#173b40',
+      tabColor: '#eef5f4',
+      tabOpacity: 60,
+      tabBlur: 24,
+      modalOpacity: 52,
+      modalBlur: 22,
     },
   },
 ];
 
+const LEGACY_THEME_ALIASES: Record<string, string> = {
+  'midnight-glass': 'starlit-night',
+  'minimal-light': 'clear-day',
+  'neon-violet': 'starlit-night',
+  'warm-paper': 'winter-glow',
+  'high-contrast': 'starlit-night',
+};
+
 export function getTheme(id: string | undefined | null) {
-  return PUBLIC_THEMES.find((theme) => theme.id === id);
+  if (!id) return undefined;
+  const resolvedId = LEGACY_THEME_ALIASES[id] || id;
+  return PUBLIC_THEMES.find((theme) => theme.id === resolvedId);
 }
 
 function hexToRgb(hex: string): [number, number, number] | null {
@@ -140,12 +337,40 @@ function hexToRgb(hex: string): [number, number, number] | null {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
+function rgbString(color: string) {
+  return hexToRgb(color)?.join(', ') || '';
+}
+
 function lighten([r, g, b]: [number, number, number], amount: number): [number, number, number] {
   return [Math.round(r + (255 - r) * amount), Math.round(g + (255 - g) * amount), Math.round(b + (255 - b) * amount)];
 }
 
 function toHex([r, g, b]: [number, number, number]) {
   return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function pageTextCssVars(color: string | undefined | null): Record<string, string> {
+  if (!color) return {};
+  const rgb = rgbString(color);
+  if (!rgb) return {};
+  return {
+    '--public-page-text': color,
+    '--public-page-text-rgb': rgb,
+  };
+}
+
+export function themeCssVars(theme: PublicTheme): Record<string, string> {
+  return {
+    ...accentCssVars(theme.accent),
+    ...pageTextCssVars(theme.fontColor),
+    '--public-border-rgb': rgbString(theme.surface.border),
+    '--public-highlight-rgb': rgbString(theme.surface.highlight),
+    '--public-hover-rgb': rgbString(theme.surface.hover),
+    '--public-shadow-rgb': rgbString(theme.surface.shadow),
+    '--public-overlay-rgb': rgbString(theme.surface.overlay),
+    '--public-accent-ink': theme.surface.accentInk,
+    '--public-scene-opacity': String(theme.scene.opacity),
+  };
 }
 
 /** Derives the full accent CSS-variable family from a single accent hex. */

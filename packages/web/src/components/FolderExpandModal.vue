@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
   align-items: center;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(8, 16, 18, 0.42);
+  background: rgba(var(--public-overlay-rgb, 8, 16, 18), 0.42);
   display: grid;
   inset: 0;
   padding: 40px 36px;
@@ -124,11 +124,11 @@ onBeforeUnmount(() => {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
   backdrop-filter: blur(var(--public-card-blur, 18px));
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px));
-  border: 1px solid rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.52);
   border-radius: var(--public-card-radius, 8px);
   box-shadow:
-    0 32px 80px rgba(5, 15, 18, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+    0 32px 80px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.28),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.62);
   color: var(--public-bookmark-text, #ffffff);
   display: grid;
   grid-template-rows: auto 1fr;
@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(51, 65, 61, 0.14);
+  border-bottom: 1px solid rgba(var(--public-border-rgb, 51, 65, 61), 0.22);
   padding-bottom: 16px;
 }
 
@@ -159,7 +159,7 @@ onBeforeUnmount(() => {
 .expand-folder-icon {
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.9);
   font-size: 22px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  filter: drop-shadow(0 2px 4px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.15));
 }
 
 .folder-expand-head h2 {
@@ -172,10 +172,10 @@ onBeforeUnmount(() => {
 
 .folder-expand-close {
   align-items: center;
-  background: rgba(255, 255, 255, 0.54);
-  border: 1px solid rgba(51, 65, 61, 0.18);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.34);
+  border: 1px solid rgba(var(--public-border-rgb, 51, 65, 61), 0.3);
   border-radius: 8px;
-  color: #52615c;
+  color: rgba(var(--public-bookmark-text-rgb, 82, 97, 92), 0.76);
   cursor: pointer;
   display: inline-flex;
   height: 36px;
@@ -192,7 +192,7 @@ onBeforeUnmount(() => {
 
 .folder-expand-close:hover,
 .folder-expand-close:focus-visible {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.54);
   border-color: rgba(var(--accent-rgb), 0.34);
   color: var(--accent);
   transform: translateY(-1px) scale(1.03);
@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   overflow-y: auto;
   padding-right: 6px;
-  scrollbar-color: rgba(51, 65, 61, 0.22) transparent;
+  scrollbar-color: rgba(var(--public-border-rgb, 51, 65, 61), 0.3) transparent;
   scrollbar-width: thin;
 }
 
@@ -219,14 +219,14 @@ onBeforeUnmount(() => {
 }
 
 .expanded-link-grid::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 61, 0.22);
+  background: rgba(var(--public-border-rgb, 51, 65, 61), 0.3);
   border-radius: 99px;
 }
 
 .expanded-link {
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.14);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.22);
   border-radius: 8px;
   color: var(--public-bookmark-text, #ffffff);
   display: grid;
@@ -244,12 +244,12 @@ onBeforeUnmount(() => {
 
 .expanded-link:hover,
 .expanded-link:focus-visible {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.34);
   border-color: rgba(var(--accent-rgb), 0.25);
   color: var(--accent);
   outline: none;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(5, 15, 18, 0.1);
+  box-shadow: 0 8px 24px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.12);
 }
 
 .expanded-link:active {
@@ -264,8 +264,8 @@ onBeforeUnmount(() => {
 
 .expanded-link-icon {
   align-items: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.16);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.22);
   border-radius: 8px;
   display: inline-flex;
   height: 44px;

@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
   align-items: center;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(8, 10, 14, 0.7);
+  background: rgba(var(--public-overlay-rgb, 8, 10, 14), 0.62);
   display: grid;
   inset: 0;
   padding: 24px;
@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
   backdrop-filter: blur(var(--public-card-blur, 18px));
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px));
-  border: 1px solid rgba(51, 65, 61, 0.2);
+  border: 1px solid rgba(var(--public-border-rgb, 51, 65, 61), 0.38);
   border-radius: var(--public-card-radius, 8px);
   color: var(--public-bookmark-text, #ffffff);
   display: grid;
@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
   max-width: 380px;
   padding: 28px;
   width: 100%;
-  box-shadow: 0 24px 60px rgba(5, 15, 18, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: 0 24px 60px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.28), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.58);
   animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -135,8 +135,8 @@ onBeforeUnmount(() => {
 }
 
 .modal-icon-lock {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.18);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.24);
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.9);
   width: 44px;
   height: 44px;
@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
   font-size: calc(var(--public-bookmark-text-size, 14px) - 1px);
   margin: 0;
   line-height: 1.4;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.18);
   padding: 8px 12px;
   border-radius: 6px;
   border-left: 3px solid rgba(var(--accent-rgb), 0.42);
@@ -169,19 +169,19 @@ onBeforeUnmount(() => {
 }
 
 .modal .field input {
-  background: rgba(255, 255, 255, 0.62);
-  border-color: rgba(51, 65, 61, 0.22);
-  color: #17211d;
+  background: rgba(var(--public-highlight-rgb, 255, 255, 255), 0.34);
+  border-color: rgba(var(--public-border-rgb, 51, 65, 61), 0.34);
+  color: var(--public-bookmark-text, #17211d);
 }
 
 .modal .field input::placeholder {
-  color: rgba(82, 97, 92, 0.48);
+  color: rgba(var(--public-bookmark-text-rgb, 82, 97, 92), 0.48);
 }
 
 .modal .button.secondary {
-  background: rgba(255, 255, 255, 0.52);
-  border-color: rgba(51, 65, 61, 0.18);
-  color: #26332f;
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.28);
+  border-color: rgba(var(--public-border-rgb, 51, 65, 61), 0.3);
+  color: var(--public-bookmark-text, #26332f);
 }
 
 .modal-actions {

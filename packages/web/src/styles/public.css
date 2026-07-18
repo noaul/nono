@@ -1,10 +1,10 @@
 .public-empty-state {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   border-radius: var(--nono-radius-md);
-  color: rgba(243, 244, 246, 0.8);
+  color: rgba(var(--public-page-text-rgb, 243, 244, 246), 0.82);
   font-size: 14px;
   font-weight: 600;
   justify-self: center;

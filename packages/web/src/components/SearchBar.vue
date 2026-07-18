@@ -102,7 +102,7 @@ defineExpose({
   backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.36);
   border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 10px;
@@ -115,9 +115,9 @@ defineExpose({
   width: 100%;
   z-index: 40;
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    0 14px 40px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.14),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.46),
+    inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.1);
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -129,9 +129,9 @@ defineExpose({
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.08));
   border-color: rgba(var(--accent-soft-rgb), 0.46);
   box-shadow:
-    0 16px 44px rgba(0, 0, 0, 0.16),
+    0 16px 44px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.18),
     0 0 0 3px rgba(var(--accent-bright-rgb), 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.54);
 }
 
 .engine-picker {
@@ -141,8 +141,8 @@ defineExpose({
 
 .engine-trigger {
   align-items: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.12);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.2);
   border-radius: 999px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.88);
   cursor: pointer;
@@ -157,8 +157,8 @@ defineExpose({
 
 .engine-trigger:hover,
 .engine-trigger:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.28);
+  border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.42);
   outline: none;
 }
 
@@ -166,7 +166,7 @@ defineExpose({
   align-items: center;
   background: rgba(var(--accent-rgb), 0.16);
   border-radius: 999px;
-  color: var(--accent-soft);
+  color: var(--accent);
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
@@ -183,12 +183,12 @@ defineExpose({
   backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.34);
   border-radius: var(--public-card-radius, 8px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-    0 14px 34px rgba(0, 0, 0, 0.12);
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.42),
+    inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.1),
+    0 14px 34px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.16);
   display: grid;
   gap: 2px;
   left: 0;
@@ -220,12 +220,12 @@ defineExpose({
 
 .engine-option:hover,
 .engine-option:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.24);
   outline: none;
 }
 
 .engine-option[aria-selected='true'] {
-  color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .engine-name {
@@ -248,7 +248,7 @@ defineExpose({
 }
 
 .search-kbd {
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   border-radius: 6px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.58);
   flex: 0 0 auto;
@@ -267,7 +267,7 @@ defineExpose({
   align-self: stretch;
   background: rgba(var(--accent-bright-rgb), 0.92);
   border: 0;
-  color: #052016;
+  color: var(--public-accent-ink, #052016);
   display: grid;
   font-weight: 800;
   width: 40px;

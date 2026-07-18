@@ -271,7 +271,7 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('GitHub B');
   });
 
-  it('checks selected link health and displays broken results', async () => {
+  it('checks selected link health and writes the result into the status column', async () => {
     apiRequest
       .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
       .mockResolvedValueOnce([
@@ -290,9 +290,9 @@ describe('LinksView admin workflow', () => {
     await settle(wrapper);
 
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/health-check', expect.objectContaining({ method: 'POST' }));
-    expect(wrapper.text()).toContain('健康检查');
-    expect(wrapper.text()).toContain('Broken');
-    expect(wrapper.text()).toContain('404');
+    expect(wrapper.get('[data-testid="link-health-11"]').text()).toContain('异常');
+    expect(wrapper.get('[data-testid="link-health-11"]').attributes('title')).toContain('404');
+    expect(wrapper.find('.health-check-panel').exists()).toBe(false);
   });
 
   it('restores persisted link health after the page reloads', async () => {
@@ -313,11 +313,10 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.text()).toContain('健康检查');
-    expect(wrapper.text()).toContain('异常 1');
-    expect(wrapper.text()).toContain('503');
     expect(wrapper.get('[data-testid="link-health-10"]').text()).toContain('异常');
+    expect(wrapper.get('[data-testid="link-health-10"]').attributes('title')).toContain('503');
     expect(wrapper.get('[data-testid="link-health-10"]').attributes('title')).toContain('Service unavailable');
+    expect(wrapper.find('.health-check-panel').exists()).toBe(false);
   });
 
   it('shows an explicit unchecked state in the health column', async () => {
@@ -335,48 +334,6 @@ describe('LinksView admin workflow', () => {
     await settle(wrapper);
 
     expect(wrapper.get('[data-testid="link-health-10"]').text()).toBe('未检测');
-  });
-
-  it('batch repairs persisted redirect targets and updates the table', async () => {
-    apiRequest
-      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
-      .mockResolvedValueOnce([{
-        id: 10,
-        folderId: 1,
-        name: 'Moved',
-        url: 'http://old.example/docs',
-        sortOrder: 100,
-        healthStatus: 'redirected',
-        healthStatusCode: 200,
-        healthFinalUrl: 'https://new.example/docs',
-        healthCheckedAt: '2026-07-18T08:00:00.000Z',
-      }])
-      .mockResolvedValueOnce({
-        repaired: 1,
-        skipped: 0,
-        links: [{
-          id: 10,
-          folderId: 1,
-          name: 'Moved',
-          url: 'https://new.example/docs',
-          sortOrder: 100,
-          healthStatus: 'ok',
-          healthStatusCode: 200,
-          healthFinalUrl: null,
-          healthCheckedAt: '2026-07-18T08:00:00.000Z',
-        }],
-      });
-
-    const wrapper = mountLinksView();
-    await settle(wrapper);
-    await wrapper.get('[data-testid="repair-link-redirects"]').trigger('click');
-    await settle(wrapper);
-
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/health-repair', {
-      method: 'POST',
-      body: JSON.stringify({ ids: [10] }),
-    });
-    expect(wrapper.get('[data-testid="link-row-10"]').text()).toContain('https://new.example/docs');
   });
 
   it('uses drag handles and saves bookmark ordering only once', async () => {

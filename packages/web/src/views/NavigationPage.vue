@@ -7,6 +7,7 @@ import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
 import SearchBar from '@/components/SearchBar.vue';
+import ThemeScene from '@/components/ThemeScene.vue';
 import { buildSearchUrl } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useNavigationStore } from '@/stores/navigation';
@@ -14,7 +15,7 @@ import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
 import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
-import { getThemeAccentVars } from '@/utils/themes';
+import { getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
 
 const route = useRoute();
 const navigation = useNavigationStore();
@@ -75,26 +76,32 @@ const matchedLinkIds = computed(() => {
 const localMatchCount = computed(() => {
   return matchedLinkIds.value?.size ?? allLinks.value.length;
 });
+const activeTheme = computed(() => {
+  const settings = payload.value?.site.settings as { theme?: { id?: string } } | null | undefined;
+  return getTheme(settings?.theme?.id);
+});
 const backgroundStyle = computed(() => {
   const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
+  const publicThemeVars = activeTheme.value ? themeCssVars(activeTheme.value) : {};
   const accentVars = getThemeAccentVars(payload.value?.site.settings);
   if (!payload.value?.site) {
     return {
       ...appearanceVars,
+      ...pageTextCssVars('#f3f4f6'),
       '--nav-bg-color': '#090a0f',
       '--nav-bg-image': 'none',
-      '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
       color: '#f3f4f6',
     };
   }
 
   return {
     ...appearanceVars,
+    ...publicThemeVars,
     ...accentVars,
+    ...pageTextCssVars(payload.value.site.fontColor || activeTheme.value?.fontColor || '#f3f4f6'),
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
-    '--public-glass-bg': 'rgba(255, 255, 255, 0.16)',
     '--nav-bg-image': visibleBackgroundImage.value
-      ? `linear-gradient(rgba(10, 11, 16, 0.06), rgba(10, 11, 16, 0.26)), url(${JSON.stringify(visibleBackgroundImage.value)})`
+      ? `linear-gradient(rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04), rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)), url(${JSON.stringify(visibleBackgroundImage.value)})`
       : 'none',
     color: payload.value.site.fontColor || '#f3f4f6',
   };
@@ -368,7 +375,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="nav-page public-glass-page" :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }" :style="backgroundStyle">
+  <main
+    class="nav-page public-glass-page"
+    :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }"
+    :style="backgroundStyle"
+    :data-theme-tone="activeTheme?.tone"
+  >
+    <ThemeScene :theme="activeTheme" />
     <a class="portal-corner-link" data-testid="portal-corner-link" href="/admin" aria-label="后台管理">
       <span>后台管理</span>
       <ArrowUpRight :size="17" />
@@ -478,7 +491,6 @@ onUnmounted(() => {
 }
 
 .public-glass-page {
-  --public-glass-bg: rgba(255, 255, 255, 0.16);
   --public-card-color-rgb: 247, 248, 251;
   --public-card-opacity: 0.26;
   --public-search-color-rgb: 247, 248, 251;
@@ -493,9 +505,17 @@ onUnmounted(() => {
   --public-folder-text-rgb: 255, 255, 255;
   --public-folder-text-size: 18px;
   --public-category-text: #ffffff;
+  --public-page-text: #f3f4f6;
+  --public-page-text-rgb: 243, 244, 246;
+  --public-border-rgb: 255, 255, 255;
+  --public-highlight-rgb: 255, 255, 255;
+  --public-hover-rgb: 255, 255, 255;
+  --public-shadow-rgb: 0, 0, 0;
+  --public-overlay-rgb: 8, 12, 18;
+  --public-accent-ink: #052e2b;
   background:
-    radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.2), transparent 28%),
-    linear-gradient(135deg, rgba(8, 12, 18, 0.18), rgba(8, 12, 18, 0.04) 42%, rgba(15, 118, 110, 0.12)),
+    radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.14), transparent 28%),
+    linear-gradient(135deg, rgba(var(--public-highlight-rgb), 0.08), transparent 42%, rgba(var(--accent-rgb), 0.08)),
     var(--nav-bg-color, #090a0f);
 }
 
@@ -518,13 +538,9 @@ onUnmounted(() => {
 }
 
 .public-glass-page::after {
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background: linear-gradient(180deg, rgba(var(--public-highlight-rgb), 0.05), transparent 34%, rgba(var(--public-overlay-rgb), 0.05));
   content: '';
   inset: 0;
-  opacity: 0.18;
   pointer-events: none;
   position: fixed;
   z-index: 0;
@@ -538,18 +554,18 @@ onUnmounted(() => {
   min-width: 0;
   padding: 0 32px;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .portal-corner-link {
   align-items: center;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  background: rgba(12, 18, 24, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: 1px solid rgba(var(--public-border-rgb), 0.3);
   border-radius: 8px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 34px rgba(var(--public-shadow-rgb), 0.18), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.24);
+  color: rgba(var(--public-page-text-rgb), 0.92);
   display: inline-flex;
   font-size: 13px;
   font-weight: 750;
@@ -579,7 +595,7 @@ onUnmounted(() => {
 .portal-corner-link:focus-visible {
   background: rgba(var(--accent-rgb), 0.28);
   border-color: rgba(var(--accent-soft-rgb), 0.56);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  box-shadow: 0 16px 40px rgba(var(--public-shadow-rgb), 0.22), 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
   transform: translateY(-2px);
 }
@@ -618,16 +634,16 @@ onUnmounted(() => {
 
 .header-vibe-link:hover,
 .header-vibe-link:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background: rgba(var(--public-hover-rgb), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--public-border-rgb), 0.2);
   transform: translateY(-2px);
 }
 
 .portal-center-image {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.46);
+  background: rgba(var(--public-highlight-rgb), 0.28);
+  border: 1px solid rgba(var(--public-border-rgb), 0.48);
   border-radius: 50%;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 16px 38px rgba(var(--public-shadow-rgb), 0.22), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.34);
   display: inline-flex;
   height: 86px;
   margin-bottom: 12px;
@@ -645,10 +661,10 @@ onUnmounted(() => {
 
 .portal-center-arrow {
   background: var(--accent);
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 2px solid rgba(var(--public-border-rgb), 0.92);
   border-radius: 50%;
   bottom: 0;
-  color: #052e2b;
+  color: var(--public-accent-ink, #052e2b);
   padding: 4px;
   position: absolute;
   right: -2px;
@@ -660,12 +676,12 @@ h1 {
   margin: 0;
   font-weight: 900;
   letter-spacing: 0;
-  color: #ffffff;
+  color: var(--public-page-text, #f3f4f6);
 }
 
 /* Text shadows only earn their keep over a background image; on flat color they just blur. */
 .nav-bg-visible h1 {
-  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 4px 16px rgba(var(--public-shadow-rgb), 0.4);
 }
 
 @media (max-width: 768px) {
@@ -675,7 +691,7 @@ h1 {
 }
 
 .nav-header p {
-  color: rgba(243, 244, 246, 0.8);
+  color: rgba(var(--public-page-text-rgb), 0.8);
   font-size: 15px;
   margin: 12px 0 0;
   max-width: 600px;
@@ -683,11 +699,11 @@ h1 {
 }
 
 .nav-bg-visible .nav-header p {
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 8px rgba(var(--public-shadow-rgb), 0.3);
 }
 
 .search-result-summary {
-  color: rgba(243, 244, 246, 0.72);
+  color: rgba(var(--public-page-text-rgb), 0.72);
   font-size: 13px;
   font-weight: 700;
   justify-self: center;
@@ -707,7 +723,7 @@ h1 {
 
 .public-loading-bar {
   animation: public-loading-pulse 1.2s ease-in-out infinite alternate;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-highlight-rgb), 0.2);
   border-radius: 6px;
   display: block;
   height: 12px;
@@ -752,7 +768,7 @@ h1 {
   backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(var(--public-border-rgb), 0.3);
   border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 4px;
@@ -763,7 +779,7 @@ h1 {
   overflow-x: auto;
   padding: 5px;
   width: min(100%, 1200px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.16);
+  box-shadow: 0 8px 30px rgba(var(--public-shadow-rgb), 0.14), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.26);
   position: sticky;
   top: 12px;
   z-index: 10;
@@ -812,7 +828,7 @@ h1 {
 }
 
 .folder-tabs button:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-hover-rgb), 0.28);
   color: var(--public-notab-text, #ffffff);
   transform: translateY(-1px);
 }
@@ -824,7 +840,7 @@ h1 {
 
 .tab-service-separator {
   align-self: center;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(var(--public-border-rgb), 0.42);
   flex: 0 0 1px;
   height: 20px;
   margin: 0 5px;
@@ -853,7 +869,7 @@ h1 {
 
 .tab-service-link:hover,
 .tab-service-link:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--public-hover-rgb), 0.28);
   color: var(--public-notab-text, #ffffff);
   outline: none;
   transform: translateY(-1px);
@@ -865,7 +881,7 @@ h1 {
 
 .folder-tabs button.active {
   color: var(--public-notab-text, #ffffff);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.16);
+  text-shadow: 0 1px 8px rgba(var(--public-shadow-rgb), 0.16);
 }
 
 .public-empty-state {
@@ -934,10 +950,10 @@ mark {
 .folder-load-more {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  background: rgba(12, 18, 24, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: 1px solid rgba(var(--public-border-rgb), 0.28);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(var(--public-page-text-rgb), 0.88);
   cursor: pointer;
   font: inherit;
   font-size: 13px;

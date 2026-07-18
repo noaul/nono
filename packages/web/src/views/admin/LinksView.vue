@@ -5,7 +5,6 @@ import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
-import LinkHealthPanel from '@/components/admin/LinkHealthPanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -35,7 +34,6 @@ const duplicateGroups = ref<DuplicateLinkGroup[]>([]);
 const isBulkWorking = ref(false);
 const isLoadingDuplicates = ref(false);
 const isCheckingHealth = ref(false);
-const isRepairingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
 
@@ -71,26 +69,6 @@ const selectedCategoryFolders = computed(() => {
 });
 const activeFolder = computed(() => selectedCategoryFolders.value.find((folder) => folder.id === selectedFolderId.value));
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
-const healthResults = computed<LinkHealthResult[]>(() => activeFolderLinks.value.flatMap((link) => {
-  if (!link.healthStatus || !link.healthCheckedAt) return [];
-  return [{
-    id: link.id,
-    name: link.name,
-    url: link.url,
-    status: link.healthStatus,
-    ...(link.healthStatusCode !== null && link.healthStatusCode !== undefined ? { statusCode: link.healthStatusCode } : {}),
-    ...(link.healthReason ? { reason: link.healthReason } : {}),
-    ...(link.healthFinalUrl ? { finalUrl: link.healthFinalUrl } : {}),
-    checkedAt: link.healthCheckedAt,
-  }];
-}));
-const healthSummary = computed<LinkHealthSummary | null>(() => {
-  if (!healthResults.value.length) return null;
-  return healthResults.value.reduce<LinkHealthSummary>((summary, result) => {
-    summary[result.status] += 1;
-    return summary;
-  }, { total: healthResults.value.length, ok: 0, redirected: 0, broken: 0, timeout: 0, invalid: 0 });
-});
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
 const allFilteredSelected = computed(() => filteredLinks.value.length > 0 && filteredLinks.value.every((link) => selectedLinkIds.value.has(link.id)));
@@ -367,31 +345,6 @@ async function checkLinkHealth() {
   }
 }
 
-async function repairLinkRedirects(ids: number[]) {
-  if (!ids.length || isRepairingHealth.value) return;
-  const confirmed = await confirmApi.confirm({
-    title: '修复重定向链接',
-    message: `将 ${ids.length} 个书签更新为检测到的最终地址。`,
-    confirmText: '修复',
-  });
-  if (!confirmed) return;
-
-  isRepairingHealth.value = true;
-  try {
-    const result = await apiRequest<{ repaired: number; skipped: number; links: Link[] }>('/api/admin/links/health-repair', {
-      method: 'POST',
-      body: jsonBody({ ids }),
-    });
-    const updated = new Map(result.links.map((link) => [link.id, link]));
-    links.value = links.value.map((link) => updated.get(link.id) || link);
-    notifySuccess(`已修复 ${result.repaired} 个重定向链接`);
-  } catch (event) {
-    notifyError(event instanceof Error ? event.message : '重定向修复失败');
-  } finally {
-    isRepairingHealth.value = false;
-  }
-}
-
 function mergeHealthResults(results: LinkHealthResult[]) {
   const byId = new Map(results.map((result) => [result.id, result]));
   links.value = links.value.map((link) => {
@@ -529,12 +482,6 @@ onMounted(load);
           </div>
         </div>
         <LinkDuplicatePanel :groups="duplicateGroups" :folder-name="folderName" />
-        <LinkHealthPanel
-          :summary="healthSummary"
-          :results="healthResults"
-          :is-repairing="isRepairingHealth"
-          @repair="repairLinkRedirects"
-        />
         <div class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
           <div class="admin-table-head">
             <span>选择</span>

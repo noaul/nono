@@ -154,16 +154,24 @@ describe('SiteConfigView appearance controls', () => {
 
     const wrapper = mountView();
     await settle(wrapper);
-    const themeCard = wrapper.get('[data-testid="theme-warm-paper"]');
-    expect(themeCard.attributes('style')).toContain('--theme-card: #fff7ed');
-    expect(themeCard.attributes('style')).toContain('--theme-search: #fffbeb');
+    const themeCard = wrapper.get('[data-testid="theme-winter-glow"]');
+    expect(themeCard.attributes('style')).toContain('--theme-card: #fffaf3');
+    expect(themeCard.attributes('style')).toContain('--theme-search: #fffdf8');
+    expect(themeCard.text()).toContain('细雪与暖光');
     await themeCard.trigger('click');
 
-    expect((wrapper.get('[data-testid="card-color"]').element as HTMLInputElement).value).toBe('#fff7ed');
-    expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffbeb');
-    expect((wrapper.get('[data-testid="bookmark-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
-    expect((wrapper.get('[data-testid="notab-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
-    expect((wrapper.get('[data-testid="folder-text-color"]').element as HTMLInputElement).value).toBe('#3f2f1e');
+    expect((wrapper.get('[data-testid="card-color"]').element as HTMLInputElement).value).toBe('#fffaf3');
+    expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffdf8');
+    expect((wrapper.get('[data-testid="bookmark-text-color"]').element as HTMLInputElement).value).toBe('#3f352f');
+    expect((wrapper.get('[data-testid="notab-text-color"]').element as HTMLInputElement).value).toBe('#4a3f38');
+    expect((wrapper.get('[data-testid="folder-text-color"]').element as HTMLInputElement).value).toBe('#493a32');
+
+    apiRequest.mockResolvedValueOnce({ id: 1, userId: 1, name: 'Nono', settings: {} });
+    await wrapper.get('form').trigger('submit');
+    await settle(wrapper);
+    const payload = JSON.parse(apiRequest.mock.calls[1][1].body);
+    expect(payload.fontColor).toBe('#423832');
+    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#d97745' });
   });
 
   it('adds custom search engines, toggles them, and persists the default engine', async () => {
