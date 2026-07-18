@@ -25,7 +25,9 @@ import { nostarRoutes } from './routes/nostar.js';
 import { passkeyRoutes } from './routes/passkeys.js';
 import { backupRoutes } from './routes/admin/backups.js';
 import { notificationRoutes } from './routes/admin/notifications.js';
+import { auditRoutes } from './routes/admin/audit.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
+import { registerAuditHooks } from './plugins/audit.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
@@ -36,6 +38,7 @@ import { registerBackupAutomationScheduler } from './services/backup-automation.
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
 import { createNoMoneyDueReader, createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
+import { createAuditLogService } from './services/audit.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -47,6 +50,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
   const backupService = overrides.backupService || createBackupServiceFromEnv(nodeskContentDir);
   const backupAutomationService = overrides.backupAutomationService || createBackupAutomationService({ repo, backupService });
+  const auditLogService = overrides.auditLogService || createAuditLogService(repo);
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
     prisma,
@@ -72,6 +76,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
     backupService,
     backupAutomationService,
+    auditLogService,
     notificationService,
   };
 
@@ -86,6 +91,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await app.register(cors, { origin: corsOriginPolicy(), credentials: true });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await responsePlugin(app);
+  registerAuditHooks(app, services);
 
   app.get('/healthz', async (_request, reply) => sendOk(reply, { ok: true }));
 
@@ -102,6 +108,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await accountRoutes(app, services);
   await backupRoutes(app, services);
   await notificationRoutes(app, services);
+  await auditRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);

@@ -12,7 +12,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 ## 功能
 
 - 多用户认证：可撤销设备 Cookie、Passkey 通行密钥、密码与 Bearer API Token
-- 管理后台：ChatGPT 网页版风格的总览、站点、Notab、文件夹、书签、自动化、通知、账户与系统设置
+- 管理后台：ChatGPT 网页版风格的总览、站点、Notab、文件夹、书签、自动化、通知、审计、账户与系统设置
 - Notab 管理：独立更名、拖动排序和带影响统计的删除确认
 - 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
 - 自适应后台：内容区随工作区流体铺满，浏览器缩放和宽屏下保持左右对齐
@@ -25,6 +25,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
 - 一体化 Docker：单个业务镜像内包含 Nono、Nodesk、NoMoney 与 NoStar，外加 PostgreSQL
 - 全站备份：统一归档 PostgreSQL、Nodesk 与 NoMoney，支持每日/每周自动执行、保留清理、隔离恢复演练、校验和与失败回滚
+- 操作审计：记录已认证写操作的操作者、资源、成功/失败、来源 IP 和脱敏变更快照，支持管理员筛选、分页与保留策略
 
 ## 本地开发
 
@@ -138,6 +139,8 @@ NoMoney 使用独立的 `nomoney_data` 命名卷保存 SQLite 数据。已有 Mo
 Compose 更新部署可使用提交号镜像、部署后路由/NoStar 分块验收和自动回滚，见 [Compose 验收与回滚部署](docs/deployment/compose-verified-deploy.md)。
 
 管理员可以在“后台 → 备份与恢复”创建、下载和删除全站备份，也可以设置每日或每周执行时间、保留天数和最大份数。调度器按 `Asia/Shanghai`（或容器 `TZ`）计算计划窗口，同一窗口只执行一次；失败状态会显示在备份页并进入通知中心。服务器端创建、校验、隔离恢复演练、恢复与恢复失败回滚命令见 [全站备份与恢复手册](docs/deployment/full-backup-restore.md)。备份保存在独立的 `nono_backups` 命名卷，重建业务容器不会删除。
+
+管理员可以在“后台 → 审计日志”查看 Notab、文件夹、书签、站点、用户、Token、备份策略、账户、Nodesk 和 NoStar API 的写操作。日志默认保留 180 天，调整保留天数后会立即清理过期记录；密码、哈希、Cookie、Token、API Key 和超长正文不会写入审计详情。字段与运维边界见 [操作审计日志](docs/deployment/audit-logs.md)。
 
 NoStar 使用 Nono Session 登录，仓库、Release、分类和配置按 Nono 用户隔离并存入 PostgreSQL。GitHub Token、AI Key、WebDAV 密码、代理密码和 aria2 密钥使用 Nono 的 `ENCRYPTION_KEY` 加密；NoStar AI 配置也可在 Nono 后台的 LLM 页面管理。
 

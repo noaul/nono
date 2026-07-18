@@ -155,11 +155,61 @@ export interface BackupAutomationRecord {
   updatedAt: Date;
 }
 
+export type AuditResult = 'success' | 'failure';
+
+export interface AuditConfigRecord {
+  id: number;
+  retentionDays: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuditLogRecord {
+  id: number;
+  actorUserId?: number | null;
+  actorUsername: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string | null;
+  resourceLabel?: string | null;
+  result: AuditResult;
+  statusCode: number;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  details: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export interface AuditLogQuery {
+  page: number;
+  pageSize: number;
+  actor?: string;
+  action?: string;
+  resourceType?: string;
+  result?: AuditResult;
+  search?: string;
+  from?: Date;
+  to?: Date;
+}
+
+export interface AuditLogPage {
+  items: AuditLogRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface Repository {
   getConfig(): Promise<AppConfigRecord>;
   updateConfig(input: Partial<AppConfigRecord>): Promise<AppConfigRecord>;
   getBackupAutomation(): Promise<BackupAutomationRecord>;
   updateBackupAutomation(input: Partial<BackupAutomationRecord>): Promise<BackupAutomationRecord>;
+  getAuditConfig(): Promise<AuditConfigRecord>;
+  updateAuditConfig(input: Partial<AuditConfigRecord>): Promise<AuditConfigRecord>;
+  createAuditLog(input: Omit<AuditLogRecord, 'id' | 'createdAt'>): Promise<AuditLogRecord>;
+  listAuditLogs(query: AuditLogQuery): Promise<AuditLogPage>;
+  deleteAuditLogsBefore(cutoff: Date): Promise<number>;
   listUsers(): Promise<UserRecord[]>;
   findUserById(id: number): Promise<UserRecord | null>;
   findUserByUsername(username: string): Promise<UserRecord | null>;
@@ -241,6 +291,11 @@ function defaultBackupAutomation(): BackupAutomationRecord {
   };
 }
 
+function defaultAuditConfig(): AuditConfigRecord {
+  const now = new Date();
+  return { id: 1, retentionDays: 180, createdAt: now, updatedAt: now };
+}
+
 export class MemoryRepository implements Repository {
   users: UserRecord[] = [];
   sites: SiteRecord[] = [];
@@ -250,8 +305,10 @@ export class MemoryRepository implements Repository {
   sessions: AuthSessionRecord[] = [];
   passkeys: PasskeyCredentialRecord[] = [];
   webAuthnChallenges: WebAuthnChallengeRecord[] = [];
+  auditLogs: AuditLogRecord[] = [];
   config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {} };
   backupAutomation: BackupAutomationRecord = defaultBackupAutomation();
+  auditConfig: AuditConfigRecord = defaultAuditConfig();
 
   constructor(seed = true) {
     if (seed) this.seed();
@@ -273,6 +330,44 @@ export class MemoryRepository implements Repository {
   async updateBackupAutomation(input: Partial<BackupAutomationRecord>) {
     this.backupAutomation = { ...this.backupAutomation, ...input, id: 1, updatedAt: new Date() };
     return this.backupAutomation;
+  }
+
+  async getAuditConfig() {
+    return this.auditConfig;
+  }
+
+  async updateAuditConfig(input: Partial<AuditConfigRecord>) {
+    this.auditConfig = { ...this.auditConfig, ...input, id: 1, updatedAt: new Date() };
+    return this.auditConfig;
+  }
+
+  async createAuditLog(input: Omit<AuditLogRecord, 'id' | 'createdAt'>) {
+    const record: AuditLogRecord = { ...input, id: nextId(this.auditLogs), createdAt: new Date() };
+    this.auditLogs.unshift(record);
+    return record;
+  }
+
+  async listAuditLogs(query: AuditLogQuery) {
+    const actor = query.actor?.toLocaleLowerCase();
+    const search = query.search?.toLocaleLowerCase();
+    const items = this.auditLogs
+      .filter((item) => !actor || item.actorUsername.toLocaleLowerCase().includes(actor))
+      .filter((item) => !query.action || item.action === query.action)
+      .filter((item) => !query.resourceType || item.resourceType === query.resourceType)
+      .filter((item) => !query.result || item.result === query.result)
+      .filter((item) => !query.from || item.createdAt >= query.from)
+      .filter((item) => !query.to || item.createdAt <= query.to)
+      .filter((item) => !search || [item.actorUsername, item.resourceLabel, item.resourceId, item.ipAddress]
+        .some((value) => String(value || '').toLocaleLowerCase().includes(search)))
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime() || right.id - left.id);
+    const start = (query.page - 1) * query.pageSize;
+    return { items: items.slice(start, start + query.pageSize), total: items.length, page: query.page, pageSize: query.pageSize };
+  }
+
+  async deleteAuditLogsBefore(cutoff: Date) {
+    const initialCount = this.auditLogs.length;
+    this.auditLogs = this.auditLogs.filter((item) => item.createdAt >= cutoff);
+    return initialCount - this.auditLogs.length;
   }
 
   async listUsers() {
@@ -306,6 +401,9 @@ export class MemoryRepository implements Repository {
   }
 
   async deleteUser(id: number) {
+    this.auditLogs.forEach((entry) => {
+      if (entry.actorUserId === id) entry.actorUserId = null;
+    });
     this.users = this.users.filter((user) => user.id !== id);
     this.sites = this.sites.filter((site) => site.userId !== id);
     this.folders = this.folders.filter((folder) => folder.userId !== id);

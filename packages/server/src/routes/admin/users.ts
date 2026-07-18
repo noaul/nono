@@ -4,6 +4,7 @@ import type { AppServices, Role } from '../../types.js';
 import { requireAdmin } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { publicUser } from '../../services/repository.js';
+import { setAuditContext } from '../../plugins/audit.js';
 
 const userUpdateSchema = z.object({
   role: z.enum(['admin', 'user']).optional(),
@@ -28,7 +29,12 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const input = userUpdateSchema.parse(request.body);
-    return sendOk(reply, publicUser(await services.repo.updateUser(Number((request.params as any).id), input as any)));
+    const id = Number((request.params as any).id);
+    const current = await services.repo.findUserById(id);
+    const before = current ? publicUser(current) : null;
+    const updated = publicUser(await services.repo.updateUser(id, input as any));
+    setAuditContext(request, { action: 'update', resourceType: 'user', resourceId: id, resourceLabel: current?.username || updated.username, details: { before, after: updated } });
+    return sendOk(reply, updated);
   });
 
   app.delete('/api/admin/users/:id', async (request, reply) => {
@@ -36,7 +42,9 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
     if (!admin) return;
     const id = Number((request.params as any).id);
     if (id === admin.id) throw Object.assign(new Error('You cannot delete your own account'), { statusCode: 400 });
+    const current = await services.repo.findUserById(id);
     await services.repo.deleteUser(id);
+    setAuditContext(request, { action: 'delete', resourceType: 'user', resourceId: id, resourceLabel: current?.username || null, details: { before: current ? publicUser(current) : null } });
     return sendOk(reply, { ok: true });
   });
 
@@ -50,6 +58,10 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const input = configSchema.parse(request.body);
-    return sendOk(reply, await services.repo.updateConfig(input as { allowRegistration?: boolean; defaultRole?: Role; settings?: Record<string, unknown> }));
+    const current = await services.repo.getConfig();
+    const before = { ...current, settings: { ...current.settings } };
+    const updated = await services.repo.updateConfig(input as { allowRegistration?: boolean; defaultRole?: Role; settings?: Record<string, unknown> });
+    setAuditContext(request, { action: 'update', resourceType: 'system', resourceId: 'registration', resourceLabel: '注册与用户策略', details: { before, after: updated } });
+    return sendOk(reply, updated);
   });
 }

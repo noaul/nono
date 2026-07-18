@@ -3,6 +3,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { exportBookmarksHtml, importBookmarks, previewBookmarksImport } from '../../services/bookmark.service.js';
+import { setAuditContext } from '../../plugins/audit.js';
 
 export async function bookmarkRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/admin/bookmarks/preview', async (request, reply) => {
@@ -19,7 +20,9 @@ export async function bookmarkRoutes(app: FastifyInstance, services: AppServices
     const body = request.body as any;
     const html = String(body?.html || '');
     if (!html.trim()) throw Object.assign(new Error('Bookmark HTML is required'), { statusCode: 400 });
-    return sendOk(reply, await importBookmarks(services.repo, user.id, html, body?.selection));
+    const result = await importBookmarks(services.repo, user.id, html, body?.selection);
+    setAuditContext(request, { action: 'import', resourceType: 'bookmark', resourceLabel: '浏览器书签导入', details: { result } });
+    return sendOk(reply, result);
   });
 
   app.get('/api/admin/bookmarks/export', async (request, reply) => {

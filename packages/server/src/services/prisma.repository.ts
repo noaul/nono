@@ -52,6 +52,67 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
         create: { id: 1, ...(data as any) },
       })) as any;
     },
+    async getAuditConfig() {
+      return (await prisma.auditConfig.upsert({
+        where: { id: 1 },
+        update: {},
+        create: { id: 1 },
+      })) as any;
+    },
+    async updateAuditConfig(input) {
+      return (await prisma.auditConfig.upsert({
+        where: { id: 1 },
+        update: prune({ retentionDays: input.retentionDays }) as any,
+        create: { id: 1, retentionDays: input.retentionDays ?? 180 },
+      })) as any;
+    },
+    async createAuditLog(input) {
+      return (await prisma.auditLog.create({
+        data: {
+          actorUserId: input.actorUserId ?? null,
+          actorUsername: input.actorUsername,
+          actorRole: input.actorRole,
+          action: input.action,
+          resourceType: input.resourceType,
+          resourceId: input.resourceId ?? null,
+          resourceLabel: input.resourceLabel ?? null,
+          result: input.result,
+          statusCode: input.statusCode,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null,
+          details: input.details as any,
+        },
+      })) as any;
+    },
+    async listAuditLogs(query) {
+      const createdAt = prune({ gte: query.from, lte: query.to });
+      const where: any = prune({
+        actorUsername: query.actor ? { contains: query.actor, mode: 'insensitive' } : undefined,
+        action: query.action,
+        resourceType: query.resourceType,
+        result: query.result,
+        createdAt: Object.keys(createdAt).length ? createdAt : undefined,
+        OR: query.search ? [
+          { actorUsername: { contains: query.search, mode: 'insensitive' } },
+          { resourceLabel: { contains: query.search, mode: 'insensitive' } },
+          { resourceId: { contains: query.search, mode: 'insensitive' } },
+          { ipAddress: { contains: query.search, mode: 'insensitive' } },
+        ] : undefined,
+      });
+      const [items, total] = await prisma.$transaction([
+        prisma.auditLog.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: (query.page - 1) * query.pageSize,
+          take: query.pageSize,
+        }),
+        prisma.auditLog.count({ where }),
+      ]);
+      return { items: items as any, total, page: query.page, pageSize: query.pageSize };
+    },
+    async deleteAuditLogsBefore(cutoff) {
+      return (await prisma.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })).count;
+    },
     async listUsers() {
       return (await prisma.user.findMany({ orderBy: { id: 'asc' } })) as any;
     },

@@ -28,6 +28,7 @@ model User {
   passkeys                 PasskeyCredential[]
   webAuthnChallenges       WebAuthnChallenge[]
   notificationStates       NotificationState[]
+  auditLogs                AuditLog[]
   noStarAccount            NoStarAccount?
   noStarRepositories       NoStarRepository[]
   noStarReleases           NoStarRelease[]
@@ -190,6 +191,37 @@ model BackupAutomation {
   lastError        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model AuditConfig {
+  id            Int      @id @default(1)
+  retentionDays Int      @default(180)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  actorUserId   Int?
+  actor         User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUsername String
+  actorRole     String
+  action        String
+  resourceType  String
+  resourceId    String?
+  resourceLabel String?
+  result        String
+  statusCode    Int
+  ipAddress     String?
+  userAgent     String?
+  details       Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([resourceType, createdAt])
+  @@index([result, createdAt])
 }
 
 model NoStarAccount {

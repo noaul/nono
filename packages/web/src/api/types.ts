@@ -162,3 +162,37 @@ export interface AdminNotificationFeed {
   unreadCount: number;
   generatedAt: string;
 }
+
+export type AuditResult = 'success' | 'failure';
+
+export interface AuditLogEntry {
+  id: number;
+  actorUserId?: number | null;
+  actorUsername: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string | null;
+  resourceLabel?: string | null;
+  result: AuditResult;
+  statusCode: number;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AuditSettings {
+  id: number;
+  retentionDays: number;
+  createdAt: string;
+  updatedAt: string;
+  removed?: number;
+}

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { AppServices } from '../../types.js';
 import { requireAdmin } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
+import { setAuditContext } from '../../plugins/audit.js';
 
 const automationSchema = z.object({
   enabled: z.boolean(),
@@ -24,7 +25,10 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
   app.put('/api/admin/backups/automation', async (request, reply) => {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
-    return sendOk(reply, await services.backupAutomationService.update(automationSchema.parse(request.body)));
+    const before = await services.backupAutomationService.get();
+    const updated = await services.backupAutomationService.update(automationSchema.parse(request.body));
+    setAuditContext(request, { action: 'update', resourceType: 'backup', resourceId: 'automation', resourceLabel: '自动备份策略', details: { before, after: updated } });
+    return sendOk(reply, updated);
   });
 
   app.get('/api/admin/backups', async (request, reply) => {
@@ -37,6 +41,7 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const result = await services.backupAutomationService.runNow();
+    setAuditContext(request, { action: 'create', resourceType: 'backup', resourceId: result.backup.id, resourceLabel: result.backup.id, details: { backup: result.backup, removed: result.removed } });
     return sendOk(reply, {
       backup: result.backup,
       removed: result.removed,
@@ -60,6 +65,7 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
     if (!admin) return;
     const id = String((request.params as { id?: string }).id || '');
     await services.backupService.remove(id);
+    setAuditContext(request, { action: 'delete', resourceType: 'backup', resourceId: id, resourceLabel: id, details: { backupId: id } });
     return sendOk(reply, { ok: true });
   });
 }

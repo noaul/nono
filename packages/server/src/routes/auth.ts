@@ -1,10 +1,10 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../types.js';
 import { sendOk } from '../plugins/responses.js';
 import { resolveUser } from '../plugins/auth.js';
 import { assertStrongPassword, loginUser, registerUser, setupAdmin } from '../services/auth.service.js';
-import { publicUser } from '../services/repository.js';
+import { publicUser, type UserRecord } from '../services/repository.js';
 import { clearBrowserSession, currentSessionId, issueBrowserSession } from '../services/session.service.js';
 
 const authSchema = z.object({
@@ -20,6 +20,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     assertStrongPassword(input.password);
     const user = await setupAdmin(services.repo, input as any);
     await issueBrowserSession(services.repo, user.id, request, reply);
+    await recordUserCreation(services, request, user, 'setup');
     return sendOk(reply, { user: publicUser(user) });
   });
 
@@ -29,6 +30,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     const input = authSchema.required({ email: true }).parse(request.body);
     assertStrongPassword(input.password);
     const user = await registerUser(services.repo, input as any, config.defaultRole);
+    await recordUserCreation(services, request, user, 'registration');
     return sendOk(reply, { user: publicUser(user) });
   });
 
@@ -52,4 +54,25 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     const users = await services.repo.listUsers();
     return sendOk(reply, { authenticated: Boolean(user), setupRequired: !users.some((item) => item.role === 'admin' && item.passwordHash), user });
   });
+}
+
+async function recordUserCreation(services: AppServices, request: FastifyRequest, user: UserRecord, source: 'setup' | 'registration') {
+  try {
+    await services.auditLogService.record({
+      actorUserId: user.id,
+      actorUsername: user.username,
+      actorRole: user.role,
+      action: 'create',
+      resourceType: 'user',
+      resourceId: String(user.id),
+      resourceLabel: user.username,
+      result: 'success',
+      statusCode: 200,
+      ipAddress: request.ip || null,
+      userAgent: String(request.headers['user-agent'] || '').slice(0, 500) || null,
+      details: { source, after: publicUser(user) },
+    });
+  } catch (error) {
+    request.log.error({ err: error }, 'failed to persist user creation audit log');
+  }
 }

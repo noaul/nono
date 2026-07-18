@@ -4,6 +4,7 @@ import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { ApiTokenRecord } from '../../services/repository.js';
+import { setAuditContext } from '../../plugins/audit.js';
 
 const tokenSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -49,6 +50,13 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
     assertFutureExpiry(expiresAt);
     const token = await services.repo.createToken(user.id, input.name, expiresAt);
+    setAuditContext(request, {
+      action: 'create',
+      resourceType: 'token',
+      resourceId: token.id,
+      resourceLabel: token.name,
+      details: { after: { id: token.id, name: token.name, expiresAt: token.expiresAt || null, createdAt: token.createdAt } },
+    });
     return sendOk(reply, {
       id: token.id,
       name: token.name,
@@ -61,7 +69,16 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   app.delete('/api/admin/tokens/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    await services.repo.deleteToken(user.id, Number((request.params as any).id));
+    const id = Number((request.params as any).id);
+    const current = (await services.repo.listTokens(user.id)).find((token) => token.id === id);
+    await services.repo.deleteToken(user.id, id);
+    setAuditContext(request, {
+      action: 'delete',
+      resourceType: 'token',
+      resourceId: id,
+      resourceLabel: current?.name || null,
+      details: { before: current ? { id: current.id, name: current.name, expiresAt: current.expiresAt || null, createdAt: current.createdAt } : null },
+    });
     return sendOk(reply, { ok: true });
   });
 }
