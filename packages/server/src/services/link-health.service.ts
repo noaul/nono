@@ -22,6 +22,7 @@ export interface LinkHealthSummary {
 }
 
 type SafeRequester = typeof requestSafeResource;
+const HEAD_FALLBACK_STATUSES = new Set([403, 405, 501]);
 
 export interface LinkHealthCheckOptions {
   allowPrivateHosts?: string[];
@@ -59,7 +60,9 @@ export async function checkOneLink(
 
   try {
     const response = await requestLink(requester, url, 'HEAD', options);
-    const finalResponse = response.statusCode === 405 ? await requestLink(requester, url, 'GET', options) : response;
+    const finalResponse = HEAD_FALLBACK_STATUSES.has(response.statusCode)
+      ? await requestLink(requester, url, 'GET', options)
+      : response;
     const finalUrl = finalResponse.finalUrl || url.href;
     const status = finalResponse.statusCode < 400
       ? (finalUrl !== url.href ? 'redirected' : 'ok')
@@ -103,10 +106,13 @@ function baseResult(
 function requestLink(requester: SafeRequester, url: URL, method: 'HEAD' | 'GET', options: LinkHealthCheckOptions) {
   return requester(url.href, {
     method,
+    headers: {
+      accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+      'user-agent': 'Nono-Link-Health/0.2 (+https://github.com/noaul/nono)',
+    },
     timeoutMs: 5000,
     maxRedirects: 5,
-    maxBytes: method === 'HEAD' ? 1024 : 128 * 1024,
-    discardBody: method === 'GET',
+    discardBody: true,
     allowPrivateHosts: options.allowPrivateHosts,
   });
 }

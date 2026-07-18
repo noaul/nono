@@ -31,7 +31,12 @@ describe('link health checks', () => {
 
     expect(requester).toHaveBeenCalledWith(
       'http://example.com/docs',
-      expect.objectContaining({ method: 'HEAD', timeoutMs: 5000 }),
+      expect.objectContaining({
+        method: 'HEAD',
+        timeoutMs: 5000,
+        discardBody: true,
+        headers: expect.objectContaining({ 'user-agent': expect.stringContaining('Nono-Link-Health') }),
+      }),
     );
     expect(result).toMatchObject({
       status: 'redirected',
@@ -68,9 +73,9 @@ describe('link health checks', () => {
     expect(maximum).toBe(2);
   });
 
-  it('falls back to a bodyless GET when HEAD is not supported', async () => {
+  it.each([403, 405, 501])('falls back to a bodyless GET when HEAD returns %i', async (headStatus) => {
     const requester = vi.fn()
-      .mockResolvedValueOnce({ statusCode: 405, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' })
+      .mockResolvedValueOnce({ statusCode: headStatus, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' })
       .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' });
 
     const result = await checkOneLink(link({ url: 'https://example.com/docs' }), requester as any);
