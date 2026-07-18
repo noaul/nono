@@ -1,34 +1,72 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { PublicTheme } from '@/utils/themes';
+import type { PublicTheme, ThemeSceneKind } from '@/utils/themes';
 
 const props = defineProps<{ theme?: PublicTheme }>();
 
-const particles = [
-  { x: '4%', y: '-18%', size: '74px', delay: '-3s', duration: '22s', drift: '38px', rotate: '-16deg' },
-  { x: '15%', y: '-34%', size: '48px', delay: '-11s', duration: '19s', drift: '-24px', rotate: '22deg' },
-  { x: '29%', y: '-12%', size: '62px', delay: '-7s', duration: '24s', drift: '46px', rotate: '8deg' },
-  { x: '43%', y: '-42%', size: '42px', delay: '-15s', duration: '18s', drift: '-34px', rotate: '-28deg' },
-  { x: '56%', y: '-24%', size: '82px', delay: '-5s', duration: '26s', drift: '28px', rotate: '18deg' },
-  { x: '68%', y: '-38%', size: '54px', delay: '-13s', duration: '21s', drift: '-44px', rotate: '-8deg' },
-  { x: '79%', y: '-15%', size: '68px', delay: '-9s', duration: '23s', drift: '34px', rotate: '26deg' },
-  { x: '91%', y: '-31%', size: '46px', delay: '-17s', duration: '20s', drift: '-28px', rotate: '-20deg' },
-];
-
-const sceneStyle = computed<Record<string, string>>(() => ({
-  '--theme-scene-opacity': String(props.theme?.scene.opacity ?? 0),
-  mixBlendMode: props.theme?.scene.blendMode || 'normal',
+const particles = Array.from({ length: 30 }, (_, index) => ({
+  x: `${(index * 37 + 7) % 101}%`,
+  y: `${(index * 29 + 11) % 94}%`,
+  delay: -((index * 1.73) % 15),
+  drift: ((index * 31) % 120) - 60,
+  rotate: ((index * 47) % 100) - 50,
+  variant: index % 4,
 }));
 
-function particleStyle(particle: typeof particles[number]) {
+const streaks = [
+  { x: '18%', y: '16%', delay: '-1s' },
+  { x: '58%', y: '30%', delay: '-5s' },
+  { x: '78%', y: '10%', delay: '-8s' },
+];
+
+const ripples = [
+  { x: '12%', delay: '-0.4s' },
+  { x: '38%', delay: '-1.8s' },
+  { x: '64%', delay: '-3.2s' },
+  { x: '88%', delay: '-4.6s' },
+];
+
+const sceneStyle = computed<Record<string, string>>(() => {
+  const opacity = props.theme?.scene.opacity ?? 0;
+  return {
+    '--theme-scene-opacity': String(opacity),
+    '--theme-scene-mobile-opacity': String(opacity * 0.72),
+    '--theme-ambient-opacity': String(Math.min(0.72, opacity * 2.2)),
+    '--theme-ambient-mobile-opacity': String(Math.min(0.54, opacity * 1.7)),
+    '--theme-scene-blend': props.theme?.scene.blendMode || 'normal',
+  };
+});
+
+function metrics(kind: ThemeSceneKind, index: number) {
+  switch (kind) {
+    case 'bubbles':
+      return { size: 12 + (index * 17) % 48, duration: 8 + (index * 7) % 9 };
+    case 'snow':
+      return { size: 10 + (index * 5) % 15, duration: 9 + (index * 7) % 9 };
+    case 'leaves':
+      return { size: 18 + (index * 7) % 20, duration: 10 + (index * 5) % 9 };
+    case 'stars':
+      return { size: 2 + (index * 3) % 5, duration: 1.8 + ((index * 7) % 20) / 10 };
+    case 'sunbeams':
+      return { size: 2 + (index * 5) % 5, duration: 7 + (index * 3) % 8 };
+    case 'rain':
+      return { size: 38 + (index * 11) % 48, duration: 0.9 + ((index * 3) % 8) / 10 };
+  }
+}
+
+function particleStyle(particle: typeof particles[number], index: number) {
+  const kind = props.theme?.scene.kind || 'stars';
+  const { size, duration } = metrics(kind, index);
   return {
     '--scene-x': particle.x,
     '--scene-y': particle.y,
-    '--scene-size': particle.size,
-    '--scene-delay': particle.delay,
-    '--scene-duration': particle.duration,
-    '--scene-drift': particle.drift,
-    '--scene-rotate': particle.rotate,
+    '--scene-size': `${size}px`,
+    '--scene-delay': `${kind === 'rain' ? particle.delay / 4 : particle.delay}s`,
+    '--scene-duration': `${duration}s`,
+    '--scene-drift': `${particle.drift}px`,
+    '--scene-drift-back': `${Math.round(particle.drift * -0.5)}px`,
+    '--scene-rotate': `${particle.rotate}deg`,
+    '--scene-variant': String(particle.variant),
   };
 }
 </script>
@@ -37,7 +75,7 @@ function particleStyle(particle: typeof particles[number]) {
   <div
     v-if="theme"
     class="theme-scene"
-    :class="[`scene-${theme.scene.mode}`, `motion-${theme.scene.motion}`]"
+    :class="[`scene-${theme.scene.kind}`, `motion-${theme.scene.motion}`]"
     :data-scene="theme.scene.kind"
     :style="sceneStyle"
     data-testid="theme-scene"
@@ -51,18 +89,26 @@ function particleStyle(particle: typeof particles[number]) {
       decoding="async"
       draggable="false"
     />
-    <template v-else>
-      <img
-        v-for="(particle, index) in particles"
-        :key="index"
-        class="scene-particle"
-        :src="theme.scene.asset"
-        :style="particleStyle(particle)"
-        alt=""
-        decoding="async"
-        draggable="false"
-      />
-    </template>
+    <span class="scene-atmosphere"></span>
+    <span
+      v-for="(particle, index) in particles"
+      :key="index"
+      class="scene-particle"
+      :class="`variant-${particle.variant}`"
+      :style="particleStyle(particle, index)"
+    ></span>
+    <span
+      v-for="(streak, index) in theme.scene.kind === 'stars' ? streaks : []"
+      :key="`streak-${index}`"
+      class="scene-streak"
+      :style="{ '--scene-x': streak.x, '--scene-y': streak.y, '--scene-delay': streak.delay }"
+    ></span>
+    <span
+      v-for="(ripple, index) in theme.scene.kind === 'rain' ? ripples : []"
+      :key="`ripple-${index}`"
+      class="scene-ripple"
+      :style="{ '--scene-x': ripple.x, '--scene-delay': ripple.delay }"
+    ></span>
   </div>
 </template>
 
@@ -70,22 +116,36 @@ function particleStyle(particle: typeof particles[number]) {
 .theme-scene {
   contain: layout paint style;
   inset: 0;
-  opacity: var(--theme-scene-opacity, 0);
   overflow: hidden;
   pointer-events: none;
   position: fixed;
   transform: translateZ(0);
-  z-index: 0;
+  z-index: 1;
 }
 
 .scene-texture {
   height: 108%;
   inset: -4%;
   max-width: none;
+  mix-blend-mode: var(--theme-scene-blend, normal);
   object-fit: cover;
+  opacity: var(--theme-scene-opacity, 0.18);
   position: absolute;
-  transform: translate3d(0, 0, 0) scale(1.02);
   width: 108%;
+}
+
+.scene-atmosphere,
+.scene-particle,
+.scene-particle::before,
+.scene-streak,
+.scene-ripple {
+  display: block;
+  position: absolute;
+}
+
+.scene-atmosphere {
+  inset: -18%;
+  opacity: var(--theme-ambient-opacity, 0.4);
 }
 
 .scene-particle {
@@ -93,109 +153,306 @@ function particleStyle(particle: typeof particles[number]) {
   animation-duration: var(--scene-duration);
   animation-iteration-count: infinite;
   animation-timing-function: linear;
-  height: auto;
   left: var(--scene-x);
-  max-width: none;
-  position: absolute;
-  top: var(--scene-y);
-  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+/* Summer: transparent CSS bubbles rise independently of the background image. */
+[data-scene='bubbles'] .scene-atmosphere {
+  animation: scene-caustics 9s ease-in-out infinite alternate;
+  background:
+    radial-gradient(ellipse at 16% 20%, rgba(255, 255, 255, 0.38), transparent 24%),
+    radial-gradient(ellipse at 72% 62%, rgba(42, 206, 195, 0.24), transparent 30%);
+  filter: blur(18px);
+}
+
+[data-scene='bubbles'] .scene-particle {
+  animation-name: scene-bubble-rise;
+  bottom: -18vh;
+  height: var(--scene-size);
   width: var(--scene-size);
 }
 
+[data-scene='bubbles'] .scene-particle::before {
+  background: radial-gradient(circle at 32% 25%, rgba(255, 255, 255, 0.92) 0 5%, rgba(255, 255, 255, 0.18) 18%, rgba(31, 181, 174, 0.08) 58%, transparent 72%);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 50%;
+  box-shadow: inset -5px -7px 12px rgba(18, 126, 129, 0.12), 0 4px 14px rgba(54, 154, 158, 0.12);
+  inset: 0;
+}
+
+/* Winter: glyphs are transparent; no raster snowflake or white image backing is used. */
+[data-scene='snow'] .scene-atmosphere {
+  animation: scene-winter-glow 7s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 52% 8%, rgba(255, 226, 183, 0.28), transparent 26%);
+}
+
 [data-scene='snow'] .scene-particle {
-  filter: drop-shadow(0 3px 7px rgba(var(--public-shadow-rgb, 52, 70, 82), 0.12));
+  animation-name: scene-snow-fall;
+  height: var(--scene-size);
+  top: -14vh;
+  width: var(--scene-size);
+}
+
+[data-scene='snow'] .scene-particle::before {
+  color: rgba(255, 255, 255, 0.92);
+  content: '❄';
+  filter: drop-shadow(0 2px 4px rgba(82, 101, 122, 0.2));
+  font-size: var(--scene-size);
+  line-height: 1;
+}
+
+[data-scene='snow'] .variant-1::before,
+[data-scene='snow'] .variant-3::before {
+  content: '✦';
+  opacity: 0.72;
+}
+
+/* Green leaves use generated leaf shapes, so edges stay transparent at every size. */
+[data-scene='leaves'] .scene-atmosphere {
+  animation: scene-leaf-light 8s ease-in-out infinite alternate;
+  background: radial-gradient(ellipse at 22% 10%, rgba(245, 255, 210, 0.46), transparent 34%);
+  filter: blur(12px);
 }
 
 [data-scene='leaves'] .scene-particle {
-  filter: drop-shadow(0 8px 12px rgba(var(--public-shadow-rgb, 45, 75, 55), 0.18));
+  animation-name: scene-leaf-fall;
+  height: var(--scene-size);
+  top: -16vh;
+  width: var(--scene-size);
 }
 
-.motion-float .scene-texture {
-  animation: scene-float 24s ease-in-out infinite alternate;
+[data-scene='leaves'] .scene-particle::before {
+  background: linear-gradient(135deg, #b5d88c 0%, #5fa76c 48%, #2d7951 100%);
+  border-radius: 100% 0 100% 0;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.32), 0 5px 10px rgba(31, 82, 52, 0.2);
+  inset: 0;
+  transform: scaleY(0.7);
 }
 
-.motion-shimmer .scene-texture {
-  animation: scene-shimmer 9s ease-in-out infinite alternate;
+[data-scene='leaves'] .variant-1::before,
+[data-scene='leaves'] .variant-3::before {
+  background: linear-gradient(135deg, #e1b268 0%, #bd7545 52%, #7f4936 100%);
 }
 
-.motion-breathe .scene-texture {
-  animation: scene-breathe 14s ease-in-out infinite alternate;
+/* Night: stars twinkle at fixed coordinates while three streaks cross the sky. */
+[data-scene='stars'] .scene-atmosphere {
+  animation: scene-aurora 10s ease-in-out infinite alternate;
+  background:
+    radial-gradient(ellipse at 20% 32%, rgba(92, 119, 214, 0.34), transparent 28%),
+    radial-gradient(ellipse at 76% 18%, rgba(216, 164, 109, 0.2), transparent 24%);
+  filter: blur(24px);
 }
 
-.motion-rain .scene-texture {
-  animation: scene-rain 18s ease-in-out infinite alternate;
+[data-scene='stars'] .scene-particle {
+  animation-name: scene-star-twinkle;
+  background: #fff7dc;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(255, 231, 164, 0.86);
+  height: var(--scene-size);
+  top: var(--scene-y);
+  width: var(--scene-size);
 }
 
-.motion-fall .scene-particle {
-  animation-name: scene-fall;
+.scene-streak {
+  animation: scene-shooting-star 8s var(--scene-delay) ease-in-out infinite;
+  background: linear-gradient(90deg, rgba(255, 246, 211, 0.92), transparent);
+  height: 1px;
+  left: var(--scene-x);
+  opacity: 0;
+  top: var(--scene-y);
+  transform: rotate(-28deg);
+  width: 120px;
 }
 
-.motion-drift .scene-particle {
-  animation-name: scene-leaf-drift;
+/* Clear day: visible moving beams plus floating dust make the Tyndall effect legible. */
+[data-scene='sunbeams'] .scene-atmosphere {
+  animation: scene-sunbeam-sweep 8s ease-in-out infinite alternate;
+  background: repeating-conic-gradient(from 112deg at 8% 0%, transparent 0deg 8deg, rgba(255, 250, 198, 0.25) 9deg 14deg, transparent 15deg 25deg);
+  filter: blur(7px);
+  transform-origin: 8% 0%;
 }
 
-@keyframes scene-float {
+[data-scene='sunbeams'] .scene-particle {
+  animation-name: scene-dust-float;
+  background: rgba(255, 248, 193, 0.82);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255, 238, 158, 0.7);
+  bottom: -8vh;
+  height: var(--scene-size);
+  width: var(--scene-size);
+}
+
+/* Rain lines and ripples are both generated with CSS and remain fully transparent. */
+[data-scene='rain'] .scene-atmosphere {
+  animation: scene-rain-mist 6s ease-in-out infinite alternate;
+  background: linear-gradient(110deg, transparent 20%, rgba(221, 246, 249, 0.24), transparent 72%);
+  filter: blur(20px);
+}
+
+[data-scene='rain'] .scene-particle {
+  animation-name: scene-rain-drop;
+  background: linear-gradient(180deg, transparent, rgba(226, 248, 250, 0.72));
+  height: var(--scene-size);
+  top: -18vh;
+  width: 1px;
+}
+
+.scene-ripple {
+  animation: scene-ripple 5s var(--scene-delay) ease-out infinite;
+  border: 1px solid rgba(225, 248, 249, 0.58);
+  border-radius: 50%;
+  bottom: 4%;
+  height: 14px;
+  left: var(--scene-x);
+  opacity: 0;
+  width: 58px;
+}
+
+.motion-float .scene-texture { animation: scene-texture-float 14s ease-in-out infinite alternate; }
+.motion-shimmer .scene-texture { animation: scene-texture-shimmer 8s ease-in-out infinite alternate; }
+.motion-breathe .scene-texture { animation: scene-texture-breathe 10s ease-in-out infinite alternate; }
+.motion-rain .scene-texture { animation: scene-texture-rain 9s ease-in-out infinite alternate; }
+
+@keyframes scene-texture-float {
   from { transform: translate3d(-1.5%, 1%, 0) scale(1.03); }
-  to { transform: translate3d(1.5%, -1%, 0) scale(1.08); }
+  to { transform: translate3d(1.5%, -1%, 0) scale(1.09); }
 }
 
-@keyframes scene-shimmer {
-  from { opacity: 0.72; transform: translate3d(-0.5%, 0, 0) scale(1.03); }
-  to { opacity: 1; transform: translate3d(0.5%, -0.6%, 0) scale(1.06); }
+@keyframes scene-texture-shimmer {
+  from { filter: brightness(0.88); transform: scale(1.03); }
+  to { filter: brightness(1.14); transform: scale(1.08); }
 }
 
-@keyframes scene-breathe {
-  from { opacity: 0.76; transform: translate3d(-1%, 0.8%, 0) scale(1.03); }
-  to { opacity: 1; transform: translate3d(1%, -0.8%, 0) scale(1.07); }
+@keyframes scene-texture-breathe {
+  from { transform: translate3d(-1%, 1%, 0) scale(1.03); }
+  to { transform: translate3d(1%, -1%, 0) scale(1.09); }
 }
 
-@keyframes scene-rain {
-  from { transform: translate3d(0, -1.4%, 0) scale(1.04); }
-  to { transform: translate3d(0, 1.4%, 0) scale(1.08); }
+@keyframes scene-texture-rain {
+  from { transform: translate3d(0, -1.5%, 0) scale(1.04); }
+  to { transform: translate3d(0, 1.5%, 0) scale(1.09); }
 }
 
-@keyframes scene-fall {
+@keyframes scene-bubble-rise {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.68); }
+  12% { opacity: 0.74; }
+  55% { transform: translate3d(var(--scene-drift), -62vh, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(var(--scene-drift-back), -128vh, 0) scale(1.16); }
+}
+
+@keyframes scene-caustics {
+  from { transform: translate3d(-2%, 2%, 0) rotate(-2deg) scale(1.02); }
+  to { transform: translate3d(3%, -2%, 0) rotate(2deg) scale(1.08); }
+}
+
+@keyframes scene-snow-fall {
   0% { opacity: 0; transform: translate3d(0, -8vh, 0) rotate(var(--scene-rotate)); }
-  12% { opacity: 0.9; }
-  88% { opacity: 0.72; }
-  100% { opacity: 0; transform: translate3d(var(--scene-drift), 125vh, 0) rotate(calc(var(--scene-rotate) + 240deg)); }
+  10% { opacity: 0.88; }
+  52% { transform: translate3d(var(--scene-drift), 58vh, 0) rotate(calc(var(--scene-rotate) + 130deg)); }
+  100% { opacity: 0; transform: translate3d(var(--scene-drift-back), 126vh, 0) rotate(calc(var(--scene-rotate) + 280deg)); }
 }
 
-@keyframes scene-leaf-drift {
-  0% { opacity: 0; transform: translate3d(0, -10vh, 0) rotate(var(--scene-rotate)); }
-  14% { opacity: 0.82; }
-  50% { transform: translate3d(var(--scene-drift), 58vh, 0) rotate(calc(var(--scene-rotate) + 120deg)); }
-  88% { opacity: 0.7; }
-  100% { opacity: 0; transform: translate3d(var(--scene-drift), 126vh, 0) rotate(calc(var(--scene-rotate) + 260deg)); }
+@keyframes scene-winter-glow {
+  from { opacity: 0.45; transform: translateX(-3%); }
+  to { opacity: 0.85; transform: translateX(3%); }
+}
+
+@keyframes scene-leaf-fall {
+  0% { opacity: 0; transform: translate3d(0, -8vh, 0) rotate(var(--scene-rotate)) rotateY(0deg); }
+  12% { opacity: 0.86; }
+  50% { transform: translate3d(var(--scene-drift), 56vh, 0) rotate(calc(var(--scene-rotate) + 150deg)) rotateY(180deg); }
+  100% { opacity: 0; transform: translate3d(var(--scene-drift-back), 126vh, 0) rotate(calc(var(--scene-rotate) + 330deg)) rotateY(360deg); }
+}
+
+@keyframes scene-leaf-light {
+  from { transform: translate3d(-3%, 2%, 0) scale(1); }
+  to { transform: translate3d(4%, -2%, 0) scale(1.08); }
+}
+
+@keyframes scene-star-twinkle {
+  0%, 100% { opacity: 0.18; transform: scale(0.55); }
+  48% { opacity: 1; transform: scale(1.45); }
+  62% { opacity: 0.42; transform: scale(0.85); }
+}
+
+@keyframes scene-shooting-star {
+  0%, 78% { opacity: 0; transform: translate3d(0, 0, 0) rotate(-28deg) scaleX(0.35); }
+  82% { opacity: 1; }
+  91% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate3d(44vw, 24vw, 0) rotate(-28deg) scaleX(1); }
+}
+
+@keyframes scene-aurora {
+  from { transform: translate3d(-3%, 2%, 0) rotate(-1deg) scale(1); }
+  to { transform: translate3d(4%, -3%, 0) rotate(2deg) scale(1.08); }
+}
+
+@keyframes scene-sunbeam-sweep {
+  from { opacity: 0.48; transform: rotate(-5deg) scale(1.03); }
+  to { opacity: 0.92; transform: rotate(7deg) scale(1.12); }
+}
+
+@keyframes scene-dust-float {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  20% { opacity: 0.72; }
+  55% { transform: translate3d(var(--scene-drift), -52vh, 0); }
+  100% { opacity: 0; transform: translate3d(var(--scene-drift-back), -112vh, 0); }
+}
+
+@keyframes scene-rain-drop {
+  0% { opacity: 0; transform: translate3d(0, -10vh, 0) rotate(7deg); }
+  12% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate3d(-8vw, 130vh, 0) rotate(7deg); }
+}
+
+@keyframes scene-rain-mist {
+  from { transform: translateX(-5%) scale(1.02); }
+  to { transform: translateX(5%) scale(1.08); }
+}
+
+@keyframes scene-ripple {
+  0%, 66% { opacity: 0; transform: scale(0.2); }
+  72% { opacity: 0.72; }
+  100% { opacity: 0; transform: scale(2.4); }
 }
 
 @media (max-width: 640px) {
-  .theme-scene {
-    filter: opacity(68%);
-  }
-
-  .scene-particle:nth-child(n + 6) {
+  .scene-particle:nth-of-type(n + 18) {
     display: none;
   }
 
-  .scene-particle {
-    width: min(var(--scene-size), 54px);
+  .scene-texture {
+    opacity: var(--theme-scene-mobile-opacity, 0.13);
+  }
+
+  .scene-atmosphere {
+    opacity: var(--theme-ambient-mobile-opacity, 0.3);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .scene-texture,
-  .scene-particle {
+  .scene-atmosphere,
+  .scene-particle,
+  .scene-streak,
+  .scene-ripple {
     animation: none !important;
   }
 
-  .scene-texture {
+  .scene-particle:nth-of-type(n + 10),
+  .scene-streak,
+  .scene-ripple {
+    display: none;
+  }
+
+  .scene-texture,
+  .scene-atmosphere {
     transform: none;
   }
 
   .scene-particle {
-    opacity: 0.34;
-    transform: translate3d(0, 42vh, 0) rotate(var(--scene-rotate));
+    opacity: 0.3;
   }
 }
 </style>

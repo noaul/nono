@@ -148,6 +148,24 @@ function resetAppearance() {
   margin: 0;
 }
 
+.appearance-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-card-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.admin-card-head h2 {
+  color: #0f172a;
+  font-size: 14px;
+  margin: 0;
+}
+
 .admin-card-head h2,
 legend {
   align-items: center;

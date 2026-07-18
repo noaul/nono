@@ -34,6 +34,14 @@ export const useNavigationStore = defineStore('navigation', {
     error: '',
   }),
   actions: {
+    updateSite(username: string, site: NavigationPayload['site']) {
+      if (!this.payload) return;
+      this.payload = {
+        ...this.payload,
+        site: { ...this.payload.site, ...site },
+      };
+      writeCache(username, this.payload);
+    },
     /**
      * Stale-while-revalidate: unfiltered loads render the cached payload
      * immediately (if any), then refresh from the network in the background.

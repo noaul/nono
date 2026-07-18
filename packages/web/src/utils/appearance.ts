@@ -137,6 +137,20 @@ export function getAppearanceSettings(settings?: Record<string, unknown> | null)
   return result;
 }
 
+export function appearanceSettingsForSave(appearance: AppearanceSettings): AppearanceSettings {
+  return {
+    ...appearance,
+    categoryTextColor: appearance.folderTextColor,
+    tabColor: appearance.searchColor,
+    tabRadius: appearance.searchRadius,
+    tabOpacity: appearance.searchOpacity,
+    tabBlur: appearance.searchBlur,
+    modalRadius: appearance.cardRadius,
+    modalOpacity: appearance.cardOpacity,
+    modalBlur: appearance.cardBlur,
+  };
+}
+
 export function toAppearanceCssVars(appearance: AppearanceSettings): Record<string, string> {
   return {
     '--public-card-color': appearance.cardColor,

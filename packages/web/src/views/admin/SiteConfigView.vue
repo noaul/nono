@@ -3,13 +3,10 @@ import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
-import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
-import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
 import { getSearchEngineSettings, type SearchEngineSettings } from '@/utils/searchEngines';
-import { PUBLIC_THEMES, accentCssVars, getTheme, type PublicTheme } from '@/utils/themes';
 
 const form = reactive({
   name: '',
@@ -22,41 +19,15 @@ const form = reactive({
   localSearchFirst: true,
   settings: {} as Record<string, unknown>,
 });
-const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
 const portal = reactive({ ...portalDefaults });
-const theme = reactive({ id: '', accent: '' });
 const searchEngines = reactive<SearchEngineSettings>({ defaultId: 'default', items: [] });
 const message = ref('');
 const error = ref('');
 const saving = ref(false);
 
-function applyTheme(preset: PublicTheme) {
-  theme.id = preset.id;
-  theme.accent = preset.accent;
-  form.backgroundColor = preset.backgroundColor;
-  form.fontColor = preset.fontColor;
-  Object.assign(appearance, preset.appearance);
-}
-
-function themePreviewStyle(preset: PublicTheme) {
-  return {
-    ...accentCssVars(preset.accent),
-    '--theme-bg': preset.backgroundColor,
-    '--theme-font': preset.fontColor,
-    '--theme-card': preset.appearance.cardColor,
-    '--theme-search': preset.appearance.searchColor,
-    '--theme-tab': preset.appearance.tabColor,
-    '--theme-border': preset.surface.border,
-    '--theme-scene-image': `url(${JSON.stringify(preset.scene.asset)})`,
-    '--theme-scene-opacity': String(Math.min(0.34, preset.scene.opacity + 0.08)),
-    '--theme-scene-blend': preset.scene.blendMode,
-  };
-}
-
 onMounted(async () => {
   const site = await apiRequest<Site>('/api/admin/site');
   Object.assign(form, site, { settings: { ...(site.settings || {}) } });
-  Object.assign(appearance, getAppearanceSettings(site.settings));
   Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
   const savedSearchEngines = getSearchEngineSettings(site.settings, site.searchUrlTemplate);
   searchEngines.defaultId = savedSearchEngines.defaultId;
@@ -64,14 +35,6 @@ onMounted(async () => {
     ...item,
     template: item.template || site.searchUrlTemplate,
   }));
-  const savedTheme = (site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
-  if (savedTheme) {
-    const resolvedTheme = getTheme(savedTheme.id);
-    Object.assign(theme, {
-      id: resolvedTheme?.id || savedTheme.id || '',
-      accent: savedTheme.accent || resolvedTheme?.accent || '',
-    });
-  }
 });
 
 async function save() {
@@ -79,25 +42,12 @@ async function save() {
   message.value = '';
   saving.value = true;
   try {
-    const syncedAppearance = {
-      ...appearance,
-      categoryTextColor: appearance.folderTextColor,
-      tabColor: appearance.searchColor,
-      tabRadius: appearance.searchRadius,
-      tabOpacity: appearance.searchOpacity,
-      tabBlur: appearance.searchBlur,
-      modalRadius: appearance.cardRadius,
-      modalOpacity: appearance.cardOpacity,
-      modalBlur: appearance.cardBlur,
-    };
     const payload = {
       ...form,
       fontColor: form.fontColor,
       settings: {
         ...form.settings,
-        appearance: syncedAppearance,
         portal: { ...portal },
-        theme: { ...theme },
         searchEngines: {
           defaultId: searchEngines.defaultId,
           items: searchEngines.items.map((item) => ({
@@ -292,34 +242,6 @@ function setDefaultSearchEngine(id: string) {
         </div>
       </section>
 
-      <section class="admin-card theme-wall-card">
-        <header class="admin-card-head">
-          <h2><Palette :size="18" /> 主题预设</h2>
-        </header>
-        <div class="theme-wall">
-          <button
-            v-for="preset in PUBLIC_THEMES"
-            :key="preset.id"
-            type="button"
-            class="theme-card"
-            :class="{ active: theme.id === preset.id }"
-            :style="themePreviewStyle(preset)"
-            :data-testid="`theme-${preset.id}`"
-            @click="applyTheme(preset)"
-          >
-            <span class="theme-swatch">
-              <span class="theme-swatch-tab"></span>
-              <span class="theme-swatch-card"></span>
-              <span class="theme-swatch-accent"></span>
-            </span>
-            <strong>{{ preset.name }}</strong>
-            <small>{{ preset.description }}</small>
-          </button>
-        </div>
-      </section>
-
-      <AppearanceEditor :appearance="appearance" />
-
     </form>
   </div>
 </template>
@@ -337,102 +259,6 @@ function setDefaultSearchEngine(id: string) {
 
 .site-config-feedback p {
   margin: 0;
-}
-
-.theme-wall {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-}
-
-.theme-card {
-  background: var(--theme-bg, #0b0d12);
-  border: 1px solid color-mix(in srgb, var(--theme-border, #fff) 42%, transparent);
-  border-radius: 8px;
-  color: var(--theme-font, #f3f4f6);
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  gap: 8px;
-  isolation: isolate;
-  justify-items: start;
-  min-height: 132px;
-  overflow: hidden;
-  padding: 14px;
-  position: relative;
-  text-align: left;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.theme-card::before {
-  background-image: var(--theme-scene-image, none);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  content: '';
-  inset: 0;
-  mix-blend-mode: var(--theme-scene-blend, normal);
-  opacity: var(--theme-scene-opacity, 0.2);
-  pointer-events: none;
-  position: absolute;
-  z-index: -1;
-}
-
-.theme-card:hover,
-.theme-card:focus-visible {
-  outline: none;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
-}
-
-.theme-card.active {
-  border-color: var(--accent, #10b981);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 16, 185, 129), 0.2);
-}
-
-.theme-card strong {
-  font-size: 14px;
-  font-weight: 800;
-  text-shadow: 0 1px 8px color-mix(in srgb, var(--theme-bg, #000) 72%, transparent);
-}
-
-.theme-card small {
-  font-size: 11px;
-  opacity: 0.72;
-  text-shadow: 0 1px 8px color-mix(in srgb, var(--theme-bg, #000) 72%, transparent);
-}
-
-.theme-swatch {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.theme-swatch-tab {
-  background: color-mix(in srgb, var(--theme-tab, #f7f8fb) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 18%, transparent);
-  border-radius: 999px;
-  display: inline-block;
-  height: 10px;
-  width: 44px;
-}
-
-.theme-swatch-card {
-  background: color-mix(in srgb, var(--theme-card, #f7f8fb) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-font, #fff) 24%, transparent);
-  border-radius: 4px;
-  display: inline-block;
-  height: 18px;
-  width: 26px;
-}
-
-.theme-swatch-accent {
-  background: var(--accent, #10b981);
-  border-radius: 999px;
-  display: inline-block;
-  height: 14px;
-  width: 14px;
 }
 
 .admin-card {

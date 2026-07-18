@@ -2,14 +2,16 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Link2, Star, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Link2, Settings, Star, WalletCards } from 'lucide-vue-next';
+import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import ThemeScene from '@/components/ThemeScene.vue';
 import { buildSearchUrl } from '@/api/client';
-import type { Folder, Link } from '@/api/types';
+import type { Folder, Link, Site } from '@/api/types';
+import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
@@ -18,6 +20,7 @@ import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchT
 import { getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
 
 const route = useRoute();
+const auth = useAuthStore();
 const navigation = useNavigationStore();
 const query = ref('');
 const debouncedQuery = ref('');
@@ -35,6 +38,7 @@ let folderObserver: IntersectionObserver | null = null;
 const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
+const appearanceOpen = ref(false);
 
 function updateTabIndicator() {
   const nav = tabsRef.value;
@@ -61,6 +65,7 @@ watch(query, (value) => {
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
+const canEditAppearance = computed(() => auth.authenticated && auth.user?.username === username.value);
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
 const searchIndex = computed(() =>
   allLinks.value.map((link) => ({
@@ -203,7 +208,7 @@ const shownFolders = computed(() => {
   }));
 });
 const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !normalizedQuery.value));
-const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value));
+const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value || appearanceOpen.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
 const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
@@ -303,6 +308,11 @@ function onFolderVerified(links: Link[]) {
   verifying.value = null;
 }
 
+function onAppearanceSaved(site: Site) {
+  if (!navigation.payload) return;
+  navigation.updateSite(username.value, { ...navigation.payload.site, ...site });
+}
+
 // Modals own Escape/focus handling; the page only locks body scroll while one is open.
 watch(anyModalOpen, (open) => {
   if (typeof document === 'undefined') return;
@@ -346,6 +356,9 @@ onMounted(() => {
   window.addEventListener('resize', updateTabIndicator);
 });
 watch(username, load);
+watch(canEditAppearance, (allowed) => {
+  if (!allowed) appearanceOpen.value = false;
+});
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
 watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
@@ -382,10 +395,18 @@ onUnmounted(() => {
     :data-theme-tone="activeTheme?.tone"
   >
     <ThemeScene :theme="activeTheme" />
-    <a class="portal-corner-link" data-testid="portal-corner-link" href="/admin" aria-label="后台管理">
-      <span>后台管理</span>
-      <ArrowUpRight :size="17" />
-    </a>
+    <button
+      v-if="canEditAppearance"
+      class="portal-corner-link"
+      data-testid="portal-corner-link"
+      type="button"
+      aria-label="打开外观设置"
+      :aria-expanded="appearanceOpen"
+      @click="appearanceOpen = true"
+    >
+      <Settings :size="17" />
+      <span>外观设置</span>
+    </button>
 
     <div class="nav-content">
       <header class="nav-header">
@@ -478,6 +499,14 @@ onUnmounted(() => {
     <FolderExpandModal v-if="expandedFolder" :folder="expandedFolder" :highlight="debouncedQuery" @close="expandedFolder = null" />
 
     <FolderUnlockModal v-if="verifying" :folder="verifying" :username="username" @close="verifying = null" @verified="onFolderVerified" />
+
+    <AppearanceSettingsDrawer
+      v-if="payload?.site && canEditAppearance"
+      :open="appearanceOpen"
+      :site="payload.site"
+      @close="appearanceOpen = false"
+      @saved="onAppearanceSaved"
+    />
   </main>
 </template>
 
@@ -566,8 +595,10 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 12px 34px rgba(var(--public-shadow-rgb), 0.18), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.24);
   color: rgba(var(--public-page-text-rgb), 0.92);
+  cursor: pointer;
   display: inline-flex;
   font-size: 13px;
+  font-family: inherit;
   font-weight: 750;
   gap: 8px;
   max-width: min(280px, calc(100vw - 32px));

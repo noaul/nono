@@ -21,6 +21,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 统一通知：集中展示个人书签异常、NoStar Release，以及仅管理员可见的 Nodesk 日程、NoMoney 到期项和备份过期提醒
 - AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
 - 公开导航：`/:username`，默认搜索为 Google
+- 主页外观：登录用户可从右侧设置抽屉切换六套动态主题并调整玻璃、文字和卡片质感
 - 统一 API 响应：`{ code, data, message }`
 - 安全加固：Helmet、CORS、限流、2MB 请求体限制、密码策略、LLM Key 加密
 - 一体化 Docker：单个业务镜像内包含 Nono、Nodesk、NoMoney 与 NoStar，外加 PostgreSQL

@@ -11,4 +11,4 @@ The public navigation themes use local copies of the following CC0 images. Openv
 | `clear-sunbeams.jpg` | Clear Day | `5f1dc6bb-7a41-4657-a512-dfafddfee862` | [Crepuscular rays over pine forest](https://openverse.org/image/5f1dc6bb-7a41-4657-a512-dfafddfee862) | CC0 1.0 |
 | `rain-window.jpg` | Rainy World | `75352819-64f2-4b74-944b-944493fac893` | [Rain droplets window background](https://openverse.org/image/75352819-64f2-4b74-944b-944493fac893) | CC0 1.0 |
 
-The files are served from `/theme-scenes/` and are intentionally kept near 1024 px. Scene layers are decorative, ignore pointer input, reduce density on mobile, and stop animation when `prefers-reduced-motion` is enabled.
+The files are served from `/theme-scenes/` and are intentionally kept near 1024 px. Raster files are low-opacity environment textures only. Bubbles, snowflakes, leaves, stars, sun dust, rain lines, and ripples are generated as transparent CSS shapes, so falling elements never carry a rectangular image background. Scene layers ignore pointer input, reduce density on mobile, and stop animation when `prefers-reduced-motion` is enabled.

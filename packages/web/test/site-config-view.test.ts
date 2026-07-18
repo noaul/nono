@@ -24,12 +24,12 @@ async function settle(wrapper: ReturnType<typeof mountView>) {
   await wrapper.vm.$nextTick();
 }
 
-describe('SiteConfigView appearance controls', () => {
+describe('SiteConfigView site controls', () => {
   beforeEach(() => {
     apiRequest.mockReset();
   });
 
-  it('loads grouped appearance settings without a preview and persists separate text controls', async () => {
+  it('keeps site and portal settings while appearance editing lives on the public homepage', async () => {
     apiRequest
       .mockResolvedValueOnce({
         id: 1,
@@ -79,21 +79,10 @@ describe('SiteConfigView appearance controls', () => {
     const wrapper = mountView();
     await settle(wrapper);
 
-    expect(wrapper.find('[data-testid="appearance-preview"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="admin-radius"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="tab-color"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="modal-opacity"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="card-radius"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="theme-winter-glow"]').exists()).toBe(false);
     expect((wrapper.get('[data-testid="portal-label"]').element as HTMLInputElement).value).toBe('我的博客');
     expect((wrapper.get('[data-testid="portal-url"]').element as HTMLInputElement).value).toBe('https://blog.example.com/');
-    await wrapper.get('[data-testid="card-radius"]').setValue('16');
-    await wrapper.get('[data-testid="card-color"]').setValue('#c4b5fd');
-    await wrapper.get('[data-testid="search-color"]').setValue('#fde68a');
-    await wrapper.get('[data-testid="bookmark-text-color"]').setValue('#f1f5f9');
-    await wrapper.get('[data-testid="bookmark-text-size"]').setValue('15');
-    await wrapper.get('[data-testid="notab-text-color"]').setValue('#fefce8');
-    await wrapper.get('[data-testid="notab-text-size"]').setValue('16');
-    await wrapper.get('[data-testid="folder-text-color"]').setValue('#ddd6fe');
-    await wrapper.get('[data-testid="folder-text-size"]').setValue('19');
     await wrapper.get('[data-testid="portal-label"]').setValue('前往新博客');
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
@@ -102,31 +91,11 @@ describe('SiteConfigView appearance controls', () => {
     expect(apiRequest.mock.calls[1][0]).toBe('/api/admin/site');
     expect(options.method).toBe('PUT');
     expect(JSON.parse(options.body).settings.appearance).toMatchObject({
-      cardColor: '#c4b5fd',
-      cardRadius: 16,
-      cardOpacity: 58,
-      cardBlur: 10,
-      searchColor: '#fde68a',
-      searchRadius: 30,
-      searchOpacity: 32,
-      searchBlur: 16,
-      bookmarkTextColor: '#f1f5f9',
-      bookmarkTextSize: 15,
-      notabTextColor: '#fefce8',
-      notabTextSize: 16,
-      folderTextColor: '#ddd6fe',
-      folderTextSize: 19,
-      categoryTextColor: '#ddd6fe',
-      tabColor: '#fde68a',
-      modalRadius: 16,
-      modalOpacity: 58,
-      modalBlur: 10,
-      tabRadius: 30,
-      tabOpacity: 32,
-      tabBlur: 16,
-      adminRadius: 10,
-      adminOpacity: 76,
-      adminBlur: 9,
+      cardColor: '#dbeafe',
+      searchColor: '#fef3c7',
+      bookmarkTextColor: '#f8fafc',
+      notabTextColor: '#dbeafe',
+      folderTextColor: '#e0f2fe',
     });
     expect(JSON.parse(options.body).settings.analytics).toEqual({ enabled: true });
     expect(JSON.parse(options.body).settings.portal).toMatchObject({
@@ -136,42 +105,6 @@ describe('SiteConfigView appearance controls', () => {
       imageUrl: 'https://cdn.example.com/avatar.png',
       openInNewTab: true,
     });
-  });
-
-  it('applies theme glass and text colors as a complete preset', async () => {
-    apiRequest.mockResolvedValueOnce({
-      id: 1,
-      userId: 1,
-      name: 'Nono',
-      description: '导航',
-      slug: 'admin',
-      backgroundColor: '#090a0f',
-      fontColor: '#ffffff',
-      searchUrlTemplate: 'https://www.google.com/search?q={query}',
-      localSearchFirst: true,
-      settings: {},
-    });
-
-    const wrapper = mountView();
-    await settle(wrapper);
-    const themeCard = wrapper.get('[data-testid="theme-winter-glow"]');
-    expect(themeCard.attributes('style')).toContain('--theme-card: #fffaf3');
-    expect(themeCard.attributes('style')).toContain('--theme-search: #fffdf8');
-    expect(themeCard.text()).toContain('细雪与暖光');
-    await themeCard.trigger('click');
-
-    expect((wrapper.get('[data-testid="card-color"]').element as HTMLInputElement).value).toBe('#fffaf3');
-    expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffdf8');
-    expect((wrapper.get('[data-testid="bookmark-text-color"]').element as HTMLInputElement).value).toBe('#3f352f');
-    expect((wrapper.get('[data-testid="notab-text-color"]').element as HTMLInputElement).value).toBe('#4a3f38');
-    expect((wrapper.get('[data-testid="folder-text-color"]').element as HTMLInputElement).value).toBe('#493a32');
-
-    apiRequest.mockResolvedValueOnce({ id: 1, userId: 1, name: 'Nono', settings: {} });
-    await wrapper.get('form').trigger('submit');
-    await settle(wrapper);
-    const payload = JSON.parse(apiRequest.mock.calls[1][1].body);
-    expect(payload.fontColor).toBe('#423832');
-    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#d97745' });
   });
 
   it('adds custom search engines, toggles them, and persists the default engine', async () => {

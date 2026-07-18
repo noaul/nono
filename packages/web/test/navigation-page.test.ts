@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import NavigationPage from '../src/views/NavigationPage.vue';
+import { useAuthStore } from '../src/stores/auth';
 
 const apiRequest = vi.fn();
 
@@ -47,9 +48,14 @@ function navigationPayload(backgroundImage?: string, settings?: Record<string, u
   };
 }
 
-async function mountNavigationPage() {
+async function mountNavigationPage(authenticated = false) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  const auth = useAuthStore();
+  auth.loaded = true;
+  auth.user = authenticated
+    ? { id: 1, username: 'admin', email: 'admin@example.com', displayName: 'Admin', role: 'admin' }
+    : null;
   const wrapper = mount(NavigationPage, { global: { plugins: [pinia] } });
   await vi.dynamicImportSettled();
   await wrapper.vm.$nextTick();
@@ -221,6 +227,10 @@ describe('NavigationPage public workflow', () => {
     expect(source).toContain('pointer-events: none');
     expect(source).toContain('@media (prefers-reduced-motion: reduce)');
     expect(source).toContain('@media (max-width: 640px)');
+    expect(source).toContain('class="scene-particle"');
+    expect(source).not.toContain('class="scene-particle"\n        :src="theme.scene.asset"');
+    expect(source).toContain("[data-scene='snow'] .scene-particle::before");
+    expect(source).toContain("[data-scene='rain'] .scene-particle");
   });
 
   it('shows the public background image immediately while keeping preload hints', async () => {
@@ -257,7 +267,7 @@ describe('NavigationPage public workflow', () => {
     expect(page.classes()).toContain('nav-bg-loaded');
   });
 
-  it('keeps the center portal link while the corner link opens admin', async () => {
+  it('keeps the center portal link and gives the signed-in owner a settings drawer', async () => {
     apiRequest.mockResolvedValue(
       navigationPayload(undefined, {
         portal: {
@@ -270,18 +280,29 @@ describe('NavigationPage public workflow', () => {
       }),
     );
 
-    const wrapper = await mountNavigationPage();
+    const wrapper = await mountNavigationPage(true);
     const corner = wrapper.get('[data-testid="portal-corner-link"]');
     const center = wrapper.get('[data-testid="portal-center-link"]');
 
-    expect(corner.attributes('href')).toBe('/admin');
-    expect(corner.attributes('target')).toBeUndefined();
-    expect(corner.attributes('rel')).toBeUndefined();
-    expect(corner.text()).toContain('后台管理');
+    expect(corner.element.tagName).toBe('BUTTON');
+    expect(corner.text()).toContain('外观设置');
+    await corner.trigger('click');
+    expect(wrapper.get('[data-testid="appearance-settings-drawer"]').isVisible()).toBe(true);
+    const adminLink = wrapper.get('[data-testid="appearance-admin-link"]');
+    expect(adminLink.attributes('href')).toBe('/admin');
+    expect(adminLink.attributes('target')).toBe('_blank');
+    expect(adminLink.attributes('rel')).toBe('noreferrer');
     expect(center.attributes('href')).toBe('https://blog.example.com/');
     expect(center.attributes('target')).toBe('_blank');
     expect(center.attributes('rel')).toBe('noreferrer');
     expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
+  });
+
+  it('does not expose appearance controls to signed-out visitors', async () => {
+    const wrapper = await mountNavigationPage();
+
+    expect(wrapper.find('[data-testid="portal-corner-link"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
   it('switches notabs without enter and leave transitions on the folder grid', () => {

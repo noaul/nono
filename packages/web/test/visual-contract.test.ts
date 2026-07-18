@@ -543,7 +543,7 @@ describe('visual contracts', () => {
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
-    const siteConfigSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/SiteConfigView.vue'), 'utf8');
+    const appearanceDrawerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
     const publicStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/public.css'), 'utf8');
 
     expect(navigationSource).toContain('search-result-summary');
@@ -576,7 +576,7 @@ describe('visual contracts', () => {
     expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?rgba\(var\(--public-card-color-rgb/);
     expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?blur\(var\(--public-card-blur/);
     expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?var\(--public-card-radius/);
-    expect(siteConfigSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
+    expect(appearanceDrawerSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
     expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);
   });
