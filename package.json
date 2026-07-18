@@ -27,7 +27,7 @@
     "test:blog": "pnpm --dir apps/blog test",
     "test:nomoney": "npm --prefix apps/nomoney test",
     "test:nostar": "npm --prefix apps/nostar test -- --run",
-    "test:gateway": "node --test tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs",
+    "test:gateway": "node --test tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs tests/backup-docker-contract.test.mjs tests/backup-compose.test.mjs tests/restore-compose.test.mjs",
     "test:all": "npm test && npm run test:blog && npm run test:nomoney && npm run test:nostar && npm run test:gateway",
     "typecheck:blog": "pnpm --dir apps/blog typecheck",
     "install:blog": "pnpm --dir apps/blog install --frozen-lockfile",
@@ -39,7 +39,12 @@
     "migrate:nostar": "npm run migrate:nostar -w packages/server --",
     "deploy:accept": "node scripts/accept-deployment.mjs",
     "deploy:compose": "node scripts/deploy-compose.mjs",
-    "deploy:rollback": "node scripts/rollback-compose.mjs"
+    "deploy:rollback": "node scripts/rollback-compose.mjs",
+    "backup:create": "node scripts/backup-compose.mjs create",
+    "backup:list": "node scripts/backup-compose.mjs list",
+    "backup:verify": "node scripts/backup-compose.mjs verify",
+    "backup:delete": "node scripts/backup-compose.mjs delete",
+    "backup:restore": "node scripts/restore-compose.mjs"
   },
   "engines": {
     "node": ">=22"

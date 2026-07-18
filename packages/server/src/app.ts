@@ -23,11 +23,13 @@ import { aiRoutes } from './routes/ai.js';
 import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
 import { passkeyRoutes } from './routes/passkeys.js';
+import { backupRoutes } from './routes/admin/backups.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
+import { createBackupServiceFromEnv } from './services/backup.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -35,12 +37,13 @@ const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef
 export async function buildApp(overrides: Partial<AppServices> = {}) {
   const prisma = overrides.prisma || new PrismaClient();
   const safeRequester = overrides.safeRequester || requestSafeResource;
+  const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
   const services: AppServices = {
     prisma,
     repo: overrides.repo || createPrismaRepository(prisma),
     sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
     encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
-    nodeskContentDir: overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog'),
+    nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
     publicFetcher: overrides.publicFetcher || fetchPublicResource,
     publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
@@ -50,6 +53,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'Nono',
     webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
+    backupService: overrides.backupService || createBackupServiceFromEnv(nodeskContentDir),
   };
 
   const app = fastify({
@@ -77,6 +81,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await tokenRoutes(app, services);
   await userRoutes(app, services);
   await accountRoutes(app, services);
+  await backupRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);

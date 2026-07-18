@@ -6,6 +6,7 @@ npm-debug.log*
 coverage/
 *.tsbuildinfo
 data/
+backups/
 .favicon-cache/
 .DS_Store
 packages/server/prisma/migrations/dev.db*

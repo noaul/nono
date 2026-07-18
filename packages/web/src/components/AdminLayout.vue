@@ -2,6 +2,7 @@
 import '@/styles/admin.css';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
+  Archive,
   Bot,
   Compass,
   Folder,
@@ -54,6 +55,7 @@ const navSections = [
     label: '系统',
     items: [
       { to: '/admin/account', label: '账户', title: '账户设置', icon: User },
+      { to: '/admin/backups', label: '备份', title: '备份与恢复', icon: Archive, adminOnly: true },
       { to: '/admin/users', label: '用户', title: '用户管理', icon: Users, adminOnly: true },
     ],
   },

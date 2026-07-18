@@ -16,6 +16,7 @@ const UsersView = () => import('@/views/admin/UsersView.vue');
 const AccountView = () => import('@/views/admin/AccountView.vue');
 const LlmView = () => import('@/views/admin/LlmView.vue');
 const TokensView = () => import('@/views/admin/TokensView.vue');
+const BackupsView = () => import('@/views/admin/BackupsView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -41,6 +42,7 @@ export const router = createRouter({
         { path: '/admin/account', component: AccountView, meta: { title: '账户设置' } },
         { path: '/admin/llm', component: LlmView, meta: { title: 'AI 智能收藏' } },
         { path: '/admin/tokens', component: TokensView, meta: { title: 'API Token' } },
+        { path: '/admin/backups', component: BackupsView, meta: { title: '备份与恢复', requiresAdmin: true } },
       ],
     },
     { path: '/:username', component: NavigationPage },

@@ -45,6 +45,8 @@ services:
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-}
       GATEWAY_TRUST_FORWARDED_HEADERS: ${GATEWAY_TRUST_FORWARDED_HEADERS:-false}
       PRIVATE_OUTBOUND_HOSTS: ${PRIVATE_OUTBOUND_HOSTS:-}
+      NONO_BUILD_COMMIT: ${NONO_BUILD_COMMIT:-unknown}
+      BACKUP_DIR: /app/backups
       NODESK_CONTENT_DIR: /app/nodesk-content
       NODESK_SEED_DIR: /app/nodesk-seed
       NOMONEY_INTERNAL_PORT: 2030
@@ -60,6 +62,7 @@ services:
     volumes:
       - nodesk_content:/app/nodesk-content
       - nomoney_data:/app/nomoney-data
+      - nono_backups:/app/backups
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz >/dev/null && wget -qO- http://127.0.0.1:3000/nomoney/api/health >/dev/null"]
       interval: 30s
@@ -71,3 +74,4 @@ volumes:
   nono_pg_data:
   nodesk_content:
   nomoney_data:
+  nono_backups:

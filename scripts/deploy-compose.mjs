@@ -45,7 +45,7 @@ export async function deployCompose({
   if (!skipPull) await run('git', ['pull', '--ff-only', 'origin', 'main'], commandOptions);
   const currentCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();
   const imageTag = imageTagForCommit(imageRepository, currentCommit);
-  const deployEnv = { ...process.env, NONO_APP_IMAGE: imageTag };
+  const deployEnv = { ...process.env, NONO_APP_IMAGE: imageTag, NONO_BUILD_COMMIT: currentCommit };
 
   log(`deploying ${previousCommit.slice(0, 12)} -> ${currentCommit.slice(0, 12)} as ${imageTag}`);
   await run('docker', ['compose', 'up', '-d', 'postgres'], { ...commandOptions, env: deployEnv });
@@ -61,7 +61,7 @@ export async function deployCompose({
     }
 
     log(`deployment acceptance failed; restoring ${previousImage.reference}`);
-    const rollbackEnv = { ...process.env, NONO_APP_IMAGE: previousImage.reference };
+    const rollbackEnv = { ...process.env, NONO_APP_IMAGE: previousImage.reference, NONO_BUILD_COMMIT: previousCommit };
     await run('docker', ['compose', 'up', '-d', '--no-deps', '--force-recreate', 'app'], { ...commandOptions, env: rollbackEnv });
     try {
       await waitForAcceptance({ baseUrl, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
