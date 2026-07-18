@@ -30,6 +30,7 @@ import type { AppServices, LlmClient } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
 import { createBackupServiceFromEnv } from './services/backup.service.js';
+import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -86,6 +87,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);
   await nostarRoutes(app, services);
+  registerLinkHealthScheduler(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {

@@ -63,6 +63,11 @@ export interface Link {
   icon?: string | null;
   description?: string | null;
   sortOrder: number;
+  healthStatus?: 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid' | null;
+  healthStatusCode?: number | null;
+  healthReason?: string | null;
+  healthFinalUrl?: string | null;
+  healthCheckedAt?: string | null;
 }
 
 export interface NavigationPayload {
@@ -105,8 +110,9 @@ export interface LinkHealthResult {
   id: number;
   name: string;
   url: string;
-  status: 'ok' | 'broken' | 'timeout' | 'invalid';
+  status: 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid';
   statusCode?: number;
+  finalUrl?: string;
   reason?: string;
   checkedAt: string;
 }
@@ -114,6 +120,7 @@ export interface LinkHealthResult {
 export interface LinkHealthSummary {
   total: number;
   ok: number;
+  redirected: number;
   broken: number;
   timeout: number;
   invalid: number;

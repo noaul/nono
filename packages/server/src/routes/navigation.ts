@@ -64,7 +64,12 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     const folder = await services.repo.getFolder(site.userId, Number((request.params as any).id));
     if (!folder?.passwordHash) return sendOk(reply, { verified: true });
     const ok = await verifyPassword(String((request.body as any)?.password || ''), folder.passwordHash);
-    return sendOk(reply, { verified: ok, links: ok ? (await services.repo.listLinks(site.userId)).filter((link) => link.folderId === folder.id) : [] });
+    return sendOk(reply, {
+      verified: ok,
+      links: ok
+        ? (await services.repo.listLinks(site.userId)).filter((link) => link.folderId === folder.id).map(publicLink)
+        : [],
+    });
   });
 }
 
@@ -109,6 +114,20 @@ function publicFolder(folder: FolderRecord, links: LinkRecord[]) {
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
     locked,
-    links: locked ? [] : links,
+    links: locked ? [] : links.map(publicLink),
+  };
+}
+
+function publicLink(link: LinkRecord) {
+  return {
+    id: link.id,
+    folderId: link.folderId,
+    name: link.name,
+    url: link.url,
+    icon: link.icon ?? null,
+    description: link.description ?? null,
+    sortOrder: link.sortOrder,
+    createdAt: link.createdAt,
+    updatedAt: link.updatedAt,
   };
 }

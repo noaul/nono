@@ -109,6 +109,22 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });
       return (await prisma.link.update({ where: { id: link.id }, data: prune(input) as any })) as any;
     },
+    async updateLinkHealth(userId, updates) {
+      if (!updates.length) return;
+      const ids = updates.map((update) => update.id);
+      const owned = await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, select: { id: true } });
+      if (owned.length !== new Set(ids).size) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+      await prisma.$transaction(updates.map((update) => prisma.link.updateMany({
+        where: { id: update.id, url: update.url, folder: { userId } },
+        data: {
+          healthStatus: update.status,
+          healthStatusCode: update.statusCode ?? null,
+          healthReason: update.reason ?? null,
+          healthFinalUrl: update.finalUrl ?? null,
+          healthCheckedAt: update.checkedAt,
+        },
+      })));
+    },
     async reorderLinks(userId, ids) {
       if (!ids.length) return;
       const owned = await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, select: { id: true } });

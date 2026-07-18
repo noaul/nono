@@ -121,18 +121,24 @@ model Folder {
 }
 
 model Link {
-  id          Int      @id @default(autoincrement())
-  folderId    Int
-  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  name        String
-  url         String
-  icon        String?
-  description String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               Int       @id @default(autoincrement())
+  folderId         Int
+  folder           Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  name             String
+  url              String
+  icon             String?
+  description      String?
+  sortOrder        Int       @default(0)
+  healthStatus     String?
+  healthStatusCode Int?
+  healthReason     String?
+  healthFinalUrl   String?
+  healthCheckedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([folderId, sortOrder])
+  @@index([healthCheckedAt])
 }
 
 model ApiToken {

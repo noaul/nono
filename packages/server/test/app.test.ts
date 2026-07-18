@@ -171,12 +171,20 @@ describe('Nono Fastify app', () => {
       payload: { name: 'Private', password: 'Folder2026!', passwordHint: 'Personal hint' },
     });
     const folderId = folder.json().data.id;
-    await app.inject({
+    const privateLink = await app.inject({
       method: 'POST',
       url: '/api/admin/links',
       headers: { cookie },
       payload: { folderId, name: 'Secret', url: 'https://secret.example/' },
     });
+    await repo.updateLinkHealth(1, [{
+      id: privateLink.json().data.id,
+      url: 'https://secret.example/',
+      status: 'broken',
+      statusCode: 404,
+      reason: 'Internal health detail',
+      checkedAt: new Date('2026-07-18T08:00:00.000Z'),
+    }]);
 
     const navigation = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
     const navigationBody = navigation.json();
@@ -192,6 +200,15 @@ describe('Nono Fastify app', () => {
     expect(legacy.statusCode).toBe(200);
     expect(legacyFolder).toMatchObject({ id: folderId, locked: true, passwordHint: 'Personal hint', links: [] });
     expect(legacyFolder).not.toHaveProperty('passwordHash');
+
+    const unlocked = await app.inject({
+      method: 'POST',
+      url: `/api/navigation/admin/folder/${folderId}/verify`,
+      payload: { password: 'Folder2026!' },
+    });
+    expect(unlocked.statusCode).toBe(200);
+    expect(unlocked.json().data.links[0]).not.toHaveProperty('healthStatus');
+    expect(unlocked.json().data.links[0]).not.toHaveProperty('healthReason');
   });
 
   it('keeps disabled registration and unauthenticated errors in the unified response envelope', async () => {
@@ -789,30 +806,27 @@ describe('Nono Fastify app', () => {
     expect((await repo.listLinks(1)).map((link) => link.name)).toEqual(['Keep']);
   });
 
-  it('checks selected admin link health without writing link state', async () => {
+  it('checks selected admin links through the safe requester and persists their health', async () => {
+    await app.close();
+    const safeRequester = vi.fn(async (url: string) => ({
+      statusCode: url.includes('broken.example') ? 404 : 200,
+      headers: {},
+      body: Buffer.alloc(0),
+      finalUrl: url,
+    }));
+    app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Quality' } });
     const folderId = folder.json().data.id;
     const ok = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'OK', url: 'https://ok.example/' } });
     const broken = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Broken', url: 'https://broken.example/' } });
     const invalid = await repo.createLink({ folderId, name: 'Chrome', url: 'chrome://bookmarks/', icon: '', description: '', sortOrder: 10 });
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn(async (url: string | URL | Request) => {
-      const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
-      if (href.includes('ok.example')) return new Response('', { status: 200 });
-      if (href.includes('broken.example')) return new Response('', { status: 404 });
-      return new Response('', { status: 500 });
-    });
-    globalThis.fetch = fetchMock as typeof fetch;
-
     const health = await app.inject({
       method: 'POST',
       url: '/api/admin/links/health-check',
       headers: { cookie },
       payload: { ids: [ok.json().data.id, broken.json().data.id, invalid.id] },
     });
-    globalThis.fetch = originalFetch;
-
     expect(health.statusCode).toBe(200);
     expect(health.json().data.summary).toMatchObject({ total: 3, ok: 1, broken: 1, invalid: 1, timeout: 0 });
     expect(Object.fromEntries(health.json().data.results.map((result: any) => [result.id, result.status]))).toEqual({
@@ -820,7 +834,183 @@ describe('Nono Fastify app', () => {
       [broken.json().data.id]: 'broken',
       [invalid.id]: 'invalid',
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(safeRequester).toHaveBeenCalledTimes(2);
+    const persisted = Object.fromEntries((await repo.listLinks(1)).map((link) => [link.id, link]));
+    expect(persisted[ok.json().data.id]).toMatchObject({ healthStatus: 'ok', healthStatusCode: 200 });
+    expect(persisted[broken.json().data.id]).toMatchObject({ healthStatus: 'broken', healthStatusCode: 404 });
+    expect(persisted[invalid.id]).toMatchObject({ healthStatus: 'invalid', healthReason: 'URL must start with http:// or https://' });
+  });
+
+  it('does not grant regular users the administrator private-host allowlist', async () => {
+    await app.close();
+    const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
+    app = await buildApp({
+      repo,
+      sessionSecret,
+      encryptionKey,
+      safeRequester: safeRequester as any,
+      privateOutboundHosts: ['bookmarks.lan'],
+    });
+    const adminCookie = await setupAdmin();
+    const reader = await setupUser(adminCookie);
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie: reader.cookie }, payload: { name: 'Reader' } });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: reader.cookie },
+      payload: { folderId: folder.json().data.id, name: 'LAN', url: 'http://bookmarks.lan/' },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { cookie: reader.cookie },
+      payload: { ids: [link.json().data.id] },
+    });
+
+    expect(safeRequester).toHaveBeenCalledWith('http://bookmarks.lan/', expect.objectContaining({ allowPrivateHosts: [] }));
+  });
+
+  it('batch repairs persisted redirect targets without touching another user links', async () => {
+    await app.close();
+    const safeRequester = vi.fn(async (url: string) => ({
+      statusCode: 200,
+      headers: {},
+      body: Buffer.alloc(0),
+      finalUrl: url.replace('http://old.example', 'https://new.example'),
+    }));
+    app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
+    const adminCookie = await setupAdmin();
+    const reader = await setupUser(adminCookie);
+    const adminFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie: adminCookie }, payload: { name: 'Admin' } });
+    const readerFolder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie: reader.cookie }, payload: { name: 'Reader' } });
+    const adminLink = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: adminCookie },
+      payload: { folderId: adminFolder.json().data.id, name: 'Moved', url: 'http://old.example/docs' },
+    });
+    const readerLink = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: reader.cookie },
+      payload: { folderId: readerFolder.json().data.id, name: 'Reader moved', url: 'http://old.example/private' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { cookie: adminCookie },
+      payload: { ids: [adminLink.json().data.id] },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { cookie: reader.cookie },
+      payload: { ids: [readerLink.json().data.id] },
+    });
+
+    const repaired = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-repair',
+      headers: { cookie: adminCookie },
+      payload: { ids: [adminLink.json().data.id, readerLink.json().data.id] },
+    });
+
+    expect(repaired.statusCode).toBe(200);
+    expect(repaired.json().data).toMatchObject({ repaired: 1, skipped: 1 });
+    expect(repaired.json().data.links[0]).toMatchObject({
+      id: adminLink.json().data.id,
+      url: 'https://new.example/docs',
+      healthStatus: 'ok',
+      healthFinalUrl: null,
+    });
+    expect((await repo.listLinks(reader.userId))[0].url).toBe('http://old.example/private');
+  });
+
+  it('clears stale health metadata when a link URL changes', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Health' } });
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie },
+      payload: { folderId: folder.json().data.id, name: 'Old', url: 'https://old.example/' },
+    });
+    await repo.updateLinkHealth(1, [{
+      id: created.json().data.id,
+      url: 'https://old.example/',
+      status: 'broken',
+      statusCode: 404,
+      reason: 'Not found',
+      checkedAt: new Date('2026-07-18T08:00:00.000Z'),
+    }]);
+
+    const renamed = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/links/${created.json().data.id}`,
+      headers: { cookie },
+      payload: { name: 'Renamed', url: 'https://old.example/' },
+    });
+    expect(renamed.json().data).toMatchObject({
+      name: 'Renamed',
+      healthStatus: 'broken',
+      healthStatusCode: 404,
+    });
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/links/${created.json().data.id}`,
+      headers: { cookie },
+      payload: { url: 'https://new.example/' },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data).toMatchObject({ url: 'https://new.example/', healthStatus: null, healthCheckedAt: null });
+
+    await repo.updateLinkHealth(1, [{
+      id: created.json().data.id,
+      url: 'https://old.example/',
+      status: 'broken',
+      statusCode: 410,
+      checkedAt: new Date('2026-07-18T09:00:00.000Z'),
+    }]);
+    expect((await repo.listLinks(1))[0]).toMatchObject({ url: 'https://new.example/', healthStatus: null });
+  });
+
+  it('automatically checks only links whose persisted health is due', async () => {
+    await app.close();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-18T12:00:00.000Z'));
+    vi.stubEnv('LINK_HEALTH_CHECK_ENABLED', 'true');
+    vi.stubEnv('LINK_HEALTH_CHECK_INTERVAL_HOURS', '24');
+    vi.stubEnv('LINK_HEALTH_CHECK_START_DELAY_SECONDS', '1');
+    const user = await repo.createUser({
+      username: 'scheduled',
+      email: 'scheduled@nono.test',
+      displayName: 'Scheduled',
+      passwordHash: 'unused',
+      role: 'admin',
+    });
+    const folder = await repo.createFolder({ userId: user.id, parentId: null, name: 'Scheduled', icon: '', description: '', sortOrder: 100 });
+    const due = await repo.createLink({ folderId: folder.id, name: 'Due', url: 'https://due.example/', icon: '', description: '', sortOrder: 100 });
+    const fresh = await repo.createLink({ folderId: folder.id, name: 'Fresh', url: 'https://fresh.example/', icon: '', description: '', sortOrder: 90 });
+    await repo.updateLinkHealth(user.id, [{ id: fresh.id, url: fresh.url, status: 'ok', statusCode: 200, checkedAt: new Date('2026-07-18T11:00:00.000Z') }]);
+    const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
+
+    try {
+      app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
+      await app.ready();
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(safeRequester).toHaveBeenCalledTimes(1);
+      expect(safeRequester.mock.calls[0][0]).toBe('https://due.example/');
+      expect((await repo.listLinks(user.id)).find((link) => link.id === due.id)).toMatchObject({
+        healthStatus: 'ok',
+        healthStatusCode: 200,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('rejects folder parent cycles', async () => {

@@ -1,6 +1,5 @@
-import type { LinkRecord } from './repository.js';
-
-export type LinkHealthStatus = 'ok' | 'broken' | 'timeout' | 'invalid';
+import type { LinkHealthStatus, LinkRecord } from './repository.js';
+import { requestSafeResource } from '../utils/safe-fetch.js';
 
 export interface LinkHealthResult {
   id: number;
@@ -8,6 +7,7 @@ export interface LinkHealthResult {
   url: string;
   status: LinkHealthStatus;
   statusCode?: number;
+  finalUrl?: string;
   reason?: string;
   checkedAt: string;
 }
@@ -15,37 +15,59 @@ export interface LinkHealthResult {
 export interface LinkHealthSummary {
   total: number;
   ok: number;
+  redirected: number;
   broken: number;
   timeout: number;
   invalid: number;
 }
 
-type FetchLike = typeof fetch;
+type SafeRequester = typeof requestSafeResource;
 
-export async function checkLinksHealth(links: LinkRecord[], fetchImpl: FetchLike = fetch) {
-  const results = await Promise.all(links.map((link) => checkOneLink(link, fetchImpl)));
+export interface LinkHealthCheckOptions {
+  allowPrivateHosts?: string[];
+  concurrency?: number;
+}
+
+export async function checkLinksHealth(
+  links: LinkRecord[],
+  requester: SafeRequester = requestSafeResource,
+  options: LinkHealthCheckOptions = {},
+) {
+  const results = await mapWithConcurrency(
+    links,
+    normalizeConcurrency(options.concurrency),
+    (link) => checkOneLink(link, requester, options),
+  );
   const summary = results.reduce<LinkHealthSummary>(
     (counts, result) => {
       counts[result.status] += 1;
       return counts;
     },
-    { total: results.length, ok: 0, broken: 0, timeout: 0, invalid: 0 },
+    { total: results.length, ok: 0, redirected: 0, broken: 0, timeout: 0, invalid: 0 },
   );
   return { summary, results };
 }
 
-export async function checkOneLink(link: LinkRecord, fetchImpl: FetchLike = fetch): Promise<LinkHealthResult> {
+export async function checkOneLink(
+  link: LinkRecord,
+  requester: SafeRequester = requestSafeResource,
+  options: LinkHealthCheckOptions = {},
+): Promise<LinkHealthResult> {
   const checkedAt = new Date().toISOString();
   const url = parseHttpUrl(link.url);
-  if (!url) return baseResult(link, checkedAt, 'invalid', undefined, 'URL must start with http:// or https://');
+  if (!url) return baseResult(link, checkedAt, 'invalid', undefined, undefined, 'URL must start with http:// or https://');
 
   try {
-    const response = await fetchWithTimeout(fetchImpl, url, 'HEAD');
-    const finalResponse = response.status === 405 ? await fetchWithTimeout(fetchImpl, url, 'GET') : response;
-    return baseResult(link, checkedAt, finalResponse.status < 400 ? 'ok' : 'broken', finalResponse.status);
+    const response = await requestLink(requester, url, 'HEAD', options);
+    const finalResponse = response.statusCode === 405 ? await requestLink(requester, url, 'GET', options) : response;
+    const finalUrl = finalResponse.finalUrl || url.href;
+    const status = finalResponse.statusCode < 400
+      ? (finalUrl !== url.href ? 'redirected' : 'ok')
+      : 'broken';
+    return baseResult(link, checkedAt, status, finalResponse.statusCode, status === 'redirected' ? finalUrl : undefined);
   } catch (event) {
     const message = event instanceof Error ? event.message : 'Request failed';
-    return baseResult(link, checkedAt, message === 'Link health check timed out' ? 'timeout' : 'broken', undefined, message);
+    return baseResult(link, checkedAt, /timed out|aborted/i.test(message) ? 'timeout' : 'broken', undefined, undefined, message);
   }
 }
 
@@ -58,19 +80,51 @@ function parseHttpUrl(value: string) {
   }
 }
 
-function baseResult(link: LinkRecord, checkedAt: string, status: LinkHealthStatus, statusCode?: number, reason?: string): LinkHealthResult {
-  return { id: link.id, name: link.name, url: link.url, status, ...(statusCode ? { statusCode } : {}), ...(reason ? { reason } : {}), checkedAt };
+function baseResult(
+  link: LinkRecord,
+  checkedAt: string,
+  status: LinkHealthStatus,
+  statusCode?: number,
+  finalUrl?: string,
+  reason?: string,
+): LinkHealthResult {
+  return {
+    id: link.id,
+    name: link.name,
+    url: link.url,
+    status,
+    ...(statusCode !== undefined ? { statusCode } : {}),
+    ...(finalUrl ? { finalUrl } : {}),
+    ...(reason ? { reason } : {}),
+    checkedAt,
+  };
 }
 
-async function fetchWithTimeout(fetchImpl: FetchLike, url: URL, method: 'HEAD' | 'GET') {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new Error('Link health check timed out')), 5000);
-  try {
-    return await fetchImpl(url, { method, redirect: 'follow', signal: controller.signal });
-  } catch (event) {
-    if (controller.signal.aborted) throw new Error('Link health check timed out');
-    throw event;
-  } finally {
-    clearTimeout(timeout);
-  }
+function requestLink(requester: SafeRequester, url: URL, method: 'HEAD' | 'GET', options: LinkHealthCheckOptions) {
+  return requester(url.href, {
+    method,
+    timeoutMs: 5000,
+    maxRedirects: 5,
+    maxBytes: method === 'HEAD' ? 1024 : 128 * 1024,
+    discardBody: method === 'GET',
+    allowPrivateHosts: options.allowPrivateHosts,
+  });
+}
+
+function normalizeConcurrency(value: number | undefined) {
+  return Math.min(8, Math.max(1, Math.floor(value || 4)));
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, action: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await action(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
 }

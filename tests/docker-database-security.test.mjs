@@ -24,3 +24,18 @@ test('binds PostgreSQL locally by default and documents required variables', () 
   assert.match(exampleEnv, /^POSTGRES_BIND_ADDRESS=127\.0\.0\.1$/m);
   assert.match(exampleEnv, /^POSTGRES_PORT=5433$/m);
 });
+
+test('persists link health fields and schedules checks through Compose', () => {
+  const schema = fs.readFileSync('packages/server/prisma/schema.prisma', 'utf8');
+  const migration = fs.readFileSync('packages/server/prisma/migrations/20260718002000_add_link_health/migration.sql', 'utf8');
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+  const exampleEnv = fs.readFileSync('.env.example', 'utf8');
+
+  for (const field of ['healthStatus', 'healthStatusCode', 'healthReason', 'healthFinalUrl', 'healthCheckedAt']) {
+    assert.match(schema, new RegExp(`\\b${field}\\b`));
+    assert.match(migration, new RegExp(`"${field}"`));
+  }
+  assert.match(migration, /CREATE INDEX "Link_healthCheckedAt_idx"/);
+  assert.match(compose, /LINK_HEALTH_CHECK_ENABLED:\s*\$\{LINK_HEALTH_CHECK_ENABLED:-true\}/);
+  assert.match(exampleEnv, /^LINK_HEALTH_CHECK_INTERVAL_HOURS=24$/m);
+});

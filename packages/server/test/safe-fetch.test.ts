@@ -67,7 +67,7 @@ describe('safe public resource fetching', () => {
       .mockResolvedValueOnce({ statusCode: 307, headers: { location: 'https://other.example/v1/messages' }, body: Buffer.alloc(0) })
       .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.alloc(0) });
 
-    await requestSafeResource('https://api.example/v1/messages', {
+    const response = await requestSafeResource('https://api.example/v1/messages', {
       method: 'POST',
       headers: { authorization: 'Bearer secret', 'x-api-key': 'secret' },
       body: '{}',
@@ -75,5 +75,6 @@ describe('safe public resource fetching', () => {
 
     expect(request.mock.calls[1][2].headers).not.toHaveProperty('authorization');
     expect(request.mock.calls[1][2].headers).not.toHaveProperty('x-api-key');
+    expect(response.finalUrl).toBe('https://other.example/v1/messages');
   });
 });

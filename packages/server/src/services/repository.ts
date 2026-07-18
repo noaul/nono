@@ -56,8 +56,25 @@ export interface LinkRecord {
   icon?: string | null;
   description?: string | null;
   sortOrder: number;
+  healthStatus?: LinkHealthStatus | null;
+  healthStatusCode?: number | null;
+  healthReason?: string | null;
+  healthFinalUrl?: string | null;
+  healthCheckedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type LinkHealthStatus = 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid';
+
+export interface LinkHealthUpdate {
+  id: number;
+  url: string;
+  status: LinkHealthStatus;
+  statusCode?: number | null;
+  reason?: string | null;
+  finalUrl?: string | null;
+  checkedAt: Date;
 }
 
 export interface ApiTokenRecord {
@@ -141,6 +158,7 @@ export interface Repository {
   listLinks(userId: number): Promise<LinkRecord[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
+  updateLinkHealth(userId: number, updates: LinkHealthUpdate[]): Promise<void>;
   reorderLinks(userId: number, ids: number[]): Promise<void>;
   deleteLink(userId: number, id: number): Promise<void>;
   deleteLinks(userId: number, ids: number[]): Promise<void>;
@@ -326,6 +344,23 @@ export class MemoryRepository implements Repository {
     const link = await this.requiredLink(userId, id);
     Object.assign(link, input, { updatedAt: new Date() });
     return link;
+  }
+
+  async updateLinkHealth(userId: number, updates: LinkHealthUpdate[]) {
+    const links = await this.listLinks(userId);
+    const byId = new Map(links.map((link) => [link.id, link]));
+    if (updates.some((update) => !byId.has(update.id))) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    for (const update of updates) {
+      const link = byId.get(update.id)!;
+      if (link.url !== update.url) continue;
+      Object.assign(link, {
+        healthStatus: update.status,
+        healthStatusCode: update.statusCode ?? null,
+        healthReason: update.reason ?? null,
+        healthFinalUrl: update.finalUrl ?? null,
+        healthCheckedAt: update.checkedAt,
+      });
+    }
   }
 
   async reorderLinks(userId: number, ids: number[]) {

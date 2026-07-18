@@ -297,6 +297,71 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('404');
   });
 
+  it('restores persisted link health after the page reloads', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([{
+        id: 10,
+        folderId: 1,
+        name: 'Broken',
+        url: 'https://broken.example/',
+        sortOrder: 100,
+        healthStatus: 'broken',
+        healthStatusCode: 503,
+        healthReason: 'Service unavailable',
+        healthCheckedAt: '2026-07-18T08:00:00.000Z',
+      }]);
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.text()).toContain('健康检查');
+    expect(wrapper.text()).toContain('异常 1');
+    expect(wrapper.text()).toContain('503');
+  });
+
+  it('batch repairs persisted redirect targets and updates the table', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])
+      .mockResolvedValueOnce([{
+        id: 10,
+        folderId: 1,
+        name: 'Moved',
+        url: 'http://old.example/docs',
+        sortOrder: 100,
+        healthStatus: 'redirected',
+        healthStatusCode: 200,
+        healthFinalUrl: 'https://new.example/docs',
+        healthCheckedAt: '2026-07-18T08:00:00.000Z',
+      }])
+      .mockResolvedValueOnce({
+        repaired: 1,
+        skipped: 0,
+        links: [{
+          id: 10,
+          folderId: 1,
+          name: 'Moved',
+          url: 'https://new.example/docs',
+          sortOrder: 100,
+          healthStatus: 'ok',
+          healthStatusCode: 200,
+          healthFinalUrl: null,
+          healthCheckedAt: '2026-07-18T08:00:00.000Z',
+        }],
+      });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="repair-link-redirects"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/health-repair', {
+      method: 'POST',
+      body: JSON.stringify({ ids: [10] }),
+    });
+    expect(wrapper.get('[data-testid="link-row-10"]').text()).toContain('https://new.example/docs');
+  });
+
   it('uses drag handles and saves bookmark ordering only once', async () => {
     apiRequest
       .mockResolvedValueOnce([{ id: 1, userId: 1, name: 'Tools', sortOrder: 100 }])

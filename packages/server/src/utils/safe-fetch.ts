@@ -7,9 +7,11 @@ export interface PublicFetchResult {
   statusCode: number;
   headers: IncomingHttpHeaders;
   body: Buffer;
+  finalUrl?: string;
 }
 
 export interface PublicFetchOptions {
+  discardBody?: boolean;
   headers?: Record<string, string>;
   maxBytes?: number;
   maxRedirects?: number;
@@ -103,7 +105,7 @@ export async function requestSafeResource(
     const address = await resolveRequestAddress(url.hostname, requestOptions.allowPrivateHosts || [], lookup);
     const response = await request(url, address, requestOptions);
     const location = firstHeader(response.headers.location);
-    if (!isRedirect(response.statusCode) || !location) return response;
+    if (!isRedirect(response.statusCode) || !location) return { ...response, finalUrl: url.href };
     if (redirectCount >= maxRedirects) throw new Error('Too many redirects');
     const nextUrl = parsePublicUrl(new URL(location, url).href);
     requestOptions = redirectedOptions(requestOptions, response.statusCode, url, nextUrl);
@@ -152,6 +154,12 @@ function requestOnce(url: URL, address: LookupAddress, options: SafeRequestOptio
         headers: { ...options.headers, host: url.host },
       },
       (response) => {
+        if (options.discardBody) {
+          response.on('error', () => {});
+          resolve({ statusCode: response.statusCode || 0, headers: response.headers, body: Buffer.alloc(0) });
+          response.destroy();
+          return;
+        }
         const chunks: Buffer[] = [];
         let size = 0;
         response.on('data', (chunk: Buffer) => {

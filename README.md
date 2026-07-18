@@ -17,6 +17,7 @@ Nono 是一个可自托管的网址导航、后台管理和 AI 智能收藏工�
 - 文件夹图标：紧凑触发器 + 浅白磨砂弹窗，支持搜索、推荐、最近和全部图标
 - 自适应后台：内容区随工作区流体铺满，浏览器缩放和宽屏下保持左右对齐
 - 浏览器书签：Netscape Bookmark HTML 导入和导出
+- 链接健康：持久化检测结果、每日自动补检和重定向地址批量修复
 - AI 智能收藏：OpenAI / Claude 分析网页并推荐文件夹
 - 公开导航：`/:username`，默认搜索为 Google
 - 统一 API 响应：`{ code, data, message }`
@@ -124,6 +125,8 @@ WEBAUTHN_ORIGIN=https://noaul.com
 若容器端口仅由同机 Nginx/Caddy 反向代理访问，可设置 `GATEWAY_TRUST_FORWARDED_HEADERS=true`，让登录限流按真实客户端 IP 计算；容器端口直接暴露公网时应保持 `false`。默认 CORS 仅允许 Chrome 扩展来源，若还需独立网页跨域调用，可在 `CORS_ORIGIN` 中填写逗号分隔的完整 Origin 白名单。
 
 服务端发起的自定义 LLM、NoStar AI、WebDAV 和 aria2 请求默认禁止访问回环、私网、链路本地及云 metadata 地址，并会在每次重定向后重新校验。管理员确实需要访问自建内网服务时，可在 `PRIVATE_OUTBOUND_HOSTS` 中填写逗号分隔的精确主机名或 IP，例如 `llm.lan,192.168.1.20`；该白名单不会授予普通用户私网访问权限。NoStar 的 HTTP/SOCKS 代理和 aria2 RPC 配置仅管理员可管理。
+
+书签管理会保存最近一次链接健康结果，并识别可批量更新的重定向地址。生产环境默认每 24 小时补检一次从未检测或已过期的链接，启动后延迟 60 秒执行首轮；可通过 `LINK_HEALTH_CHECK_ENABLED`、`LINK_HEALTH_CHECK_INTERVAL_HOURS` 和 `LINK_HEALTH_CHECK_START_DELAY_SECONDS` 调整。检测请求使用同一套 SSRF 防护和 `PRIVATE_OUTBOUND_HOSTS` 精确白名单，并发数固定为 4。
 
 Nodesk 的文章、图片和站点配置由 Nono 后台直接写入本机持久化目录，不再需要 GitHub App、Token 或私钥。Docker 部署会使用 `nodesk_content` 命名卷保存内容；首次启动会导入镜像内现有内容，后续重建容器不会覆盖该卷。请勿在升级时删除此卷。
 

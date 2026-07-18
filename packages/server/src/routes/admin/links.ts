@@ -89,24 +89,75 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const ids = uniqueNumericIds((request.body as any)?.ids);
     const idFilter = new Set(ids);
     const links = await services.repo.listLinks(user.id);
-    return sendOk(reply, await checkLinksHealth(ids.length ? links.filter((link) => idFilter.has(link.id)) : links));
+    const result = await checkLinksHealth(
+      ids.length ? links.filter((link) => idFilter.has(link.id)) : links,
+      services.safeRequester,
+      { allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [], concurrency: 4 },
+    );
+    await services.repo.updateLinkHealth(user.id, result.results.map((item) => ({
+      id: item.id,
+      url: item.url,
+      status: item.status,
+      statusCode: item.statusCode,
+      reason: item.reason,
+      finalUrl: item.finalUrl,
+      checkedAt: new Date(item.checkedAt),
+    })));
+    return sendOk(reply, result);
+  });
+
+  app.post('/api/admin/links/health-repair', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const ids = uniqueNumericIds((request.body as any)?.ids);
+    const ownedLinks = await services.repo.listLinks(user.id);
+    const byId = new Map(ownedLinks.map((link) => [link.id, link]));
+    const repaired: LinkRecord[] = [];
+
+    for (const id of ids) {
+      const link = byId.get(id);
+      const finalUrl = link?.healthStatus === 'redirected' ? validRepairUrl(link.healthFinalUrl) : null;
+      if (!link || !finalUrl) continue;
+      repaired.push(await services.repo.updateLink(user.id, link.id, {
+        url: finalUrl,
+        healthStatus: 'ok',
+        healthReason: null,
+        healthFinalUrl: null,
+      }));
+    }
+
+    return sendOk(reply, { repaired: repaired.length, skipped: ids.length - repaired.length, links: repaired });
   });
 
   app.put('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body: Partial<LinkRecord> = linkUpdateSchema.parse(request.body);
-    if (body.url) body.url = normalizeUrl(body.url);
+    const linkId = Number((request.params as any).id);
+    const needsCurrentLink = 'url' in body || 'folderId' in body;
+    const current = needsCurrentLink
+      ? (await services.repo.listLinks(user.id)).find((link) => link.id === linkId)
+      : undefined;
+    if (needsCurrentLink && !current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    if ('url' in body) {
+      body.url = normalizeUrl(String(body.url ?? ''));
+      if (body.url !== current!.url) {
+        Object.assign(body, {
+          healthStatus: null,
+          healthStatusCode: null,
+          healthReason: null,
+          healthFinalUrl: null,
+          healthCheckedAt: null,
+        });
+      }
+    }
     if ('folderId' in body) {
       const folder = await services.repo.getFolder(user.id, Number(body.folderId));
       if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
       body.folderId = folder.id;
-      const links = await services.repo.listLinks(user.id);
-      const current = links.find((link) => link.id === Number((request.params as any).id));
-      if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
-      if (current.folderId !== Number(body.folderId)) body.sortOrder = createSortOrder();
+      if (current!.folderId !== Number(body.folderId)) body.sortOrder = createSortOrder();
     }
-    return sendOk(reply, await services.repo.updateLink(user.id, Number((request.params as any).id), body));
+    return sendOk(reply, await services.repo.updateLink(user.id, linkId, body));
   });
 
   app.delete('/api/admin/links/:id', async (request, reply) => {
@@ -119,4 +170,14 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
 
 function uniqueNumericIds(value: unknown) {
   return [...new Set((Array.isArray(value) ? value : []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+function validRepairUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
 }
