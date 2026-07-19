@@ -15,7 +15,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { username: 'admin' } }),
+  useRoute: () => ({ params: { username: 'admin' }, fullPath: '/' }),
 }));
 
 function navigationPayload(backgroundImage?: string, settings?: Record<string, unknown>) {
@@ -298,10 +298,13 @@ describe('NavigationPage public workflow', () => {
     expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
   });
 
-  it('does not expose appearance controls to signed-out visitors', async () => {
+  it('keeps the settings entry visible but requires signed-out visitors to log in', async () => {
     const wrapper = await mountNavigationPage();
 
-    expect(wrapper.find('[data-testid="portal-corner-link"]').exists()).toBe(false);
+    const entry = wrapper.get('[data-testid="portal-corner-link"]');
+    expect(entry.element.tagName).toBe('A');
+    expect(entry.attributes('href')).toBe('/login?next=%2F');
+    expect(entry.text()).toContain('登录设置');
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 

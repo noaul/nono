@@ -65,7 +65,12 @@ watch(query, (value) => {
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
-const canEditAppearance = computed(() => auth.authenticated && auth.user?.username === username.value);
+const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
+const appearanceEntryHref = computed(() => {
+  if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;
+  return `/login?next=${encodeURIComponent(route.fullPath || '/')}`;
+});
+const appearanceEntryLabel = computed(() => auth.authenticated ? '我的设置' : '登录设置');
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
 const searchIndex = computed(() =>
   allLinks.value.map((link) => ({
@@ -407,6 +412,16 @@ onUnmounted(() => {
       <Settings :size="17" />
       <span>外观设置</span>
     </button>
+    <a
+      v-else
+      class="portal-corner-link"
+      data-testid="portal-corner-link"
+      :href="appearanceEntryHref"
+      :aria-label="appearanceEntryLabel"
+    >
+      <Settings :size="17" />
+      <span>{{ appearanceEntryLabel }}</span>
+    </a>
 
     <div class="nav-content">
       <header class="nav-header">
