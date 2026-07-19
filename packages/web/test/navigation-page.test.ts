@@ -348,7 +348,7 @@ describe('NavigationPage public workflow', () => {
 
     expect(input.attributes('type')).toBe('search');
     expect(input.attributes('placeholder')).toBe('搜索站内链接，回车继续搜索...');
-    expect(wrapper.get('[data-testid="engine-trigger"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="engine-trigger"]').exists()).toBe(true);
     expect(wrapper.find('.navigation-reveal-content').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('输入访问密码');
     expect(wrapper.text()).not.toContain('密码不正确');
