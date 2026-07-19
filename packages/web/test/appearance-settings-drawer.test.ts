@@ -66,10 +66,7 @@ describe('AppearanceSettingsDrawer', () => {
   });
 
   it('persists up to three named user presets', async () => {
-    apiRequest.mockImplementation(async (_url, options) => ({
-      ...site,
-      settings: JSON.parse(options.body).settings,
-    }));
+    apiRequest.mockResolvedValue(site);
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
 
     for (const name of ['工作', '阅读', '夜间']) {
@@ -90,7 +87,7 @@ describe('AppearanceSettingsDrawer', () => {
     const editorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
 
     expect(drawerSource).toMatch(/\.drawer-scroll \{[\s\S]*?overflow-x:\s*hidden/);
-    expect(drawerSource).toContain('width: min(640px, 100vw)');
+    expect(drawerSource).toContain('width: min(512px, 100vw)');
     expect(editorSource).not.toContain('setting-scope');
     expect(editorSource).toMatch(/::-webkit-slider-runnable-track \{[\s\S]*?height:\s*3px/);
     expect(editorSource).toMatch(/::-webkit-slider-thumb \{[\s\S]*?height:\s*13px/);

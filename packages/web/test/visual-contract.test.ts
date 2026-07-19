@@ -549,9 +549,9 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('search-result-summary');
     expect(navigationSource).toContain('public-empty-state');
     expect(navigationSource).toContain('public-glass-page');
-    expect(navigationSource).toContain('--public-glass-bg');
-    expect(navigationSource).toContain('rgba(10, 11, 16, 0.06)');
-    expect(navigationSource).toContain('rgba(10, 11, 16, 0.26)');
+    expect(navigationSource).toContain('--public-overlay-rgb');
+    expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04)');
+    expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)');
     expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
     expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');

@@ -301,7 +301,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  width: min(640px, 100vw);
+  width: min(512px, 100vw);
   -webkit-backdrop-filter: blur(28px) saturate(1.16);
   backdrop-filter: blur(28px) saturate(1.16);
 }
