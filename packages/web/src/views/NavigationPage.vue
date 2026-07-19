@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Link2, Settings, Star, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Link2, LogIn, Settings, Star, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
@@ -39,6 +39,8 @@ const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
+const unlocking = ref(false);
+const unlockError = ref('');
 
 function updateTabIndicator() {
   const nav = tabsRef.value;
@@ -65,12 +67,13 @@ watch(query, (value) => {
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
+const accessLocked = computed(() => Boolean(payload.value?.access.required && !payload.value.access.unlocked));
 const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
 const appearanceEntryHref = computed(() => {
   if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;
   return `/login?next=${encodeURIComponent(route.fullPath || '/')}`;
 });
-const appearanceEntryLabel = computed(() => auth.authenticated ? '我的设置' : '登录设置');
+const appearanceEntryLabel = computed(() => auth.authenticated ? '我的设置' : '后台管理登录');
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
 const searchIndex = computed(() =>
   allLinks.value.map((link) => ({
@@ -283,8 +286,28 @@ function preloadPublicBackground(url?: string | null) {
   image.src = url;
 }
 
-function submitSearch() {
+async function submitSearch() {
   const q = query.value.trim();
+  if (accessLocked.value) {
+    if (!q || unlocking.value) return;
+    unlockError.value = '';
+    unlocking.value = true;
+    try {
+      const unlocked = await navigation.unlock(username.value, q);
+      if (!unlocked) {
+        unlockError.value = '密码不正确';
+        query.value = '';
+        return;
+      }
+      query.value = '';
+      debouncedQuery.value = '';
+    } catch (error) {
+      unlockError.value = error instanceof Error ? error.message : '解锁失败';
+    } finally {
+      unlocking.value = false;
+    }
+    return;
+  }
   if (!q) return;
   const liveQuery = q.toLocaleLowerCase();
   const hasLocalMatch = searchIndex.value.some((entry) => entry.text.includes(liveQuery));
@@ -362,6 +385,17 @@ onMounted(() => {
   window.addEventListener('resize', updateTabIndicator);
 });
 watch(username, load);
+watch(username, () => {
+  query.value = '';
+  debouncedQuery.value = '';
+  unlockError.value = '';
+});
+watch(accessLocked, async (locked) => {
+  unlockError.value = '';
+  if (!locked) return;
+  await nextTick();
+  searchBarRef.value?.focus();
+}, { immediate: true });
 watch(canEditAppearance, (allowed) => {
   if (!allowed) appearanceOpen.value = false;
 });
@@ -396,7 +430,7 @@ onUnmounted(() => {
 <template>
   <main
     class="nav-page public-glass-page"
-    :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage }"
+    :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
     :data-theme-tone="activeTheme?.tone"
   >
@@ -420,7 +454,7 @@ onUnmounted(() => {
       :href="appearanceEntryHref"
       :aria-label="appearanceEntryLabel"
     >
-      <Settings :size="17" />
+      <LogIn :size="17" />
       <span>{{ appearanceEntryLabel }}</span>
     </a>
 
@@ -444,7 +478,19 @@ onUnmounted(() => {
         </component>
       </header>
 
-      <SearchBar ref="searchBarRef" v-model="query" :search-engines="searchEngineSettings" @submit="submitSearch" @engine-change="searchEngineTick++" />
+      <SearchBar
+        ref="searchBarRef"
+        v-model="query"
+        :search-engines="searchEngineSettings"
+        :mode="accessLocked ? 'password' : 'search'"
+        :busy="unlocking"
+        :placeholder="accessLocked ? '输入访问密码，回车解锁' : undefined"
+        @submit="submitSearch"
+        @engine-change="searchEngineTick++"
+      />
+      <Transition name="unlock-feedback">
+        <p v-if="accessLocked && unlockError" class="unlock-error" role="alert">{{ unlockError }}</p>
+      </Transition>
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
         <span class="public-loading-bar"></span>
@@ -457,60 +503,64 @@ onUnmounted(() => {
         <button class="button" type="button" @click="load">重新加载</button>
       </div>
 
-      <p v-if="query.trim()" class="search-result-summary">
-        站内命中 {{ localMatchCount }} 个链接
-      </p>
+      <Transition name="navigation-reveal">
+        <section v-if="payload && payload.access?.unlocked !== false" class="navigation-reveal-content">
+          <p v-if="query.trim()" class="search-result-summary">
+            站内命中 {{ localMatchCount }} 个链接
+          </p>
 
-      <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="notab">
-        <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
-        <button
-          v-for="tab in categoryTabs"
-          :key="tab.id"
-          type="button"
-          :class="{ active: tab.id === selectedCategoryId }"
-          :aria-pressed="tab.id === selectedCategoryId"
-          :data-testid="`category-tab-${tab.id}`"
-          @click="selectCategory(tab.id)"
-        >
-          {{ tab.name }}
-        </button>
-        <span v-if="navigationEntries.length" class="tab-service-separator" aria-hidden="true"></span>
-        <a
-          v-for="entry in navigationEntries"
-          :key="entry.id"
-          class="tab-service-link"
-          :href="entry.url"
-          :target="entry.openInNewTab ? '_blank' : undefined"
-          :rel="entry.openInNewTab ? 'noreferrer' : undefined"
-          :data-testid="`navigation-entry-${entry.id}`"
-        >
-          <component :is="navigationEntryIcon(entry.icon)" :size="15" />
-          <span>{{ entry.label }}</span>
-        </a>
-      </nav>
+          <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="notab">
+            <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
+            <button
+              v-for="tab in categoryTabs"
+              :key="tab.id"
+              type="button"
+              :class="{ active: tab.id === selectedCategoryId }"
+              :aria-pressed="tab.id === selectedCategoryId"
+              :data-testid="`category-tab-${tab.id}`"
+              @click="selectCategory(tab.id)"
+            >
+              {{ tab.name }}
+            </button>
+            <span v-if="navigationEntries.length" class="tab-service-separator" aria-hidden="true"></span>
+            <a
+              v-for="entry in navigationEntries"
+              :key="entry.id"
+              class="tab-service-link"
+              :href="entry.url"
+              :target="entry.openInNewTab ? '_blank' : undefined"
+              :rel="entry.openInNewTab ? 'noreferrer' : undefined"
+              :data-testid="`navigation-entry-${entry.id}`"
+            >
+              <component :is="navigationEntryIcon(entry.icon)" :size="15" />
+              <span>{{ entry.label }}</span>
+            </a>
+          </nav>
 
-      <div class="adaptive-folder-grid">
-        <FolderCard
-          v-for="(folder, index) in renderedFolders"
-          :key="folder.id"
-          :data-testid="`public-folder-card-${folder.id}`"
-          :style="{ '--enter-delay': `${(index % 24) * 28}ms` }"
-          :folder="folder"
-          :depth="folderDepth(folder)"
-          :highlight="normalizedQuery"
-          @verify="verifying = $event"
-          @expand="expandedFolder = $event"
-        />
-      </div>
-      <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
-        继续加载更多文件夹
-      </button>
-      <div v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">
-        <p>没有站内命中。</p>
-        <a v-if="externalSearchUrl" class="button external-search-cta" :href="externalSearchUrl">
-          用{{ externalSearchLabel }}搜索“{{ query.trim() }}” →
-        </a>
-      </div>
+          <div class="adaptive-folder-grid">
+            <FolderCard
+              v-for="(folder, index) in renderedFolders"
+              :key="folder.id"
+              :data-testid="`public-folder-card-${folder.id}`"
+              :style="{ '--enter-delay': `${(index % 24) * 28}ms` }"
+              :folder="folder"
+              :depth="folderDepth(folder)"
+              :highlight="normalizedQuery"
+              @verify="verifying = $event"
+              @expand="expandedFolder = $event"
+            />
+          </div>
+          <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
+            继续加载更多文件夹
+          </button>
+          <div v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">
+            <p>没有站内命中。</p>
+            <a v-if="externalSearchUrl" class="button external-search-cta" :href="externalSearchUrl">
+              用{{ externalSearchLabel }}搜索“{{ query.trim() }}” →
+            </a>
+          </div>
+        </section>
+      </Transition>
     </div>
 
     <FolderExpandModal v-if="expandedFolder" :folder="expandedFolder" :highlight="debouncedQuery" @close="expandedFolder = null" />
@@ -601,6 +651,63 @@ onUnmounted(() => {
   padding: 0 32px;
   position: relative;
   z-index: 2;
+}
+
+.navigation-locked .nav-content {
+  align-content: center;
+  min-height: calc(100dvh - 128px);
+  width: min(100%, 1280px);
+}
+
+.navigation-locked .nav-header {
+  min-height: 0;
+}
+
+.navigation-reveal-content {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+
+.navigation-reveal-enter-active {
+  transition: opacity 0.55s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), filter 0.55s ease;
+}
+
+.navigation-reveal-enter-from {
+  filter: blur(8px);
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.navigation-reveal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.navigation-reveal-leave-to {
+  opacity: 0;
+}
+
+.unlock-error {
+  background: rgba(127, 29, 29, 0.68);
+  border: 1px solid rgba(254, 202, 202, 0.34);
+  border-radius: 8px;
+  color: #fff1f2;
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: center;
+  margin: -14px 0 0;
+  padding: 7px 12px;
+}
+
+.unlock-feedback-enter-active,
+.unlock-feedback-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.unlock-feedback-enter-from,
+.unlock-feedback-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .portal-corner-link {
@@ -1095,6 +1202,17 @@ mark {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .navigation-reveal-enter-active,
+  .navigation-reveal-leave-active,
+  .unlock-feedback-enter-active,
+  .unlock-feedback-leave-active {
+    transition: none;
+  }
+
+  .navigation-locked .nav-content {
+    min-height: calc(100dvh - 96px);
+  }
+
   .header-vibe,
   .portal-corner-link,
   .public-loading-bar {

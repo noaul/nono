@@ -47,6 +47,31 @@ export function hashApiToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
+export function createNavigationAccessToken(siteId: number, passwordHash: string, secret: string) {
+  const payload = Buffer.from(JSON.stringify({
+    siteId,
+    credential: createHash('sha256').update(passwordHash).digest('base64url').slice(0, 24),
+    exp: Date.now() + 1000 * 60 * 60 * 12,
+  })).toString('base64url');
+  return `${payload}.${sign(payload, secret)}`;
+}
+
+export function verifyNavigationAccessToken(token: string | undefined, siteId: number, passwordHash: string, secret: string) {
+  if (!token) return false;
+  const [payload, signature, ...rest] = token.split('.');
+  if (!payload || !signature || rest.length) return false;
+  const actual = Buffer.from(sign(payload, secret), 'ascii');
+  const expected = Buffer.from(signature, 'ascii');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return false;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const credential = createHash('sha256').update(passwordHash).digest('base64url').slice(0, 24);
+    return decoded.siteId === siteId && decoded.credential === credential && decoded.exp >= Date.now();
+  } catch {
+    return false;
+  }
+}
+
 export function generateSessionToken() {
   return `nono_session_${randomBytes(32).toString('base64url')}`;
 }

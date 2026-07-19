@@ -4,12 +4,14 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { siteUpdateSchema } from '../../utils/site-settings.js';
 import { setAuditContext } from '../../plugins/audit.js';
+import { hashPassword } from '../../utils/crypto.js';
 
 export async function siteRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/site', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    return sendOk(reply, await services.repo.getSite(user.id));
+    const site = await services.repo.getSite(user.id);
+    return sendOk(reply, site ? publicAdminSite(site) : null);
   });
 
   app.put('/api/admin/site', async (request, reply) => {
@@ -18,7 +20,17 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
     const input = siteUpdateSchema.parse(request.body);
     const current = await services.repo.getSite(user.id);
     const before = current ? siteAuditSnapshot(current) : null;
-    const updated = await services.repo.updateSite(user.id, input);
+    const { guestAccessPassword, ...siteInput } = input;
+    const guestAccessPasswordHash = guestAccessPassword
+      ? await hashPassword(guestAccessPassword)
+      : current?.guestAccessPasswordHash;
+    if (siteInput.guestAccessEnabled && !guestAccessPasswordHash) {
+      throw Object.assign(new Error('Set a guest access password before enabling protection'), { statusCode: 400 });
+    }
+    const updated = await services.repo.updateSite(user.id, {
+      ...siteInput,
+      ...(guestAccessPassword ? { guestAccessPasswordHash } : {}),
+    });
     setAuditContext(request, {
       action: 'update',
       resourceType: 'site',
@@ -26,8 +38,13 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
       resourceLabel: updated.name,
       details: { before, after: siteAuditSnapshot(updated) },
     });
-    return sendOk(reply, updated);
+    return sendOk(reply, publicAdminSite(updated));
   });
+}
+
+function publicAdminSite(site: NonNullable<Awaited<ReturnType<AppServices['repo']['getSite']>>>) {
+  const { guestAccessPasswordHash, ...publicSite } = site;
+  return { ...publicSite, guestAccessPasswordSet: Boolean(guestAccessPasswordHash) };
 }
 
 function siteAuditSnapshot(site: Awaited<ReturnType<AppServices['repo']['getSite']>> & {}) {
@@ -41,6 +58,8 @@ function siteAuditSnapshot(site: Awaited<ReturnType<AppServices['repo']['getSite
     fontColor: site.fontColor,
     searchUrlTemplate: site.searchUrlTemplate,
     localSearchFirst: site.localSearchFirst,
+    guestAccessEnabled: site.guestAccessEnabled,
+    guestAccessPasswordSet: Boolean(site.guestAccessPasswordHash),
     settings: site.settings,
   };
 }

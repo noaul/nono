@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Check, ChevronDown, Search } from 'lucide-vue-next';
+import { Check, ChevronDown, KeyRound, Search } from 'lucide-vue-next';
 import { getEngine, getSelectedEngineId, setSelectedEngineId, type SearchEngineSettings } from '@/utils/searchEngines';
 
-const props = defineProps<{ modelValue: string; placeholder?: string; searchEngines: SearchEngineSettings }>();
+const props = withDefaults(defineProps<{
+  modelValue: string;
+  placeholder?: string;
+  searchEngines: SearchEngineSettings;
+  mode?: 'search' | 'password';
+  busy?: boolean;
+}>(), { mode: 'search', busy: false });
 const emit = defineEmits<{ 'update:modelValue': [value: string]; submit: []; 'engine-change': [engineId: string] }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -53,7 +59,7 @@ defineExpose({
 
 <template>
   <form class="search-bar" @submit.prevent="$emit('submit')">
-    <div ref="pickerRef" class="engine-picker">
+    <div v-if="mode === 'search'" ref="pickerRef" class="engine-picker">
       <button
         class="engine-trigger"
         type="button"
@@ -86,12 +92,16 @@ defineExpose({
     <input
       ref="inputRef"
       :value="modelValue"
-      :placeholder="placeholder || '搜索站内链接，回车继续搜索...'"
+      :type="mode === 'password' ? 'password' : 'search'"
+      :autocomplete="mode === 'password' ? 'current-password' : 'off'"
+      :placeholder="placeholder || (mode === 'password' ? '输入访问密码' : '搜索站内链接，回车继续搜索...')"
+      :aria-label="mode === 'password' ? '主页访问密码' : '搜索站内链接'"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
-    <kbd class="search-kbd" aria-hidden="true">/</kbd>
-    <button type="submit" class="search-btn" title="搜索">
-      <Search :size="18" />
+    <kbd v-if="mode === 'search'" class="search-kbd" aria-hidden="true">/</kbd>
+    <button type="submit" class="search-btn" :title="mode === 'password' ? '解锁主页' : '搜索'" :disabled="busy">
+      <KeyRound v-if="mode === 'password'" :size="18" />
+      <Search v-else :size="18" />
     </button>
   </form>
 </template>
@@ -315,6 +325,11 @@ defineExpose({
 .search-btn:active {
   transform: translateY(1px) scale(0.94);
   transition-duration: 0.12s;
+}
+
+.search-btn:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -347,6 +347,8 @@ function toSiteCreate(site: SiteRecord) {
     fontColor: site.fontColor,
     searchUrlTemplate: site.searchUrlTemplate,
     localSearchFirst: site.localSearchFirst,
+    guestAccessEnabled: site.guestAccessEnabled,
+    guestAccessPasswordHash: site.guestAccessPasswordHash,
     settings: site.settings as any,
   };
 }
@@ -361,6 +363,8 @@ function toSiteUpdate(input: Partial<SiteRecord>) {
     fontColor: input.fontColor,
     searchUrlTemplate: input.searchUrlTemplate,
     localSearchFirst: input.localSearchFirst,
+    guestAccessEnabled: input.guestAccessEnabled,
+    guestAccessPasswordHash: input.guestAccessPasswordHash,
     settings: input.settings,
   });
 }

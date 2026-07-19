@@ -247,5 +247,7 @@ export const siteUpdateSchema = z.object({
   fontColor: z.string().trim().max(32).optional(),
   searchUrlTemplate: z.string().trim().max(2048).refine((value) => value.includes('{query}'), 'Search URL template must include {query}').optional(),
   localSearchFirst: z.boolean().optional(),
+  guestAccessEnabled: z.boolean().optional(),
+  guestAccessPassword: z.string().min(4, 'Access password must contain at least 4 characters').max(72).optional(),
   settings: z.unknown().transform(normalizeSiteSettings).optional(),
 });

@@ -3,27 +3,12 @@ import { apiRequest } from '@/api/client';
 import type { NavigationPayload } from '@/api/types';
 
 const CACHE_PREFIX = 'nono:navigation:';
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-type CachedNavigation = { payload: NavigationPayload; savedAt: number };
-
-function readCache(username: string): NavigationPayload | null {
+function clearLegacyCache(username: string) {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + username);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CachedNavigation;
-    if (!parsed?.payload?.site || Date.now() - parsed.savedAt > CACHE_TTL_MS) return null;
-    return parsed.payload;
+    localStorage.removeItem(CACHE_PREFIX + username);
   } catch {
-    return null;
-  }
-}
-
-function writeCache(username: string, payload: NavigationPayload) {
-  try {
-    localStorage.setItem(CACHE_PREFIX + username, JSON.stringify({ payload, savedAt: Date.now() } satisfies CachedNavigation));
-  } catch {
-    // Quota exceeded or storage unavailable — cache is best-effort only.
+    // Storage can be unavailable in privacy modes; the network remains authoritative.
   }
 }
 
@@ -40,32 +25,31 @@ export const useNavigationStore = defineStore('navigation', {
         ...this.payload,
         site: { ...this.payload.site, ...site },
       };
-      writeCache(username, this.payload);
+      clearLegacyCache(username);
     },
-    /**
-     * Stale-while-revalidate: unfiltered loads render the cached payload
-     * immediately (if any), then refresh from the network in the background.
-     */
-    async load(username = 'admin', query = '') {
-      const cached = !query ? readCache(username) : null;
-      if (cached && !this.payload) this.payload = cached;
-
-      this.loading = !cached;
+    async load(username = 'admin', query = '', preservePayload = false) {
+      clearLegacyCache(username);
+      if (!preservePayload) this.payload = null;
+      this.loading = !preservePayload;
       this.error = '';
       try {
         const suffix = query ? `?q=${encodeURIComponent(query)}` : '';
         this.payload = await apiRequest<NavigationPayload>(`/api/navigation/${encodeURIComponent(username)}${suffix}`);
-        if (!query) writeCache(username, this.payload);
         return this.payload;
       } catch (error) {
-        // Keep showing cached content if the refresh fails; only surface the error cold.
-        if (!this.payload) {
-          this.error = error instanceof Error ? error.message : '导航内容加载失败';
-        }
+        this.error = error instanceof Error ? error.message : '导航内容加载失败';
         throw error;
       } finally {
         this.loading = false;
       }
+    },
+    async unlock(username: string, password: string) {
+      const result = await apiRequest<{ unlocked: boolean }>(`/api/navigation/${encodeURIComponent(username)}/unlock`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+      if (result.unlocked) await this.load(username, '', true);
+      return result.unlocked;
     },
   },
 });

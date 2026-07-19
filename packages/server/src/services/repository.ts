@@ -29,6 +29,8 @@ export interface SiteRecord {
   fontColor: string;
   searchUrlTemplate: string;
   localSearchFirst: boolean;
+  guestAccessEnabled: boolean;
+  guestAccessPasswordHash?: string | null;
   settings: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -713,6 +715,8 @@ export function defaultSite(userId: number, slug: string): SiteRecord {
     fontColor: '#ffffff',
     searchUrlTemplate: 'https://www.google.com/search?q={query}',
     localSearchFirst: true,
+    guestAccessEnabled: false,
+    guestAccessPasswordHash: null,
     settings: {},
     createdAt: now,
     updatedAt: now,

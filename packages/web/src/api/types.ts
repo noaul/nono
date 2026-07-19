@@ -22,6 +22,8 @@ export interface Site {
   fontColor: string;
   searchUrlTemplate: string;
   localSearchFirst: boolean;
+  guestAccessEnabled?: boolean;
+  guestAccessPasswordSet?: boolean;
   settings?: Record<string, unknown>;
 }
 
@@ -73,6 +75,10 @@ export interface Link {
 export interface NavigationPayload {
   site: Site & { user?: User };
   folders: Folder[];
+  access: {
+    required: boolean;
+    unlocked: boolean;
+  };
 }
 
 export interface SessionPayload {
