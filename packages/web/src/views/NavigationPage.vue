@@ -40,7 +40,6 @@ const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
 const unlocking = ref(false);
-const unlockError = ref('');
 
 function updateTabIndicator() {
   const nav = tabsRef.value;
@@ -290,22 +289,20 @@ async function submitSearch() {
   const q = query.value.trim();
   if (accessLocked.value) {
     if (!q || unlocking.value) return;
-    unlockError.value = '';
     unlocking.value = true;
     try {
       const unlocked = await navigation.unlock(username.value, q);
-      if (!unlocked) {
-        unlockError.value = '密码不正确';
+      if (unlocked) {
         query.value = '';
+        debouncedQuery.value = '';
         return;
       }
-      query.value = '';
-      debouncedQuery.value = '';
-    } catch (error) {
-      unlockError.value = error instanceof Error ? error.message : '解锁失败';
+    } catch {
+      // The locked search box remains a normal web search when unlock is unavailable.
     } finally {
       unlocking.value = false;
     }
+    window.location.href = buildSearchUrl(q, resolveSearchTemplate(payload.value?.site.searchUrlTemplate, searchEngineSettings.value));
     return;
   }
   if (!q) return;
@@ -388,10 +385,8 @@ watch(username, load);
 watch(username, () => {
   query.value = '';
   debouncedQuery.value = '';
-  unlockError.value = '';
 });
 watch(accessLocked, async (locked) => {
-  unlockError.value = '';
   if (!locked) return;
   await nextTick();
   searchBarRef.value?.focus();
@@ -482,15 +477,10 @@ onUnmounted(() => {
         ref="searchBarRef"
         v-model="query"
         :search-engines="searchEngineSettings"
-        :mode="accessLocked ? 'password' : 'search'"
         :busy="unlocking"
-        :placeholder="accessLocked ? '输入访问密码，回车解锁' : undefined"
         @submit="submitSearch"
         @engine-change="searchEngineTick++"
       />
-      <Transition name="unlock-feedback">
-        <p v-if="accessLocked && unlockError" class="unlock-error" role="alert">{{ unlockError }}</p>
-      </Transition>
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
         <span class="public-loading-bar"></span>
@@ -685,29 +675,6 @@ onUnmounted(() => {
 
 .navigation-reveal-leave-to {
   opacity: 0;
-}
-
-.unlock-error {
-  background: rgba(127, 29, 29, 0.68);
-  border: 1px solid rgba(254, 202, 202, 0.34);
-  border-radius: 8px;
-  color: #fff1f2;
-  font-size: 13px;
-  font-weight: 700;
-  justify-self: center;
-  margin: -14px 0 0;
-  padding: 7px 12px;
-}
-
-.unlock-feedback-enter-active,
-.unlock-feedback-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.unlock-feedback-enter-from,
-.unlock-feedback-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 
 .portal-corner-link {
@@ -1203,9 +1170,7 @@ mark {
 
 @media (prefers-reduced-motion: reduce) {
   .navigation-reveal-enter-active,
-  .navigation-reveal-leave-active,
-  .unlock-feedback-enter-active,
-  .unlock-feedback-leave-active {
+  .navigation-reveal-leave-active {
     transition: none;
   }
 

@@ -335,6 +335,37 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
+  it('keeps the locked password entry indistinguishable from normal search', async () => {
+    const locked = { ...navigationPayload(), folders: [], access: { required: true, unlocked: false } };
+    const unlocked = { ...navigationPayload(), access: { required: true, unlocked: true } };
+    apiRequest
+      .mockResolvedValueOnce(locked)
+      .mockResolvedValueOnce({ unlocked: true })
+      .mockResolvedValueOnce(unlocked);
+
+    const wrapper = await mountNavigationPage();
+    const input = wrapper.get('.search-bar input');
+
+    expect(input.attributes('type')).toBe('search');
+    expect(input.attributes('placeholder')).toBe('搜索站内链接，回车继续搜索...');
+    expect(wrapper.get('[data-testid="engine-trigger"]').exists()).toBe(true);
+    expect(wrapper.find('.navigation-reveal-content').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('输入访问密码');
+    expect(wrapper.text()).not.toContain('密码不正确');
+
+    await input.setValue('nono');
+    await wrapper.get('.search-bar').trigger('submit');
+    await Promise.resolve();
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/navigation/admin/unlock', {
+      method: 'POST',
+      body: JSON.stringify({ password: 'nono' }),
+    });
+    expect(wrapper.find('.navigation-reveal-content').exists()).toBe(true);
+  });
+
   it('switches notabs without enter and leave transitions on the folder grid', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 

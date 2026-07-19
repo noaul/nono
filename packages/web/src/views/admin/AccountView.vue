@@ -5,6 +5,7 @@ import { Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2 } 
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
+import type { Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 
 interface PasskeyItem {
@@ -27,6 +28,7 @@ interface SessionItem {
 }
 
 const form = reactive({ currentPassword: '', newPassword: '' });
+const guestAccess = reactive({ enabled: false, password: '', passwordSet: false });
 const message = ref('');
 const error = ref('');
 const passkeyName = ref('');
@@ -34,7 +36,18 @@ const passkeys = ref<PasskeyItem[]>([]);
 const sessions = ref<SessionItem[]>([]);
 const isLoadingSecurity = ref(true);
 const isAddingPasskey = ref(false);
+const isSavingGuestAccess = ref(false);
 const confirmApi = useConfirm();
+
+async function loadGuestAccess() {
+  try {
+    const site = await apiRequest<Site>('/api/admin/site');
+    guestAccess.enabled = Boolean(site.guestAccessEnabled);
+    guestAccess.passwordSet = Boolean(site.guestAccessPasswordSet);
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : '开屏密码加载失败';
+  }
+}
 
 async function loadSecurity() {
   isLoadingSecurity.value = true;
@@ -123,7 +136,33 @@ async function save() {
   }
 }
 
-onMounted(loadSecurity);
+async function saveGuestAccess() {
+  error.value = '';
+  message.value = '';
+  isSavingGuestAccess.value = true;
+  try {
+    const site = await apiRequest<Site>('/api/admin/site', {
+      method: 'PUT',
+      body: jsonBody({
+        guestAccessEnabled: guestAccess.enabled,
+        ...(guestAccess.password ? { guestAccessPassword: guestAccess.password } : {}),
+      }),
+    });
+    guestAccess.enabled = Boolean(site.guestAccessEnabled);
+    guestAccess.passwordSet = Boolean(site.guestAccessPasswordSet);
+    guestAccess.password = '';
+    message.value = guestAccess.enabled ? '开屏密码已开启' : '开屏密码已关闭';
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : '开屏密码保存失败';
+  } finally {
+    isSavingGuestAccess.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadSecurity();
+  void loadGuestAccess();
+});
 </script>
 
 <template>
@@ -193,6 +232,42 @@ onMounted(loadSecurity);
       <div class="admin-settings-grid">
         <div class="field"><label>当前密码</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
         <div class="field"><label>新密码</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
+      </div>
+    </form>
+
+    <form class="admin-section guest-access-section" @submit.prevent="saveGuestAccess">
+      <header class="admin-section-head">
+        <h2><KeyRound :size="18" /> 开屏访问密码</h2>
+        <label class="guest-access-toggle">
+          <input v-model="guestAccess.enabled" data-testid="guest-access-enabled" type="checkbox" />
+          <span>{{ guestAccess.enabled ? '已开启' : '未开启' }}</span>
+        </label>
+      </header>
+      <div class="guest-access-fields">
+        <div class="field">
+          <label for="guest-access-password">简单密码</label>
+          <input
+            id="guest-access-password"
+            v-model="guestAccess.password"
+            data-testid="guest-access-password"
+            type="password"
+            autocomplete="new-password"
+            minlength="4"
+            maxlength="72"
+            :placeholder="guestAccess.passwordSet ? '留空则保留当前密码' : '设置至少 4 位密码'"
+          />
+        </div>
+        <span class="password-state" :class="{ configured: guestAccess.passwordSet || guestAccess.password }">
+          {{ guestAccess.password || guestAccess.passwordSet ? '密码已配置' : '尚未配置密码' }}
+        </span>
+        <button
+          class="button"
+          data-testid="save-guest-access"
+          type="submit"
+          :disabled="isSavingGuestAccess || (guestAccess.enabled && !guestAccess.passwordSet && guestAccess.password.length < 4)"
+        >
+          <Save :size="17" /> {{ isSavingGuestAccess ? '保存中' : '保存开屏设置' }}
+        </button>
       </div>
     </form>
   </div>
@@ -278,13 +353,59 @@ onMounted(loadSecurity);
   padding: 8px 0 2px;
 }
 
+.guest-access-toggle {
+  align-items: center;
+  color: var(--admin-text-muted);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 8px;
+}
+
+.guest-access-toggle input {
+  accent-color: var(--admin-accent);
+  height: 17px;
+  width: 17px;
+}
+
+.guest-access-fields {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+}
+
+.password-state {
+  align-items: center;
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  color: var(--admin-text-muted);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.password-state.configured {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(5, 150, 105, 0.24);
+  color: #047857;
+}
+
 @media (max-width: 640px) {
   .security-add-row {
     grid-template-columns: 1fr;
   }
 
-  .security-add-row .button {
+  .security-add-row .button,
+  .guest-access-fields .button {
     width: 100%;
+  }
+
+  .guest-access-fields {
+    grid-template-columns: 1fr;
   }
 }
 </style>

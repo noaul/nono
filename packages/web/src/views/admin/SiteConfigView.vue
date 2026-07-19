@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ArrowUpRight, Image, KeyRound, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
+import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -17,9 +17,6 @@ const form = reactive({
   fontColor: '#ffffff',
   searchUrlTemplate: 'https://www.google.com/search?q={query}',
   localSearchFirst: true,
-  guestAccessEnabled: false,
-  guestAccessPassword: '',
-  guestAccessPasswordSet: false,
   settings: {} as Record<string, unknown>,
 });
 const portal = reactive({ ...portalDefaults });
@@ -54,8 +51,6 @@ async function save() {
       fontColor: form.fontColor,
       searchUrlTemplate: form.searchUrlTemplate,
       localSearchFirst: form.localSearchFirst,
-      guestAccessEnabled: form.guestAccessEnabled,
-      ...(form.guestAccessPassword ? { guestAccessPassword: form.guestAccessPassword } : {}),
       settings: {
         ...form.settings,
         portal: { ...portal },
@@ -72,7 +67,6 @@ async function save() {
     };
     const site = await apiRequest<Site>('/api/admin/site', { method: 'PUT', body: jsonBody(payload) });
     Object.assign(form, site, { settings: { ...payload.settings, ...(site.settings || {}) } });
-    form.guestAccessPassword = '';
     message.value = '已保存';
   } catch (event) {
     error.value = event instanceof Error ? event.message : '保存失败';
@@ -147,33 +141,6 @@ function setDefaultSearchEngine(id: string) {
             <input v-model="form.localSearchFirst" type="checkbox" />
             <span><strong>站内优先搜索</strong><small>有本地结果时停留在导航页</small></span>
           </label>
-        </div>
-      </section>
-
-      <section class="admin-card guest-access-editor">
-        <header class="admin-card-head">
-          <h2><KeyRound :size="18" /> 主页访问密码</h2>
-          <label class="portal-enabled">
-            <input v-model="form.guestAccessEnabled" data-testid="guest-access-enabled" type="checkbox" />
-            <span>{{ form.guestAccessEnabled ? '已开启' : '未开启' }}</span>
-          </label>
-        </header>
-        <div class="guest-access-fields">
-          <div class="field">
-            <label>访问密码</label>
-            <input
-              v-model="form.guestAccessPassword"
-              data-testid="guest-access-password"
-              type="password"
-              autocomplete="new-password"
-              minlength="4"
-              maxlength="72"
-              :placeholder="form.guestAccessPasswordSet ? '留空则保留当前密码' : '设置至少 4 位密码'"
-            />
-          </div>
-          <span class="password-state" :class="{ configured: form.guestAccessPasswordSet || form.guestAccessPassword }">
-            {{ form.guestAccessPassword || form.guestAccessPasswordSet ? '密码已配置' : '尚未配置密码' }}
-          </span>
         </div>
       </section>
 
@@ -319,32 +286,6 @@ function setDefaultSearchEngine(id: string) {
 .search-engine-list {
   display: grid;
   gap: 10px;
-}
-
-.guest-access-fields {
-  align-items: end;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.password-state {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  color: #64748b;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 750;
-  min-height: 40px;
-  padding: 0 12px;
-}
-
-.password-state.configured {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(5, 150, 105, 0.24);
-  color: #047857;
 }
 
 .search-engine-row {
@@ -557,11 +498,6 @@ function setDefaultSearchEngine(id: string) {
 }
 
 @media (max-width: 640px) {
-  .guest-access-fields {
-    align-items: stretch;
-    grid-template-columns: 1fr;
-  }
-
   .config-fields {
     grid-template-columns: 1fr;
   }
