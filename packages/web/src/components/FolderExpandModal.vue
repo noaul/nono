@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 24px 32px;
   width: min(100%, 1200px);
-  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-pop 0.36s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1));
 }
 
 .folder-expand-head {
@@ -334,9 +334,9 @@ mark {
   to { opacity: 1; }
 }
 
-@keyframes scaleIn {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+@keyframes modal-pop {
+  from { transform: translateY(18px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 @media (max-width: 640px) {

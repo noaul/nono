@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { Lock, Maximize2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 import FaviconBadge from '@/components/FaviconBadge.vue';
@@ -21,10 +21,52 @@ const faviconUrls = computed(() => new Map((folder.value.links || []).map((link)
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
 }
+
+// Pointer spotlight only earns its keep on precise hover devices with motion allowed.
+const spotlightEnabled =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+  !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const spotStyle = ref<Record<string, string>>({});
+let spotFrame = 0;
+let pendingSpot: { x: number; y: number } | null = null;
+
+function onCardPointermove(event: PointerEvent) {
+  if (!spotlightEnabled || !(event.currentTarget instanceof HTMLElement)) return;
+  const rect = event.currentTarget.getBoundingClientRect();
+  pendingSpot = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  if (spotFrame) return;
+  spotFrame = requestAnimationFrame(() => {
+    spotFrame = 0;
+    if (!pendingSpot) return;
+    spotStyle.value = {
+      '--spot-x': `${Math.round(pendingSpot.x)}px`,
+      '--spot-y': `${Math.round(pendingSpot.y)}px`,
+      '--spot-alpha': '1',
+    };
+  });
+}
+
+function onCardPointerleave() {
+  if (!spotlightEnabled) return;
+  pendingSpot = null;
+  spotStyle.value = { ...spotStyle.value, '--spot-alpha': '0' };
+}
+
+onUnmounted(() => {
+  if (spotFrame) cancelAnimationFrame(spotFrame);
+});
 </script>
 
 <template>
-  <section class="large-folder" :id="`folder-${folder.id}`" :style="{ '--public-folder-depth': props.depth }">
+  <section
+    class="large-folder"
+    :id="`folder-${folder.id}`"
+    :style="[{ '--public-folder-depth': props.depth }, spotStyle]"
+    @pointermove="onCardPointermove"
+    @pointerleave="onCardPointerleave"
+  >
     <header class="large-folder-title">
       <span class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
@@ -68,6 +110,8 @@ function handleFaviconError(linkId: string | number) {
 
 <style scoped>
 .large-folder {
+  animation: folder-card-enter 0.45s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1)) both;
+  animation-delay: var(--enter-delay, 0ms);
   display: grid;
   gap: 12px;
   grid-template-rows: 38px auto;
@@ -78,6 +122,28 @@ function handleFaviconError(linkId: string | number) {
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
+}
+
+@keyframes folder-card-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Pointer spotlight follows --spot-x/--spot-y from script; sits above the glass, below clicks. */
+.large-folder::after {
+  background: radial-gradient(
+    220px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    rgba(var(--accent-bright-rgb, 52, 211, 153), 0.15),
+    transparent 65%
+  );
+  border-radius: var(--public-card-radius, 8px);
+  content: '';
+  inset: 0;
+  opacity: var(--spot-alpha, 0);
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 0.35s ease;
+  z-index: 1;
 }
 
 .large-folder:hover {
@@ -352,6 +418,14 @@ mark {
   .folder-expand,
   .lock-btn,
   .lock-illustration {
+    transition: none;
+  }
+
+  .large-folder {
+    animation: none;
+  }
+
+  .large-folder::after {
     transition: none;
   }
 

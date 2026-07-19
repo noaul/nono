@@ -397,3 +397,19 @@ export function getThemeAccentVars(settings: Record<string, unknown> | null | un
   const theme = (settings as { theme?: { accent?: string } } | null | undefined)?.theme;
   return accentCssVars(theme?.accent);
 }
+
+/**
+ * Reads the persisted scene intensity dial (0-100) from site settings.
+ * 100 keeps each theme's tuned look; 0 turns the ambient scene off entirely.
+ */
+export function getSceneIntensity(settings: Record<string, unknown> | null | undefined): number {
+  const theme = (settings as { theme?: { sceneIntensity?: unknown } } | null | undefined)?.theme;
+  const value = theme?.sceneIntensity;
+  const number = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
+      : Number.NaN;
+  if (!Number.isFinite(number)) return 100;
+  return Math.min(100, Math.max(0, Math.round(number)));
+}

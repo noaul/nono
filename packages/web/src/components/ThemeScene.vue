@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { PublicTheme, ThemeSceneKind } from '@/utils/themes';
 
-const props = defineProps<{ theme?: PublicTheme }>();
+const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number }>(), { intensity: 100 });
 
 const particles = Array.from({ length: 30 }, (_, index) => ({
   x: `${(index * 37 + 7) % 101}%`,
@@ -26,15 +26,70 @@ const ripples = [
   { x: '88%', delay: '-4.6s' },
 ];
 
+// 0-100 dial persisted in settings.theme.sceneIntensity; 100 keeps each theme's tuned look.
+const intensityRatio = computed(() => Math.min(100, Math.max(0, Math.round(props.intensity))) / 100);
+
+// Lower intensity thins the particle field as well; opacity scaling handles the rest.
+const visibleParticles = computed(() => particles.slice(0, Math.round(30 * (0.55 + 0.45 * intensityRatio.value))));
+
 const sceneStyle = computed<Record<string, string>>(() => {
-  const opacity = props.theme?.scene.opacity ?? 0;
+  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value;
   return {
     '--theme-scene-opacity': String(opacity),
     '--theme-scene-mobile-opacity': String(opacity * 0.72),
     '--theme-ambient-opacity': String(Math.min(0.72, opacity * 2.2)),
     '--theme-ambient-mobile-opacity': String(Math.min(0.54, opacity * 1.7)),
+    '--theme-particle-alpha': (0.35 + 0.65 * intensityRatio.value).toFixed(2),
     '--theme-scene-blend': props.theme?.scene.blendMode || 'normal',
   };
+});
+
+// CSS animations keep running in hidden tabs; pausing them keeps the scene battery friendly.
+const paused = ref(false);
+
+function onVisibilityChange() {
+  paused.value = document.visibilityState === 'hidden';
+}
+
+// Texture + atmosphere drift a few pixels against the pointer for depth; particles keep
+// their own full-screen animations. Fine hover pointers only, and never under reduced motion.
+const parallaxEnabled =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+  !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const parallaxStyle = ref<Record<string, string>>({});
+let parallaxFrame = 0;
+let pendingPointer: { x: number; y: number } | null = null;
+
+function onPointerMove(event: PointerEvent) {
+  if (paused.value) return;
+  pendingPointer = { x: event.clientX, y: event.clientY };
+  if (parallaxFrame) return;
+  parallaxFrame = requestAnimationFrame(() => {
+    parallaxFrame = 0;
+    if (!pendingPointer || typeof window === 'undefined') return;
+    const nx = pendingPointer.x / Math.max(1, window.innerWidth) - 0.5;
+    const ny = pendingPointer.y / Math.max(1, window.innerHeight) - 0.5;
+    parallaxStyle.value = {
+      '--scene-parallax-x': `${(nx * 14).toFixed(1)}px`,
+      '--scene-parallax-y': `${(ny * 10).toFixed(1)}px`,
+    };
+  });
+}
+
+onMounted(() => {
+  if (typeof document === 'undefined') return;
+  paused.value = document.visibilityState === 'hidden';
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  if (parallaxEnabled) window.addEventListener('pointermove', onPointerMove, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  if (typeof document === 'undefined') return;
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  if (parallaxEnabled) window.removeEventListener('pointermove', onPointerMove);
+  if (parallaxFrame) cancelAnimationFrame(parallaxFrame);
 });
 
 function metrics(kind: ThemeSceneKind, index: number) {
@@ -75,40 +130,44 @@ function particleStyle(particle: typeof particles[number], index: number) {
   <div
     v-if="theme"
     class="theme-scene"
-    :class="[`scene-${theme.scene.kind}`, `motion-${theme.scene.motion}`]"
+    :class="[`scene-${theme.scene.kind}`, `motion-${theme.scene.motion}`, { 'is-paused': paused }]"
     :data-scene="theme.scene.kind"
-    :style="sceneStyle"
+    :style="[sceneStyle, parallaxStyle]"
     data-testid="theme-scene"
     aria-hidden="true"
   >
-    <img
-      v-if="theme.scene.mode === 'texture'"
-      class="scene-texture"
-      :src="theme.scene.asset"
-      alt=""
-      decoding="async"
-      draggable="false"
-    />
-    <span class="scene-atmosphere"></span>
-    <span
-      v-for="(particle, index) in particles"
-      :key="index"
-      class="scene-particle"
-      :class="`variant-${particle.variant}`"
-      :style="particleStyle(particle, index)"
-    ></span>
-    <span
-      v-for="(streak, index) in theme.scene.kind === 'stars' ? streaks : []"
-      :key="`streak-${index}`"
-      class="scene-streak"
-      :style="{ '--scene-x': streak.x, '--scene-y': streak.y, '--scene-delay': streak.delay }"
-    ></span>
-    <span
-      v-for="(ripple, index) in theme.scene.kind === 'rain' ? ripples : []"
-      :key="`ripple-${index}`"
-      class="scene-ripple"
-      :style="{ '--scene-x': ripple.x, '--scene-delay': ripple.delay }"
-    ></span>
+    <div class="scene-parallax">
+      <img
+        v-if="theme.scene.mode === 'texture'"
+        class="scene-texture"
+        :src="theme.scene.asset"
+        alt=""
+        decoding="async"
+        draggable="false"
+      />
+      <span class="scene-atmosphere"></span>
+    </div>
+    <div class="scene-layer-particles">
+      <span
+        v-for="(particle, index) in visibleParticles"
+        :key="index"
+        class="scene-particle"
+        :class="`variant-${particle.variant}`"
+        :style="particleStyle(particle, index)"
+      ></span>
+      <span
+        v-for="(streak, index) in theme.scene.kind === 'stars' ? streaks : []"
+        :key="`streak-${index}`"
+        class="scene-streak"
+        :style="{ '--scene-x': streak.x, '--scene-y': streak.y, '--scene-delay': streak.delay }"
+      ></span>
+      <span
+        v-for="(ripple, index) in theme.scene.kind === 'rain' ? ripples : []"
+        :key="`ripple-${index}`"
+        class="scene-ripple"
+        :style="{ '--scene-x': ripple.x, '--scene-delay': ripple.delay }"
+      ></span>
+    </div>
   </div>
 </template>
 
@@ -121,6 +180,26 @@ function particleStyle(particle: typeof particles[number], index: number) {
   position: fixed;
   transform: translateZ(0);
   z-index: 1;
+}
+
+/* Depth layer: texture + atmosphere lean a few pixels against the pointer. */
+.scene-parallax {
+  inset: 0;
+  position: absolute;
+  transform: translate3d(var(--scene-parallax-x, 0px), var(--scene-parallax-y, 0px), 0);
+  transition: transform 0.24s ease-out;
+}
+
+.scene-layer-particles {
+  inset: 0;
+  opacity: var(--theme-particle-alpha, 1);
+  position: absolute;
+}
+
+/* Hidden tabs pause every scene animation instead of burning battery. */
+.theme-scene.is-paused *,
+.theme-scene.is-paused *::before {
+  animation-play-state: paused !important;
 }
 
 .scene-texture {
@@ -432,6 +511,11 @@ function particleStyle(particle: typeof particles[number], index: number) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scene-parallax {
+    transform: none;
+    transition: none;
+  }
+
   .scene-texture,
   .scene-atmosphere,
   .scene-particle,

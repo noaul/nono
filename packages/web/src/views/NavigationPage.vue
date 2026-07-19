@@ -17,7 +17,7 @@ import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
 import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
-import { getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
+import { getSceneIntensity, getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -90,6 +90,7 @@ const activeTheme = computed(() => {
   const settings = payload.value?.site.settings as { theme?: { id?: string } } | null | undefined;
   return getTheme(settings?.theme?.id);
 });
+const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.settings));
 const backgroundStyle = computed(() => {
   const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
   const publicThemeVars = activeTheme.value ? themeCssVars(activeTheme.value) : {};
@@ -399,7 +400,7 @@ onUnmounted(() => {
     :style="backgroundStyle"
     :data-theme-tone="activeTheme?.tone"
   >
-    <ThemeScene :theme="activeTheme" />
+    <ThemeScene v-if="sceneIntensity > 0" :theme="activeTheme" :intensity="sceneIntensity" />
     <button
       v-if="canEditAppearance"
       class="portal-corner-link"
@@ -490,9 +491,10 @@ onUnmounted(() => {
 
       <div class="adaptive-folder-grid">
         <FolderCard
-          v-for="folder in renderedFolders"
+          v-for="(folder, index) in renderedFolders"
           :key="folder.id"
           :data-testid="`public-folder-card-${folder.id}`"
+          :style="{ '--enter-delay': `${(index % 24) * 28}ms` }"
           :folder="folder"
           :depth="folderDepth(folder)"
           :highlight="normalizedQuery"
@@ -844,6 +846,7 @@ h1 {
 .tab-indicator {
   background: rgba(var(--accent-rgb), 0.22);
   border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
   height: calc(100% - 10px);
   left: 0;
   pointer-events: none;

@@ -660,4 +660,49 @@ describe('visual contracts', () => {
     expect(source).toContain('.app-workbench .bookmark-table .admin-table-row');
     expect(source).toContain('min-width: 760px');
   });
+
+  it('defines the theme scene intensity, parallax, and public micro-effect contracts', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const read = (relative: string) => fs.readFileSync(path.resolve(process.cwd(), relative), 'utf8');
+    const sceneSource = read('src/components/ThemeScene.vue');
+    const navigationSource = read('src/views/NavigationPage.vue');
+    const folderCardSource = read('src/components/FolderCard.vue');
+    const searchBarSource = read('src/components/SearchBar.vue');
+    const drawerSource = read('src/components/AppearanceSettingsDrawer.vue');
+    const themesSource = read('src/utils/themes.ts');
+
+    // The scene dial: persisted in settings.theme.sceneIntensity, applied by the page, edited in the drawer.
+    expect(themesSource).toContain('getSceneIntensity');
+    expect(navigationSource).toContain('getSceneIntensity');
+    expect(navigationSource).toContain(':intensity="sceneIntensity"');
+    expect(navigationSource).toContain('v-if="sceneIntensity > 0"');
+    expect(sceneSource).toContain('intensityRatio');
+    expect(sceneSource).toContain('visibleParticles');
+    expect(drawerSource).toContain('data-testid="scene-intensity"');
+    expect(drawerSource).toContain('sceneIntensity');
+
+    // Scene depth and battery behavior: pointer parallax on fine pointers, paused when hidden.
+    expect(sceneSource).toContain('scene-parallax');
+    expect(sceneSource).toContain('visibilitychange');
+    expect(sceneSource).toContain('animation-play-state: paused');
+
+    // Card micro-effects: staggered entrance plus a pointer spotlight that skips reduced motion.
+    expect(navigationSource).toContain('--enter-delay');
+    expect(folderCardSource).toContain('folder-card-enter');
+    expect(folderCardSource).toContain('animation-delay: var(--enter-delay, 0ms)');
+    expect(folderCardSource).toContain('--spot-x');
+    expect(folderCardSource).toContain("matchMedia('(hover: hover) and (pointer: fine)')");
+    expect(folderCardSource).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+
+    // Search glow and springy modals stay inside the shared motion tokens.
+    expect(searchBarSource).toContain('search-breathe');
+    expect(read('src/components/FolderExpandModal.vue')).toContain('modal-pop');
+    expect(read('src/components/FolderUnlockModal.vue')).toContain('modal-pop');
+
+    // The six per-theme preview animations in the drawer theme wall.
+    for (const kind of ['bubbles', 'snow', 'leaves', 'stars', 'sunbeams', 'rain']) {
+      expect(drawerSource).toContain(`.theme-${kind} .theme-motion`);
+    }
+  });
 });

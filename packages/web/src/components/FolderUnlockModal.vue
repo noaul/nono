@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
   padding: 28px;
   width: 100%;
   box-shadow: 0 24px 60px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.28), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.58);
-  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-pop 0.32s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1));
 }
 
 .modal-head {
@@ -200,9 +200,9 @@ onBeforeUnmount(() => {
   to { opacity: 1; }
 }
 
-@keyframes scaleIn {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+@keyframes modal-pop {
+  from { transform: translateY(14px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

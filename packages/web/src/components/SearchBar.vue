@@ -126,12 +126,32 @@ defineExpose({
 }
 
 .search-bar:focus-within {
+  animation: search-breathe 2.8s ease-in-out 0.6s infinite;
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.08));
   border-color: rgba(var(--accent-soft-rgb), 0.46);
   box-shadow:
     0 16px 44px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.18),
     0 0 0 3px rgba(var(--accent-bright-rgb), 0.12),
     inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.54);
+}
+
+/* Gentle accent glow pulse while typing; reduced-motion flattens it back to the static ring. */
+@keyframes search-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 16px 44px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.18),
+      0 0 0 3px rgba(var(--accent-bright-rgb), 0.12),
+      inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.54);
+  }
+
+  50% {
+    box-shadow:
+      0 16px 44px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.18),
+      0 0 0 6px rgba(var(--accent-bright-rgb), 0.07),
+      0 0 26px rgba(var(--accent-rgb), 0.22),
+      inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.54);
+  }
 }
 
 .engine-picker {
@@ -301,6 +321,10 @@ defineExpose({
   .search-bar,
   .search-btn {
     transition: none;
+  }
+
+  .search-bar:focus-within {
+    animation: none;
   }
 }
 </style>

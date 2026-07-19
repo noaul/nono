@@ -5,7 +5,7 @@ import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, appearanceSettingsForSave, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
-import { PUBLIC_THEMES, accentCssVars, getTheme, type PublicTheme } from '@/utils/themes';
+import { PUBLIC_THEMES, accentCssVars, getSceneIntensity, getTheme, type PublicTheme } from '@/utils/themes';
 
 const props = defineProps<{ open: boolean; site: Site }>();
 const emit = defineEmits<{
@@ -14,7 +14,7 @@ const emit = defineEmits<{
 }>();
 
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
-const theme = reactive({ id: '', accent: '' });
+const theme = reactive({ id: '', accent: '', sceneIntensity: 100 });
 const backgroundColor = ref('#090a0f');
 const fontColor = ref('#ffffff');
 const saving = ref(false);
@@ -66,6 +66,7 @@ function resetDraft() {
   const resolved = getTheme(savedTheme?.id);
   theme.id = resolved?.id || savedTheme?.id || '';
   theme.accent = savedTheme?.accent || resolved?.accent || '';
+  theme.sceneIntensity = getSceneIntensity(props.site.settings);
   userPresets.value = readUserPresets(props.site.settings);
   presetName.value = '';
   message.value = '';
@@ -220,6 +221,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
                 <small>{{ preset.description }}</small>
               </button>
             </div>
+            <label class="scene-intensity-field" data-testid="scene-intensity-field">
+              <span>
+                场景动效强度
+                <output>{{ theme.sceneIntensity > 0 ? `${theme.sceneIntensity}%` : '已关闭' }}</output>
+              </span>
+              <input
+                v-model.number="theme.sceneIntensity"
+                data-testid="scene-intensity"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+              />
+              <small>调低可减弱粒子与光影，拖到 0 完全关闭动态场景</small>
+            </label>
           </section>
 
           <section class="user-preset-section">
@@ -436,12 +452,125 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
     linear-gradient(125deg, transparent 18%, rgba(255, 255, 255, 0.2), transparent 72%);
   inset: 0;
   opacity: 0.65;
+  overflow: hidden;
   position: absolute;
   z-index: -1;
 }
 
-.theme-card:hover .theme-motion {
-  animation: theme-preview-motion 2.8s ease-in-out infinite alternate;
+/* Each preset card runs a tiny always-on preview of its own scene animation. */
+.theme-motion::before,
+.theme-motion::after {
+  content: '';
+  position: absolute;
+}
+
+.theme-bubbles .theme-motion::before {
+  animation: preview-rise 4.2s linear infinite;
+  background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.92) 0 18%, rgba(255, 255, 255, 0.2) 46%, transparent 70%);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 50%;
+  bottom: -14px;
+  height: 11px;
+  left: 22%;
+  width: 11px;
+}
+
+.theme-bubbles .theme-motion::after {
+  animation: preview-rise 5.1s linear 1.6s infinite;
+  background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.92) 0 18%, rgba(255, 255, 255, 0.2) 46%, transparent 70%);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 50%;
+  bottom: -10px;
+  height: 7px;
+  right: 24%;
+  width: 7px;
+}
+
+.theme-snow .theme-motion::before,
+.theme-snow .theme-motion::after {
+  color: rgba(255, 255, 255, 0.92);
+  content: '❄';
+  font-size: 9px;
+  line-height: 1;
+  top: -12px;
+}
+
+.theme-snow .theme-motion::before {
+  animation: preview-fall 4.6s linear infinite;
+  left: 28%;
+}
+
+.theme-snow .theme-motion::after {
+  animation: preview-fall 5.4s linear 2.1s infinite;
+  font-size: 7px;
+  right: 26%;
+}
+
+.theme-leaves .theme-motion::before,
+.theme-leaves .theme-motion::after {
+  background: linear-gradient(135deg, #b5d88c 0%, #2d7951 100%);
+  border-radius: 100% 0 100% 0;
+  height: 9px;
+  top: -12px;
+  width: 9px;
+}
+
+.theme-leaves .theme-motion::before {
+  animation: preview-fall 4.8s linear infinite;
+  left: 30%;
+}
+
+.theme-leaves .theme-motion::after {
+  animation: preview-fall 5.6s linear 2.3s infinite;
+  background: linear-gradient(135deg, #e1b268 0%, #7f4936 100%);
+  height: 7px;
+  right: 28%;
+  width: 7px;
+}
+
+.theme-stars .theme-motion::before,
+.theme-stars .theme-motion::after {
+  background: #fff7dc;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 231, 164, 0.9);
+  height: 3px;
+  width: 3px;
+}
+
+.theme-stars .theme-motion::before {
+  animation: preview-twinkle 2.2s ease-in-out infinite alternate;
+  left: 30%;
+  top: 34%;
+}
+
+.theme-stars .theme-motion::after {
+  animation: preview-twinkle 2.8s ease-in-out 0.9s infinite alternate;
+  right: 26%;
+  top: 20%;
+}
+
+.theme-sunbeams .theme-motion::before {
+  animation: preview-sweep 5s ease-in-out infinite alternate;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 250, 198, 0.5) 50%, transparent 68%);
+  inset: -30%;
+}
+
+.theme-rain .theme-motion::before,
+.theme-rain .theme-motion::after {
+  background: linear-gradient(180deg, transparent, rgba(226, 248, 250, 0.85));
+  height: 14px;
+  top: -16px;
+  width: 1px;
+}
+
+.theme-rain .theme-motion::before {
+  animation: preview-rain 1.6s linear infinite;
+  left: 32%;
+}
+
+.theme-rain .theme-motion::after {
+  animation: preview-rain 2s linear 0.7s infinite;
+  right: 30%;
 }
 
 .theme-swatch {
@@ -490,6 +619,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
+}
+
+.scene-intensity-field {
+  display: grid;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.scene-intensity-field > span {
+  color: #475569;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.scene-intensity-field output {
+  color: #0f766e;
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-intensity-field input {
+  accent-color: #0f766e;
+  cursor: pointer;
+  width: 100%;
+}
+
+.scene-intensity-field > small {
+  color: #94a3b8;
+  font-size: 10px;
 }
 
 .user-preset-section {
@@ -679,9 +838,32 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   transform: translateX(100%);
 }
 
-@keyframes theme-preview-motion {
-  from { transform: translate3d(-2%, 2%, 0) scale(1.02); }
-  to { transform: translate3d(2%, -2%, 0) scale(1.08); }
+@keyframes preview-rise {
+  0% { opacity: 0; transform: translateY(0) scale(0.8); }
+  16% { opacity: 0.92; }
+  100% { opacity: 0; transform: translateY(-96px) scale(1.05); }
+}
+
+@keyframes preview-fall {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+  14% { opacity: 0.92; }
+  100% { opacity: 0; transform: translate3d(8px, 100px, 0) rotate(160deg); }
+}
+
+@keyframes preview-twinkle {
+  from { opacity: 0.2; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1.35); }
+}
+
+@keyframes preview-sweep {
+  from { transform: translate3d(-16%, 0, 0); }
+  to { transform: translate3d(16%, 0, 0); }
+}
+
+@keyframes preview-rain {
+  0% { opacity: 0; transform: translateY(0); }
+  16% { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(104px); }
 }
 
 @media (max-width: 640px) {
@@ -723,10 +905,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   .appearance-drawer-enter-active,
   .appearance-drawer-leave-active,
   .appearance-drawer-enter-active .appearance-drawer,
-  .appearance-drawer-leave-active .appearance-drawer,
-  .theme-card:hover .theme-motion {
+  .appearance-drawer-leave-active .appearance-drawer {
     animation: none;
     transition: none;
+  }
+
+  .theme-motion::before,
+  .theme-motion::after {
+    animation: none;
+    opacity: 0.4;
   }
 }
 </style>

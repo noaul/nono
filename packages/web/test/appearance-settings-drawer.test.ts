@@ -45,7 +45,7 @@ describe('AppearanceSettingsDrawer', () => {
     expect(payload.backgroundColor).toBe('#edf3f8');
     expect(payload.fontColor).toBe('#423832');
     expect(payload.settings.analytics).toEqual({ enabled: true });
-    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#d97745' });
+    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#d97745', sceneIntensity: 100 });
     expect(payload.settings.appearance).toMatchObject({
       cardColor: '#fffaf3',
       searchColor: '#fffdf8',
@@ -63,6 +63,25 @@ describe('AppearanceSettingsDrawer', () => {
     expect(link.attributes('href')).toBe('/admin');
     expect(link.attributes('target')).toBe('_blank');
     expect(link.attributes('rel')).toBe('noreferrer');
+  });
+
+  it('restores and persists the scene intensity dial next to the theme wall', async () => {
+    apiRequest.mockResolvedValue(site);
+    const savedSite = { ...site, settings: { ...site.settings, theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 60 } } };
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site: savedSite } });
+
+    const dial = wrapper.get('[data-testid="scene-intensity"]');
+    expect((dial.element as HTMLInputElement).value).toBe('60');
+
+    await dial.setValue('0');
+    expect(wrapper.get('[data-testid="scene-intensity-field"]').text()).toContain('已关闭');
+
+    await dial.setValue('40');
+    await wrapper.get('[data-testid="appearance-save"]').trigger('click');
+    await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
+
+    const payload = JSON.parse(apiRequest.mock.calls[0][1].body);
+    expect(payload.settings.theme).toMatchObject({ id: 'starlit-night', sceneIntensity: 40 });
   });
 
   it('persists up to three named user presets', async () => {

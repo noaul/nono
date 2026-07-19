@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PUBLIC_THEMES,
   accentCssVars,
+  getSceneIntensity,
   getTheme,
   getThemeAccentVars,
   themeCssVars,
@@ -80,5 +81,17 @@ describe('public themes', () => {
     expect(accentCssVars('red')).toEqual({});
     expect(getThemeAccentVars(null)).toEqual({});
     expect(getThemeAccentVars({ theme: { accent: '#8b5cf6' } })['--accent']).toBe('#8b5cf6');
+  });
+
+  it('reads the scene intensity dial with clamping and a full-strength default', () => {
+    expect(getSceneIntensity(undefined)).toBe(100);
+    expect(getSceneIntensity({})).toBe(100);
+    expect(getSceneIntensity({ theme: {} })).toBe(100);
+    expect(getSceneIntensity({ theme: { sceneIntensity: 45 } })).toBe(45);
+    expect(getSceneIntensity({ theme: { sceneIntensity: '30' } })).toBe(30);
+    expect(getSceneIntensity({ theme: { sceneIntensity: 0 } })).toBe(0);
+    expect(getSceneIntensity({ theme: { sceneIntensity: 180 } })).toBe(100);
+    expect(getSceneIntensity({ theme: { sceneIntensity: -20 } })).toBe(0);
+    expect(getSceneIntensity({ theme: { sceneIntensity: 'nope' } })).toBe(100);
   });
 });

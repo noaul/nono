@@ -221,6 +221,26 @@ describe('NavigationPage public workflow', () => {
     expect(scene.findAll('img').length).toBeGreaterThan(0);
   });
 
+  it('scales the scene by the persisted intensity dial and hides it entirely at zero', async () => {
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 50 },
+    }));
+
+    const wrapper = await mountNavigationPage();
+    const scene = wrapper.get('[data-testid="theme-scene"]');
+
+    // starlit-night ships opacity 0.4; a 50% dial halves it and thins the particle field.
+    expect(scene.attributes('style')).toContain('--theme-scene-opacity: 0.2');
+    expect(scene.attributes('style')).toContain('--theme-particle-alpha: 0.68');
+    expect(scene.findAll('.scene-particle').length).toBeLessThan(30);
+
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 0 },
+    }));
+    const offWrapper = await mountNavigationPage();
+    expect(offWrapper.find('[data-testid="theme-scene"]').exists()).toBe(false);
+  });
+
   it('keeps scene decoration out of the interaction and reduced-motion paths', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ThemeScene.vue'), 'utf8');
 
@@ -231,6 +251,12 @@ describe('NavigationPage public workflow', () => {
     expect(source).not.toContain('class="scene-particle"\n        :src="theme.scene.asset"');
     expect(source).toContain("[data-scene='snow'] .scene-particle::before");
     expect(source).toContain("[data-scene='rain'] .scene-particle");
+    // Battery + depth contracts: pause off-screen, parallax only for fine pointers.
+    expect(source).toContain('visibilitychange');
+    expect(source).toContain('is-paused');
+    expect(source).toContain('scene-parallax');
+    expect(source).toContain("matchMedia('(hover: hover) and (pointer: fine)')");
+    expect(source).toContain('animation-play-state: paused');
   });
 
   it('shows the public background image immediately while keeping preload hints', async () => {
