@@ -48,7 +48,6 @@ function resetAppearance() {
     <div class="appearance-controls">
       <fieldset>
         <legend><Search :size="16" /> 导航玻璃</legend>
-        <p class="setting-scope">搜索框、Notab 与文件夹标签栏</p>
         <label class="color-field">
           <span>玻璃底色</span>
           <span class="color-control">
@@ -72,7 +71,6 @@ function resetAppearance() {
 
       <fieldset>
         <legend><LayoutGrid :size="16" /> 内容玻璃</legend>
-        <p class="setting-scope">文件夹卡片与弹窗</p>
         <label class="color-field">
           <span>玻璃底色</span>
           <span class="color-control">
@@ -149,8 +147,12 @@ function resetAppearance() {
 }
 
 .appearance-editor {
+  box-sizing: border-box;
   display: grid;
   gap: 16px;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
 }
 
 .admin-card-head {
@@ -211,6 +213,8 @@ legend {
   display: grid;
   gap: 20px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 100%;
+  min-width: 0;
 }
 
 fieldset {
@@ -219,6 +223,7 @@ fieldset {
   display: grid;
   gap: 14px;
   margin: 0;
+  max-width: 100%;
   min-width: 0;
   padding: 18px;
 }
@@ -230,15 +235,10 @@ legend {
   padding: 0 8px;
 }
 
-.setting-scope {
-  color: #64748b;
-  font-size: 12px;
-  margin: -6px 0 2px;
-}
-
 .range-field {
   display: grid;
   gap: 7px;
+  min-width: 0;
 }
 
 .color-field {
@@ -289,6 +289,7 @@ legend {
 .range-field input {
   accent-color: var(--nono-accent);
   cursor: pointer;
+  min-width: 0;
   width: 100%;
 }
 
@@ -302,6 +303,7 @@ legend {
   display: grid;
   gap: 18px;
   grid-template-columns: 120px minmax(190px, 0.8fr) minmax(220px, 1.2fr);
+  min-width: 0;
   padding-top: 14px;
 }
 

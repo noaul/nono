@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils';
+import fs from 'node:fs';
+import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AppearanceSettingsDrawer from '../src/components/AppearanceSettingsDrawer.vue';
 
@@ -61,5 +63,34 @@ describe('AppearanceSettingsDrawer', () => {
     expect(link.attributes('href')).toBe('/admin');
     expect(link.attributes('target')).toBe('_blank');
     expect(link.attributes('rel')).toBe('noreferrer');
+  });
+
+  it('persists up to three named user presets', async () => {
+    apiRequest.mockImplementation(async (_url, options) => ({
+      ...site,
+      settings: JSON.parse(options.body).settings,
+    }));
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+
+    for (const name of ['工作', '阅读', '夜间']) {
+      await wrapper.get('[data-testid="appearance-preset-name"]').setValue(name);
+      await wrapper.get('[data-testid="save-appearance-preset"]').trigger('submit');
+      await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(['工作', '阅读', '夜间'].indexOf(name) + 1));
+    }
+
+    const payload = JSON.parse(apiRequest.mock.calls[2][1].body);
+    expect(payload.settings.appearancePresets).toHaveLength(3);
+    expect(payload.settings.appearancePresets.map((preset: { name: string }) => preset.name)).toEqual(['工作', '阅读', '夜间']);
+    expect(wrapper.get('[data-testid="appearance-preset-name"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[data-testid="save-appearance-preset-button"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('prevents horizontal drawer scrolling and gives text controls responsive width', () => {
+    const drawerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
+    const editorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
+
+    expect(drawerSource).toMatch(/\.drawer-scroll \{[\s\S]*?overflow-x:\s*hidden/);
+    expect(drawerSource).toContain('width: min(720px, 100vw)');
+    expect(editorSource).not.toContain('setting-scope');
   });
 });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { ArrowUpRight, Check, Palette, Save, Settings, X } from 'lucide-vue-next';
+import { ArrowUpRight, Check, Palette, Plus, Save, Settings, Trash2, X } from 'lucide-vue-next';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -20,8 +20,43 @@ const fontColor = ref('#ffffff');
 const saving = ref(false);
 const message = ref('');
 const error = ref('');
+const presetName = ref('');
+
+type UserAppearancePreset = {
+  id: string;
+  name: string;
+  appearance: AppearanceSettings;
+  theme: { id: string; accent: string };
+  backgroundColor: string;
+  fontColor: string;
+};
+
+const userPresets = ref<UserAppearancePreset[]>([]);
 
 const selectedTheme = computed(() => getTheme(theme.id));
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readUserPresets(settings?: Record<string, unknown>): UserAppearancePreset[] {
+  const raw = settings?.appearancePresets;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isRecord).slice(0, 3).map((item, index) => {
+    const savedTheme = isRecord(item.theme) ? item.theme : {};
+    return {
+      id: typeof item.id === 'string' && item.id ? item.id : `preset-${index + 1}`,
+      name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 20) : `我的预设 ${index + 1}`,
+      appearance: getAppearanceSettings({ appearance: item.appearance }),
+      theme: {
+        id: typeof savedTheme.id === 'string' ? savedTheme.id : '',
+        accent: typeof savedTheme.accent === 'string' ? savedTheme.accent : '',
+      },
+      backgroundColor: typeof item.backgroundColor === 'string' ? item.backgroundColor : '#090a0f',
+      fontColor: typeof item.fontColor === 'string' ? item.fontColor : '#ffffff',
+    };
+  });
+}
 
 function resetDraft() {
   Object.assign(appearance, getAppearanceSettings(props.site.settings));
@@ -31,6 +66,8 @@ function resetDraft() {
   const resolved = getTheme(savedTheme?.id);
   theme.id = resolved?.id || savedTheme?.id || '';
   theme.accent = savedTheme?.accent || resolved?.accent || '';
+  userPresets.value = readUserPresets(props.site.settings);
+  presetName.value = '';
   message.value = '';
   error.value = '';
 }
@@ -55,7 +92,26 @@ function themePreviewStyle(preset: PublicTheme) {
   };
 }
 
-async function save() {
+function userPresetStyle(preset: UserAppearancePreset) {
+  return {
+    '--preset-bg': preset.backgroundColor,
+    '--preset-text': preset.fontColor,
+    '--preset-card': preset.appearance.cardColor,
+    '--preset-accent': preset.theme.accent || '#0f766e',
+  };
+}
+
+function applyUserPreset(preset: UserAppearancePreset) {
+  Object.assign(appearance, preset.appearance);
+  Object.assign(theme, preset.theme);
+  backgroundColor.value = preset.backgroundColor;
+  fontColor.value = preset.fontColor;
+  message.value = `已应用“${preset.name}”`;
+  error.value = '';
+}
+
+async function persist(successMessage = '外观已保存') {
+  if (saving.value) return false;
   saving.value = true;
   message.value = '';
   error.value = '';
@@ -69,23 +125,53 @@ async function save() {
           ...(props.site.settings || {}),
           appearance: appearanceSettingsForSave(appearance),
           theme: { ...theme },
+          appearancePresets: userPresets.value,
         },
       }),
     });
-    message.value = '外观已保存';
+    message.value = successMessage;
     emit('saved', updated);
+    return true;
   } catch (event) {
     error.value = event instanceof Error ? event.message : '保存失败';
+    return false;
   } finally {
     saving.value = false;
   }
+}
+
+async function save() {
+  await persist();
+}
+
+async function saveUserPreset() {
+  if (saving.value || userPresets.value.length >= 3) return;
+  const name = presetName.value.trim().slice(0, 20) || `我的预设 ${userPresets.value.length + 1}`;
+  const preset: UserAppearancePreset = {
+    id: `preset-${Date.now()}-${userPresets.value.length + 1}`,
+    name,
+    appearance: appearanceSettingsForSave({ ...appearance }),
+    theme: { ...theme },
+    backgroundColor: backgroundColor.value,
+    fontColor: fontColor.value,
+  };
+  userPresets.value.push(preset);
+  presetName.value = '';
+  if (!await persist(`预设“${name}”已保存`)) userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
+}
+
+async function removeUserPreset(preset: UserAppearancePreset) {
+  if (saving.value) return;
+  const previous = [...userPresets.value];
+  userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
+  if (!await persist(`预设“${preset.name}”已删除`)) userPresets.value = previous;
 }
 
 function onKeydown(event: KeyboardEvent) {
   if (props.open && event.key === 'Escape') emit('close');
 }
 
-watch(() => [props.open, props.site], ([open]) => {
+watch(() => props.open, (open) => {
   if (open) resetDraft();
 }, { immediate: true });
 
@@ -136,6 +222,42 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
             </div>
           </section>
 
+          <section class="user-preset-section">
+            <div class="drawer-section-title">
+              <h3><Save :size="16" /> 我的预设</h3>
+              <span>{{ userPresets.length }}/3</span>
+            </div>
+            <form class="preset-create" data-testid="save-appearance-preset" @submit.prevent="saveUserPreset">
+              <input
+                v-model="presetName"
+                data-testid="appearance-preset-name"
+                maxlength="20"
+                placeholder="预设名称"
+                :disabled="saving || userPresets.length >= 3"
+              />
+              <button
+                data-testid="save-appearance-preset-button"
+                type="submit"
+                :disabled="saving || userPresets.length >= 3"
+              >
+                <Plus :size="15" /> 保存当前
+              </button>
+            </form>
+            <div v-if="userPresets.length" class="user-preset-list">
+              <article v-for="preset in userPresets" :key="preset.id" class="user-preset" :style="userPresetStyle(preset)">
+                <button class="user-preset-apply" type="button" :title="`应用 ${preset.name}`" @click="applyUserPreset(preset)">
+                  <span class="user-preset-swatch" aria-hidden="true">
+                    <i></i><i></i><i></i>
+                  </span>
+                  <strong>{{ preset.name }}</strong>
+                </button>
+                <button class="user-preset-delete" type="button" :title="`删除 ${preset.name}`" :aria-label="`删除 ${preset.name}`" @click="removeUserPreset(preset)">
+                  <Trash2 :size="15" />
+                </button>
+              </article>
+            </div>
+          </section>
+
           <AppearanceEditor :appearance="appearance" />
         </div>
 
@@ -162,6 +284,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .appearance-backdrop {
   background: rgba(15, 23, 42, 0.2);
   inset: 0;
+  overflow: hidden;
   position: fixed;
   z-index: 80;
 }
@@ -176,7 +299,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   height: 100dvh;
   margin-left: auto;
   max-width: 100%;
-  width: min(560px, 100vw);
+  min-width: 0;
+  overflow: hidden;
+  width: min(720px, 100vw);
   -webkit-backdrop-filter: blur(28px) saturate(1.16);
   backdrop-filter: blur(28px) saturate(1.16);
 }
@@ -229,9 +354,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .drawer-scroll {
+  box-sizing: border-box;
   display: grid;
   gap: 18px;
+  max-width: 100%;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 18px 20px 24px;
 }
@@ -239,6 +368,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .theme-section {
   display: grid;
   gap: 12px;
+}
+
+.theme-section,
+.user-preset-section,
+.theme-wall,
+.user-preset-list {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .drawer-section-title {
@@ -351,6 +488,117 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   opacity: 0.74;
 }
 
+.user-preset-section {
+  display: grid;
+  gap: 10px;
+}
+
+.preset-create {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.preset-create input,
+.preset-create button {
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  font: inherit;
+  min-height: 38px;
+}
+
+.preset-create input {
+  background: rgba(255, 255, 255, 0.82);
+  color: #0f172a;
+  min-width: 0;
+  padding: 0 11px;
+}
+
+.preset-create button {
+  align-items: center;
+  background: #ffffff;
+  color: #0f766e;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.preset-create input:disabled,
+.preset-create button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.user-preset-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.user-preset {
+  align-items: center;
+  background: color-mix(in srgb, var(--preset-bg) 10%, #ffffff);
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-preset-apply {
+  align-items: center;
+  color: #334155;
+  display: flex;
+  gap: 9px;
+  min-height: 48px;
+  min-width: 0;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.user-preset-apply strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-preset-swatch {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(3, 8px);
+}
+
+.user-preset-swatch i {
+  background: var(--preset-bg);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.14);
+  display: block;
+  height: 18px;
+  width: 18px;
+}
+
+.user-preset-swatch i:nth-child(2) { background: var(--preset-card); }
+.user-preset-swatch i:nth-child(3) { background: var(--preset-accent); }
+
+.user-preset-delete {
+  align-items: center;
+  color: #94a3b8;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  width: 34px;
+}
+
+.user-preset-delete:hover,
+.user-preset-delete:focus-visible {
+  color: #be123c;
+}
+
 .drawer-footer {
   background: rgba(248, 250, 252, 0.82);
   border-top: 1px solid rgba(203, 213, 225, 0.72);
@@ -400,7 +648,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 :deep(.appearance-editor) {
   border-top: 1px solid #e2e8f0;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   padding-top: 18px;
+  width: 100%;
 }
 
 .appearance-drawer-enter-active,
@@ -450,6 +702,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   .drawer-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .preset-create,
+  .user-preset-list {
+    grid-template-columns: 1fr;
   }
 
   .drawer-actions a,
