@@ -90,7 +90,9 @@ describe('AppearanceSettingsDrawer', () => {
     const editorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
 
     expect(drawerSource).toMatch(/\.drawer-scroll \{[\s\S]*?overflow-x:\s*hidden/);
-    expect(drawerSource).toContain('width: min(720px, 100vw)');
+    expect(drawerSource).toContain('width: min(640px, 100vw)');
     expect(editorSource).not.toContain('setting-scope');
+    expect(editorSource).toMatch(/::-webkit-slider-runnable-track \{[\s\S]*?height:\s*3px/);
+    expect(editorSource).toMatch(/::-webkit-slider-thumb \{[\s\S]*?height:\s*13px/);
   });
 });
