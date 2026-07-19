@@ -67,7 +67,7 @@ watch(query, (value) => {
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
-const accessLocked = computed(() => Boolean(payload.value?.access.required && !payload.value.access.unlocked));
+const accessLocked = computed(() => Boolean(payload.value?.access?.required && !payload.value.access.unlocked));
 const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
 const appearanceEntryHref = computed(() => {
   if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;

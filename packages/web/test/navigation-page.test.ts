@@ -45,6 +45,7 @@ function navigationPayload(backgroundImage?: string, settings?: Record<string, u
         links: [{ id: 10, folderId: 2, name: 'Vue', url: 'https://vuejs.org/', sortOrder: 100 }],
       },
     ],
+    access: { required: false, unlocked: true },
   };
 }
 
@@ -330,7 +331,7 @@ describe('NavigationPage public workflow', () => {
     const entry = wrapper.get('[data-testid="portal-corner-link"]');
     expect(entry.element.tagName).toBe('A');
     expect(entry.attributes('href')).toBe('/login?next=%2F');
-    expect(entry.text()).toContain('登录设置');
+    expect(entry.text()).toContain('后台管理登录');
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
