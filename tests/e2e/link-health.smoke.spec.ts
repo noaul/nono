@@ -33,31 +33,6 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify({ code: 0, data: { items: [], unreadCount: 0, generatedAt: '2026-07-18T08:00:00.000Z' }, message: '' }),
     });
   });
-  await page.route(/\/api\/admin\/links\/health-repair(?:\?.*)?$/, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        code: 0,
-        data: {
-          repaired: 1,
-          skipped: 0,
-          links: [{
-            id: 10,
-            folderId: 1,
-            name: 'Moved docs',
-            url: 'https://new.example/docs',
-            sortOrder: 100,
-            healthStatus: 'ok',
-            healthStatusCode: 200,
-            healthFinalUrl: null,
-            healthCheckedAt: '2026-07-18T08:00:00.000Z',
-          }],
-        },
-        message: '',
-      }),
-    });
-  });
   await page.route(/\/api\/admin\/links(?:\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -81,20 +56,16 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('renders persisted health and repairs redirects without viewport overflow', async ({ page }, testInfo) => {
+test('renders persisted health in the bookmark table without viewport overflow', async ({ page }, testInfo) => {
   await page.goto('/admin/links');
 
-  await expect(page.getByRole('heading', { name: '健康检查' })).toBeVisible();
-  await expect(page.getByText('重定向 1', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '健康检查' })).toHaveCount(0);
+  await expect(page.getByTestId('check-link-health')).toBeVisible();
   await expect(page.getByTestId('link-health-10')).toContainText('重定向');
+  await expect(page.locator('.admin-table-head')).toContainText('notab');
+  await expect(page.locator('.admin-table-head')).toContainText('状态');
   await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
   await expect(page.locator('.workbench-sidebar')).toHaveCSS('background-color', 'rgb(249, 249, 249)');
-  await page.getByTestId('repair-link-redirects').click();
-  await expect(page.getByRole('heading', { name: '修复重定向链接' })).toBeVisible();
-  const repairResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/links/health-repair');
-  await page.getByTestId('confirm-accept').click();
-  expect((await repairResponse).status()).toBe(200);
-  await expect(page.getByTestId('link-row-10')).toContainText('https://new.example/docs');
 
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
