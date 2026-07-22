@@ -87,7 +87,25 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   });
 
   await app.register(cookie);
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        connectSrc: ["'self'", 'https:', 'http:', 'wss:', 'ws:'],
+        fontSrc: ["'self'", 'https:', 'data:'],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", 'https:', 'http:', 'data:', 'blob:'],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        upgradeInsecureRequests: null,
+        workerSrc: ["'self'", 'blob:'],
+      },
+    },
+  });
   await app.register(cors, { origin: corsOriginPolicy(), credentials: true });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await responsePlugin(app);

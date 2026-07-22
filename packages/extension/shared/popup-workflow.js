@@ -1,5 +1,24 @@
 export function normalizeServerUrl(value) {
-  return String(value || '').replace(/\/+$/, '');
+  const rawUrl = String(value || '').trim();
+  if (!rawUrl) throw new Error('请输入 Nono 服务地址。');
+
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error('请输入有效的 Nono 服务地址。');
+  }
+
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+  const isSecure = url.protocol === 'https:';
+  const isLoopbackDevelopment = url.protocol === 'http:' && loopbackHosts.has(url.hostname);
+  if (!isSecure && !isLoopbackDevelopment) {
+    throw new Error('服务地址必须使用 HTTPS；本机开发可使用 loopback HTTP。');
+  }
+
+  url.search = '';
+  url.hash = '';
+  return url.href.replace(/\/+$/, '');
 }
 
 export function normalizeBookmarkUrl(value) {

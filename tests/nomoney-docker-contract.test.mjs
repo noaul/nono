@@ -16,6 +16,15 @@ test('persists NoMoney data and requires its session secret', () => {
   assert.match(compose, /NOMONEY_INTERNAL_PORT:\s*2030/);
   assert.match(compose, /NOMONEY_DATA_DIR:\s*\/app\/nomoney-data/);
   assert.match(compose, /NOMONEY_JWT_SECRET:/);
+  assert.match(compose, /NOMONEY_COOKIE_SECURE:\s*\$\{NOMONEY_COOKIE_SECURE:-true\}/);
   assert.match(compose, /nomoney_data:\/app\/nomoney-data/);
   assert.match(compose, /^\s*nomoney_data:\s*$/m);
+});
+
+test('binds the application to loopback by default', () => {
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+  const exampleEnv = fs.readFileSync('.env.example', 'utf8');
+  assert.match(compose, /\$\{APP_BIND_ADDRESS:-127\.0\.0\.1\}:\$\{PORT:-3000\}:3000/);
+  assert.match(exampleEnv, /^APP_BIND_ADDRESS=127\.0\.0\.1$/m);
+  assert.match(exampleEnv, /^NOMONEY_COOKIE_SECURE=true$/m);
 });

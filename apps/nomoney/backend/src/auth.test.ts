@@ -79,6 +79,53 @@ describe('auth flow', () => {
     expect(secondSetup.status).toBe(409);
   });
 
+  test('only one concurrent setup request can create the single user', async () => {
+    const context = await createTestContext();
+    const app = createApp(context);
+
+    const attempts = await Promise.all([
+      request(app).post('/api/auth/setup').send({
+        username: 'first-owner',
+        password: 'correct horse battery staple',
+        email: 'first@example.com'
+      }),
+      request(app).post('/api/auth/setup').send({
+        username: 'second-owner',
+        password: 'correct horse battery staple',
+        email: 'second@example.com'
+      })
+    ]);
+
+    expect(attempts.map((response) => response.status).sort()).toEqual([201, 409]);
+    expect(context.db.get<{ count: number }>('SELECT COUNT(*) as count FROM users')?.count).toBe(1);
+  });
+
+  test('rate limits repeated failed setup attempts', async () => {
+    const context = await createTestContext();
+    const app = createApp(context);
+    await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    });
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const response = await request(app).post('/api/auth/setup').send({
+        username: `other-${attempt}`,
+        password: 'correct horse battery staple',
+        email: `other-${attempt}@example.com`
+      });
+      expect(response.status).toBe(409);
+    }
+
+    const limited = await request(app).post('/api/auth/setup').send({
+      username: 'last',
+      password: 'correct horse battery staple',
+      email: 'last@example.com'
+    });
+    expect(limited.status).toBe(429);
+  });
+
   test('initial setup returns the created user when database persistence is enabled', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moneypulse-auth-'));
     const db = await createDatabase({ persist: true, filePath: path.join(tempDir, 'app.db') });

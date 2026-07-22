@@ -213,6 +213,7 @@ export interface Repository {
   listAuditLogs(query: AuditLogQuery): Promise<AuditLogPage>;
   deleteAuditLogsBefore(cutoff: Date): Promise<number>;
   listUsers(): Promise<UserRecord[]>;
+  initializeAdmin(input: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserRecord>;
   findUserById(id: number): Promise<UserRecord | null>;
   findUserByUsername(username: string): Promise<UserRecord | null>;
   findUserByEmail(email: string): Promise<UserRecord | null>;
@@ -374,6 +375,18 @@ export class MemoryRepository implements Repository {
 
   async listUsers() {
     return [...this.users];
+  }
+
+  async initializeAdmin(input: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>) {
+    const existingAdmin = this.users.find((user) => user.role === 'admin' && user.passwordHash);
+    if (existingAdmin) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
+
+    const existing = this.users.find((user) => user.username === input.username) || this.users[0];
+    if (existing) {
+      Object.assign(existing, input, { updatedAt: new Date() });
+      return existing;
+    }
+    return this.createUser(input);
   }
 
   async findUserById(id: number) {

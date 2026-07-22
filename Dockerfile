@@ -1,10 +1,10 @@
 FROM node:22-alpine AS nono-deps
 WORKDIR /app/nono
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 COPY packages/server/package.json ./packages/server/package.json
 COPY packages/web/package.json ./packages/web/package.json
 COPY packages/extension/package.json ./packages/extension/package.json
-RUN npm install
+RUN npm ci
 
 FROM nono-deps AS nono-build
 WORKDIR /app/nono
@@ -62,7 +62,9 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache 
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache postgresql16-client sqlite
+RUN apk add --no-cache postgresql16-client sqlite su-exec \
+  && addgroup -S nono \
+  && adduser -S -D -G nono nono
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001
@@ -90,4 +92,4 @@ COPY docker/gateway.mjs ./gateway.mjs
 COPY docker/gateway-headers.mjs ./gateway-headers.mjs
 COPY docker/gateway-routing.mjs ./gateway-routing.mjs
 EXPOSE 3000
-CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec node ./gateway.mjs"]
+CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]

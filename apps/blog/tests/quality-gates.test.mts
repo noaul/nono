@@ -88,9 +88,12 @@ test('pins patched transitive build dependencies', async () => {
 	for (const override of [
 		'"@babel/core@>=7.0.0 <7.29.1": 7.29.7',
 		'"@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4',
+		'"body-parser@>=2.0.0 <2.3.0": 2.3.0',
+		'"brace-expansion@>=2.0.0 <2.1.2": 2.1.2',
 		'"js-yaml@>=4.0.0 <4.1.2": 4.3.0',
 		'"picomatch@<2.3.2": 2.3.2',
-		'"svgo@>=3.0.0 <3.3.3": 3.3.3'
+		'"sharp@<0.35.0": 0.35.0',
+		'"svgo@>=3.0.0 <3.3.4": 3.3.4'
 	]) {
 		assert.match(workspace, new RegExp(override.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 	}

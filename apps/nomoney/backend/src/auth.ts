@@ -9,7 +9,8 @@ import { toIsoDateTime } from './utils.js';
 const cookieName = 'moneypulse_session';
 const authWindowMs = 15 * 60 * 1000;
 const maxAuthAttempts = 8;
-const authAttempts = new Map<string, { count: number; resetAt: number }>();
+const authAttempts = new WeakMap<AppContext, Map<string, { count: number; resetAt: number }>>();
+const setupQueues = new WeakMap<AppContext, Promise<void>>();
 
 const setupSchema = z.object({
   username: z.string().trim().min(1),
@@ -36,23 +37,30 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
     '/auth/setup',
     asyncHandler(async (req, res) => {
       const rateKey = authRateKey(req, 'setup');
-      assertAuthRateLimit(rateKey);
-      if (hasUser(context)) {
-        throw new HttpError(409, 'SETUP_ALREADY_DONE', 'Setup has already been completed');
-      }
+      assertAuthRateLimit(context, rateKey);
+      try {
+        const body = parseBody(setupSchema, req.body);
+        await withSetupLock(context, async () => {
+          if (hasUser(context)) {
+            throw new HttpError(409, 'SETUP_ALREADY_DONE', 'Setup has already been completed');
+          }
 
-      const body = parseBody(setupSchema, req.body);
-      const now = toIsoDateTime(context.now());
-      const passwordHash = await bcrypt.hash(body.password, 10);
-      const id = context.db.insert(
-        `INSERT INTO users (username, password_hash, email, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [body.username, passwordHash, body.email, now, now]
-      );
-      const user = getPublicUser(context, id);
-      setSessionCookie(res, context, id);
-      clearAuthRateLimit(rateKey);
-      res.status(201).json({ user });
+          const now = toIsoDateTime(context.now());
+          const passwordHash = await bcrypt.hash(body.password, 10);
+          const id = context.db.insert(
+            `INSERT INTO users (username, password_hash, email, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?)`,
+            [body.username, passwordHash, body.email, now, now]
+          );
+          const user = getPublicUser(context, id);
+          setSessionCookie(res, context, id);
+          clearAuthRateLimit(context, rateKey);
+          res.status(201).json({ user });
+        });
+      } catch (error) {
+        recordFailedAuthAttempt(context, rateKey);
+        throw error;
+      }
     })
   );
 
@@ -61,19 +69,19 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
     asyncHandler(async (req, res) => {
       const body = parseBody(loginSchema, req.body);
       const rateKey = authRateKey(req, 'login', body.username);
-      assertAuthRateLimit(rateKey);
+      assertAuthRateLimit(context, rateKey);
       const user = context.db.get<{ id: number; username: string; password_hash: string; email: string }>(
         'SELECT id, username, password_hash, email FROM users WHERE username = ?',
         [body.username]
       );
 
       if (!user || !(await bcrypt.compare(body.password, user.password_hash))) {
-        recordFailedAuthAttempt(rateKey);
+        recordFailedAuthAttempt(context, rateKey);
         throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
       }
 
       setSessionCookie(res, context, Number(user.id));
-      clearAuthRateLimit(rateKey);
+      clearAuthRateLimit(context, rateKey);
       res.json({ user: getPublicUser(context, Number(user.id)) });
     })
   );
@@ -110,6 +118,20 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
       res.status(204).end();
     })
   );
+}
+
+async function withSetupLock(context: AppContext, operation: () => Promise<void>): Promise<void> {
+  let releaseSetup!: () => void;
+  const previousSetup = setupQueues.get(context) || Promise.resolve();
+  setupQueues.set(context, new Promise<void>((resolve) => {
+    releaseSetup = resolve;
+  }));
+  await previousSetup;
+  try {
+    await operation();
+  } finally {
+    releaseSetup();
+  }
 }
 
 export function requireAuth(context: AppContext) {
@@ -187,11 +209,21 @@ function authRateKey(req: Request, scope: string, username = ''): string {
   return `${scope}:${ip}:${username.trim().toLowerCase()}`;
 }
 
-function assertAuthRateLimit(key: string): void {
+function rateBuckets(context: AppContext) {
+  let buckets = authAttempts.get(context);
+  if (!buckets) {
+    buckets = new Map();
+    authAttempts.set(context, buckets);
+  }
+  return buckets;
+}
+
+function assertAuthRateLimit(context: AppContext, key: string): void {
   const now = Date.now();
-  const bucket = authAttempts.get(key);
+  const buckets = rateBuckets(context);
+  const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    authAttempts.delete(key);
+    buckets.delete(key);
     return;
   }
   if (bucket.count >= maxAuthAttempts) {
@@ -199,16 +231,17 @@ function assertAuthRateLimit(key: string): void {
   }
 }
 
-function recordFailedAuthAttempt(key: string): void {
+function recordFailedAuthAttempt(context: AppContext, key: string): void {
   const now = Date.now();
-  const bucket = authAttempts.get(key);
+  const buckets = rateBuckets(context);
+  const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    authAttempts.set(key, { count: 1, resetAt: now + authWindowMs });
+    buckets.set(key, { count: 1, resetAt: now + authWindowMs });
     return;
   }
   bucket.count += 1;
 }
 
-function clearAuthRateLimit(key: string): void {
-  authAttempts.delete(key);
+function clearAuthRateLimit(context: AppContext, key: string): void {
+  rateBuckets(context).delete(key);
 }

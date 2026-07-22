@@ -11,19 +11,20 @@ Chrome Manifest V3 扩展，用于把当前网页快速保存到自托管的 Non
 - 右键菜单快速保存到上次文件夹。
 - 支持测试服务连接、Token 状态和文件夹读取权限。
 
-## 构建
+## 构建与打包
 
 在仓库根目录运行：
 
 ```bash
 npm install
-npm run build -w packages/extension
+npm run package:extension
 ```
 
-构建结果位于：
+输出位于：
 
 ```text
 packages/extension/dist
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.2.2.zip
 ```
 
 ## 安装
@@ -37,10 +38,10 @@ packages/extension/dist
 
 ### 使用打包文件
 
-仓库提供当前构建包：
+当前发布包：
 
 ```text
-packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.2.2.zip
 ```
 
 解压后按“加载已解压版本”的方式安装。
@@ -60,10 +61,10 @@ packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
 
 1. 在 Nono 后台的 Token 页面创建 API Token。
 2. 打开插件设置。
-3. 填写 Nono 服务地址，例如 `https://noaul.com`。
+3. 填写 Nono 服务地址，例如 `https://noaul.com`。公网地址必须使用 HTTPS；HTTP 仅允许 loopback 本地开发地址。
 4. 填写 API Token，并点击“测试连接”。
 
-插件不会把 Token 提交给第三方服务；网页分析与保存请求只发送到配置的 Nono 服务地址。
+插件不会把 Token 提交给第三方服务；网页分析与保存请求只发送到配置的 Nono 服务地址。建议为每台设备创建独立、可过期的 Token，停用插件或设备丢失后立即从 Nono 后台撤销。
 
 ## 快捷键
 
@@ -81,3 +82,5 @@ packages/extension/nono-quick-bookmark-chrome-v0.2.1.zip
 - `shared/`：API 与收藏流程公共逻辑。
 - `icons/`：插件图标资源。
 - `scripts/build.mjs`：生成 `dist` 目录。
+- `scripts/package.mjs`：校验版本并生成 Chrome Web Store ZIP。
+- `artifacts/`：当前可发布的 ZIP 构建包。

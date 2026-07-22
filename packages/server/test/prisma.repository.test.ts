@@ -2,6 +2,39 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPrismaRepository } from '../src/services/prisma.repository.js';
 
 describe('Prisma repository batch deletion', () => {
+  it('serializes first-admin initialization with a PostgreSQL transaction lock', async () => {
+    const events: string[] = [];
+    const created = { id: 1, username: 'owner', role: 'admin' };
+    const transaction = {
+      $queryRawUnsafe: vi.fn().mockImplementation(async () => events.push('lock')),
+      user: {
+        findMany: vi.fn().mockImplementation(async () => {
+          events.push('read');
+          return [];
+        }),
+        create: vi.fn().mockImplementation(async () => {
+          events.push('create');
+          return created;
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)),
+    };
+    const repo = createPrismaRepository(prisma as never);
+
+    await expect(repo.initializeAdmin({
+      username: 'owner',
+      email: 'owner@nono.test',
+      displayName: 'Owner',
+      passwordHash: 'hash',
+      role: 'admin',
+    })).resolves.toBe(created);
+
+    expect(events).toEqual(['lock', 'read', 'create']);
+    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)');
+  });
+
   it('treats a folder already removed by cascade as deleted', async () => {
     const prisma = {
       folder: {

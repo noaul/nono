@@ -1,13 +1,15 @@
 {
   "name": "@nono/extension",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs",
     "test": "vitest run"
   },
   "devDependencies": {
+    "archiver": "^8.0.0",
     "vitest": "^4.0.14"
   }
 }

@@ -3,20 +3,7 @@ import type { Role } from '../types.js';
 import { hashPassword, verifyPassword } from '../utils/crypto.js';
 
 export async function setupAdmin(repo: Repository, input: { username: string; email?: string; displayName?: string; password: string }) {
-  const users = await repo.listUsers();
-  const existingAdmin = users.find((user) => user.role === 'admin' && user.passwordHash);
-  if (existingAdmin) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
-  const existing = users.find((user) => user.username === input.username) || users[0];
-  if (existing) {
-    return repo.updateUser(existing.id, {
-      username: input.username,
-      email: input.email || existing.email || `${input.username}@nono.local`,
-      displayName: input.displayName || input.username,
-      passwordHash: await hashPassword(input.password),
-      role: 'admin',
-    });
-  }
-  return repo.createUser({
+  return repo.initializeAdmin({
     username: input.username,
     email: input.email || `${input.username}@nono.local`,
     displayName: input.displayName || input.username,

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Nono Smart Bookmark",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "快速把当前网页收藏到 Nono。",
   "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
   "host_permissions": ["http://*/*", "https://*/*"],
@@ -22,7 +22,8 @@
     "128": "icons/nono-128.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "commands": {
     "open-quick-save": {

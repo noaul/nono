@@ -23,15 +23,15 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=2048
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
         with:
           version: 11.8.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
@@ -58,6 +58,9 @@ jobs:
       - name: Build Nono
         run: npm run build:nono
 
+      - name: Package browser extension
+        run: npm run package:extension
+
       - name: Install NoStar dependencies
         working-directory: apps/nostar
         run: npm ci
@@ -71,6 +74,10 @@ jobs:
       - name: Install Blog dependencies
         working-directory: apps/blog
         run: pnpm install --frozen-lockfile
+
+      - name: Audit Blog dependencies
+        working-directory: apps/blog
+        run: pnpm audit --audit-level high
 
       - name: Test Blog
         working-directory: apps/blog

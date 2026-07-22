@@ -116,6 +116,38 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     async listUsers() {
       return (await prisma.user.findMany({ orderBy: { id: 'asc' } })) as any;
     },
+    async initializeAdmin(input) {
+      return (await prisma.$transaction(async (transaction) => {
+        await transaction.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1313820239)');
+        const users = await transaction.user.findMany({ orderBy: { id: 'asc' } });
+        const existingAdmin = users.find((user) => user.role === 'admin' && user.passwordHash);
+        if (existingAdmin) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
+
+        const existing = users.find((user) => user.username === input.username) || users[0];
+        if (existing) {
+          return transaction.user.update({
+            where: { id: existing.id },
+            data: {
+              username: input.username,
+              email: input.email,
+              displayName: input.displayName,
+              passwordHash: input.passwordHash,
+              role: 'admin',
+            },
+          });
+        }
+        return transaction.user.create({
+          data: {
+            username: input.username,
+            email: input.email,
+            displayName: input.displayName,
+            passwordHash: input.passwordHash,
+            role: 'admin',
+            sites: { create: toSiteCreate(defaultSite(0, input.username)) as any },
+          },
+        });
+      })) as any;
+    },
     async findUserById(id) {
       return (await prisma.user.findUnique({ where: { id } })) as any;
     },

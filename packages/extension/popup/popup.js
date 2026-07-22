@@ -62,11 +62,15 @@ async function init() {
 }
 
 async function saveSettings() {
-  config = { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
-  await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
-  if (await testConnection()) {
-    closeSettings();
-    await prepareQuickSave();
+  try {
+    config = { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
+    await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
+    if (await testConnection()) {
+      closeSettings();
+      await prepareQuickSave();
+    }
+  } catch (error) {
+    setTokenStatus(error.message || '服务地址无效。');
   }
 }
 

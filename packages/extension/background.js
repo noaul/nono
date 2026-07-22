@@ -1,3 +1,5 @@
+import { normalizeServerUrl } from './shared/popup-workflow.js';
+
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
 const OPEN_MENU_ID = 'nono-open-save';
 
@@ -38,7 +40,7 @@ async function quickSave(tab) {
     return;
   }
   try {
-    const response = await fetch(`${String(serverUrl).replace(/\/+$/, '')}/api/admin/links`, {
+    const response = await fetch(`${normalizeServerUrl(serverUrl)}/api/admin/links`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ folderId: Number(lastFolderId), name: tab.title || new URL(tab.url).hostname, nameMode: 'auto', url: tab.url, description: '' }),

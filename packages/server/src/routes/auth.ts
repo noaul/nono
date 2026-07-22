@@ -15,7 +15,7 @@ const authSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance, services: AppServices) {
-  app.post('/api/auth/setup', async (request, reply) => {
+  app.post('/api/auth/setup', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const input = authSchema.parse(request.body);
     assertStrongPassword(input.password);
     const user = await setupAdmin(services.repo, input as any);

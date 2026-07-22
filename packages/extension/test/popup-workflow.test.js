@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { buildFolderGroups, buildQuickSavePayload, compactBookmarkName, findDuplicateLink, findFolderGroup, preferredFolderId, tokenExpiryText } from '../shared/popup-workflow.js';
+import { buildFolderGroups, buildQuickSavePayload, compactBookmarkName, findDuplicateLink, findFolderGroup, normalizeServerUrl, preferredFolderId, tokenExpiryText } from '../shared/popup-workflow.js';
 
 describe('extension popup workflow helpers', () => {
+  it('accepts HTTPS servers and loopback HTTP development servers', () => {
+    expect(normalizeServerUrl(' https://noaul.com/// ')).toBe('https://noaul.com');
+    expect(normalizeServerUrl('http://localhost:3000/')).toBe('http://localhost:3000');
+    expect(normalizeServerUrl('http://127.0.0.1:3000/')).toBe('http://127.0.0.1:3000');
+    expect(normalizeServerUrl('http://[::1]:3000/')).toBe('http://[::1]:3000');
+  });
+
+  it('rejects insecure or malformed server URLs', () => {
+    expect(() => normalizeServerUrl('http://example.com')).toThrow('HTTPS');
+    expect(() => normalizeServerUrl('ftp://example.com')).toThrow('HTTPS');
+    expect(() => normalizeServerUrl('not a url')).toThrow('有效');
+    expect(() => normalizeServerUrl('')).toThrow('服务地址');
+  });
+
   it('describes token expiry state', () => {
     const now = new Date('2026-06-04T12:00:00.000Z');
 

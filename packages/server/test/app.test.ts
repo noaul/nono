@@ -73,6 +73,16 @@ describe('Nono Fastify app', () => {
     expect(response.json()).toEqual({ code: 0, data: { ok: true }, message: '' });
   });
 
+  it('sends a content security policy that blocks third-party scripts and embedding', async () => {
+    const response = await app.inject({ method: 'GET', url: '/healthz' });
+    const policy = response.headers['content-security-policy'];
+
+    expect(policy).toContain("script-src 'self'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).not.toContain('upgrade-insecure-requests');
+  });
+
   it('does not reflect arbitrary browser origins but allows Chrome extensions', async () => {
     const untrusted = await app.inject({ method: 'GET', url: '/healthz', headers: { origin: 'https://evil.example' } });
     expect(untrusted.headers['access-control-allow-origin']).toBeUndefined();
@@ -118,6 +128,24 @@ describe('Nono Fastify app', () => {
     const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: setupCookie } });
     expect(session.statusCode).toBe(200);
     expect(session.json().data).toMatchObject({ authenticated: true, setupRequired: false });
+  });
+
+  it('allows only one concurrent first-admin setup', async () => {
+    const attempts = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/setup',
+        payload: { username: 'first-admin', email: 'first@nono.test', password: adminPassword },
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/setup',
+        payload: { username: 'second-admin', email: 'second@nono.test', password: adminPassword },
+      }),
+    ]);
+
+    expect(attempts.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    expect((await repo.listUsers()).filter((user) => user.role === 'admin')).toHaveLength(1);
   });
 
   it('keeps login rate limits isolated by the forwarded client address', async () => {

@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${PORT:-3000}:3000"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       TZ: ${TZ:-Asia/Shanghai}
@@ -58,7 +58,7 @@ services:
       NOMONEY_INTERNAL_PORT: 2030
       NOMONEY_DATA_DIR: /app/nomoney-data
       NOMONEY_JWT_SECRET: ${NOMONEY_JWT_SECRET:?NOMONEY_JWT_SECRET is required}
-      NOMONEY_COOKIE_SECURE: ${NOMONEY_COOKIE_SECURE:-false}
+      NOMONEY_COOKIE_SECURE: ${NOMONEY_COOKIE_SECURE:-true}
       NOMONEY_SMTP_HOST: ${NOMONEY_SMTP_HOST:-}
       NOMONEY_SMTP_PORT: ${NOMONEY_SMTP_PORT:-587}
       NOMONEY_SMTP_USER: ${NOMONEY_SMTP_USER:-}
