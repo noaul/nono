@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${APP_BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+      - "${PORT:-127.0.0.1:3000}:3000"
     environment:
       NODE_ENV: production
       TZ: ${TZ:-Asia/Shanghai}

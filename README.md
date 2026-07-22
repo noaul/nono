@@ -111,7 +111,7 @@ GitHub Actions 对 `main` 推送和 Pull Request 执行同等级门禁，包括 
 | `CORS_ORIGIN` | 空 | 额外网页 Origin 白名单，逗号分隔 |
 | `PRIVATE_OUTBOUND_HOSTS` | 空 | 允许服务端访问的精确私网主机白名单 |
 | `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | 仅在受信反向代理独占容器入口时启用 |
-| `APP_BIND_ADDRESS` | `127.0.0.1` | Compose 应用端口监听地址；仅在防火墙和 TLS 边界明确时改为公网地址 |
+| `PORT` | `127.0.0.1:3000` | Compose 应用端口映射；仅在防火墙和 TLS 边界明确时改为公网地址 |
 | `LINK_HEALTH_CHECK_ENABLED` | `true` | 自动链接健康检查 |
 | `LINK_HEALTH_CHECK_INTERVAL_HOURS` | `24` | 健康结果过期时间 |
 | `TZ` | `Asia/Shanghai` | 备份和日程时区 |
