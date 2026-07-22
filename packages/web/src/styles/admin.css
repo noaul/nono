@@ -979,7 +979,8 @@
   color: #047857;
 }
 
-.app-workbench .health-result-row.status-redirected small {
+.app-workbench .health-result-row.status-redirected small,
+.app-workbench .health-result-row.status-restricted small {
   color: #2563eb;
 }
 

@@ -10,6 +10,7 @@ const repairableIds = computed(() => props.results.filter((result) => result.sta
 function healthStatusLabel(status: LinkHealthResult['status']) {
   if (status === 'ok') return '正常';
   if (status === 'redirected') return '重定向';
+  if (status === 'restricted') return '访问受限';
   if (status === 'broken') return '异常';
   if (status === 'timeout') return '超时';
   return '无效';
@@ -37,6 +38,7 @@ function healthStatusLabel(status: LinkHealthResult['status']) {
     <div class="health-summary">
       <span>正常 {{ summary.ok }}</span>
       <span>重定向 {{ summary.redirected }}</span>
+      <span>访问受限 {{ summary.restricted }}</span>
       <span>异常 {{ summary.broken }}</span>
       <span>超时 {{ summary.timeout }}</span>
       <span>无效 {{ summary.invalid }}</span>

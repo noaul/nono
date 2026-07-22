@@ -73,7 +73,7 @@ describe('link health checks', () => {
     expect(maximum).toBe(2);
   });
 
-  it.each([403, 405, 501])('falls back to a bodyless GET when HEAD returns %i', async (headStatus) => {
+  it.each([403, 404, 405, 501])('falls back to a bodyless GET when HEAD returns %i', async (headStatus) => {
     const requester = vi.fn()
       .mockResolvedValueOnce({ statusCode: headStatus, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' })
       .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' });
@@ -85,5 +85,17 @@ describe('link health checks', () => {
       method: 'GET',
       discardBody: true,
     }));
+  });
+
+  it.each([401, 403, 429])('reports HTTP %i as restricted when GET is also blocked', async (statusCode) => {
+    const requester = vi.fn()
+      .mockResolvedValueOnce({ statusCode, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' })
+      .mockResolvedValueOnce({ statusCode, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://example.com/docs' });
+
+    const result = await checkLinksHealth([link({ url: 'https://example.com/docs' })], requester as any);
+
+    expect(result.results[0]).toMatchObject({ status: 'restricted', statusCode });
+    expect(result.summary.restricted).toBe(1);
+    expect(result.summary.broken).toBe(0);
   });
 });

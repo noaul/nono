@@ -65,7 +65,7 @@ export interface Link {
   icon?: string | null;
   description?: string | null;
   sortOrder: number;
-  healthStatus?: 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid' | null;
+  healthStatus?: 'ok' | 'redirected' | 'restricted' | 'broken' | 'timeout' | 'invalid' | null;
   healthStatusCode?: number | null;
   healthReason?: string | null;
   healthFinalUrl?: string | null;
@@ -116,7 +116,7 @@ export interface LinkHealthResult {
   id: number;
   name: string;
   url: string;
-  status: 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid';
+  status: 'ok' | 'redirected' | 'restricted' | 'broken' | 'timeout' | 'invalid';
   statusCode?: number;
   finalUrl?: string;
   reason?: string;
@@ -127,6 +127,7 @@ export interface LinkHealthSummary {
   total: number;
   ok: number;
   redirected: number;
+  restricted: number;
   broken: number;
   timeout: number;
   invalid: number;

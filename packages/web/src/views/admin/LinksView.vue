@@ -40,6 +40,7 @@ const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
 function healthStatusLabel(status: Link['healthStatus']) {
   if (status === 'ok') return '正常';
   if (status === 'redirected') return '重定向';
+  if (status === 'restricted') return '访问受限';
   if (status === 'broken') return '异常';
   if (status === 'timeout') return '超时';
   if (status === 'invalid') return '无效';
@@ -656,6 +657,8 @@ onMounted(load);
 .link-health-cell.status-ok i { background: #10a37f; }
 .link-health-cell.status-redirected { color: #9a6700; }
 .link-health-cell.status-redirected i { background: #d97706; }
+.link-health-cell.status-restricted { color: #9a6700; }
+.link-health-cell.status-restricted i { background: #d97706; }
 .link-health-cell.status-broken,
 .link-health-cell.status-invalid { color: #b42318; }
 .link-health-cell.status-broken i,

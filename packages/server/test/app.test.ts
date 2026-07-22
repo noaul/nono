@@ -834,7 +834,9 @@ describe('Nono Fastify app', () => {
       [broken.json().data.id]: 'broken',
       [invalid.id]: 'invalid',
     });
-    expect(safeRequester).toHaveBeenCalledTimes(2);
+    expect(safeRequester).toHaveBeenCalledTimes(3);
+    expect(safeRequester).toHaveBeenNthCalledWith(2, 'https://broken.example/', expect.objectContaining({ method: 'HEAD' }));
+    expect(safeRequester).toHaveBeenNthCalledWith(3, 'https://broken.example/', expect.objectContaining({ method: 'GET' }));
     const persisted = Object.fromEntries((await repo.listLinks(1)).map((link) => [link.id, link]));
     expect(persisted[ok.json().data.id]).toMatchObject({ healthStatus: 'ok', healthStatusCode: 200 });
     expect(persisted[broken.json().data.id]).toMatchObject({ healthStatus: 'broken', healthStatusCode: 404 });

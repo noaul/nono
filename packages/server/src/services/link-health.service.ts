@@ -16,13 +16,14 @@ export interface LinkHealthSummary {
   total: number;
   ok: number;
   redirected: number;
+  restricted: number;
   broken: number;
   timeout: number;
   invalid: number;
 }
 
 type SafeRequester = typeof requestSafeResource;
-const HEAD_FALLBACK_STATUSES = new Set([403, 405, 501]);
+const RESTRICTED_STATUSES = new Set([401, 403, 429]);
 
 export interface LinkHealthCheckOptions {
   allowPrivateHosts?: string[];
@@ -44,7 +45,7 @@ export async function checkLinksHealth(
       counts[result.status] += 1;
       return counts;
     },
-    { total: results.length, ok: 0, redirected: 0, broken: 0, timeout: 0, invalid: 0 },
+    { total: results.length, ok: 0, redirected: 0, restricted: 0, broken: 0, timeout: 0, invalid: 0 },
   );
   return { summary, results };
 }
@@ -60,14 +61,21 @@ export async function checkOneLink(
 
   try {
     const response = await requestLink(requester, url, 'HEAD', options);
-    const finalResponse = HEAD_FALLBACK_STATUSES.has(response.statusCode)
+    const finalResponse = response.statusCode >= 400
       ? await requestLink(requester, url, 'GET', options)
       : response;
     const finalUrl = finalResponse.finalUrl || url.href;
     const status = finalResponse.statusCode < 400
       ? (finalUrl !== url.href ? 'redirected' : 'ok')
-      : 'broken';
-    return baseResult(link, checkedAt, status, finalResponse.statusCode, status === 'redirected' ? finalUrl : undefined);
+      : RESTRICTED_STATUSES.has(finalResponse.statusCode) ? 'restricted' : 'broken';
+    return baseResult(
+      link,
+      checkedAt,
+      status,
+      finalResponse.statusCode,
+      status === 'redirected' ? finalUrl : undefined,
+      status === 'restricted' ? 'Automated access is restricted by the target site' : undefined,
+    );
   } catch (event) {
     const message = event instanceof Error ? event.message : 'Request failed';
     return baseResult(link, checkedAt, /timed out|aborted/i.test(message) ? 'timeout' : 'broken', undefined, undefined, message);

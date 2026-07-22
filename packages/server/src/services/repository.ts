@@ -67,7 +67,7 @@ export interface LinkRecord {
   updatedAt: Date;
 }
 
-export type LinkHealthStatus = 'ok' | 'redirected' | 'broken' | 'timeout' | 'invalid';
+export type LinkHealthStatus = 'ok' | 'redirected' | 'restricted' | 'broken' | 'timeout' | 'invalid';
 
 export interface LinkHealthUpdate {
   id: number;
