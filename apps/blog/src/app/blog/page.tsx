@@ -129,6 +129,7 @@ export default function BlogPage() {
 	const buttonText = '保存'
 
 	const toggleEditMode = useCallback(() => {
+		if (!isAuth) return
 		if (editMode) {
 			setEditMode(false)
 			setEditableItems(items)
@@ -137,7 +138,7 @@ export default function BlogPage() {
 			setEditableItems(items)
 			setEditMode(true)
 		}
-	}, [editMode, items])
+	}, [editMode, isAuth, items])
 
 	const toggleSelect = useCallback((slug: string) => {
 		setSelectedSlugs(prev => {
@@ -285,7 +286,7 @@ export default function BlogPage() {
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (!editMode && (e.ctrlKey || e.metaKey) && e.key === ',') {
+			if (isAuth && !editMode && (e.ctrlKey || e.metaKey) && e.key === ',') {
 				e.preventDefault()
 				toggleEditMode()
 			}
@@ -295,7 +296,11 @@ export default function BlogPage() {
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown)
 		}
-	}, [editMode, toggleEditMode])
+	}, [editMode, isAuth, toggleEditMode])
+
+	useEffect(() => {
+		if (!isAuth && editMode) handleCancel()
+	}, [editMode, handleCancel, isAuth])
 
 	return (
 		<>
@@ -443,61 +448,63 @@ export default function BlogPage() {
 				{loading && <div className='text-secondary py-6 text-center text-sm'>加载中...</div>}
 			</div>
 
-			<motion.div
-				initial={{ opacity: 0, scale: 0.6 }}
-				animate={{ opacity: 1, scale: 1 }}
-				className='absolute top-4 right-6 flex items-center gap-3 max-sm:hidden'>
-				{editMode ? (
-					<>
-						{enableCategories && (
+			{isAuth && (
+				<motion.div
+					initial={{ opacity: 0, scale: 0.6 }}
+					animate={{ opacity: 1, scale: 1 }}
+					className='absolute top-4 right-6 z-40 flex items-center gap-3 max-sm:fixed max-sm:top-auto max-sm:right-4 max-sm:bottom-4 max-sm:max-h-[45dvh] max-sm:max-w-[calc(100vw-2rem)] max-sm:flex-wrap max-sm:justify-end max-sm:overflow-y-auto max-sm:rounded-2xl max-sm:border max-sm:bg-white/80 max-sm:p-2 max-sm:shadow-lg max-sm:backdrop-blur-xl'>
+					{editMode ? (
+						<>
+							{enableCategories && (
+								<motion.button
+									whileHover={{ scale: 1.05 }}
+									whileTap={{ scale: 0.95 }}
+									onClick={() => setCategoryModalOpen(true)}
+									disabled={saving}
+									className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
+									分类
+								</motion.button>
+							)}
 							<motion.button
 								whileHover={{ scale: 1.05 }}
 								whileTap={{ scale: 0.95 }}
-								onClick={() => setCategoryModalOpen(true)}
+								onClick={handleCancel}
 								disabled={saving}
-								className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
-								分类
+								className='rounded-xl border bg-white/60 px-6 py-2 text-sm'>
+								取消
 							</motion.button>
-						)}
-						<motion.button
-							whileHover={{ scale: 1.05 }}
-							whileTap={{ scale: 0.95 }}
-							onClick={handleCancel}
-							disabled={saving}
-							className='rounded-xl border bg-white/60 px-6 py-2 text-sm'>
-							取消
-						</motion.button>
-						<motion.button
-							whileHover={{ scale: 1.05 }}
-							whileTap={{ scale: 0.95 }}
-							onClick={selectedCount === editableItems.length ? handleDeselectAll : handleSelectAll}
-							className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
-							{selectedCount === editableItems.length ? '取消全选' : '全选'}
-						</motion.button>
-						<motion.button
-							whileHover={{ scale: 1.05 }}
-							whileTap={{ scale: 0.95 }}
-							onClick={handleDeleteSelected}
-							disabled={selectedCount === 0}
-							className='rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 transition-colors disabled:opacity-60'>
-							删除(已选:{selectedCount}篇)
-						</motion.button>
-						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={saving} className='brand-btn px-6'>
-							{saving ? '保存中...' : buttonText}
-						</motion.button>
-					</>
-				) : (
-					!hideEditButton && (
-						<motion.button
-							whileHover={{ scale: 1.05 }}
-							whileTap={{ scale: 0.95 }}
-							onClick={toggleEditMode}
-							className='bg-card rounded-xl border px-6 py-2 text-sm backdrop-blur-sm transition-colors hover:bg-white/80'>
-							编辑
-						</motion.button>
-					)
-				)}
-			</motion.div>
+							<motion.button
+								whileHover={{ scale: 1.05 }}
+								whileTap={{ scale: 0.95 }}
+								onClick={selectedCount === editableItems.length ? handleDeselectAll : handleSelectAll}
+								className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
+								{selectedCount === editableItems.length ? '取消全选' : '全选'}
+							</motion.button>
+							<motion.button
+								whileHover={{ scale: 1.05 }}
+								whileTap={{ scale: 0.95 }}
+								onClick={handleDeleteSelected}
+								disabled={selectedCount === 0}
+								className='rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 transition-colors disabled:opacity-60'>
+								删除(已选:{selectedCount}篇)
+							</motion.button>
+							<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={saving} className='brand-btn px-6'>
+								{saving ? '保存中...' : buttonText}
+							</motion.button>
+						</>
+					) : (
+						!hideEditButton && (
+							<motion.button
+								whileHover={{ scale: 1.05 }}
+								whileTap={{ scale: 0.95 }}
+								onClick={toggleEditMode}
+								className='bg-card rounded-xl border px-6 py-2 text-sm backdrop-blur-sm transition-colors hover:bg-white/80'>
+								编辑
+							</motion.button>
+						)
+					)}
+				</motion.div>
+			)}
 
 			<BlogCoverHoverPreview preview={hoverCoverPreview} position={mousePosition} />
 

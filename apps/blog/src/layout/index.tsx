@@ -10,7 +10,6 @@ import { useSize, useSizeInit } from '@/hooks/use-size'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
 import { ScrollTopButton } from '@/components/scroll-top-button'
 import MusicCard from '@/components/music-card'
-import ScheduleSummaryCard from '@/components/schedule-summary-card'
 
 export default function Layout({ children }: PropsWithChildren) {
 	useCenterInit()
@@ -65,7 +64,6 @@ export default function Layout({ children }: PropsWithChildren) {
 				<NavCard />
 
 				{cardStyles.musicCard?.enabled !== false && <MusicCard />}
-				{cardStyles.scheduleCard?.enabled !== false && <ScheduleSummaryCard />}
 			</main>
 
 			{maxSM && init && <ScrollTopButton className='bg-brand/20 fixed right-6 bottom-8 z-50 shadow-md' />}

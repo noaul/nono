@@ -21,7 +21,7 @@ export default function ArtCard() {
 	return (
 		<HomeDraggableLayer cardKey='artCard' x={x} y={y} width={styles.width} height={styles.height}>
 			<Card
-				className='p-2 max-sm:static max-sm:translate-0'
+				className='p-2 max-sm:!static max-sm:!w-full max-sm:!translate-none'
 				order={styles.order}
 				width={styles.width}
 				height={styles.height}

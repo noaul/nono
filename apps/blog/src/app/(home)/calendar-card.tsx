@@ -8,7 +8,7 @@ import { useAuthStore } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { HomeDraggableLayer } from './home-draggable-layer'
@@ -24,10 +24,11 @@ export default function CalendarCard() {
 	const { cardStyles, siteContent, setSiteContent } = useConfigStore()
 	const isAuth = useAuthStore(state => state.isAuth)
 	const now = dayjs()
-	const currentDate = now.date()
-	const firstDayWeekday = (now.startOf('month').day() + 6) % 7
-	const daysInMonth = now.daysInMonth()
-	const currentWeekday = (now.day() + 6) % 7
+	const [viewMonth, setViewMonth] = useState(now.startOf('month'))
+	const firstDayWeekday = (viewMonth.day() + 6) % 7
+	const daysInMonth = viewMonth.daysInMonth()
+	const viewingCurrentMonth = viewMonth.isSame(now, 'month')
+	const currentWeekday = viewingCurrentMonth ? (now.day() + 6) % 7 : -1
 	const styles = cardStyles.calendarCard
 	const hiCardStyles = cardStyles.hiCard
 	const clockCardStyles = cardStyles.clockCard
@@ -50,7 +51,7 @@ export default function CalendarCard() {
 	const y = styles.offsetY !== null ? center.y + styles.offsetY : center.y - clockCardStyles.offset + CARD_SPACING
 
 	const openDate = (day: number) => {
-		setSelectedDate(now.date(day).format('YYYY-MM-DD'))
+		setSelectedDate(viewMonth.date(day).format('YYYY-MM-DD'))
 		resetForm()
 		setDialogOpen(true)
 	}
@@ -103,13 +104,22 @@ export default function CalendarCard() {
 	}
 
 	const deleteEvent = async (eventId: string) => {
-		await persistEvents(events.filter(event => event.id !== eventId), '日程已删除')
+		await persistEvents(
+			events.filter(event => event.id !== eventId),
+			'日程已删除'
+		)
 	}
 
 	return (
 		<>
 			<HomeDraggableLayer cardKey='calendarCard' x={x} y={y} width={styles.width} height={styles.height}>
-				<Card order={styles.order} width={styles.width} height={styles.height} x={x} y={y} className='flex flex-col'>
+				<Card
+					order={styles.order}
+					width={styles.width}
+					height={styles.height}
+					x={x}
+					y={y}
+					className='flex flex-col max-sm:!static max-sm:!h-[370px] max-sm:!w-[calc(100vw-2rem)] max-sm:!translate-none max-sm:p-5'>
 					{siteContent.enableChristmas && (
 						<img
 							src='/images/christmas/snow-7.webp'
@@ -119,9 +129,34 @@ export default function CalendarCard() {
 						/>
 					)}
 
-					<h3 className='text-secondary text-sm'>
-						{now.format('YYYY/M/D')} {now.format('ddd')}
-					</h3>
+					<div className='flex items-center justify-between gap-3'>
+						<div>
+							<h3 className='text-primary text-sm font-semibold'>{viewMonth.format('YYYY年M月')}</h3>
+							<p className='text-secondary mt-0.5 text-[11px]'>今天 {now.format('M月D日 ddd')}</p>
+						</div>
+						<div className='flex items-center gap-1'>
+							<button
+								type='button'
+								onClick={() => setViewMonth(month => month.subtract(1, 'month'))}
+								className='grid size-8 place-items-center rounded-lg border bg-white/40 hover:bg-white/70'
+								aria-label='上个月'>
+								<ChevronLeft className='size-4' />
+							</button>
+							<button
+								type='button'
+								onClick={() => setViewMonth(now.startOf('month'))}
+								className='h-8 rounded-lg border bg-white/40 px-2 text-xs hover:bg-white/70'>
+								今天
+							</button>
+							<button
+								type='button'
+								onClick={() => setViewMonth(month => month.add(1, 'month'))}
+								className='grid size-8 place-items-center rounded-lg border bg-white/40 hover:bg-white/70'
+								aria-label='下个月'>
+								<ChevronRight className='size-4' />
+							</button>
+						</div>
+					</div>
 					<ul className={cn('text-secondary mt-3 grid h-[206px] flex-1 grid-cols-7 gap-2 text-sm', (styles.height < 240 || styles.width < 240) && 'text-xs')}>
 						{dates.map((date, index) => (
 							<li key={date} className={cn('flex items-center justify-center font-medium', index === currentWeekday && 'text-brand')}>
@@ -135,7 +170,8 @@ export default function CalendarCard() {
 
 						{new Array(daysInMonth).fill(0).map((_, index) => {
 							const day = index + 1
-							const dateKey = now.date(day).format('YYYY-MM-DD')
+							const dateKey = viewMonth.date(day).format('YYYY-MM-DD')
+							const isToday = viewingCurrentMonth && day === now.date()
 							return (
 								<li key={day} className='flex items-center justify-center'>
 									<button
@@ -144,7 +180,7 @@ export default function CalendarCard() {
 										aria-label={`${dateKey}${eventDates.has(dateKey) ? ' 有日程' : ''}`}
 										className={cn(
 											'relative flex size-8 items-center justify-center rounded-lg transition hover:bg-white/45',
-											day === currentDate && 'bg-linear border font-medium'
+											isToday && 'bg-linear border font-medium'
 										)}>
 										{day}
 										{eventDates.has(dateKey) && <span className='bg-brand absolute bottom-0.5 size-1 rounded-full' />}
@@ -156,13 +192,20 @@ export default function CalendarCard() {
 				</Card>
 			</HomeDraggableLayer>
 
-			<DialogModal open={dialogOpen} onClose={() => setDialogOpen(false)} className='card w-full max-w-lg p-6'>
+			<DialogModal
+				open={dialogOpen}
+				onClose={() => setDialogOpen(false)}
+				className='card w-full max-w-lg p-6 max-sm:max-h-[calc(100dvh-2rem)] max-sm:overflow-y-auto max-sm:p-5'>
 				<div className='flex items-start justify-between gap-4'>
 					<div>
 						<p className='text-brand text-xs font-medium'>{dayjs(selectedDate).format('YYYY年M月D日 dddd')}</p>
 						<h2 className='mt-1 text-xl font-semibold'>{isAuth ? '管理日程' : '当日日程'}</h2>
 					</div>
-					<button type='button' onClick={() => setDialogOpen(false)} className='grid size-9 place-items-center rounded-full border bg-white/55' aria-label='关闭'>
+					<button
+						type='button'
+						onClick={() => setDialogOpen(false)}
+						className='grid size-9 place-items-center rounded-full border bg-white/55'
+						aria-label='关闭'>
 						<X className='size-4' />
 					</button>
 				</div>
@@ -180,7 +223,11 @@ export default function CalendarCard() {
 							</div>
 							{isAuth && (
 								<div className='flex gap-1'>
-									<button type='button' onClick={() => editEvent(event)} className='grid size-8 place-items-center rounded-lg hover:bg-white/70' aria-label={`编辑 ${event.title}`}>
+									<button
+										type='button'
+										onClick={() => editEvent(event)}
+										className='grid size-8 place-items-center rounded-lg hover:bg-white/70'
+										aria-label={`编辑 ${event.title}`}>
 										<Pencil className='size-3.5' />
 									</button>
 									<button
@@ -199,12 +246,30 @@ export default function CalendarCard() {
 
 				{isAuth && (
 					<div className='mt-5 space-y-3 border-t pt-5'>
-						<div className='grid grid-cols-[1fr_120px] gap-3'>
-							<input value={title} onChange={event => setTitle(event.target.value)} maxLength={40} placeholder='日程名称' className='rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]' />
-							<input value={time} onChange={event => setTime(event.target.value)} type='time' aria-label='日程时间' className='rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]' />
+						<div className='grid grid-cols-[1fr_120px] gap-3 max-sm:grid-cols-1'>
+							<input
+								value={title}
+								onChange={event => setTitle(event.target.value)}
+								maxLength={40}
+								placeholder='日程名称'
+								className='rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]'
+							/>
+							<input
+								value={time}
+								onChange={event => setTime(event.target.value)}
+								type='time'
+								aria-label='日程时间'
+								className='rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]'
+							/>
 						</div>
-						<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={160} placeholder='备注（可选）' className='min-h-20 w-full resize-none rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]' />
-						<div className='flex justify-end gap-2'>
+						<textarea
+							value={note}
+							onChange={event => setNote(event.target.value)}
+							maxLength={160}
+							placeholder='备注（可选）'
+							className='min-h-20 w-full resize-none rounded-xl border bg-white/55 px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]'
+						/>
+						<div className='flex flex-wrap justify-end gap-2'>
 							{editingId && (
 								<button type='button' onClick={resetForm} className='rounded-xl border bg-white/55 px-4 py-2 text-sm'>
 									取消编辑

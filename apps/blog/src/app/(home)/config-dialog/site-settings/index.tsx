@@ -74,7 +74,7 @@ export function SiteSettings({
 				setBackgroundImageUploads={setBackgroundImageUploads}
 			/>
 
-			<div className='flex gap-3'>
+			<div className='flex flex-wrap gap-3'>
 				<label className='flex items-center gap-2'>
 					<input
 						type='checkbox'
@@ -105,7 +105,7 @@ export function SiteSettings({
 					<span className='text-sm font-medium'>隐藏编辑按钮（编辑快捷键 ctrl/cmd + ,）</span>
 				</label>
 			</div>
-			<div className='flex gap-3'>
+			<div className='flex flex-wrap gap-3'>
 				<label className='flex items-center gap-2'>
 					<input
 						type='checkbox'

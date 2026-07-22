@@ -3,6 +3,7 @@ import { clearAllAuthCache, getAuthToken as getToken, hasAuth as checkAuth } fro
 
 interface AuthStore {
 	isAuth: boolean
+	initialized: boolean
 	clearAuth: () => void
 	refreshAuthState: () => Promise<void>
 	getAuthToken: () => Promise<string>
@@ -10,14 +11,15 @@ interface AuthStore {
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
 	isAuth: false,
+	initialized: false,
 
 	clearAuth: () => {
 		clearAllAuthCache()
-		set({ isAuth: false })
+		set({ isAuth: false, initialized: true })
 	},
 
 	refreshAuthState: async () => {
-		set({ isAuth: await checkAuth() })
+		set({ isAuth: await checkAuth(), initialized: true })
 	},
 
 	getAuthToken: async () => {

@@ -36,6 +36,10 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 	const [socialButtonImageUploads, setSocialButtonImageUploads] = useState<SocialButtonImageUploads>({})
 
 	useEffect(() => {
+		if (open && !isAuth) onClose()
+	}, [isAuth, onClose, open])
+
+	useEffect(() => {
 		if (open) {
 			const current = { ...siteContent }
 			const currentCardStyles = { ...cardStyles }
@@ -220,9 +224,12 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 
 	return (
 		<>
-			<DialogModal open={open} onClose={handleCancel} className='card scrollbar-none max-h-[90vh] min-h-[600px] w-[640px] overflow-y-auto'>
-				<div className='mb-6 flex items-center justify-between'>
-					<div className='flex gap-1'>
+			<DialogModal
+				open={open && isAuth}
+				onClose={handleCancel}
+				className='card scrollbar-none max-h-[90dvh] min-h-[600px] w-[min(640px,calc(100vw-2rem))] overflow-y-auto max-sm:min-h-0 max-sm:p-4'>
+				<div className='mb-6 flex items-center justify-between gap-4 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:-mt-4 max-sm:flex-col max-sm:items-stretch max-sm:bg-white/85 max-sm:px-4 max-sm:pt-4 max-sm:pb-3 max-sm:backdrop-blur-xl'>
+					<div className='scrollbar-none flex gap-1 overflow-x-auto'>
 						{tabs.map(tab => (
 							<button
 								key={tab.id}
@@ -235,12 +242,12 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							</button>
 						))}
 					</div>
-					<div className='flex gap-3'>
+					<div className='flex justify-end gap-2'>
 						<motion.button
 							whileHover={{ scale: 1.05 }}
 							whileTap={{ scale: 0.95 }}
 							onClick={handlePreview}
-							className='bg-card rounded-xl border px-6 py-2 text-sm'>
+							className='bg-card rounded-xl border px-4 py-2 text-sm'>
 							预览
 						</motion.button>
 						<motion.button
@@ -248,10 +255,10 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							whileTap={{ scale: 0.95 }}
 							onClick={handleCancel}
 							disabled={isSaving}
-							className='bg-card rounded-xl border px-6 py-2 text-sm'>
+							className='bg-card rounded-xl border px-4 py-2 text-sm'>
 							取消
 						</motion.button>
-						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-6'>
+						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-4'>
 							{isSaving ? '保存中...' : buttonText}
 						</motion.button>
 					</div>

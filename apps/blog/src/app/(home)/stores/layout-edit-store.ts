@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { useConfigStore, type CardStyles } from './config-store'
+import { useAuthStore } from '@/hooks/use-auth'
 
 type CardKey = keyof CardStyles
 
@@ -19,6 +20,7 @@ export const useLayoutEditStore = create<LayoutEditState>((set, get) => ({
 	editing: false,
 	snapshot: null,
 	startEditing: () => {
+		if (!useAuthStore.getState().isAuth) return
 		const { cardStyles } = useConfigStore.getState()
 		set({
 			editing: true,
@@ -47,6 +49,7 @@ export const useLayoutEditStore = create<LayoutEditState>((set, get) => ({
 		})
 	},
 	setOffset: (key, offsetX, offsetY) => {
+		if (!useAuthStore.getState().isAuth || !get().editing) return
 		const { cardStyles, setCardStyles } = useConfigStore.getState()
 
 		const next: CardStyles = {
@@ -61,6 +64,7 @@ export const useLayoutEditStore = create<LayoutEditState>((set, get) => ({
 		setCardStyles(next)
 	},
 	setSize: (key, width, height) => {
+		if (!useAuthStore.getState().isAuth || !get().editing) return
 		const { cardStyles, setCardStyles } = useConfigStore.getState()
 
 		const next: CardStyles = {

@@ -5,6 +5,7 @@ import { useCenterStore } from '@/hooks/use-center'
 import { useLayoutEditStore } from './stores/layout-edit-store'
 import type { CardStyles } from './stores/config-store'
 import DraggerSVG from '@/svgs/dragger.svg'
+import { useAuthStore } from '@/hooks/use-auth'
 
 type CardKey = keyof CardStyles
 
@@ -35,6 +36,7 @@ interface ResizeState {
 
 export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: HomeDraggableLayerProps) {
 	const editing = useLayoutEditStore(state => state.editing)
+	const isAuth = useAuthStore(state => state.isAuth)
 	const setOffset = useLayoutEditStore(state => state.setOffset)
 	const setSize = useLayoutEditStore(state => state.setSize)
 	const center = useCenterStore()
@@ -143,7 +145,7 @@ export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: H
 
 	const startResize = useCallback(
 		(clientX: number, clientY: number) => {
-			if (!editing || width === undefined || height === undefined) return
+			if (!editing || !isAuth || width === undefined || height === undefined) return
 
 			resizeStateRef.current = {
 				resizing: true,
@@ -159,7 +161,7 @@ export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: H
 			window.addEventListener('touchend', handleResizeEnd)
 			window.addEventListener('touchcancel', handleResizeEnd)
 		},
-		[editing, width, height, handleResizeMouseMove, handleResizeEnd, handleResizeTouchMove]
+		[editing, isAuth, width, height, handleResizeMouseMove, handleResizeEnd, handleResizeTouchMove]
 	)
 
 	const handleResizeMouseDown: React.MouseEventHandler<HTMLDivElement> = event => {
@@ -178,7 +180,7 @@ export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: H
 
 	const startDrag = useCallback(
 		(clientX: number, clientY: number) => {
-			if (!editing) return
+			if (!editing || !isAuth) return
 
 			const initialOffsetX = x - center.x
 			const initialOffsetY = y - center.y
@@ -197,7 +199,7 @@ export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: H
 			window.addEventListener('touchend', handleEnd)
 			window.addEventListener('touchcancel', handleEnd)
 		},
-		[editing, x, y, center.x, center.y, handleMouseMove, handleEnd, handleTouchMove]
+		[editing, isAuth, x, y, center.x, center.y, handleMouseMove, handleEnd, handleTouchMove]
 	)
 
 	const handleMouseDown: React.MouseEventHandler<HTMLDivElement> = event => {
@@ -211,11 +213,11 @@ export function HomeDraggableLayer({ cardKey, x, y, width, height, children }: H
 		startDrag(touch.clientX, touch.clientY)
 	}
 
-	const canResize = editing && width !== undefined && height !== undefined
+	const canResize = editing && isAuth && width !== undefined && height !== undefined
 
 	return (
 		<>
-			{editing && (
+			{editing && isAuth && (
 				<div
 					className='border-brand/70 bg-brand/5 pointer-events-auto absolute z-40 cursor-move rounded-[40px] border border-dashed'
 					style={{ left: x, top: y, width, height }}

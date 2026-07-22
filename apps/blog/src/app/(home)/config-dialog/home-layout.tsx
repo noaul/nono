@@ -10,6 +10,7 @@ const CARD_LABELS: Record<string, string> = {
 	hiCard: '中心',
 	clockCard: '时钟',
 	calendarCard: '日历',
+	scheduleCard: '近期日程',
 	musicCard: '音乐',
 	socialButtons: '联系',
 	shareCard: '分享',

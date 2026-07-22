@@ -37,7 +37,13 @@ export default function ClockCard() {
 
 	return (
 		<HomeDraggableLayer cardKey='clockCard' x={x} y={y} width={styles.width} height={styles.height}>
-			<Card order={styles.order} width={styles.width} height={styles.height} x={x} y={y} className='p-2'>
+			<Card
+				order={styles.order}
+				width={styles.width}
+				height={styles.height}
+				x={x}
+				y={y}
+				className='p-2 max-sm:!static max-sm:!h-[104px] max-sm:!w-[calc(100vw-2rem)] max-sm:!translate-none'>
 				{siteContent.enableChristmas && (
 					<>
 						<img

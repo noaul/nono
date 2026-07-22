@@ -24,7 +24,10 @@ export default function ScheduleSummaryCard() {
 	const calendarCardStyles = cardStyles.calendarCard
 
 	const events = useMemo(
-		() => [...(siteContent.calendarEvents ?? [])].filter(event => event.date >= dayjs().format('YYYY-MM-DD')).sort((left, right) => `${left.date} ${left.time || '99:99'}`.localeCompare(`${right.date} ${right.time || '99:99'}`)),
+		() =>
+			[...(siteContent.calendarEvents ?? [])]
+				.filter(event => event.date >= dayjs().format('YYYY-MM-DD'))
+				.sort((left, right) => `${left.date} ${left.time || '99:99'}`.localeCompare(`${right.date} ${right.time || '99:99'}`)),
 		[siteContent.calendarEvents]
 	)
 	const nearest = events[0]
@@ -43,7 +46,13 @@ export default function ScheduleSummaryCard() {
 
 	return (
 		<HomeDraggableLayer cardKey='scheduleCard' x={x} y={y} width={styles.width} height={styles.height}>
-			<Card order={styles.order} width={styles.width} height={styles.height} x={x} y={y} className='flex items-center gap-3 overflow-hidden px-4 py-3'>
+			<Card
+				order={styles.order}
+				width={styles.width}
+				height={styles.height}
+				x={x}
+				y={y}
+				className='flex items-center gap-3 overflow-hidden px-4 py-3 max-sm:!static max-sm:!h-auto max-sm:min-h-[132px] max-sm:!w-[calc(100vw-2rem)] max-sm:!translate-none max-sm:flex-wrap'>
 				<div className='bg-brand/15 text-brand grid size-10 shrink-0 place-items-center rounded-full'>
 					<CalendarDays className='size-5' />
 				</div>
@@ -53,8 +62,8 @@ export default function ScheduleSummaryCard() {
 						{nearest ? `${dayjs(nearest.date).format('M月D日')} ${nearest.time ? `${nearest.time} ` : ''}${nearest.title}` : '暂无待办日程'}
 					</div>
 				</div>
-				<div className='bg-border/60 h-9 w-px shrink-0' />
-				<div className='flex min-w-0 flex-1 items-stretch gap-1.5' aria-label='未来三天日程'>
+				<div className='bg-border/60 h-9 w-px shrink-0 max-sm:hidden' />
+				<div className='flex min-w-0 flex-1 items-stretch gap-1.5 max-sm:basis-full' aria-label='未来三天日程'>
 					{nextDays.map(({ date, events: dayEvents }) => (
 						<div key={date.format('YYYY-MM-DD')} className='min-w-0 flex-1 rounded-xl bg-white/30 px-2 py-1.5 text-center'>
 							<div className={cn('text-[10px]', date.day() === 0 || date.day() === 6 ? 'text-secondary' : 'text-brand')}>

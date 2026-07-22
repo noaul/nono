@@ -44,7 +44,13 @@ export default function ShareCard() {
 
 	return (
 		<HomeDraggableLayer cardKey='shareCard' x={x} y={y} width={styles.width} height={styles.height}>
-			<Card order={styles.order} width={styles.width} height={styles.height} x={x} y={y}>
+			<Card
+				order={styles.order}
+				width={styles.width}
+				height={styles.height}
+				x={x}
+				y={y}
+				className='max-sm:!static max-sm:!h-auto max-sm:min-h-[190px] max-sm:!w-[calc(100vw-2rem)] max-sm:!translate-none'>
 				{siteContent.enableChristmas && (
 					<>
 						<img

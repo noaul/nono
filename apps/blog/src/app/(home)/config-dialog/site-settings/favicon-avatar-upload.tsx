@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import { toast } from 'sonner'
 import { hashFileSHA256 } from '@/lib/file-utils'
+import { normalizeAvatar } from '@/lib/normalize-avatar'
 import type { FileItem } from './types'
 
 interface FaviconAvatarUploadProps {
@@ -35,19 +36,20 @@ export function FaviconAvatarUpload({ faviconItem, setFaviconItem, avatarItem, s
 		const file = e.target.files?.[0]
 		if (!file) return
 
-		if (!file.type.startsWith('image/')) {
-			toast.error('请选择图片文件')
-			return
+		try {
+			const normalizedFile = await normalizeAvatar(file)
+			const hash = await hashFileSHA256(normalizedFile)
+			const previewUrl = URL.createObjectURL(normalizedFile)
+			setAvatarItem(previous => {
+				if (previous?.type === 'file') URL.revokeObjectURL(previous.previewUrl)
+				return { type: 'file', file: normalizedFile, previewUrl, hash }
+			})
+			toast.success('头像已自动裁剪并优化')
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : '当前浏览器无法读取这张图片')
+		} finally {
+			e.currentTarget.value = ''
 		}
-		if (!['image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-			toast.error('Avatar 仅支持 PNG、JPG、WebP、GIF 或 AVIF 图片')
-			return
-		}
-
-		const hash = await hashFileSHA256(file)
-		const previewUrl = URL.createObjectURL(file)
-		setAvatarItem({ type: 'file', file, previewUrl, hash })
-		if (e.currentTarget) e.currentTarget.value = ''
 	}
 
 	return (
@@ -71,7 +73,7 @@ export function FaviconAvatarUpload({ faviconItem, setFaviconItem, avatarItem, s
 
 			<div>
 				<label className='mb-2 block text-sm font-medium'>Avatar</label>
-				<input ref={avatarInputRef} type='file' accept='image/*' className='hidden' onChange={handleAvatarFileSelect} />
+				<input ref={avatarInputRef} type='file' className='hidden' onChange={handleAvatarFileSelect} />
 				<div className='group relative h-20 w-20 cursor-pointer overflow-hidden rounded-full border bg-white/60'>
 					{avatarItem?.type === 'file' ? (
 						<img src={avatarItem.previewUrl} alt='avatar preview' className='h-full w-full object-cover' />
