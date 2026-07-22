@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { ArrowUpRight, Check, Palette, Plus, Save, Settings, Trash2, X } from 'lucide-vue-next';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
+import ColorModeControl from '@/components/ColorModeControl.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, appearanceSettingsForSave, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
@@ -195,6 +196,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
         </header>
 
         <div class="drawer-scroll">
+          <section class="display-mode-section">
+            <div class="drawer-section-title">
+              <h3><Palette :size="16" /> 显示模式</h3>
+            </div>
+            <ColorModeControl variant="segmented" />
+          </section>
           <section class="theme-section">
             <div class="drawer-section-title">
               <h3><Palette :size="16" /> 主题</h3>

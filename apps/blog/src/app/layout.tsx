@@ -34,20 +34,20 @@ export const metadata: Metadata = {
 
 const htmlStyle = {
 	cursor: 'url(/images/cursor.svg) 2 1, auto',
-	'--color-brand': theme.colorBrand,
-	'--color-primary': theme.colorPrimary,
-	'--color-secondary': theme.colorSecondary,
-	'--color-brand-secondary': theme.colorBrandSecondary,
-	'--color-bg': theme.colorBg,
-	'--color-border': theme.colorBorder,
-	'--color-card': theme.colorCard,
-	'--color-article': theme.colorArticle
+	'--site-color-brand': theme.colorBrand,
+	'--site-color-primary': theme.colorPrimary,
+	'--site-color-secondary': theme.colorSecondary,
+	'--site-color-brand-secondary': theme.colorBrandSecondary,
+	'--site-color-bg': theme.colorBg,
+	'--site-color-border': theme.colorBorder,
+	'--site-color-card': theme.colorCard,
+	'--site-color-article': theme.colorArticle
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html lang='zh-CN' suppressHydrationWarning style={htmlStyle}>
-			<Head />
+			<Head colorModeBootstrapSrc='/color-mode-bootstrap.js' />
 
 			<body>
 				<script

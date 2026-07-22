@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import ColorModeControl from '@/components/ColorModeControl.vue';
 
 const route = useRoute();
 const adminPaths = ['/admin', '/login', '/register', '/setup'];
 const isAdminRoute = computed(() => route.path === '/admin' || route.path.startsWith('/admin/'));
+const showStandaloneModeControl = computed(() => ['/login', '/register', '/setup', '/privacy'].includes(route.path));
 
 watch(
   () => route.path,
@@ -25,6 +27,7 @@ watch(
 </script>
 
 <template>
+  <ColorModeControl v-if="showStandaloneModeControl" class="standalone-color-mode" />
   <router-view v-slot="{ Component }">
     <component v-if="isAdminRoute" :is="Component" />
     <transition v-else name="page" mode="out-in">
@@ -34,6 +37,18 @@ watch(
 </template>
 
 <style>
+.standalone-color-mode {
+  --color-mode-border: var(--line);
+  --color-mode-hover: var(--panel-2);
+  --color-mode-popover: var(--panel);
+  --color-mode-surface: var(--panel);
+  --color-mode-text: var(--text);
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 100;
+}
+
 .page-enter-active,
 .page-leave-active {
   transition:

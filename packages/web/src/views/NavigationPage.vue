@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Link2, LogIn, Settings, Star, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
+import ColorModeControl from '@/components/ColorModeControl.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -18,6 +19,7 @@ import { getPortalSettings } from '@/utils/portal';
 import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 import { getSceneIntensity, getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
+import type { ResolvedColorMode } from '@/utils/colorMode';
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -40,6 +42,9 @@ const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
 const unlocking = ref(false);
+const resolvedMode = ref<ResolvedColorMode>(
+  typeof document !== 'undefined' && document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
+);
 
 function updateTabIndicator() {
   const nav = tabsRef.value;
@@ -93,6 +98,32 @@ const activeTheme = computed(() => {
   return getTheme(settings?.theme?.id);
 });
 const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.settings));
+const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
+  if (resolvedMode.value !== 'dark') {
+    return { '--public-mode-scrim': 'rgba(8, 12, 18, 0.02)' };
+  }
+  return {
+    '--public-mode-scrim': 'rgba(5, 8, 14, 0.38)',
+    '--public-card-color-rgb': '22, 25, 33',
+    '--public-card-opacity': '0.52',
+    '--public-search-color-rgb': '20, 23, 31',
+    '--public-search-opacity': '0.58',
+    '--public-tab-color-rgb': '20, 23, 31',
+    '--public-page-text': '#f4f6f8',
+    '--public-page-text-rgb': '244, 246, 248',
+    '--public-bookmark-text': '#f3f5f7',
+    '--public-notab-text': '#eef1f4',
+    '--public-notab-text-rgb': '238, 241, 244',
+    '--public-folder-text': '#f4f6f8',
+    '--public-folder-text-rgb': '244, 246, 248',
+    '--public-category-text': '#f4f6f8',
+    '--public-border-rgb': '226, 231, 238',
+    '--public-highlight-rgb': '241, 244, 248',
+    '--public-hover-rgb': '226, 231, 238',
+    '--public-shadow-rgb': '0, 0, 0',
+    '--public-overlay-rgb': '5, 8, 14',
+  };
+});
 const backgroundStyle = computed(() => {
   const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
   const publicThemeVars = activeTheme.value ? themeCssVars(activeTheme.value) : {};
@@ -103,6 +134,7 @@ const backgroundStyle = computed(() => {
       ...pageTextCssVars('#f3f4f6'),
       '--nav-bg-color': '#090a0f',
       '--nav-bg-image': 'none',
+      ...modeCssVars.value,
       color: '#f3f4f6',
     };
   }
@@ -116,7 +148,8 @@ const backgroundStyle = computed(() => {
     '--nav-bg-image': visibleBackgroundImage.value
       ? `linear-gradient(rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04), rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)), url(${JSON.stringify(visibleBackgroundImage.value)})`
       : 'none',
-    color: payload.value.site.fontColor || '#f3f4f6',
+    ...modeCssVars.value,
+    color: resolvedMode.value === 'dark' ? '#f4f6f8' : payload.value.site.fontColor || '#f3f4f6',
   };
 });
 const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
@@ -427,31 +460,35 @@ onUnmounted(() => {
     class="nav-page public-glass-page"
     :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
+    :data-color-mode="resolvedMode"
     :data-theme-tone="activeTheme?.tone"
   >
-    <ThemeScene v-if="sceneIntensity > 0" :theme="activeTheme" :intensity="sceneIntensity" />
-    <button
-      v-if="canEditAppearance"
-      class="portal-corner-link"
-      data-testid="portal-corner-link"
-      type="button"
-      aria-label="打开外观设置"
-      :aria-expanded="appearanceOpen"
-      @click="appearanceOpen = true"
-    >
-      <Settings :size="17" />
-      <span>外观设置</span>
-    </button>
-    <a
-      v-else
-      class="portal-corner-link"
-      data-testid="portal-corner-link"
-      :href="appearanceEntryHref"
-      :aria-label="appearanceEntryLabel"
-    >
-      <LogIn :size="17" />
-      <span>{{ appearanceEntryLabel }}</span>
-    </a>
+    <ThemeScene v-if="sceneIntensity > 0" :theme="activeTheme" :intensity="sceneIntensity" :mode="resolvedMode" />
+    <div class="public-corner-actions">
+      <ColorModeControl @change="resolvedMode = $event" />
+      <button
+        v-if="canEditAppearance"
+        class="portal-corner-link"
+        data-testid="portal-corner-link"
+        type="button"
+        aria-label="打开外观设置"
+        :aria-expanded="appearanceOpen"
+        @click="appearanceOpen = true"
+      >
+        <Settings :size="17" />
+        <span>外观设置</span>
+      </button>
+      <a
+        v-else
+        class="portal-corner-link"
+        data-testid="portal-corner-link"
+        :href="appearanceEntryHref"
+        :aria-label="appearanceEntryLabel"
+      >
+        <LogIn :size="17" />
+        <span>{{ appearanceEntryLabel }}</span>
+      </a>
+    </div>
 
     <div class="nav-content">
       <header class="nav-header">
@@ -577,6 +614,7 @@ onUnmounted(() => {
 }
 
 .public-glass-page {
+  --public-mode-scrim: rgba(8, 12, 18, 0.02);
   --public-card-color-rgb: 247, 248, 251;
   --public-card-opacity: 0.26;
   --public-search-color-rgb: 247, 248, 251;
@@ -624,11 +662,13 @@ onUnmounted(() => {
 }
 
 .public-glass-page::after {
-  background: linear-gradient(180deg, rgba(var(--public-highlight-rgb), 0.05), transparent 34%, rgba(var(--public-overlay-rgb), 0.05));
+  background-color: var(--public-mode-scrim);
+  background-image: linear-gradient(180deg, rgba(var(--public-highlight-rgb), 0.05), transparent 34%, rgba(var(--public-overlay-rgb), 0.05));
   content: '';
   inset: 0;
   pointer-events: none;
   position: fixed;
+  transition: background-color 0.32s ease;
   z-index: 0;
 }
 
@@ -677,6 +717,21 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+.public-corner-actions {
+  --color-mode-border: rgba(var(--public-border-rgb), 0.3);
+  --color-mode-hover: rgba(var(--accent-rgb), 0.28);
+  --color-mode-popover: rgba(var(--public-overlay-rgb), 0.92);
+  --color-mode-surface: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  --color-mode-text: rgba(var(--public-page-text-rgb), 0.92);
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 20;
+}
+
 .portal-corner-link {
   align-items: center;
   backdrop-filter: blur(18px);
@@ -695,16 +750,13 @@ onUnmounted(() => {
   max-width: min(280px, calc(100vw - 32px));
   min-height: 42px;
   padding: 0 14px;
-  position: fixed;
-  right: 20px;
-  top: 20px;
+  position: relative;
   transform: translateZ(0);
   transition:
     background-color 0.24s ease,
     border-color 0.24s ease,
     box-shadow 0.24s ease,
     transform 0.24s ease;
-  z-index: 20;
 }
 
 .portal-corner-link span {
@@ -1137,10 +1189,18 @@ mark {
   }
 
   .portal-corner-link {
-    margin: 0 auto;
     min-height: 40px;
-    position: static;
     width: fit-content;
+  }
+
+  .public-corner-actions {
+    justify-content: center;
+    margin: 0 auto 18px;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: fit-content;
+    z-index: 30;
   }
 
   .portal-corner-link span {
@@ -1185,6 +1245,7 @@ mark {
   }
 
   .nav-page::before,
+  .public-glass-page::after,
   .tab-indicator {
     transition: none;
   }

@@ -25,6 +25,7 @@ import { useAuthStore } from '@/stores/auth';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 import NotificationBell from '@/components/admin/NotificationBell.vue';
+import ColorModeControl from '@/components/ColorModeControl.vue';
 
 const props = withDefaults(defineProps<{ title?: string }>(), {
   title: '',
@@ -168,6 +169,7 @@ async function logout() {
           </div>
         </div>
         <div class="topbar-actions">
+          <ColorModeControl class="admin-color-mode" />
           <NotificationBell />
           <div ref="userMenuRef" class="topbar-user">
             <button

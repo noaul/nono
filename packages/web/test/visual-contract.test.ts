@@ -705,4 +705,25 @@ describe('visual contracts', () => {
       expect(drawerSource).toContain(`.theme-${kind} .theme-motion`);
     }
   });
+
+  it('shares an adaptive color mode across public, admin, and Nodesk surfaces', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const root = path.resolve(process.cwd(), '../..');
+    const navigation = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const adminLayout = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
+    const tokens = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
+    const blogLayout = fs.readFileSync(path.join(root, 'apps/blog/src/app/layout.tsx'), 'utf8');
+    const blogTheme = fs.readFileSync(path.join(root, 'apps/blog/src/styles/theme.css'), 'utf8');
+
+    expect(navigation).toContain('<ColorModeControl');
+    expect(navigation).toContain('data-color-mode');
+    expect(navigation).toContain(':mode="resolvedMode"');
+    expect(navigation).toContain('--public-mode-scrim');
+    expect(fs.readFileSync(path.resolve(process.cwd(), 'src/components/ThemeScene.vue'), 'utf8')).toContain('modeMultiplier');
+    expect(adminLayout).toContain('<ColorModeControl');
+    expect(tokens).toContain(":root[data-color-mode='dark']");
+    expect(blogLayout).toContain('/color-mode-bootstrap.js');
+    expect(blogTheme).toContain("[data-color-mode='dark']");
+  });
 });

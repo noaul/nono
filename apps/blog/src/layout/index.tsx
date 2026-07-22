@@ -10,6 +10,7 @@ import { useSize, useSizeInit } from '@/hooks/use-size'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
 import { ScrollTopButton } from '@/components/scroll-top-button'
 import MusicCard from '@/components/music-card'
+import { ColorModeControl } from '@/components/color-mode-control'
 
 export default function Layout({ children }: PropsWithChildren) {
 	useCenterInit()
@@ -45,7 +46,10 @@ export default function Layout({ children }: PropsWithChildren) {
 					} as React.CSSProperties
 				}
 			/>
-			{useBingDailyBackground && <BingParticlesBackground />}
+			<div className='nodesk-background-motion'>
+				{useBingDailyBackground && <BingParticlesBackground />}
+				{!useBingDailyBackground && <BlurredBubblesBackground colors={siteContent.backgroundColors} regenerateKey={regenerateKey} />}
+			</div>
 			{currentBackgroundImage && !useBingDailyBackground && (
 				<div
 					className='fixed inset-0 z-0 overflow-hidden'
@@ -57,7 +61,8 @@ export default function Layout({ children }: PropsWithChildren) {
 					}}
 				/>
 			)}
-			{!useBingDailyBackground && <BlurredBubblesBackground colors={siteContent.backgroundColors} regenerateKey={regenerateKey} />}
+			<div className='nodesk-mode-scrim' aria-hidden='true' />
+			<ColorModeControl />
 
 			<main className='relative z-10 h-full'>
 				{children}

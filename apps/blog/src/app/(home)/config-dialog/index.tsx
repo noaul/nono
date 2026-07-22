@@ -185,14 +185,14 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 
 		const root = document.documentElement
 
-		if (colorBrand) root.style.setProperty('--color-brand', colorBrand)
-		if (colorBrandSecondary) root.style.setProperty('--color-brand-secondary', colorBrandSecondary)
-		if (colorPrimary) root.style.setProperty('--color-primary', colorPrimary)
-		if (colorSecondary) root.style.setProperty('--color-secondary', colorSecondary)
-		if (colorBg) root.style.setProperty('--color-bg', colorBg)
-		if (colorBorder) root.style.setProperty('--color-border', colorBorder)
-		if (colorCard) root.style.setProperty('--color-card', colorCard)
-		if (colorArticle) root.style.setProperty('--color-article', colorArticle)
+		if (colorBrand) root.style.setProperty('--site-color-brand', colorBrand)
+		if (colorBrandSecondary) root.style.setProperty('--site-color-brand-secondary', colorBrandSecondary)
+		if (colorPrimary) root.style.setProperty('--site-color-primary', colorPrimary)
+		if (colorSecondary) root.style.setProperty('--site-color-secondary', colorSecondary)
+		if (colorBg) root.style.setProperty('--site-color-bg', colorBg)
+		if (colorBorder) root.style.setProperty('--site-color-border', colorBorder)
+		if (colorCard) root.style.setProperty('--site-color-card', colorCard)
+		if (colorArticle) root.style.setProperty('--site-color-article', colorArticle)
 	}
 
 	const handlePreview = () => {

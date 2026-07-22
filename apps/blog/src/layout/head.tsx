@@ -1,12 +1,14 @@
 import Script from 'next/script'
 
-export default function Head() {
+export default function Head({ colorModeBootstrapSrc }: { colorModeBootstrapSrc?: string }) {
 	const analyticsId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID
 	const hasValidAnalyticsId = analyticsId ? /^G-[A-Z0-9]+$/.test(analyticsId) : false
 
 	return (
 		<head>
 			<meta name='viewport' content='width=device-width, initial-scale=1.0' />
+			<meta name='theme-color' content='#eeeeee' />
+			{colorModeBootstrapSrc && <script src={colorModeBootstrapSrc} />}
 			<link rel='manifest' href='/manifest.json' />
 
 			<link rel='icon' href='/favicon.png' />

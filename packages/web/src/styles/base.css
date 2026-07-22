@@ -15,6 +15,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.24s ease, color 0.24s ease;
 }
 
 button,
@@ -119,7 +120,7 @@ a {
 .field input,
 .field textarea,
 .field select {
-  background: rgba(10, 11, 16, 0.7);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
@@ -169,7 +170,7 @@ a {
 
 .auth-page {
   align-items: center;
-  background: #090a0f;
+  background: var(--bg);
   display: grid;
   min-height: 100vh;
   padding: 24px;
@@ -186,6 +187,7 @@ a {
   padding: 32px;
   width: 100%;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease;
 }
 
 .auth-card h1 {

@@ -53,15 +53,16 @@ const updatedAt = '2026-07-16';
 
 <style scoped>
 .privacy-page {
-  background: #f4f7ff;
-  color: #1d2945;
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
   padding: 56px 24px 80px;
+  transition: background-color 0.24s ease, color 0.24s ease;
 }
 
 .privacy-content {
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid #dbe3f6;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 18px 48px rgba(49, 69, 124, 0.11);
   margin: 0 auto;
@@ -75,8 +76,8 @@ const updatedAt = '2026-07-16';
 }
 
 .privacy-header {
-  background: rgba(241, 245, 255, 0.76);
-  border-bottom: 1px solid #dbe3f6;
+  background: color-mix(in srgb, var(--panel-2) 78%, transparent);
+  border-bottom: 1px solid var(--line);
 }
 
 .privacy-brand {
@@ -87,7 +88,7 @@ const updatedAt = '2026-07-16';
 
 .privacy-kicker,
 .privacy-updated {
-  color: #6e7d9c;
+  color: var(--muted);
   font-size: 13px;
   margin: 14px 0 0;
 }
@@ -106,7 +107,7 @@ h1 {
 }
 
 .privacy-content section + section {
-  border-top: 1px solid #e7ecf7;
+  border-top: 1px solid var(--line);
 }
 
 h2 {
@@ -116,7 +117,7 @@ h2 {
 
 p,
 li {
-  color: #52617e;
+  color: var(--muted);
   font-size: 15px;
   line-height: 1.8;
 }

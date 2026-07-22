@@ -4136,3 +4136,192 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Adaptive dark mode keeps the neutral admin hierarchy while replacing hard-coded light surfaces. */
+:root[data-color-mode='dark'] .chatgpt-admin-shell {
+  --admin-canvas: #111318;
+  --admin-surface: #181b21;
+  --admin-surface-elevated: #1d2027;
+  --admin-border: #30343d;
+  --admin-border-strong: #454a55;
+  --admin-text: #f3f4f6;
+  --admin-text-muted: #a5abb5;
+  --bg: var(--admin-canvas);
+  --panel: var(--admin-surface-elevated);
+  --panel-2: #272a32;
+  --line: var(--admin-border);
+  --line-soft: #292d35;
+  --text: var(--admin-text);
+  --muted: var(--admin-text-muted);
+  background: var(--admin-canvas);
+  color-scheme: dark;
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .workbench-sidebar,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .workbench-main,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .workbench-topbar {
+  background: var(--admin-canvas);
+  border-color: var(--admin-border);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .workbench-sidebar {
+  background: #15171c;
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sidebar-brand:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .operator-card.operator-row:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .drag-handle:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .drag-handle:focus-visible {
+  background: #24272e;
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sidebar-brand h1,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .operator-card strong,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .workbench-topbar .page-title h1,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-section-head h2,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-card-head h2,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .dashboard-section-head h2,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .panel h2,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .field label {
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .nav-button,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .nav-button.nav-button-plain,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .user-menu-item,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .row-subtitle,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-section-head p,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-card-head p,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .dashboard-section-head p {
+  color: var(--admin-text-muted);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .nav-button:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .user-menu-item:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-table-row:hover,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-table-row:hover {
+  background: #24272e;
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .nav-button.router-link-active,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .nav-button.router-link-active.nav-button-plain,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .folder-pill.active {
+  background: #2b2e36;
+  border-color: #393d46;
+  color: #ffffff;
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .user-menu,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-table,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-table,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .quick-add-bar,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .duplicate-panel,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-section,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-card,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .panel,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .health-check-panel,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .import-preview-panel,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .ops-metric-card,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .ops-metric-card,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .dashboard-shortcut,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .dashboard-shortcut {
+  background: var(--admin-surface-elevated);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sortable-row-chosen,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sortable-row-dragging {
+  background: #272a32 !important;
+  border-color: #444955;
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sortable-row-ghost {
+  background: #30343d !important;
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']),
+:root[data-color-mode='dark'] .chatgpt-admin-shell textarea,
+:root[data-color-mode='dark'] .chatgpt-admin-shell select,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-search-input,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .inline-link-input,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .inline-link-select,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .button.secondary,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .icon-button.secondary,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .folder-pill,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .mobile-nav-toggle {
+  background: #17191f;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-table-head,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .health-check-head,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .import-preview-head,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .bulk-action-bar,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .sort-footer,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .health-summary span,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .preview-stats span,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .token-summary-grid section {
+  background: #181a20;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-table-row,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-table-row,
+:root[data-color-mode='dark'] .chatgpt-admin-shell .admin-table-row:nth-child(odd),
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .admin-table-row:nth-child(odd) {
+  background: var(--admin-surface-elevated);
+  border-bottom-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .notice,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .notice {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.28);
+  color: var(--admin-success);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .error,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .error {
+  background: rgba(251, 113, 133, 0.1);
+  border-color: rgba(251, 113, 133, 0.28);
+  color: var(--admin-danger);
+}
+
+:root[data-color-mode='dark'] .chatgpt-admin-shell .warning-line,
+:root[data-color-mode='dark'] .chatgpt-admin-shell.glass-workbench .warning-line {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.28);
+  color: var(--admin-warning);
+}
+
+:root[data-color-mode='dark'] .confirm-dialog,
+:root[data-color-mode='dark'] .admin-toast {
+  background: #1d2027;
+  border-color: #363a44;
+  color: #f3f4f6;
+}
+
+:root[data-color-mode='dark'] .confirm-dialog .button.secondary,
+:root[data-color-mode='dark'] .confirm-dialog .icon-button.secondary,
+:root[data-color-mode='dark'] .confirm-dialog .confirm-icon {
+  background: #292c34;
+  border-color: #414650;
+  color: #e5e7eb;
+}
+
+.admin-color-mode {
+  --color-mode-border: var(--admin-border, #d6d6d6);
+  --color-mode-hover: var(--panel-2, #f2f2f2);
+  --color-mode-popover: var(--admin-surface-elevated, #ffffff);
+  --color-mode-popover-text: var(--admin-text, #171717);
+  --color-mode-popover-hover: var(--panel-2, #f2f2f2);
+  --color-mode-surface: var(--admin-surface-elevated, #ffffff);
+  --color-mode-text: var(--admin-text, #171717);
+}

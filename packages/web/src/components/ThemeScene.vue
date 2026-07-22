@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { PublicTheme, ThemeSceneKind } from '@/utils/themes';
+import type { ResolvedColorMode } from '@/utils/colorMode';
 
-const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number }>(), { intensity: 100 });
+const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number; mode?: ResolvedColorMode }>(), {
+  intensity: 100,
+  mode: 'light',
+});
 
 const particles = Array.from({ length: 30 }, (_, index) => ({
   x: `${(index * 37 + 7) % 101}%`,
@@ -28,12 +32,16 @@ const ripples = [
 
 // 0-100 dial persisted in settings.theme.sceneIntensity; 100 keeps each theme's tuned look.
 const intensityRatio = computed(() => Math.min(100, Math.max(0, Math.round(props.intensity))) / 100);
+const modeMultiplier = computed(() => {
+  if (props.mode !== 'dark') return 1;
+  return props.theme?.scene.kind === 'stars' || props.theme?.scene.kind === 'snow' ? 0.92 : 0.72;
+});
 
 // Lower intensity thins the particle field as well; opacity scaling handles the rest.
 const visibleParticles = computed(() => particles.slice(0, Math.round(30 * (0.55 + 0.45 * intensityRatio.value))));
 
 const sceneStyle = computed<Record<string, string>>(() => {
-  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value;
+  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value * modeMultiplier.value;
   return {
     '--theme-scene-opacity': String(opacity),
     '--theme-scene-mobile-opacity': String(opacity * 0.72),
@@ -132,6 +140,7 @@ function particleStyle(particle: typeof particles[number], index: number) {
     class="theme-scene"
     :class="[`scene-${theme.scene.kind}`, `motion-${theme.scene.motion}`, { 'is-paused': paused }]"
     :data-scene="theme.scene.kind"
+    :data-color-mode="mode"
     :style="[sceneStyle, parallaxStyle]"
     data-testid="theme-scene"
     aria-hidden="true"
@@ -194,6 +203,7 @@ function particleStyle(particle: typeof particles[number], index: number) {
   inset: 0;
   opacity: var(--theme-particle-alpha, 1);
   position: absolute;
+  transition: opacity 0.3s ease;
 }
 
 /* Hidden tabs pause every scene animation instead of burning battery. */
@@ -210,6 +220,7 @@ function particleStyle(particle: typeof particles[number], index: number) {
   object-fit: cover;
   opacity: var(--theme-scene-opacity, 0.18);
   position: absolute;
+  transition: opacity 0.3s ease;
   width: 108%;
 }
 
