@@ -46,6 +46,18 @@ export function normalizePortalImage(value: string) {
 	return normalizePortalHref(trimmed)
 }
 
+export function getArtCardSettings(value: unknown) {
+	const record = isRecord(value) ? value : {}
+	const images = Array.isArray(record.artImages) ? record.artImages.filter(isRecord) : []
+	const currentId = stringValue(record.currentArtImageId)
+	const currentImage = images.find(image => stringValue(image.id) === currentId) ?? images[0]
+
+	return {
+		imageUrl: normalizePortalImage(stringValue(currentImage?.url)) || '/images/art/cat.png',
+		href: normalizePortalHref(stringValue(record.artLinkUrl))
+	}
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }

@@ -174,3 +174,18 @@ test('places music on the lower left and summarizes the next three days beside i
 	assert.match(summary, /未来三天/)
 	assert.match(summary, /cardKey='scheduleCard'/)
 })
+
+test('keeps homepage image settings focused on image hosting and click-through URLs', async () => {
+	const siteContent = await read('src/config/site-content.json')
+	const artSettings = await read('src/app/(home)/config-dialog/site-settings/art-images-section.tsx')
+	const siteSettings = await read('src/app/(home)/config-dialog/site-settings/index.tsx')
+
+	assert.match(siteContent, /"artLinkUrl"/)
+	assert.match(artSettings, /图片地址（图床）/)
+	assert.match(artSettings, /点击跳转地址/)
+	assert.doesNotMatch(artSettings, /type='file'|multiple|添加 URL|当前使用/)
+
+	for (const unusedSetting of ['BeianForm', 'HatSection', '摘要放入内容', '隐藏编辑按钮', '启用文章分类', '开启圣诞节']) {
+		assert.doesNotMatch(siteSettings, new RegExp(unusedSetting))
+	}
+})

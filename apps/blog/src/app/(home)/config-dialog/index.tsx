@@ -8,7 +8,7 @@ import { useAuthStore } from '@/hooks/use-auth'
 import { useConfigStore } from '../stores/config-store'
 import { pushSiteContent } from '../services/push-site-content'
 import type { SiteContent, CardStyles } from '../stores/config-store'
-import { SiteSettings, type FileItem, type ArtImageUploads, type BackgroundImageUploads, type SocialButtonImageUploads } from './site-settings'
+import { SiteSettings, type FileItem, type BackgroundImageUploads, type SocialButtonImageUploads } from './site-settings'
 import { ColorConfig } from './color-config'
 import { HomeLayout } from './home-layout'
 import { avatarAssetPath } from '@/lib/site-assets'
@@ -31,7 +31,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 	const [activeTab, setActiveTab] = useState<TabType>('site')
 	const [faviconItem, setFaviconItem] = useState<FileItem | null>(null)
 	const [avatarItem, setAvatarItem] = useState<FileItem | null>(null)
-	const [artImageUploads, setArtImageUploads] = useState<ArtImageUploads>({})
 	const [backgroundImageUploads, setBackgroundImageUploads] = useState<BackgroundImageUploads>({})
 	const [socialButtonImageUploads, setSocialButtonImageUploads] = useState<SocialButtonImageUploads>({})
 
@@ -49,7 +48,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			setOriginalCardStyles(currentCardStyles)
 			setFaviconItem(null)
 			setAvatarItem(null)
-			setArtImageUploads({})
 			setBackgroundImageUploads({})
 			setSocialButtonImageUploads({})
 			setActiveTab('site')
@@ -65,11 +63,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			if (avatarItem?.type === 'file') {
 				URL.revokeObjectURL(avatarItem.previewUrl)
 			}
-			Object.values(artImageUploads).forEach(item => {
-				if (item.type === 'file') {
-					URL.revokeObjectURL(item.previewUrl)
-				}
-			})
 			Object.values(backgroundImageUploads).forEach(item => {
 				if (item.type === 'file') {
 					URL.revokeObjectURL(item.previewUrl)
@@ -81,7 +74,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 				}
 			})
 		}
-	}, [faviconItem, avatarItem, artImageUploads, backgroundImageUploads, socialButtonImageUploads])
+	}, [faviconItem, avatarItem, backgroundImageUploads, socialButtonImageUploads])
 
 	const handleSaveClick = () => {
 		if (!isAuth) {
@@ -95,34 +88,18 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		setIsSaving(true)
 		try {
 			const nextSiteContent = applyAvatarUpload(formData, avatarItem)
-			// Calculate removed art images so that we can delete files in repo
-			const originalArtImages = originalData.artImages ?? []
-			const currentArtImages = formData.artImages ?? []
-			const removedArtImages = originalArtImages.filter(orig => !currentArtImages.some(current => current.id === orig.id))
-
 			// Calculate removed background images
 			const originalBackgroundImages = originalData.backgroundImages ?? []
 			const currentBackgroundImages = formData.backgroundImages ?? []
 			const removedBackgroundImages = originalBackgroundImages.filter(orig => !currentBackgroundImages.some(current => current.id === orig.id))
 
-			await pushSiteContent(
-				nextSiteContent,
-				cardStylesData,
-				faviconItem,
-				avatarItem,
-				artImageUploads,
-				removedArtImages,
-				backgroundImageUploads,
-				removedBackgroundImages,
-				socialButtonImageUploads
-			)
+			await pushSiteContent(nextSiteContent, cardStylesData, faviconItem, avatarItem, backgroundImageUploads, removedBackgroundImages, socialButtonImageUploads)
 			setSiteContent(nextSiteContent)
 			setFormData(nextSiteContent)
 			setCardStyles(cardStylesData)
 			updateThemeVariables(formData.theme)
 			setFaviconItem(null)
 			setAvatarItem(null)
-			setArtImageUploads({})
 			setBackgroundImageUploads({})
 			setSocialButtonImageUploads({})
 			onClose()
@@ -142,11 +119,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		if (avatarItem?.type === 'file') {
 			URL.revokeObjectURL(avatarItem.previewUrl)
 		}
-		Object.values(artImageUploads).forEach(item => {
-			if (item.type === 'file') {
-				URL.revokeObjectURL(item.previewUrl)
-			}
-		})
 		Object.values(backgroundImageUploads).forEach(item => {
 			if (item.type === 'file') {
 				URL.revokeObjectURL(item.previewUrl)
@@ -172,7 +144,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		updateThemeVariables(originalData.theme)
 		setFaviconItem(null)
 		setAvatarItem(null)
-		setArtImageUploads({})
 		setBackgroundImageUploads({})
 		setSocialButtonImageUploads({})
 		onClose()
@@ -273,8 +244,6 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							setFaviconItem={setFaviconItem}
 							avatarItem={avatarItem}
 							setAvatarItem={setAvatarItem}
-							artImageUploads={artImageUploads}
-							setArtImageUploads={setArtImageUploads}
 							backgroundImageUploads={backgroundImageUploads}
 							setBackgroundImageUploads={setBackgroundImageUploads}
 							socialButtonImageUploads={socialButtonImageUploads}

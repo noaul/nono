@@ -3,6 +3,7 @@ import { useCenterStore } from '@/hooks/use-center'
 import { useConfigStore } from './stores/config-store'
 import { CARD_SPACING } from '@/consts'
 import { HomeDraggableLayer } from './home-draggable-layer'
+import { getArtCardSettings } from '@/lib/portal'
 
 export default function ArtCard() {
 	const center = useCenterStore()
@@ -13,10 +14,7 @@ export default function ArtCard() {
 	const x = styles.offsetX !== null ? center.x + styles.offsetX : center.x - styles.width / 2
 	const y = styles.offsetY !== null ? center.y + styles.offsetY : center.y - hiCardStyles.height / 2 - styles.height - CARD_SPACING
 
-	const artImages = siteContent.artImages ?? []
-	const currentId = siteContent.currentArtImageId
-	const currentArt = (currentId ? artImages.find(item => item.id === currentId) : undefined) ?? artImages[0]
-	const artUrl = currentArt?.url || '/images/art/cat.png'
+	const art = getArtCardSettings(siteContent)
 
 	return (
 		<HomeDraggableLayer cardKey='artCard' x={x} y={y} width={styles.width} height={styles.height}>
@@ -27,8 +25,8 @@ export default function ArtCard() {
 				height={styles.height}
 				x={x}
 				y={y}
-				href='https://key.afilmory.art/'
-				target='_blank'>
+				href={art.href || undefined}
+				target={art.href ? '_blank' : undefined}>
 				{siteContent.enableChristmas && (
 					<>
 						<img
@@ -40,7 +38,7 @@ export default function ArtCard() {
 					</>
 				)}
 
-				<img src={artUrl} alt='wall art' className='h-full w-full rounded-[32px] object-cover' />
+				<img src={art.imageUrl} alt='wall art' className='h-full w-full rounded-[32px] object-cover' />
 			</Card>
 		</HomeDraggableLayer>
 	)

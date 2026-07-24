@@ -4,10 +4,9 @@ import { GITHUB_CONFIG } from '@/consts'
 import { toast } from 'sonner'
 import { fileToBase64NoPrefix } from '@/lib/file-utils'
 import type { SiteContent, CardStyles } from '../stores/config-store'
-import type { FileItem, ArtImageUploads, SocialButtonImageUploads, BackgroundImageUploads } from '../config-dialog/site-settings'
+import type { FileItem, SocialButtonImageUploads, BackgroundImageUploads } from '../config-dialog/site-settings'
 import { avatarAssetPath } from '@/lib/site-assets'
 
-type ArtImageConfig = SiteContent['artImages'][number]
 type BackgroundImageConfig = SiteContent['backgroundImages'][number]
 
 export async function pushSiteContent(
@@ -15,8 +14,6 @@ export async function pushSiteContent(
 	cardStyles: CardStyles,
 	faviconItem?: FileItem | null,
 	avatarItem?: FileItem | null,
-	artImageUploads?: ArtImageUploads,
-	removedArtImages?: ArtImageConfig[],
 	backgroundImageUploads?: BackgroundImageUploads,
 	removedBackgroundImages?: BackgroundImageConfig[],
 	socialButtonImageUploads?: SocialButtonImageUploads
@@ -59,45 +56,6 @@ export async function pushSiteContent(
 			type: 'blob',
 			sha: blobData.sha
 		})
-	}
-
-	// Handle art images upload
-	if (artImageUploads) {
-		for (const [id, item] of Object.entries(artImageUploads)) {
-			if (item.type !== 'file') continue
-
-			const artConfig = siteContent.artImages?.find(art => art.id === id)
-			if (!artConfig) continue
-
-			// Ensure blob is saved under public directory while keeping URL as /images/...
-			const normalizedUrlPath = artConfig.url.startsWith('/') ? artConfig.url : `/${artConfig.url}`
-			const path = `public${normalizedUrlPath}`
-			if (!path) continue
-
-			toast.info(`正在上传 Art 图片 ${id}...`)
-			const contentBase64 = await fileToBase64NoPrefix(item.file)
-			const blobData = await createBlob(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, contentBase64, 'base64')
-			treeItems.push({
-				path,
-				mode: '100644',
-				type: 'blob',
-				sha: blobData.sha
-			})
-		}
-	}
-
-	// Handle art images deletion
-	if (removedArtImages && removedArtImages.length > 0) {
-		for (const art of removedArtImages) {
-			const normalizedUrlPath = art.url.startsWith('/') ? art.url : `/${art.url}`
-			const path = `public${normalizedUrlPath}`
-			treeItems.push({
-				path,
-				mode: '100644',
-				type: 'blob',
-				sha: null
-			})
-		}
 	}
 
 	// Handle background images upload
