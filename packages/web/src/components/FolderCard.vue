@@ -406,7 +406,7 @@ h2 {
 }
 
 .large-link.is-editable {
-  cursor: grab;
+  cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -415,7 +415,7 @@ h2 {
   background: rgba(var(--accent-rgb), 0.2);
   border-color: rgba(var(--accent-bright-rgb), 0.6);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
-  cursor: grabbing;
+  cursor: default;
   transform: translateY(-2px) scale(1.02);
 }
 

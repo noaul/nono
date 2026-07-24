@@ -931,7 +931,7 @@ onUnmounted(() => {
 }
 
 :global(body.bookmark-dragging) {
-  cursor: grabbing;
+  cursor: default;
   user-select: none;
 }
 
