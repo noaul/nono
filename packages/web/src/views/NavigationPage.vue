@@ -4,13 +4,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Link2, LogIn, Settings, Star, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
+import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import ThemeScene from '@/components/ThemeScene.vue';
-import { buildSearchUrl } from '@/api/client';
+import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
@@ -42,6 +43,25 @@ const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
 const unlocking = ref(false);
+const pendingDelete = ref<{ link: Link; folderId: number } | null>(null);
+const deletingBookmark = ref(false);
+const movingBookmark = ref(false);
+const bookmarkMessage = ref<{ kind: 'error' | 'success'; text: string } | null>(null);
+const bookmarkDrag = ref<{
+  link: Link;
+  sourceFolderId: number;
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  targetFolderId: number | null;
+  targetLinkId: number | null;
+  targetSide: 'before' | 'after' | '';
+} | null>(null);
+let notabHoverTimer: ReturnType<typeof setTimeout> | undefined;
+let hoveredNotabId: string | null = null;
+let bookmarkMessageTimer: ReturnType<typeof setTimeout> | undefined;
+let postDragClickTimer: ReturnType<typeof setTimeout> | undefined;
+let postDragClickHandler: ((event: MouseEvent) => void) | null = null;
 const resolvedMode = ref<ResolvedColorMode>(
   typeof document !== 'undefined' && document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
 );
@@ -249,7 +269,7 @@ const shownFolders = computed(() => {
   }));
 });
 const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !normalizedQuery.value));
-const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value || appearanceOpen.value));
+const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value || appearanceOpen.value || pendingDelete.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
 const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
@@ -257,6 +277,242 @@ const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryF
 function selectCategory(id: string) {
   selectedCategoryId.value = id;
   renderedFolderCount.value = 24;
+}
+
+function findFolder(folderId: number) {
+  return payload.value?.folders.find((folder) => folder.id === folderId);
+}
+
+function showBookmarkMessage(kind: 'error' | 'success', text: string) {
+  bookmarkMessage.value = { kind, text };
+  clearTimeout(bookmarkMessageTimer);
+  bookmarkMessageTimer = setTimeout(() => {
+    bookmarkMessage.value = null;
+  }, 3200);
+}
+
+function requestBookmarkDelete(request: { link: Link; folderId: number }) {
+  if (!canEditAppearance.value || normalizedQuery.value || accessLocked.value || bookmarkDrag.value) return;
+  pendingDelete.value = request;
+}
+
+async function confirmBookmarkDelete() {
+  const request = pendingDelete.value;
+  if (!request || deletingBookmark.value || !canEditAppearance.value) return;
+  deletingBookmark.value = true;
+  try {
+    await apiRequest(`/api/admin/links/${request.link.id}`, { method: 'DELETE' });
+    const folder = findFolder(request.folderId);
+    if (folder) folder.links = (folder.links || []).filter((link) => link.id !== request.link.id);
+    pendingDelete.value = null;
+    showBookmarkMessage('success', '书签已删除');
+  } catch (error) {
+    showBookmarkMessage('error', error instanceof Error ? error.message : '删除失败，请稍后重试');
+  } finally {
+    deletingBookmark.value = false;
+  }
+}
+
+function clearNotabHover() {
+  clearTimeout(notabHoverTimer);
+  notabHoverTimer = undefined;
+  hoveredNotabId = null;
+}
+
+function resolveDropTarget(clientX: number, clientY: number) {
+  const drag = bookmarkDrag.value;
+  if (!drag || typeof document === 'undefined') return;
+  drag.clientX = clientX;
+  drag.clientY = clientY;
+
+  const element = document.elementFromPoint(clientX, clientY);
+  const notab = element?.closest<HTMLElement>('[data-notab-id]');
+  const notabId = notab?.dataset.notabId || null;
+  if (notabId && notabId !== selectedCategoryId.value) {
+    drag.targetFolderId = null;
+    drag.targetLinkId = null;
+    drag.targetSide = '';
+    if (hoveredNotabId !== notabId) {
+      clearNotabHover();
+      hoveredNotabId = notabId;
+      notabHoverTimer = setTimeout(async () => {
+        if (!bookmarkDrag.value || hoveredNotabId !== notabId) return;
+        selectedCategoryId.value = notabId;
+        renderedFolderCount.value = 24;
+        clearNotabHover();
+        await nextTick();
+        updateTabIndicator();
+        if (bookmarkDrag.value) resolveDropTarget(bookmarkDrag.value.clientX, bookmarkDrag.value.clientY);
+      }, 600);
+    }
+    return;
+  }
+  clearNotabHover();
+
+  const folderPanel = element?.closest<HTMLElement>('[data-drop-folder-id]');
+  const folderId = Number(folderPanel?.dataset.dropFolderId);
+  const targetFolder = Number.isInteger(folderId) ? findFolder(folderId) : null;
+  if (!folderPanel || !targetFolder || targetFolder.locked) {
+    drag.targetFolderId = null;
+    drag.targetLinkId = null;
+    drag.targetSide = '';
+    return;
+  }
+
+  const bookmark = element?.closest<HTMLElement>('[data-bookmark-id]');
+  const bookmarkId = Number(bookmark?.dataset.bookmarkId);
+  if (bookmarkId === drag.link.id) {
+    drag.targetFolderId = null;
+    drag.targetLinkId = null;
+    drag.targetSide = '';
+    return;
+  }
+  drag.targetFolderId = folderId;
+  if (bookmark && Number.isInteger(bookmarkId)) {
+    const rect = bookmark.getBoundingClientRect();
+    drag.targetLinkId = bookmarkId;
+    drag.targetSide = clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+  } else {
+    drag.targetLinkId = null;
+    drag.targetSide = '';
+  }
+}
+
+function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId: number; clientX: number; clientY: number }) {
+  if (!canEditAppearance.value || normalizedQuery.value || accessLocked.value || anyModalOpen.value || bookmarkDrag.value || movingBookmark.value) return;
+  bookmarkDrag.value = {
+    link: request.link,
+    sourceFolderId: request.folderId,
+    pointerId: request.pointerId,
+    clientX: request.clientX,
+    clientY: request.clientY,
+    targetFolderId: null,
+    targetLinkId: null,
+    targetSide: '',
+  };
+  document.body.classList.add('bookmark-dragging');
+  window.addEventListener('pointermove', onBookmarkDragMove);
+  window.addEventListener('pointerup', onBookmarkDragEnd);
+  window.addEventListener('pointercancel', cancelBookmarkDrag);
+  resolveDropTarget(request.clientX, request.clientY);
+}
+
+function onBookmarkDragMove(event: PointerEvent) {
+  if (!bookmarkDrag.value) return;
+  event.preventDefault();
+  resolveDropTarget(event.clientX, event.clientY);
+}
+
+function insertionIndex(links: Link[], targetLinkId: number | null, side: 'before' | 'after' | '') {
+  if (!targetLinkId) return links.length;
+  const targetIndex = links.findIndex((link) => link.id === targetLinkId);
+  if (targetIndex < 0) return links.length;
+  return Math.min(links.length, targetIndex + (side === 'after' ? 1 : 0));
+}
+
+function applySortOrder(links: Link[]) {
+  links.forEach((link, index) => {
+    link.sortOrder = (links.length - index) * 10;
+  });
+}
+
+function sameOrder(left: Link[], right: Link[]) {
+  return left.length === right.length && left.every((link, index) => link.id === right[index]?.id);
+}
+
+async function persistBookmarkDrop(drag: NonNullable<typeof bookmarkDrag.value>) {
+  const sourceFolder = findFolder(drag.sourceFolderId);
+  const targetFolder = drag.targetFolderId ? findFolder(drag.targetFolderId) : null;
+  if (!sourceFolder || !targetFolder || targetFolder.locked) return;
+
+  const sourceBefore = [...(sourceFolder.links || [])];
+  const targetBefore = sourceFolder.id === targetFolder.id ? sourceBefore : [...(targetFolder.links || [])];
+  const sourceNext = sourceBefore.filter((link) => link.id !== drag.link.id);
+  const targetBase = sourceFolder.id === targetFolder.id
+    ? sourceNext
+    : targetBefore.filter((link) => link.id !== drag.link.id);
+  const targetNext = [...targetBase];
+  const movedLink = sourceFolder.id === targetFolder.id ? drag.link : { ...drag.link, folderId: targetFolder.id };
+  targetNext.splice(insertionIndex(targetBase, drag.targetLinkId, drag.targetSide), 0, movedLink);
+  if (sourceFolder.id === targetFolder.id && sameOrder(sourceBefore, targetNext)) return;
+
+  if (sourceFolder.id === targetFolder.id) {
+    sourceFolder.links = targetNext;
+    applySortOrder(targetNext);
+  } else {
+    sourceFolder.links = sourceNext;
+    targetFolder.links = targetNext;
+    applySortOrder(sourceNext);
+    applySortOrder(targetNext);
+  }
+
+  movingBookmark.value = true;
+  try {
+    if (sourceFolder.id === targetFolder.id) {
+      await apiRequest('/api/admin/links/reorder', {
+        method: 'PUT',
+        body: jsonBody({ ids: targetNext.map((link) => link.id) }),
+      });
+    } else {
+      await apiRequest('/api/admin/links/move', {
+        method: 'PUT',
+        body: jsonBody({
+          linkId: drag.link.id,
+          targetFolderId: targetFolder.id,
+          sourceIds: sourceNext.map((link) => link.id),
+          targetIds: targetNext.map((link) => link.id),
+        }),
+      });
+    }
+  } catch (error) {
+    sourceFolder.links = sourceBefore;
+    if (sourceFolder.id !== targetFolder.id) targetFolder.links = targetBefore;
+    applySortOrder(sourceBefore);
+    if (sourceFolder.id !== targetFolder.id) applySortOrder(targetBefore);
+    showBookmarkMessage('error', error instanceof Error ? error.message : '移动失败，请稍后重试');
+  } finally {
+    movingBookmark.value = false;
+  }
+}
+
+function suppressPostDragClick() {
+  if (postDragClickHandler) window.removeEventListener('click', postDragClickHandler, true);
+  clearTimeout(postDragClickTimer);
+  postDragClickHandler = (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (postDragClickHandler) window.removeEventListener('click', postDragClickHandler, true);
+    postDragClickHandler = null;
+    clearTimeout(postDragClickTimer);
+  };
+  window.addEventListener('click', postDragClickHandler, true);
+  postDragClickTimer = setTimeout(() => {
+    if (postDragClickHandler) window.removeEventListener('click', postDragClickHandler, true);
+    postDragClickHandler = null;
+  }, 700);
+}
+
+function finishBookmarkDrag() {
+  clearNotabHover();
+  window.removeEventListener('pointermove', onBookmarkDragMove);
+  window.removeEventListener('pointerup', onBookmarkDragEnd);
+  window.removeEventListener('pointercancel', cancelBookmarkDrag);
+  document.body.classList.remove('bookmark-dragging');
+  bookmarkDrag.value = null;
+}
+
+function onBookmarkDragEnd(event: PointerEvent) {
+  const drag = bookmarkDrag.value;
+  if (!drag) return;
+  resolveDropTarget(event.clientX, event.clientY);
+  const completedDrag = { ...drag };
+  suppressPostDragClick();
+  finishBookmarkDrag();
+  void persistBookmarkDrop(completedDrag);
+}
+
+function cancelBookmarkDrag() {
+  if (bookmarkDrag.value) finishBookmarkDrag();
 }
 
 function normalizeSearchText(link: Link) {
@@ -425,11 +681,16 @@ watch(accessLocked, async (locked) => {
   searchBarRef.value?.focus();
 }, { immediate: true });
 watch(canEditAppearance, (allowed) => {
-  if (!allowed) appearanceOpen.value = false;
+  if (!allowed) {
+    appearanceOpen.value = false;
+    pendingDelete.value = null;
+    cancelBookmarkDrag();
+  }
 });
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
 watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
+  if (normalizedQuery.value) cancelBookmarkDrag();
 });
 watch(categoryFolders, (folders) => {
   if (!payload.value || categorySelectionInitialized.value) return;
@@ -446,11 +707,15 @@ watch(
   { immediate: false },
 );
 onUnmounted(() => {
+  cancelBookmarkDrag();
   folderObserver?.disconnect();
   removeBackgroundHints();
   window.removeEventListener('keydown', onGlobalKeydown);
   window.removeEventListener('resize', updateTabIndicator);
   clearTimeout(debounceTimer);
+  clearTimeout(bookmarkMessageTimer);
+  clearTimeout(postDragClickTimer);
+  if (postDragClickHandler) window.removeEventListener('click', postDragClickHandler, true);
   if (typeof document !== 'undefined') document.body.style.overflow = '';
 });
 </script>
@@ -544,6 +809,7 @@ onUnmounted(() => {
               type="button"
               :class="{ active: tab.id === selectedCategoryId }"
               :aria-pressed="tab.id === selectedCategoryId"
+              :data-notab-id="tab.id === 'all' ? undefined : tab.id"
               :data-testid="`category-tab-${tab.id}`"
               @click="selectCategory(tab.id)"
             >
@@ -573,8 +839,15 @@ onUnmounted(() => {
               :folder="folder"
               :depth="folderDepth(folder)"
               :highlight="normalizedQuery"
+              :editable="canEditAppearance && !normalizedQuery && !accessLocked && !anyModalOpen && !movingBookmark"
+              :dragging-link-id="bookmarkDrag?.link.id"
+              :drop-active="bookmarkDrag?.targetFolderId === folder.id"
+              :drop-link-id="bookmarkDrag?.targetFolderId === folder.id ? bookmarkDrag.targetLinkId : null"
+              :drop-side="bookmarkDrag?.targetFolderId === folder.id ? bookmarkDrag.targetSide : ''"
               @verify="verifying = $event"
               @expand="expandedFolder = $event"
+              @bookmark-delete-request="requestBookmarkDelete"
+              @bookmark-drag-start="onBookmarkDragStart"
             />
           </div>
           <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
@@ -594,6 +867,30 @@ onUnmounted(() => {
 
     <FolderUnlockModal v-if="verifying" :folder="verifying" :username="username" @close="verifying = null" @verified="onFolderVerified" />
 
+    <BookmarkDeleteDialog
+      v-if="pendingDelete"
+      :link="pendingDelete.link"
+      :busy="deletingBookmark"
+      @cancel="pendingDelete = null"
+      @confirm="confirmBookmarkDelete"
+    />
+
+    <div
+      v-if="bookmarkDrag"
+      class="bookmark-drag-preview"
+      :style="{ transform: `translate3d(${bookmarkDrag.clientX + 16}px, ${bookmarkDrag.clientY + 16}px, 0)` }"
+      aria-hidden="true"
+    >
+      <Link2 :size="16" />
+      <span>{{ bookmarkDrag.link.name }}</span>
+    </div>
+
+    <Transition name="bookmark-message">
+      <p v-if="bookmarkMessage" class="bookmark-message" :class="bookmarkMessage.kind" role="status" aria-live="polite">
+        {{ bookmarkMessage.text }}
+      </p>
+    </Transition>
+
     <AppearanceSettingsDrawer
       v-if="payload?.site && canEditAppearance"
       :open="appearanceOpen"
@@ -611,6 +908,73 @@ onUnmounted(() => {
   min-height: 100dvh;
   padding: 48px 0 80px;
   position: relative;
+}
+
+.bookmark-drag-preview {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(var(--public-overlay-rgb), 0.88);
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.62);
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(var(--public-shadow-rgb), 0.28);
+  color: var(--public-page-text);
+  display: flex;
+  gap: 8px;
+  left: 0;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 9px 12px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  z-index: 170;
+}
+
+:global(body.bookmark-dragging) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.bookmark-drag-preview span {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-message {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(var(--public-overlay-rgb), 0.9);
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.42);
+  border-radius: 8px;
+  bottom: 24px;
+  color: var(--public-page-text);
+  font-size: 13px;
+  font-weight: 700;
+  left: 50%;
+  margin: 0;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 190;
+}
+
+.bookmark-message.error {
+  border-color: rgba(244, 63, 94, 0.58);
+}
+
+.bookmark-message-enter-active,
+.bookmark-message-leave-active {
+  transition: opacity 0.2s ease, transform 0.24s ease;
+}
+
+.bookmark-message-enter-from,
+.bookmark-message-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
 }
 
 .public-glass-page {

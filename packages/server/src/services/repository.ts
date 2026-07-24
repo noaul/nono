@@ -235,6 +235,7 @@ export interface Repository {
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
   updateLinkHealth(userId: number, updates: LinkHealthUpdate[]): Promise<void>;
   reorderLinks(userId: number, ids: number[]): Promise<void>;
+  moveLink(userId: number, id: number, targetFolderId: number, sourceIds: number[], targetIds: number[]): Promise<LinkRecord>;
   deleteLink(userId: number, id: number): Promise<void>;
   deleteLinks(userId: number, ids: number[]): Promise<void>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
@@ -537,6 +538,25 @@ export class MemoryRepository implements Repository {
     ids.forEach((id, index) => Object.assign(byId.get(id)!, { sortOrder: (ids.length - index) * 10, updatedAt: now }));
   }
 
+  async moveLink(userId: number, id: number, targetFolderId: number, sourceIds: number[], targetIds: number[]) {
+    const link = await this.requiredLink(userId, id);
+    await this.requiredFolder(userId, targetFolderId);
+    if (link.folderId === targetFolderId) throw Object.assign(new Error('Bookmark already belongs to target folder'), { statusCode: 400 });
+
+    const links = await this.listLinks(userId);
+    const expectedSourceIds = links.filter((item) => item.folderId === link.folderId && item.id !== id).map((item) => item.id);
+    const expectedTargetIds = [...links.filter((item) => item.folderId === targetFolderId).map((item) => item.id), id];
+    assertExactIds(sourceIds, expectedSourceIds);
+    assertExactIds(targetIds, expectedTargetIds);
+
+    const byId = new Map(links.map((item) => [item.id, item]));
+    const now = new Date();
+    Object.assign(link, { folderId: targetFolderId, updatedAt: now });
+    sourceIds.forEach((linkId, index) => Object.assign(byId.get(linkId)!, { sortOrder: (sourceIds.length - index) * 10, updatedAt: now }));
+    targetIds.forEach((linkId, index) => Object.assign(byId.get(linkId)!, { sortOrder: (targetIds.length - index) * 10, updatedAt: now }));
+    return link;
+  }
+
   async deleteLink(userId: number, id: number) {
     await this.deleteLinks(userId, [id]);
   }
@@ -749,4 +769,14 @@ function collectFolderIds(folders: FolderRecord[], rootId: number) {
     }
   }
   return ids;
+}
+
+function assertExactIds(actual: number[], expected: number[]) {
+  if (actual.length !== expected.length || new Set(actual).size !== actual.length) {
+    throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
+  }
+  const expectedIds = new Set(expected);
+  if (actual.some((id) => !expectedIds.has(id))) {
+    throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
+  }
 }

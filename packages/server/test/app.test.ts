@@ -728,6 +728,60 @@ describe('Nono Fastify app', () => {
     expect(links.map((link) => link.name)).toEqual(['Second', 'First', 'Third']);
   });
 
+  it('moves one bookmark across folders and persists both folder orders atomically', async () => {
+    const cookie = await setupAdmin();
+    const source = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Source' } });
+    const target = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Target' } });
+    const sourceId = source.json().data.id;
+    const targetId = target.json().data.id;
+    const moving = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: sourceId, name: 'Moving', url: 'https://moving.example/' } });
+    const remaining = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: sourceId, name: 'Remaining', url: 'https://remaining.example/' } });
+    const existing = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: targetId, name: 'Existing', url: 'https://existing.example/' } });
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/links/move',
+      headers: { cookie },
+      payload: {
+        linkId: moving.json().data.id,
+        targetFolderId: targetId,
+        sourceIds: [remaining.json().data.id],
+        targetIds: [existing.json().data.id, moving.json().data.id],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const links = await repo.listLinks(1);
+    expect(links.filter((link) => link.folderId === sourceId).map((link) => link.name)).toEqual(['Remaining']);
+    expect(links.filter((link) => link.folderId === targetId).map((link) => link.name)).toEqual(['Existing', 'Moving']);
+  });
+
+  it('rejects a stale cross-folder bookmark order without partially moving the bookmark', async () => {
+    const cookie = await setupAdmin();
+    const source = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Source' } });
+    const target = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Target' } });
+    const sourceId = source.json().data.id;
+    const targetId = target.json().data.id;
+    const moving = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: sourceId, name: 'Moving', url: 'https://moving.example/' } });
+    await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: targetId, name: 'Existing', url: 'https://existing.example/' } });
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/links/move',
+      headers: { cookie },
+      payload: {
+        linkId: moving.json().data.id,
+        targetFolderId: targetId,
+        sourceIds: [],
+        targetIds: [moving.json().data.id],
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    const unchanged = (await repo.listLinks(1)).find((link) => link.id === moving.json().data.id);
+    expect(unchanged?.folderId).toBe(sourceId);
+  });
+
   it('persists link sorting through one repository batch operation', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Batch links' } });

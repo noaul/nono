@@ -7,6 +7,7 @@ import NavigationPage from '../src/views/NavigationPage.vue';
 import { useAuthStore } from '../src/stores/auth';
 
 const apiRequest = vi.fn();
+const originalElementFromPoint = document.elementFromPoint;
 
 vi.mock('@/api/client', () => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
@@ -63,6 +64,18 @@ async function mountNavigationPage(authenticated = false) {
   return wrapper;
 }
 
+function pointerEvent(type: string, init: { pointerId: number; clientX: number; clientY: number; button?: number }) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    button: init.button ?? 0,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  });
+  Object.defineProperty(event, 'pointerId', { configurable: true, value: init.pointerId });
+  return event;
+}
+
 describe('NavigationPage public workflow', () => {
   beforeEach(() => {
     apiRequest.mockReset();
@@ -71,7 +84,9 @@ describe('NavigationPage public workflow', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: originalElementFromPoint });
     document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
   });
 
@@ -333,6 +348,115 @@ describe('NavigationPage public workflow', () => {
     expect(entry.attributes('href')).toBe('/login?next=%2F');
     expect(entry.text()).toContain('后台管理登录');
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
+  });
+
+  it('confirms a three-second bookmark deletion and closes the grid gap', async () => {
+    vi.useFakeTimers();
+    const wrapper = await mountNavigationPage(true);
+    const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
+
+    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 10, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('Vue');
+
+    await wrapper.get('[data-testid="bookmark-delete-cancel"]').trigger('click');
+    expect(wrapper.find('[data-testid="bookmark-delete-dialog"]').exists()).toBe(false);
+
+    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 11, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
+    await wrapper.get('[data-testid="bookmark-delete-confirm"]').trigger('click');
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/links/10', { method: 'DELETE' });
+    expect(wrapper.find('[data-testid="public-bookmark-10"]').exists()).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('switches notabs while dragging and persists a cross-folder insertion', async () => {
+    vi.useFakeTimers();
+    apiRequest.mockResolvedValue({
+      ...navigationPayload(),
+      folders: [
+        ...navigationPayload().folders,
+        { id: 3, userId: 1, parentId: null, name: 'Second', sortOrder: 80, locked: false, links: [] },
+        {
+          id: 4,
+          userId: 1,
+          parentId: 3,
+          name: 'Target',
+          sortOrder: 70,
+          locked: false,
+          links: [{ id: 11, folderId: 4, name: 'Vite', url: 'https://vite.dev/', sortOrder: 100 }],
+        },
+      ],
+    });
+    const wrapper = await mountNavigationPage(true);
+    const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
+    const secondTab = wrapper.get('[data-testid="category-tab-3"]').element;
+    const elementFromPoint = vi.fn(() => secondTab);
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: elementFromPoint });
+
+    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 12, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(1000);
+    bookmark.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 12, clientX: 45, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(650);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get('[data-testid="category-tab-3"]').attributes('aria-pressed')).toBe('true');
+    const targetPanel = wrapper.get('[data-testid="bookmark-drop-folder-4"]').element;
+    elementFromPoint.mockReturnValue(targetPanel);
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 100, clientY: 100, bubbles: true }));
+    window.dispatchEvent(new MouseEvent('pointerup', { clientX: 100, clientY: 100, bubbles: true }));
+    const postDropClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+    window.dispatchEvent(postDropClick);
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/links/move', {
+      method: 'PUT',
+      body: JSON.stringify({ linkId: 10, targetFolderId: 4, sourceIds: [], targetIds: [11, 10] }),
+    });
+    expect(postDropClick.defaultPrevented).toBe(true);
+    expect(wrapper.get('[data-testid="bookmark-drop-folder-4"]').findAll('.large-link')).toHaveLength(2);
+    vi.useRealTimers();
+  });
+
+  it('reorders bookmarks inside the same folder after a one-second hold', async () => {
+    vi.useFakeTimers();
+    apiRequest.mockResolvedValue({
+      ...navigationPayload(),
+      folders: [
+        navigationPayload().folders[0],
+        {
+          ...navigationPayload().folders[1],
+          links: [
+            { id: 10, folderId: 2, name: 'Vue', url: 'https://vuejs.org/', sortOrder: 100 },
+            { id: 11, folderId: 2, name: 'Vite', url: 'https://vite.dev/', sortOrder: 90 },
+          ],
+        },
+      ],
+    });
+    const wrapper = await mountNavigationPage(true);
+    const source = wrapper.get('[data-testid="public-bookmark-10"]');
+    const target = wrapper.get('[data-testid="public-bookmark-11"]').element;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => target });
+
+    source.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 13, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(1000);
+    source.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 13, clientX: 45, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointerup', { pointerId: 13, clientX: 45, clientY: 20 }));
+    const postDragClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+    source.element.dispatchEvent(postDragClick);
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/links/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [11, 10] }),
+    });
+    expect(postDragClick.defaultPrevented).toBe(true);
+    expect(wrapper.get('[data-testid="bookmark-drop-folder-2"]').findAll('.large-link').map((item) => item.text())).toEqual(['Vite', 'Vue']);
   });
 
   it('keeps the locked password entry indistinguishable from normal search', async () => {

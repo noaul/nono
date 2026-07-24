@@ -19,6 +19,13 @@ const linkUpdateSchema = z.object({
   sortOrder: z.coerce.number().finite().optional(),
 });
 
+const linkMoveSchema = z.object({
+  linkId: z.coerce.number().int().positive(),
+  targetFolderId: z.coerce.number().int().positive(),
+  sourceIds: z.array(z.coerce.number().int().positive()).max(5000),
+  targetIds: z.array(z.coerce.number().int().positive()).min(1).max(5000),
+});
+
 export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/links', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
@@ -46,6 +53,24 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     await services.repo.reorderLinks(user.id, ids);
     setAuditContext(request, { action: 'reorder', resourceType: 'bookmark', resourceId: ids.join(','), details: { ids } });
     return sendOk(reply, { ok: true });
+  });
+
+  app.put('/api/admin/links/move', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const body = linkMoveSchema.parse(request.body);
+    const current = (await services.repo.listLinks(user.id)).find((link) => link.id === body.linkId);
+    if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    const before = linkAuditSnapshot(current);
+    const updated = await services.repo.moveLink(user.id, body.linkId, body.targetFolderId, body.sourceIds, body.targetIds);
+    setAuditContext(request, {
+      action: 'move',
+      resourceType: 'bookmark',
+      resourceId: updated.id,
+      resourceLabel: updated.name,
+      details: { before, after: linkAuditSnapshot(updated), sourceIds: body.sourceIds, targetIds: body.targetIds },
+    });
+    return sendOk(reply, updated);
   });
 
   app.get('/api/admin/links/duplicates', async (request, reply) => {

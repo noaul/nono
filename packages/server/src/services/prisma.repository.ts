@@ -255,6 +255,35 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
         data: { sortOrder: (ids.length - index) * 10 },
       })));
     },
+    async moveLink(userId, id, targetFolderId, sourceIds, targetIds) {
+      return (await prisma.$transaction(async (transaction) => {
+        const link = await transaction.link.findFirst({ where: { id, folder: { userId } } });
+        if (!link) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+        const targetFolder = await transaction.folder.findFirst({ where: { id: targetFolderId, userId } });
+        if (!targetFolder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+        if (link.folderId === targetFolderId) throw Object.assign(new Error('Bookmark already belongs to target folder'), { statusCode: 400 });
+
+        const [sourceLinks, targetLinks] = await Promise.all([
+          transaction.link.findMany({ where: { folderId: link.folderId, id: { not: id } }, select: { id: true } }),
+          transaction.link.findMany({ where: { folderId: targetFolderId }, select: { id: true } }),
+        ]);
+        assertExactIds(sourceIds, sourceLinks.map((item) => item.id));
+        assertExactIds(targetIds, [...targetLinks.map((item) => item.id), id]);
+
+        await transaction.link.update({ where: { id }, data: { folderId: targetFolderId } });
+        await Promise.all([
+          ...sourceIds.map((linkId, index) => transaction.link.update({
+            where: { id: linkId },
+            data: { sortOrder: (sourceIds.length - index) * 10 },
+          })),
+          ...targetIds.map((linkId, index) => transaction.link.update({
+            where: { id: linkId },
+            data: { sortOrder: (targetIds.length - index) * 10 },
+          })),
+        ]);
+        return transaction.link.findUniqueOrThrow({ where: { id } });
+      })) as any;
+    },
     async deleteLink(userId, id) {
       const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });
       await prisma.link.delete({ where: { id: link.id } });
@@ -403,4 +432,14 @@ function toSiteUpdate(input: Partial<SiteRecord>) {
 
 function prune<T extends Record<string, unknown>>(input: T) {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
+function assertExactIds(actual: number[], expected: number[]) {
+  if (actual.length !== expected.length || new Set(actual).size !== actual.length) {
+    throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
+  }
+  const expectedIds = new Set(expected);
+  if (actual.some((id) => !expectedIds.has(id))) {
+    throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
+  }
 }

@@ -8,11 +8,30 @@ import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
 import { compactBookmarkLabel } from '@/utils/bookmark-name';
 
-const props = withDefaults(defineProps<{ folder: Folder; depth?: number; highlight?: string }>(), {
+const props = withDefaults(defineProps<{
+  folder: Folder;
+  depth?: number;
+  highlight?: string;
+  editable?: boolean;
+  draggingLinkId?: number | null;
+  dropActive?: boolean;
+  dropLinkId?: number | null;
+  dropSide?: 'before' | 'after' | '';
+}>(), {
   depth: 0,
   highlight: '',
+  editable: false,
+  draggingLinkId: null,
+  dropActive: false,
+  dropLinkId: null,
+  dropSide: '',
 });
-defineEmits<{ verify: [folder: Folder]; expand: [folder: Folder] }>();
+const emit = defineEmits<{
+  verify: [folder: Folder];
+  expand: [folder: Folder];
+  'bookmark-delete-request': [payload: { link: NonNullable<Folder['links']>[number]; folderId: number }];
+  'bookmark-drag-start': [payload: { link: NonNullable<Folder['links']>[number]; folderId: number; pointerId: number; clientX: number; clientY: number }];
+}>();
 
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
@@ -20,6 +39,103 @@ const faviconUrls = computed(() => new Map((folder.value.links || []).map((link)
 
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
+}
+
+const DRAG_ARM_DELAY = 1000;
+const DELETE_DELAY = 3000;
+const MOVE_TOLERANCE = 10;
+const armedLinkId = ref<number | null>(null);
+let pressTimer: ReturnType<typeof setTimeout> | undefined;
+let deleteTimer: ReturnType<typeof setTimeout> | undefined;
+let suppressClickTimer: ReturnType<typeof setTimeout> | undefined;
+let suppressClickLinkId: number | null = null;
+let activePress: {
+  link: NonNullable<Folder['links']>[number];
+  pointerId: number;
+  startX: number;
+  startY: number;
+  element: HTMLElement;
+} | null = null;
+
+function clearPressTimers() {
+  clearTimeout(pressTimer);
+  clearTimeout(deleteTimer);
+  pressTimer = undefined;
+  deleteTimer = undefined;
+}
+
+function suppressNextClick(linkId: number) {
+  suppressClickLinkId = linkId;
+  clearTimeout(suppressClickTimer);
+  suppressClickTimer = setTimeout(() => {
+    if (suppressClickLinkId === linkId) suppressClickLinkId = null;
+  }, 700);
+}
+
+function resetPress() {
+  clearPressTimers();
+  if (activePress?.element.hasPointerCapture?.(activePress.pointerId)) {
+    activePress.element.releasePointerCapture(activePress.pointerId);
+  }
+  activePress = null;
+  armedLinkId.value = null;
+}
+
+function onBookmarkPointerDown(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
+  if (!props.editable || event.button !== 0 || activePress) return;
+  const element = event.currentTarget;
+  if (!(element instanceof HTMLElement)) return;
+  activePress = { link, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, element };
+  pressTimer = setTimeout(() => {
+    if (!activePress || activePress.link.id !== link.id) return;
+    armedLinkId.value = link.id;
+    activePress.element.setPointerCapture?.(activePress.pointerId);
+  }, DRAG_ARM_DELAY);
+  deleteTimer = setTimeout(() => {
+    if (!activePress || activePress.link.id !== link.id) return;
+    suppressNextClick(link.id);
+    resetPress();
+    emit('bookmark-delete-request', { link, folderId: folder.value.id });
+  }, DELETE_DELAY);
+}
+
+function onBookmarkPointerMove(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
+  if (!activePress || activePress.pointerId !== event.pointerId || activePress.link.id !== link.id) return;
+  const distance = Math.hypot(event.clientX - activePress.startX, event.clientY - activePress.startY);
+  if (distance <= MOVE_TOLERANCE) return;
+  if (armedLinkId.value !== link.id) {
+    resetPress();
+    return;
+  }
+  suppressNextClick(link.id);
+  clearPressTimers();
+  activePress = null;
+  armedLinkId.value = null;
+  emit('bookmark-drag-start', {
+    link,
+    folderId: folder.value.id,
+    pointerId: event.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  });
+}
+
+function onBookmarkPointerEnd(linkId: number) {
+  if (!activePress || activePress.link.id !== linkId) return;
+  if (armedLinkId.value === linkId) suppressNextClick(linkId);
+  resetPress();
+}
+
+function onBookmarkClick(linkId: number, event: MouseEvent) {
+  if (suppressClickLinkId !== linkId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressClickLinkId = null;
+  clearTimeout(suppressClickTimer);
+}
+
+function onBookmarkContextMenu(event: MouseEvent) {
+  if (props.editable && activePress) event.preventDefault();
 }
 
 // Pointer spotlight only earns its keep on precise hover devices with motion allowed.
@@ -56,6 +172,8 @@ function onCardPointerleave() {
 
 onUnmounted(() => {
   if (spotFrame) cancelAnimationFrame(spotFrame);
+  clearPressTimers();
+  clearTimeout(suppressClickTimer);
 });
 </script>
 
@@ -86,8 +204,39 @@ onUnmounted(() => {
       </div>
       <span>分类已锁定，请输入密码解锁</span>
     </div>
-    <div v-else class="large-links folder-glass-panel" :class="{ 'is-scrollable': (folder.links || []).length > 15 }">
-      <a v-for="link in folder.links || []" :key="link.id" class="large-link" :href="link.url" :title="link.name" target="_blank" rel="noreferrer">
+    <div
+      v-else
+      class="large-links folder-glass-panel"
+      :class="{ 'is-scrollable': (folder.links || []).length > 15, 'is-drop-target': props.dropActive }"
+      :data-drop-folder-id="folder.id"
+      :data-testid="`bookmark-drop-folder-${folder.id}`"
+    >
+      <a
+        v-for="link in folder.links || []"
+        :key="link.id"
+        class="large-link"
+        :class="{
+          'is-editable': props.editable,
+          'is-drag-armed': armedLinkId === link.id,
+          'is-dragging-source': props.draggingLinkId === link.id,
+          'drop-before': props.dropLinkId === link.id && props.dropSide === 'before',
+          'drop-after': props.dropLinkId === link.id && props.dropSide === 'after',
+        }"
+        :href="link.url"
+        :title="link.name"
+        :data-bookmark-id="link.id"
+        :data-testid="`public-bookmark-${link.id}`"
+        target="_blank"
+        rel="noreferrer"
+        draggable="false"
+        @pointerdown="onBookmarkPointerDown(link, $event)"
+        @pointermove="onBookmarkPointerMove(link, $event)"
+        @pointerup="onBookmarkPointerEnd(link.id)"
+        @pointercancel="onBookmarkPointerEnd(link.id)"
+        @click="onBookmarkClick(link.id, $event)"
+        @contextmenu="onBookmarkContextMenu"
+        @dragstart.prevent
+      >
         <img
           v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
           :src="faviconUrls.get(link.id)"
@@ -254,6 +403,58 @@ h2 {
     box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.large-link.is-editable {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.large-link.is-drag-armed {
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--accent-bright-rgb), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
+  cursor: grabbing;
+  transform: translateY(-2px) scale(1.02);
+}
+
+.large-link.is-dragging-source {
+  opacity: 0.2;
+}
+
+.large-links.is-drop-target {
+  border-color: rgba(var(--accent-bright-rgb), 0.76);
+  box-shadow:
+    inset 0 0 0 2px rgba(var(--accent-rgb), 0.18),
+    0 16px 36px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.14);
+}
+
+.large-link.drop-before,
+.large-link.drop-after {
+  overflow: visible;
+  position: relative;
+}
+
+.large-link.drop-before::before,
+.large-link.drop-after::after {
+  background: var(--accent-bright, #34d399);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
+  content: '';
+  height: 24px;
+  position: absolute;
+  top: 2px;
+  width: 3px;
+  z-index: 3;
+}
+
+.large-link.drop-before::before {
+  left: -3px;
+}
+
+.large-link.drop-after::after {
+  right: -1px;
 }
 
 .large-link:hover,
