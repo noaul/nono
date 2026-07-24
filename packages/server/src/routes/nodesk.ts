@@ -1,11 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../plugins/auth.js';
-import { sendOk } from '../plugins/responses.js';
+import { sendError, sendOk } from '../plugins/responses.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
 import type { AppServices } from '../types.js';
 
 export async function nodeskRoutes(app: FastifyInstance, services: AppServices) {
   const store = new NodeskContentStore(services.nodeskContentDir);
+
+  app.get('/images/:filename', async (request, reply) => {
+    const filename = String((request.params as { filename?: string }).filename || '');
+    if (!/^avatar-[a-f0-9]{64}\.webp$/i.test(filename)) {
+      return sendError(reply, 404, 'Nodesk asset not found');
+    }
+    const content = await store.read(`public/images/${filename}`);
+    return reply
+      .type('image/webp')
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .send(content);
+  });
 
   app.get('/api/nodesk/content/:resource', async (request, reply) => {
     const resource = String((request.params as { resource?: string }).resource || '');

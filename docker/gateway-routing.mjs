@@ -1,5 +1,6 @@
 const blogPublicPrefixes = ['/blogs/', '/images/', '/live2d/', '/music/'];
 const blogPublicFiles = new Set(['/favicon.png', '/manifest.json']);
+const versionedAvatarPath = /^\/images\/avatar-[a-f0-9]{64}\.webp$/i;
 
 export function targetFor(url = '/', ports) {
   const nomoneyPath = stripMountPath(url, '/nomoney');
@@ -12,6 +13,9 @@ export function targetFor(url = '/', ports) {
   }
 
   const pathname = url.split('?', 1)[0];
+  if (versionedAvatarPath.test(pathname)) {
+    return { name: 'nono', port: ports.nono, path: url };
+  }
   if (blogPublicFiles.has(pathname) || blogPublicPrefixes.some(prefix => pathname.startsWith(prefix))) {
     return { name: 'blog', port: ports.blog, path: `/nodesk${url}` };
   }

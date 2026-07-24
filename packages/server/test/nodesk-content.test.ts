@@ -147,4 +147,24 @@ describe('Nodesk local content API', () => {
     expect(response.statusCode).toBe(200);
     await expect(fs.readFile(path.join(contentDir, avatarPath))).resolves.toEqual(Buffer.from('avatar'));
   });
+
+  it('serves versioned avatar images from the runtime content store', async () => {
+    const hash = 'b'.repeat(64);
+    const avatarPath = `public/images/avatar-${hash}.webp`;
+    const avatar = Buffer.from('runtime-avatar');
+    const write = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nodesk/files/batch',
+      headers: { cookie },
+      payload: { files: [{ path: avatarPath, contentBase64: avatar.toString('base64') }] },
+    });
+    expect(write.statusCode).toBe(200);
+
+    const response = await app.inject({ method: 'GET', url: `/images/avatar-${hash}.webp` });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('image/webp');
+    expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(response.rawPayload).toEqual(avatar);
+  });
 });

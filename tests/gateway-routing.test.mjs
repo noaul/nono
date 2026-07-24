@@ -31,6 +31,12 @@ test('keeps Nodesk and Nono routing behavior intact', async () => {
     port: 2025,
     path: '/nodesk/images/avatar.png',
   });
+  const versionedAvatar = `/images/avatar-${'a'.repeat(64)}.webp`;
+  assert.deepEqual(targetFor(versionedAvatar, ports), {
+    name: 'nono',
+    port: 3001,
+    path: versionedAvatar,
+  });
   assert.deepEqual(targetFor('/api/navigation/admin', ports), {
     name: 'nono',
     port: 3001,
