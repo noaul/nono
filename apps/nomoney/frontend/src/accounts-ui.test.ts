@@ -25,6 +25,8 @@ describe('NoMoney account management UI', () => {
     expect(page).toContain("params.set('accountType', accountTypeFilter)");
     expect(page).toContain('<AccountAppIcon');
     expect(page).toContain('<CountryFlag');
+    expect(page).toContain('className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center"');
+    expect(page).not.toContain('className="absolute left-3 top-3 z-10"');
     expect(page).toContain("api.post<{ item: CommunicationAccount }>('/api/accounts'");
     expect(page).toContain("api.put<{ item: CommunicationAccount }>(`/api/accounts/${editing.id}`");
     expect(page).toContain("api.delete(`/api/accounts/${item.id}`)");

@@ -243,7 +243,9 @@ export function AccountPage() {
           <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
             <Field label={copy('国家 / 地区', 'Country / region')}>
               <div className="relative">
-                <CountryFlag countryIso={form.countryIso} className="absolute left-3 top-3 z-10" />
+                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center">
+                  <CountryFlag countryIso={form.countryIso} />
+                </span>
                 <select className={`${inputClass} pl-10`} value={form.countryIso} onChange={(event) => updateCountry(event.target.value)}>
                   {countryOptions.map((country) => <option key={country.iso} value={country.iso}>{country.name}</option>)}
                 </select>
