@@ -23,6 +23,7 @@ model User {
   updatedAt                DateTime                  @updatedAt
   sites                    Site[]
   folders                  Folder[]
+  trashItems               TrashItem[]
   apiTokens                ApiToken[]
   authSessions             AuthSession[]
   passkeys                 PasskeyCredential[]
@@ -157,6 +158,19 @@ model Link {
 
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
+}
+
+model TrashItem {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  entityId  Int
+  label     String
+  payload   Json
+  deletedAt DateTime @default(now())
+
+  @@index([userId, deletedAt])
 }
 
 model ApiToken {

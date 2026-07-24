@@ -26,7 +26,7 @@ function pointerEvent(type: string, init: { pointerId: number; clientX: number; 
   return event;
 }
 
-describe('homepage bookmark long press', () => {
+describe('homepage organize mode interactions', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -35,29 +35,24 @@ describe('homepage bookmark long press', () => {
     vi.useRealTimers();
   });
 
-  it('arms dragging after one second and starts when the pointer moves', async () => {
-    const wrapper = mount(FolderCard, { props: { folder, editable: true } });
+  it('starts bookmark dragging immediately while organize mode is active', async () => {
+    const wrapper = mount(FolderCard, { props: { folder, editable: true, organizing: true } });
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
 
     bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 7, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(1000);
-    await wrapper.vm.$nextTick();
-    expect(bookmark.classes()).toContain('is-drag-armed');
-
-    bookmark.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 7, clientX: 42, clientY: 20 }));
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted('bookmark-drag-start')).toHaveLength(1);
     expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
   });
 
-  it('requests deletion after three seconds without movement', async () => {
+  it('does not attach long-press actions to individual bookmarks outside organize mode', async () => {
     const wrapper = mount(FolderCard, { props: { folder, editable: true } });
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
 
     bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 8, clientX: 20, clientY: 20 }));
     await vi.advanceTimersByTimeAsync(3000);
 
-    expect(wrapper.emitted('bookmark-delete-request')).toHaveLength(1);
+    expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
     expect(wrapper.emitted('bookmark-drag-start')).toBeUndefined();
   });
 

@@ -16,6 +16,7 @@ import {
   Menu,
   Settings,
   ScrollText,
+  Trash2,
   User,
   Users,
   X,
@@ -62,6 +63,7 @@ const navSections = [
     items: [
       { to: '/admin/notifications', label: '通知中心', title: '通知中心', icon: Bell },
       { to: '/admin/account', label: '账户', title: '账户设置', icon: User },
+      { to: '/admin/trash', label: '回收站', title: '回收站', icon: Trash2 },
       { to: '/admin/backups', label: '备份', title: '备份与恢复', icon: Archive, adminOnly: true },
       { to: '/admin/audit', label: '审计日志', title: '操作审计', icon: ScrollText, adminOnly: true },
       { to: '/admin/users', label: '用户', title: '用户管理', icon: Users, adminOnly: true },

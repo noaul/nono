@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
-import { Lock, Maximize2 } from 'lucide-vue-next';
+import { GripVertical, Lock, Maximize2, Trash2 } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
@@ -13,24 +13,34 @@ const props = withDefaults(defineProps<{
   depth?: number;
   highlight?: string;
   editable?: boolean;
+  organizing?: boolean;
+  folderDraggable?: boolean;
   draggingLinkId?: number | null;
+  draggingFolderId?: number | null;
   dropActive?: boolean;
   dropLinkId?: number | null;
   dropSide?: 'before' | 'after' | '';
+  folderDropSide?: 'before' | 'after' | '';
 }>(), {
   depth: 0,
   highlight: '',
   editable: false,
+  organizing: false,
+  folderDraggable: false,
   draggingLinkId: null,
+  draggingFolderId: null,
   dropActive: false,
   dropLinkId: null,
   dropSide: '',
+  folderDropSide: '',
 });
 const emit = defineEmits<{
   verify: [folder: Folder];
   expand: [folder: Folder];
   'bookmark-delete-request': [payload: { link: NonNullable<Folder['links']>[number]; folderId: number }];
+  'folder-delete-request': [folder: Folder];
   'bookmark-drag-start': [payload: { link: NonNullable<Folder['links']>[number]; folderId: number; pointerId: number; clientX: number; clientY: number }];
+  'folder-drag-start': [payload: { folder: Folder; pointerId: number; clientX: number; clientY: number }];
 }>();
 
 const faviconErrors = ref<Record<string | number, boolean>>({});
@@ -41,76 +51,9 @@ function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
 }
 
-const DRAG_ARM_DELAY = 1000;
-const DELETE_DELAY = 3000;
-const MOVE_TOLERANCE = 10;
-const armedLinkId = ref<number | null>(null);
-let pressTimer: ReturnType<typeof setTimeout> | undefined;
-let deleteTimer: ReturnType<typeof setTimeout> | undefined;
-let suppressClickTimer: ReturnType<typeof setTimeout> | undefined;
-let suppressClickLinkId: number | null = null;
-let activePress: {
-  link: NonNullable<Folder['links']>[number];
-  pointerId: number;
-  startX: number;
-  startY: number;
-  element: HTMLElement;
-} | null = null;
-
-function clearPressTimers() {
-  clearTimeout(pressTimer);
-  clearTimeout(deleteTimer);
-  pressTimer = undefined;
-  deleteTimer = undefined;
-}
-
-function suppressNextClick(linkId: number) {
-  suppressClickLinkId = linkId;
-  clearTimeout(suppressClickTimer);
-  suppressClickTimer = setTimeout(() => {
-    if (suppressClickLinkId === linkId) suppressClickLinkId = null;
-  }, 700);
-}
-
-function resetPress() {
-  clearPressTimers();
-  if (activePress?.element.hasPointerCapture?.(activePress.pointerId)) {
-    activePress.element.releasePointerCapture(activePress.pointerId);
-  }
-  activePress = null;
-  armedLinkId.value = null;
-}
-
 function onBookmarkPointerDown(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
-  if (!props.editable || event.button !== 0 || activePress) return;
-  const element = event.currentTarget;
-  if (!(element instanceof HTMLElement)) return;
-  activePress = { link, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, element };
-  pressTimer = setTimeout(() => {
-    if (!activePress || activePress.link.id !== link.id) return;
-    armedLinkId.value = link.id;
-    activePress.element.setPointerCapture?.(activePress.pointerId);
-  }, DRAG_ARM_DELAY);
-  deleteTimer = setTimeout(() => {
-    if (!activePress || activePress.link.id !== link.id) return;
-    suppressNextClick(link.id);
-    resetPress();
-    emit('bookmark-delete-request', { link, folderId: folder.value.id });
-  }, DELETE_DELAY);
-}
-
-function onBookmarkPointerMove(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
-  if (!activePress || activePress.pointerId !== event.pointerId || activePress.link.id !== link.id) return;
-  const distance = Math.hypot(event.clientX - activePress.startX, event.clientY - activePress.startY);
-  if (distance <= MOVE_TOLERANCE) return;
-  if (armedLinkId.value !== link.id) {
-    resetPress();
-    return;
-  }
-  suppressNextClick(link.id);
-  clearPressTimers();
-  activePress = null;
-  armedLinkId.value = null;
+  if (!props.editable || !props.organizing || event.button !== 0) return;
+  event.preventDefault();
   emit('bookmark-drag-start', {
     link,
     folderId: folder.value.id,
@@ -120,22 +63,17 @@ function onBookmarkPointerMove(link: NonNullable<Folder['links']>[number], event
   });
 }
 
-function onBookmarkPointerEnd(linkId: number) {
-  if (!activePress || activePress.link.id !== linkId) return;
-  if (armedLinkId.value === linkId) suppressNextClick(linkId);
-  resetPress();
-}
-
-function onBookmarkClick(linkId: number, event: MouseEvent) {
-  if (suppressClickLinkId !== linkId) return;
+function onBookmarkClick(event: MouseEvent) {
+  if (!props.organizing) return;
   event.preventDefault();
   event.stopPropagation();
-  suppressClickLinkId = null;
-  clearTimeout(suppressClickTimer);
 }
 
-function onBookmarkContextMenu(event: MouseEvent) {
-  if (props.editable && activePress) event.preventDefault();
+function onFolderPointerDown(event: PointerEvent) {
+  if (!props.editable || !props.organizing || !props.folderDraggable || event.button !== 0) return;
+  if (event.target instanceof Element && event.target.closest('button')) return;
+  event.preventDefault();
+  emit('folder-drag-start', { folder: folder.value, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
 }
 
 // Pointer spotlight only earns its keep on precise hover devices with motion allowed.
@@ -172,26 +110,41 @@ function onCardPointerleave() {
 
 onUnmounted(() => {
   if (spotFrame) cancelAnimationFrame(spotFrame);
-  clearPressTimers();
-  clearTimeout(suppressClickTimer);
 });
 </script>
 
 <template>
   <section
     class="large-folder"
+    :class="{
+      'is-organizing': props.organizing,
+      'is-dragging-source': props.draggingFolderId === folder.id,
+      'folder-drop-before': props.folderDropSide === 'before',
+      'folder-drop-after': props.folderDropSide === 'after',
+    }"
     :id="`folder-${folder.id}`"
+    :data-folder-card-id="folder.id"
     :style="[{ '--public-folder-depth': props.depth }, spotStyle]"
     @pointermove="onCardPointermove"
     @pointerleave="onCardPointerleave"
   >
-    <header class="large-folder-title">
-      <span class="title-spacer" aria-hidden="true"></span>
+    <header class="large-folder-title" :data-testid="`folder-drag-handle-${folder.id}`" @pointerdown="onFolderPointerDown">
+      <button
+        v-if="props.organizing"
+        class="organize-delete-button"
+        type="button"
+        title="删除文件夹"
+        :data-testid="`delete-folder-${folder.id}`"
+        @pointerdown.stop
+        @click.stop="emit('folder-delete-request', folder)"
+      ><Trash2 :size="14" /></button>
+      <span v-else class="title-spacer" aria-hidden="true"></span>
       <div class="title-main">
         <FolderGlyph class="title-icon" :icon="folder.icon" :size="18" />
         <h2>{{ folder.name }}</h2>
       </div>
-      <button v-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
+      <span v-if="props.organizing" class="folder-drag-indicator" aria-hidden="true"><GripVertical :size="16" /></span>
+      <button v-else-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
         <Lock :size="16" />
       </button>
       <button v-else class="folder-expand" type="button" title="展开文件夹" data-testid="folder-expand" @click="$emit('expand', folder)">
@@ -211,48 +164,59 @@ onUnmounted(() => {
       :data-drop-folder-id="folder.id"
       :data-testid="`bookmark-drop-folder-${folder.id}`"
     >
-      <a
+      <div
         v-for="link in folder.links || []"
         :key="link.id"
-        class="large-link"
+        class="bookmark-cell"
         :class="{
-          'is-editable': props.editable,
-          'is-drag-armed': armedLinkId === link.id,
+          'is-organizing': props.organizing,
           'is-dragging-source': props.draggingLinkId === link.id,
           'drop-before': props.dropLinkId === link.id && props.dropSide === 'before',
           'drop-after': props.dropLinkId === link.id && props.dropSide === 'after',
         }"
-        :href="link.url"
-        :title="link.name"
+        :style="{ '--wiggle-delay': `${-((link.id % 7) * 37)}ms` }"
         :data-bookmark-id="link.id"
-        :data-testid="`public-bookmark-${link.id}`"
-        target="_blank"
-        rel="noreferrer"
-        draggable="false"
-        @pointerdown="onBookmarkPointerDown(link, $event)"
-        @pointermove="onBookmarkPointerMove(link, $event)"
-        @pointerup="onBookmarkPointerEnd(link.id)"
-        @pointercancel="onBookmarkPointerEnd(link.id)"
-        @click="onBookmarkClick(link.id, $event)"
-        @contextmenu="onBookmarkContextMenu"
-        @dragstart.prevent
       >
-        <img
-          v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
-          :src="faviconUrls.get(link.id)"
-          class="large-link-icon link-favicon"
-          alt=""
-          loading="lazy"
-          decoding="async"
-          @error="handleFaviconError(link.id)"
-        />
-        <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="16" />
-        <span>
-          <template v-for="(segment, index) in splitHighlight(compactBookmarkLabel(link.name), props.highlight)" :key="index">
-            <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
-          </template>
-        </span>
-      </a>
+        <a
+          class="large-link"
+          :class="{ 'is-editable': props.editable && props.organizing }"
+          :href="link.url"
+          :title="link.name"
+          :data-testid="`public-bookmark-${link.id}`"
+          target="_blank"
+          rel="noreferrer"
+          draggable="false"
+          @pointerdown="onBookmarkPointerDown(link, $event)"
+          @click="onBookmarkClick"
+          @contextmenu="props.organizing && $event.preventDefault()"
+          @dragstart.prevent
+        >
+          <img
+            v-if="faviconUrls.get(link.id) && !faviconErrors[link.id]"
+            :src="faviconUrls.get(link.id)"
+            class="large-link-icon link-favicon"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            @error="handleFaviconError(link.id)"
+          />
+          <FaviconBadge v-else class="large-link-icon fallback-link-icon" :name="link.name" :url="link.url" :size="16" />
+          <span>
+            <template v-for="(segment, index) in splitHighlight(compactBookmarkLabel(link.name), props.highlight)" :key="index">
+              <mark v-if="segment.hit">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template>
+            </template>
+          </span>
+        </a>
+        <button
+          v-if="props.organizing"
+          class="bookmark-delete-button"
+          type="button"
+          title="删除书签"
+          :data-testid="`delete-bookmark-${link.id}`"
+          @pointerdown.stop
+          @click.stop="emit('bookmark-delete-request', { link, folderId: folder.id })"
+        ><Trash2 :size="12" /></button>
+      </div>
     </div>
   </section>
 </template>
@@ -297,6 +261,36 @@ onUnmounted(() => {
 
 .large-folder:hover {
   transform: translateY(-2px);
+}
+
+.large-folder.is-organizing {
+  animation: organize-wiggle 0.34s ease-in-out infinite alternate;
+  animation-delay: -0.12s;
+}
+
+.large-folder.is-dragging-source {
+  opacity: 0.24;
+}
+
+.large-folder.folder-drop-before::before,
+.large-folder.folder-drop-after::before {
+  background: var(--accent-bright, #34d399);
+  border-radius: 3px;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.16);
+  content: '';
+  height: 4px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  z-index: 5;
+}
+
+.large-folder.folder-drop-before::before { top: -10px; }
+.large-folder.folder-drop-after::before { bottom: -10px; }
+
+@keyframes organize-wiggle {
+  from { transform: rotate(-0.45deg) translateY(-1px); }
+  to { transform: rotate(0.45deg) translateY(1px); }
 }
 
 .large-folder-title {
@@ -384,6 +378,12 @@ h2 {
   overscroll-behavior: contain;
 }
 
+.bookmark-cell {
+  height: 30px;
+  min-width: 0;
+  position: relative;
+}
+
 .large-link {
   align-items: center;
   background: transparent;
@@ -397,6 +397,7 @@ h2 {
   min-width: 0;
   overflow: hidden;
   padding: 2px 0 2px 5px;
+  width: 100%;
   transition:
     background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -405,22 +406,60 @@ h2 {
     transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.organize-delete-button,
+.bookmark-delete-button {
+  align-items: center;
+  background: rgba(225, 29, 72, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.2);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0;
+  z-index: 5;
+}
+
+.organize-delete-button {
+  height: 26px;
+  justify-self: center;
+  width: 26px;
+}
+
+.folder-drag-indicator {
+  align-items: center;
+  color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.72);
+  display: inline-flex;
+  justify-content: center;
+}
+
 .large-link.is-editable {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.large-link.is-drag-armed {
-  background: rgba(var(--accent-rgb), 0.2);
-  border-color: rgba(var(--accent-bright-rgb), 0.6);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
-  cursor: default;
-  transform: translateY(-2px) scale(1.02);
+.bookmark-cell.is-dragging-source {
+  opacity: 0.2;
 }
 
-.large-link.is-dragging-source {
-  opacity: 0.2;
+.bookmark-cell.is-organizing {
+  animation: bookmark-wiggle 0.28s ease-in-out infinite alternate;
+  animation-delay: var(--wiggle-delay, 0ms);
+}
+
+.bookmark-delete-button {
+  height: 19px;
+  position: absolute;
+  right: -2px;
+  top: -5px;
+  width: 19px;
+}
+
+@keyframes bookmark-wiggle {
+  from { transform: rotate(-0.7deg); }
+  to { transform: rotate(0.7deg); }
 }
 
 .large-links.is-drop-target {
@@ -430,14 +469,14 @@ h2 {
     0 16px 36px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.14);
 }
 
-.large-link.drop-before,
-.large-link.drop-after {
+.bookmark-cell.drop-before,
+.bookmark-cell.drop-after {
   overflow: visible;
   position: relative;
 }
 
-.large-link.drop-before::before,
-.large-link.drop-after::after {
+.bookmark-cell.drop-before::before,
+.bookmark-cell.drop-after::after {
   background: var(--accent-bright, #34d399);
   border-radius: 2px;
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
@@ -449,11 +488,11 @@ h2 {
   z-index: 3;
 }
 
-.large-link.drop-before::before {
+.bookmark-cell.drop-before::before {
   left: -3px;
 }
 
-.large-link.drop-after::after {
+.bookmark-cell.drop-after::after {
   right: -1px;
 }
 
@@ -615,6 +654,7 @@ mark {
 
 @media (prefers-reduced-motion: reduce) {
   .large-folder,
+  .bookmark-cell,
   .large-link,
   .folder-expand,
   .lock-btn,

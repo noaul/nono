@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Trash2, X } from 'lucide-vue-next';
 import type { Link } from '@/api/types';
 
-const props = withDefaults(defineProps<{ link: Link; busy?: boolean }>(), { busy: false });
+const props = withDefaults(defineProps<{
+  link?: Link;
+  label?: string;
+  kind?: 'bookmark' | 'folder' | 'notab';
+  busy?: boolean;
+}>(), { label: '', kind: 'bookmark', busy: false });
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const dialog = ref<HTMLElement | null>(null);
 const cancelButton = ref<HTMLButtonElement | null>(null);
 let previousFocus: HTMLElement | null = null;
+const displayLabel = computed(() => props.label || props.link?.name || '未命名项目');
+const kindLabel = computed(() => props.kind === 'bookmark' ? '书签' : props.kind === 'folder' ? '文件夹' : 'Notab');
 
 function cancel() {
   if (!props.busy) emit('cancel');
@@ -51,8 +58,8 @@ onBeforeUnmount(() => {
     <section ref="dialog" data-testid="bookmark-delete-dialog" class="bookmark-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="bookmark-delete-title" tabindex="-1">
       <div class="bookmark-delete-icon" aria-hidden="true"><Trash2 :size="20" /></div>
       <div class="bookmark-delete-copy">
-        <h2 id="bookmark-delete-title">删除书签</h2>
-        <p>确定删除<strong>“{{ link.name }}”</strong>吗？删除后无法恢复。</p>
+        <h2 id="bookmark-delete-title">删除{{ kindLabel }}</h2>
+        <p>确定删除<strong>“{{ displayLabel }}”</strong>吗？删除后可从回收站恢复。</p>
       </div>
       <button class="bookmark-delete-close" type="button" aria-label="关闭" :disabled="busy" @click="cancel">
         <X :size="17" />

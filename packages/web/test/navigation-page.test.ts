@@ -350,20 +350,26 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
-  it('confirms a three-second bookmark deletion and closes the grid gap', async () => {
+  it('enters organize mode by holding All for three seconds and deletes bookmarks to the recycle bin', async () => {
     vi.useFakeTimers();
     const wrapper = await mountNavigationPage(true);
-    const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
 
-    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 10, clientX: 20, clientY: 20 }));
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 10, clientX: 20, clientY: 20 }));
     await vi.advanceTimersByTimeAsync(3000);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get('.navigation-reveal-content').classes()).toContain('is-organizing');
+    expect(wrapper.get('[data-testid="category-tab-all"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[data-testid="public-folder-card-2"]').classes()).toContain('is-organizing');
+
+    await wrapper.get('[data-testid="delete-bookmark-10"]').trigger('click');
     expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('Vue');
+    expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('回收站');
 
     await wrapper.get('[data-testid="bookmark-delete-cancel"]').trigger('click');
     expect(wrapper.find('[data-testid="bookmark-delete-dialog"]').exists()).toBe(false);
 
-    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 11, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await wrapper.get('[data-testid="delete-bookmark-10"]').trigger('click');
     await wrapper.get('[data-testid="bookmark-delete-confirm"]').trigger('click');
     await Promise.resolve();
     await wrapper.vm.$nextTick();
@@ -392,22 +398,24 @@ describe('NavigationPage public workflow', () => {
       ],
     });
     const wrapper = await mountNavigationPage(true);
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 90, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
     const secondTab = wrapper.get('[data-testid="category-tab-3"]').element;
     const elementFromPoint = vi.fn(() => secondTab);
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: elementFromPoint });
 
     bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 12, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(1000);
-    bookmark.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 12, clientX: 45, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointermove', { pointerId: 12, clientX: 45, clientY: 20 }));
     await vi.advanceTimersByTimeAsync(650);
     await wrapper.vm.$nextTick();
 
     expect(wrapper.get('[data-testid="category-tab-3"]').attributes('aria-pressed')).toBe('true');
     const targetPanel = wrapper.get('[data-testid="bookmark-drop-folder-4"]').element;
     elementFromPoint.mockReturnValue(targetPanel);
-    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 100, clientY: 100, bubbles: true }));
-    window.dispatchEvent(new MouseEvent('pointerup', { clientX: 100, clientY: 100, bubbles: true }));
+    window.dispatchEvent(pointerEvent('pointermove', { pointerId: 12, clientX: 100, clientY: 100 }));
+    window.dispatchEvent(pointerEvent('pointerup', { pointerId: 12, clientX: 100, clientY: 100 }));
     const postDropClick = new MouseEvent('click', { bubbles: true, cancelable: true });
     window.dispatchEvent(postDropClick);
     await Promise.resolve();
@@ -422,7 +430,7 @@ describe('NavigationPage public workflow', () => {
     vi.useRealTimers();
   });
 
-  it('reorders bookmarks inside the same folder after a one-second hold', async () => {
+  it('reorders bookmarks immediately inside the same folder during organize mode', async () => {
     vi.useFakeTimers();
     apiRequest.mockResolvedValue({
       ...navigationPayload(),
@@ -438,13 +446,15 @@ describe('NavigationPage public workflow', () => {
       ],
     });
     const wrapper = await mountNavigationPage(true);
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 91, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
     const source = wrapper.get('[data-testid="public-bookmark-10"]');
     const target = wrapper.get('[data-testid="public-bookmark-11"]').element;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => target });
 
     source.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 13, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(1000);
-    source.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 13, clientX: 45, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointermove', { pointerId: 13, clientX: 45, clientY: 20 }));
     window.dispatchEvent(pointerEvent('pointerup', { pointerId: 13, clientX: 45, clientY: 20 }));
     const postDragClick = new MouseEvent('click', { bubbles: true, cancelable: true });
     source.element.dispatchEvent(postDragClick);
@@ -457,6 +467,78 @@ describe('NavigationPage public workflow', () => {
     });
     expect(postDragClick.defaultPrevented).toBe(true);
     expect(wrapper.get('[data-testid="bookmark-drop-folder-2"]').findAll('.large-link').map((item) => item.text())).toEqual(['Vite', 'Vue']);
+  });
+
+  it('keeps organize mode unavailable to signed-out visitors', async () => {
+    vi.useFakeTimers();
+    const wrapper = await mountNavigationPage(false);
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 92, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(wrapper.get('.navigation-reveal-content').classes()).not.toContain('is-organizing');
+  });
+
+  it('suppresses the mobile context menu while the owner holds All to organize', async () => {
+    const wrapper = await mountNavigationPage(true);
+    const contextMenu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    wrapper.get('[data-testid="category-tab-all"]').element.dispatchEvent(contextMenu);
+    expect(contextMenu.defaultPrevented).toBe(true);
+  });
+
+  it('reorders Notabs directly while organize mode is active', async () => {
+    vi.useFakeTimers();
+    apiRequest.mockResolvedValue({
+      ...navigationPayload(),
+      folders: [
+        ...navigationPayload().folders,
+        { id: 3, userId: 1, parentId: null, name: 'Second', sortOrder: 80, locked: false, links: [] },
+      ],
+    });
+    const wrapper = await mountNavigationPage(true);
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 93, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
+    const firstTab = wrapper.get('[data-testid="category-tab-1"]');
+    const secondTab = wrapper.get('[data-testid="category-tab-3"]').element;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => secondTab });
+
+    firstTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 94, clientX: 20, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointermove', { pointerId: 94, clientX: 45, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointerup', { pointerId: 94, clientX: 45, clientY: 20 }));
+    await Promise.resolve();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [3, 1] }),
+    });
+  });
+
+  it('reorders sibling folders directly while organize mode is active', async () => {
+    vi.useFakeTimers();
+    apiRequest.mockResolvedValue({
+      ...navigationPayload(),
+      folders: [
+        ...navigationPayload().folders,
+        { id: 3, userId: 1, parentId: 1, name: 'Second child', sortOrder: 80, locked: false, links: [] },
+      ],
+    });
+    const wrapper = await mountNavigationPage(true);
+    const allTab = wrapper.get('[data-testid="category-tab-all"]');
+    allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 95, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(3000);
+    const source = wrapper.get('[data-testid="folder-drag-handle-2"]');
+    const target = wrapper.get('[data-testid="public-folder-card-3"]').element;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => target });
+
+    source.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 96, clientX: 20, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointermove', { pointerId: 96, clientX: 45, clientY: 20 }));
+    window.dispatchEvent(pointerEvent('pointerup', { pointerId: 96, clientX: 45, clientY: 20 }));
+    await Promise.resolve();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [3, 2] }),
+    });
   });
 
   it('keeps the locked password entry indistinguishable from normal search', async () => {

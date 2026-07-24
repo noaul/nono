@@ -553,7 +553,7 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04)');
     expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)');
     expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
-    expect(navigationSource).toMatch(/\.folder-tabs button \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
+    expect(navigationSource).toMatch(/\.notab-select \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');
     expect(folderCardSource).not.toContain('folder-parent-label');
     expect(folderCardSource).toContain('rgba(var(--public-card-color-rgb');

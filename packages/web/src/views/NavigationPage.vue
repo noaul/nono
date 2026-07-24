@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Link2, LogIn, Settings, Star, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
@@ -43,9 +43,19 @@ const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
 const unlocking = ref(false);
-const pendingDelete = ref<{ link: Link; folderId: number } | null>(null);
-const deletingBookmark = ref(false);
+const pendingDelete = ref<{
+  kind: 'bookmark' | 'folder' | 'notab';
+  id: number;
+  label: string;
+  link?: Link;
+  folderId?: number;
+} | null>(null);
+const deletingItem = ref(false);
 const movingBookmark = ref(false);
+const movingFolder = ref(false);
+const movingNotab = ref(false);
+const organizing = ref(false);
+const organizeArming = ref(false);
 const bookmarkMessage = ref<{ kind: 'error' | 'success'; text: string } | null>(null);
 const bookmarkDrag = ref<{
   link: Link;
@@ -57,6 +67,27 @@ const bookmarkDrag = ref<{
   targetLinkId: number | null;
   targetSide: 'before' | 'after' | '';
 } | null>(null);
+const folderDrag = ref<{
+  folder: Folder;
+  sourceParentId: number | null;
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  targetParentId: number | null;
+  targetFolderId: number | null;
+  targetSide: 'before' | 'after' | '';
+} | null>(null);
+const notabDrag = ref<{
+  folder: Folder;
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  targetNotabId: number | null;
+  targetSide: 'before' | 'after' | '';
+} | null>(null);
+let organizePressTimer: ReturnType<typeof setTimeout> | undefined;
+let organizePress: { pointerId: number; startX: number; startY: number; element: HTMLElement } | null = null;
+let suppressTabClick = false;
 let notabHoverTimer: ReturnType<typeof setTimeout> | undefined;
 let hoveredNotabId: string | null = null;
 let bookmarkMessageTimer: ReturnType<typeof setTimeout> | undefined;
@@ -69,14 +100,14 @@ const resolvedMode = ref<ResolvedColorMode>(
 function updateTabIndicator() {
   const nav = tabsRef.value;
   tabsScrollable.value = Boolean(nav && nav.scrollWidth > nav.clientWidth + 1);
-  const active = nav?.querySelector<HTMLElement>('button.active');
+  const active = nav?.querySelector<HTMLElement>('.notab-select.active');
   if (!nav || !active) {
     tabIndicatorStyle.value = { opacity: '0' };
     return;
   }
   tabIndicatorStyle.value = {
     opacity: '1',
-    transform: `translateX(${active.offsetLeft}px)`,
+    transform: `translateX(${(active.parentElement?.classList.contains('notab-shell') ? active.parentElement.offsetLeft : 0) + active.offsetLeft}px)`,
     width: `${active.offsetWidth}px`,
   };
 }
@@ -106,6 +137,7 @@ const searchIndex = computed(() =>
   })),
 );
 const normalizedQuery = computed(() => debouncedQuery.value.trim().toLocaleLowerCase());
+const canOrganize = computed(() => canEditAppearance.value && !accessLocked.value && !normalizedQuery.value);
 const matchedLinkIds = computed(() => {
   if (!normalizedQuery.value) return null;
   return new Set(searchIndex.value.filter((entry) => entry.text.includes(normalizedQuery.value)).map((entry) => entry.id));
@@ -270,13 +302,81 @@ const shownFolders = computed(() => {
 });
 const foldersWithLinks = computed(() => shownFolders.value.filter((folder) => folder.locked || (folder.links?.length || 0) > 0 || !normalizedQuery.value));
 const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.value || appearanceOpen.value || pendingDelete.value));
+const anyDragActive = computed(() => Boolean(bookmarkDrag.value || folderDrag.value || notabDrag.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
 const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
+const dragPreview = computed(() => {
+  if (bookmarkDrag.value) return { kind: 'bookmark' as const, label: bookmarkDrag.value.link.name, x: bookmarkDrag.value.clientX, y: bookmarkDrag.value.clientY };
+  if (folderDrag.value) return { kind: 'folder' as const, label: folderDrag.value.folder.name, x: folderDrag.value.clientX, y: folderDrag.value.clientY };
+  if (notabDrag.value) return { kind: 'notab' as const, label: notabDrag.value.folder.name, x: notabDrag.value.clientX, y: notabDrag.value.clientY };
+  return null;
+});
 
 function selectCategory(id: string) {
   selectedCategoryId.value = id;
   renderedFolderCount.value = 24;
+}
+
+function stopOrganizePress() {
+  clearTimeout(organizePressTimer);
+  organizePressTimer = undefined;
+  if (organizePress?.element.hasPointerCapture?.(organizePress.pointerId)) {
+    organizePress.element.releasePointerCapture(organizePress.pointerId);
+  }
+  organizePress = null;
+  organizeArming.value = false;
+}
+
+function enterOrganizeMode() {
+  if (!canOrganize.value) return;
+  organizing.value = true;
+  selectedCategoryId.value = 'all';
+  renderedFolderCount.value = Math.max(24, foldersWithLinks.value.length);
+  suppressTabClick = true;
+  stopOrganizePress();
+  void nextTick(updateTabIndicator);
+}
+
+function exitOrganizeMode() {
+  stopOrganizePress();
+  cancelAllDrags();
+  organizing.value = false;
+  suppressTabClick = false;
+  void nextTick(updateTabIndicator);
+}
+
+function onNotabPointerDown(tabId: string, event: PointerEvent) {
+  if (event.button !== 0 || !canOrganize.value) return;
+  if (organizing.value) {
+    if (tabId !== 'all') onNotabDragStart(Number(tabId), event);
+    return;
+  }
+  if (tabId !== 'all' || organizePress) return;
+  const element = event.currentTarget;
+  if (!(element instanceof HTMLElement)) return;
+  organizePress = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, element };
+  organizeArming.value = true;
+  element.setPointerCapture?.(event.pointerId);
+  organizePressTimer = setTimeout(enterOrganizeMode, 3000);
+}
+
+function onNotabPointerMove(event: PointerEvent) {
+  if (!organizePress || organizePress.pointerId !== event.pointerId) return;
+  if (Math.hypot(event.clientX - organizePress.startX, event.clientY - organizePress.startY) > 10) stopOrganizePress();
+}
+
+function onNotabPointerEnd(event: PointerEvent) {
+  if (organizePress?.pointerId === event.pointerId) stopOrganizePress();
+}
+
+function onNotabClick(tabId: string, event: MouseEvent) {
+  if (suppressTabClick || (organizing.value && tabId !== 'all')) {
+    event.preventDefault();
+    suppressTabClick = false;
+    return;
+  }
+  selectCategory(tabId);
 }
 
 function findFolder(folderId: number) {
@@ -292,31 +392,86 @@ function showBookmarkMessage(kind: 'error' | 'success', text: string) {
 }
 
 function requestBookmarkDelete(request: { link: Link; folderId: number }) {
-  if (!canEditAppearance.value || normalizedQuery.value || accessLocked.value || bookmarkDrag.value) return;
-  pendingDelete.value = request;
+  if (!organizing.value || !canOrganize.value || anyDragActive.value) return;
+  pendingDelete.value = { kind: 'bookmark', id: request.link.id, label: request.link.name, link: request.link, folderId: request.folderId };
 }
 
-async function confirmBookmarkDelete() {
+function requestFolderDelete(folder: Folder) {
+  if (!organizing.value || !canOrganize.value || anyDragActive.value) return;
+  pendingDelete.value = {
+    kind: folder.parentId ? 'folder' : 'notab',
+    id: folder.id,
+    label: folder.name,
+  };
+}
+
+function requestNotabDelete(folderId: number) {
+  const folder = findFolder(folderId);
+  if (folder) requestFolderDelete(folder);
+}
+
+async function confirmItemDelete() {
   const request = pendingDelete.value;
-  if (!request || deletingBookmark.value || !canEditAppearance.value) return;
-  deletingBookmark.value = true;
+  if (!request || deletingItem.value || !canOrganize.value) return;
+  deletingItem.value = true;
   try {
-    await apiRequest(`/api/admin/links/${request.link.id}`, { method: 'DELETE' });
-    const folder = findFolder(request.folderId);
-    if (folder) folder.links = (folder.links || []).filter((link) => link.id !== request.link.id);
+    const path = request.kind === 'bookmark' ? `/api/admin/links/${request.id}` : `/api/admin/folders/${request.id}`;
+    await apiRequest(path, { method: 'DELETE' });
+    if (request.kind === 'bookmark') {
+      const folder = request.folderId ? findFolder(request.folderId) : null;
+      if (folder) folder.links = (folder.links || []).filter((link) => link.id !== request.id);
+    } else if (payload.value) {
+      const removedIds = collectFolderTreeIds(request.id);
+      payload.value.folders = payload.value.folders.filter((folder) => !removedIds.has(folder.id));
+      if (request.kind === 'notab' && selectedCategoryId.value === String(request.id)) selectedCategoryId.value = 'all';
+    }
     pendingDelete.value = null;
-    showBookmarkMessage('success', '书签已删除');
+    showBookmarkMessage('success', `${request.kind === 'bookmark' ? '书签' : request.kind === 'folder' ? '文件夹' : 'Notab'}已移入回收站`);
   } catch (error) {
     showBookmarkMessage('error', error instanceof Error ? error.message : '删除失败，请稍后重试');
   } finally {
-    deletingBookmark.value = false;
+    deletingItem.value = false;
   }
+}
+
+function collectFolderTreeIds(rootId: number) {
+  const ids = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of payload.value?.folders || []) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
 }
 
 function clearNotabHover() {
   clearTimeout(notabHoverTimer);
   notabHoverTimer = undefined;
   hoveredNotabId = null;
+}
+
+function scheduleNotabSwitch(notabId: string) {
+  if (notabId === selectedCategoryId.value) return false;
+  if (hoveredNotabId !== notabId) {
+    clearNotabHover();
+    hoveredNotabId = notabId;
+    notabHoverTimer = setTimeout(async () => {
+      if ((!bookmarkDrag.value && !folderDrag.value) || hoveredNotabId !== notabId) return;
+      selectedCategoryId.value = notabId;
+      renderedFolderCount.value = 24;
+      clearNotabHover();
+      await nextTick();
+      updateTabIndicator();
+      if (bookmarkDrag.value) resolveDropTarget(bookmarkDrag.value.clientX, bookmarkDrag.value.clientY);
+      if (folderDrag.value) resolveFolderDropTarget(folderDrag.value.clientX, folderDrag.value.clientY);
+    }, 600);
+  }
+  return true;
 }
 
 function resolveDropTarget(clientX: number, clientY: number) {
@@ -328,23 +483,10 @@ function resolveDropTarget(clientX: number, clientY: number) {
   const element = document.elementFromPoint(clientX, clientY);
   const notab = element?.closest<HTMLElement>('[data-notab-id]');
   const notabId = notab?.dataset.notabId || null;
-  if (notabId && notabId !== selectedCategoryId.value) {
+  if (notabId && scheduleNotabSwitch(notabId)) {
     drag.targetFolderId = null;
     drag.targetLinkId = null;
     drag.targetSide = '';
-    if (hoveredNotabId !== notabId) {
-      clearNotabHover();
-      hoveredNotabId = notabId;
-      notabHoverTimer = setTimeout(async () => {
-        if (!bookmarkDrag.value || hoveredNotabId !== notabId) return;
-        selectedCategoryId.value = notabId;
-        renderedFolderCount.value = 24;
-        clearNotabHover();
-        await nextTick();
-        updateTabIndicator();
-        if (bookmarkDrag.value) resolveDropTarget(bookmarkDrag.value.clientX, bookmarkDrag.value.clientY);
-      }, 600);
-    }
     return;
   }
   clearNotabHover();
@@ -379,7 +521,7 @@ function resolveDropTarget(clientX: number, clientY: number) {
 }
 
 function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId: number; clientX: number; clientY: number }) {
-  if (!canEditAppearance.value || normalizedQuery.value || accessLocked.value || anyModalOpen.value || bookmarkDrag.value || movingBookmark.value) return;
+  if (!organizing.value || !canOrganize.value || anyModalOpen.value || anyDragActive.value || movingBookmark.value) return;
   bookmarkDrag.value = {
     link: request.link,
     sourceFolderId: request.folderId,
@@ -390,7 +532,7 @@ function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId:
     targetLinkId: null,
     targetSide: '',
   };
-  document.body.classList.add('bookmark-dragging');
+  document.body.classList.add('organize-dragging');
   window.addEventListener('pointermove', onBookmarkDragMove);
   window.addEventListener('pointerup', onBookmarkDragEnd);
   window.addEventListener('pointercancel', cancelBookmarkDrag);
@@ -398,7 +540,7 @@ function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId:
 }
 
 function onBookmarkDragMove(event: PointerEvent) {
-  if (!bookmarkDrag.value) return;
+  if (!bookmarkDrag.value || event.pointerId !== bookmarkDrag.value.pointerId) return;
   event.preventDefault();
   resolveDropTarget(event.clientX, event.clientY);
 }
@@ -497,13 +639,13 @@ function finishBookmarkDrag() {
   window.removeEventListener('pointermove', onBookmarkDragMove);
   window.removeEventListener('pointerup', onBookmarkDragEnd);
   window.removeEventListener('pointercancel', cancelBookmarkDrag);
-  document.body.classList.remove('bookmark-dragging');
+  document.body.classList.remove('organize-dragging');
   bookmarkDrag.value = null;
 }
 
 function onBookmarkDragEnd(event: PointerEvent) {
   const drag = bookmarkDrag.value;
-  if (!drag) return;
+  if (!drag || event.pointerId !== drag.pointerId) return;
   resolveDropTarget(event.clientX, event.clientY);
   const completedDrag = { ...drag };
   suppressPostDragClick();
@@ -513,6 +655,260 @@ function onBookmarkDragEnd(event: PointerEvent) {
 
 function cancelBookmarkDrag() {
   if (bookmarkDrag.value) finishBookmarkDrag();
+}
+
+function foldersWithParent(parentId: number | null) {
+  return (payload.value?.folders || []).filter((folder) => (folder.parentId ?? null) === parentId);
+}
+
+function folderInsertionIndex(folders: Folder[], targetFolderId: number | null, side: 'before' | 'after' | '') {
+  if (!targetFolderId) return folders.length;
+  const targetIndex = folders.findIndex((folder) => folder.id === targetFolderId);
+  if (targetIndex < 0) return folders.length;
+  return Math.min(folders.length, targetIndex + (side === 'after' ? 1 : 0));
+}
+
+function applyFolderSortOrder(folders: Folder[]) {
+  folders.forEach((folder, index) => {
+    folder.sortOrder = (folders.length - index) * 10;
+  });
+}
+
+function replaceFolderSubsetOrder(folders: Folder[]) {
+  if (!payload.value) return;
+  const orderedIds = new Set(folders.map((folder) => folder.id));
+  let index = 0;
+  payload.value.folders = payload.value.folders.map((folder) => orderedIds.has(folder.id) ? folders[index++] : folder);
+}
+
+function isInvalidFolderParent(sourceId: number, parentId: number | null) {
+  let cursor = parentId ? findFolder(parentId) : null;
+  const visited = new Set<number>();
+  while (cursor && !visited.has(cursor.id)) {
+    if (cursor.id === sourceId) return true;
+    visited.add(cursor.id);
+    cursor = cursor.parentId ? findFolder(cursor.parentId) : undefined;
+  }
+  return false;
+}
+
+function resolveFolderDropTarget(clientX: number, clientY: number) {
+  const drag = folderDrag.value;
+  if (!drag || typeof document === 'undefined') return;
+  drag.clientX = clientX;
+  drag.clientY = clientY;
+  const element = document.elementFromPoint(clientX, clientY);
+  const notabId = element?.closest<HTMLElement>('[data-notab-id]')?.dataset.notabId;
+  if (notabId && scheduleNotabSwitch(notabId)) {
+    drag.targetParentId = null;
+    drag.targetFolderId = null;
+    drag.targetSide = '';
+    return;
+  }
+  clearNotabHover();
+
+  const targetElement = element?.closest<HTMLElement>('[data-folder-card-id]');
+  const targetId = Number(targetElement?.dataset.folderCardId);
+  const target = Number.isInteger(targetId) ? findFolder(targetId) : null;
+  if (target?.id === drag.folder.id) {
+    drag.targetParentId = null;
+    drag.targetFolderId = null;
+    drag.targetSide = '';
+    return;
+  }
+
+  const targetParentId = target
+    ? (target.parentId ? target.parentId : target.id)
+    : (selectedCategoryId.value === 'all' ? null : Number(selectedCategoryId.value));
+  if (!targetParentId || isInvalidFolderParent(drag.folder.id, targetParentId)) {
+    drag.targetParentId = null;
+    drag.targetFolderId = null;
+    drag.targetSide = '';
+    return;
+  }
+  drag.targetParentId = targetParentId;
+  drag.targetFolderId = target?.parentId ? target.id : null;
+  if (targetElement && drag.targetFolderId) {
+    const rect = targetElement.getBoundingClientRect();
+    drag.targetSide = clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  } else {
+    drag.targetSide = '';
+  }
+}
+
+function onFolderDragStart(request: { folder: Folder; pointerId: number; clientX: number; clientY: number }) {
+  if (!organizing.value || !canOrganize.value || !request.folder.parentId || anyModalOpen.value || anyDragActive.value || movingFolder.value) return;
+  folderDrag.value = {
+    folder: request.folder,
+    sourceParentId: request.folder.parentId,
+    pointerId: request.pointerId,
+    clientX: request.clientX,
+    clientY: request.clientY,
+    targetParentId: null,
+    targetFolderId: null,
+    targetSide: '',
+  };
+  document.body.classList.add('organize-dragging');
+  window.addEventListener('pointermove', onFolderDragMove);
+  window.addEventListener('pointerup', onFolderDragEnd);
+  window.addEventListener('pointercancel', cancelFolderDrag);
+  resolveFolderDropTarget(request.clientX, request.clientY);
+}
+
+function onFolderDragMove(event: PointerEvent) {
+  if (!folderDrag.value || event.pointerId !== folderDrag.value.pointerId) return;
+  event.preventDefault();
+  resolveFolderDropTarget(event.clientX, event.clientY);
+}
+
+async function persistFolderDrop(drag: NonNullable<typeof folderDrag.value>) {
+  if (!drag.targetParentId) return;
+  const sourceBefore = foldersWithParent(drag.sourceParentId);
+  const targetBefore = drag.sourceParentId === drag.targetParentId ? sourceBefore : foldersWithParent(drag.targetParentId);
+  const sourceNext = sourceBefore.filter((folder) => folder.id !== drag.folder.id);
+  const targetBase = drag.sourceParentId === drag.targetParentId
+    ? sourceNext
+    : targetBefore.filter((folder) => folder.id !== drag.folder.id);
+  const targetNext = [...targetBase];
+  targetNext.splice(folderInsertionIndex(targetBase, drag.targetFolderId, drag.targetSide), 0, drag.folder);
+  if (drag.sourceParentId === drag.targetParentId && sourceBefore.every((folder, index) => folder.id === targetNext[index]?.id)) return;
+
+  drag.folder.parentId = drag.targetParentId;
+  applyFolderSortOrder(targetNext);
+  replaceFolderSubsetOrder(targetNext);
+  movingFolder.value = true;
+  try {
+    if (drag.sourceParentId !== drag.targetParentId) {
+      await apiRequest(`/api/admin/folders/${drag.folder.id}`, {
+        method: 'PUT',
+        body: jsonBody({ parentId: drag.targetParentId }),
+      });
+    }
+    await apiRequest('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: jsonBody({ ids: targetNext.map((folder) => folder.id) }),
+    });
+  } catch (error) {
+    await navigation.load(username.value).catch(() => undefined);
+    showBookmarkMessage('error', error instanceof Error ? error.message : '文件夹移动失败，请稍后重试');
+  } finally {
+    movingFolder.value = false;
+  }
+}
+
+function finishFolderDrag() {
+  clearNotabHover();
+  window.removeEventListener('pointermove', onFolderDragMove);
+  window.removeEventListener('pointerup', onFolderDragEnd);
+  window.removeEventListener('pointercancel', cancelFolderDrag);
+  document.body.classList.remove('organize-dragging');
+  folderDrag.value = null;
+}
+
+function onFolderDragEnd(event: PointerEvent) {
+  const drag = folderDrag.value;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  resolveFolderDropTarget(event.clientX, event.clientY);
+  const completed = { ...drag };
+  finishFolderDrag();
+  void persistFolderDrop(completed);
+}
+
+function cancelFolderDrag() {
+  if (folderDrag.value) finishFolderDrag();
+}
+
+function resolveNotabDropTarget(clientX: number, clientY: number) {
+  const drag = notabDrag.value;
+  if (!drag || typeof document === 'undefined') return;
+  drag.clientX = clientX;
+  drag.clientY = clientY;
+  const targetElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-notab-id]');
+  const targetId = Number(targetElement?.dataset.notabId);
+  if (!targetElement || !Number.isInteger(targetId) || targetId === drag.folder.id) {
+    drag.targetNotabId = null;
+    drag.targetSide = '';
+    return;
+  }
+  const rect = targetElement.getBoundingClientRect();
+  drag.targetNotabId = targetId;
+  drag.targetSide = clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+}
+
+function onNotabDragStart(folderId: number, event: PointerEvent) {
+  const folder = findFolder(folderId);
+  if (!folder || folder.parentId || !organizing.value || !canOrganize.value || anyModalOpen.value || anyDragActive.value || movingNotab.value) return;
+  event.preventDefault();
+  suppressTabClick = true;
+  notabDrag.value = {
+    folder,
+    pointerId: event.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    targetNotabId: null,
+    targetSide: '',
+  };
+  document.body.classList.add('organize-dragging');
+  window.addEventListener('pointermove', onNotabDragMove);
+  window.addEventListener('pointerup', onNotabDragEnd);
+  window.addEventListener('pointercancel', cancelNotabDrag);
+  resolveNotabDropTarget(event.clientX, event.clientY);
+}
+
+function onNotabDragMove(event: PointerEvent) {
+  if (!notabDrag.value || event.pointerId !== notabDrag.value.pointerId) return;
+  event.preventDefault();
+  resolveNotabDropTarget(event.clientX, event.clientY);
+}
+
+async function persistNotabDrop(drag: NonNullable<typeof notabDrag.value>) {
+  if (!drag.targetNotabId) return;
+  const before = [...categoryFolders.value];
+  const base = before.filter((folder) => folder.id !== drag.folder.id);
+  const next = [...base];
+  next.splice(folderInsertionIndex(base, drag.targetNotabId, drag.targetSide), 0, drag.folder);
+  if (before.every((folder, index) => folder.id === next[index]?.id)) return;
+  applyFolderSortOrder(next);
+  replaceFolderSubsetOrder(next);
+  movingNotab.value = true;
+  try {
+    await apiRequest('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: jsonBody({ ids: next.map((folder) => folder.id) }),
+    });
+  } catch (error) {
+    await navigation.load(username.value).catch(() => undefined);
+    showBookmarkMessage('error', error instanceof Error ? error.message : 'Notab 移动失败，请稍后重试');
+  } finally {
+    movingNotab.value = false;
+  }
+}
+
+function finishNotabDrag() {
+  window.removeEventListener('pointermove', onNotabDragMove);
+  window.removeEventListener('pointerup', onNotabDragEnd);
+  window.removeEventListener('pointercancel', cancelNotabDrag);
+  document.body.classList.remove('organize-dragging');
+  notabDrag.value = null;
+}
+
+function onNotabDragEnd(event: PointerEvent) {
+  const drag = notabDrag.value;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  resolveNotabDropTarget(event.clientX, event.clientY);
+  const completed = { ...drag };
+  finishNotabDrag();
+  void persistNotabDrop(completed);
+}
+
+function cancelNotabDrag() {
+  if (notabDrag.value) finishNotabDrag();
+}
+
+function cancelAllDrags() {
+  cancelBookmarkDrag();
+  cancelFolderDrag();
+  cancelNotabDrag();
 }
 
 function normalizeSearchText(link: Link) {
@@ -635,6 +1031,10 @@ watch(anyModalOpen, (open) => {
 });
 
 function onGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && organizing.value && !anyModalOpen.value) {
+    exitOrganizeMode();
+    return;
+  }
   if (event.key === '/' && !anyModalOpen.value && !event.ctrlKey && !event.metaKey && !event.altKey) {
     const el = event.target;
     if (el instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable)) return;
@@ -684,13 +1084,13 @@ watch(canEditAppearance, (allowed) => {
   if (!allowed) {
     appearanceOpen.value = false;
     pendingDelete.value = null;
-    cancelBookmarkDrag();
+    exitOrganizeMode();
   }
 });
 watch(backgroundImageUrl, preloadPublicBackground, { immediate: true });
 watch(normalizedQuery, () => {
   renderedFolderCount.value = 24;
-  if (normalizedQuery.value) cancelBookmarkDrag();
+  if (normalizedQuery.value) exitOrganizeMode();
 });
 watch(categoryFolders, (folders) => {
   if (!payload.value || categorySelectionInitialized.value) return;
@@ -707,7 +1107,8 @@ watch(
   { immediate: false },
 );
 onUnmounted(() => {
-  cancelBookmarkDrag();
+  stopOrganizePress();
+  cancelAllDrags();
   folderObserver?.disconnect();
   removeBackgroundHints();
   window.removeEventListener('keydown', onGlobalKeydown);
@@ -796,25 +1197,56 @@ onUnmounted(() => {
       </div>
 
       <Transition name="navigation-reveal">
-        <section v-if="payload && payload.access?.unlocked !== false" class="navigation-reveal-content">
+        <section v-if="payload && payload.access?.unlocked !== false" class="navigation-reveal-content" :class="{ 'is-organizing': organizing }">
           <p v-if="query.trim()" class="search-result-summary">
             站内命中 {{ localMatchCount }} 个链接
           </p>
 
-          <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable }" aria-label="notab">
+          <div v-if="organizing" class="organize-toolbar" role="status">
+            <span>整理中</span>
+            <div>
+              <a class="organize-icon-button" href="/admin/trash" title="打开回收站" aria-label="打开回收站"><Trash2 :size="16" /></a>
+              <button class="organize-done-button" type="button" data-testid="finish-organizing" @click="exitOrganizeMode"><Check :size="16" />完成</button>
+            </div>
+          </div>
+
+          <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing }" aria-label="notab">
             <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
-            <button
+            <span
               v-for="tab in categoryTabs"
               :key="tab.id"
-              type="button"
-              :class="{ active: tab.id === selectedCategoryId }"
-              :aria-pressed="tab.id === selectedCategoryId"
+              class="notab-shell"
+              :class="{
+                'is-organizing': organizing && tab.id !== 'all',
+                'is-dragging-source': notabDrag?.folder.id === Number(tab.id),
+                'drop-before': notabDrag?.targetNotabId === Number(tab.id) && notabDrag.targetSide === 'before',
+                'drop-after': notabDrag?.targetNotabId === Number(tab.id) && notabDrag.targetSide === 'after',
+              }"
               :data-notab-id="tab.id === 'all' ? undefined : tab.id"
-              :data-testid="`category-tab-${tab.id}`"
-              @click="selectCategory(tab.id)"
             >
-              {{ tab.name }}
-            </button>
+              <button
+                type="button"
+                class="notab-select"
+                :class="{ active: tab.id === selectedCategoryId, 'is-organize-arming': tab.id === 'all' && organizeArming }"
+                :aria-pressed="tab.id === selectedCategoryId"
+                :data-testid="`category-tab-${tab.id}`"
+                @pointerdown="onNotabPointerDown(tab.id, $event)"
+                @pointermove="onNotabPointerMove"
+                @pointerup="onNotabPointerEnd"
+                @pointercancel="onNotabPointerEnd"
+                @click="onNotabClick(tab.id, $event)"
+                @contextmenu="(organizing || (tab.id === 'all' && canOrganize)) && $event.preventDefault()"
+              >{{ tab.name }}</button>
+              <button
+                v-if="organizing && tab.id !== 'all'"
+                class="notab-delete-button"
+                type="button"
+                title="删除 Notab"
+                :data-testid="`delete-notab-${tab.id}`"
+                @pointerdown.stop
+                @click.stop="requestNotabDelete(Number(tab.id))"
+              ><Trash2 :size="11" /></button>
+            </span>
             <span v-if="navigationEntries.length" class="tab-service-separator" aria-hidden="true"></span>
             <a
               v-for="entry in navigationEntries"
@@ -839,15 +1271,21 @@ onUnmounted(() => {
               :folder="folder"
               :depth="folderDepth(folder)"
               :highlight="normalizedQuery"
-              :editable="canEditAppearance && !normalizedQuery && !accessLocked && !anyModalOpen && !movingBookmark"
+              :editable="canEditAppearance && !normalizedQuery && !accessLocked && !anyModalOpen && !movingBookmark && !movingFolder && !movingNotab"
+              :organizing="organizing"
+              :folder-draggable="Boolean(folder.parentId)"
               :dragging-link-id="bookmarkDrag?.link.id"
+              :dragging-folder-id="folderDrag?.folder.id"
               :drop-active="bookmarkDrag?.targetFolderId === folder.id"
               :drop-link-id="bookmarkDrag?.targetFolderId === folder.id ? bookmarkDrag.targetLinkId : null"
               :drop-side="bookmarkDrag?.targetFolderId === folder.id ? bookmarkDrag.targetSide : ''"
+              :folder-drop-side="folderDrag?.targetFolderId === folder.id ? folderDrag.targetSide : ''"
               @verify="verifying = $event"
               @expand="expandedFolder = $event"
               @bookmark-delete-request="requestBookmarkDelete"
               @bookmark-drag-start="onBookmarkDragStart"
+              @folder-delete-request="requestFolderDelete"
+              @folder-drag-start="onFolderDragStart"
             />
           </div>
           <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
@@ -870,19 +1308,23 @@ onUnmounted(() => {
     <BookmarkDeleteDialog
       v-if="pendingDelete"
       :link="pendingDelete.link"
-      :busy="deletingBookmark"
+      :label="pendingDelete.label"
+      :kind="pendingDelete.kind"
+      :busy="deletingItem"
       @cancel="pendingDelete = null"
-      @confirm="confirmBookmarkDelete"
+      @confirm="confirmItemDelete"
     />
 
     <div
-      v-if="bookmarkDrag"
+      v-if="dragPreview"
       class="bookmark-drag-preview"
-      :style="{ transform: `translate3d(${bookmarkDrag.clientX + 16}px, ${bookmarkDrag.clientY + 16}px, 0)` }"
+      :style="{ transform: `translate3d(${dragPreview.x + 16}px, ${dragPreview.y + 16}px, 0)` }"
       aria-hidden="true"
     >
-      <Link2 :size="16" />
-      <span>{{ bookmarkDrag.link.name }}</span>
+      <Link2 v-if="dragPreview.kind === 'bookmark'" :size="16" />
+      <FolderIcon v-else-if="dragPreview.kind === 'folder'" :size="16" />
+      <Layers3 v-else :size="16" />
+      <span>{{ dragPreview.label }}</span>
     </div>
 
     <Transition name="bookmark-message">
@@ -914,11 +1356,11 @@ onUnmounted(() => {
   align-items: center;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  background: rgba(var(--public-overlay-rgb), 0.88);
-  border: 1px solid rgba(var(--accent-bright-rgb), 0.62);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.42));
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.56);
   border-radius: 8px;
   box-shadow: 0 16px 42px rgba(var(--public-shadow-rgb), 0.28);
-  color: var(--public-page-text);
+  color: var(--public-bookmark-text, var(--public-page-text));
   display: flex;
   gap: 8px;
   left: 0;
@@ -930,7 +1372,7 @@ onUnmounted(() => {
   z-index: 170;
 }
 
-:global(body.bookmark-dragging) {
+:global(body.organize-dragging) {
   cursor: default;
   user-select: none;
 }
@@ -1062,6 +1504,45 @@ onUnmounted(() => {
   gap: 28px;
   min-width: 0;
 }
+
+.organize-toolbar {
+  align-items: center;
+  backdrop-filter: blur(var(--public-search-blur, 20px));
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.14));
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.48);
+  border-radius: var(--public-card-radius, 8px);
+  box-shadow: 0 10px 28px rgba(var(--public-shadow-rgb), 0.14);
+  color: var(--public-page-text);
+  display: flex;
+  font-size: 13px;
+  font-weight: 750;
+  justify-content: space-between;
+  margin: 0 auto -12px;
+  min-height: 44px;
+  padding: 5px 6px 5px 14px;
+  width: min(100%, 1200px);
+}
+
+.organize-toolbar > div { display: flex; gap: 6px; }
+.organize-icon-button,
+.organize-done-button {
+  align-items: center;
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.18);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.3);
+  border-radius: 8px;
+  color: var(--public-page-text);
+  display: inline-flex;
+  font: inherit;
+  gap: 6px;
+  height: 34px;
+  justify-content: center;
+  text-decoration: none;
+}
+.organize-icon-button { width: 34px; }
+.organize-done-button { padding: 0 12px; }
+.organize-icon-button:hover,
+.organize-done-button:hover { background: rgba(var(--accent-rgb), 0.24); border-color: rgba(var(--accent-bright-rgb), 0.5); }
 
 .navigation-reveal-enter-active {
   transition: opacity 0.55s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), filter 0.55s ease;
@@ -1350,7 +1831,16 @@ h1 {
   will-change: transform, width;
 }
 
-.folder-tabs button {
+.notab-shell {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.notab-select {
+  -webkit-touch-callout: none;
   border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
   flex: 0 0 auto;
   padding: 6px 14px;
@@ -1366,16 +1856,68 @@ h1 {
   z-index: 1;
 }
 
-.folder-tabs button:hover {
+.notab-select:hover {
   background: rgba(var(--public-hover-rgb), 0.28);
   color: var(--public-notab-text, #ffffff);
   transform: translateY(-1px);
 }
 
-.folder-tabs button:active {
+.notab-select:active {
   transform: translateY(1px) scale(0.97);
   transition-duration: 0.12s;
 }
+
+.notab-select.is-organize-arming {
+  animation: organize-arm 3s linear both;
+}
+
+@keyframes organize-arm {
+  from { box-shadow: inset 0 0 0 0 rgba(var(--accent-rgb), 0.1); }
+  to { box-shadow: inset 0 -36px 0 0 rgba(var(--accent-rgb), 0.34); }
+}
+
+.notab-shell.is-organizing {
+  animation: notab-wiggle 0.32s ease-in-out infinite alternate;
+}
+
+.notab-shell.is-dragging-source { opacity: 0.24; }
+.notab-shell.drop-before::before,
+.notab-shell.drop-after::after {
+  background: var(--accent-bright, #34d399);
+  border-radius: 2px;
+  content: '';
+  height: 24px;
+  position: absolute;
+  top: 5px;
+  width: 3px;
+  z-index: 4;
+}
+.notab-shell.drop-before::before { left: -2px; }
+.notab-shell.drop-after::after { right: -2px; }
+
+.notab-delete-button {
+  align-items: center;
+  background: rgba(225, 29, 72, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  color: #ffffff;
+  display: inline-flex;
+  height: 18px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  width: 18px;
+  z-index: 5;
+}
+
+@keyframes notab-wiggle {
+  from { transform: rotate(-0.7deg) translateY(-1px); }
+  to { transform: rotate(0.7deg) translateY(1px); }
+}
+
+.folder-tabs.is-organizing .tab-service-link { opacity: 0.48; pointer-events: none; }
 
 .tab-service-separator {
   align-self: center;
@@ -1418,7 +1960,7 @@ h1 {
   transform: translateY(1px) scale(0.97);
 }
 
-.folder-tabs button.active {
+.notab-select.active {
   color: var(--public-notab-text, #ffffff);
   text-shadow: 0 1px 8px rgba(var(--public-shadow-rgb), 0.16);
 }
@@ -1590,6 +2132,12 @@ mark {
     border-right: 0;
     top: 0;
   }
+
+  .organize-toolbar {
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1604,7 +2152,9 @@ mark {
 
   .header-vibe,
   .portal-corner-link,
-  .public-loading-bar {
+  .public-loading-bar,
+  .notab-shell,
+  .notab-select.is-organize-arming {
     animation: none;
   }
 

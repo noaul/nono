@@ -782,6 +782,48 @@ describe('Nono Fastify app', () => {
     expect(unchanged?.folderId).toBe(sourceId);
   });
 
+  it('moves deleted bookmarks, folders, and notabs through the recycle bin lifecycle', async () => {
+    const cookie = await setupAdmin();
+    const notab = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Projects' } });
+    const notabId = notab.json().data.id;
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Research', parentId: notabId } });
+    const folderId = folder.json().data.id;
+    const bookmark = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId, name: 'Paper', url: 'https://paper.example/' } });
+    const bookmarkId = bookmark.json().data.id;
+
+    const removed = await app.inject({ method: 'DELETE', url: `/api/admin/folders/${folderId}`, headers: { cookie } });
+    expect(removed.statusCode).toBe(200);
+    expect((await repo.listFolders(1)).some((item) => item.id === folderId)).toBe(false);
+    expect((await repo.listLinks(1)).some((item) => item.id === bookmarkId)).toBe(false);
+
+    const trashResponse = await app.inject({ method: 'GET', url: '/api/admin/trash', headers: { cookie } });
+    expect(trashResponse.statusCode).toBe(200);
+    expect(trashResponse.json().data).toEqual([
+      expect.objectContaining({ kind: 'folder', entityId: folderId, label: 'Research' }),
+    ]);
+    const trashId = trashResponse.json().data[0].id;
+
+    const restored = await app.inject({ method: 'POST', url: `/api/admin/trash/${trashId}/restore`, headers: { cookie } });
+    expect(restored.statusCode).toBe(200);
+    expect((await repo.listFolders(1)).some((item) => item.id === folderId && item.parentId === notabId)).toBe(true);
+    expect((await repo.listLinks(1)).some((item) => item.id === bookmarkId && item.folderId === folderId)).toBe(true);
+
+    await app.inject({ method: 'DELETE', url: `/api/admin/folders/${notabId}`, headers: { cookie } });
+    const notabTrash = (await app.inject({ method: 'GET', url: '/api/admin/trash', headers: { cookie } })).json().data[0];
+    expect(notabTrash).toEqual(expect.objectContaining({ kind: 'notab', entityId: notabId, label: 'Projects' }));
+    const restoredNotab = await app.inject({ method: 'POST', url: `/api/admin/trash/${notabTrash.id}/restore`, headers: { cookie } });
+    expect(restoredNotab.statusCode).toBe(200);
+    expect((await repo.listFolders(1)).some((item) => item.id === folderId && item.parentId === notabId)).toBe(true);
+    expect((await repo.listLinks(1)).some((item) => item.id === bookmarkId && item.folderId === folderId)).toBe(true);
+
+    await app.inject({ method: 'DELETE', url: `/api/admin/links/${bookmarkId}`, headers: { cookie } });
+    const bookmarkTrash = (await app.inject({ method: 'GET', url: '/api/admin/trash', headers: { cookie } })).json().data[0];
+    expect(bookmarkTrash).toEqual(expect.objectContaining({ kind: 'bookmark', entityId: bookmarkId, label: 'Paper' }));
+    const purged = await app.inject({ method: 'DELETE', url: `/api/admin/trash/${bookmarkTrash.id}`, headers: { cookie } });
+    expect(purged.statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/admin/trash', headers: { cookie } })).json().data).toEqual([]);
+  });
+
   it('persists link sorting through one repository batch operation', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Batch links' } });

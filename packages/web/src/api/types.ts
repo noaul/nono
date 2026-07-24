@@ -133,6 +133,16 @@ export interface LinkHealthSummary {
   invalid: number;
 }
 
+export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
+
+export interface TrashItem {
+  id: string;
+  kind: TrashItemKind;
+  entityId: number;
+  label: string;
+  deletedAt: string;
+}
+
 export interface ApiToken {
   id: number;
   name: string;

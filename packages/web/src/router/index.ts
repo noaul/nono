@@ -20,6 +20,7 @@ const TokensView = () => import('@/views/admin/TokensView.vue');
 const BackupsView = () => import('@/views/admin/BackupsView.vue');
 const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
+const TrashView = () => import('@/views/admin/TrashView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -44,6 +45,7 @@ export const router = createRouter({
         { path: '/admin/automation', component: AutomationView, meta: { title: '导入导出' } },
         { path: '/admin/users', component: UsersView, meta: { title: '用户管理', requiresAdmin: true } },
         { path: '/admin/account', component: AccountView, meta: { title: '账户设置' } },
+        { path: '/admin/trash', component: TrashView, meta: { title: '回收站' } },
         { path: '/admin/llm', component: LlmView, meta: { title: 'AI 智能收藏' } },
         { path: '/admin/tokens', component: TokensView, meta: { title: 'API Token' } },
         { path: '/admin/notifications', component: NotificationsView, meta: { title: '通知中心' } },

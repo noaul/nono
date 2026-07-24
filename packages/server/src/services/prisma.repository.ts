@@ -214,11 +214,10 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       })));
     },
     async deleteFolder(userId, id) {
-      await prisma.folder.deleteMany({ where: { userId, id } });
+      await trashPrismaFolders(prisma, userId, [id]);
     },
     async deleteFolders(userId, ids) {
-      if (!ids.length) return;
-      await prisma.folder.deleteMany({ where: { userId, id: { in: ids } } });
+      await trashPrismaFolders(prisma, userId, ids);
     },
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
@@ -285,12 +284,55 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       })) as any;
     },
     async deleteLink(userId, id) {
-      const link = await prisma.link.findFirstOrThrow({ where: { id, folder: { userId } } });
-      await prisma.link.delete({ where: { id: link.id } });
+      await trashPrismaLinks(prisma, userId, [id]);
     },
     async deleteLinks(userId, ids) {
-      if (!ids.length) return;
-      await prisma.link.deleteMany({ where: { id: { in: ids }, folder: { userId } } });
+      await trashPrismaLinks(prisma, userId, ids);
+    },
+    async listTrashItems(userId) {
+      return (await prisma.trashItem.findMany({ where: { userId }, orderBy: { deletedAt: 'desc' } })) as any;
+    },
+    async restoreTrashItem(userId, id) {
+      return (await prisma.$transaction(async (transaction) => {
+        const item = await transaction.trashItem.findFirst({ where: { id, userId } });
+        if (!item) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+        const payload = item.payload as Record<string, unknown>;
+        if (item.kind === 'bookmark') {
+          const link = revivePrismaLink(payload.link);
+          const folder = await transaction.folder.findFirst({ where: { id: link.folderId, userId } });
+          if (!folder) throw Object.assign(new Error('Restore the original folder first'), { statusCode: 409 });
+          if (await transaction.link.findUnique({ where: { id: link.id } })) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
+          await transaction.link.create({ data: link as any });
+        } else {
+          const folders = revivePrismaFolders(payload.folders);
+          const links = revivePrismaLinks(payload.links);
+          const root = folders.find((folder) => folder.id === item.entityId);
+          if (!root) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+          if (root.parentId) {
+            const parent = await transaction.folder.findFirst({ where: { id: root.parentId, userId } });
+            if (!parent) throw Object.assign(new Error('Restore the parent Notab first'), { statusCode: 409 });
+          }
+          const [folderConflicts, linkConflicts] = await Promise.all([
+            transaction.folder.count({ where: { id: { in: folders.map((folder) => folder.id) } } }),
+            transaction.link.count({ where: { id: { in: links.map((link) => link.id) } } }),
+          ]);
+          if (folderConflicts) throw Object.assign(new Error('Folder already exists'), { statusCode: 409 });
+          if (linkConflicts) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
+          for (const folder of orderFoldersForRestore(folders)) {
+            await transaction.folder.create({ data: folder as any });
+          }
+          if (links.length) await transaction.link.createMany({ data: links as any });
+        }
+        await transaction.trashItem.delete({ where: { id: item.id } });
+        return item;
+      })) as any;
+    },
+    async permanentlyDeleteTrashItem(userId, id) {
+      const deleted = await prisma.trashItem.deleteMany({ where: { id, userId } });
+      if (!deleted.count) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+    },
+    async emptyTrash(userId) {
+      return (await prisma.trashItem.deleteMany({ where: { userId } })).count;
     },
     async listTokens(userId) {
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;
@@ -432,6 +474,121 @@ function toSiteUpdate(input: Partial<SiteRecord>) {
 
 function prune<T extends Record<string, unknown>>(input: T) {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
+async function trashPrismaFolders(prisma: PrismaClient, userId: number, requestedIds: number[]) {
+  if (!requestedIds.length) return;
+  await prisma.$transaction(async (transaction) => {
+    const folders = await transaction.folder.findMany({ where: { userId } });
+    const roots = topLevelPrismaFolderIds(folders, requestedIds);
+    for (const rootId of roots) {
+      const root = folders.find((folder) => folder.id === rootId);
+      if (!root) continue;
+      const folderIds = collectPrismaFolderIds(folders, rootId);
+      const links = await transaction.link.findMany({ where: { folderId: { in: folderIds } } });
+      await transaction.trashItem.create({
+        data: {
+          userId,
+          kind: root.parentId ? 'folder' : 'notab',
+          entityId: root.id,
+          label: root.name,
+          payload: serializeTrashPayload({ folders: folders.filter((folder) => folderIds.includes(folder.id)), links }),
+        },
+      });
+    }
+    if (roots.length) await transaction.folder.deleteMany({ where: { userId, id: { in: roots } } });
+  });
+}
+
+async function trashPrismaLinks(prisma: PrismaClient, userId: number, requestedIds: number[]) {
+  if (!requestedIds.length) return;
+  await prisma.$transaction(async (transaction) => {
+    const links = await transaction.link.findMany({ where: { id: { in: requestedIds }, folder: { userId } } });
+    if (requestedIds.length === 1 && !links.length) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    for (const link of links) {
+      await transaction.trashItem.create({
+        data: {
+          userId,
+          kind: 'bookmark',
+          entityId: link.id,
+          label: link.name,
+          payload: serializeTrashPayload({ link }),
+        },
+      });
+    }
+    if (links.length) await transaction.link.deleteMany({ where: { id: { in: links.map((link) => link.id) } } });
+  });
+}
+
+function topLevelPrismaFolderIds(folders: Array<{ id: number; parentId: number | null }>, requestedIds: number[]) {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const selected = new Set(requestedIds.filter((id) => byId.has(id)));
+  return [...selected].filter((id) => {
+    let parentId = byId.get(id)?.parentId ?? null;
+    while (parentId) {
+      if (selected.has(parentId)) return false;
+      parentId = byId.get(parentId)?.parentId ?? null;
+    }
+    return true;
+  });
+}
+
+function collectPrismaFolderIds(folders: Array<{ id: number; parentId: number | null }>, rootId: number) {
+  const ids = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return [...ids];
+}
+
+function serializeTrashPayload(value: unknown) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function revivePrismaFolders(value: unknown) {
+  if (!Array.isArray(value)) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  return value.map((folder) => ({
+    ...(folder as Record<string, unknown>),
+    createdAt: new Date(String((folder as Record<string, unknown>).createdAt)),
+    updatedAt: new Date(String((folder as Record<string, unknown>).updatedAt)),
+  })) as Array<{ id: number; userId: number; parentId: number | null; createdAt: Date; updatedAt: Date }>;
+}
+
+function revivePrismaLinks(value: unknown) {
+  if (!Array.isArray(value)) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  return value.map(revivePrismaLink);
+}
+
+function revivePrismaLink(value: unknown) {
+  if (!value || typeof value !== 'object') throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  const link = value as Record<string, unknown>;
+  return {
+    ...link,
+    id: Number(link.id),
+    folderId: Number(link.folderId),
+    createdAt: new Date(String(link.createdAt)),
+    updatedAt: new Date(String(link.updatedAt)),
+    healthCheckedAt: link.healthCheckedAt ? new Date(String(link.healthCheckedAt)) : null,
+  };
+}
+
+function orderFoldersForRestore<T extends { id: number; parentId: number | null }>(folders: T[]) {
+  const pending = [...folders];
+  const ordered: T[] = [];
+  const ids = new Set(folders.map((folder) => folder.id));
+  while (pending.length) {
+    const index = pending.findIndex((folder) => !folder.parentId || !ids.has(folder.parentId) || ordered.some((item) => item.id === folder.parentId));
+    if (index < 0) throw Object.assign(new Error('Invalid folder hierarchy in trash'), { statusCode: 409 });
+    ordered.push(pending.splice(index, 1)[0]);
+  }
+  return ordered;
 }
 
 function assertExactIds(actual: number[], expected: number[]) {

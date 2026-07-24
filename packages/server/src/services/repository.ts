@@ -67,6 +67,18 @@ export interface LinkRecord {
   updatedAt: Date;
 }
 
+export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
+
+export interface TrashItemRecord {
+  id: string;
+  userId: number;
+  kind: TrashItemKind;
+  entityId: number;
+  label: string;
+  payload: Record<string, unknown>;
+  deletedAt: Date;
+}
+
 export type LinkHealthStatus = 'ok' | 'redirected' | 'restricted' | 'broken' | 'timeout' | 'invalid';
 
 export interface LinkHealthUpdate {
@@ -238,6 +250,10 @@ export interface Repository {
   moveLink(userId: number, id: number, targetFolderId: number, sourceIds: number[], targetIds: number[]): Promise<LinkRecord>;
   deleteLink(userId: number, id: number): Promise<void>;
   deleteLinks(userId: number, ids: number[]): Promise<void>;
+  listTrashItems(userId: number): Promise<TrashItemRecord[]>;
+  restoreTrashItem(userId: number, id: string): Promise<TrashItemRecord>;
+  permanentlyDeleteTrashItem(userId: number, id: string): Promise<void>;
+  emptyTrash(userId: number): Promise<number>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
@@ -305,6 +321,7 @@ export class MemoryRepository implements Repository {
   sites: SiteRecord[] = [];
   folders: FolderRecord[] = [];
   links: LinkRecord[] = [];
+  trashItems: TrashItemRecord[] = [];
   tokens: ApiTokenRecord[] = [];
   sessions: AuthSessionRecord[] = [];
   passkeys: PasskeyCredentialRecord[] = [];
@@ -423,6 +440,7 @@ export class MemoryRepository implements Repository {
     this.users = this.users.filter((user) => user.id !== id);
     this.sites = this.sites.filter((site) => site.userId !== id);
     this.folders = this.folders.filter((folder) => folder.userId !== id);
+    this.trashItems = this.trashItems.filter((item) => item.userId !== id);
     const folderIds = new Set(this.folders.map((folder) => folder.id));
     this.links = this.links.filter((link) => folderIds.has(link.folderId));
     this.tokens = this.tokens.filter((token) => token.userId !== id);
@@ -487,9 +505,24 @@ export class MemoryRepository implements Repository {
 
   async deleteFolders(userId: number, rootIds: number[]) {
     const all = await this.listFolders(userId);
+    const roots = topLevelFolderIds(all, rootIds);
     const ids = new Set<number>();
-    for (const rootId of rootIds) {
-      for (const id of collectFolderIds(all, rootId)) ids.add(id);
+    for (const rootId of roots) {
+      const folderIds = new Set(collectFolderIds(all, rootId));
+      const root = all.find((folder) => folder.id === rootId);
+      if (!root) continue;
+      const folders = this.folders.filter((folder) => folderIds.has(folder.id));
+      const links = this.links.filter((link) => folderIds.has(link.folderId));
+      this.trashItems.unshift({
+        id: randomUUID(),
+        userId,
+        kind: root.parentId ? 'folder' : 'notab',
+        entityId: root.id,
+        label: root.name,
+        payload: { folders: cloneTrashValue(folders), links: cloneTrashValue(links) },
+        deletedAt: new Date(),
+      });
+      folderIds.forEach((folderId) => ids.add(folderId));
     }
     this.folders = this.folders.filter((folder) => !ids.has(folder.id));
     this.links = this.links.filter((link) => !ids.has(link.folderId));
@@ -562,9 +595,62 @@ export class MemoryRepository implements Repository {
   }
 
   async deleteLinks(userId: number, ids: number[]) {
-    const ownedIds = new Set((await this.listLinks(userId)).map((link) => link.id));
-    const deletedIds = new Set(ids.filter((id) => ownedIds.has(id)));
+    const activeLinks = await this.listLinks(userId);
+    const owned = activeLinks.filter((link) => ids.includes(link.id));
+    for (const link of owned) {
+      this.trashItems.unshift({
+        id: randomUUID(),
+        userId,
+        kind: 'bookmark',
+        entityId: link.id,
+        label: link.name,
+        payload: { link: cloneTrashValue(link) },
+        deletedAt: new Date(),
+      });
+    }
+    const deletedIds = new Set(owned.map((link) => link.id));
     this.links = this.links.filter((item) => !deletedIds.has(item.id));
+  }
+
+  async listTrashItems(userId: number) {
+    return this.trashItems
+      .filter((item) => item.userId === userId)
+      .sort((left, right) => right.deletedAt.getTime() - left.deletedAt.getTime());
+  }
+
+  async restoreTrashItem(userId: number, id: string) {
+    const item = this.trashItems.find((entry) => entry.userId === userId && entry.id === id);
+    if (!item) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+    if (item.kind === 'bookmark') {
+      const link = reviveLinkRecord((item.payload as { link?: unknown }).link);
+      if (!await this.getFolder(userId, link.folderId)) throw Object.assign(new Error('Restore the original folder first'), { statusCode: 409 });
+      if (this.links.some((entry) => entry.id === link.id)) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
+      this.links.push(link);
+    } else {
+      const folders = reviveFolderRecords((item.payload as { folders?: unknown }).folders);
+      const links = reviveLinkRecords((item.payload as { links?: unknown }).links);
+      const root = folders.find((folder) => folder.id === item.entityId);
+      if (!root) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+      if (root.parentId && !await this.getFolder(userId, root.parentId)) throw Object.assign(new Error('Restore the parent Notab first'), { statusCode: 409 });
+      if (folders.some((folder) => this.folders.some((entry) => entry.id === folder.id))) throw Object.assign(new Error('Folder already exists'), { statusCode: 409 });
+      if (links.some((link) => this.links.some((entry) => entry.id === link.id))) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
+      this.folders.push(...folders);
+      this.links.push(...links);
+    }
+    this.trashItems = this.trashItems.filter((entry) => entry.id !== item.id);
+    return item;
+  }
+
+  async permanentlyDeleteTrashItem(userId: number, id: string) {
+    const before = this.trashItems.length;
+    this.trashItems = this.trashItems.filter((item) => item.userId !== userId || item.id !== id);
+    if (this.trashItems.length === before) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+  }
+
+  async emptyTrash(userId: number) {
+    const count = this.trashItems.filter((item) => item.userId === userId).length;
+    this.trashItems = this.trashItems.filter((item) => item.userId !== userId);
+    return count;
   }
 
   async listTokens(userId: number) {
@@ -769,6 +855,47 @@ function collectFolderIds(folders: FolderRecord[], rootId: number) {
     }
   }
   return ids;
+}
+
+function topLevelFolderIds(folders: FolderRecord[], requestedIds: number[]) {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const selected = new Set(requestedIds.filter((id) => byId.has(id)));
+  return [...selected].filter((id) => {
+    let parentId = byId.get(id)?.parentId ?? null;
+    while (parentId) {
+      if (selected.has(parentId)) return false;
+      parentId = byId.get(parentId)?.parentId ?? null;
+    }
+    return true;
+  });
+}
+
+function cloneTrashValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function reviveFolderRecords(value: unknown): FolderRecord[] {
+  if (!Array.isArray(value)) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  return value.map((item) => {
+    const record = item as FolderRecord;
+    return { ...record, createdAt: new Date(record.createdAt), updatedAt: new Date(record.updatedAt) };
+  });
+}
+
+function reviveLinkRecords(value: unknown): LinkRecord[] {
+  if (!Array.isArray(value)) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  return value.map(reviveLinkRecord);
+}
+
+function reviveLinkRecord(value: unknown): LinkRecord {
+  if (!value || typeof value !== 'object') throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
+  const record = value as LinkRecord;
+  return {
+    ...record,
+    createdAt: new Date(record.createdAt),
+    updatedAt: new Date(record.updatedAt),
+    healthCheckedAt: record.healthCheckedAt ? new Date(record.healthCheckedAt) : null,
+  };
 }
 
 function assertExactIds(actual: number[], expected: number[]) {
