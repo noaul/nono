@@ -27,6 +27,7 @@ export const assetPageConfigs: AssetPageConfig[] = [
     dueKey: 'nextDueDate',
     fields: [
       { key: 'phoneType', label: '电话卡类型', type: 'text' },
+      { key: 'isEsim', label: 'SIM 形态', type: 'text' },
       { key: 'cardNumber', label: '主号码 / 卡号', type: 'text', required: true },
       { key: 'poPhoneNumber', label: 'PO 电话号码', type: 'text' },
       { key: 'carrier', label: '运营商', type: 'text' },

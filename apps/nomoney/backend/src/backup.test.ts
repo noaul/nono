@@ -28,6 +28,8 @@ describe('backup APIs', () => {
     });
 
     await agent.post('/api/phones').send({
+      phoneType: 'foreign',
+      isEsim: true,
       cardNumber: '+4915112345678',
       carrier: 'Telekom',
       planName: 'Data S',
@@ -109,6 +111,15 @@ describe('backup APIs', () => {
       status: 'active'
     });
 
+    await agent.post('/api/accounts').send({
+      accountType: 'telegram',
+      phoneNumber: '13800138000',
+      countryCallingCode: '+86',
+      countryIso: 'CN',
+      boundEmail: 'telegram@example.com',
+      displayName: '主 Telegram'
+    });
+
     const backup = await agent.post('/api/backup/webdav').send();
     expect(backup.status).toBe(200);
     expect(uploadedUrl).toBe('https://dav.example.com/remote.php/dav/files/owner/backups/moneypulse/assets.json.enc');
@@ -129,6 +140,7 @@ describe('backup APIs', () => {
       vps: 1,
       domains: 1,
       subscriptions: 1,
+      accounts: 1,
       settings: expect.any(Number)
     });
 
@@ -158,6 +170,9 @@ describe('backup APIs', () => {
     await agent.put('/api/subscriptions/1').send({
       provider: 'Changed Provider'
     });
+    await agent.put('/api/accounts/1').send({
+      boundEmail: 'changed@example.com'
+    });
 
     const restore = await agent.post('/api/backup/restore').send();
     expect(restore.status).toBe(200);
@@ -166,6 +181,7 @@ describe('backup APIs', () => {
     expect(restoredPhones.body.items).toEqual([
       expect.objectContaining({
         cardNumber: '+4915112345678',
+        isEsim: true,
         carrier: 'Telekom',
         planName: 'Data S'
       })
@@ -208,6 +224,16 @@ describe('backup APIs', () => {
         name: 'ChatGPT',
         provider: 'OpenAI',
         account: 'owner@example.com'
+      })
+    ]);
+
+    const restoredAccounts = await agent.get('/api/accounts');
+    expect(restoredAccounts.body.items).toEqual([
+      expect.objectContaining({
+        accountType: 'telegram',
+        phoneNumber: '13800138000',
+        boundEmail: 'telegram@example.com',
+        displayName: '主 Telegram'
       })
     ]);
 

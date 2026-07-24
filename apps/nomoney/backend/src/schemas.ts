@@ -29,6 +29,7 @@ export const commonAssetSchema = z.object({
 
 export const phoneSchema = commonAssetSchema.extend({
   phoneType: phoneTypeSchema.optional().default('domestic'),
+  isEsim: z.boolean().optional().default(false),
   cardNumber: z.string().trim().min(1),
   poPhoneNumber: nullableText,
   carrier: nullableText,

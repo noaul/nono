@@ -658,7 +658,11 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             {copiedPhoneNumberId === item.id ? <Check size={13} /> : <Copy size={13} />}
           </button>
         </div>
-        <p className="mt-1 text-xs text-slate-500">{stringValue(item.phoneType) === 'foreign' ? copy('国外电话卡', 'Foreign SIM') : copy('国内电话卡', 'Domestic SIM')}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {stringValue(item.phoneType) === 'foreign'
+            ? `${copy('国外电话卡', 'Foreign SIM')} · ${getSimFormFactorLabel(item, copy)}`
+            : copy('国内电话卡', 'Domestic SIM')}
+        </p>
       </div>
     ) },
     { key: 'carrier', header: isForeignPhoneView ? copy('国家 / 运营商', 'Country / carrier') : copy('运营商 / 实际使用人', 'Carrier / actual user'), render: (item) => (
@@ -1438,6 +1442,23 @@ function PhoneFormSections({
 
       {phoneType === 'foreign' ? (
         <Section title={copy('国外号码', 'Foreign number')}>
+          <Field label={copy('SIM 形态', 'SIM format')}>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/[0.03]">
+              {[
+                { value: false, label: copy('实体 SIM', 'Physical SIM') },
+                { value: true, label: copy('eSIM', 'eSIM') }
+              ].map((option) => (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  onClick={() => updateForm('isEsim', option.value)}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${Boolean(form.isEsim) === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </Field>
           <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-3">
             <Field label={copy('国家区号', 'Country code')}><input className={`${inputClass} font-mono`} value={String(form.countryCode ?? '')} onChange={(e) => updateForm('countryCode', e.target.value)} placeholder="+1" /></Field>
             <Field label={copy('A 电话号码', 'A number')}><input className={`${inputClass} font-mono`} required value={String(form.aPhoneNumber || form.cardNumber || '')} onChange={(e) => { updateForm('aPhoneNumber', e.target.value); updateForm('cardNumber', e.target.value); }} /></Field>
@@ -2118,13 +2139,14 @@ function DomainMiniCardView({ item, copy }: { item: AssetItem; copy: (zh: string
 function PhoneMiniCardView({ item, copy }: { item: AssetItem; copy: (zh: string, en: string) => string }) {
   const country = getPhoneCountryCode(item);
   const phoneNumber = getPhoneDisplayNumber(item);
+  const isForeign = stringValue(item.phoneType) === 'foreign';
 
   return (
     <div className="motion-card rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/30 hover:shadow-soft dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-            {country}
+            {country}{isForeign ? ` · ${getSimFormFactorLabel(item, copy)}` : ''}
           </span>
           <h3 className="mt-2 truncate font-mono text-base font-semibold tracking-normal text-slate-950 dark:text-white">
             {phoneNumber}
@@ -2291,6 +2313,7 @@ function PhoneCardView({
             <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${isForeign ? 'bg-brand-500/10 text-brand-600 dark:text-brand-300' : 'bg-success-500/10 text-success-600 dark:text-success-300'}`}>
               {isForeign ? copy('国外', 'Foreign') : copy('国内', 'Domestic')}
             </span>
+            {isForeign && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">{getSimFormFactorLabel(item, copy)}</span>}
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-sm">
             <span className="truncate text-slate-500">{stringValue(item.carrier) || '-'}</span>
@@ -2432,6 +2455,7 @@ function initialForm(config: AssetPageConfig): FormState {
   if (config.endpoint === 'phones') {
     base.phoneType = 'domestic';
     base.isSecondaryCard = false;
+    base.isEsim = false;
     base.billingCycle = 'monthly';
   }
   if (config.endpoint === 'vps') {
@@ -2449,7 +2473,7 @@ function assetToForm(config: AssetPageConfig, item: AssetItem): FormState {
     const value = item[field.key];
     base[field.key] = field.key.endsWith('MinorUnits') && typeof value === 'number'
       ? (value / 100).toFixed(2)
-      : field.key === 'isSecondaryCard'
+      : field.key === 'isSecondaryCard' || field.key === 'isEsim'
         ? Boolean(value)
         : String(value ?? '');
   }
@@ -2504,7 +2528,7 @@ function formToPayload(config: AssetPageConfig, form: FormState): Record<string,
       payload[field.key] = normalizeDomainExtension(value) || null;
     } else if (field.key === 'rarityScore') {
       payload[field.key] = Math.max(0, Math.min(100, Number(value || 0)));
-    } else if (field.key === 'isSecondaryCard') {
+    } else if (field.key === 'isSecondaryCard' || field.key === 'isEsim') {
       payload[field.key] = Boolean(value);
     } else if (field.key.endsWith('MinorUnits')) {
       payload[field.key] = value === '' ? null : Math.round(Number(value || 0) * 100);
@@ -2718,6 +2742,10 @@ function getPhoneCountryCode(item: AssetItem): string {
     '886': 'TW'
   };
   return byDialCode[countryCode] || countryCode || '-';
+}
+
+function getSimFormFactorLabel(item: AssetItem, copy: (zh: string, en: string) => string): string {
+  return Boolean(item.isEsim) ? copy('eSIM', 'eSIM') : copy('实体 SIM', 'Physical SIM');
 }
 
 function getPhoneDisplayNumber(item: AssetItem): string {

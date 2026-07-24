@@ -123,6 +123,7 @@ function migrate(db: DbClient): void {
     CREATE TABLE IF NOT EXISTS phones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone_type TEXT NOT NULL DEFAULT 'domestic',
+      is_esim INTEGER NOT NULL DEFAULT 0,
       card_number TEXT NOT NULL,
       po_phone_number TEXT,
       carrier TEXT,
@@ -270,6 +271,21 @@ function migrate(db: DbClient): void {
       archived_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_type TEXT NOT NULL,
+      phone_number TEXT NOT NULL,
+      phone_key TEXT NOT NULL,
+      country_calling_code TEXT NOT NULL,
+      country_iso TEXT NOT NULL,
+      bound_email TEXT NOT NULL,
+      display_name TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(account_type, country_calling_code, phone_key)
+    );
+
     CREATE TABLE IF NOT EXISTS expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       asset_type TEXT NOT NULL,
@@ -318,6 +334,7 @@ function migrate(db: DbClient): void {
   seedSetting(db, 'webdavEncryptionKey', '');
   ensureColumn(db, 'users', 'session_version', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn(db, 'phones', 'phone_type', "TEXT NOT NULL DEFAULT 'domestic'");
+  ensureColumn(db, 'phones', 'is_esim', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'phones', 'po_phone_number', 'TEXT');
   ensureColumn(db, 'phones', 'real_name_person', 'TEXT');
   ensureColumn(db, 'phones', 'user_name', 'TEXT');

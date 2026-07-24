@@ -29,6 +29,7 @@ const backupTables: BackupTable[] = [
     table: 'phones',
     columns: [
       'id', 'phone_type', 'card_number', 'po_phone_number', 'carrier', 'plan_name', 'real_name_person',
+      'is_esim',
       'user_name', 'is_secondary_card', 'data_allowance_gb', 'voice_minutes', 'monthly_rent_minor_units',
       'attached_services', 'attached_services_minor_units', 'discount_minor_units', 'cashback_minor_units', 'country_code', 'home_location',
       'a_phone_number', 'mainland_number', 'real_name_method', 'balance_minor_units', 'total_keepalive_until',
@@ -71,6 +72,14 @@ const backupTables: BackupTable[] = [
       'id', 'name', 'provider', 'account', 'category', 'amount_minor_units', 'currency',
       'billing_cycle', 'next_due_date', 'auto_renew', 'payment_method', 'renewal_url',
       'status', 'tags', 'notes', 'created_at', 'updated_at', 'archived_at'
+    ]
+  },
+  {
+    key: 'accounts',
+    table: 'accounts',
+    columns: [
+      'id', 'account_type', 'phone_number', 'phone_key', 'country_calling_code', 'country_iso',
+      'bound_email', 'display_name', 'notes', 'created_at', 'updated_at'
     ]
   },
   {
@@ -141,6 +150,7 @@ export function buildBackupPayload(context: AppContext): Record<string, unknown>
     vps: selectTable(context, 'vps'),
     domains: selectTable(context, 'domains'),
     subscriptions: selectTable(context, 'subscriptions'),
+    accounts: selectTable(context, 'accounts'),
     expenses: selectTable(context, 'expenses'),
     settings: selectTable(context, 'settings', 'key'),
     reminderLogs: selectTable(context, 'reminder_logs')

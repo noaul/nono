@@ -2,11 +2,25 @@ export type Currency = 'CNY' | 'USD' | 'GBP' | 'EUR';
 export type BillingCycle = 'monthly' | 'quarterly' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
 export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
+export type AccountType = 'telegram' | 'whatsapp' | 'signal' | 'wechat' | 'line' | 'discord' | 'viber' | 'other';
 
 export interface User {
   id: number;
   username: string;
   email: string;
+}
+
+export interface CommunicationAccount {
+  id: number;
+  accountType: AccountType;
+  phoneNumber: string;
+  countryCallingCode: string;
+  countryIso: string;
+  boundEmail: string;
+  displayName: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AssetItem {

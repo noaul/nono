@@ -30,6 +30,7 @@ describe('asset APIs', () => {
     expect(domestic.status).toBe(201);
     expect(domestic.body.item).toMatchObject({
       phoneType: 'domestic',
+      isEsim: false,
       cardNumber: '+8613800000000',
       poPhoneNumber: 'PO-10086',
       realNamePerson: 'Alice',
@@ -47,6 +48,7 @@ describe('asset APIs', () => {
 
     const foreign = await agent.post('/api/phones').send({
       phoneType: 'foreign',
+      isEsim: true,
       cardNumber: '+12025550188',
       countryCode: '+1',
       homeLocation: 'US',
@@ -69,6 +71,7 @@ describe('asset APIs', () => {
     expect(foreign.status).toBe(201);
     expect(foreign.body.item).toMatchObject({
       phoneType: 'foreign',
+      isEsim: true,
       countryCode: '+1',
       homeLocation: 'US',
       aPhoneNumber: '+12025550188',

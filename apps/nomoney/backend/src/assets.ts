@@ -120,6 +120,7 @@ export const assetConfigs: AssetConfig[] = [
     schema: phoneSchema,
     fields: [
       { api: 'phoneType', db: 'phone_type' },
+      { api: 'isEsim', db: 'is_esim' },
       { api: 'cardNumber', db: 'card_number' },
       { api: 'poPhoneNumber', db: 'po_phone_number' },
       { api: 'carrier', db: 'carrier' },
@@ -606,7 +607,7 @@ export function mapAssetRow(
     if (config.type === 'vps' && sensitiveVpsFields.has(field.api) && !options.includeSecrets) {
       item[field.api] = null;
       item[`has${capitalize(field.api)}`] = Boolean(value);
-    } else if (field.api === 'autoRenew' || field.api === 'isSecondaryCard') {
+    } else if (field.api === 'autoRenew' || field.api === 'isSecondaryCard' || field.api === 'isEsim') {
       item[field.api] = Boolean(value);
     } else if (field.api === 'tags') {
       item[field.api] = parseJsonArray(value);
@@ -625,7 +626,7 @@ export function toDbValue(apiField: string, value: unknown): DbValue {
   if (apiField === 'tags') {
     return JSON.stringify(Array.isArray(value) ? value : []);
   }
-  if (apiField === 'autoRenew' || apiField === 'isSecondaryCard') {
+  if (apiField === 'autoRenew' || apiField === 'isSecondaryCard' || apiField === 'isEsim') {
     return value ? 1 : 0;
   }
   if (apiField === 'domainExtension') {
@@ -761,6 +762,8 @@ function enrichPhoneBody(body: Record<string, unknown>, current?: Record<string,
   if (phoneType !== 'domestic') {
     return next;
   }
+
+  next.isEsim = false;
 
   const rentValue = next.monthlyRentMinorUnits ?? current?.monthlyRentMinorUnits;
   const attachedValue = next.attachedServicesMinorUnits ?? current?.attachedServicesMinorUnits;

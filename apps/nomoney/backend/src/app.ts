@@ -9,6 +9,7 @@ import { registerDashboardRoutes } from './dashboard.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerReminderRoutes } from './reminders.js';
 import { buildEncryptedBackupEnvelope, registerBackupRoutes } from './backup.js';
+import { registerAccountRoutes } from './accounts.js';
 import { errorHandler } from './http.js';
 
 export function createApp(context: AppContext) {
@@ -35,6 +36,7 @@ export function createApp(context: AppContext) {
 
   api.use(requireAuth(context));
   registerAssetRoutes(api, context);
+  registerAccountRoutes(api, context);
   registerExpenseRoutes(api, context);
   registerDashboardRoutes(api, context);
   registerSettingsRoutes(api, context);
