@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { X } from 'lucide-vue-next';
 import type { Folder } from '@/api/types';
 import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
+import { useModalBehavior } from '@/composables/useModalBehavior';
 
 const props = withDefaults(defineProps<{ folder: Folder; highlight?: string }>(), { highlight: '' });
 const emit = defineEmits<{ close: [] }>();
@@ -18,50 +19,11 @@ function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
 }
 
-function trapFocus(event: KeyboardEvent) {
-  const modal = rootRef.value;
-  if (!modal) return;
-  const focusables = Array.from(
-    modal.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'),
-  );
-  if (!focusables.length) {
-    event.preventDefault();
-    modal.focus();
-    return;
-  }
-  const first = focusables[0];
-  const last = focusables[focusables.length - 1];
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !modal.contains(active))) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    event.stopPropagation();
-    emit('close');
-    return;
-  }
-  if (event.key === 'Tab') trapFocus(event);
-}
-
-let lastFocused: HTMLElement | null = null;
-
-onMounted(() => {
-  lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  window.addEventListener('keydown', onKeydown, true);
-  const target = rootRef.value?.querySelector<HTMLElement>('button, a[href]');
-  (target || rootRef.value)?.focus();
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown, true);
-  lastFocused?.focus();
+const open = ref(true);
+useModalBehavior({
+  open,
+  container: rootRef,
+  close: () => emit('close'),
 });
 </script>
 
@@ -73,7 +35,7 @@ onBeforeUnmount(() => {
           <FolderGlyph class="expand-folder-icon" :icon="folder.icon" :size="22" />
           <h2>{{ folder.name }}</h2>
         </div>
-        <button class="folder-expand-close" type="button" title="关闭" @click="emit('close')">
+        <button class="folder-expand-close" type="button" title="关闭" aria-label="关闭文件夹" @click="emit('close')">
           <X :size="20" />
         </button>
       </header>
@@ -116,6 +78,7 @@ onBeforeUnmount(() => {
   inset: 0;
   padding: 40px 36px;
   position: fixed;
+  overscroll-behavior: contain;
   z-index: 100;
   animation: fadeIn 0.25s ease-out;
 }
@@ -136,6 +99,7 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   height: min(80vh, 760px);
   overflow: hidden;
+  overscroll-behavior: contain;
   padding: 24px 32px;
   width: min(100%, 1200px);
   animation: modal-pop 0.36s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1));
@@ -272,7 +236,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 44px;
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.78);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .expanded-link-icon img {
@@ -341,11 +309,11 @@ mark {
 
 @media (max-width: 640px) {
   .folder-expand-backdrop {
-    padding: 20px 12px;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
 
   .folder-expand-modal {
-    height: calc(100dvh - 40px);
+    height: 100%;
     padding: 16px;
     gap: 16px;
   }

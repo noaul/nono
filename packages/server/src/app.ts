@@ -93,7 +93,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        connectSrc: ["'self'", 'https:', 'http:', 'wss:', 'ws:'],
+        connectSrc: ["'self'"],
         fontSrc: ["'self'", 'https:', 'data:'],
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
@@ -110,6 +110,22 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await app.register(cors, { origin: corsOriginPolicy(), credentials: true });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   await responsePlugin(app);
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    if (!request.url.startsWith('/api/')) return;
+
+    const unsafeMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
+    const bearerRequest = /^Bearer\s+/i.test(request.headers.authorization || '');
+    if (unsafeMethod && !bearerRequest && request.cookies.nono_session && request.headers['sec-fetch-site'] === 'cross-site') {
+      return sendError(reply, 403, 'Cross-site request blocked');
+    }
+  });
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.url.startsWith('/api/') && !reply.hasHeader('cache-control')) {
+      reply.header('Cache-Control', 'no-store');
+    }
+    return payload;
+  });
   registerAuditHooks(app, services);
 
   app.get('/healthz', async (_request, reply) => sendOk(reply, { ok: true }));

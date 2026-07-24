@@ -37,6 +37,7 @@ describe('admin confirmation primitive', () => {
   beforeEach(() => {
     clearConfirmState();
     document.body.innerHTML = '';
+    document.body.style.overflow = '';
   });
 
   it('resolves true when accepted and false when cancelled', async () => {
@@ -67,5 +68,41 @@ describe('admin confirmation primitive', () => {
     await wrapper.vm.$nextTick();
     await document.querySelector<HTMLButtonElement>('[data-testid="confirm-cancel"]')!.click();
     await expect(cancelled).resolves.toBe(false);
+    wrapper.unmount();
+  });
+
+  it('contains focus, closes with Escape, and restores the invoking control', async () => {
+    const invoker = document.createElement('button');
+    invoker.textContent = '删除';
+    document.body.append(invoker);
+    invoker.focus();
+    const wrapper = mount(ConfirmDialog, { attachTo: document.body });
+    const confirmApi = useConfirm();
+
+    const result = confirmApi.confirm({
+      title: '删除书签',
+      message: '删除后可从回收站恢复。',
+      confirmText: '删除',
+      tone: 'danger',
+    });
+    await wrapper.vm.$nextTick();
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+    const cancel = document.querySelector<HTMLButtonElement>('[data-testid="confirm-cancel"]')!;
+    const accept = document.querySelector<HTMLButtonElement>('[data-testid="confirm-accept"]')!;
+    expect(document.activeElement).toBe(cancel);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    accept.focus();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', cancelable: true }));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    await wrapper.vm.$nextTick();
+    await expect(result).resolves.toBe(false);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+    expect(document.activeElement).toBe(invoker);
+    wrapper.unmount();
   });
 });

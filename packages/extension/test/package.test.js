@@ -14,6 +14,14 @@ describe('extension release package', () => {
     expect(manifest.version).toBe(packageJson.version);
   });
 
+  it('keeps popup controls keyboard and touch friendly', async () => {
+    const styles = await readFile(path.join(root, 'popup', 'popup.css'), 'utf8');
+
+    expect(styles).toContain(':focus-visible');
+    expect(styles).toContain('touch-action: manipulation');
+    expect(styles).toContain('button:disabled');
+  });
+
   it('builds a Chrome Web Store ZIP archive', async () => {
     await rm(path.join(root, 'artifacts'), { recursive: true, force: true });
     const result = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });

@@ -27,6 +27,7 @@ import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 import NotificationBell from '@/components/admin/NotificationBell.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
+import { useModalBehavior } from '@/composables/useModalBehavior';
 
 const props = withDefaults(defineProps<{ title?: string }>(), {
   title: '',
@@ -38,6 +39,8 @@ const route = useRoute();
 const userMenuOpen = ref(false);
 const mobileNavOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
+const mobileNavRef = ref<HTMLElement | null>(null);
+const mobileNavCloseRef = ref<HTMLButtonElement | null>(null);
 
 const navSections = [
   {
@@ -83,6 +86,13 @@ const operatorName = computed(() => auth.user?.displayName || auth.user?.usernam
 const operatorRole = computed(() => (auth.isAdmin ? '管理员' : '成员'));
 const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
 
+useModalBehavior({
+  open: mobileNavOpen,
+  container: mobileNavRef,
+  close: () => { mobileNavOpen.value = false; },
+  initialFocus: () => mobileNavCloseRef.value,
+});
+
 function onDocumentClick(event: MouseEvent) {
   if (!userMenuOpen.value) return;
   if (userMenuRef.value && event.target instanceof Node && !userMenuRef.value.contains(event.target)) {
@@ -94,14 +104,20 @@ function onDocumentKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') userMenuOpen.value = false;
 }
 
+function closeMobileNavigationAtDesktop() {
+  if (window.innerWidth > 960) mobileNavOpen.value = false;
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onDocumentKeydown);
+  window.addEventListener('resize', closeMobileNavigationAtDesktop);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick);
   document.removeEventListener('keydown', onDocumentKeydown);
+  window.removeEventListener('resize', closeMobileNavigationAtDesktop);
 });
 
 watch(() => route?.path, () => {
@@ -118,13 +134,24 @@ async function logout() {
 
 <template>
   <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell chatgpt-admin-shell">
-    <aside class="workbench-sidebar glass-surface" :class="{ 'is-mobile-open': mobileNavOpen }">
+    <aside
+      ref="mobileNavRef"
+      class="workbench-sidebar glass-surface"
+      :class="{ 'is-mobile-open': mobileNavOpen }"
+      :role="mobileNavOpen ? 'dialog' : undefined"
+      :aria-modal="mobileNavOpen ? 'true' : undefined"
+      :aria-label="mobileNavOpen ? '后台导航' : undefined"
+      :tabindex="mobileNavOpen ? -1 : undefined"
+    >
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
         <div>
           <h1>Nono</h1>
         </div>
       </RouterLink>
+      <button ref="mobileNavCloseRef" class="sidebar-mobile-close" type="button" aria-label="关闭后台导航" @click="mobileNavOpen = false">
+        <X :size="18" />
+      </button>
 
       <nav class="admin-nav workbench-nav" aria-label="后台导航">
         <section v-for="section in visibleNavSections" :key="section.label" class="nav-section">
@@ -151,7 +178,7 @@ async function logout() {
       </section>
     </aside>
 
-    <div class="workbench-main">
+    <div class="workbench-main" :inert="mobileNavOpen ? true : undefined" :aria-hidden="mobileNavOpen ? 'true' : undefined">
       <header class="workbench-topbar glass-surface">
         <div class="topbar-title-group">
           <button
@@ -178,6 +205,7 @@ async function logout() {
               class="topbar-avatar"
               type="button"
               :title="operatorName"
+              :aria-label="`打开用户菜单，${operatorName}`"
               aria-haspopup="menu"
               :aria-expanded="userMenuOpen"
               @click="userMenuOpen = !userMenuOpen"

@@ -56,10 +56,20 @@
 
 .nodesk-color-mode {
 	color: var(--color-primary);
-	left: 20px;
+	left: max(20px, env(safe-area-inset-left));
 	position: fixed;
-	top: 20px;
+	top: max(20px, env(safe-area-inset-top));
 	z-index: 60;
+}
+
+.nodesk-portal-shortcut {
+	right: max(20px, env(safe-area-inset-right));
+	top: max(20px, env(safe-area-inset-top));
+}
+
+.nodesk-safe-actions {
+	right: max(24px, env(safe-area-inset-right));
+	top: max(16px, env(safe-area-inset-top));
 }
 
 .nodesk-color-mode-trigger {
@@ -140,8 +150,19 @@
 
 @media (max-width: 640px) {
 	.nodesk-color-mode {
-		left: 16px;
-		top: 16px;
+		left: max(16px, env(safe-area-inset-left));
+		top: max(16px, env(safe-area-inset-top));
+	}
+
+	.nodesk-portal-shortcut {
+		right: max(16px, env(safe-area-inset-right));
+		top: max(80px, calc(env(safe-area-inset-top) + 64px));
+	}
+
+	.nodesk-safe-actions {
+		bottom: max(16px, env(safe-area-inset-bottom));
+		right: max(16px, env(safe-area-inset-right));
+		top: auto;
 	}
 }
 

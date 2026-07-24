@@ -78,9 +78,18 @@ describe('Nono Fastify app', () => {
     const policy = response.headers['content-security-policy'];
 
     expect(policy).toContain("script-src 'self'");
+    expect(policy).toContain("connect-src 'self'");
+    expect(policy).not.toMatch(/connect-src[^;]*(?:https?:|wss?:)/);
     expect(policy).toContain("object-src 'none'");
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).not.toContain('upgrade-insecure-requests');
+    expect(response.headers['permissions-policy']).toBe('camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  });
+
+  it('prevents browsers from caching API responses', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/auth/session' });
+
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 
   it('does not reflect arbitrary browser origins but allows Chrome extensions', async () => {
@@ -128,6 +137,26 @@ describe('Nono Fastify app', () => {
     const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: setupCookie } });
     expect(session.statusCode).toBe(200);
     expect(session.json().data).toMatchObject({ authenticated: true, setupRequired: false });
+  });
+
+  it('rejects cross-site unsafe requests authenticated by a session cookie', async () => {
+    const cookie = await setupAdmin();
+
+    const crossSite = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/config',
+      headers: { cookie, 'sec-fetch-site': 'cross-site' },
+      payload: { allowRegistration: true },
+    });
+    expect(crossSite.statusCode).toBe(403);
+
+    const sameOrigin = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/config',
+      headers: { cookie, 'sec-fetch-site': 'same-origin' },
+      payload: { allowRegistration: true },
+    });
+    expect(sameOrigin.statusCode).toBe(200);
   });
 
   it('allows only one concurrent first-admin setup', async () => {

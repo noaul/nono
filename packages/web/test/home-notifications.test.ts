@@ -220,6 +220,38 @@ describe('home notifications', () => {
     expect(wrapper.vm.items[0].read).toBe(true);
   });
 
+  it('isolates pending mutations when notification access is disabled and re-enabled', async () => {
+    let rejectOldDismiss: ((reason?: unknown) => void) | undefined;
+    const pendingDismiss = new Promise((_resolve, reject) => { rejectOldDismiss = reject; });
+    const firstFeed = { generatedAt: '', unreadCount: 1, urgentUnreadCount: 1, items: [notification()] };
+    const replacement = notification({ key: 'nomoney:replacement', source: 'nomoney', title: '新的续费提醒' });
+    const secondFeed = { generatedAt: '', unreadCount: 1, urgentUnreadCount: 1, items: [replacement] };
+    mockedApiRequest
+      .mockResolvedValueOnce(firstFeed as any)
+      .mockReturnValueOnce(pendingDismiss as any)
+      .mockResolvedValueOnce(secondFeed as any);
+    const wrapper = mount(HomeNotificationsHarness);
+    wrapper.vm.enabled = true;
+    await nextTick();
+    await flushPromises();
+
+    const oldDismiss = wrapper.vm.dismiss(wrapper.vm.items[0]);
+    wrapper.vm.enabled = false;
+    await nextTick();
+    wrapper.vm.enabled = true;
+    await nextTick();
+    await flushPromises();
+
+    expect(wrapper.vm.items.map((item: AdminNotification) => item.key)).toEqual(['nomoney:replacement']);
+
+    rejectOldDismiss?.(new Error('stale request failed'));
+    await oldDismiss;
+    await flushPromises();
+
+    expect(wrapper.vm.items.map((item: AdminNotification) => item.key)).toEqual(['nomoney:replacement']);
+    expect(mockedApiRequest).toHaveBeenCalledTimes(3);
+  });
+
   it('polls every five minutes while enabled and stops after unmount', async () => {
     vi.useFakeTimers();
     try {

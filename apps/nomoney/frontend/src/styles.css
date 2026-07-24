@@ -5,13 +5,44 @@
 @layer base {
   :root { color-scheme: light; }
   html.dark { color-scheme: dark; }
+  html { scrollbar-gutter: stable; }
   body {
     @apply bg-slate-50 text-slate-950 antialiased dark:bg-ink-950 dark:text-slate-100;
-    margin: 0; min-width: 320px; min-height: 100vh;
+    margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh;
   }
   ::selection {
     @apply bg-brand-500/25 text-slate-950 dark:text-white;
   }
+}
+
+.min-h-screen { min-height: 100dvh; }
+
+button,
+a,
+select,
+[role='button'] {
+  -webkit-tap-highlight-color: rgb(20 184 166 / 0.18);
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(20 184 166 / 0.72);
+  outline-offset: 2px;
+}
+
+.nomoney-mobile-overlay,
+.nomoney-mobile-drawer {
+  overscroll-behavior: contain;
+}
+
+.nomoney-mobile-drawer {
+  max-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+}
+
+.nomoney-page-main {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
 @layer components {
@@ -98,6 +129,19 @@
   .motion-stack > *:nth-child(4) { animation-delay: 105ms; }
   .motion-list > *:nth-child(5) { animation-delay: 140ms; }
   .motion-list > *:nth-child(6) { animation-delay: 175ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation-delay: -1ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 button, input, select, textarea { font: inherit; }

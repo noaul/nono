@@ -167,7 +167,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-panel-dark border-t border-black/[0.06] dark:border-white/[0.04] shadow-lg z-50 ${
+      className={`nostar-bulk-toolbar fixed bottom-0 left-0 right-0 bg-white dark:bg-panel-dark border-t border-black/[0.06] dark:border-white/[0.04] shadow-lg z-50 ${
         isClosing ? 'animate-slide-down' : 'animate-slide-up'
       } ${isShaking ? 'animate-shake' : ''}`}
       onClick={handleToolbarClick}

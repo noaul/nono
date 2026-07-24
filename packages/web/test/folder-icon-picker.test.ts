@@ -1,6 +1,8 @@
-import { mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableAutoUnmount, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FolderIconPicker from '../src/components/admin/FolderIconPicker.vue';
+
+enableAutoUnmount(afterEach);
 
 describe('FolderIconPicker', () => {
   beforeEach(() => {
@@ -12,6 +14,11 @@ describe('FolderIconPicker', () => {
       clear: () => values.clear(),
     });
     document.body.innerHTML = '';
+    document.body.style.overflow = '';
+  });
+
+  afterEach(() => {
+    document.body.style.overflow = '';
   });
 
   it('opens a searchable modal with recommended, recent, and all tabs', async () => {
@@ -59,5 +66,33 @@ describe('FolderIconPicker', () => {
     await (document.body.querySelector('[data-testid="folder-icon-tab-recent"]') as HTMLButtonElement).click();
 
     expect(document.body.querySelector('[data-testid="folder-icon-option-code"]')).not.toBeNull();
+  });
+
+  it('contains focus, locks scrolling, and restores focus after Escape', async () => {
+    const wrapper = mount(FolderIconPicker, {
+      attachTo: document.body,
+      props: { modelValue: '', testId: 'folder-picker' },
+    });
+    const trigger = wrapper.get<HTMLButtonElement>('[data-testid="folder-picker"]');
+    trigger.element.focus();
+
+    await trigger.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const dialog = document.body.querySelector<HTMLElement>('[data-testid="folder-icon-dialog"]')!;
+    const search = document.body.querySelector<HTMLInputElement>('[data-testid="folder-icon-search"]')!;
+    const clear = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button')).at(-1)!;
+    expect(document.activeElement).toBe(search);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    clear.focus();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', cancelable: true }));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    await wrapper.vm.$nextTick();
+    expect(document.body.querySelector('[data-testid="folder-icon-dialog"]')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+    expect(document.activeElement).toBe(trigger.element);
   });
 });

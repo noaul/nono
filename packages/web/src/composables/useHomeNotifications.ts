@@ -17,6 +17,7 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
   let mounted = false;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let requestVersion = 0;
+  let mutationGeneration = 0;
   let activeMutations = 0;
   let reloadAfterMutations = false;
 
@@ -50,7 +51,7 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
     const current = items.value.find((entry) => entry.key === item.key);
     if (!current || current.read === read) return;
     const previous = current.read;
-    beginMutation();
+    const generation = beginMutation();
     updateReadState(current, read);
     let shouldReload = false;
     try {
@@ -60,17 +61,19 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
       });
       announceChange();
     } catch {
-      updateReadState(current, previous);
-      shouldReload = true;
+      if (generation === mutationGeneration) {
+        updateReadState(current, previous);
+        shouldReload = true;
+      }
     } finally {
-      await finishMutation(shouldReload);
+      await finishMutation(generation, shouldReload);
     }
   }
 
   async function dismiss(item: AdminNotification) {
     const index = items.value.findIndex((entry) => entry.key === item.key);
     if (index < 0) return;
-    beginMutation();
+    const generation = beginMutation();
     const [removed] = items.value.splice(index, 1);
     adjustUnreadCounts(removed, -1);
     let shouldReload = false;
@@ -78,11 +81,13 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
       await apiRequest(`/api/admin/notifications/${encodeURIComponent(item.key)}`, { method: 'DELETE' });
       announceChange();
     } catch {
-      items.value.splice(index, 0, removed);
-      adjustUnreadCounts(removed, 1);
-      shouldReload = true;
+      if (generation === mutationGeneration) {
+        items.value.splice(index, 0, removed);
+        adjustUnreadCounts(removed, 1);
+        shouldReload = true;
+      }
     } finally {
-      await finishMutation(shouldReload);
+      await finishMutation(generation, shouldReload);
     }
   }
 
@@ -91,7 +96,7 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
     const previous = items.value.map((item) => item.read);
     const previousUnreadCount = feedUnreadCount.value;
     const previousUrgentUnreadCount = feedUrgentUnreadCount.value;
-    beginMutation();
+    const generation = beginMutation();
     items.value.forEach((item) => { item.read = true; });
     feedUnreadCount.value = 0;
     feedUrgentUnreadCount.value = 0;
@@ -100,12 +105,14 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
       await apiRequest(HOME_NOTIFICATION_MARK_ALL_URL, { method: 'POST' });
       announceChange();
     } catch {
-      items.value.forEach((item, index) => { item.read = previous[index]; });
-      feedUnreadCount.value = previousUnreadCount;
-      feedUrgentUnreadCount.value = previousUrgentUnreadCount;
-      shouldReload = true;
+      if (generation === mutationGeneration) {
+        items.value.forEach((item, index) => { item.read = previous[index]; });
+        feedUnreadCount.value = previousUnreadCount;
+        feedUrgentUnreadCount.value = previousUrgentUnreadCount;
+        shouldReload = true;
+      }
     } finally {
-      await finishMutation(shouldReload);
+      await finishMutation(generation, shouldReload);
     }
   }
 
@@ -131,9 +138,11 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
     activeMutations += 1;
     requestVersion += 1;
     loading.value = false;
+    return mutationGeneration;
   }
 
-  async function finishMutation(reload: boolean) {
+  async function finishMutation(generation: number, reload: boolean) {
+    if (generation !== mutationGeneration) return;
     reloadAfterMutations ||= reload;
     activeMutations = Math.max(0, activeMutations - 1);
     if (activeMutations || !reloadAfterMutations) return;
@@ -170,12 +179,14 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
 
   function disable() {
     requestVersion += 1;
+    mutationGeneration += 1;
+    activeMutations = 0;
+    reloadAfterMutations = false;
     loading.value = false;
     error.value = '';
     items.value = [];
     feedUnreadCount.value = 0;
     feedUrgentUnreadCount.value = 0;
-    if (activeMutations) reloadAfterMutations = true;
     stopPolling();
   }
 
@@ -204,6 +215,9 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
     mounted = false;
     stopPolling();
     requestVersion += 1;
+    mutationGeneration += 1;
+    activeMutations = 0;
+    reloadAfterMutations = false;
     window.removeEventListener('focus', onFocus);
     window.removeEventListener('nono:notifications-changed', onNotificationsChanged);
     document.removeEventListener('visibilitychange', onVisibilityChange);

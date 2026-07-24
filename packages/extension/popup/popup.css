@@ -23,6 +23,7 @@ button {
   font-weight: 750;
   min-height: 34px;
   padding: 0 10px;
+  touch-action: manipulation;
 }
 
 button:hover { background: #4f59d4; }

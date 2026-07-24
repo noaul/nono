@@ -62,6 +62,19 @@ test('shares the Nono visual token contract before Blog theme rules', async () =
 	assert.match(tokens, /--nono-accent:\s*var\(--color-brand/)
 })
 
+test('keeps keyboard, touch, motion, and mobile safe-area behavior consistent', async () => {
+	const globals = await read('src/styles/globals.css')
+	const theme = await read('src/styles/theme.css')
+	const portalShortcut = await read('src/app/(home)/portal-shortcut.tsx')
+
+	assert.match(globals, /scrollbar-gutter:\s*stable/)
+	assert.match(globals, /touch-action:\s*manipulation/)
+	assert.match(globals, /:focus-visible/)
+	assert.match(globals, /prefers-reduced-motion:\s*reduce/)
+	assert.match(theme, /env\(safe-area-inset-top\)/)
+	assert.match(portalShortcut, /nodesk-portal-shortcut/)
+})
+
 test('runs the same quality gates in GitHub Actions', async () => {
 	const workflow = await readRepositoryFile('.github/workflows/ci.yml')
 
@@ -76,7 +89,7 @@ test('runs the same quality gates in GitHub Actions', async () => {
 test('uses patched mutually compatible deployment dependencies', async () => {
 	const packageJson = JSON.parse(await read('package.json'))
 
-	assert.ok(isAtLeast(packageJson.dependencies.next, '16.2.6'))
+	assert.ok(isAtLeast(packageJson.dependencies.next, '16.2.11'))
 	assert.ok(isAtLeast(packageJson.dependencies['@opennextjs/cloudflare'], '1.20.1'))
 	assert.ok(isAtLeast(packageJson.dependencies.jsrsasign, '11.1.1'))
 	assert.ok(isAtLeast(packageJson.devDependencies.wrangler, '4.86.0'))
@@ -92,6 +105,7 @@ test('pins patched transitive build dependencies', async () => {
 		'"brace-expansion@>=2.0.0 <2.1.2": 2.1.2',
 		'"js-yaml@>=4.0.0 <4.1.2": 4.3.0',
 		'"picomatch@<2.3.2": 2.3.2',
+		'"postcss@<=8.5.11": 8.5.12',
 		'"sharp@<0.35.0": 0.35.0',
 		'"svgo@>=3.0.0 <3.3.4": 3.3.4'
 	]) {

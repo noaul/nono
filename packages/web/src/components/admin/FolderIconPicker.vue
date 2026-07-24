@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { ChevronDown, Search, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
+import { useModalBehavior } from '@/composables/useModalBehavior';
 import { folderIconOptions, getFolderIconOption, type FolderIconOption } from '@/utils/folder-icons';
 
 type IconTab = 'recommended' | 'recent' | 'all';
@@ -24,6 +25,7 @@ const query = ref('');
 const activeTab = ref<IconTab>('recommended');
 const recentValues = ref<string[]>([]);
 const searchInput = ref<HTMLInputElement | null>(null);
+const dialog = ref<HTMLElement | null>(null);
 
 const currentOption = computed(() => getFolderIconOption(props.modelValue));
 const currentLabel = computed(() => currentOption.value?.label || (props.modelValue ? '当前图标' : '选择图标'));
@@ -94,17 +96,15 @@ function clearIcon() {
   closePicker();
 }
 
-function onDocumentKeydown(event: KeyboardEvent) {
-  if (open.value && event.key === 'Escape') closePicker();
-}
-
 onMounted(() => {
   readRecent();
-  document.addEventListener('keydown', onDocumentKeydown);
 });
 
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onDocumentKeydown);
+useModalBehavior({
+  open,
+  container: dialog,
+  close: closePicker,
+  initialFocus: () => searchInput.value,
 });
 </script>
 
@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
 
   <Teleport to="body">
     <div v-if="open" class="folder-icon-backdrop" role="presentation" @click.self="closePicker">
-      <section class="folder-icon-dialog" data-testid="folder-icon-dialog" role="dialog" aria-modal="true" aria-label="选择图标">
+      <section ref="dialog" class="folder-icon-dialog" data-testid="folder-icon-dialog" role="dialog" aria-modal="true" aria-label="选择图标" tabindex="-1">
         <header class="folder-icon-dialog-head">
           <h2>选择图标</h2>
           <button class="icon-button secondary" type="button" aria-label="关闭图标选择" @click="closePicker"><X :size="17" /></button>
@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
 
         <label class="folder-icon-search-field">
           <Search :size="19" />
-          <input ref="searchInput" v-model="query" data-testid="folder-icon-search" type="search" placeholder="搜索图标，如：文件夹、开发、AI、购物" />
+          <input ref="searchInput" v-model="query" data-testid="folder-icon-search" type="search" placeholder="搜索图标，如：文件夹、开发、AI、购物…" />
         </label>
 
         <div class="folder-icon-tabs" role="tablist" aria-label="图标范围">
@@ -214,6 +214,7 @@ onBeforeUnmount(() => {
   display: flex;
   inset: 0;
   justify-content: center;
+  overscroll-behavior: contain;
   padding: 24px;
   position: fixed;
   z-index: 1200;
@@ -231,6 +232,7 @@ onBeforeUnmount(() => {
   max-height: min(780px, calc(100vh - 48px));
   max-width: 1040px;
   overflow: hidden;
+  overscroll-behavior: contain;
   padding: 20px;
   width: min(1040px, 100%);
 }
@@ -299,6 +301,7 @@ onBeforeUnmount(() => {
 .folder-icon-dialog-body {
   min-height: 220px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px 2px 6px;
 }
 
@@ -386,11 +389,11 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .folder-icon-backdrop {
     align-items: flex-end;
-    padding: 10px;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   }
 
   .folder-icon-dialog {
-    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
     padding: 16px;
   }
 
@@ -401,5 +404,44 @@ onBeforeUnmount(() => {
   .folder-icon-option {
     min-height: 88px;
   }
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-dialog {
+  background: rgba(29, 32, 39, 0.96);
+  border-color: #363a44;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+  color: #f3f4f6;
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-search-field,
+:global(:root[data-color-mode='dark']) .folder-icon-option,
+:global(:root[data-color-mode='dark']) .folder-icon-dialog .icon-button.secondary,
+:global(:root[data-color-mode='dark']) .folder-icon-dialog .button.secondary {
+  background: #292c34;
+  border-color: #414650;
+  color: #e5e7eb;
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-search-field input {
+  color: #f3f4f6;
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-tabs,
+:global(:root[data-color-mode='dark']) .folder-icon-dialog-footer {
+  border-color: #363a44;
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-tabs button,
+:global(:root[data-color-mode='dark']) .folder-icon-section-title,
+:global(:root[data-color-mode='dark']) .folder-icon-empty {
+  color: #aeb4bf;
+}
+
+:global(:root[data-color-mode='dark']) .folder-icon-option:hover,
+:global(:root[data-color-mode='dark']) .folder-icon-option:focus-visible,
+:global(:root[data-color-mode='dark']) .folder-icon-option.selected {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.42);
+  color: #5eead4;
 }
 </style>

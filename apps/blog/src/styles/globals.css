@@ -17,10 +17,12 @@
 	html {
 		@apply text-primary bg-bg h-full leading-tight;
 		scroll-behavior: smooth;
+		scrollbar-gutter: stable;
 	}
 
 	body {
 		@apply h-full bg-none;
+		min-height: 100dvh;
 	}
 	* {
 		@apply border-border;
@@ -36,6 +38,27 @@
 
 	button {
 		@apply cursor-pointer;
+	}
+
+	button,
+	a,
+	select,
+	[role='button'] {
+		-webkit-tap-highlight-color: color-mix(in srgb, var(--color-brand) 18%, transparent);
+		touch-action: manipulation;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-brand);
+		outline-offset: 2px;
+	}
+
+	button:disabled,
+	input:disabled,
+	textarea:disabled,
+	select:disabled {
+		cursor: not-allowed;
+		opacity: 0.58;
 	}
 
 	.range-track {
@@ -175,5 +198,21 @@
 .heartbeat-container:hover {
 	.heartbeat {
 		animation: heartbeat-frame 0.8s ease-in-out;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto !important;
+	}
+
+	*,
+	*::before,
+	*::after {
+		animation-delay: -1ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-delay: 0s !important;
+		transition-duration: 0.01ms !important;
 	}
 }

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Globe2, Languages, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, X } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
@@ -25,10 +25,64 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
   const location = useLocation();
   const { copy, language, toggleLanguage } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileDrawerRef = useRef<HTMLElement | null>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [theme, setTheme] = useState(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
   const current = useMemo(() => navItems.find((item) => location.pathname.startsWith(item.to)), [location.pathname]);
   const outletContext = useMemo<LayoutOutletContext>(() => ({ setTopbarActions }), []);
+
+  useEffect(() => {
+    const closeMobileNavigationAtDesktop = () => {
+      if (window.innerWidth >= 768) setMobileOpen(false);
+    };
+
+    window.addEventListener('resize', closeMobileNavigationAtDesktop);
+    return () => window.removeEventListener('resize', closeMobileNavigationAtDesktop);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const drawer = mobileDrawerRef.current;
+    const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    document.body.style.overflow = 'hidden';
+    drawer?.querySelector<HTMLElement>(focusableSelector)?.focus();
+
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab' || !drawer) return;
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector));
+      if (!focusable.length) {
+        event.preventDefault();
+        drawer.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!drawer.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', onKeydown);
+    return () => {
+      window.removeEventListener('keydown', onKeydown);
+      document.body.style.overflow = previousOverflow;
+      mobileTriggerRef.current?.focus();
+    };
+  }, [mobileOpen]);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -92,9 +146,9 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
       </aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="nomoney-mobile-overlay fixed inset-0 z-50 md:hidden">
           <button aria-label="关闭" className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 border-r border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
+          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 w-72 border-r border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900" role="dialog" aria-modal="true" aria-label="主导航" tabIndex={-1}>
             <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
@@ -114,7 +168,7 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
       <div className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/85 px-4 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-ink-950/85 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <button className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label="菜单">
+            <button ref={mobileTriggerRef} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label="菜单">
               <Menu size={20} />
             </button>
             <div className="min-w-0">
@@ -136,7 +190,7 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
             </IconButton>
           </div>
         </header>
-        <main className="mx-auto min-w-0 max-w-7xl px-4 pb-6 pt-3 sm:px-6 lg:pb-7 lg:pt-4">
+        <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pb-6 pt-3 sm:px-6 lg:pb-7 lg:pt-4">
           <Outlet context={outletContext} />
         </main>
       </div>

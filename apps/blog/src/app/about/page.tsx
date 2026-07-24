@@ -176,7 +176,7 @@ export default function Page() {
 				<motion.div
 					initial={{ opacity: 0, scale: 0.6 }}
 					animate={{ opacity: 1, scale: 1 }}
-					className='fixed top-4 right-6 z-40 flex gap-3 max-sm:top-auto max-sm:right-4 max-sm:bottom-4 max-sm:flex-wrap max-sm:justify-end max-sm:rounded-2xl max-sm:border max-sm:bg-white/75 max-sm:p-2 max-sm:shadow-lg max-sm:backdrop-blur-xl'>
+					className='nodesk-safe-actions fixed z-40 flex gap-3 max-sm:flex-wrap max-sm:justify-end max-sm:rounded-2xl max-sm:border max-sm:bg-white/75 max-sm:p-2 max-sm:shadow-lg max-sm:backdrop-blur-xl'>
 					{isEditMode ? (
 						<>
 							<motion.button

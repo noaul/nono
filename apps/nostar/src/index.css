@@ -4,6 +4,50 @@
 @tailwind utilities;
 /* stylelint-enable */
 
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+  }
+
+  body,
+  #root {
+    min-height: 100dvh;
+  }
+
+  button,
+  a,
+  select,
+  [role='button'] {
+    -webkit-tap-highlight-color: rgba(94, 106, 210, 0.18);
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(94, 106, 210, 0.78);
+    outline-offset: 2px;
+  }
+
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+}
+
+.nostar-toast-viewport {
+  max-width: calc(100vw - max(2rem, env(safe-area-inset-left) + env(safe-area-inset-right)));
+  right: max(1rem, env(safe-area-inset-right));
+  top: max(1rem, env(safe-area-inset-top));
+}
+
+.nostar-bulk-toolbar {
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 @layer utilities {
   .line-clamp-3 {
     display: -webkit-box;
@@ -984,5 +1028,21 @@ textarea::-webkit-resizer {
   input {
     border: 1px solid #000;
     box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-delay: -1ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0s !important;
+    transition-duration: 0.01ms !important;
   }
 }
