@@ -350,13 +350,13 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
-  it('enters organize mode by holding All for three seconds and deletes bookmarks to the recycle bin', async () => {
+  it('enters organize mode by holding All for one second and deletes bookmarks to the recycle bin', async () => {
     vi.useFakeTimers();
     const wrapper = await mountNavigationPage(true);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
 
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 10, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     await wrapper.vm.$nextTick();
     expect(wrapper.get('.navigation-reveal-content').classes()).toContain('is-organizing');
     expect(wrapper.get('[data-testid="category-tab-all"]').attributes('aria-pressed')).toBe('true');
@@ -376,6 +376,20 @@ describe('NavigationPage public workflow', () => {
 
     expect(apiRequest).toHaveBeenCalledWith('/api/admin/links/10', { method: 'DELETE' });
     expect(wrapper.find('[data-testid="public-bookmark-10"]').exists()).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('opens the delete confirmation after holding a bookmark for two seconds', async () => {
+    vi.useFakeTimers();
+    const wrapper = await mountNavigationPage(true);
+    const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
+
+    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 11, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(2000);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('Vue');
+    expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('回收站');
     vi.useRealTimers();
   });
 
@@ -400,7 +414,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage(true);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 90, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
     const secondTab = wrapper.get('[data-testid="category-tab-3"]').element;
     const elementFromPoint = vi.fn(() => secondTab);
@@ -448,7 +462,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage(true);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 91, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     const source = wrapper.get('[data-testid="public-bookmark-10"]');
     const target = wrapper.get('[data-testid="public-bookmark-11"]').element;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => target });
@@ -474,7 +488,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage(false);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 92, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(wrapper.get('.navigation-reveal-content').classes()).not.toContain('is-organizing');
   });
 
@@ -497,7 +511,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage(true);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 93, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     const firstTab = wrapper.get('[data-testid="category-tab-1"]');
     const secondTab = wrapper.get('[data-testid="category-tab-3"]').element;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => secondTab });
@@ -525,7 +539,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage(true);
     const allTab = wrapper.get('[data-testid="category-tab-all"]');
     allTab.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 95, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     const source = wrapper.get('[data-testid="folder-drag-handle-2"]');
     const target = wrapper.get('[data-testid="public-folder-card-3"]').element;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => target });

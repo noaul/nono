@@ -45,14 +45,32 @@ describe('homepage organize mode interactions', () => {
     expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
   });
 
-  it('does not attach long-press actions to individual bookmarks outside organize mode', async () => {
+  it('arms bookmark dragging after one second and starts when the pointer moves', async () => {
     const wrapper = mount(FolderCard, { props: { folder, editable: true } });
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
 
     bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 8, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(999);
+    bookmark.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 8, clientX: 21, clientY: 20 }));
+    expect(wrapper.emitted('bookmark-drag-start')).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    bookmark.element.dispatchEvent(pointerEvent('pointermove', { pointerId: 8, clientX: 40, clientY: 20 }));
 
     expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
+    expect(wrapper.emitted('bookmark-drag-start')).toHaveLength(1);
+  });
+
+  it('requests deletion after holding a bookmark still for two seconds', async () => {
+    const wrapper = mount(FolderCard, { props: { folder, editable: true } });
+    const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
+
+    bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 10, clientX: 20, clientY: 20 }));
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(wrapper.emitted('bookmark-delete-request')).toHaveLength(1);
     expect(wrapper.emitted('bookmark-drag-start')).toBeUndefined();
   });
 
@@ -61,7 +79,7 @@ describe('homepage organize mode interactions', () => {
     const bookmark = wrapper.get('[data-testid="public-bookmark-10"]');
 
     bookmark.element.dispatchEvent(pointerEvent('pointerdown', { button: 0, pointerId: 9, clientX: 20, clientY: 20 }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(2000);
 
     expect(wrapper.emitted('bookmark-delete-request')).toBeUndefined();
     expect(wrapper.emitted('bookmark-drag-start')).toBeUndefined();

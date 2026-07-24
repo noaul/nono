@@ -47,13 +47,90 @@ const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
 const faviconUrls = computed(() => new Map((folder.value.links || []).map((link) => [link.id, getFaviconUrl(link.url, link.icon)])));
 
+const DRAG_ARM_DELAY = 1000;
+const DELETE_DELAY = 2000;
+const MOVE_TOLERANCE = 10;
+const armedLinkId = ref<number | null>(null);
+let dragArmTimer: ReturnType<typeof setTimeout> | undefined;
+let deleteTimer: ReturnType<typeof setTimeout> | undefined;
+let suppressClickTimer: ReturnType<typeof setTimeout> | undefined;
+let suppressClickLinkId: number | null = null;
+let activePress: {
+  link: NonNullable<Folder['links']>[number];
+  pointerId: number;
+  startX: number;
+  startY: number;
+  element: HTMLElement;
+} | null = null;
+
 function handleFaviconError(linkId: string | number) {
   faviconErrors.value[linkId] = true;
 }
 
+function clearPressTimers() {
+  clearTimeout(dragArmTimer);
+  clearTimeout(deleteTimer);
+  dragArmTimer = undefined;
+  deleteTimer = undefined;
+}
+
+function suppressNextClick(linkId: number) {
+  suppressClickLinkId = linkId;
+  clearTimeout(suppressClickTimer);
+  suppressClickTimer = setTimeout(() => {
+    if (suppressClickLinkId === linkId) suppressClickLinkId = null;
+  }, 700);
+}
+
+function resetPress() {
+  clearPressTimers();
+  if (activePress?.element.hasPointerCapture?.(activePress.pointerId)) {
+    activePress.element.releasePointerCapture(activePress.pointerId);
+  }
+  activePress = null;
+  armedLinkId.value = null;
+}
+
 function onBookmarkPointerDown(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
-  if (!props.editable || !props.organizing || event.button !== 0) return;
-  event.preventDefault();
+  if (!props.editable || event.button !== 0) return;
+  if (props.organizing) {
+    event.preventDefault();
+    emit('bookmark-drag-start', {
+      link,
+      folderId: folder.value.id,
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+    });
+    return;
+  }
+  if (activePress) return;
+  const element = event.currentTarget;
+  if (!(element instanceof HTMLElement)) return;
+  activePress = { link, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, element };
+  dragArmTimer = setTimeout(() => {
+    if (!activePress || activePress.link.id !== link.id) return;
+    armedLinkId.value = link.id;
+    activePress.element.setPointerCapture?.(activePress.pointerId);
+  }, DRAG_ARM_DELAY);
+  deleteTimer = setTimeout(() => {
+    if (!activePress || activePress.link.id !== link.id) return;
+    suppressNextClick(link.id);
+    resetPress();
+    emit('bookmark-delete-request', { link, folderId: folder.value.id });
+  }, DELETE_DELAY);
+}
+
+function onBookmarkPointerMove(link: NonNullable<Folder['links']>[number], event: PointerEvent) {
+  if (!activePress || activePress.pointerId !== event.pointerId || activePress.link.id !== link.id) return;
+  const distance = Math.hypot(event.clientX - activePress.startX, event.clientY - activePress.startY);
+  if (distance <= MOVE_TOLERANCE) return;
+  if (armedLinkId.value !== link.id) {
+    resetPress();
+    return;
+  }
+  suppressNextClick(link.id);
+  resetPress();
   emit('bookmark-drag-start', {
     link,
     folderId: folder.value.id,
@@ -63,10 +140,22 @@ function onBookmarkPointerDown(link: NonNullable<Folder['links']>[number], event
   });
 }
 
-function onBookmarkClick(event: MouseEvent) {
-  if (!props.organizing) return;
+function onBookmarkPointerEnd(linkId: number) {
+  if (!activePress || activePress.link.id !== linkId) return;
+  if (armedLinkId.value === linkId) suppressNextClick(linkId);
+  resetPress();
+}
+
+function onBookmarkClick(linkId: number, event: MouseEvent) {
+  if (!props.organizing && suppressClickLinkId !== linkId) return;
   event.preventDefault();
   event.stopPropagation();
+  if (suppressClickLinkId === linkId) suppressClickLinkId = null;
+  clearTimeout(suppressClickTimer);
+}
+
+function onBookmarkContextMenu(event: MouseEvent) {
+  if (props.organizing || (props.editable && activePress)) event.preventDefault();
 }
 
 function onFolderPointerDown(event: PointerEvent) {
@@ -110,6 +199,8 @@ function onCardPointerleave() {
 
 onUnmounted(() => {
   if (spotFrame) cancelAnimationFrame(spotFrame);
+  resetPress();
+  clearTimeout(suppressClickTimer);
 });
 </script>
 
@@ -179,7 +270,7 @@ onUnmounted(() => {
       >
         <a
           class="large-link"
-          :class="{ 'is-editable': props.editable && props.organizing }"
+          :class="{ 'is-editable': props.editable, 'is-drag-armed': armedLinkId === link.id }"
           :href="link.url"
           :title="link.name"
           :data-testid="`public-bookmark-${link.id}`"
@@ -187,8 +278,11 @@ onUnmounted(() => {
           rel="noreferrer"
           draggable="false"
           @pointerdown="onBookmarkPointerDown(link, $event)"
-          @click="onBookmarkClick"
-          @contextmenu="props.organizing && $event.preventDefault()"
+          @pointermove="onBookmarkPointerMove(link, $event)"
+          @pointerup="onBookmarkPointerEnd(link.id)"
+          @pointercancel="onBookmarkPointerEnd(link.id)"
+          @click="onBookmarkClick(link.id, $event)"
+          @contextmenu="onBookmarkContextMenu"
           @dragstart.prevent
         >
           <img
@@ -438,6 +532,13 @@ h2 {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.large-link.is-drag-armed {
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--accent-bright-rgb), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .bookmark-cell.is-dragging-source {

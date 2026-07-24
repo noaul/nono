@@ -371,7 +371,7 @@ function onNotabPointerDown(tabId: string, event: PointerEvent) {
   organizePress = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, element };
   organizeArming.value = true;
   element.setPointerCapture?.(event.pointerId);
-  organizePressTimer = setTimeout(enterOrganizeMode, 3000);
+  organizePressTimer = setTimeout(enterOrganizeMode, 1000);
 }
 
 function onNotabPointerMove(event: PointerEvent) {
@@ -405,7 +405,7 @@ function showBookmarkMessage(kind: 'error' | 'success', text: string) {
 }
 
 function requestBookmarkDelete(request: { link: Link; folderId: number }) {
-  if (!organizing.value || !canOrganize.value || anyDragActive.value) return;
+  if (!canOrganize.value || anyDragActive.value) return;
   pendingDelete.value = { kind: 'bookmark', id: request.link.id, label: request.link.name, link: request.link, folderId: request.folderId };
 }
 
@@ -534,7 +534,7 @@ function resolveDropTarget(clientX: number, clientY: number) {
 }
 
 function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId: number; clientX: number; clientY: number }) {
-  if (!organizing.value || !canOrganize.value || anyModalOpen.value || anyDragActive.value || movingBookmark.value) return;
+  if (!canOrganize.value || anyModalOpen.value || anyDragActive.value || movingBookmark.value) return;
   bookmarkDrag.value = {
     link: request.link,
     sourceFolderId: request.folderId,
