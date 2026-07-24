@@ -21,7 +21,7 @@ export function fileToBase64NoPrefix(file: File): Promise<string> {
 	})
 }
 
-export async function hashFileSHA256(file: File): Promise<string> {
+export async function hashFileSHA256Full(file: File): Promise<string> {
 	const buf = await file.arrayBuffer()
 	const digest = await crypto.subtle.digest('SHA-256', buf)
 	const bytes = new Uint8Array(digest)
@@ -30,5 +30,9 @@ export async function hashFileSHA256(file: File): Promise<string> {
 		const h = bytes[i].toString(16).padStart(2, '0')
 		hex += h
 	}
-	return hex.slice(0, 16)
+	return hex
+}
+
+export async function hashFileSHA256(file: File): Promise<string> {
+	return (await hashFileSHA256Full(file)).slice(0, 16)
 }

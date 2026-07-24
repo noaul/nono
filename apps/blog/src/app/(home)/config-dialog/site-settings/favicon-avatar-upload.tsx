@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { toast } from 'sonner'
-import { hashFileSHA256 } from '@/lib/file-utils'
+import { hashFileSHA256, hashFileSHA256Full } from '@/lib/file-utils'
 import { normalizeAvatar } from '@/lib/normalize-avatar'
 import type { FileItem } from './types'
 
@@ -38,7 +38,7 @@ export function FaviconAvatarUpload({ faviconItem, setFaviconItem, avatarItem, s
 
 		try {
 			const normalizedFile = await normalizeAvatar(file)
-			const hash = await hashFileSHA256(normalizedFile)
+			const hash = await hashFileSHA256Full(normalizedFile)
 			const previewUrl = URL.createObjectURL(normalizedFile)
 			setAvatarItem(previous => {
 				if (previous?.type === 'file') URL.revokeObjectURL(previous.previewUrl)
