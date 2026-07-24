@@ -177,6 +177,7 @@ export interface AdminNotification {
 export interface AdminNotificationFeed {
   items: AdminNotification[];
   unreadCount: number;
+  urgentUnreadCount?: number;
   generatedAt: string;
 }
 

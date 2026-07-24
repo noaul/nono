@@ -61,6 +61,29 @@ describe('notification routes', () => {
     expect(response.json().data).toMatchObject({ unreadCount: 0, items: [] });
   });
 
+  it('passes validated source filters to list and mark-all operations', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney',
+      headers: { cookie },
+    });
+    const markAll = await app.inject({
+      method: 'POST',
+      url: '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney',
+      headers: { cookie },
+    });
+
+    expect(list.statusCode).toBe(200);
+    expect(markAll.statusCode).toBe(200);
+    expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
+      limit: 100,
+      sources: ['nodesk', 'nomoney'],
+    });
+    expect(notificationService.markAllRead).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
+      sources: ['nodesk', 'nomoney'],
+    });
+  });
+
   it('marks one or all current notifications as read', async () => {
     const one = await app.inject({
       method: 'PUT',

@@ -25,6 +25,7 @@ export interface NotificationItem {
 export interface NotificationFeed {
   items: NotificationItem[];
   unreadCount: number;
+  urgentUnreadCount: number;
   generatedAt: string;
 }
 
@@ -37,9 +38,9 @@ export interface NoMoneyDueItem {
 }
 
 export interface NotificationService {
-  list(user: AuthUser, options?: { limit?: number }): Promise<NotificationFeed>;
+  list(user: AuthUser, options?: { limit?: number; sources?: NotificationSource[] }): Promise<NotificationFeed>;
   markRead(user: AuthUser, key: string, read: boolean): Promise<void>;
-  markAllRead(user: AuthUser): Promise<number>;
+  markAllRead(user: AuthUser, options?: { sources?: NotificationSource[] }): Promise<number>;
   dismiss(user: AuthUser, key: string): Promise<void>;
 }
 
@@ -61,18 +62,20 @@ export function createNotificationService(options: NotificationServiceOptions): 
   const timeZone = options.timeZone || process.env.TZ || 'Asia/Shanghai';
   const backupStaleHours = options.backupStaleHours;
 
-  async function collect(user: AuthUser): Promise<RawNotification[]> {
+  async function collect(user: AuthUser, sources?: NotificationSource[]): Promise<RawNotification[]> {
+    const requested = sources?.length ? new Set(sources) : null;
+    const includes = (source: NotificationSource) => !requested || requested.has(source);
     const [links, releases] = await Promise.all([
-      collectLinkNotifications(options.prisma, user.id, now()),
-      collectReleaseNotifications(options.prisma, user.id),
+      includes('links') ? collectLinkNotifications(options.prisma, user.id, now()) : Promise.resolve([]),
+      includes('nostar') ? collectReleaseNotifications(options.prisma, user.id) : Promise.resolve([]),
     ]);
-    const global = user.role === 'admin'
-      ? await Promise.all([
-          collectNodeskNotifications(options.nodeskReader, now(), timeZone),
-          collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone),
-          collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours),
-        ]).then((items) => items.flat())
-      : [];
+    const globalCollectors: Array<Promise<RawNotification[]>> = [];
+    if (user.role === 'admin') {
+      if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(options.nodeskReader, now(), timeZone));
+      if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone));
+      if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours));
+    }
+    const global = (await Promise.all(globalCollectors)).flat();
     return [...links, ...releases, ...global].sort(compareNotifications);
   }
 
@@ -86,7 +89,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
   return {
     async list(user, listOptions = {}) {
       const generatedAt = now().toISOString();
-      const rawItems = await collect(user);
+      const rawItems = filterNotificationSources(await collect(user, listOptions.sources), listOptions.sources);
       const states = rawItems.length
         ? await options.prisma.notificationState.findMany({
             where: { userId: user.id, key: { in: rawItems.map((item) => item.key) } },
@@ -101,6 +104,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
       return {
         items: visible.slice(0, limit),
         unreadCount: visible.filter((item) => !item.read).length,
+        urgentUnreadCount: visible.filter((item) => !item.read && item.severity !== 'info').length,
         generatedAt,
       };
     },
@@ -115,8 +119,8 @@ export function createNotificationService(options: NotificationServiceOptions): 
       });
     },
 
-    async markAllRead(user) {
-      const items = await collect(user);
+    async markAllRead(user, markOptions = {}) {
+      const items = filterNotificationSources(await collect(user, markOptions.sources), markOptions.sources);
       const readAt = now();
       await Promise.all(items.map((item) => options.prisma.notificationState.upsert({
         where: { userId_key: { userId: user.id, key: item.key } },
@@ -136,6 +140,12 @@ export function createNotificationService(options: NotificationServiceOptions): 
       });
     },
   };
+}
+
+function filterNotificationSources(items: RawNotification[], sources?: NotificationSource[]) {
+  if (!sources?.length) return items;
+  const allowed = new Set(sources);
+  return items.filter((item) => allowed.has(item.source));
 }
 
 export function createNoMoneyDueReader(

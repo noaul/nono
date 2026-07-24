@@ -9,10 +9,13 @@ import ColorModeControl from '@/components/ColorModeControl.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
+import HomeNotificationBell from '@/components/HomeNotificationBell.vue';
+import HomeUrgentNoticeBar from '@/components/HomeUrgentNoticeBar.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import ThemeScene from '@/components/ThemeScene.vue';
 import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
+import { useHomeNotifications } from '@/composables/useHomeNotifications';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
@@ -124,6 +127,16 @@ const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
 const accessLocked = computed(() => Boolean(payload.value?.access?.required && !payload.value.access.unlocked));
 const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
+const {
+  items: homeNotificationItems,
+  loading: homeNotificationLoading,
+  unreadCount: homeNotificationUnreadCount,
+  urgentItems: homeUrgentNotifications,
+  urgentOverflow: homeUrgentOverflow,
+  markRead: markHomeNotificationRead,
+  dismiss: dismissHomeNotification,
+  markAllRead: markAllHomeNotificationsRead,
+} = useHomeNotifications(canEditAppearance);
 const appearanceEntryHref = computed(() => {
   if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;
   return `/login?next=${encodeURIComponent(route.fullPath || '/')}`;
@@ -1131,6 +1144,15 @@ onUnmounted(() => {
   >
     <ThemeScene v-if="sceneIntensity > 0" :theme="activeTheme" :intensity="sceneIntensity" :mode="resolvedMode" />
     <div class="public-corner-actions">
+      <HomeNotificationBell
+        v-if="canEditAppearance"
+        :items="homeNotificationItems"
+        :unread-count="homeNotificationUnreadCount"
+        :loading="homeNotificationLoading"
+        @mark-read="markHomeNotificationRead"
+        @dismiss="dismissHomeNotification"
+        @mark-all-read="markAllHomeNotificationsRead"
+      />
       <ColorModeControl @change="resolvedMode = $event" />
       <button
         v-if="canEditAppearance"
@@ -1183,6 +1205,13 @@ onUnmounted(() => {
         :busy="unlocking"
         @submit="submitSearch"
         @engine-change="searchEngineTick++"
+      />
+
+      <HomeUrgentNoticeBar
+        v-if="canEditAppearance"
+        :items="homeUrgentNotifications"
+        :overflow="homeUrgentOverflow"
+        @select="markHomeNotificationRead"
       />
 
       <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">

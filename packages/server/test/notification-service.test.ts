@@ -141,6 +141,46 @@ describe('notification service', () => {
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
   });
 
+  it('filters the feed and mark-all operation to requested sources', async () => {
+    const { prisma, queries } = createPrisma({
+      links: [{
+        id: 31,
+        name: 'Broken link',
+        url: 'https://broken.example',
+        healthStatus: 'broken',
+        healthStatusCode: 503,
+        healthReason: 'HTTP 503',
+        healthFinalUrl: null,
+        healthCheckedAt: now,
+        folder: { name: 'Work' },
+      }],
+    });
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({
+        calendarEvents: [{ id: 'today', date: '2026-07-18', time: '18:30', title: 'Publish notes' }],
+      })),
+      noMoneyReader: vi.fn(async () => [
+        { assetType: 'domain', id: 9, name: 'noaul.com', dueDate: '2026-07-20', status: 'active' },
+      ]),
+      backupService: { list: vi.fn(async () => []) } as any,
+      now: () => now,
+    } as any);
+    const user = { id: 1, role: 'admin' } as any;
+
+    const feed = await service.list(user, { limit: 1, sources: ['nodesk', 'nomoney'] });
+    const updated = await service.markAllRead(user, { sources: ['nodesk', 'nomoney'] });
+
+    expect(feed.items.map((item) => item.source)).toEqual(['nodesk']);
+    expect(feed.unreadCount).toBe(2);
+    expect(feed.urgentUnreadCount).toBe(2);
+    expect(updated).toBe(2);
+    expect(queries.upserts).toHaveLength(2);
+    expect(queries.upserts.every((query) => query.create.key.startsWith('nodesk:') || query.create.key.startsWith('nomoney:'))).toBe(true);
+    expect(queries.links).toHaveLength(0);
+    expect(queries.releases).toHaveLength(0);
+  });
+
   it('reports the latest automatic backup failure to administrators', async () => {
     const { prisma } = createPrisma();
     const backupAutomationService = {

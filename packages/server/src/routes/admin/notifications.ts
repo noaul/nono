@@ -4,8 +4,19 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 
+const notificationSourceSchema = z.enum(['nodesk', 'nomoney', 'nostar', 'links', 'backup']);
+const sourceFilterSchema = z.preprocess(
+  (value) => typeof value === 'string' ? value.split(',').map((source) => source.trim()).filter(Boolean) : value,
+  z.array(notificationSourceSchema).min(1).max(5).optional(),
+).transform((sources) => sources ? [...new Set(sources)] : undefined);
+
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  sources: sourceFilterSchema,
+});
+
+const markAllQuerySchema = z.object({
+  sources: sourceFilterSchema,
 });
 
 const readBodySchema = z.object({
@@ -17,13 +28,19 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const query = listQuerySchema.parse(request.query);
-    return sendOk(reply, await services.notificationService.list(user, { limit: query.limit }));
+    return sendOk(reply, await services.notificationService.list(user, {
+      limit: query.limit,
+      ...(query.sources ? { sources: query.sources } : {}),
+    }));
   });
 
   app.post('/api/admin/notifications/mark-all-read', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const updated = await services.notificationService.markAllRead(user);
+    const query = markAllQuerySchema.parse(request.query);
+    const updated = query.sources
+      ? await services.notificationService.markAllRead(user, { sources: query.sources })
+      : await services.notificationService.markAllRead(user);
     return sendOk(reply, { updated });
   });
 
