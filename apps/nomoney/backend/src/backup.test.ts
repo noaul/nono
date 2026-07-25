@@ -54,6 +54,7 @@ describe('backup APIs', () => {
 
     await agent.post('/api/vps').send({
       name: 'probe-node',
+      vpsType: 'website',
       provider: 'netcup',
       ipAddress: '203.0.113.48',
       location: 'DE',
@@ -101,8 +102,14 @@ describe('backup APIs', () => {
 
     await agent.post('/api/subscriptions').send({
       name: 'ChatGPT',
+      purchaseType: 'buyout',
       provider: 'OpenAI',
       account: 'owner@example.com',
+      email: 'owner@example.com',
+      phoneNumber: '+16045550123',
+      licenseKey: 'secret-license',
+      deviceLimit: 3,
+      content: 'Desktop app',
       category: 'AI',
       amountMinorUnits: 2000,
       currency: 'USD',
@@ -156,6 +163,7 @@ describe('backup APIs', () => {
     expect(exportedText).not.toContain('secret-password');
     expect(exportedText).not.toContain('+4915112345678');
     expect(exportedText).not.toContain('backup-passphrase');
+    expect(exportedText).not.toContain('secret-license');
 
     await agent.put('/api/domains/1').send({
       domainName: 'ordinary-long-domain-name',
@@ -201,6 +209,7 @@ describe('backup APIs', () => {
     expect(restoredVps.body.items).toEqual([
       expect.objectContaining({
         name: 'probe-node',
+        vpsType: 'website',
         sshHost: '203.0.113.48',
         sshPort: 2222,
         sshAuthType: 'password',
@@ -224,7 +233,13 @@ describe('backup APIs', () => {
       expect.objectContaining({
         name: 'ChatGPT',
         provider: 'OpenAI',
-        account: 'owner@example.com'
+        purchaseType: 'buyout',
+        email: 'owner@example.com',
+        phoneNumber: '+16045550123',
+        licenseKey: null,
+        hasLicenseKey: true,
+        deviceLimit: 3,
+        content: 'Desktop app'
       })
     ]);
 

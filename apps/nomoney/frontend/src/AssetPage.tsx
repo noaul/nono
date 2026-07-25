@@ -10,6 +10,7 @@ import { compactDate, daysLeft, dueTone, formatCycle, formatMoney } from './form
 import { Button, DataTable, Drawer, EmptyState, Field, IconButton, ProgressBar, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { commonDomainExtensions, composeDomainName, dnsProviderLink, dnsProviderProfiles, domainLink, domainPrefix, findDnsProviderProfile, findRegistrarProfile, inferDomainExtension, normalizeDomainExtension, registrarProfiles, stringValue } from './domainRegistrars';
 import { useI18n } from './i18n';
+import { formatVpsCapacity } from './vps-capacity';
 
 type FormState = Record<string, string | boolean>;
 type RenewalTotals = NonNullable<ListMeta['renewalTotals']>;
@@ -78,10 +79,15 @@ type PhoneVisualAccent = {
   chart: string[];
 };
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR'];
+const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const cycles: BillingCycle[] = ['monthly', 'quarterly', 'annual', 'biennial'];
 const domainCycles: BillingCycle[] = ['annual', 'biennial'];
 const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
+const vpsTypes = [
+  { value: 'website', labelZh: '建站机', labelEn: 'Website' },
+  { value: 'route', labelZh: '线路机', labelEn: 'Route' },
+  { value: 'residential', labelZh: '家宽', labelEn: 'Residential' }
+] as const;
 const pageSize = 24;
 const vpsMonitorRefreshIntervalMs = 5_000;
 const phoneVisualStyles: PhoneVisualStyle[] = [
@@ -181,6 +187,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const isDomain = config.endpoint === 'domains';
   const isVps = config.endpoint === 'vps';
   const isPhone = config.endpoint === 'phones';
+  const isSubscription = config.endpoint === 'subscriptions';
   const { copy, language } = useI18n();
   const { setTopbarActions } = useOutletContext<LayoutOutletContext>();
   const [items, setItems] = useState<AssetItem[]>([]);
@@ -190,9 +197,11 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [status, setStatus] = useState('');
+  const [vpsType, setVpsType] = useState('');
   const [currency, setCurrency] = useState('');
   const [billingCycle, setBillingCycle] = useState('');
   const [phoneType, setPhoneType] = useState(isPhone ? 'domestic' : '');
+  const [purchaseType, setPurchaseType] = useState(isSubscription ? 'subscription' : '');
   const [domainExtension, setDomainExtension] = useState('');
   const [registrarAccount, setRegistrarAccount] = useState('');
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('CNY');
@@ -345,10 +354,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const load = async (nextOffset = offset) => {
     const params = new URLSearchParams();
     if (deferredQuery.trim()) params.set('q', deferredQuery.trim());
-    if (!isPhoneVisual && status) params.set('status', status);
+    if (!isPhoneVisual && !isVps && status) params.set('status', status);
+    if (isVps && vpsType) params.set('vpsType', vpsType);
     if (!isPhoneVisual && currency) params.set('currency', currency);
     if (!isDomain && !isPhoneVisual && billingCycle) params.set('billingCycle', billingCycle);
     if (isPhone && (phoneType === 'domestic' || phoneType === 'foreign')) params.set('phoneType', phoneType);
+    if (isSubscription && purchaseType) params.set('purchaseType', purchaseType);
     if (isDomain && domainExtension) params.set('domainExtension', domainExtension);
     if (isDomain && registrarAccount.trim()) params.set('registrarAccount', registrarAccount.trim());
     if (isDomain) params.set('displayCurrency', displayCurrency);
@@ -369,7 +380,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setError(err instanceof ApiError ? err.message : '加载失败');
       setLoading(false);
     });
-  }, [config.endpoint, deferredQuery, status, currency, billingCycle, phoneType, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
+  }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
 
   const vpsProbeKey = useMemo(
     () => isVps ? items.map((item) => `${item.id}:${stringValue(item.probeUrl)}`).join('|') : '',
@@ -395,7 +406,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   useEffect(() => {
     setOffset(0);
-  }, [config.endpoint, deferredQuery, status, currency, billingCycle, phoneType, domainExtension, registrarAccount, displayCurrency, sort, direction]);
+  }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction]);
 
   useEffect(() => {
     setSort(config.endpoint === 'domains' ? 'expireDate' : 'dueDate');
@@ -403,7 +414,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     setDomainExtension('');
     setRegistrarAccount('');
     setBillingCycle('');
+    setStatus('');
+    setVpsType('');
     setPhoneType(config.endpoint === 'phones' ? 'domestic' : '');
+    setPurchaseType(config.endpoint === 'subscriptions' ? 'subscription' : '');
     setMonitorById({});
     setCopiedSshId(null);
     setVpsActionById({});
@@ -555,6 +569,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     setEditing(null);
     const nextForm = initialForm(config);
     if (isPhone) nextForm.phoneType = phoneType === 'foreign' ? 'foreign' : 'domestic';
+    if (isSubscription) nextForm.purchaseType = purchaseType === 'buyout' ? 'buyout' : 'subscription';
     setForm(nextForm);
     setDrawerOpen(true);
   };
@@ -724,8 +739,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'name', header: '名称', render: (item) => <span className="font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</span> },
     { key: 'provider', header: '供应商', render: (item) => <span className="text-slate-500">{getText(item, config.secondaryKey)}</span> },
     { key: 'amount', header: '金额', align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'cycle', header: '周期', align: 'right', render: (item) => <span className="text-slate-500">{formatCycle(item.billingCycle, language)}</span> },
+    { key: 'cycle', header: '周期', align: 'right', render: (item) => <span className="text-slate-500">{isSubscription && item.purchaseType === 'buyout' ? copy('买断', 'Buyout') : formatCycle(item.billingCycle, language)}</span> },
     { key: 'days', header: '剩余', align: 'right', render: (item) => {
+      if (isSubscription && item.purchaseType === 'buyout') return <span className="text-slate-400">-</span>;
       const dueDate = String(item[config.dueKey] ?? item.nextDueDate ?? item.expireDate ?? '');
       const left = daysLeft(dueDate || null);
       return <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>;
@@ -848,7 +864,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       </div>
     ) },
     { key: 'due', header: copy('续费', 'Renewal'), align: 'right', render: (item) => {
-      const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
+      const dueDate = String(item.expireDate ?? item.nextDueDate ?? '');
       const left = daysLeft(dueDate || null);
       return (
         <div>
@@ -903,10 +919,27 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             ))}
           </div>
         )}
+        {isSubscription && (
+          <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/[0.04]">
+            {[
+              { value: 'subscription', label: copy('订阅制', 'Subscription') },
+              { value: 'buyout', label: copy('买断制', 'Buyout') }
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPurchaseType(option.value)}
+                className={`h-9 rounded-lg px-3 text-sm font-medium transition-all ${purchaseType === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
         <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isVps ? copy('新增 VPS', 'Add VPS') : isPhone ? copy('新增电话卡', 'Add phone card') : `新增${config.singular}`}</Button>
       </>
     );
-  }, [config.singular, copy, isDomain, isPhone, isVps, items, phoneType, refreshingVps, setTopbarActions]);
+  }, [config.singular, copy, isDomain, isPhone, isSubscription, isVps, items, phoneType, purchaseType, refreshingVps, setTopbarActions]);
 
   useEffect(() => {
     return () => setTopbarActions(null);
@@ -924,10 +957,17 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
             <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名', 'Search') : isVps ? copy('搜索节点 / IP / 服务商', 'Search nodes') : `搜索${config.singular}`} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
-          <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">未归档</option>
-            {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          {isVps ? (
+            <select className={inputClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)}>
+              <option value="">{copy('全部类型', 'All types')}</option>
+              {vpsTypes.map((option) => <option key={option.value} value={option.value}>{language === 'zh' ? option.labelZh : option.labelEn}</option>)}
+            </select>
+          ) : (
+            <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">未归档</option>
+              {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          )}
           <select className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
             <option value="">全部币种</option>
             {currencies.map((value) => <option key={value} value={value}>{value}</option>)}
@@ -1037,6 +1077,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <VpsFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} actionState={editing ? vpsActionById[editing.id] : undefined} onTest={(item) => testVpsSsh(item, formToPayload(config, form))} onInstall={(item, probePort) => installVpsProbe(item, probePort, formToPayload(config, form))} />
           ) : isPhone ? (
             <PhoneFormSections form={form} updateForm={updateForm} copy={copy} language={language} />
+          ) : isSubscription ? (
+            <SubscriptionFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} />
           ) : (
             <>
               <Section title="基础信息">
@@ -1625,7 +1667,7 @@ function VpsNodeCard({
   copy: (zh: string, en: string) => string;
 }) {
   const statusValue = getMonitorStatus(item, monitorState);
-  const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
+  const dueDate = String(item.expireDate ?? item.nextDueDate ?? '');
   const left = daysLeft(dueDate || null);
   const cpu = getMonitorNumber(item, monitorState, 'monitorCpuPercent', 'cpuPercent');
   const memory = getMonitorNumber(item, monitorState, 'monitorMemoryPercent', 'memoryPercent');
@@ -1647,7 +1689,7 @@ function VpsNodeCard({
             <h3 className="truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</h3>
           </div>
           <p className="mt-1 truncate text-sm text-slate-500">
-            {stringValue(item.provider) || '-'} · {stringValue(item.location) || stringValue(item.os) || '-'}
+            {formatVpsType(item.vpsType, copy)} · {stringValue(item.provider) || '-'} · {stringValue(item.location) || stringValue(item.os) || '-'}
           </p>
         </div>
         <span className={`rounded-lg border px-2 py-0.5 text-[11px] font-medium ${monitorBadgeClass(statusValue)}`}>{formatMonitorStatus(statusValue, copy)}</span>
@@ -1662,9 +1704,9 @@ function VpsNodeCard({
       </div>
 
       <div className="mt-4 space-y-3">
-        <VpsMetricLine icon={<Cpu size={14} />} label="CPU" value={cpu} />
-        <VpsMetricLine icon={<Database size={14} />} label={copy('内存', 'Memory')} value={memory} />
-        <VpsMetricLine icon={<HardDrive size={14} />} label={copy('硬盘', 'Disk')} value={disk} />
+        <VpsMetricLine icon={<Cpu size={14} />} label="CPU" total={formatVpsCapacity(item.cpu, 'cpu')} value={cpu} />
+        <VpsMetricLine icon={<Database size={14} />} label={copy('内存', 'Memory')} total={formatVpsCapacity(item.memory, 'memory')} value={memory} />
+        <VpsMetricLine icon={<HardDrive size={14} />} label={copy('硬盘', 'Disk')} total={formatVpsCapacity(item.storage, 'storage')} value={disk} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -1722,12 +1764,16 @@ function VpsNodeCard({
   );
 }
 
-function VpsMetricLine({ icon, label, value }: { icon: React.ReactNode; label: string; value: number | null }) {
+function VpsMetricLine({ icon, label, total, value }: { icon: React.ReactNode; label: string; total: string; value: number | null }) {
   const safeValue = value ?? 0;
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-        <span className="flex items-center gap-1.5 text-slate-500">{icon}{label}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-slate-500">
+          {icon}
+          <span>{label}</span>
+          <span className="truncate text-[11px] text-slate-400 dark:text-slate-500">{total}</span>
+        </span>
         <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{formatPercent(value)}</span>
       </div>
       <ProgressBar value={safeValue} max={100} color={percentColor(value)} />
@@ -1742,6 +1788,80 @@ function MonitorDot({ status }: { status: string }) {
       ? 'bg-danger-500 shadow-danger-500/30'
       : 'bg-slate-300 dark:bg-slate-600';
   return <span className={`h-2.5 w-2.5 shrink-0 rounded-full shadow ${cls}`} />;
+}
+
+function SubscriptionFormSections({
+  form,
+  updateForm,
+  copy,
+  language,
+  editing
+}: {
+  form: FormState;
+  updateForm: (key: string, value: string | boolean) => void;
+  copy: (zh: string, en: string) => string;
+  language: 'zh' | 'en';
+  editing: AssetItem | null;
+}) {
+  const purchaseType = stringValue(form.purchaseType) === 'buyout' ? 'buyout' : 'subscription';
+  const isBuyout = purchaseType === 'buyout';
+  const hasLicenseKey = Boolean(editing?.hasLicenseKey);
+
+  return (
+    <>
+      <Section title={copy('基础信息', 'Details')}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('名称', 'Name')}><input className={inputClass} required value={String(form.name ?? '')} onChange={(e) => updateForm('name', e.target.value)} /></Field>
+          <Field label={copy('类型', 'Type')}>
+            <select className={inputClass} value={purchaseType} onChange={(e) => updateForm('purchaseType', e.target.value)}>
+              <option value="subscription">{copy('订阅制', 'Subscription')}</option>
+              <option value="buyout">{copy('买断制', 'Buyout')}</option>
+            </select>
+          </Field>
+        </div>
+        <Field label={copy('服务商', 'Provider')}><input className={inputClass} value={String(form.provider ?? '')} onChange={(e) => updateForm('provider', e.target.value)} /></Field>
+        {isBuyout ? (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={copy('邮箱', 'Email')}><input className={inputClass} type="email" value={String(form.email ?? '')} onChange={(e) => updateForm('email', e.target.value)} /></Field>
+              <Field label={copy('手机号', 'Phone')}><input className={inputClass} type="tel" value={String(form.phoneNumber ?? '')} onChange={(e) => updateForm('phoneNumber', e.target.value)} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={copy('密钥', 'License key')} hint={hasLicenseKey ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : undefined}><input className={`${inputClass} font-mono`} type="password" value={String(form.licenseKey ?? '')} onChange={(e) => updateForm('licenseKey', e.target.value)} placeholder={hasLicenseKey ? copy('已保存', 'Saved') : ''} /></Field>
+              <Field label={copy('设备限制', 'Device limit')}><input className={inputClass} type="number" min="0" value={String(form.deviceLimit ?? '')} onChange={(e) => updateForm('deviceLimit', e.target.value)} /></Field>
+            </div>
+            <Field label={copy('订阅内容', 'Content')}><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.content ?? '')} onChange={(e) => updateForm('content', e.target.value)} /></Field>
+          </>
+        ) : (
+          <Field label={copy('账号 / 邮箱', 'Account / email')}><input className={inputClass} value={String(form.account ?? '')} onChange={(e) => updateForm('account', e.target.value)} /></Field>
+        )}
+      </Section>
+
+      <Section title={copy(isBuyout ? '购买信息' : '费用与续费', isBuyout ? 'Purchase' : 'Cost and renewal')}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('金额', 'Amount')}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.amount ?? '')} onChange={(e) => updateForm('amount', e.target.value)} /></Field>
+          <Field label={copy('币种', 'Currency')}><select className={inputClass} value={String(form.currency)} onChange={(e) => updateForm('currency', e.target.value)}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
+        </div>
+        {!isBuyout && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={copy('计费周期', 'Billing cycle')}><select className={inputClass} value={String(form.billingCycle)} onChange={(e) => updateForm('billingCycle', e.target.value)}>{cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}</select></Field>
+            <Field label={copy('下次扣费', 'Next payment')}><input className={inputClass} type="date" value={String(form.nextDueDate ?? '')} onChange={(e) => updateForm('nextDueDate', e.target.value)} /></Field>
+          </div>
+        )}
+      </Section>
+
+      <Section title={copy('状态与备注', 'Status and notes')}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
+          {!isBuyout && <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>}
+        </div>
+        <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
+        {!isBuyout && <Field label={copy('续费链接', 'Renewal link')}><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>}
+        <Field label={copy('标签', 'Tags')}><input className={inputClass} value={String(form.tags ?? '')} placeholder="prod, infra, personal" onChange={(e) => updateForm('tags', e.target.value)} /></Field>
+        <Field label={copy('备注', 'Notes')}><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.notes ?? '')} onChange={(e) => updateForm('notes', e.target.value)} /></Field>
+      </Section>
+    </>
+  );
 }
 
 function VpsFormSections({
@@ -1774,7 +1894,15 @@ function VpsFormSections({
   return (
     <>
       <Section title={copy('节点信息', 'Node')}>
-        <Field label={copy('名称', 'Name')}><input className={inputClass} required value={String(form.name ?? '')} onChange={(e) => updateForm('name', e.target.value)} placeholder="nc48" /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('名称', 'Name')}><input className={inputClass} required value={String(form.name ?? '')} onChange={(e) => updateForm('name', e.target.value)} placeholder="nc48" /></Field>
+          <Field label={copy('VPS 类型', 'VPS type')}>
+            <select className={inputClass} required value={String(form.vpsType ?? '')} onChange={(e) => updateForm('vpsType', e.target.value)}>
+              <option value="" disabled>{copy('请选择类型', 'Select type')}</option>
+              {vpsTypes.map((option) => <option key={option.value} value={option.value}>{language === 'zh' ? option.labelZh : option.labelEn}</option>)}
+            </select>
+          </Field>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label={copy('服务商', 'Provider')}><input className={inputClass} value={String(form.provider ?? '')} onChange={(e) => updateForm('provider', e.target.value)} placeholder="netcup / Hetzner" /></Field>
           <Field label={copy('机房位置', 'Region')}><input className={inputClass} value={String(form.location ?? '')} onChange={(e) => updateForm('location', e.target.value)} placeholder="DE / US-LAX" /></Field>
@@ -1859,16 +1987,12 @@ function VpsFormSections({
 
       <Section title={copy('费用与续费', 'Cost and renewal')}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('开始日期', 'Started on')}><input className={inputClass} type="date" value={String(form.startDate ?? '')} onChange={(e) => updateForm('startDate', e.target.value)} /></Field>
-          <Field label={copy('到期日', 'Expires on')}><input className={inputClass} type="date" value={String(form.expireDate ?? '')} onChange={(e) => updateForm('expireDate', e.target.value)} /></Field>
+          <Field label={copy('到期日（续费）', 'Renewal date')}><input className={inputClass} type="date" value={String(form.expireDate ?? '')} onChange={(e) => updateForm('expireDate', e.target.value)} /></Field>
+          <Field label={copy('计费周期', 'Billing cycle')}><select className={inputClass} value={String(form.billingCycle)} onChange={(e) => updateForm('billingCycle', e.target.value)}>{cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}</select></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label={copy('金额', 'Amount')}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.amount ?? '')} onChange={(e) => updateForm('amount', e.target.value)} /></Field>
           <Field label={copy('币种', 'Currency')}><select className={inputClass} value={String(form.currency)} onChange={(e) => updateForm('currency', e.target.value)}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('计费周期', 'Billing cycle')}><select className={inputClass} value={String(form.billingCycle)} onChange={(e) => updateForm('billingCycle', e.target.value)}>{cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}</select></Field>
-          <Field label={copy('下次扣费', 'Next payment')}><input className={inputClass} type="date" value={String(form.nextDueDate ?? '')} onChange={(e) => updateForm('nextDueDate', e.target.value)} /></Field>
         </div>
       </Section>
 
@@ -2362,21 +2486,22 @@ function AssetCardView({
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
 }) {
-  const dueDate = String(item[config.dueKey] ?? item.nextDueDate ?? item.expireDate ?? '');
+  const isBuyout = config.endpoint === 'subscriptions' && item.purchaseType === 'buyout';
+  const dueDate = isBuyout ? '' : String(item[config.dueKey] ?? item.nextDueDate ?? item.expireDate ?? '');
   const left = daysLeft(dueDate || null);
   return (
     <div className="motion-card card-hover group relative">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="truncate font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</h3>
-          <p className="mt-1 truncate text-sm text-slate-500">{getText(item, config.secondaryKey)}</p>
+          <p className="mt-1 truncate text-sm text-slate-500">{isBuyout ? `${copy('买断制', 'Buyout')} · ${getText(item, config.secondaryKey)}` : getText(item, config.secondaryKey)}</p>
         </div>
         <StatusBadge status={item.status} />
       </div>
       <div className="mt-5 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">{formatCycle(item.billingCycle)} · {item.autoRenew ? '自动续费' : '手动续费'}</p>
+          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${formatCycle(item.billingCycle)} · ${item.autoRenew ? '自动续费' : '手动续费'}`}</p>
         </div>
         {left !== null && (
           <div className={`text-right font-mono text-sm font-semibold ${dueTone(left)}`}>
@@ -2432,10 +2557,14 @@ function initialForm(config: AssetPageConfig): FormState {
     base.billingCycle = 'monthly';
   }
   if (config.endpoint === 'vps') {
+    base.vpsType = '';
     base.sshPort = '22';
     base.sshUser = 'root';
     base.sshAuthType = 'password';
     base.probePort = '9100';
+  }
+  if (config.endpoint === 'subscriptions') {
+    base.purchaseType = 'subscription';
   }
   return base;
 }
@@ -2474,10 +2603,14 @@ function assetToForm(config: AssetPageConfig, item: AssetItem): FormState {
     applyDomainLifecycleDefaults(result);
   }
   if (config.endpoint === 'vps') {
+    result.expireDate = item.expireDate ?? item.nextDueDate ?? '';
     result.sshPassword = '';
     result.sshPrivateKey = '';
     result.sshPrivateKeyPassphrase = '';
     result.probeApiKey = '';
+  }
+  if (config.endpoint === 'subscriptions') {
+    result.licenseKey = '';
   }
   return result;
 }
@@ -2519,10 +2652,23 @@ function formToPayload(config: AssetPageConfig, form: FormState): Record<string,
     payload.nextDueDate = nil(lifecycle.nextDueDate);
   }
   if (config.endpoint === 'vps') {
+    payload.startDate = null;
+    payload.nextDueDate = null;
     payload.sshHost = nil(form.ipAddress);
     payload.sshCommand = nil(form.sshCommand || buildSshCommand(form));
     for (const key of ['sshPassword', 'sshPrivateKey', 'sshPrivateKeyPassphrase', 'probeApiKey']) {
       if (!stringValue(payload[key])) delete payload[key];
+    }
+  }
+  if (config.endpoint === 'subscriptions') {
+    payload.category = null;
+    if (!stringValue(payload.licenseKey)) delete payload.licenseKey;
+    if (payload.purchaseType === 'buyout') {
+      payload.account = null;
+      payload.billingCycle = 'annual';
+      payload.nextDueDate = null;
+      payload.autoRenew = false;
+      payload.renewalUrl = null;
     }
   }
   return payload;
@@ -2670,6 +2816,11 @@ function formatMonitorStatus(status: string, copy: (zh: string, en: string) => s
   if (status === 'offline') return copy('离线', 'Offline');
   if (status === 'not-configured') return copy('未配置', 'No probe');
   return copy('等待', 'Pending');
+}
+
+function formatVpsType(value: unknown, copy: (zh: string, en: string) => string): string {
+  const type = vpsTypes.find((option) => option.value === stringValue(value));
+  return type ? copy(type.labelZh, type.labelEn) : copy('未分类', 'Uncategorized');
 }
 
 function monitorBadgeClass(status: string): string {

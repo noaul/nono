@@ -6,7 +6,7 @@ import { asyncHandler, parseBody } from './http.js';
 export interface Settings {
   reminderDays: number[];
   reminderEnabled: boolean;
-  defaultCurrency: 'CNY' | 'USD' | 'GBP' | 'EUR';
+  defaultCurrency: 'CNY' | 'USD' | 'GBP' | 'EUR' | 'CAD';
   timezone: string;
   language: 'zh' | 'en';
   smtpHost: string;
@@ -31,7 +31,7 @@ export type PublicSettings = Settings & {
 const settingsSchema = z.object({
   reminderDays: z.array(z.number().int().min(0).max(365)).optional(),
   reminderEnabled: z.boolean().optional(),
-  defaultCurrency: z.enum(['CNY', 'USD', 'GBP', 'EUR']).optional(),
+  defaultCurrency: z.enum(['CNY', 'USD', 'GBP', 'EUR', 'CAD']).optional(),
   timezone: z.string().trim().min(1).optional(),
   language: z.enum(['zh', 'en']).optional(),
   smtpHost: z.string().optional(),

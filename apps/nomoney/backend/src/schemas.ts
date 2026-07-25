@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
-export const currencySchema = z.enum(['CNY', 'USD', 'GBP', 'EUR']);
+export const currencySchema = z.enum(['CNY', 'USD', 'GBP', 'EUR', 'CAD']);
 export const billingCycleSchema = z.enum(['monthly', 'quarterly', 'annual', 'biennial']);
 const domainBillingCycleSchema = z.enum(['annual', 'biennial']);
 export const statusSchema = z.enum(['active', 'paused', 'expired', 'cancelled', 'archived']);
 const phoneTypeSchema = z.enum(['domestic', 'foreign']);
+const vpsTypeSchema = z.enum(['website', 'route', 'residential']);
 const sshAuthTypeSchema = z.enum(['password', 'privateKey']);
 const sshResultStatusSchema = z.enum(['untested', 'success', 'failed']);
 const probeInstallStatusSchema = z.enum(['notInstalled', 'installed', 'failed']);
@@ -61,6 +62,7 @@ export const phoneSchema = commonAssetSchema.extend({
 
 export const vpsSchema = commonAssetSchema.extend({
   name: z.string().trim().min(1),
+  vpsType: vpsTypeSchema.optional().nullable(),
   provider: nullableText,
   ipAddress: nullableText,
   location: nullableText,
@@ -123,9 +125,15 @@ export const domainSchema = commonAssetSchema.extend({
 
 export const subscriptionSchema = commonAssetSchema.extend({
   name: z.string().trim().min(1),
+  purchaseType: z.enum(['subscription', 'buyout']).optional().default('subscription'),
   provider: nullableText,
   account: nullableText,
-  category: nullableText
+  category: nullableText,
+  email: z.string().trim().email().optional().nullable(),
+  phoneNumber: nullableText,
+  licenseKey: nullableText,
+  deviceLimit: z.number().int().nonnegative().optional().nullable(),
+  content: nullableText
 });
 
 export const expenseSchema = z.object({

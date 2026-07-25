@@ -1,6 +1,6 @@
 import type { BillingCycle, Currency } from './types.js';
 
-export const currencies = ['CNY', 'USD', 'GBP', 'EUR'] as const satisfies readonly Currency[];
+export const currencies = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'] as const satisfies readonly Currency[];
 
 export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);

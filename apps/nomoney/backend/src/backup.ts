@@ -42,7 +42,7 @@ const backupTables: BackupTable[] = [
     key: 'vps',
     table: 'vps',
     columns: [
-      'id', 'name', 'provider', 'ip_address', 'location', 'cpu', 'memory', 'storage', 'bandwidth',
+      'id', 'name', 'vps_type', 'provider', 'ip_address', 'location', 'cpu', 'memory', 'storage', 'bandwidth',
       'os', 'ssh_host', 'ssh_port', 'ssh_user', 'ssh_auth_type', 'ssh_password', 'ssh_private_key',
       'ssh_private_key_passphrase', 'ssh_command', 'probe_url', 'probe_port', 'probe_api_key',
       'probe_install_status', 'probe_install_message', 'probe_installed_at',
@@ -69,7 +69,8 @@ const backupTables: BackupTable[] = [
     key: 'subscriptions',
     table: 'subscriptions',
     columns: [
-      'id', 'name', 'provider', 'account', 'category', 'amount_minor_units', 'currency',
+      'id', 'name', 'purchase_type', 'provider', 'account', 'category', 'email', 'phone_number',
+      'license_key', 'device_limit', 'content', 'amount_minor_units', 'currency',
       'billing_cycle', 'next_due_date', 'auto_renew', 'payment_method', 'renewal_url',
       'status', 'tags', 'notes', 'created_at', 'updated_at', 'archived_at'
     ]

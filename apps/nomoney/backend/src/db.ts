@@ -169,6 +169,7 @@ function migrate(db: DbClient): void {
     CREATE TABLE IF NOT EXISTS vps (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      vps_type TEXT,
       provider TEXT,
       ip_address TEXT,
       location TEXT,
@@ -253,9 +254,15 @@ function migrate(db: DbClient): void {
     CREATE TABLE IF NOT EXISTS subscriptions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      purchase_type TEXT NOT NULL DEFAULT 'subscription',
       provider TEXT,
       account TEXT,
       category TEXT,
+      email TEXT,
+      phone_number TEXT,
+      license_key TEXT,
+      device_limit INTEGER,
+      content TEXT,
       amount_minor_units INTEGER NOT NULL,
       currency TEXT NOT NULL,
       billing_cycle TEXT NOT NULL,
@@ -365,6 +372,13 @@ function migrate(db: DbClient): void {
   ensureColumn(db, 'domains', 'domain_extension', 'TEXT');
   ensureColumn(db, 'domains', 'rarity_score', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'domains', 'last_renew_date', 'TEXT');
+  ensureColumn(db, 'subscriptions', 'purchase_type', "TEXT NOT NULL DEFAULT 'subscription'");
+  ensureColumn(db, 'subscriptions', 'email', 'TEXT');
+  ensureColumn(db, 'subscriptions', 'phone_number', 'TEXT');
+  ensureColumn(db, 'subscriptions', 'license_key', 'TEXT');
+  ensureColumn(db, 'subscriptions', 'device_limit', 'INTEGER');
+  ensureColumn(db, 'subscriptions', 'content', 'TEXT');
+  ensureColumn(db, 'vps', 'vps_type', 'TEXT');
   ensureColumn(db, 'vps', 'ssh_host', 'TEXT');
   ensureColumn(db, 'vps', 'ssh_port', 'INTEGER');
   ensureColumn(db, 'vps', 'ssh_user', 'TEXT');

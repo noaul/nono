@@ -74,4 +74,31 @@ describe('reminders', () => {
     expect(logs.body.meta).toEqual({ total: 3, limit: 2, offset: 1 });
     expect(logs.body.items).toHaveLength(2);
   });
+
+  test('does not send renewal reminders for buyout purchases', async () => {
+    const { agent, context } = await setupAgent();
+
+    await agent.put('/api/settings').send({
+      reminderDays: [3],
+      reminderEnabled: true,
+      smtpTo: 'owner@example.com',
+      smtpFrom: 'moneypulse@example.com'
+    });
+    await agent.post('/api/subscriptions').send({
+      name: 'Lifetime Tool',
+      purchaseType: 'buyout',
+      amountMinorUnits: 4900,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      status: 'active'
+    });
+    context.db.run("UPDATE subscriptions SET next_due_date = '2026-05-25', auto_renew = 1 WHERE id = 1");
+
+    const response = await agent.post('/api/reminders/run-now');
+
+    expect(response.status).toBe(200);
+    expect(response.body.sent).toBe(false);
+    expect(response.body.items).toEqual([]);
+    expect(context.mailer.sent).toEqual([]);
+  });
 });

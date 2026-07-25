@@ -63,9 +63,10 @@ export const assetPageConfigs: AssetPageConfig[] = [
     singular: 'VPS',
     primaryKey: 'name',
     secondaryKey: 'provider',
-    dueKey: 'nextDueDate',
+    dueKey: 'expireDate',
     fields: [
       { key: 'name', label: '名称', type: 'text', required: true },
+      { key: 'vpsType', label: 'VPS 类型', type: 'text', required: true },
       { key: 'provider', label: '供应商', type: 'text' },
       { key: 'ipAddress', label: 'IP 地址', type: 'text' },
       { key: 'location', label: '机房位置', type: 'text' },
@@ -84,7 +85,6 @@ export const assetPageConfigs: AssetPageConfig[] = [
       { key: 'probeUrl', label: '探针接口', type: 'text' },
       { key: 'probePort', label: '探针端口', type: 'number' },
       { key: 'probeApiKey', label: '探针密钥', type: 'text' },
-      { key: 'startDate', label: '开始日期', type: 'date' },
       { key: 'expireDate', label: '到期日', type: 'date' }
     ]
   },
@@ -115,10 +115,15 @@ export const assetPageConfigs: AssetPageConfig[] = [
     secondaryKey: 'provider',
     dueKey: 'nextDueDate',
     fields: [
-      { key: 'name', label: '订阅名称', type: 'text', required: true },
+      { key: 'name', label: '名称', type: 'text', required: true },
+      { key: 'purchaseType', label: '类型', type: 'text', required: true },
       { key: 'provider', label: '服务商', type: 'text' },
       { key: 'account', label: '账号 / 邮箱', type: 'text' },
-      { key: 'category', label: '分类', type: 'text' }
+      { key: 'email', label: '邮箱', type: 'text' },
+      { key: 'phoneNumber', label: '手机号', type: 'text' },
+      { key: 'licenseKey', label: '密钥', type: 'text' },
+      { key: 'deviceLimit', label: '设备限制', type: 'number' },
+      { key: 'content', label: '订阅内容', type: 'textarea' }
     ]
   }
 ];

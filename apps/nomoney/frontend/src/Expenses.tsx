@@ -17,7 +17,7 @@ type ExpenseForm = {
   notes: string;
 };
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR'];
+const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const assetTypes: AssetType[] = ['phone', 'vps', 'domain', 'subscription'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
 const currentYear = new Date().getFullYear();

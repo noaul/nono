@@ -87,6 +87,10 @@ const sensitiveVpsFields = new Set([
   'sshPrivateKeyPassphrase',
   'probeApiKey'
 ]);
+const sensitiveFieldsByAssetType: Partial<Record<AssetType, Set<string>>> = {
+  vps: sensitiveVpsFields,
+  subscription: new Set(['licenseKey'])
+};
 
 export interface AssetConfig {
   route: string;
@@ -161,6 +165,7 @@ export const assetConfigs: AssetConfig[] = [
     schema: vpsSchema,
     fields: [
       { api: 'name', db: 'name' },
+      { api: 'vpsType', db: 'vps_type' },
       { api: 'provider', db: 'provider' },
       { api: 'ipAddress', db: 'ip_address' },
       { api: 'location', db: 'location' },
@@ -203,7 +208,7 @@ export const assetConfigs: AssetConfig[] = [
     ],
     searchable: ['name', 'provider', 'ip_address', 'location'],
     displayField: 'name',
-    dueFields: ['next_due_date', 'expire_date']
+    dueFields: ['expire_date', 'next_due_date']
   },
   {
     route: 'domains',
@@ -235,12 +240,18 @@ export const assetConfigs: AssetConfig[] = [
     schema: subscriptionSchema,
     fields: [
       { api: 'name', db: 'name' },
+      { api: 'purchaseType', db: 'purchase_type' },
       { api: 'provider', db: 'provider' },
       { api: 'account', db: 'account' },
       { api: 'category', db: 'category' },
+      { api: 'email', db: 'email' },
+      { api: 'phoneNumber', db: 'phone_number' },
+      { api: 'licenseKey', db: 'license_key' },
+      { api: 'deviceLimit', db: 'device_limit' },
+      { api: 'content', db: 'content' },
       ...commonFields
     ],
-    searchable: ['name', 'provider', 'account', 'category'],
+    searchable: ['name', 'provider', 'account', 'category', 'email', 'phone_number', 'content'],
     displayField: 'name',
     dueFields: ['next_due_date']
   }
@@ -251,6 +262,8 @@ const listQuerySchema = z.object({
   status: z.preprocess(emptyToUndefined, statusSchema.optional()),
   currency: z.preprocess(emptyToUndefined, currencySchema.optional()),
   billingCycle: z.preprocess(emptyToUndefined, billingCycleSchema.optional()),
+  vpsType: z.preprocess(emptyToUndefined, z.enum(['website', 'route', 'residential']).optional()),
+  purchaseType: z.preprocess(emptyToUndefined, z.enum(['subscription', 'buyout']).optional()),
   phoneType: z.preprocess(emptyToUndefined, z.enum(['domestic', 'foreign']).optional()),
   domainExtension: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   registrarAccount: z.preprocess(emptyToUndefined, z.string().trim().optional()),
@@ -316,6 +329,16 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
           params.push(query.billingCycle);
           renewalWhere.push('billing_cycle = ?');
           renewalParams.push(query.billingCycle);
+        }
+
+        if (config.type === 'vps' && query.vpsType) {
+          where.push('vps_type = ?');
+          params.push(query.vpsType);
+        }
+
+        if (config.type === 'subscription' && query.purchaseType) {
+          where.push('purchase_type = ?');
+          params.push(query.purchaseType);
         }
 
         if (config.type === 'phone' && query.phoneType) {
@@ -618,10 +641,11 @@ export function mapAssetRow(
     updatedAt: row.updated_at,
     archivedAt: row.archived_at ?? null
   };
+  const sensitiveFields = sensitiveFieldsByAssetType[config.type];
 
   for (const field of config.fields) {
     const value = row[field.db];
-    if (config.type === 'vps' && sensitiveVpsFields.has(field.api) && !options.includeSecrets) {
+    if (sensitiveFields?.has(field.api) && !options.includeSecrets) {
       item[field.api] = null;
       item[`has${capitalize(field.api)}`] = Boolean(value);
     } else if (field.api === 'autoRenew' || field.api === 'isSecondaryCard' || field.api === 'isEsim') {
@@ -675,7 +699,7 @@ export function normalizeBillingCycle(value: unknown): BillingCycle {
 }
 
 export function normalizeCurrency(value: unknown): Currency {
-  if (value === 'USD' || value === 'GBP' || value === 'EUR') return value;
+  if (value === 'USD' || value === 'GBP' || value === 'EUR' || value === 'CAD') return value;
   return 'CNY';
 }
 
@@ -718,6 +742,10 @@ function enrichAssetBody(
 
   if (config.type === 'vps') {
     return enrichVpsBody(body, current);
+  }
+
+  if (config.type === 'subscription') {
+    return enrichSubscriptionBody(body, current);
   }
 
   if (config.type !== 'domain') {
@@ -811,6 +839,28 @@ function enrichVpsBody(body: Record<string, unknown>, current?: Record<string, u
     next.sshHost = nextIpAddress;
   }
 
+  const hasExpireDate = Object.prototype.hasOwnProperty.call(next, 'expireDate');
+  if (!hasExpireDate) {
+    const renewalDate = stringValue(next.nextDueDate)
+      || stringValue(current?.expireDate)
+      || stringValue(current?.nextDueDate);
+    if (renewalDate) next.expireDate = renewalDate;
+  }
+  next.startDate = null;
+  next.nextDueDate = null;
+
+  return next;
+}
+
+function enrichSubscriptionBody(body: Record<string, unknown>, current?: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...body };
+  const purchaseType = stringValue(next.purchaseType ?? current?.purchaseType) || 'subscription';
+  if (purchaseType === 'buyout') {
+    next.billingCycle = 'annual';
+    next.nextDueDate = null;
+    next.autoRenew = false;
+    next.renewalUrl = null;
+  }
   return next;
 }
 
@@ -819,11 +869,12 @@ function preserveBlankSecrets(
   body: Record<string, unknown>,
   current?: Record<string, unknown>
 ): Record<string, unknown> {
-  if (config.type !== 'vps' || !current) {
+  const sensitiveFields = sensitiveFieldsByAssetType[config.type];
+  if (!sensitiveFields || !current) {
     return body;
   }
   const next = { ...body };
-  for (const field of sensitiveVpsFields) {
+  for (const field of sensitiveFields) {
     if (
       Object.prototype.hasOwnProperty.call(next, field) &&
       !stringValue(next[field]) &&
@@ -1448,7 +1499,7 @@ async function convertCurrencyTotals(
 }
 
 function currenciesWithValues(values: Partial<Record<Currency, number>>): Currency[] {
-  return (['CNY', 'USD', 'GBP', 'EUR'] as Currency[]).filter((currency) => Number(values[currency] ?? 0) > 0);
+  return (['CNY', 'USD', 'GBP', 'EUR', 'CAD'] as Currency[]).filter((currency) => Number(values[currency] ?? 0) > 0);
 }
 
 function nextCalendarMonthWindow(now: Date, timeZone: string): { start: string; end: string } {

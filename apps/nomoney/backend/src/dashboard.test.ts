@@ -63,6 +63,29 @@ describe('dashboard APIs', () => {
     });
   });
 
+  test('does not forecast one-time buyout purchases as recurring costs', async () => {
+    const { agent, context } = await setupAgent();
+
+    await agent.post('/api/subscriptions').send({
+      name: 'Lifetime Tool',
+      purchaseType: 'buyout',
+      amountMinorUnits: 4900,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      status: 'active'
+    });
+
+    context.db.run("UPDATE subscriptions SET next_due_date = '2026-05-25', auto_renew = 1 WHERE id = 1");
+
+    const summary = await agent.get('/api/dashboard/summary?year=2026');
+    const expiring = await agent.get('/api/dashboard/expiring?days=7');
+    expect(summary.body.predictedMonthly.CAD).toBeUndefined();
+    expect(summary.body.predictedYearly.CAD).toBeUndefined();
+    expect(summary.body.assetCounts.subscriptions).toBe(1);
+    expect(summary.body.expiringCount).toBe(0);
+    expect(expiring.body.items).toEqual([]);
+  });
+
   test('returns due items across all asset types', async () => {
     const { agent } = await setupAgent();
 

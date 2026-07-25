@@ -6,7 +6,7 @@ export type ExchangeRates = {
   date: string | null;
 };
 
-const supportedCurrencies = new Set<Currency>(['CNY', 'USD', 'GBP', 'EUR']);
+const supportedCurrencies = new Set<Currency>(['CNY', 'USD', 'GBP', 'EUR', 'CAD']);
 
 export async function fetchExchangeRates(
   fetcher: typeof fetch | undefined,

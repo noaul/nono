@@ -243,6 +243,112 @@ describe('asset APIs', () => {
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  test('accepts Canadian dollars for assets', async () => {
+    const { agent } = await setupAgent();
+
+    const response = await agent.post('/api/vps').send({
+      name: 'Canada VPS',
+      amountMinorUnits: 1000,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      expireDate: '2027-07-25',
+      status: 'active'
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.item.currency).toBe('CAD');
+
+    const lookup = await agent.get('/api/assets/lookup');
+    expect(lookup.body.items).toEqual([
+      expect.objectContaining({ label: 'Canada VPS', currency: 'CAD' })
+    ]);
+  });
+
+  test('stores and filters VPS types', async () => {
+    const { agent } = await setupAgent();
+    const base = {
+      amountMinorUnits: 1000,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      expireDate: '2027-07-25',
+      status: 'active'
+    };
+
+    await agent.post('/api/vps').send({ ...base, name: 'Web', vpsType: 'website' }).expect(201);
+    await agent.post('/api/vps').send({ ...base, name: 'Route', vpsType: 'route' }).expect(201);
+    await agent.post('/api/vps').send({ ...base, name: 'Home', vpsType: 'residential' }).expect(201);
+
+    const response = await agent.get('/api/vps?vpsType=route');
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([
+      expect.objectContaining({ name: 'Route', vpsType: 'route' })
+    ]);
+  });
+
+  test('stores, protects, and filters buyout details', async () => {
+    const { agent } = await setupAgent();
+
+    const created = await agent.post('/api/subscriptions').send({
+      name: 'Lifetime Tool',
+      purchaseType: 'buyout',
+      provider: 'Vendor',
+      email: 'owner@example.com',
+      phoneNumber: '+16045550123',
+      licenseKey: 'secret-license',
+      deviceLimit: 3,
+      content: 'Desktop and mobile apps',
+      amountMinorUnits: 4900,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      nextDueDate: '2026-05-25',
+      autoRenew: true,
+      renewalUrl: 'https://vendor.example/renew',
+      status: 'active'
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.item).toMatchObject({
+      purchaseType: 'buyout',
+      email: 'owner@example.com',
+      phoneNumber: '+16045550123',
+      licenseKey: null,
+      hasLicenseKey: true,
+      deviceLimit: 3,
+      content: 'Desktop and mobile apps',
+      nextDueDate: null,
+      autoRenew: false,
+      renewalUrl: null
+    });
+
+    const filtered = await agent.get('/api/subscriptions?purchaseType=buyout');
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0]).toMatchObject({ name: 'Lifetime Tool', purchaseType: 'buyout' });
+
+    await agent.put('/api/subscriptions/1').send({ licenseKey: '', deviceLimit: 5 }).expect(200);
+    const updated = await agent.get('/api/subscriptions/1');
+    expect(updated.body.item).toMatchObject({ hasLicenseKey: true, deviceLimit: 5 });
+  });
+
+  test('migrates the legacy VPS due date without losing it on later edits', async () => {
+    const { agent, context } = await setupAgent();
+
+    const id = context.db.insert(
+      `INSERT INTO vps (
+        name, amount_minor_units, currency, billing_cycle, next_due_date, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ['Legacy VPS', 1200, 'USD', 'monthly', '2026-06-10', 'active', '2026-05-01T00:00:00.000Z', '2026-05-01T00:00:00.000Z']
+    );
+
+    const updated = await agent.put(`/api/vps/${id}`).send({ provider: 'Legacy Provider' });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.item).toMatchObject({
+      provider: 'Legacy Provider',
+      expireDate: '2026-06-10',
+      nextDueDate: null
+    });
+  });
+
   test('filters, paginates, and sorts asset lists with metadata', async () => {
     const { agent } = await setupAgent();
 

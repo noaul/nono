@@ -6,7 +6,7 @@ import { api } from './api';
 import { compactDate, dueTone, formatCycle, formatMoney } from './format';
 import { DataTable, EmptyState, MetricCard, PageHeader, Skeleton, StateBanner, StatusBadge, type DataTableColumn } from './ui';
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR'];
+const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const chartColors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e'];
 
 const dueColumns: DataTableColumn<DueItem & { id: string }>[] = [

@@ -165,7 +165,7 @@ export function SettingsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={copy('提醒天数', 'Reminder days')}><input className={inputClass} value={settings.reminderDays.join(',')} onChange={(e) => setSettings({ ...settings, reminderDays: e.target.value.split(',').map((v) => Number(v.trim())).filter((v) => Number.isFinite(v)) })} /></Field>
               <Field label={copy('提醒开关', 'Reminders')}><select className={inputClass} value={String(settings.reminderEnabled)} onChange={(e) => setSettings({ ...settings, reminderEnabled: e.target.value === 'true' })}><option value="true">Enabled</option><option value="false">Disabled</option></select></Field>
-              <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}><option>CNY</option><option>USD</option><option>GBP</option><option>EUR</option></select></Field>
+              <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}><option>CNY</option><option>USD</option><option>GBP</option><option>EUR</option><option>CAD</option></select></Field>
               <Field label={copy('时区', 'Timezone')}><input className={inputClass} value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} /></Field>
             </div>
             <div className="grid gap-4 md:grid-cols-2">

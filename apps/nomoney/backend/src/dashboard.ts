@@ -60,6 +60,7 @@ export function getDashboardSummary(context: AppContext, year: number) {
     assetCounts[config.route] = rows.length;
 
     for (const row of rows) {
+      if (config.type === 'subscription' && row.purchase_type === 'buyout') continue;
       const amount = Number(row.amount_minor_units ?? 0);
       const currency = normalizeCurrency(row.currency);
       const cycle = normalizeBillingCycle(row.billing_cycle);
@@ -114,6 +115,7 @@ export function collectDueItems(context: AppContext, withinDays: number): DueIte
       `SELECT * FROM ${config.table} WHERE archived_at IS NULL AND status IN ('active', 'paused', 'expired')`
     );
     for (const row of rows) {
+      if (config.type === 'subscription' && row.purchase_type === 'buyout') continue;
       const dueDate = getDueDate(row, config.dueFields);
       if (!dueDate) continue;
       const daysLeft = daysBetween(today, dueDate);

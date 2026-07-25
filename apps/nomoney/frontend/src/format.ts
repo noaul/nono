@@ -6,7 +6,8 @@ const currencySymbols: Record<Currency, string> = {
   CNY: '¥',
   USD: '$',
   GBP: '£',
-  EUR: '€'
+  EUR: '€',
+  CAD: 'CA$'
 };
 
 export function formatMoney(amountMinorUnits: number, currency: Currency): string {
