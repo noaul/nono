@@ -31,6 +31,48 @@ type PhoneStats = {
   carriers: Array<{ carrier: string; count: number }>;
 };
 
+type CurrencyTotals = Partial<Record<Currency, number>>;
+
+type CostSubcategory = {
+  key: string;
+  label: string;
+  count: number;
+  predictedMonthly: CurrencyTotals;
+  predictedYearly: CurrencyTotals;
+  oneTimeCost: CurrencyTotals;
+};
+
+type CategoryCost = {
+  assetType: AssetType;
+  assetCount: number;
+  recurringCount: number;
+  predictedMonthly: CurrencyTotals;
+  predictedYearly: CurrencyTotals;
+  actualYearly: CurrencyTotals;
+  oneTimeCost: CurrencyTotals;
+  dueCount: number;
+  subcategories: CostSubcategory[];
+};
+
+const assetTypes: AssetType[] = ['phone', 'vps', 'domain', 'subscription'];
+
+const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: string }>>> = {
+  phone: [
+    { key: 'domestic', label: '国内' },
+    { key: 'foreign', label: '国外' }
+  ],
+  vps: [
+    { key: 'website', label: '建站机' },
+    { key: 'route', label: '线路机' },
+    { key: 'residential', label: '家宽' },
+    { key: 'other', label: '未分类' }
+  ],
+  subscription: [
+    { key: 'subscription', label: '订阅制' },
+    { key: 'buyout', label: '买断制' }
+  ]
+};
+
 export function registerDashboardRoutes(router: Router, context: AppContext): void {
   router.get('/dashboard/summary', (req, res) => {
     const year = typeof req.query.year === 'string' ? Number(req.query.year) : context.now().getUTCFullYear();
@@ -46,6 +88,9 @@ export function registerDashboardRoutes(router: Router, context: AppContext): vo
 export function getDashboardSummary(context: AppContext, year: number) {
   const predictedMonthlyTotals: Partial<Record<Currency, number>> = {};
   const predictedYearlyTotals: Partial<Record<Currency, number>> = {};
+  const categoryCosts = Object.fromEntries(
+    assetTypes.map((assetType) => [assetType, createCategoryCost(assetType)])
+  ) as Record<AssetType, CategoryCost>;
   const assetCounts: Record<string, number> = {
     phones: 0,
     vps: 0,
@@ -58,30 +103,55 @@ export function getDashboardSummary(context: AppContext, year: number) {
       `SELECT * FROM ${config.table} WHERE archived_at IS NULL AND status = 'active'`
     );
     assetCounts[config.route] = rows.length;
+    const categoryCost = categoryCosts[config.type];
+    categoryCost.assetCount = rows.length;
 
     for (const row of rows) {
-      if (config.type === 'subscription' && row.purchase_type === 'buyout') continue;
       const amount = Number(row.amount_minor_units ?? 0);
       const currency = normalizeCurrency(row.currency);
+      const subcategory = getCostSubcategory(categoryCost, row);
+      subcategory.count += 1;
+
+      if (config.type === 'subscription' && row.purchase_type === 'buyout') {
+        addCurrencyTotal(categoryCost.oneTimeCost, currency, amount);
+        addCurrencyTotal(subcategory.oneTimeCost, currency, amount);
+        continue;
+      }
+
       const cycle = normalizeBillingCycle(row.billing_cycle);
-      addCurrencyTotal(predictedMonthlyTotals, currency, predictedMonthly(amount, cycle));
-      addCurrencyTotal(predictedYearlyTotals, currency, predictedYearly(amount, cycle));
+      const monthly = predictedMonthly(amount, cycle);
+      const yearly = predictedYearly(amount, cycle);
+      categoryCost.recurringCount += 1;
+      addCurrencyTotal(predictedMonthlyTotals, currency, monthly);
+      addCurrencyTotal(predictedYearlyTotals, currency, yearly);
+      addCurrencyTotal(categoryCost.predictedMonthly, currency, monthly);
+      addCurrencyTotal(categoryCost.predictedYearly, currency, yearly);
+      addCurrencyTotal(subcategory.predictedMonthly, currency, monthly);
+      addCurrencyTotal(subcategory.predictedYearly, currency, yearly);
     }
   }
 
   const actualYearly: Partial<Record<Currency, number>> = {};
-  const expenses = context.db.all<{ currency: Currency; total: number }>(
-    `SELECT currency, SUM(amount_minor_units) as total
+  const expenses = context.db.all<{ asset_type: string; currency: Currency; total: number }>(
+    `SELECT asset_type, currency, SUM(amount_minor_units) as total
      FROM expenses
      WHERE paid_at >= ? AND paid_at <= ?
-     GROUP BY currency`,
+     GROUP BY asset_type, currency`,
     [`${year}-01-01`, `${year}-12-31`]
   );
   for (const row of expenses) {
-    addCurrencyTotal(actualYearly, normalizeCurrency(row.currency), Number(row.total ?? 0));
+    const currency = normalizeCurrency(row.currency);
+    const amount = Number(row.total ?? 0);
+    addCurrencyTotal(actualYearly, currency, amount);
+    if (isAssetType(row.asset_type)) {
+      addCurrencyTotal(categoryCosts[row.asset_type].actualYearly, currency, amount);
+    }
   }
 
   const dueItems = collectDueItems(context, 30);
+  for (const item of dueItems) {
+    categoryCosts[item.assetType].dueCount += 1;
+  }
   const phoneStats = collectPhoneStats(context);
 
   return {
@@ -89,6 +159,7 @@ export function getDashboardSummary(context: AppContext, year: number) {
     predictedYearly: predictedYearlyTotals,
     actualYearly,
     assetCounts,
+    categoryCosts,
     expiringCount: dueItems.length,
     dueBuckets: {
       overdue: dueItems.filter((item) => item.daysLeft < 0).length,
@@ -104,6 +175,68 @@ export function getDashboardSummary(context: AppContext, year: number) {
       actualYearly
     }
   };
+}
+
+function createCategoryCost(assetType: AssetType): CategoryCost {
+  return {
+    assetType,
+    assetCount: 0,
+    recurringCount: 0,
+    predictedMonthly: {},
+    predictedYearly: {},
+    actualYearly: {},
+    oneTimeCost: {},
+    dueCount: 0,
+    subcategories: (fixedSubcategories[assetType] ?? []).map(({ key, label }) => createCostSubcategory(key, label))
+  };
+}
+
+function createCostSubcategory(key: string, label: string): CostSubcategory {
+  return {
+    key,
+    label,
+    count: 0,
+    predictedMonthly: {},
+    predictedYearly: {},
+    oneTimeCost: {}
+  };
+}
+
+function getCostSubcategory(category: CategoryCost, row: Record<string, unknown>): CostSubcategory {
+  const identity = getSubcategoryIdentity(category.assetType, row);
+  let subcategory = category.subcategories.find((item) => item.key === identity.key);
+  if (!subcategory) {
+    subcategory = createCostSubcategory(identity.key, identity.label);
+    category.subcategories.push(subcategory);
+  }
+  return subcategory;
+}
+
+function getSubcategoryIdentity(assetType: AssetType, row: Record<string, unknown>): { key: string; label: string } {
+  if (assetType === 'phone') {
+    return row.phone_type === 'foreign'
+      ? { key: 'foreign', label: '国外' }
+      : { key: 'domestic', label: '国内' };
+  }
+  if (assetType === 'vps') {
+    const value = typeof row.vps_type === 'string' ? row.vps_type : '';
+    const known = fixedSubcategories.vps?.find((item) => item.key === value);
+    return known ?? { key: 'other', label: '未分类' };
+  }
+  if (assetType === 'subscription') {
+    return row.purchase_type === 'buyout'
+      ? { key: 'buyout', label: '买断制' }
+      : { key: 'subscription', label: '订阅制' };
+  }
+
+  const registrar = typeof row.registrar === 'string' ? row.registrar.trim() : '';
+  return registrar
+    ? { key: `registrar:${registrar.toLocaleLowerCase()}`, label: registrar }
+    : { key: 'other', label: '未记录注册商' };
+}
+
+function isAssetType(value: string): value is AssetType {
+  return assetTypes.includes(value as AssetType);
 }
 
 export function collectDueItems(context: AppContext, withinDays: number): DueItem[] {

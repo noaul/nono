@@ -86,6 +86,118 @@ describe('dashboard APIs', () => {
     expect(expiring.body.items).toEqual([]);
   });
 
+  test('returns cost breakdowns for every asset category', async () => {
+    const { agent } = await setupAgent();
+
+    await agent.post('/api/phones').send({
+      phoneType: 'domestic',
+      cardNumber: '+8613800000000',
+      amountMinorUnits: 1900,
+      currency: 'CNY',
+      billingCycle: 'monthly',
+      nextDueDate: '2026-05-25',
+      status: 'active'
+    });
+
+    await agent.post('/api/vps').send({
+      name: 'Route VPS',
+      vpsType: 'route',
+      amountMinorUnits: 3000,
+      currency: 'USD',
+      billingCycle: 'quarterly',
+      nextDueDate: '2026-06-01',
+      status: 'active'
+    });
+
+    await agent.post('/api/domains').send({
+      domainName: 'example.dev',
+      registrar: 'Cloudflare',
+      amountMinorUnits: 1200,
+      currency: 'USD',
+      billingCycle: 'annual',
+      expireDate: '2026-06-02',
+      status: 'active'
+    });
+
+    await agent.post('/api/subscriptions').send({
+      name: 'Cloud Storage',
+      purchaseType: 'subscription',
+      amountMinorUnits: 210,
+      currency: 'CNY',
+      billingCycle: 'monthly',
+      nextDueDate: '2026-05-27',
+      status: 'active'
+    });
+
+    await agent.post('/api/subscriptions').send({
+      name: 'Lifetime Tool',
+      purchaseType: 'buyout',
+      amountMinorUnits: 4900,
+      currency: 'CAD',
+      billingCycle: 'annual',
+      status: 'active'
+    });
+
+    await agent.post('/api/expenses').send({
+      assetType: 'phone',
+      assetId: 1,
+      amountMinorUnits: 1900,
+      currency: 'CNY',
+      paidAt: '2026-05-10',
+      category: 'monthly'
+    });
+
+    await agent.post('/api/expenses').send({
+      assetType: 'domain',
+      assetId: 1,
+      amountMinorUnits: 1200,
+      currency: 'USD',
+      paidAt: '2026-05-11',
+      category: 'renewal'
+    });
+
+    const summary = await agent.get('/api/dashboard/summary?year=2026');
+
+    expect(summary.status).toBe(200);
+    expect(Object.keys(summary.body.categoryCosts)).toEqual(['phone', 'vps', 'domain', 'subscription']);
+    expect(summary.body.categoryCosts.phone).toMatchObject({
+      assetType: 'phone',
+      assetCount: 1,
+      recurringCount: 1,
+      predictedMonthly: { CNY: 1900 },
+      predictedYearly: { CNY: 22800 },
+      actualYearly: { CNY: 1900 },
+      oneTimeCost: {},
+      dueCount: 1
+    });
+    expect(summary.body.categoryCosts.vps).toMatchObject({
+      assetCount: 1,
+      predictedMonthly: { USD: 1000 },
+      predictedYearly: { USD: 12000 },
+      actualYearly: {},
+      dueCount: 1
+    });
+    expect(summary.body.categoryCosts.domain).toMatchObject({
+      assetCount: 1,
+      predictedMonthly: { USD: 100 },
+      predictedYearly: { USD: 1200 },
+      actualYearly: { USD: 1200 },
+      dueCount: 1
+    });
+    expect(summary.body.categoryCosts.subscription).toMatchObject({
+      assetCount: 2,
+      recurringCount: 1,
+      predictedMonthly: { CNY: 210 },
+      predictedYearly: { CNY: 2520 },
+      oneTimeCost: { CAD: 4900 },
+      dueCount: 1
+    });
+    expect(summary.body.categoryCosts.subscription.subcategories).toEqual([
+      expect.objectContaining({ key: 'subscription', count: 1, predictedMonthly: { CNY: 210 } }),
+      expect.objectContaining({ key: 'buyout', count: 1, oneTimeCost: { CAD: 4900 } })
+    ]);
+  });
+
   test('returns due items across all asset types', async () => {
     const { agent } = await setupAgent();
 

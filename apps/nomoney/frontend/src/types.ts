@@ -65,6 +65,7 @@ export interface DashboardSummary {
   predictedYearly: Partial<Record<Currency, number>>;
   actualYearly: Partial<Record<Currency, number>>;
   assetCounts: Record<string, number>;
+  categoryCosts: Record<AssetType, DashboardCategoryCost>;
   expiringCount: number;
   dueBuckets?: {
     overdue: number;
@@ -85,6 +86,27 @@ export interface DashboardSummary {
     predictedYearly: Partial<Record<Currency, number>>;
     actualYearly: Partial<Record<Currency, number>>;
   };
+}
+
+export interface DashboardCostSubcategory {
+  key: string;
+  label: string;
+  count: number;
+  predictedMonthly: Partial<Record<Currency, number>>;
+  predictedYearly: Partial<Record<Currency, number>>;
+  oneTimeCost: Partial<Record<Currency, number>>;
+}
+
+export interface DashboardCategoryCost {
+  assetType: AssetType;
+  assetCount: number;
+  recurringCount: number;
+  predictedMonthly: Partial<Record<Currency, number>>;
+  predictedYearly: Partial<Record<Currency, number>>;
+  actualYearly: Partial<Record<Currency, number>>;
+  oneTimeCost: Partial<Record<Currency, number>>;
+  dueCount: number;
+  subcategories: DashboardCostSubcategory[];
 }
 
 export interface DueItem {
