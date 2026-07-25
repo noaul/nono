@@ -1058,7 +1058,8 @@ WantedBy=multi-user.target
 SERVICE
   $SUDO mv /tmp/moneypulse-probe.service /etc/systemd/system/moneypulse-probe.service
   $SUDO systemctl daemon-reload
-  $SUDO systemctl enable --now moneypulse-probe.service
+  $SUDO systemctl enable moneypulse-probe.service
+  $SUDO systemctl restart moneypulse-probe.service
 else
   $SUDO pkill -f /opt/moneypulse-probe/probe.py >/dev/null 2>&1 || true
   nohup env MONEYPULSE_PROBE_PORT="$PORT" MONEYPULSE_PROBE_TOKEN="$TOKEN" python3 /opt/moneypulse-probe/probe.py >/tmp/moneypulse-probe.log 2>&1 &

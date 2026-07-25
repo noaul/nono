@@ -1,4 +1,4 @@
-import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useOutletContext } from 'react-router-dom';
@@ -83,6 +83,7 @@ const cycles: BillingCycle[] = ['monthly', 'quarterly', 'annual', 'biennial'];
 const domainCycles: BillingCycle[] = ['annual', 'biennial'];
 const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
 const pageSize = 24;
+const vpsMonitorRefreshIntervalMs = 5_000;
 const phoneVisualStyles: PhoneVisualStyle[] = [
   {
     key: 'nebula',
@@ -213,6 +214,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [monitorById, setMonitorById] = useState<Record<number, VpsMonitorState>>({});
   const [refreshingVps, setRefreshingVps] = useState(false);
   const [autoRefreshVps, setAutoRefreshVps] = useState(true);
+  const vpsRefreshesInFlight = useRef(new Set<number>());
   const [copiedSshId, setCopiedSshId] = useState<number | null>(null);
   const [vpsActionById, setVpsActionById] = useState<Record<number, VpsActionState>>({});
   const registrarAccountOptions = meta?.registrarAccounts ?? [];
@@ -220,6 +222,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   const refreshVpsMonitor = async (item: AssetItem, silent = false) => {
     if (!isVps || !stringValue(item.probeUrl)) return;
+    if (vpsRefreshesInFlight.current.has(item.id)) return;
+    vpsRefreshesInFlight.current.add(item.id);
     if (!silent) {
       setMonitorById((current) => ({ ...current, [item.id]: { ...current[item.id], loading: true, error: '' } }));
     }
@@ -239,6 +243,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           error: err instanceof ApiError ? err.message : copy('监控刷新失败', 'Monitor refresh failed')
         }
       }));
+    } finally {
+      vpsRefreshesInFlight.current.delete(item.id);
     }
   };
 
@@ -373,12 +379,18 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   useEffect(() => {
     if (!isVps || loading || !vpsProbeKey) return;
     const targets = items.filter((item) => stringValue(item.probeUrl));
-    refreshVpsMonitors(targets, true);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshVpsMonitors(targets, true);
+    };
+    refreshWhenVisible();
     if (!autoRefreshVps) return;
-    const timer = window.setInterval(() => {
-      refreshVpsMonitors(targets, true);
-    }, 30_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(refreshWhenVisible, vpsMonitorRefreshIntervalMs);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [isVps, loading, vpsProbeKey, autoRefreshVps]);
 
   useEffect(() => {
@@ -1558,7 +1570,7 @@ function VpsCommandPanel({
             onClick={() => onAutoRefreshChange(!autoRefresh)}
             className={`rounded-lg border px-2 py-1 transition-all ${autoRefresh ? 'border-success-500/25 bg-success-500/10 text-success-600 dark:text-success-400' : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/[0.05]'}`}
           >
-            {autoRefresh ? copy('自动 30s', 'Auto 30s') : copy('手动', 'Manual')}
+            {autoRefresh ? copy('自动 5s', 'Auto 5s') : copy('手动', 'Manual')}
           </button>
         </div>
       </div>

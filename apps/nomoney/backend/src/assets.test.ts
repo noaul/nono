@@ -528,6 +528,7 @@ describe('asset APIs', () => {
     }));
     expect(String(sshCalls[0].command)).toContain('MONEYPULSE_PROBE_PORT=9134');
     expect(String(sshCalls[0].command)).toContain('MONEYPULSE_PROBE_TOKEN=');
+    expect(String(sshCalls[0].command)).toContain('$SUDO systemctl restart moneypulse-probe.service');
     expect(response.body).toMatchObject({
       ok: true,
       probeUrl: 'http://198.51.100.24:9134/api/stat',
