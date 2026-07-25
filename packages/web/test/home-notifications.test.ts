@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 import { defineComponent, nextTick, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -118,6 +120,16 @@ describe('home notifications', () => {
     await wrapper.get('[aria-label="全部标记已读"]').trigger('click');
     expect(wrapper.emitted('mark-all-read')).toHaveLength(1);
     wrapper.unmount();
+  });
+
+  it('uses the dedicated notification surface in both homepage notification views', () => {
+    const bellSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/HomeNotificationBell.vue'), 'utf8');
+    const urgentSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/HomeUrgentNoticeBar.vue'), 'utf8');
+
+    expect(bellSource).toContain('background: var(--public-notification-surface');
+    expect(bellSource).toContain('color: var(--public-notification-text');
+    expect(urgentSource).toContain('background: var(--public-notification-surface');
+    expect(urgentSource).toContain('color: var(--public-notification-text');
   });
 
   it('treats the mobile drawer as a modal and restores focus when closed', async () => {

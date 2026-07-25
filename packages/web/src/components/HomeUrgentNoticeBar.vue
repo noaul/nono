@@ -44,8 +44,8 @@ defineEmits<{
   align-items: stretch;
   backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
-  background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.08));
-  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.32);
+  background: var(--public-notification-surface, rgba(8, 12, 18, 0.92));
+  border: 1px solid rgba(var(--public-notification-border-rgb, 255, 255, 255), 0.18);
   border-radius: var(--public-card-radius, 8px);
   box-shadow: 0 10px 30px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.14), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.2);
   display: flex;
@@ -61,7 +61,7 @@ defineEmits<{
 .home-urgent-item {
   align-items: center;
   border-radius: 7px;
-  color: var(--public-page-text, #f3f4f6);
+  color: var(--public-notification-text, #f3f4f6);
   display: flex;
   flex: 1 1 0;
   gap: 10px;
@@ -73,7 +73,7 @@ defineEmits<{
 
 .home-urgent-item:hover,
 .home-urgent-item:focus-visible {
-  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.16);
+  background: rgba(var(--public-notification-hover-rgb, 255, 255, 255), 0.1);
   outline: none;
   transform: translateY(-1px);
 }
@@ -110,7 +110,7 @@ defineEmits<{
 }
 
 .home-urgent-copy small {
-  color: rgba(var(--public-page-text-rgb, 243, 244, 246), 0.62);
+  color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.62);
   font-size: 10px;
   font-weight: 700;
 }
@@ -125,7 +125,7 @@ defineEmits<{
 
 .home-urgent-more {
   align-items: center;
-  color: rgba(var(--public-page-text-rgb, 243, 244, 246), 0.74);
+  color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.74);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 11px;
@@ -134,7 +134,7 @@ defineEmits<{
   text-decoration: none;
 }
 
-.home-urgent-more:hover { color: var(--public-page-text, #f3f4f6); }
+.home-urgent-more:hover { color: var(--public-notification-text, #f3f4f6); }
 
 .home-urgent-enter-active,
 .home-urgent-leave-active { transition: opacity 0.25s ease, transform 0.3s ease; }
@@ -149,7 +149,7 @@ defineEmits<{
   }
 
   .home-urgent-item + .home-urgent-item {
-    border-top: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.18);
+    border-top: 1px solid rgba(var(--public-notification-border-rgb, 255, 255, 255), 0.14);
   }
 
   .home-urgent-more { justify-content: center; min-height: 30px; }

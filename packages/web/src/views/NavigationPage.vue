@@ -165,7 +165,14 @@ const activeTheme = computed(() => {
 const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.settings));
 const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
   if (resolvedMode.value !== 'dark') {
-    return { '--public-mode-scrim': 'rgba(8, 12, 18, 0.02)' };
+    return {
+      '--public-mode-scrim': 'rgba(8, 12, 18, 0.02)',
+      '--public-notification-surface': '#ffffff',
+      '--public-notification-text': '#111827',
+      '--public-notification-text-rgb': '17, 24, 39',
+      '--public-notification-border-rgb': '15, 23, 42',
+      '--public-notification-hover-rgb': '15, 23, 42',
+    };
   }
   return {
     '--public-mode-scrim': 'rgba(5, 8, 14, 0.38)',
@@ -176,17 +183,24 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     '--public-tab-color-rgb': '20, 23, 31',
     '--public-page-text': '#f4f6f8',
     '--public-page-text-rgb': '244, 246, 248',
-    '--public-bookmark-text': '#f3f5f7',
-    '--public-notab-text': '#eef1f4',
-    '--public-notab-text-rgb': '238, 241, 244',
-    '--public-folder-text': '#f4f6f8',
-    '--public-folder-text-rgb': '244, 246, 248',
-    '--public-category-text': '#f4f6f8',
+    '--public-bookmark-text': '#ffffff',
+    '--public-bookmark-text-rgb': '255, 255, 255',
+    '--public-notab-text': '#ffffff',
+    '--public-notab-text-rgb': '255, 255, 255',
+    '--public-folder-text': '#ffffff',
+    '--public-folder-text-rgb': '255, 255, 255',
+    '--public-category-text': '#ffffff',
+    '--public-category-text-rgb': '255, 255, 255',
     '--public-border-rgb': '226, 231, 238',
     '--public-highlight-rgb': '241, 244, 248',
     '--public-hover-rgb': '226, 231, 238',
     '--public-shadow-rgb': '0, 0, 0',
     '--public-overlay-rgb': '5, 8, 14',
+    '--public-notification-surface': 'rgba(5, 8, 14, 0.94)',
+    '--public-notification-text': '#ffffff',
+    '--public-notification-text-rgb': '255, 255, 255',
+    '--public-notification-border-rgb': '226, 231, 238',
+    '--public-notification-hover-rgb': '226, 231, 238',
   };
 });
 const backgroundStyle = computed(() => {

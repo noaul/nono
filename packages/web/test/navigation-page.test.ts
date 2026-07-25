@@ -3,6 +3,7 @@ import path from 'node:path';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import ColorModeControl from '../src/components/ColorModeControl.vue';
 import NavigationPage from '../src/views/NavigationPage.vue';
 import { useAuthStore } from '../src/stores/auth';
 
@@ -86,6 +87,7 @@ describe('NavigationPage public workflow', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    document.documentElement.removeAttribute('data-color-mode');
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: originalElementFromPoint });
     document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
   });
@@ -348,6 +350,29 @@ describe('NavigationPage public workflow', () => {
     expect(entry.attributes('href')).toBe('/login?next=%2F');
     expect(entry.text()).toContain('后台管理登录');
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
+  });
+
+  it('provides high-contrast notification and label tokens for both color modes', async () => {
+    document.documentElement.dataset.colorMode = 'light';
+    let wrapper = await mountNavigationPage();
+    let style = wrapper.get('.nav-page').attributes('style');
+    expect(style).toContain('--public-notification-surface: #ffffff');
+    expect(style).toContain('--public-notification-text-rgb: 17, 24, 39');
+    wrapper.unmount();
+
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      appearance: {
+        bookmarkTextColor: '#111111',
+        categoryTextColor: '#222222',
+      },
+    }));
+    wrapper = await mountNavigationPage();
+    wrapper.getComponent(ColorModeControl).vm.$emit('change', 'dark');
+    await wrapper.vm.$nextTick();
+    style = wrapper.get('.nav-page').attributes('style');
+    expect(style).toContain('--public-bookmark-text-rgb: 255, 255, 255');
+    expect(style).toContain('--public-category-text-rgb: 255, 255, 255');
+    wrapper.unmount();
   });
 
   it('enters organize mode by holding All for one second and deletes bookmarks to the recycle bin', async () => {
