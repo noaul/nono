@@ -30,6 +30,17 @@ describe('NoMoney account management UI', () => {
     expect(page).toContain("api.post<{ item: CommunicationAccount }>('/api/accounts'");
     expect(page).toContain("api.put<{ item: CommunicationAccount }>(`/api/accounts/${editing.id}`");
     expect(page).toContain("api.delete(`/api/accounts/${item.id}`)");
+    expect(page).toContain("copy('绑定邮箱（选填）', 'Bound email (optional)')");
+    expect(page).not.toContain('className={inputClass} required type="email"');
+    expect(page).toContain("{item.boundEmail || '-'}");
+    expect(page).toContain('function CountryCombobox(');
+    expect(page).toContain('role="combobox"');
+    expect(page).toContain('filterCountryOptions(options, searchQuery)');
+    expect(page).toContain("copy('登录设备', 'Login device')");
+    expect(page).toContain("copy('登录设备（选填）', 'Login device (optional)')");
+    expect(page).toContain("loginDevice: item.loginDevice ?? ''");
+    expect(catalog).toContain('export function filterCountryOptions');
+    expect(catalog).toContain('option.searchText.includes(normalizedQuery)');
     expect(catalog).toContain("from 'simple-icons'");
     expect(catalog).toContain("from 'libphonenumber-js'");
     expect(catalog).toContain('fi fi-');

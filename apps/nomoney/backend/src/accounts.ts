@@ -8,29 +8,39 @@ export const accountTypes = ['telegram', 'whatsapp', 'signal', 'wechat', 'line',
 
 const accountTypeSchema = z.enum(accountTypes);
 const optionalText = (max: number) => z.string().trim().max(max).optional().nullable();
+const optionalEmail = z.string().trim().max(254)
+  .refine((value) => value === '' || z.string().email().safeParse(value).success, 'Invalid email')
+  .optional()
+  .nullable();
 const accountSchema = z.object({
   accountType: accountTypeSchema,
   phoneNumber: z.string().trim().min(4).max(32).regex(/^[+\d\s().-]+$/)
     .refine((value) => digitsOnly(value).length >= 4, 'Phone number must contain at least four digits'),
   countryCallingCode: z.string().trim().regex(/^\+[1-9]\d{0,2}$/),
   countryIso: z.string().trim().regex(/^[a-z]{2}$/i).transform((value) => value.toUpperCase()),
-  boundEmail: z.string().trim().email().max(254),
+  boundEmail: optionalEmail,
+  loginDevice: optionalText(120),
   displayName: optionalText(80),
   notes: optionalText(1000)
 });
 const listQuerySchema = z.object({
   phone: z.string().trim().max(32).optional().default(''),
-  accountType: z.preprocess((value) => value === '' ? undefined : value, accountTypeSchema.optional())
+  accountType: z.preprocess((value) => value === '' ? undefined : value, accountTypeSchema.optional()),
+  trashed: z.enum(['true', 'false']).optional().default('false').transform((value) => value === 'true')
 });
 
-type AccountBody = z.infer<typeof accountSchema>;
+function normalizeAccountBody(body: z.infer<typeof accountSchema>) {
+  return { ...body, boundEmail: body.boundEmail ?? '' };
+}
+
+type AccountBody = ReturnType<typeof normalizeAccountBody>;
 
 export function registerAccountRoutes(router: Router, context: AppContext): void {
   router.get(
     '/accounts',
     asyncHandler(async (req, res) => {
       const query = listQuerySchema.parse(req.query);
-      const where: string[] = [];
+      const where: string[] = [query.trashed ? 'archived_at IS NOT NULL' : 'archived_at IS NULL'];
       const params: DbValue[] = [];
       const phoneKey = digitsOnly(query.phone);
       if (phoneKey) {
@@ -57,14 +67,14 @@ export function registerAccountRoutes(router: Router, context: AppContext): void
   router.post(
     '/accounts',
     asyncHandler(async (req, res) => {
-      const body = parseBody(accountSchema, req.body);
+      const body = normalizeAccountBody(parseBody(accountSchema, req.body));
       assertAccountAvailable(context, body);
       const now = toIsoDateTime(context.now());
       const id = context.db.insert(
         `INSERT INTO accounts (
           account_type, phone_number, phone_key, country_calling_code, country_iso,
-          bound_email, display_name, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          bound_email, login_device, display_name, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         accountValues(body, now)
       );
       res.status(201).json({ item: getAccountOrThrow(context, id) });
@@ -82,7 +92,8 @@ export function registerAccountRoutes(router: Router, context: AppContext): void
         phoneNumber: patch.phoneNumber ?? current.phoneNumber,
         countryCallingCode: patch.countryCallingCode ?? current.countryCallingCode,
         countryIso: patch.countryIso ?? current.countryIso,
-        boundEmail: patch.boundEmail ?? current.boundEmail,
+        boundEmail: Object.prototype.hasOwnProperty.call(patch, 'boundEmail') ? patch.boundEmail ?? '' : current.boundEmail,
+        loginDevice: Object.prototype.hasOwnProperty.call(patch, 'loginDevice') ? patch.loginDevice : current.loginDevice,
         displayName: Object.prototype.hasOwnProperty.call(patch, 'displayName') ? patch.displayName : current.displayName,
         notes: Object.prototype.hasOwnProperty.call(patch, 'notes') ? patch.notes : current.notes
       };
@@ -91,9 +102,9 @@ export function registerAccountRoutes(router: Router, context: AppContext): void
       context.db.run(
         `UPDATE accounts SET
           account_type = ?, phone_number = ?, phone_key = ?, country_calling_code = ?, country_iso = ?,
-          bound_email = ?, display_name = ?, notes = ?, updated_at = ?
+          bound_email = ?, login_device = ?, display_name = ?, notes = ?, updated_at = ?
         WHERE id = ?`,
-        [...accountValues(next, updatedAt).slice(0, 8), updatedAt, id]
+        [...accountValues(next, updatedAt).slice(0, 9), updatedAt, id]
       );
       res.json({ item: getAccountOrThrow(context, id) });
     })
@@ -102,6 +113,24 @@ export function registerAccountRoutes(router: Router, context: AppContext): void
   router.delete('/accounts/:id', (req, res) => {
     const id = Number(req.params.id);
     getAccountOrThrow(context, id);
+    const now = toIsoDateTime(context.now());
+    context.db.run('UPDATE accounts SET archived_at = ?, updated_at = ? WHERE id = ?', [now, now, id]);
+    res.status(204).end();
+  });
+
+  router.post('/accounts/:id/restore', (req, res) => {
+    const id = Number(req.params.id);
+    getAccountOrThrow(context, id);
+    context.db.run('UPDATE accounts SET archived_at = NULL, updated_at = ? WHERE id = ?', [toIsoDateTime(context.now()), id]);
+    res.json({ item: getAccountOrThrow(context, id) });
+  });
+
+  router.delete('/accounts/:id/permanent', (req, res) => {
+    const id = Number(req.params.id);
+    const account = getAccountOrThrow(context, id);
+    if (!account.archivedAt) {
+      throw new HttpError(409, 'ACCOUNT_NOT_TRASHED', 'Only trashed accounts can be permanently deleted');
+    }
     context.db.run('DELETE FROM accounts WHERE id = ?', [id]);
     res.status(204).end();
   });
@@ -115,6 +144,7 @@ function accountValues(body: AccountBody, timestamp: string): DbValue[] {
     body.countryCallingCode,
     body.countryIso,
     body.boundEmail,
+    body.loginDevice || null,
     body.displayName || null,
     body.notes || null,
     timestamp,
@@ -148,8 +178,10 @@ function mapAccountRow(row: Record<string, unknown>) {
     countryCallingCode: String(row.country_calling_code),
     countryIso: String(row.country_iso),
     boundEmail: String(row.bound_email),
+    loginDevice: row.login_device ? String(row.login_device) : null,
     displayName: row.display_name ? String(row.display_name) : null,
     notes: row.notes ? String(row.notes) : null,
+    archivedAt: row.archived_at ? String(row.archived_at) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at)
   };

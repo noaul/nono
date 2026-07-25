@@ -1,5 +1,5 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Activity, Archive, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi } from 'lucide-react';
+import { Activity, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useOutletContext } from 'react-router-dom';
 import type { AssetPageConfig } from './assetConfig';
@@ -81,7 +81,7 @@ type PhoneVisualAccent = {
 const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR'];
 const cycles: BillingCycle[] = ['monthly', 'quarterly', 'annual', 'biennial'];
 const domainCycles: BillingCycle[] = ['annual', 'biennial'];
-const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled', 'archived'];
+const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
 const pageSize = 24;
 const phoneVisualStyles: PhoneVisualStyle[] = [
   {
@@ -570,22 +570,15 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
-  const archive = async (item: AssetItem) => {
+  const moveToTrash = async (item: AssetItem) => {
     const name = getText(item, config.primaryKey);
-    if (!window.confirm(copy(`归档 ${name}？`, `Archive ${name}?`))) return;
-    await api.delete(`/api/${config.endpoint}/${item.id}`);
-    await load();
-  };
-
-  const removePermanently = async (item: AssetItem) => {
-    const name = getText(item, config.primaryKey);
-    if (!window.confirm(copy(`永久删除 ${name}？关联流水也会删除，此操作不可恢复。`, `Permanently delete ${name}? Linked expenses will also be deleted. This cannot be undone.`))) return;
+    if (!window.confirm(copy(`将 ${name} 移入回收站？`, `Move ${name} to the recycle bin?`))) return;
     setError('');
     try {
-      await api.delete(`/api/${config.endpoint}/${item.id}/permanent`);
+      await api.delete(`/api/${config.endpoint}/${item.id}`);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('删除失败', 'Delete failed'));
+      setError(err instanceof ApiError ? err.message : copy('移入回收站失败', 'Failed to move to recycle bin'));
     }
   };
 
@@ -708,10 +701,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => archive(item)} title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => removePermanently(item)} title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -739,10 +729,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => archive(item)} title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => removePermanently(item)} title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -817,10 +804,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title="编辑">
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => archive(item)} title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => removePermanently(item)} title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -872,10 +856,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => archive(item)} title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => removePermanently(item)} title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -1001,12 +982,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       ) : view === 'card' ? (
         <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => isDomain
-            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedDomainId === item.id} duplicating={duplicatingDomainId === item.id} renewing={renewingDomainId === item.id} renewed={renewedDomainId === item.id} onDuplicate={duplicateDomainEntry} onRenew={renewDomainOnce} onEdit={openEdit} onArchive={archive} onDelete={removePermanently} copy={copy} />
+            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedDomainId === item.id} duplicating={duplicatingDomainId === item.id} renewing={renewingDomainId === item.id} renewed={renewedDomainId === item.id} onDuplicate={duplicateDomainEntry} onRenew={renewDomainOnce} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps
-              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} onCopySsh={copySshCommand} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onInstall={installVpsProbe} onEdit={openEdit} onArchive={archive} onDelete={removePermanently} copy={copy} />
+              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} onCopySsh={copySshCommand} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onInstall={installVpsProbe} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
-              ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedPhoneId === item.id} duplicating={duplicatingPhoneId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicatePhoneEntry} onEdit={openEdit} onArchive={archive} onDelete={removePermanently} copy={copy} />
-            : <AssetCardView key={item.id} item={item} config={config} onEdit={openEdit} onArchive={archive} onDelete={removePermanently} copy={copy} />
+              ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedPhoneId === item.id} duplicating={duplicatingPhoneId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicatePhoneEntry} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+            : <AssetCardView key={item.id} item={item} config={config} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
           )}
         </div>
       ) : isDomain && view === 'compact' ? (
@@ -1616,7 +1597,6 @@ function VpsNodeCard({
   onTest,
   onInstall,
   onEdit,
-  onArchive,
   onDelete,
   copy
 }: {
@@ -1629,7 +1609,6 @@ function VpsNodeCard({
   onTest: (item: AssetItem) => void;
   onInstall: (item: AssetItem) => void;
   onEdit: (item: AssetItem) => void;
-  onArchive: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
 }) {
@@ -1722,10 +1701,7 @@ function VpsNodeCard({
           <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
             <Pencil size={14} />
           </button>
-          <button onClick={() => onArchive(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-            <Archive size={14} />
-          </button>
-          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -2003,7 +1979,6 @@ function DomainCardView({
   onDuplicate,
   onRenew,
   onEdit,
-  onArchive,
   onDelete,
   copy
 }: {
@@ -2015,7 +1990,6 @@ function DomainCardView({
   onDuplicate: (item: AssetItem) => void;
   onRenew: (item: AssetItem) => void;
   onEdit: (item: AssetItem) => void;
-  onArchive: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
 }) {
@@ -2102,10 +2076,7 @@ function DomainCardView({
           <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title="编辑">
             <Pencil size={14} />
           </button>
-          <button onClick={() => onArchive(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-            <Archive size={14} />
-          </button>
-          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -2273,7 +2244,6 @@ function PhoneCardView({
   onCopyNumber,
   onDuplicate,
   onEdit,
-  onArchive,
   onDelete,
   copy
 }: {
@@ -2284,7 +2254,6 @@ function PhoneCardView({
   onCopyNumber: (item: AssetItem) => void;
   onDuplicate: (item: AssetItem) => void;
   onEdit: (item: AssetItem) => void;
-  onArchive: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
 }) {
@@ -2360,10 +2329,7 @@ function PhoneCardView({
         <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button onClick={() => onArchive(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -2375,14 +2341,12 @@ function AssetCardView({
   item,
   config,
   onEdit,
-  onArchive,
   onDelete,
   copy
 }: {
   item: AssetItem;
   config: AssetPageConfig;
   onEdit: (item: AssetItem) => void;
-  onArchive: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
 }) {
@@ -2423,10 +2387,7 @@ function AssetCardView({
         <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title="编辑">
           <Pencil size={14} />
         </button>
-        <button onClick={() => onArchive(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('归档', 'Archive')} aria-label={copy('归档', 'Archive')}>
-          <Archive size={14} />
-        </button>
-        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('删除', 'Delete')} aria-label={copy('删除', 'Delete')}>
+        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>

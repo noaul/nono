@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { ContactRound, Globe2, Languages, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, X } from 'lucide-react';
+import { ContactRound, Globe2, Languages, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, Trash2, X } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import type { User } from './types';
@@ -15,6 +15,7 @@ const navItems = [
   { to: '/subscriptions', labelZh: '订阅', labelEn: 'Subscriptions', icon: Repeat2, hint: 'SaaS' },
   { to: '/accounts', labelZh: '账号', labelEn: 'Accounts', icon: ContactRound, hint: 'Apps' },
   { to: '/expenses', labelZh: '费用流水', labelEn: 'Expenses', icon: ReceiptText, hint: 'Ledger' },
+  { to: '/trash', labelZh: '回收站', labelEn: 'Recycle bin', icon: Trash2, hint: 'Deleted' },
   { to: '/settings', labelZh: '设置', labelEn: 'Settings', icon: Settings, hint: 'System' }
 ];
 

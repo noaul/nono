@@ -79,7 +79,7 @@ const backupTables: BackupTable[] = [
     table: 'accounts',
     columns: [
       'id', 'account_type', 'phone_number', 'phone_key', 'country_calling_code', 'country_iso',
-      'bound_email', 'display_name', 'notes', 'created_at', 'updated_at'
+      'bound_email', 'login_device', 'display_name', 'notes', 'created_at', 'updated_at', 'archived_at'
     ]
   },
   {

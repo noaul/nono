@@ -22,6 +22,7 @@ export type CountryOption = {
   iso: CountryCode;
   callingCode: string;
   name: string;
+  searchText: string;
 };
 
 export function getAccountTypeLabel(type: AccountType, language: 'zh' | 'en'): string {
@@ -33,13 +34,33 @@ export function getAccountTypeLabel(type: AccountType, language: 'zh' | 'en'): s
 export function buildCountryOptions(language: 'zh' | 'en'): CountryOption[] {
   const locale = language === 'zh' ? 'zh-CN' : 'en';
   const displayNames = new Intl.DisplayNames([locale], { type: 'region' });
+  const chineseNames = new Intl.DisplayNames(['zh-CN'], { type: 'region' });
+  const englishNames = new Intl.DisplayNames(['en'], { type: 'region' });
   return getCountries()
-    .map((iso) => ({
-      iso,
-      callingCode: `+${getCountryCallingCode(iso)}`,
-      name: displayNames.of(iso) ?? iso
-    }))
+    .map((iso) => {
+      const callingCode = `+${getCountryCallingCode(iso)}`;
+      const name = displayNames.of(iso) ?? iso;
+      return {
+        iso,
+        callingCode,
+        name,
+        searchText: [iso, callingCode, name, chineseNames.of(iso), englishNames.of(iso)]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase()
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name, locale));
+}
+
+export function filterCountryOptions(options: CountryOption[], query: string): CountryOption[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return options;
+  const compactQuery = normalizedQuery.replace(/[\s-]/g, '');
+  return options.filter((option) =>
+    option.searchText.includes(normalizedQuery)
+      || option.searchText.replace(/[\s-]/g, '').includes(compactQuery)
+  );
 }
 
 export function AccountAppIcon({ type, size = 20 }: { type: AccountType; size?: number }) {

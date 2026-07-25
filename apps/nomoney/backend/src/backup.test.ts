@@ -117,6 +117,7 @@ describe('backup APIs', () => {
       countryCallingCode: '+86',
       countryIso: 'CN',
       boundEmail: 'telegram@example.com',
+      loginDevice: 'iPhone 15 Pro',
       displayName: '主 Telegram'
     });
 
@@ -233,6 +234,7 @@ describe('backup APIs', () => {
         accountType: 'telegram',
         phoneNumber: '13800138000',
         boundEmail: 'telegram@example.com',
+        loginDevice: 'iPhone 15 Pro',
         displayName: '主 Telegram'
       })
     ]);

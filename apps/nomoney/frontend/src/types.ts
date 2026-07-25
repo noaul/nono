@@ -17,8 +17,10 @@ export interface CommunicationAccount {
   countryCallingCode: string;
   countryIso: string;
   boundEmail: string;
+  loginDevice: string | null;
   displayName: string | null;
   notes: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

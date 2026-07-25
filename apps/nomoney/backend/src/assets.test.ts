@@ -182,6 +182,11 @@ describe('asset APIs', () => {
     const archivedList = await agent.get('/api/subscriptions?status=archived');
     expect(archivedList.body.items[0].status).toBe('archived');
     expect(archivedList.body.items[0].archivedAt).toMatch(/^2026-05-22/);
+
+    const restored = await agent.post('/api/subscriptions/1/restore').send();
+    expect(restored.status).toBe(200);
+    expect(restored.body.item).toMatchObject({ status: 'active', archivedAt: null });
+    expect((await agent.get('/api/subscriptions')).body.items).toHaveLength(1);
   });
 
   test('permanently deletes assets and their linked expenses', async () => {
@@ -206,6 +211,11 @@ describe('asset APIs', () => {
       category: 'renewal'
     });
 
+    const activeDelete = await agent.delete('/api/domains/1/permanent');
+    expect(activeDelete.status).toBe(409);
+    expect(activeDelete.body.error.code).toBe('ASSET_NOT_ARCHIVED');
+
+    await agent.delete('/api/domains/1').expect(204);
     await agent.delete('/api/domains/1/permanent').expect(204);
 
     await agent.get('/api/domains/1').expect(404);

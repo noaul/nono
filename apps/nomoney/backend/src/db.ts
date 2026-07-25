@@ -279,10 +279,12 @@ function migrate(db: DbClient): void {
       country_calling_code TEXT NOT NULL,
       country_iso TEXT NOT NULL,
       bound_email TEXT NOT NULL,
+      login_device TEXT,
       display_name TEXT,
       notes TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
+      archived_at TEXT,
       UNIQUE(account_type, country_calling_code, phone_key)
     );
 
@@ -333,6 +335,8 @@ function migrate(db: DbClient): void {
   seedSetting(db, 'webdavBackupFilename', '');
   seedSetting(db, 'webdavEncryptionKey', '');
   ensureColumn(db, 'users', 'session_version', 'INTEGER NOT NULL DEFAULT 1');
+  ensureColumn(db, 'accounts', 'login_device', 'TEXT');
+  ensureColumn(db, 'accounts', 'archived_at', 'TEXT');
   ensureColumn(db, 'phones', 'phone_type', "TEXT NOT NULL DEFAULT 'domestic'");
   ensureColumn(db, 'phones', 'is_esim', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'phones', 'po_phone_number', 'TEXT');

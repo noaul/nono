@@ -10,6 +10,7 @@ const Layout = lazy(() => import('./Layout').then((module) => ({ default: module
 const Dashboard = lazy(() => import('./Dashboard').then((module) => ({ default: module.Dashboard })));
 const AssetPage = lazy(() => import('./AssetPage').then((module) => ({ default: module.AssetPage })));
 const AccountPage = lazy(() => import('./AccountPage').then((module) => ({ default: module.AccountPage })));
+const TrashPage = lazy(() => import('./TrashPage'));
 const Expenses = lazy(() => import('./Expenses').then((module) => ({ default: module.Expenses })));
 const SettingsPage = lazy(() => import('./SettingsPage').then((module) => ({ default: module.SettingsPage })));
 
@@ -76,6 +77,7 @@ export default function App() {
             <Route key={config.endpoint} path={`/${config.endpoint}`} element={<AssetPage config={config} />} />
           ))}
           <Route path="/accounts" element={<AccountPage />} />
+          <Route path="/trash" element={<TrashPage />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

@@ -562,11 +562,28 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
       })
     );
 
+    router.post(
+      `/${config.route}/:id/restore`,
+      asyncHandler(async (req, res) => {
+        const id = Number(req.params.id);
+        getAssetOrThrow(context, config, id);
+        const now = toIsoDateTime(context.now());
+        context.db.run(
+          `UPDATE ${config.table} SET status = 'active', archived_at = NULL, updated_at = ? WHERE id = ?`,
+          [now, id]
+        );
+        res.json({ item: getAssetOrThrow(context, config, id) });
+      })
+    );
+
     router.delete(
       `/${config.route}/:id/permanent`,
       asyncHandler(async (req, res) => {
         const id = Number(req.params.id);
-        getAssetOrThrow(context, config, id);
+        const item = getAssetOrThrow(context, config, id);
+        if (!item.archivedAt) {
+          throw new HttpError(409, 'ASSET_NOT_ARCHIVED', 'Only archived assets can be permanently deleted');
+        }
         context.db.run('DELETE FROM expenses WHERE asset_type = ? AND asset_id = ?', [config.type, id]);
         context.db.run('DELETE FROM reminder_logs WHERE asset_type = ? AND asset_id = ?', [config.type, id]);
         context.db.run(`DELETE FROM ${config.table} WHERE id = ?`, [id]);

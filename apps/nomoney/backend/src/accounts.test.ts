@@ -8,6 +8,7 @@ const telegramAccount = {
   countryCallingCode: '+86',
   countryIso: 'CN',
   boundEmail: 'telegram@example.com',
+  loginDevice: 'iPhone 15 Pro',
   displayName: '工作 Telegram',
   notes: '日常联系'
 };
@@ -49,12 +50,14 @@ describe('account APIs', () => {
 
     const updated = await agent.put('/api/accounts/1').send({
       boundEmail: 'new-telegram@example.com',
+      loginDevice: 'MacBook Pro',
       displayName: '主 Telegram'
     });
     expect(updated.status).toBe(200);
     expect(updated.body.item).toMatchObject({
       id: 1,
       boundEmail: 'new-telegram@example.com',
+      loginDevice: 'MacBook Pro',
       displayName: '主 Telegram'
     });
 
@@ -98,6 +101,49 @@ describe('account APIs', () => {
       boundEmail: 'whatsapp@example.com'
     });
     expect(sameNumberDifferentApp.status).toBe(201);
+  });
+
+  test('accepts omitted, blank, or null bound emails', async () => {
+    const { agent } = await setupAgent();
+    const account = {
+      accountType: 'telegram',
+      countryCallingCode: '+852',
+      countryIso: 'HK'
+    };
+
+    const omitted = await agent.post('/api/accounts').send({ ...account, phoneNumber: '94136834' });
+    const blank = await agent.post('/api/accounts').send({ ...account, phoneNumber: '94136835', boundEmail: '   ' });
+    const nullEmail = await agent.post('/api/accounts').send({ ...account, phoneNumber: '94136836', boundEmail: null });
+
+    expect(omitted.status).toBe(201);
+    expect(blank.status).toBe(201);
+    expect(nullEmail.status).toBe(201);
+    expect([omitted.body.item.boundEmail, blank.body.item.boundEmail, nullEmail.body.item.boundEmail]).toEqual(['', '', '']);
+  });
+
+  test('moves accounts to trash, restores them, and permanently deletes them', async () => {
+    const { agent } = await setupAgent();
+    expect((await agent.post('/api/accounts').send(telegramAccount)).status).toBe(201);
+
+    const activeDelete = await agent.delete('/api/accounts/1/permanent');
+    expect(activeDelete.status).toBe(409);
+    expect(activeDelete.body.error.code).toBe('ACCOUNT_NOT_TRASHED');
+
+    await agent.delete('/api/accounts/1').expect(204);
+    expect((await agent.get('/api/accounts')).body.meta).toEqual({ total: 0 });
+
+    const trashed = await agent.get('/api/accounts?trashed=true');
+    expect(trashed.body.meta).toEqual({ total: 1 });
+    expect(trashed.body.items[0].archivedAt).toMatch(/^2026-05-22/);
+
+    const restored = await agent.post('/api/accounts/1/restore').send();
+    expect(restored.status).toBe(200);
+    expect(restored.body.item.archivedAt).toBeNull();
+    expect((await agent.get('/api/accounts')).body.meta).toEqual({ total: 1 });
+
+    await agent.delete('/api/accounts/1').expect(204);
+    await agent.delete('/api/accounts/1/permanent').expect(204);
+    expect((await agent.get('/api/accounts?trashed=true')).body.meta).toEqual({ total: 0 });
   });
 
   test('rejects unknown account types and missing records', async () => {
