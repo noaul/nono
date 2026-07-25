@@ -1146,6 +1146,9 @@ async function refreshVpsMonitor(
 }
 
 function normalizeMonitorPayload(payload: unknown, updatedAt: string): MonitorSnapshot {
+  if (isOfflineMonitorPayload(payload)) {
+    return offlineMonitorSnapshot(updatedAt);
+  }
   const stat = extractMonitorStat(payload);
   const cpu = asRecord(stat.cpu);
   const memory = asRecord(stat.mem) ?? asRecord(stat.memory);
@@ -1179,6 +1182,16 @@ function normalizeMonitorPayload(payload: unknown, updatedAt: string): MonitorSn
     uptimeSeconds: firstNumber(stat.uptime, stat.uptimeSeconds),
     updatedAt
   };
+}
+
+function isOfflineMonitorPayload(payload: unknown): boolean {
+  const record = asRecord(payload);
+  if (!record) return false;
+  const status = stringValue(record.status).toLowerCase();
+  if (record.online === false || record.offline === true || status === 'offline') return true;
+  if (record.stat === false || record.stat === 0) return true;
+  const stat = asRecord(record.stat);
+  return stat?.online === false || stat?.offline === true;
 }
 
 function offlineMonitorSnapshot(updatedAt: string): MonitorSnapshot {

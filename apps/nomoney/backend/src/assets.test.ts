@@ -402,6 +402,35 @@ describe('asset APIs', () => {
     });
   });
 
+  test('marks a dstatus node offline when its per-node endpoint returns stat false', async () => {
+    const { agent, context } = await setupAgent();
+    context.fetch = async () => new Response(JSON.stringify({
+      sid: 'offline-node',
+      name: 'Offline node',
+      stat: false
+    }), { status: 200 });
+
+    await agent.post('/api/vps').send({
+      name: 'dstatus-node',
+      probeUrl: 'https://status.example.com/stats/offline-node/data',
+      amountMinorUnits: 0,
+      currency: 'CNY',
+      billingCycle: 'annual',
+      status: 'active'
+    });
+
+    const response = await agent.get('/api/vps/1/monitor');
+
+    expect(response.status).toBe(200);
+    expect(response.body.monitor).toMatchObject({
+      status: 'offline',
+      cpuPercent: null,
+      memoryPercent: null,
+      diskPercent: null
+    });
+    expect(response.body.item).toMatchObject({ monitorStatus: 'offline' });
+  });
+
   test('tests VPS SSH connections with password credentials', async () => {
     const { agent, context } = await setupAgent();
     const sshCalls: Array<Record<string, unknown>> = [];
