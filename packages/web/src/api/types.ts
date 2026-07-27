@@ -70,6 +70,7 @@ export interface Link {
   healthReason?: string | null;
   healthFinalUrl?: string | null;
   healthCheckedAt?: string | null;
+  healthCheckEnabled?: boolean;
 }
 
 export interface NavigationPayload {
@@ -171,6 +172,8 @@ export interface AdminNotification {
   href: string;
   occurredAt: string;
   dueAt: string | null;
+  entityId?: number | null;
+  targetUrl?: string | null;
   read: boolean;
 }
 

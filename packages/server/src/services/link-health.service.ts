@@ -1,5 +1,6 @@
 import type { LinkHealthStatus, LinkRecord } from './repository.js';
-import { requestSafeResource } from '../utils/safe-fetch.js';
+import { isIP } from 'node:net';
+import { isPublicAddress, requestSafeResource } from '../utils/safe-fetch.js';
 
 export interface LinkHealthResult {
   id: number;
@@ -35,8 +36,9 @@ export async function checkLinksHealth(
   requester: SafeRequester = requestSafeResource,
   options: LinkHealthCheckOptions = {},
 ) {
+  const eligibleLinks = links.filter((link) => link.healthCheckEnabled !== false && !shouldSkipLinkHealthCheck(link.url));
   const results = await mapWithConcurrency(
-    links,
+    eligibleLinks,
     normalizeConcurrency(options.concurrency),
     (link) => checkOneLink(link, requester, options),
   );
@@ -48,6 +50,14 @@ export async function checkLinksHealth(
     { total: results.length, ok: 0, redirected: 0, restricted: 0, broken: 0, timeout: 0, invalid: 0 },
   );
   return { summary, results };
+}
+
+export function shouldSkipLinkHealthCheck(value: string) {
+  const url = parseHttpUrl(value);
+  if (!url) return false;
+  const hostname = stripIpv6Brackets(url.hostname).toLowerCase();
+  if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local')) return true;
+  return Boolean(isIP(hostname)) && !isPublicAddress(hostname);
 }
 
 export async function checkOneLink(
@@ -89,6 +99,10 @@ function parseHttpUrl(value: string) {
   } catch {
     return null;
   }
+}
+
+function stripIpv6Brackets(value: string) {
+  return value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
 }
 
 function baseResult(

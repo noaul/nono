@@ -5,7 +5,7 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
 import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
-import { checkLinksHealth } from '../../services/link-health.service.js';
+import { checkLinksHealth, shouldSkipLinkHealthCheck } from '../../services/link-health.service.js';
 import type { LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import { setAuditContext } from '../../plugins/audit.js';
@@ -17,6 +17,7 @@ const linkUpdateSchema = z.object({
   icon: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   sortOrder: z.coerce.number().finite().optional(),
+  healthCheckEnabled: z.boolean().optional(),
 });
 
 const linkMoveSchema = z.object({
@@ -41,7 +42,15 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
     const url = normalizeUrl(body.url);
     const name = body.nameMode === 'manual' ? String(body.name || '').trim() || shortenBookmarkName('', url) : shortenBookmarkName(body.name, url);
-    const created = await services.repo.createLink({ folderId: folder.id, name, url, icon: body.icon || '', description: body.description || '', sortOrder: Number(body.sortOrder || createSortOrder()) });
+    const created = await services.repo.createLink({
+      folderId: folder.id,
+      name,
+      url,
+      icon: body.icon || '',
+      description: body.description || '',
+      sortOrder: Number(body.sortOrder || createSortOrder()),
+      healthCheckEnabled: !shouldSkipLinkHealthCheck(url),
+    });
     setAuditContext(request, { action: 'create', resourceType: 'bookmark', resourceId: created.id, resourceLabel: created.name, details: { after: linkAuditSnapshot(created) } });
     return sendOk(reply, created);
   });
@@ -177,6 +186,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
       body.url = normalizeUrl(String(body.url ?? ''));
       if (body.url !== current.url) {
         Object.assign(body, {
+          ...(shouldSkipLinkHealthCheck(body.url) ? { healthCheckEnabled: false } : {}),
           healthStatus: null,
           healthStatusCode: null,
           healthReason: null,
@@ -184,6 +194,15 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
           healthCheckedAt: null,
         });
       }
+    }
+    if (body.healthCheckEnabled === false) {
+      Object.assign(body, {
+        healthStatus: null,
+        healthStatusCode: null,
+        healthReason: null,
+        healthFinalUrl: null,
+        healthCheckedAt: null,
+      });
     }
     if ('folderId' in body) {
       const folder = await services.repo.getFolder(user.id, Number(body.folderId));
@@ -230,5 +249,6 @@ function linkAuditSnapshot(link: LinkRecord) {
     icon: link.icon || '',
     description: link.description || '',
     sortOrder: link.sortOrder,
+    healthCheckEnabled: link.healthCheckEnabled !== false,
   };
 }

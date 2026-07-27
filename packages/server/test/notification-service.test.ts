@@ -108,12 +108,44 @@ describe('notification service', () => {
     const feed = await service.list({ id: 7, role: 'user' } as any);
 
     expect(queries.links[0].where).toMatchObject({ folder: { userId: 7 } });
+    expect(queries.links[0].where).toMatchObject({ healthCheckEnabled: true });
     expect(queries.releases[0].where).toEqual({ userId: 7, isRead: false });
     expect(queries.states[0].where.userId).toBe(7);
     expect(feed.items.map((item) => item.source)).toEqual(expect.arrayContaining(['links', 'nostar']));
+    expect(feed.items.find((item) => item.source === 'links')).toMatchObject({
+      entityId: 31,
+      targetUrl: 'https://broken.example',
+    });
     expect(nodeskReader).not.toHaveBeenCalled();
     expect(noMoneyReader).not.toHaveBeenCalled();
     expect(backupService.list).not.toHaveBeenCalled();
+  });
+
+  it('suppresses stale health alerts for local and private bookmarks', async () => {
+    const { prisma } = createPrisma({
+      links: [{
+        id: 42,
+        name: 'Local printer',
+        url: 'http://192.168.223.1/',
+        healthStatus: 'broken',
+        healthStatusCode: null,
+        healthReason: 'Target address is not public',
+        healthFinalUrl: null,
+        healthCheckedAt: now,
+        folder: { name: 'Local' },
+      }],
+    });
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(),
+      noMoneyReader: vi.fn(),
+      backupService: { list: vi.fn() } as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 7, role: 'user' } as any);
+
+    expect(feed.items).toEqual([]);
   });
 
   it('aggregates administrator schedules, expiring assets and stale backups', async () => {

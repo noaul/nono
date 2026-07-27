@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkLinksHealth, checkOneLink } from '../src/services/link-health.service.js';
+import { checkLinksHealth, checkOneLink, shouldSkipLinkHealthCheck } from '../src/services/link-health.service.js';
 import type { LinkRecord } from '../src/services/repository.js';
 
 function link(overrides: Partial<LinkRecord> = {}): LinkRecord {
@@ -19,6 +19,37 @@ function link(overrides: Partial<LinkRecord> = {}): LinkRecord {
 }
 
 describe('link health checks', () => {
+  it.each([
+    'http://localhost:3000/',
+    'http://app.localhost/',
+    'http://127.0.0.1:8080/',
+    'http://127.23.4.5/',
+    'http://10.0.0.8/',
+    'http://172.16.0.1/',
+    'http://172.31.255.254/',
+    'http://192.168.223.1/',
+    'http://169.254.1.1/',
+    'http://[::1]/',
+    'http://printer.local/',
+  ])('identifies local URL %s as excluded from health checks', (url) => {
+    expect(shouldSkipLinkHealthCheck(url)).toBe(true);
+  });
+
+  it('does not request disabled or local links', async () => {
+    const requester = vi.fn();
+
+    const result = await checkLinksHealth([
+      link({ id: 1, url: 'https://disabled.example/', healthCheckEnabled: false }),
+      link({ id: 2, url: 'http://192.168.223.1/' }),
+      link({ id: 3, url: 'https://public.example/' }),
+    ], requester.mockResolvedValue({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: 'https://public.example/' }) as any);
+
+    expect(requester).toHaveBeenCalledTimes(1);
+    expect(requester).toHaveBeenCalledWith('https://public.example/', expect.any(Object));
+    expect(result.summary.total).toBe(1);
+    expect(result.results.map((item) => item.id)).toEqual([3]);
+  });
+
   it('uses the safe requester and reports a redirect target as repairable', async () => {
     const requester = vi.fn(async () => ({
       statusCode: 200,

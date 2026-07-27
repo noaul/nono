@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../types.js';
-import { checkLinksHealth } from './link-health.service.js';
+import { checkLinksHealth, shouldSkipLinkHealthCheck } from './link-health.service.js';
 
 interface SchedulerConfig {
   enabled: boolean;
@@ -42,7 +42,11 @@ export async function runScheduledLinkHealthCheck(services: AppServices, interva
 
   for (const user of users) {
     const links = await services.repo.listLinks(user.id);
-    const due = links.filter((link) => !link.healthCheckedAt || link.healthCheckedAt <= staleBefore);
+    const due = links.filter((link) => (
+      link.healthCheckEnabled !== false
+      && !shouldSkipLinkHealthCheck(link.url)
+      && (!link.healthCheckedAt || link.healthCheckedAt <= staleBefore)
+    ));
     if (!due.length) continue;
     const result = await checkLinksHealth(due, services.safeRequester, {
       allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [],

@@ -148,6 +148,7 @@ model Link {
   icon             String?
   description      String?
   sortOrder        Int       @default(0)
+  healthCheckEnabled Boolean @default(true)
   healthStatus     String?
   healthStatusCode Int?
   healthReason     String?

@@ -1168,6 +1168,59 @@ describe('Nono Fastify app', () => {
     }
   });
 
+  it('excludes disabled and private links from manual health checks', async () => {
+    await app.close();
+    const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
+    app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Local' } });
+    const publicLink = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: folder.json().data.id, name: 'Public', url: 'https://public.example/' } });
+    const privateLink = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: folder.json().data.id, name: 'Printer', url: 'http://192.168.223.1/' } });
+    const disabledLink = await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: folder.json().data.id, name: 'Disabled', url: 'https://disabled.example/' } });
+    const disabled = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/links/${disabledLink.json().data.id}`,
+      headers: { cookie },
+      payload: { healthCheckEnabled: false },
+    });
+
+    const health = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { cookie },
+      payload: { ids: [publicLink.json().data.id, privateLink.json().data.id, disabledLink.json().data.id] },
+    });
+
+    expect(disabled.statusCode).toBe(200);
+    expect(disabled.json().data).toMatchObject({ healthCheckEnabled: false, healthStatus: null, healthCheckedAt: null });
+    expect(health.json().data.summary.total).toBe(1);
+    expect(health.json().data.results.map((item: any) => item.id)).toEqual([publicLink.json().data.id]);
+    expect(safeRequester).toHaveBeenCalledTimes(1);
+    expect((await repo.listLinks(1)).find((link) => link.id === privateLink.json().data.id)).toMatchObject({ healthCheckEnabled: false });
+  });
+
+  it('does not schedule disabled or private links', async () => {
+    await app.close();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-18T12:00:00.000Z'));
+    vi.stubEnv('LINK_HEALTH_CHECK_ENABLED', 'true');
+    vi.stubEnv('LINK_HEALTH_CHECK_START_DELAY_SECONDS', '1');
+    const user = await repo.createUser({ username: 'skip-health', email: 'skip-health@nono.test', displayName: 'Skip', passwordHash: 'unused', role: 'admin' });
+    const folder = await repo.createFolder({ userId: user.id, parentId: null, name: 'Skip', icon: '', description: '', sortOrder: 100 });
+    await repo.createLink({ folderId: folder.id, name: 'Disabled', url: 'https://disabled.example/', icon: '', description: '', sortOrder: 100, healthCheckEnabled: false });
+    await repo.createLink({ folderId: folder.id, name: 'Private', url: 'http://127.0.0.1:3000/', icon: '', description: '', sortOrder: 90 });
+    const safeRequester = vi.fn();
+
+    try {
+      app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
+      await app.ready();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(safeRequester).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects folder parent cycles', async () => {
     const cookie = await setupAdmin();
     const parent = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Parent' } });

@@ -6,6 +6,7 @@ import type { AuthUser } from '../types.js';
 import type { BackupService, BackupCommandRunner } from './backup.service.js';
 import { runBackupCommand } from './backup.service.js';
 import type { BackupAutomationService, BackupAutomationSnapshot } from './backup-automation.service.js';
+import { shouldSkipLinkHealthCheck } from './link-health.service.js';
 
 export type NotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
@@ -19,6 +20,8 @@ export interface NotificationItem {
   href: string;
   occurredAt: string;
   dueAt: string | null;
+  entityId?: number | null;
+  targetUrl?: string | null;
   read: boolean;
 }
 
@@ -190,6 +193,7 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
   const links = await prisma.link.findMany({
     where: {
       folder: { userId },
+      healthCheckEnabled: true,
       healthStatus: { in: ['broken', 'timeout', 'invalid', 'redirected'] },
     },
     select: {
@@ -206,7 +210,7 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
     orderBy: [{ healthCheckedAt: 'desc' }, { id: 'desc' }],
     take: 100,
   });
-  return links.map((link) => {
+  return links.filter((link) => !shouldSkipLinkHealthCheck(link.url)).map((link) => {
     const status = link.healthStatus || 'broken';
     const statusLabel = status === 'redirected' ? '发生重定向' : status === 'timeout' ? '检测超时' : status === 'invalid' ? '链接无效' : '访问异常';
     return {
@@ -216,6 +220,8 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
       title: `${link.name} ${statusLabel}`,
       description: link.healthReason || (link.healthStatusCode ? `HTTP ${link.healthStatusCode}` : `${link.folder.name} · ${link.url}`),
       href: '/admin/links',
+      entityId: link.id,
+      targetUrl: link.url,
       occurredAt: (link.healthCheckedAt || fallbackNow).toISOString(),
       dueAt: null,
     };

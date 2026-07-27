@@ -7,7 +7,10 @@ import {
   Check,
   CheckCheck,
   DatabaseBackup,
+  ExternalLink,
   Github,
+  ShieldOff,
+  Trash2,
   WalletCards,
   X,
 } from 'lucide-vue-next';
@@ -15,13 +18,17 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed, AdminNotificationSource } from '@/api/types';
+import { useConfirm } from '@/composables/useConfirm';
+import { notifyError, notifySuccess } from '@/composables/useToasts';
 
+const confirmApi = useConfirm();
 const feed = ref<AdminNotificationFeed>({ items: [], unreadCount: 0, generatedAt: '' });
 const isLoading = ref(true);
 const isMarkingAll = ref(false);
 const activeFilter = ref<'all' | 'unread'>('all');
 const activeSource = ref<'all' | AdminNotificationSource>('all');
 const error = ref('');
+const workingActions = ref(new Set<string>());
 
 const sourceMeta = {
   links: { label: '书签', icon: Activity },
@@ -35,7 +42,6 @@ const sourceOptions = computed(() => {
   const counts = new Map<AdminNotificationSource, number>();
   feed.value.items.forEach((item) => counts.set(item.source, (counts.get(item.source) || 0) + 1));
   return (Object.keys(sourceMeta) as AdminNotificationSource[])
-    .filter((source) => counts.has(source))
     .map((source) => ({ source, count: counts.get(source) || 0, ...sourceMeta[source] }));
 });
 
@@ -104,6 +110,73 @@ async function dismiss(item: AdminNotification) {
   }
 }
 
+async function disableBookmarkHealth(item: AdminNotification) {
+  if (!item.entityId || isWorking(item, 'disable')) return;
+  setWorking(item, 'disable', true);
+  error.value = '';
+  try {
+    await apiRequest(`/api/admin/links/${item.entityId}`, {
+      method: 'PUT',
+      body: jsonBody({ healthCheckEnabled: false }),
+    });
+    removeItem(item);
+    notifySuccess('已停止检查该书签');
+    announceChange();
+  } catch (event) {
+    const message = event instanceof Error ? event.message : '停用书签检查失败';
+    error.value = message;
+    notifyError(message);
+  } finally {
+    setWorking(item, 'disable', false);
+  }
+}
+
+async function deleteBookmark(item: AdminNotification) {
+  if (!item.entityId || isWorking(item, 'delete')) return;
+  const confirmed = await confirmApi.confirm({
+    title: '删除书签',
+    message: `确定删除“${item.title.replace(/ (访问异常|检测超时|链接无效|发生重定向)$/, '')}”吗？删除后可在回收站恢复。`,
+    confirmText: '删除',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+  setWorking(item, 'delete', true);
+  error.value = '';
+  try {
+    await apiRequest(`/api/admin/links/${item.entityId}`, { method: 'DELETE' });
+    removeItem(item);
+    notifySuccess('书签已移入回收站');
+    announceChange();
+  } catch (event) {
+    const message = event instanceof Error ? event.message : '删除书签失败';
+    error.value = message;
+    notifyError(message);
+  } finally {
+    setWorking(item, 'delete', false);
+  }
+}
+
+function removeItem(item: AdminNotification) {
+  const index = feed.value.items.findIndex((entry) => entry.key === item.key);
+  if (index >= 0) feed.value.items.splice(index, 1);
+  recalculateUnread();
+}
+
+function actionKey(item: AdminNotification, action: string) {
+  return `${item.key}:${action}`;
+}
+
+function isWorking(item: AdminNotification, action: string) {
+  return workingActions.value.has(actionKey(item, action));
+}
+
+function setWorking(item: AdminNotification, action: string, working: boolean) {
+  const next = new Set(workingActions.value);
+  if (working) next.add(actionKey(item, action));
+  else next.delete(actionKey(item, action));
+  workingActions.value = next;
+}
+
 function recalculateUnread() {
   feed.value.unreadCount = feed.value.items.filter((item) => !item.read).length;
 }
@@ -159,9 +232,17 @@ onMounted(load);
             未读 <span data-testid="notification-unread-count">{{ feed.unreadCount }}</span>
           </button>
         </div>
-        <div v-if="sourceOptions.length > 1" class="notification-sources" aria-label="通知来源">
+        <div class="notification-sources" aria-label="通知来源">
           <button type="button" :class="{ active: activeSource === 'all' }" @click="activeSource = 'all'">全部来源</button>
-          <button v-for="option in sourceOptions" :key="option.source" type="button" :class="{ active: activeSource === option.source }" @click="activeSource = option.source">
+          <button
+            v-for="option in sourceOptions"
+            :key="option.source"
+            type="button"
+            class="source-filter"
+            :class="[`source-${option.source}`, { active: activeSource === option.source }]"
+            :data-testid="`notification-source-${option.source}`"
+            @click="activeSource = option.source"
+          >
             {{ option.label }} {{ option.count }}
           </button>
         </div>
@@ -177,7 +258,7 @@ onMounted(load);
           v-for="item in visibleItems"
           :key="item.key"
           class="notification-row"
-          :class="[{ 'is-unread': !item.read }, `severity-${item.severity}`]"
+          :class="[{ 'is-unread': !item.read }, `severity-${item.severity}`, `source-${item.source}`]"
         >
           <span class="notification-source-icon" :title="sourceMeta[item.source].label">
             <component :is="sourceMeta[item.source].icon" :size="18" />
@@ -190,6 +271,37 @@ onMounted(load);
           </div>
           <span class="notification-severity" :title="item.severity"></span>
           <div class="notification-actions">
+            <a
+              v-if="item.source === 'links' && item.entityId && item.targetUrl"
+              class="icon-button secondary"
+              :data-testid="`open-bookmark-${item.entityId}`"
+              :href="item.targetUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="打开网站"
+              aria-label="打开网站"
+              @click="markRead(item)"
+            ><ExternalLink :size="15" /></a>
+            <button
+              v-if="item.source === 'links' && item.entityId"
+              class="icon-button secondary"
+              :data-testid="`disable-bookmark-health-${item.entityId}`"
+              type="button"
+              title="不再检查"
+              aria-label="不再检查"
+              :disabled="isWorking(item, 'disable')"
+              @click="disableBookmarkHealth(item)"
+            ><ShieldOff :size="15" /></button>
+            <button
+              v-if="item.source === 'links' && item.entityId"
+              class="icon-button secondary danger-action"
+              :data-testid="`delete-bookmark-${item.entityId}`"
+              type="button"
+              title="删除书签"
+              aria-label="删除书签"
+              :disabled="isWorking(item, 'delete')"
+              @click="deleteBookmark(item)"
+            ><Trash2 :size="15" /></button>
             <button
               class="icon-button secondary"
               type="button"
@@ -214,7 +326,8 @@ onMounted(load);
 
 <style scoped>
 .notification-center {
-  border: 1px solid #e5e5e5;
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
   min-width: 0;
   overflow: hidden;
@@ -222,8 +335,8 @@ onMounted(load);
 
 .notification-toolbar {
   align-items: center;
-  background: #ffffff;
-  border-bottom: 1px solid #eaeaea;
+  background: var(--admin-surface-elevated);
+  border-bottom: 1px solid var(--admin-border);
   display: flex;
   gap: 12px;
   justify-content: space-between;
@@ -240,7 +353,7 @@ onMounted(load);
   background: transparent;
   border: 0;
   border-radius: 6px;
-  color: #6b6b6b;
+  color: var(--admin-text-muted);
   cursor: pointer;
   flex: 0 0 auto;
   font-size: 12px;
@@ -249,14 +362,19 @@ onMounted(load);
 }
 
 .notification-filters button:hover,
-.notification-sources button:hover { background: #f4f4f4; color: #262626; }
+.notification-sources button:hover { background: var(--panel-2); color: var(--admin-text); }
 .notification-filters button.active,
-.notification-sources button.active { background: #ececec; color: #0d0d0d; font-weight: 600; }
+.notification-sources button.active { background: var(--panel-2); color: var(--admin-text); font-weight: 600; }
+.notification-sources .source-filter { --source-color: var(--admin-text-muted); }
+.notification-sources .source-filter.active { background: var(--source-soft); color: var(--source-color); }
 .notification-filters button span { margin-left: 3px; }
-.notification-list { background: #ffffff; }
+.notification-list { background: var(--admin-surface-elevated); }
 
 .notification-row {
+  --source-color: var(--admin-text-muted);
+  --source-soft: var(--panel-2);
   align-items: center;
+  border-left: 3px solid var(--source-color);
   display: grid;
   gap: 12px;
   grid-template-columns: 38px minmax(0, 1fr) 8px auto;
@@ -264,16 +382,22 @@ onMounted(load);
   padding: 12px 14px;
 }
 
-.notification-row + .notification-row { border-top: 1px solid #eeeeee; }
-.notification-row:hover { background: #fafafa; }
-.notification-row.is-unread { background: #f7f7f7; }
-.notification-row.is-unread:hover { background: #f2f2f2; }
+.notification-row + .notification-row { border-top: 1px solid var(--admin-border); }
+.notification-row:hover { background: color-mix(in srgb, var(--source-soft) 50%, var(--admin-surface-elevated)); }
+.notification-row.is-unread { background: color-mix(in srgb, var(--source-soft) 68%, var(--admin-surface-elevated)); }
+.notification-row.is-unread:hover { background: color-mix(in srgb, var(--source-soft) 82%, var(--admin-surface-elevated)); }
+
+.source-links { --source-color: #be123c; --source-soft: #fff1f2; }
+.source-nodesk { --source-color: #1d4ed8; --source-soft: #eff6ff; }
+.source-nomoney { --source-color: #047857; --source-soft: #ecfdf5; }
+.source-nostar { --source-color: #6d28d9; --source-soft: #f5f3ff; }
+.source-backup { --source-color: #b45309; --source-soft: #fffbeb; }
 
 .notification-source-icon {
   align-items: center;
-  background: #f1f1f1;
+  background: var(--source-soft);
   border-radius: 7px;
-  color: #404040;
+  color: var(--source-color);
   display: inline-flex;
   height: 36px;
   justify-content: center;
@@ -281,11 +405,11 @@ onMounted(load);
 }
 
 .notification-copy { display: grid; gap: 4px; min-width: 0; }
-.notification-copy a { color: #0d0d0d; font-size: 14px; font-weight: 500; line-height: 1.35; text-decoration: none; }
+.notification-copy a { color: var(--admin-text); font-size: 14px; font-weight: 500; line-height: 1.35; text-decoration: none; }
 .notification-row.is-unread .notification-copy a { font-weight: 650; }
 .notification-copy a:hover { text-decoration: underline; }
-.notification-copy p { color: #595959; font-size: 12px; line-height: 1.45; margin: 0; overflow-wrap: anywhere; }
-.notification-copy small { color: #8a8a8a; font-size: 11px; }
+.notification-copy p { color: var(--admin-text-muted); font-size: 12px; line-height: 1.45; margin: 0; overflow-wrap: anywhere; }
+.notification-copy small { color: var(--admin-text-muted); font-size: 11px; }
 
 .notification-severity { border-radius: 50%; height: 7px; width: 7px; }
 .severity-critical .notification-severity { background: #d92d20; }
@@ -293,10 +417,12 @@ onMounted(load);
 .severity-info .notification-severity { background: #10a37f; }
 .notification-actions { display: flex; gap: 5px; }
 .notification-actions .icon-button { height: 30px; min-height: 30px; width: 30px; }
+.notification-actions a.icon-button { align-items: center; display: inline-flex; justify-content: center; }
+.notification-actions .danger-action:hover { border-color: var(--admin-danger); color: var(--admin-danger); }
 
 .notification-empty {
   align-items: center;
-  color: #737373;
+  color: var(--admin-text-muted);
   display: flex;
   flex-direction: column;
   font-size: 13px;
@@ -305,13 +431,19 @@ onMounted(load);
   min-height: 220px;
 }
 
-.notification-empty strong { color: #404040; font-size: 13px; font-weight: 500; }
+.notification-empty strong { color: var(--admin-text); font-size: 13px; font-weight: 500; }
+
+:global(:root[data-color-mode='dark']) .source-links { --source-color: #fb7185; --source-soft: #3b1822; }
+:global(:root[data-color-mode='dark']) .source-nodesk { --source-color: #60a5fa; --source-soft: #15294a; }
+:global(:root[data-color-mode='dark']) .source-nomoney { --source-color: #34d399; --source-soft: #12352d; }
+:global(:root[data-color-mode='dark']) .source-nostar { --source-color: #a78bfa; --source-soft: #2d2348; }
+:global(:root[data-color-mode='dark']) .source-backup { --source-color: #fbbf24; --source-soft: #3d2d12; }
 
 @media (max-width: 720px) {
   .notification-toolbar { align-items: stretch; flex-direction: column; }
   .notification-sources { justify-content: flex-start; }
   .notification-row { align-items: start; grid-template-columns: 36px minmax(0, 1fr) auto; padding: 12px; }
   .notification-severity { grid-column: 3; grid-row: 1; margin-top: 5px; }
-  .notification-actions { grid-column: 2 / 4; justify-content: flex-end; }
+  .notification-actions { flex-wrap: wrap; grid-column: 2 / 4; justify-content: flex-end; }
 }
 </style>

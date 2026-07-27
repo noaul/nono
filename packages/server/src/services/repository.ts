@@ -58,6 +58,7 @@ export interface LinkRecord {
   icon?: string | null;
   description?: string | null;
   sortOrder: number;
+  healthCheckEnabled?: boolean;
   healthStatus?: LinkHealthStatus | null;
   healthStatusCode?: number | null;
   healthReason?: string | null;
@@ -535,7 +536,7 @@ export class MemoryRepository implements Repository {
 
   async createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>) {
     const now = new Date();
-    const link = { ...input, id: nextId(this.links), createdAt: now, updatedAt: now };
+    const link = { ...input, healthCheckEnabled: input.healthCheckEnabled ?? true, id: nextId(this.links), createdAt: now, updatedAt: now };
     this.links.push(link);
     return link;
   }
