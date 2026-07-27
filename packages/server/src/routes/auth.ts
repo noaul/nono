@@ -24,7 +24,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, { user: publicUser(user) });
   });
 
-  app.post('/api/auth/register', async (request, reply) => {
+  app.post('/api/auth/register', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const config = await services.repo.getConfig();
     if (!config.allowRegistration) throw Object.assign(new Error('Registration is closed'), { statusCode: 403 });
     const input = authSchema.required({ email: true }).parse(request.body);

@@ -154,16 +154,19 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
-    const noStarIndex = path.join(webDist, 'nostar/index.html');
+    const noStarIndexPath = path.join(webDist, 'nostar/index.html');
+    // 构建产物在进程生命周期内不会变化，启动时读入内存，避免每个 SPA 请求都同步读盘。
+    const indexHtml = fs.readFileSync(path.join(webDist, 'index.html'), 'utf8');
+    const noStarHtml = fs.existsSync(noStarIndexPath) ? fs.readFileSync(noStarIndexPath, 'utf8') : null;
     await app.register(fastifyStatic, { root: webDist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) return sendError(reply, 404, 'Not found');
       const pathname = request.url.split('?', 1)[0];
       if (pathname === '/nostar') return reply.redirect('/nostar/');
-      if (request.url.startsWith('/nostar/') && fs.existsSync(noStarIndex)) {
-        return reply.type('text/html; charset=utf-8').send(fs.readFileSync(noStarIndex, 'utf8'));
+      if (noStarHtml && request.url.startsWith('/nostar/')) {
+        return reply.type('text/html; charset=utf-8').send(noStarHtml);
       }
-      return reply.type('text/html; charset=utf-8').send(fs.readFileSync(path.join(webDist, 'index.html'), 'utf8'));
+      return reply.type('text/html; charset=utf-8').send(indexHtml);
     });
   } else {
     app.setNotFoundHandler((request, reply) => {

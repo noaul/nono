@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import NavigationPage from '@/views/NavigationPage.vue';
-import PrivacyView from '@/views/PrivacyView.vue';
 
+// 导航页体积较大（约 86 kB JS + 85 kB CSS），改为动态导入后 /login、/setup、/admin/*
+// 不再下载用不到的导航页代码；首屏多一次并行请求，但总字节数不变且缓存粒度更细。
+const NavigationPage = () => import('@/views/NavigationPage.vue');
+const PrivacyView = () => import('@/views/PrivacyView.vue');
 const LoginView = () => import('@/views/LoginView.vue');
 const RegisterView = () => import('@/views/RegisterView.vue');
 const SetupView = () => import('@/views/SetupView.vue');
