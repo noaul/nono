@@ -109,9 +109,11 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any).ids);
-    const ownedIds = new Set((await services.repo.listLinks(user.id)).map((link) => link.id));
+    // 两次读取都发生在删除之前，取一次即可（bulk_move 的前后两次快照跨越了修改，不能这样合并）。
+    const owned = await services.repo.listLinks(user.id);
+    const ownedIds = new Set(owned.map((link) => link.id));
     const deleteIds = ids.filter((id) => ownedIds.has(id));
-    const before = (await services.repo.listLinks(user.id)).filter((link) => deleteIds.includes(link.id)).map(linkAuditSnapshot);
+    const before = owned.filter((link) => deleteIds.includes(link.id)).map(linkAuditSnapshot);
     await services.repo.deleteLinks(user.id, deleteIds);
     setAuditContext(request, { action: 'bulk_delete', resourceType: 'bookmark', resourceId: deleteIds.join(','), details: { before } });
     return sendOk(reply, { deleted: deleteIds.length });
