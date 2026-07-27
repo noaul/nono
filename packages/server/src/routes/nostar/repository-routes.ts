@@ -1,16 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import {
+  type AnyRecord,
   asRecord,
   authed,
   boundedInt,
-  findReleaseRepository,
   releaseData,
   repositoryData,
   requiredBigInt,
+  text,
   toLegacyRelease,
   toLegacyRepository,
 } from './common.js';
+
+// 两个同步接口都接受 50 MB 请求体，读接口上限也是 10000 行，所以单次同步几千行是设计内的用法。
+// Prisma 交互式事务默认 5s，几千次往返必然超时并抛 P2028（整个同步回滚），这里显式放宽。
+const SYNC_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 120_000 };
 
 export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/nostar/repositories', async (request, reply) => {
@@ -43,7 +48,7 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
       if (body.isFullSync === true) {
         await tx.noStarRepository.deleteMany({ where: { userId: user.id, githubId: { notIn: githubIds } } });
       }
-    });
+    }, SYNC_TRANSACTION_OPTIONS);
     return { synced: repositories.length };
   });
 
@@ -65,18 +70,26 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
     const body = asRecord(request.body);
     const releases = Array.isArray(body.releases) ? body.releases.map(asRecord) : [];
     await services.prisma.$transaction(async (tx) => {
+      // 事务内一次性载入仓库索引，替代逐条 release 的 findUnique（原本每行 2 次往返）。
+      // 键同时按 githubId 和 fullName 建，对齐 findReleaseRepository 的两种匹配方式。
+      const owned = await tx.noStarRepository.findMany({
+        where: { userId: user.id },
+        select: { id: true, githubId: true, fullName: true },
+      });
+      const byGithubId = new Map(owned.map((repo) => [repo.githubId.toString(), repo.id]));
+      const byFullName = new Map(owned.map((repo) => [repo.fullName, repo.id]));
       for (const release of releases) {
         const githubId = requiredBigInt(release.id, 'release id');
-        const repository = await findReleaseRepository(tx, user.id, release);
-        if (!repository) continue;
-        const data = releaseData(release, repository.id);
+        const repositoryId = resolveRepositoryId(release, byGithubId, byFullName);
+        if (repositoryId === undefined) continue;
+        const data = releaseData(release, repositoryId);
         await tx.noStarRelease.upsert({
           where: { userId_githubId: { userId: user.id, githubId } },
           update: data,
           create: { userId: user.id, githubId, ...data },
         });
       }
-    });
+    }, SYNC_TRANSACTION_OPTIONS);
     return { synced: releases.length };
   });
 
@@ -86,4 +99,14 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
     const result = await services.prisma.noStarRelease.updateMany({ where: { userId: user.id, isRead: false }, data: { isRead: true } });
     return { updated: result.count };
   });
+}
+
+// 与 findReleaseRepository 同样的匹配顺序：给了 repo_id 就只按 id 匹配，不回退到 fullName。
+function resolveRepositoryId(release: AnyRecord, byGithubId: Map<string, number>, byFullName: Map<string, number>) {
+  const repoGithubId = release.repo_id ?? release.repoId;
+  if (repoGithubId !== undefined && repoGithubId !== null) {
+    return byGithubId.get(requiredBigInt(repoGithubId, 'repository id').toString());
+  }
+  const fullName = text(release.repo_full_name ?? release.repoFullName);
+  return fullName ? byFullName.get(fullName) : undefined;
 }

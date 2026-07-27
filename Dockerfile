@@ -10,7 +10,10 @@ FROM nono-deps AS nono-build
 WORKDIR /app/nono
 ARG VITE_BLOG_URL
 ENV VITE_BLOG_URL=$VITE_BLOG_URL
-COPY . .
+# 只复制 nono 构建真正需要的目录：package.json / package-lock.json 已由 nono-deps 阶段带入。
+# 用 `COPY . .` 会把 apps/、docs/、tests/、scripts/ 一并算进这一层，
+# 任何无关改动都会让 prisma generate + 前后端构建整层失效。
+COPY packages ./packages
 RUN npm run prisma:generate
 RUN npm run build
 

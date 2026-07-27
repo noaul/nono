@@ -505,18 +505,20 @@ async function trashPrismaLinks(prisma: PrismaClient, userId: number, requestedI
   await prisma.$transaction(async (transaction) => {
     const links = await transaction.link.findMany({ where: { id: { in: requestedIds }, folder: { userId } } });
     if (requestedIds.length === 1 && !links.length) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
-    for (const link of links) {
-      await transaction.trashItem.create({
-        data: {
+    if (links.length) {
+      // 单条 createMany 代替逐行 create，事务内的往返次数从 N 降到 1，
+      // 避免大批量删除撞上 Prisma 交互式事务默认 5s 的超时。
+      await transaction.trashItem.createMany({
+        data: links.map((link) => ({
           userId,
           kind: 'bookmark',
           entityId: link.id,
           label: link.name,
           payload: serializeTrashPayload({ link }),
-        },
+        })),
       });
+      await transaction.link.deleteMany({ where: { id: { in: links.map((link) => link.id) } } });
     }
-    if (links.length) await transaction.link.deleteMany({ where: { id: { in: links.map((link) => link.id) } } });
   });
 }
 

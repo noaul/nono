@@ -40,6 +40,10 @@ const modeMultiplier = computed(() => {
 // Lower intensity thins the particle field as well; opacity scaling handles the rest.
 const visibleParticles = computed(() => particles.slice(0, Math.round(30 * (0.55 + 0.45 * intensityRatio.value))));
 
+// 场景底图另有一份 WebP（体积约为原图的 1/4，见 scripts/optimize-theme-scenes.mjs），
+// 通过 <picture> 优先使用；不支持 WebP 的浏览器回退到 asset 里的原始 jpg/png。
+const sceneWebp = computed(() => props.theme?.scene.asset.replace(/\.(?:jpe?g|png)$/i, '.webp') || '');
+
 const sceneStyle = computed<Record<string, string>>(() => {
   const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value * modeMultiplier.value;
   return {
@@ -146,14 +150,16 @@ function particleStyle(particle: typeof particles[number], index: number) {
     aria-hidden="true"
   >
     <div class="scene-parallax">
-      <img
-        v-if="theme.scene.mode === 'texture'"
-        class="scene-texture"
-        :src="theme.scene.asset"
-        alt=""
-        decoding="async"
-        draggable="false"
-      />
+      <picture v-if="theme.scene.mode === 'texture'">
+        <source type="image/webp" :srcset="sceneWebp" />
+        <img
+          class="scene-texture"
+          :src="theme.scene.asset"
+          alt=""
+          decoding="async"
+          draggable="false"
+        />
+      </picture>
       <span class="scene-atmosphere"></span>
     </div>
     <div class="scene-layer-particles">
@@ -210,6 +216,11 @@ function particleStyle(particle: typeof particles[number], index: number) {
 .theme-scene.is-paused *,
 .theme-scene.is-paused *::before {
   animation-play-state: paused !important;
+}
+
+/* <picture> 只是 WebP 的容器，不参与布局，避免它变成 .scene-texture 的包含块。 */
+.scene-parallax picture {
+  display: contents;
 }
 
 .scene-texture {

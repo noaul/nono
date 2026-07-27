@@ -83,7 +83,7 @@ describe('Prisma repository batch deletion', () => {
         ]),
         deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
-      trashItem: { create: vi.fn().mockResolvedValue({}) },
+      trashItem: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
     };
     const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
     const repo = createPrismaRepository(prisma as never);
@@ -91,7 +91,12 @@ describe('Prisma repository batch deletion', () => {
     await repo.deleteLinks(7, [21, 34]);
 
     expect(transaction.link.findMany).toHaveBeenCalledWith({ where: { id: { in: [21, 34] }, folder: { userId: 7 } } });
-    expect(transaction.trashItem.create).toHaveBeenCalledTimes(2);
+    // 一次 createMany 承载全部回收站记录，而不是每条链接一次 create。
+    expect(transaction.trashItem.createMany).toHaveBeenCalledTimes(1);
+    expect(transaction.trashItem.createMany.mock.calls[0][0].data).toMatchObject([
+      { userId: 7, kind: 'bookmark', entityId: 21, label: 'One' },
+      { userId: 7, kind: 'bookmark', entityId: 34, label: 'Two' },
+    ]);
     expect(transaction.link.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [21, 34] } } });
   });
 });

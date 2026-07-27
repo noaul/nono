@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --noEmit && vite build",
-    "test": "vitest run --no-file-parallelism"
+    "test": "vitest run --no-file-parallelism",
+    "optimize:scenes": "node scripts/optimize-theme-scenes.mjs"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
