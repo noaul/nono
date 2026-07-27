@@ -76,14 +76,14 @@ export async function checkOneLink(
       : response;
     const finalUrl = finalResponse.finalUrl || url.href;
     const status = finalResponse.statusCode < 400
-      ? (finalUrl !== url.href ? 'redirected' : 'ok')
+      ? 'ok'
       : RESTRICTED_STATUSES.has(finalResponse.statusCode) ? 'restricted' : 'broken';
     return baseResult(
       link,
       checkedAt,
       status,
       finalResponse.statusCode,
-      status === 'redirected' ? finalUrl : undefined,
+      undefined,
       status === 'restricted' ? 'Automated access is restricted by the target site' : undefined,
     );
   } catch (event) {

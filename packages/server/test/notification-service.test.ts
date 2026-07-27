@@ -148,6 +148,34 @@ describe('notification service', () => {
     expect(feed.items).toEqual([]);
   });
 
+  it('does not create notifications for redirected bookmarks', async () => {
+    const { prisma, queries } = createPrisma({
+      links: [{
+        id: 43,
+        name: 'Moved docs',
+        url: 'https://docs.example/',
+        healthStatus: 'redirected',
+        healthStatusCode: 200,
+        healthReason: null,
+        healthFinalUrl: 'https://www.example.com/docs',
+        healthCheckedAt: now,
+        folder: { name: 'Docs' },
+      }],
+    });
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(),
+      noMoneyReader: vi.fn(),
+      backupService: { list: vi.fn() } as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 7, role: 'user' } as any);
+
+    expect(queries.links[0].where.healthStatus.in).not.toContain('redirected');
+    expect(feed.items).toEqual([]);
+  });
+
   it('aggregates administrator schedules, expiring assets and stale backups', async () => {
     const { prisma } = createPrisma();
     const nodeskReader = vi.fn(async () => ({

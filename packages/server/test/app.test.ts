@@ -1026,7 +1026,7 @@ describe('Nono Fastify app', () => {
     expect(safeRequester).toHaveBeenCalledWith('http://bookmarks.lan/', expect.objectContaining({ allowPrivateHosts: [] }));
   });
 
-  it('batch repairs persisted redirect targets without touching another user links', async () => {
+  it('does not offer reachable redirects for repair or touch another user links', async () => {
     await app.close();
     const safeRequester = vi.fn(async (url: string) => ({
       statusCode: 200,
@@ -1072,10 +1072,10 @@ describe('Nono Fastify app', () => {
     });
 
     expect(repaired.statusCode).toBe(200);
-    expect(repaired.json().data).toMatchObject({ repaired: 1, skipped: 1 });
-    expect(repaired.json().data.links[0]).toMatchObject({
+    expect(repaired.json().data).toMatchObject({ repaired: 0, skipped: 2, links: [] });
+    expect((await repo.listLinks(1))[0]).toMatchObject({
       id: adminLink.json().data.id,
-      url: 'https://new.example/docs',
+      url: 'http://old.example/docs',
       healthStatus: 'ok',
       healthFinalUrl: null,
     });

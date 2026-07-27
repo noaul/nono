@@ -194,7 +194,7 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
     where: {
       folder: { userId },
       healthCheckEnabled: true,
-      healthStatus: { in: ['broken', 'timeout', 'invalid', 'redirected'] },
+      healthStatus: { in: ['broken', 'timeout', 'invalid'] },
     },
     select: {
       id: true,
@@ -210,13 +210,13 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
     orderBy: [{ healthCheckedAt: 'desc' }, { id: 'desc' }],
     take: 100,
   });
-  return links.filter((link) => !shouldSkipLinkHealthCheck(link.url)).map((link) => {
+  return links.filter((link) => link.healthStatus !== 'redirected' && !shouldSkipLinkHealthCheck(link.url)).map((link) => {
     const status = link.healthStatus || 'broken';
-    const statusLabel = status === 'redirected' ? '发生重定向' : status === 'timeout' ? '检测超时' : status === 'invalid' ? '链接无效' : '访问异常';
+    const statusLabel = status === 'timeout' ? '检测超时' : status === 'invalid' ? '链接无效' : '访问异常';
     return {
       key: stableKey('links', `${link.id}:${status}`),
       source: 'links',
-      severity: status === 'redirected' || status === 'timeout' ? 'warning' : 'critical',
+      severity: status === 'timeout' ? 'warning' : 'critical',
       title: `${link.name} ${statusLabel}`,
       description: link.healthReason || (link.healthStatusCode ? `HTTP ${link.healthStatusCode}` : `${link.folder.name} · ${link.url}`),
       href: '/admin/links',

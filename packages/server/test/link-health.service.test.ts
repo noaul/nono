@@ -50,7 +50,7 @@ describe('link health checks', () => {
     expect(result.results.map((item) => item.id)).toEqual([3]);
   });
 
-  it('uses the safe requester and reports a redirect target as repairable', async () => {
+  it('treats a reachable redirect target as healthy', async () => {
     const requester = vi.fn(async () => ({
       statusCode: 200,
       headers: {},
@@ -70,10 +70,10 @@ describe('link health checks', () => {
       }),
     );
     expect(result).toMatchObject({
-      status: 'redirected',
+      status: 'ok',
       statusCode: 200,
-      finalUrl: 'https://example.com/docs',
     });
+    expect(result).not.toHaveProperty('finalUrl');
   });
 
   it('passes the explicit private-host allowlist to the safe requester', async () => {
