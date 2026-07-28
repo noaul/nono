@@ -57,8 +57,10 @@ export async function runReminderScan(context: AppContext) {
     await context.mailer.send({
       to: settings.smtpTo,
       from: settings.smtpFrom,
-      subject: `[资产到期提醒] ${unsent.length} 个项目需要关注`,
-      text: renderDigest(unsent)
+      subject: settings.language === 'en'
+        ? `[Asset renewals] ${unsent.length} items need attention`
+        : `[资产到期提醒] ${unsent.length} 个项目需要关注`,
+      text: renderDigest(unsent, settings.language)
     });
 
     for (const item of unsent) {
@@ -105,15 +107,16 @@ function insertReminderLog(
   );
 }
 
-function renderDigest(items: DueItem[]): string {
-  const lines = ['NoMoney 资产到期提醒', ''];
+function renderDigest(items: DueItem[], language: 'zh' | 'en'): string {
+  const label = (zh: string, en: string) => (language === 'en' ? en : zh);
+  const lines = [label('NoMoney 资产到期提醒', 'NoMoney asset renewals'), ''];
   for (const item of items) {
     lines.push(
       `- ${item.assetType}: ${item.name}`,
-      `  到期/扣费日期: ${item.dueDate}`,
-      `  剩余天数: ${item.daysLeft}`,
-      `  金额: ${item.currency} ${item.amountMinorUnits}`,
-      item.renewalUrl ? `  续费链接: ${item.renewalUrl}` : ''
+      `  ${label('到期/扣费日期', 'Due date')}: ${item.dueDate}`,
+      `  ${label('剩余天数', 'Days left')}: ${item.daysLeft}`,
+      `  ${label('金额', 'Amount')}: ${item.currency} ${item.amountMinorUnits}`,
+      item.renewalUrl ? `  ${label('续费链接', 'Renewal link')}: ${item.renewalUrl}` : ''
     );
   }
   return lines.filter(Boolean).join('\n');

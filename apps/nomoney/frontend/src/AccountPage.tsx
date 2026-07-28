@@ -57,7 +57,7 @@ export function AccountPage() {
     const params = buildAccountQuery(deferredPhoneFilter, accountTypeFilter);
     api.get<ListResponse<CommunicationAccount>>(`/api/accounts?${params.toString()}`)
       .then((response) => { if (active) setItems(response.items); })
-      .catch((err) => { if (active) setError(errorMessage(err, copy('加载账号失败', 'Failed to load accounts'))); })
+      .catch((err) => { if (active) setError(errorMessage(err, copy('加载账号失败', 'Failed to load accounts'), copy)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [accountTypeFilter, copy, deferredPhoneFilter]);
@@ -106,7 +106,7 @@ export function AccountPage() {
       setDrawerOpen(false);
       await load();
     } catch (err) {
-      setFormError(errorMessage(err, copy('保存账号失败', 'Failed to save account')));
+      setFormError(errorMessage(err, copy('保存账号失败', 'Failed to save account'), copy));
     } finally {
       setSubmitting(false);
     }
@@ -119,7 +119,7 @@ export function AccountPage() {
       setDeleteTargetId(null);
       await load();
     } catch (err) {
-      setError(errorMessage(err, copy('删除账号失败', 'Failed to delete account')));
+      setError(errorMessage(err, copy('删除账号失败', 'Failed to delete account'), copy));
     }
   };
 
@@ -387,8 +387,8 @@ function buildAccountQuery(phoneFilter: string, accountTypeFilter: AccountType |
   return params;
 }
 
-function errorMessage(error: unknown, fallback: string): string {
+function errorMessage(error: unknown, fallback: string, copy: (zh: string, en: string) => string): string {
   if (!(error instanceof ApiError)) return fallback;
-  if (error.status === 409) return '相同应用与手机号码的账号已存在。';
+  if (error.status === 409) return copy('相同应用与手机号码的账号已存在。', 'An account with the same app and phone number already exists.');
   return error.message;
 }

@@ -10,6 +10,7 @@ import { Button, DataTable, Drawer, EmptyState, Field, IconButton, ProgressBar, 
 import { commonDomainExtensions, composeDomainName, dnsProviderLink, dnsProviderProfiles, domainLink, domainPrefix, findDnsProviderProfile, findRegistrarProfile, inferDomainExtension, normalizeDomainExtension, registrarProfiles, stringValue } from './domainRegistrars';
 import { useI18n } from './i18n';
 import { formatVpsCapacity } from './vps-capacity';
+import { assetLabel, assetSingular } from './assetConfigLabels';
 
 type FormState = Record<string, string | boolean>;
 type RenewalTotals = NonNullable<ListMeta['renewalTotals']>;
@@ -935,7 +936,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             ))}
           </div>
         )}
-        <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isVps ? copy('新增 VPS', 'Add VPS') : isPhone ? copy('新增电话卡', 'Add phone card') : `新增${config.singular}`}</Button>
+        <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isVps ? copy('新增 VPS', 'Add VPS') : isPhone ? copy('新增电话卡', 'Add phone card') : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>
       </>
     );
   }, [config.singular, copy, isDomain, isPhone, isSubscription, isVps, items, phoneType, purchaseType, refreshingVps, setTopbarActions]);
@@ -954,7 +955,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <div className={isDomain ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[180px_118px_108px_168px_112px_132px_118px_40px_auto] xl:items-center' : isVps ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_130px_130px_150px_auto] xl:items-center' : isPhone ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_120px_120px_130px_auto] xl:items-center' : 'grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_auto]'}>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名', 'Search') : isVps ? copy('搜索节点 / IP / 服务商', 'Search nodes') : `搜索${config.singular}`} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名', 'Search') : isVps ? copy('搜索节点 / IP / 服务商', 'Search nodes') : copy(`搜索${config.singular}`, `Search ${assetSingular(config.singular, language)}`)} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           {isVps ? (
             <select className={inputClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)}>
@@ -1029,7 +1030,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       ) : isPhoneVisual ? (
         <PhoneVisualDashboard items={items} copy={copy} />
       ) : items.length === 0 ? (
-        <EmptyState title={`暂无${config.singular}`} description="换个筛选条件，或新增一条资产记录。" action={<Button onClick={openCreate}><Plus size={16} />新增{config.singular}</Button>} />
+        <EmptyState title={copy(`暂无${config.singular}`, `No ${assetSingular(config.singular, language)}s yet`)} description={copy('换个筛选条件，或新增一条资产记录。', 'Try another filter, or add a record.')} action={<Button onClick={openCreate}><Plus size={16} />{copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>} />
       ) : view === 'card' ? (
         <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => isDomain
@@ -1066,7 +1067,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={isDomain ? (editing ? copy('编辑域名', 'Edit domain') : copy('新增域名', 'Add domain')) : isVps ? (editing ? copy('编辑 VPS', 'Edit VPS') : copy('新增 VPS', 'Add VPS')) : isPhone ? (editing ? copy('编辑电话卡', 'Edit phone card') : copy('新增电话卡', 'Add phone card')) : (editing ? `编辑${config.singular}` : `新增${config.singular}`)}
+        title={isDomain ? (editing ? copy('编辑域名', 'Edit domain') : copy('新增域名', 'Add domain')) : isVps ? (editing ? copy('编辑 VPS', 'Edit VPS') : copy('新增 VPS', 'Add VPS')) : isPhone ? (editing ? copy('编辑电话卡', 'Edit phone card') : copy('新增电话卡', 'Add phone card')) : (editing ? copy(`编辑${config.singular}`, `Edit ${assetSingular(config.singular, language)}`) : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`))}
         footer={<><Button variant="secondary" onClick={() => setDrawerOpen(false)}>{copy('取消', 'Cancel')}</Button><Button type="submit" form="asset-form" disabled={submitting}>{submitting ? copy('保存中', 'Saving') : copy('保存', 'Save')}</Button></>}
       >
         <form id="asset-form" onSubmit={submit} className="motion-stack space-y-6">
@@ -1082,7 +1083,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <>
               <Section title="基础信息">
                 {config.fields.map((field) => (
-                  <Field key={field.key} label={field.label}>
+                  <Field key={field.key} label={assetLabel(field.label, language)}>
                     {field.type === 'textarea' ? (
                       <textarea className={`${inputClass} h-24 py-2.5`} value={String(form[field.key] ?? '')} onChange={(e) => updateForm(field.key, e.target.value)} />
                     ) : (

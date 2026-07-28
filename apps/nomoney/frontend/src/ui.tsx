@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { AlertCircle, Inbox, Loader2, X } from 'lucide-react';
 import type { AssetStatus } from './types';
 import { formatStatus } from './format';
+import { useI18n } from './i18n';
 
 export function Button({
   children,
@@ -95,6 +96,7 @@ export const inputClass =
   'h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 outline-none transition-all duration-200 ease-out placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-brand-400 dark:focus:ring-brand-500/20';
 
 export function StatusBadge({ status }: { status: AssetStatus | string }) {
+  const { copy } = useI18n();
   const map: Record<string, string> = {
     active: 'border-success-500/25 bg-success-500/10 text-success-600 dark:text-success-400',
     paused: 'border-warning-500/25 bg-warning-500/10 text-warning-600 dark:text-warning-400',
@@ -104,7 +106,7 @@ export function StatusBadge({ status }: { status: AssetStatus | string }) {
     sent: 'border-success-500/25 bg-success-500/10 text-success-600 dark:text-success-400',
     failed: 'border-danger-500/25 bg-danger-500/10 text-danger-600 dark:text-danger-400'
   };
-  const label = status in map ? formatMaybeStatus(status) : String(status);
+  const label = status in map ? formatMaybeStatus(status, copy) : String(status);
   return (
     <span className={clsx('inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-medium', map[status] ?? map.cancelled)}>
       {label}
@@ -158,14 +160,15 @@ export function Drawer({
   children: React.ReactNode;
   footer: React.ReactNode;
 }) {
+  const { copy } = useI18n();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <button aria-label="关闭" className="motion-fade-in absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={onClose} />
+      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={onClose} />
       <aside className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
           <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
-          <IconButton onClick={onClose} title="关闭">
+          <IconButton onClick={onClose} title={copy('关闭', 'Close')}>
             <X size={16} />
           </IconButton>
         </header>
@@ -181,7 +184,7 @@ export function Skeleton({ className }: { className?: string }) {
 }
 
 export function EmptyState({
-  title = '暂无数据',
+  title,
   description,
   action
 }: {
@@ -189,12 +192,13 @@ export function EmptyState({
   description?: React.ReactNode;
   action?: React.ReactNode;
 }) {
+  const { copy } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center dark:border-white/10 dark:bg-white/[0.03]">
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 dark:border-white/10 dark:bg-white/[0.04]">
         <Inbox size={18} />
       </div>
-      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{title}</p>
+      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{title ?? copy('暂无数据', 'Nothing here yet')}</p>
       {description && <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -222,11 +226,13 @@ export function StateBanner({
   );
 }
 
-export function LoadingInline({ label = '加载中' }: { label?: string }) {
+export function LoadingInline({ label }: { label?: string }) {
+  const { copy } = useI18n();
+  const text = label ?? copy('加载中', 'Loading');
   return (
     <span className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
       <Loader2 className="animate-spin" size={14} />
-      {label}
+      {text}
     </span>
   );
 }
@@ -241,12 +247,13 @@ export interface DataTableColumn<T> {
 export function DataTable<T extends { id: number | string }>({
   columns,
   data,
-  emptyText = '暂无数据'
+  emptyText
 }: {
   columns: DataTableColumn<T>[];
   data: T[];
   emptyText?: string;
 }) {
+  const { copy } = useI18n();
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-ink-900">
       <div className="overflow-x-auto">
@@ -291,7 +298,7 @@ export function DataTable<T extends { id: number | string }>({
             {data.length === 0 && (
               <tr>
                 <td className="px-5 py-12 text-center text-slate-400" colSpan={columns.length}>
-                  {emptyText}
+                  {emptyText ?? copy('暂无数据', 'Nothing here yet')}
                 </td>
               </tr>
             )}
@@ -325,11 +332,11 @@ export function ProgressBar({ value, max, color = 'brand' }: { value: number; ma
   );
 }
 
-function formatMaybeStatus(status: string): string {
+function formatMaybeStatus(status: string, copy: (zh: string, en: string) => string): string {
   if (['active', 'paused', 'expired', 'cancelled', 'archived'].includes(status)) {
     return formatStatus(status as AssetStatus);
   }
-  if (status === 'sent') return '已发送';
-  if (status === 'failed') return '失败';
+  if (status === 'sent') return copy('已发送', 'Sent');
+  if (status === 'failed') return copy('失败', 'Failed');
   return status;
 }
