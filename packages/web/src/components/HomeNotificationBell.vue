@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Bell, CalendarDays, Check, CheckCheck, WalletCards, X } from 'lucide-vue-next';
 import type { AdminNotification } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<{
   items: AdminNotification[];
@@ -14,6 +15,8 @@ const emit = defineEmits<{
   dismiss: [item: AdminNotification];
   'mark-all-read': [];
 }>();
+
+const { t } = useI18n();
 
 const open = ref(false);
 const root = ref<HTMLElement | null>(null);
@@ -137,7 +140,7 @@ onBeforeUnmount(() => {
       ref="trigger"
       class="home-notification-trigger"
       type="button"
-      aria-label="主页通知"
+      :aria-label="t('notify.homeAria')"
       aria-haspopup="dialog"
       :aria-expanded="open"
       @click.stop="togglePanel"
@@ -146,35 +149,35 @@ onBeforeUnmount(() => {
       <span v-if="unreadCount" class="home-notification-badge">{{ badgeLabel }}</span>
     </button>
 
-    <button v-if="open" class="home-notification-backdrop" type="button" aria-label="关闭通知" @click="closePanel"></button>
+    <button v-if="open" class="home-notification-backdrop" type="button" :aria-label="t('notify.closeAria')" @click="closePanel"></button>
     <Transition name="home-notification-panel">
       <section
         v-if="open"
         ref="panel"
         class="home-notification-panel"
         role="dialog"
-        aria-label="近期通知"
+        :aria-label="t('notify.recentAria')"
         :aria-modal="mobileDrawer ? 'true' : undefined"
       >
         <header class="home-notification-header">
           <div>
-            <strong>近期提醒</strong>
-            <span>{{ unreadCount ? `${unreadCount} 条未读` : '已全部读完' }}</span>
+            <strong>{{ t('notify.recentTitle') }}</strong>
+            <span>{{ unreadCount ? t('notify.unreadCount', { count: unreadCount }) : t('notify.allRead') }}</span>
           </div>
           <button
             v-if="unreadCount"
             class="home-notification-icon-button"
             type="button"
-            aria-label="全部标记已读"
-            title="全部标记已读"
+            :aria-label="t('notify.markAllAria')"
+            :title="t('notify.markAllAria')"
             @click="$emit('mark-all-read')"
           ><CheckCheck :size="16" /></button>
         </header>
 
-        <div v-if="loading && !items.length" class="home-notification-empty">正在读取提醒</div>
+        <div v-if="loading && !items.length" class="home-notification-empty">{{ t('notify.loading') }}</div>
         <div v-else-if="!items.length" class="home-notification-empty">
           <Bell :size="20" />
-          <span>近期没有日程或续费提醒</span>
+          <span>{{ t('notify.empty') }}</span>
         </div>
         <div v-else class="home-notification-list">
           <article
@@ -197,15 +200,15 @@ onBeforeUnmount(() => {
                 v-if="!item.read"
                 class="home-notification-icon-button"
                 type="button"
-                aria-label="标记已读"
-                title="标记已读"
+                :aria-label="t('notify.markReadAria')"
+                :title="t('notify.markReadAria')"
                 @click="$emit('mark-read', item)"
               ><Check :size="15" /></button>
               <button
                 class="home-notification-icon-button"
                 type="button"
-                aria-label="忽略通知"
-                title="忽略通知"
+                :aria-label="t('notify.dismissAria')"
+                :title="t('notify.dismissAria')"
                 @click="$emit('dismiss', item)"
               ><X :size="15" /></button>
             </div>
@@ -213,7 +216,7 @@ onBeforeUnmount(() => {
         </div>
 
         <RouterLink class="home-notification-footer" to="/admin/notifications" @click="closePanel">
-          查看全部通知
+          {{ t('notify.viewAll') }}
         </RouterLink>
       </section>
     </Transition>

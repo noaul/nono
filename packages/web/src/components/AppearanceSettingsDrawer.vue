@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { ArrowUpRight, Check, Palette, Plus, Save, Settings, Trash2, X } from 'lucide-vue-next';
+import { ArrowUpRight, Check, Languages, Layers, Palette, Plus, Save, Settings, Sliders, Trash2, X } from 'lucide-vue-next';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
+import LanguageControl from '@/components/LanguageControl.vue';
+import { useI18n } from '@/composables/useI18n';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, appearanceSettingsForSave, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
+import { getSiteDefaultLocale, type Locale } from '@/utils/locale';
 import { PUBLIC_THEMES, accentCssVars, getSceneIntensity, getTheme, type PublicTheme } from '@/utils/themes';
 
 const props = defineProps<{ open: boolean; site: Site }>();
@@ -14,14 +17,27 @@ const emit = defineEmits<{
   saved: [site: Site];
 }>();
 
+const { t, setSiteDefaultLocale } = useI18n();
+
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
 const theme = reactive({ id: '', accent: '', sceneIntensity: 100 });
 const backgroundColor = ref('#090a0f');
 const fontColor = ref('#ffffff');
+const siteLocale = ref<Locale>('zh');
 const saving = ref(false);
 const message = ref('');
 const error = ref('');
 const presetName = ref('');
+
+// Three panels instead of one ~1900px scroll: pick a look, fine-tune the glass, set preferences.
+type DrawerTab = 'theme' | 'texture' | 'general';
+const activeTab = ref<DrawerTab>('theme');
+
+const tabs = computed(() => [
+  { id: 'theme' as const, label: t('appearance.theme'), icon: Palette },
+  { id: 'texture' as const, label: t('appearance.glass'), icon: Layers },
+  { id: 'general' as const, label: t('appearance.general'), icon: Sliders },
+]);
 
 type UserAppearancePreset = {
   id: string;
@@ -35,6 +51,7 @@ type UserAppearancePreset = {
 const userPresets = ref<UserAppearancePreset[]>([]);
 
 const selectedTheme = computed(() => getTheme(theme.id));
+const presetsFull = computed(() => userPresets.value.length >= 3);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -47,7 +64,9 @@ function readUserPresets(settings?: Record<string, unknown>): UserAppearancePres
     const savedTheme = isRecord(item.theme) ? item.theme : {};
     return {
       id: typeof item.id === 'string' && item.id ? item.id : `preset-${index + 1}`,
-      name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 20) : `我的预设 ${index + 1}`,
+      name: typeof item.name === 'string' && item.name.trim()
+        ? item.name.trim().slice(0, 20)
+        : t('appearance.presetDefaultName', { index: index + 1 }),
       appearance: getAppearanceSettings({ appearance: item.appearance }),
       theme: {
         id: typeof savedTheme.id === 'string' ? savedTheme.id : '',
@@ -68,6 +87,7 @@ function resetDraft() {
   theme.id = resolved?.id || savedTheme?.id || '';
   theme.accent = savedTheme?.accent || resolved?.accent || '';
   theme.sceneIntensity = getSceneIntensity(props.site.settings);
+  siteLocale.value = getSiteDefaultLocale(props.site.settings) || 'zh';
   userPresets.value = readUserPresets(props.site.settings);
   presetName.value = '';
   message.value = '';
@@ -108,11 +128,18 @@ function applyUserPreset(preset: UserAppearancePreset) {
   Object.assign(theme, preset.theme);
   backgroundColor.value = preset.backgroundColor;
   fontColor.value = preset.fontColor;
-  message.value = `已应用“${preset.name}”`;
+  message.value = t('appearance.presetApplied', { name: preset.name });
   error.value = '';
 }
 
-async function persist(successMessage = '外观已保存') {
+/** Publishes the site default immediately so the drawer previews the language it will save. */
+function previewSiteLocale(next: Locale) {
+  siteLocale.value = next;
+  setSiteDefaultLocale(next);
+  message.value = '';
+}
+
+async function persist(successMessage = t('appearance.saved')) {
   if (saving.value) return false;
   saving.value = true;
   message.value = '';
@@ -128,6 +155,7 @@ async function persist(successMessage = '外观已保存') {
           appearance: appearanceSettingsForSave(appearance),
           theme: { ...theme },
           appearancePresets: userPresets.value,
+          i18n: { ...(isRecord(props.site.settings?.i18n) ? props.site.settings.i18n : {}), defaultLocale: siteLocale.value },
         },
       }),
     });
@@ -135,7 +163,7 @@ async function persist(successMessage = '外观已保存') {
     emit('saved', updated);
     return true;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '保存失败';
+    error.value = event instanceof Error ? event.message : t('common.saveFailed');
     return false;
   } finally {
     saving.value = false;
@@ -147,8 +175,9 @@ async function save() {
 }
 
 async function saveUserPreset() {
-  if (saving.value || userPresets.value.length >= 3) return;
-  const name = presetName.value.trim().slice(0, 20) || `我的预设 ${userPresets.value.length + 1}`;
+  if (saving.value || presetsFull.value) return;
+  const name = presetName.value.trim().slice(0, 20)
+    || t('appearance.presetDefaultName', { index: userPresets.value.length + 1 });
   const preset: UserAppearancePreset = {
     id: `preset-${Date.now()}-${userPresets.value.length + 1}`,
     name,
@@ -159,14 +188,16 @@ async function saveUserPreset() {
   };
   userPresets.value.push(preset);
   presetName.value = '';
-  if (!await persist(`预设“${name}”已保存`)) userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
+  if (!await persist(t('appearance.presetSaved', { name }))) {
+    userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
+  }
 }
 
 async function removeUserPreset(preset: UserAppearancePreset) {
   if (saving.value) return;
   const previous = [...userPresets.value];
   userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
-  if (!await persist(`预设“${preset.name}”已删除`)) userPresets.value = previous;
+  if (!await persist(t('appearance.presetRemoved', { name: preset.name }))) userPresets.value = previous;
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -187,101 +218,173 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
       <aside class="appearance-drawer" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
         <header class="drawer-header">
           <div>
-            <span><Settings :size="15" /> 主页设置</span>
-            <h2 id="appearance-title">外观设置</h2>
+            <span><Settings :size="15" /> {{ t('appearance.eyebrow') }}</span>
+            <h2 id="appearance-title">{{ t('appearance.title') }}</h2>
           </div>
-          <button class="drawer-icon-button" type="button" title="关闭" aria-label="关闭外观设置" @click="emit('close')">
+          <button
+            class="drawer-icon-button"
+            type="button"
+            :title="t('common.close')"
+            :aria-label="t('appearance.closeLabel')"
+            @click="emit('close')"
+          >
             <X :size="19" />
           </button>
         </header>
 
-        <div class="drawer-scroll">
-          <section class="display-mode-section">
-            <div class="drawer-section-title">
-              <h3><Palette :size="16" /> 显示模式</h3>
-            </div>
-            <ColorModeControl variant="segmented" />
-          </section>
-          <section class="theme-section">
-            <div class="drawer-section-title">
-              <h3><Palette :size="16" /> 主题</h3>
-              <span v-if="selectedTheme"><Check :size="14" /> {{ selectedTheme.name }}</span>
-            </div>
-            <div class="theme-wall">
-              <button
-                v-for="preset in PUBLIC_THEMES"
-                :key="preset.id"
-                type="button"
-                class="theme-card"
-                :class="[`theme-${preset.scene.kind}`, { active: theme.id === preset.id }]"
-                :style="themePreviewStyle(preset)"
-                :data-testid="`theme-${preset.id}`"
-                @click="applyTheme(preset)"
-              >
-                <span class="theme-motion" aria-hidden="true"></span>
-                <span class="theme-swatch">
-                  <span class="theme-swatch-tab"></span>
-                  <span class="theme-swatch-card"></span>
-                  <span class="theme-swatch-accent"></span>
-                </span>
-                <strong>{{ preset.name }}</strong>
-                <small>{{ preset.description }}</small>
-              </button>
-            </div>
-            <label class="scene-intensity-field" data-testid="scene-intensity-field">
-              <span>
-                场景动效强度
-                <output>{{ theme.sceneIntensity > 0 ? `${theme.sceneIntensity}%` : '已关闭' }}</output>
-              </span>
-              <input
-                v-model.number="theme.sceneIntensity"
-                data-testid="scene-intensity"
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-              />
-              <small>调低可减弱粒子与光影，拖到 0 完全关闭动态场景</small>
-            </label>
-          </section>
+        <nav class="drawer-tabs" role="tablist" :aria-label="t('appearance.title')">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            class="drawer-tab"
+            :class="{ active: activeTab === tab.id }"
+            :aria-selected="activeTab === tab.id"
+            :data-testid="`drawer-tab-${tab.id}`"
+            @click="activeTab = tab.id"
+          >
+            <component :is="tab.icon" :size="15" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
 
-          <section class="user-preset-section">
-            <div class="drawer-section-title">
-              <h3><Save :size="16" /> 我的预设</h3>
-              <span>{{ userPresets.length }}/3</span>
-            </div>
-            <form class="preset-create" data-testid="save-appearance-preset" @submit.prevent="saveUserPreset">
-              <input
-                v-model="presetName"
-                data-testid="appearance-preset-name"
-                maxlength="20"
-                placeholder="预设名称"
-                :disabled="saving || userPresets.length >= 3"
-              />
-              <button
-                data-testid="save-appearance-preset-button"
-                type="submit"
-                :disabled="saving || userPresets.length >= 3"
-              >
-                <Plus :size="15" /> 保存当前
-              </button>
-            </form>
-            <div v-if="userPresets.length" class="user-preset-list">
-              <article v-for="preset in userPresets" :key="preset.id" class="user-preset" :style="userPresetStyle(preset)">
-                <button class="user-preset-apply" type="button" :title="`应用 ${preset.name}`" @click="applyUserPreset(preset)">
-                  <span class="user-preset-swatch" aria-hidden="true">
-                    <i></i><i></i><i></i>
+        <!-- Panels stay mounted and toggle with v-show, so switching tabs keeps every draft
+             edit and scroll position instead of remounting the editors. -->
+        <div class="drawer-scroll">
+          <div v-show="activeTab === 'theme'" class="drawer-panel" role="tabpanel">
+            <section class="theme-section">
+              <div class="drawer-section-title">
+                <h3><Palette :size="16" /> {{ t('appearance.theme') }}</h3>
+                <span v-if="selectedTheme"><Check :size="14" /> {{ selectedTheme.name }}</span>
+              </div>
+              <div class="theme-wall">
+                <button
+                  v-for="preset in PUBLIC_THEMES"
+                  :key="preset.id"
+                  type="button"
+                  class="theme-card"
+                  :class="[`theme-${preset.scene.kind}`, { active: theme.id === preset.id }]"
+                  :style="themePreviewStyle(preset)"
+                  :data-testid="`theme-${preset.id}`"
+                  @click="applyTheme(preset)"
+                >
+                  <span class="theme-motion" aria-hidden="true"></span>
+                  <span class="theme-swatch">
+                    <span class="theme-swatch-tab"></span>
+                    <span class="theme-swatch-card"></span>
+                    <span class="theme-swatch-accent"></span>
                   </span>
                   <strong>{{ preset.name }}</strong>
+                  <small>{{ preset.description }}</small>
                 </button>
-                <button class="user-preset-delete" type="button" :title="`删除 ${preset.name}`" :aria-label="`删除 ${preset.name}`" @click="removeUserPreset(preset)">
-                  <Trash2 :size="15" />
-                </button>
-              </article>
-            </div>
-          </section>
+              </div>
+              <label class="scene-intensity-field" data-testid="scene-intensity-field">
+                <span>
+                  {{ t('appearance.sceneIntensity') }}
+                  <output>{{ theme.sceneIntensity > 0 ? `${theme.sceneIntensity}%` : t('appearance.sceneIntensityOff') }}</output>
+                </span>
+                <input
+                  v-model.number="theme.sceneIntensity"
+                  data-testid="scene-intensity"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                />
+                <small>{{ t('appearance.sceneIntensityHint') }}</small>
+              </label>
+            </section>
 
-          <AppearanceEditor :appearance="appearance" />
+            <section class="user-preset-section">
+              <div class="drawer-section-title">
+                <h3><Save :size="16" /> {{ t('appearance.presets') }}</h3>
+                <span>{{ userPresets.length }}/3</span>
+              </div>
+              <div v-if="userPresets.length" class="user-preset-list">
+                <article v-for="preset in userPresets" :key="preset.id" class="user-preset" :style="userPresetStyle(preset)">
+                  <button
+                    class="user-preset-apply"
+                    type="button"
+                    :title="t('common.apply')"
+                    @click="applyUserPreset(preset)"
+                  >
+                    <span class="user-preset-swatch" aria-hidden="true">
+                      <i></i><i></i><i></i>
+                    </span>
+                    <strong>{{ preset.name }}</strong>
+                  </button>
+                  <button
+                    class="user-preset-delete"
+                    type="button"
+                    :title="t('appearance.presetDeleteLabel', { name: preset.name })"
+                    :aria-label="t('appearance.presetDeleteLabel', { name: preset.name })"
+                    @click="removeUserPreset(preset)"
+                  >
+                    <Trash2 :size="15" />
+                  </button>
+                </article>
+              </div>
+              <form class="preset-create" data-testid="save-appearance-preset" @submit.prevent="saveUserPreset">
+                <input
+                  v-model="presetName"
+                  data-testid="appearance-preset-name"
+                  maxlength="20"
+                  :placeholder="t('appearance.presetNamePlaceholder')"
+                  :disabled="saving || presetsFull"
+                />
+                <button
+                  data-testid="save-appearance-preset-button"
+                  type="submit"
+                  :disabled="saving || presetsFull"
+                >
+                  <Plus :size="15" /> {{ t('appearance.presetSaveCurrent') }}
+                </button>
+              </form>
+              <small v-if="presetsFull" class="field-hint">{{ t('appearance.presetLimit') }}</small>
+            </section>
+          </div>
+
+          <div v-show="activeTab === 'texture'" class="drawer-panel" role="tabpanel">
+            <AppearanceEditor :appearance="appearance" />
+          </div>
+
+          <div v-show="activeTab === 'general'" class="drawer-panel" role="tabpanel">
+            <section class="preference-section">
+              <div class="drawer-section-title">
+                <h3><Palette :size="16" /> {{ t('colorMode.label') }}</h3>
+              </div>
+              <ColorModeControl variant="segmented" />
+            </section>
+
+            <section class="preference-section">
+              <div class="drawer-section-title">
+                <h3><Languages :size="16" /> {{ t('language.label') }}</h3>
+              </div>
+              <LanguageControl variant="segmented" />
+              <small class="field-hint">{{ t('language.visitorHint') }}</small>
+            </section>
+
+            <section class="preference-section">
+              <div class="drawer-section-title">
+                <h3><Languages :size="16" /> {{ t('language.siteDefault') }}</h3>
+              </div>
+              <div class="site-locale-segments" role="group" :aria-label="t('language.siteDefault')">
+                <button
+                  v-for="option in (['zh', 'en'] as Locale[])"
+                  :key="option"
+                  type="button"
+                  :class="{ active: siteLocale === option }"
+                  :aria-pressed="siteLocale === option"
+                  :data-testid="`site-locale-${option}`"
+                  @click="previewSiteLocale(option)"
+                >
+                  {{ option === 'zh' ? t('language.zh') : t('language.en') }}
+                </button>
+              </div>
+              <small class="field-hint">{{ t('language.siteDefaultHint') }}</small>
+            </section>
+          </div>
         </div>
 
         <footer class="drawer-footer">
@@ -291,10 +394,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
           </div>
           <div class="drawer-actions">
             <a data-testid="appearance-admin-link" href="/admin" target="_blank" rel="noreferrer">
-              后台管理 <ArrowUpRight :size="16" />
+              {{ t('appearance.adminEntry') }} <ArrowUpRight :size="16" />
             </a>
             <button data-testid="appearance-save" type="button" :disabled="saving" @click="save">
-              <Save :size="16" /> {{ saving ? '保存中' : '保存外观' }}
+              <Save :size="16" /> {{ saving ? t('common.saving') : t('appearance.saveAppearance') }}
             </button>
           </div>
         </footer>
@@ -304,6 +407,51 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </template>
 
 <style scoped>
+/* One palette for the whole drawer so dark mode is a single override block below. */
+.appearance-drawer {
+  --drawer-bg: rgba(248, 250, 252, 0.94);
+  --drawer-border: rgba(255, 255, 255, 0.82);
+  --drawer-text: #0f172a;
+  --drawer-strong: #334155;
+  --drawer-muted: #475569;
+  --drawer-subtle: #64748b;
+  --drawer-faint: #94a3b8;
+  --drawer-line: #dbe3ee;
+  --drawer-divider: rgba(203, 213, 225, 0.72);
+  --drawer-surface: #ffffff;
+  --drawer-input: rgba(255, 255, 255, 0.82);
+  --drawer-chip: rgba(226, 232, 240, 0.64);
+  --drawer-footer: rgba(248, 250, 252, 0.82);
+  --drawer-accent: #0f766e;
+  --drawer-accent-ink: #ffffff;
+  --drawer-success: #047857;
+  --drawer-danger: #be123c;
+  --drawer-shadow: -24px 0 64px rgba(15, 23, 42, 0.22);
+}
+
+/* The whole selector must sit inside :global(): with `:global(x) .y` the scoped-CSS compiler
+   drops the descendant part and the override lands on <html> instead of the drawer. */
+:global([data-color-mode='dark'] .appearance-drawer) {
+  --drawer-bg: rgba(17, 19, 24, 0.95);
+  --drawer-border: rgba(255, 255, 255, 0.1);
+  --drawer-text: #f1f5f9;
+  --drawer-strong: #e2e8f0;
+  --drawer-muted: #b6c2d2;
+  --drawer-subtle: #93a1b5;
+  --drawer-faint: #74839a;
+  --drawer-line: rgba(255, 255, 255, 0.14);
+  --drawer-divider: rgba(255, 255, 255, 0.12);
+  --drawer-surface: rgba(255, 255, 255, 0.07);
+  --drawer-input: rgba(255, 255, 255, 0.06);
+  --drawer-chip: rgba(255, 255, 255, 0.08);
+  --drawer-footer: rgba(13, 15, 19, 0.86);
+  --drawer-accent: #2dd4bf;
+  --drawer-accent-ink: #04241f;
+  --drawer-success: #34d399;
+  --drawer-danger: #fb7185;
+  --drawer-shadow: -24px 0 64px rgba(0, 0, 0, 0.5);
+}
+
 .appearance-backdrop {
   background: rgba(15, 23, 42, 0.2);
   inset: 0;
@@ -312,13 +460,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   z-index: 80;
 }
 
+:global([data-color-mode='dark'] .appearance-backdrop) {
+  background: rgba(0, 0, 0, 0.46);
+}
+
 .appearance-drawer {
-  background: rgba(248, 250, 252, 0.94);
-  border-left: 1px solid rgba(255, 255, 255, 0.82);
-  box-shadow: -24px 0 64px rgba(15, 23, 42, 0.22);
-  color: #0f172a;
+  background: var(--drawer-bg);
+  border-left: 1px solid var(--drawer-border);
+  box-shadow: var(--drawer-shadow);
+  color: var(--drawer-text);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100dvh;
   margin-left: auto;
   max-width: 100%;
@@ -339,7 +491,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .drawer-header {
-  border-bottom: 1px solid rgba(203, 213, 225, 0.72);
+  border-bottom: 1px solid var(--drawer-divider);
 }
 
 .drawer-header > div {
@@ -350,7 +502,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .drawer-header span,
 .drawer-section-title span {
   align-items: center;
-  color: #64748b;
+  color: var(--drawer-subtle);
   display: inline-flex;
   font-size: 10px;
   font-weight: 700;
@@ -365,10 +517,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .drawer-icon-button {
   align-items: center;
-  background: rgba(226, 232, 240, 0.64);
-  border: 1px solid rgba(203, 213, 225, 0.82);
+  background: var(--drawer-chip);
+  border: 1px solid var(--drawer-line);
   border-radius: 8px;
-  color: #475569;
+  color: var(--drawer-muted);
   display: inline-flex;
   height: 32px;
   justify-content: center;
@@ -376,16 +528,58 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   width: 32px;
 }
 
+/* Tabs replace the single long scroll; each panel now fits in roughly one screen. */
+.drawer-tabs {
+  border-bottom: 1px solid var(--drawer-divider);
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 8px 16px;
+}
+
+.drawer-tab {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--drawer-muted);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 8px;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.drawer-tab:hover,
+.drawer-tab:focus-visible {
+  background: var(--drawer-chip);
+  color: var(--drawer-text);
+}
+
+.drawer-tab.active {
+  background: var(--drawer-surface);
+  border-color: var(--drawer-line);
+  color: var(--drawer-accent);
+}
+
 .drawer-scroll {
   box-sizing: border-box;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   max-width: 100%;
   min-height: 0;
   min-width: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 12px 16px 16px;
+  padding: 14px 16px 16px;
+}
+
+.drawer-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
 }
 
 .theme-section {
@@ -395,10 +589,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .theme-section,
 .user-preset-section,
+.preference-section,
 .theme-wall,
 .user-preset-list {
   max-width: 100%;
   min-width: 0;
+}
+
+.preference-section {
+  display: grid;
+  gap: 8px;
 }
 
 .drawer-section-title {
@@ -413,6 +613,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   font-size: 13px;
   gap: 6px;
   margin: 0;
+}
+
+.field-hint {
+  color: var(--drawer-faint);
+  font-size: 10px;
+}
+
+.site-locale-segments {
+  background: var(--drawer-chip);
+  border: 1px solid var(--drawer-line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 3px;
+}
+
+.site-locale-segments button {
+  border-radius: 6px;
+  color: var(--drawer-muted);
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 34px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.site-locale-segments button.active {
+  background: var(--drawer-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: var(--drawer-accent);
 }
 
 .theme-wall {
@@ -635,7 +865,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .scene-intensity-field > span {
-  color: #475569;
+  color: var(--drawer-muted);
   display: flex;
   font-size: 12px;
   font-weight: 700;
@@ -643,18 +873,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .scene-intensity-field output {
-  color: #0f766e;
+  color: var(--drawer-accent);
   font-variant-numeric: tabular-nums;
 }
 
 .scene-intensity-field input {
-  accent-color: #0f766e;
+  accent-color: var(--drawer-accent);
   cursor: pointer;
   width: 100%;
 }
 
 .scene-intensity-field > small {
-  color: #94a3b8;
+  color: var(--drawer-faint);
   font-size: 10px;
 }
 
@@ -671,23 +901,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .preset-create input,
 .preset-create button {
-  border: 1px solid #dbe3ee;
+  border: 1px solid var(--drawer-line);
   border-radius: 8px;
   font: inherit;
   min-height: 32px;
 }
 
 .preset-create input {
-  background: rgba(255, 255, 255, 0.82);
-  color: #0f172a;
+  background: var(--drawer-input);
+  color: var(--drawer-text);
   min-width: 0;
   padding: 0 11px;
 }
 
 .preset-create button {
   align-items: center;
-  background: #ffffff;
-  color: #0f766e;
+  background: var(--drawer-surface);
+  color: var(--drawer-accent);
   display: inline-flex;
   font-size: 11px;
   font-weight: 750;
@@ -709,8 +939,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .user-preset {
   align-items: center;
-  background: color-mix(in srgb, var(--preset-bg) 10%, #ffffff);
-  border: 1px solid #dbe3ee;
+  background: color-mix(in srgb, var(--preset-bg) 10%, var(--drawer-surface));
+  border: 1px solid var(--drawer-line);
   border-radius: 8px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 30px;
@@ -720,7 +950,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .user-preset-apply {
   align-items: center;
-  color: #334155;
+  color: var(--drawer-strong);
   display: flex;
   gap: 7px;
   min-height: 38px;
@@ -756,7 +986,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .user-preset-delete {
   align-items: center;
-  color: #94a3b8;
+  color: var(--drawer-faint);
   display: inline-flex;
   height: 30px;
   justify-content: center;
@@ -766,12 +996,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 .user-preset-delete:hover,
 .user-preset-delete:focus-visible {
-  color: #be123c;
+  color: var(--drawer-danger);
 }
 
 .drawer-footer {
-  background: rgba(248, 250, 252, 0.82);
-  border-top: 1px solid rgba(203, 213, 225, 0.72);
+  background: var(--drawer-footer);
+  border-top: 1px solid var(--drawer-divider);
 }
 
 .drawer-feedback {
@@ -779,8 +1009,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   min-width: 0;
 }
 
-.drawer-feedback .success { color: #047857; }
-.drawer-feedback .error { color: #be123c; }
+.drawer-feedback .success { color: var(--drawer-success); }
+.drawer-feedback .error { color: var(--drawer-danger); }
 
 .drawer-actions {
   display: flex;
@@ -800,15 +1030,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .drawer-actions a {
-  background: #ffffff;
-  border: 1px solid #dbe3ee;
-  color: #334155;
+  background: var(--drawer-surface);
+  border: 1px solid var(--drawer-line);
+  color: var(--drawer-strong);
 }
 
 .drawer-actions button {
-  background: #0f766e;
-  border: 1px solid #0f766e;
-  color: #ffffff;
+  background: var(--drawer-accent);
+  border: 1px solid var(--drawer-accent);
+  color: var(--drawer-accent-ink);
 }
 
 .drawer-actions button:disabled {
@@ -817,11 +1047,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 :deep(.appearance-editor) {
-  border-top: 1px solid #e2e8f0;
   box-sizing: border-box;
   max-width: 100%;
   min-width: 0;
-  padding-top: 12px;
   width: 100%;
 }
 
@@ -879,12 +1107,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   }
 
   .drawer-header,
+  .drawer-footer,
+  .drawer-tabs {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .drawer-header,
   .drawer-footer {
-    padding: 10px 12px;
+    padding-bottom: 10px;
+    padding-top: 10px;
   }
 
   .drawer-scroll {
-    padding: 10px 12px 12px;
+    padding: 12px 12px 12px;
+  }
+
+  .drawer-tab {
+    font-size: 11px;
+    gap: 4px;
   }
 
   .drawer-footer {
@@ -914,6 +1155,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   .appearance-drawer-enter-active .appearance-drawer,
   .appearance-drawer-leave-active .appearance-drawer {
     animation: none;
+    transition: none;
+  }
+
+  .drawer-tab {
     transition: none;
   }
 

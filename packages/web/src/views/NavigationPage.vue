@@ -6,6 +6,7 @@ import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, Setti
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
+import LanguageControl from '@/components/LanguageControl.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -24,10 +25,13 @@ import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 import { getSceneIntensity, getTheme, getThemeAccentVars, pageTextCssVars, themeCssVars } from '@/utils/themes';
 import type { ResolvedColorMode } from '@/utils/colorMode';
+import { getSiteDefaultLocale } from '@/utils/locale';
+import { useI18n } from '@/composables/useI18n';
 
 const route = useRoute();
 const auth = useAuthStore();
 const navigation = useNavigationStore();
+const { t, setSiteDefaultLocale } = useI18n();
 const query = ref('');
 const debouncedQuery = ref('');
 const verifying = ref<Folder | null>(null);
@@ -141,7 +145,7 @@ const appearanceEntryHref = computed(() => {
   if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;
   return `/login?next=${encodeURIComponent(route.fullPath || '/')}`;
 });
-const appearanceEntryLabel = computed(() => auth.authenticated ? '我的设置' : '后台管理登录');
+const appearanceEntryLabel = computed(() => (auth.authenticated ? t('nav.mySettings') : t('nav.adminLogin')));
 const allLinks = computed(() => payload.value?.folders.flatMap((folder) => folder.links || []) || []);
 const searchIndex = computed(() =>
   allLinks.value.map((link) => ({
@@ -163,6 +167,11 @@ const activeTheme = computed(() => {
   return getTheme(settings?.theme?.id);
 });
 const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.settings));
+// The public page owns the site payload, so it publishes the admin-chosen default language to
+// the shared locale state. A visitor's own override still wins over it.
+watch(() => payload.value?.site.settings, (settings) => {
+  setSiteDefaultLocale(getSiteDefaultLocale(settings));
+}, { immediate: true });
 const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
   if (resolvedMode.value !== 'dark') {
     return {
@@ -282,7 +291,7 @@ const folderMetadata = computed(() => {
   return { byId, depthById, topIdById };
 });
 
-// Categories = top-level folders; tabs show [全部, ...categories].
+// Categories = top-level folders; tabs show [all, ...categories].
 const categoryFolders = computed(() => {
   const { byId } = folderMetadata.value;
   return (payload.value?.folders || []).filter((folder) => !folder.parentId || !byId.has(folder.parentId));
@@ -332,7 +341,7 @@ const anyModalOpen = computed(() => Boolean(expandedFolder.value || verifying.va
 const anyDragActive = computed(() => Boolean(bookmarkDrag.value || folderDrag.value || notabDrag.value));
 const renderedFolders = computed(() => foldersWithLinks.value.slice(0, renderedFolderCount.value));
 const hasMoreFolders = computed(() => renderedFolderCount.value < foldersWithLinks.value.length);
-const categoryTabs = computed(() => [{ id: 'all', name: '全部' }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
+const categoryTabs = computed(() => [{ id: 'all', name: t('nav.allTab') }, ...categoryFolders.value.map((folder) => ({ id: String(folder.id), name: folder.name }))]);
 const dragPreview = computed(() => {
   if (bookmarkDrag.value) return { kind: 'bookmark' as const, label: bookmarkDrag.value.link.name, x: bookmarkDrag.value.clientX, y: bookmarkDrag.value.clientY };
   if (folderDrag.value) return { kind: 'folder' as const, label: folderDrag.value.folder.name, x: folderDrag.value.clientX, y: folderDrag.value.clientY };
@@ -453,9 +462,11 @@ async function confirmItemDelete() {
       if (request.kind === 'notab' && selectedCategoryId.value === String(request.id)) selectedCategoryId.value = 'all';
     }
     pendingDelete.value = null;
-    showBookmarkMessage('success', `${request.kind === 'bookmark' ? '书签' : request.kind === 'folder' ? '文件夹' : 'Notab'}已移入回收站`);
+    showBookmarkMessage('success', t('nav.trashed', {
+      kind: request.kind === 'bookmark' ? t('nav.kindBookmark') : request.kind === 'folder' ? t('nav.kindFolder') : t('nav.kindNotab'),
+    }));
   } catch (error) {
-    showBookmarkMessage('error', error instanceof Error ? error.message : '删除失败，请稍后重试');
+    showBookmarkMessage('error', error instanceof Error ? error.message : t('nav.deleteFailed'));
   } finally {
     deletingItem.value = false;
   }
@@ -638,7 +649,7 @@ async function persistBookmarkDrop(drag: NonNullable<typeof bookmarkDrag.value>)
     if (sourceFolder.id !== targetFolder.id) targetFolder.links = targetBefore;
     applySortOrder(sourceBefore);
     if (sourceFolder.id !== targetFolder.id) applySortOrder(targetBefore);
-    showBookmarkMessage('error', error instanceof Error ? error.message : '移动失败，请稍后重试');
+    showBookmarkMessage('error', error instanceof Error ? error.message : t('nav.moveFailed'));
   } finally {
     movingBookmark.value = false;
   }
@@ -817,7 +828,7 @@ async function persistFolderDrop(drag: NonNullable<typeof folderDrag.value>) {
     });
   } catch (error) {
     await navigation.load(username.value).catch(() => undefined);
-    showBookmarkMessage('error', error instanceof Error ? error.message : '文件夹移动失败，请稍后重试');
+    showBookmarkMessage('error', error instanceof Error ? error.message : t('nav.folderMoveFailed'));
   } finally {
     movingFolder.value = false;
   }
@@ -905,7 +916,7 @@ async function persistNotabDrop(drag: NonNullable<typeof notabDrag.value>) {
     });
   } catch (error) {
     await navigation.load(username.value).catch(() => undefined);
-    showBookmarkMessage('error', error instanceof Error ? error.message : 'Notab 移动失败，请稍后重试');
+    showBookmarkMessage('error', error instanceof Error ? error.message : t('nav.notabMoveFailed'));
   } finally {
     movingNotab.value = false;
   }
@@ -1035,7 +1046,7 @@ const externalSearchUrl = computed(() => {
 const externalSearchLabel = computed(() => {
   searchEngineTick.value;
   const engine = getEngine(getSelectedEngineId(searchEngineSettings.value), searchEngineSettings.value);
-  return engine.template ? engine.label : '外部搜索';
+  return engine.template ? engine.label : t('nav.externalSearch');
 });
 
 function onFolderVerified(links: Link[]) {
@@ -1167,18 +1178,19 @@ onUnmounted(() => {
         @dismiss="dismissHomeNotification"
         @mark-all-read="markAllHomeNotificationsRead"
       />
+      <LanguageControl />
       <ColorModeControl @change="resolvedMode = $event" />
       <button
         v-if="canEditAppearance"
         class="portal-corner-link"
         data-testid="portal-corner-link"
         type="button"
-        aria-label="打开外观设置"
+        :aria-label="t('appearance.openLabel')"
         :aria-expanded="appearanceOpen"
         @click="appearanceOpen = true"
       >
         <Settings :size="17" />
-        <span>外观设置</span>
+        <span>{{ t('appearance.entry') }}</span>
       </button>
       <a
         v-else
@@ -1208,7 +1220,7 @@ onUnmounted(() => {
             <ArrowUpRight class="portal-center-arrow" :size="17" />
           </span>
           <h1>{{ payload?.site.name || 'Nono' }}</h1>
-          <p>{{ payload?.site.description || '一个可自托管的网址导航主页' }}</p>
+          <p>{{ payload?.site.description || t('nav.tagline') }}</p>
         </component>
       </header>
 
@@ -1232,24 +1244,24 @@ onUnmounted(() => {
         <span class="public-loading-bar"></span>
         <span class="public-loading-bar"></span>
         <span class="public-loading-bar"></span>
-        <span class="sr-only">正在加载导航内容</span>
+        <span class="sr-only">{{ t('nav.loadingContent') }}</span>
       </div>
       <div v-else-if="navigation.error && !payload" class="public-load-error" role="alert">
         <p>{{ navigation.error }}</p>
-        <button class="button" type="button" @click="load">重新加载</button>
+        <button class="button" type="button" @click="load">{{ t('nav.reload') }}</button>
       </div>
 
       <Transition name="navigation-reveal">
         <section v-if="payload && payload.access?.unlocked !== false" class="navigation-reveal-content" :class="{ 'is-organizing': organizing }">
           <p v-if="query.trim()" class="search-result-summary">
-            站内命中 {{ localMatchCount }} 个链接
+            {{ t('nav.localHits', { count: localMatchCount }) }}
           </p>
 
           <div v-if="organizing" class="organize-toolbar" role="status">
-            <span>整理中</span>
+            <span>{{ t('nav.organizing') }}</span>
             <div>
-              <a class="organize-icon-button" href="/admin/trash" title="打开回收站" aria-label="打开回收站"><Trash2 :size="16" /></a>
-              <button class="organize-done-button" type="button" data-testid="finish-organizing" @click="exitOrganizeMode"><Check :size="16" />完成</button>
+              <a class="organize-icon-button" href="/admin/trash" :title="t('nav.openTrash')" :aria-label="t('nav.openTrash')"><Trash2 :size="16" /></a>
+              <button class="organize-done-button" type="button" data-testid="finish-organizing" @click="exitOrganizeMode"><Check :size="16" />{{ t('nav.done') }}</button>
             </div>
           </div>
 
@@ -1284,7 +1296,7 @@ onUnmounted(() => {
                 v-if="organizing && tab.id !== 'all'"
                 class="notab-delete-button"
                 type="button"
-                title="删除 Notab"
+                :title="t('nav.deleteNotab')"
                 :data-testid="`delete-notab-${tab.id}`"
                 @pointerdown.stop
                 @click.stop="requestNotabDelete(Number(tab.id))"
@@ -1332,12 +1344,12 @@ onUnmounted(() => {
             />
           </div>
           <button v-if="hasMoreFolders" ref="folderLoadSentinel" class="folder-load-more" type="button" @click="loadMoreFolders">
-            继续加载更多文件夹
+            {{ t('nav.loadMoreFolders') }}
           </button>
           <div v-if="query.trim() && !foldersWithLinks.length" class="public-empty-state">
-            <p>没有站内命中。</p>
+            <p>{{ t('nav.noLocalHits') }}</p>
             <a v-if="externalSearchUrl" class="button external-search-cta" :href="externalSearchUrl">
-              用{{ externalSearchLabel }}搜索“{{ query.trim() }}” →
+              {{ t('nav.searchWith', { engine: externalSearchLabel, query: query.trim() }) }}
             </a>
           </div>
         </section>

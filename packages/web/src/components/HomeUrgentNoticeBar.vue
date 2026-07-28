@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { CalendarDays, WalletCards } from 'lucide-vue-next';
 import type { AdminNotification } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 defineProps<{
   items: AdminNotification[];
@@ -14,7 +17,7 @@ defineEmits<{
 
 <template>
   <Transition name="home-urgent">
-    <section v-if="items.length" class="home-urgent-bar" aria-label="近期提醒">
+    <section v-if="items.length" class="home-urgent-bar" :aria-label="t('notify.urgentAria')">
       <RouterLink
         v-for="item in items"
         :key="item.key"
@@ -28,12 +31,12 @@ defineEmits<{
           <WalletCards v-else :size="17" />
         </span>
         <span class="home-urgent-copy">
-          <small>{{ item.source === 'nodesk' ? '今日日程' : '续费提醒' }}</small>
+          <small>{{ item.source === 'nodesk' ? t('notify.todaySchedule') : t('notify.renewal') }}</small>
           <strong>{{ item.title }}</strong>
         </span>
       </RouterLink>
       <RouterLink v-if="overflow" class="home-urgent-more" to="/admin/notifications">
-        还有 {{ overflow }} 条
+        {{ t('notify.overflow', { count: overflow }) }}
       </RouterLink>
     </section>
   </Transition>

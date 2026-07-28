@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Check, ChevronDown, KeyRound, Search } from 'lucide-vue-next';
 import { getEngine, getSelectedEngineId, setSelectedEngineId, type SearchEngineSettings } from '@/utils/searchEngines';
+import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{
   modelValue: string;
@@ -11,6 +12,8 @@ const props = withDefaults(defineProps<{
   busy?: boolean;
 }>(), { mode: 'search', busy: false });
 const emit = defineEmits<{ 'update:modelValue': [value: string]; submit: []; 'engine-change': [engineId: string] }>();
+
+const { t } = useI18n();
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerRef = ref<HTMLElement | null>(null);
@@ -63,7 +66,7 @@ defineExpose({
       <button
         class="engine-trigger"
         type="button"
-        :title="`搜索引擎：${engine.label}`"
+        :title="t('search.engineTitle', { label: engine.label })"
         aria-haspopup="listbox"
         :aria-expanded="pickerOpen"
         data-testid="engine-trigger"
@@ -94,12 +97,12 @@ defineExpose({
       :value="modelValue"
       :type="mode === 'password' ? 'password' : 'search'"
       :autocomplete="mode === 'password' ? 'current-password' : 'off'"
-      :placeholder="placeholder || (mode === 'password' ? '输入访问密码' : '搜索站内链接，回车继续搜索...')"
-      :aria-label="mode === 'password' ? '主页访问密码' : '搜索站内链接'"
+      :placeholder="placeholder || (mode === 'password' ? t('search.passwordPlaceholder') : t('search.placeholder'))"
+      :aria-label="mode === 'password' ? t('search.passwordAria') : t('search.searchAria')"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
     <kbd v-if="mode === 'search'" class="search-kbd" aria-hidden="true">/</kbd>
-    <button type="submit" class="search-btn" :title="mode === 'password' ? '解锁主页' : '搜索'" :disabled="busy">
+    <button type="submit" class="search-btn" :title="mode === 'password' ? t('search.unlock') : t('common.search')" :disabled="busy">
       <KeyRound v-if="mode === 'password'" :size="18" />
       <Search v-else :size="18" />
     </button>

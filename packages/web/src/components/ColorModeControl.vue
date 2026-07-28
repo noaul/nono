@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Check, Laptop, Moon, Sun } from 'lucide-vue-next';
+import { useI18n } from '@/composables/useI18n';
 import {
   normalizeColorMode,
   resolveColorMode,
@@ -19,14 +20,16 @@ const open = ref(false);
 const rootElement = ref<HTMLElement | null>(null);
 let mediaQuery: MediaQueryList | null = null;
 
-const options = [
-  { value: 'system' as const, label: '跟随系统', icon: Laptop },
-  { value: 'light' as const, label: '浅色', icon: Sun },
-  { value: 'dark' as const, label: '深色', icon: Moon },
-];
+const { t } = useI18n();
+
+const options = computed(() => [
+  { value: 'system' as const, label: t('colorMode.system'), icon: Laptop },
+  { value: 'light' as const, label: t('colorMode.light'), icon: Sun },
+  { value: 'dark' as const, label: t('colorMode.dark'), icon: Moon },
+]);
 
 const currentIcon = computed(() => preference.value === 'system' ? Laptop : resolvedMode.value === 'dark' ? Moon : Sun);
-const currentLabel = computed(() => options.find((option) => option.value === preference.value)?.label || '跟随系统');
+const currentLabel = computed(() => options.value.find((option) => option.value === preference.value)?.label || t('colorMode.system'));
 
 function safeStoredPreference() {
   try {
@@ -104,7 +107,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="rootElement" class="color-mode-control" :class="`color-mode-${variant}`">
-    <div v-if="variant === 'segmented'" class="color-mode-segments" role="group" aria-label="显示模式">
+    <div v-if="variant === 'segmented'" class="color-mode-segments" role="group" :aria-label="t('colorMode.label')">
       <button
         v-for="option in options"
         :key="option.value"
@@ -123,8 +126,8 @@ onBeforeUnmount(() => {
       <button
         class="color-mode-trigger"
         type="button"
-        :title="`显示模式：${currentLabel}`"
-        aria-label="切换显示模式"
+        :title="`${t('colorMode.label')}: ${currentLabel}`"
+        :aria-label="t('colorMode.switchLabel')"
         aria-haspopup="menu"
         :aria-expanded="open"
         @click="open = !open"

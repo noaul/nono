@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Trash2, X } from 'lucide-vue-next';
 import type { Link } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{
   link?: Link;
@@ -10,11 +11,13 @@ const props = withDefaults(defineProps<{
   busy?: boolean;
 }>(), { label: '', kind: 'bookmark', busy: false });
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
+
+const { t } = useI18n();
 const dialog = ref<HTMLElement | null>(null);
 const cancelButton = ref<HTMLButtonElement | null>(null);
 let previousFocus: HTMLElement | null = null;
-const displayLabel = computed(() => props.label || props.link?.name || '未命名项目');
-const kindLabel = computed(() => props.kind === 'bookmark' ? '书签' : props.kind === 'folder' ? '文件夹' : 'Notab');
+const displayLabel = computed(() => props.label || props.link?.name || t('deleteDialog.untitled'));
+const kindLabel = computed(() => props.kind === 'bookmark' ? t('nav.kindBookmark') : props.kind === 'folder' ? t('nav.kindFolder') : t('nav.kindNotab'));
 
 function cancel() {
   if (!props.busy) emit('cancel');
@@ -58,16 +61,16 @@ onBeforeUnmount(() => {
     <section ref="dialog" data-testid="bookmark-delete-dialog" class="bookmark-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="bookmark-delete-title" tabindex="-1">
       <div class="bookmark-delete-icon" aria-hidden="true"><Trash2 :size="20" /></div>
       <div class="bookmark-delete-copy">
-        <h2 id="bookmark-delete-title">删除{{ kindLabel }}</h2>
-        <p>确定删除<strong>“{{ displayLabel }}”</strong>吗？删除后可从回收站恢复。</p>
+        <h2 id="bookmark-delete-title">{{ t('deleteDialog.title', { kind: kindLabel }) }}</h2>
+        <p>{{ t('deleteDialog.questionPrefix') }}<strong>“{{ displayLabel }}”</strong>{{ t('deleteDialog.questionSuffix') }}</p>
       </div>
-      <button class="bookmark-delete-close" type="button" aria-label="关闭" :disabled="busy" @click="cancel">
+      <button class="bookmark-delete-close" type="button" :aria-label="t('common.close')" :disabled="busy" @click="cancel">
         <X :size="17" />
       </button>
       <div class="bookmark-delete-actions">
-        <button ref="cancelButton" data-testid="bookmark-delete-cancel" class="bookmark-delete-button bookmark-delete-cancel" type="button" :disabled="busy" @click="cancel">取消</button>
+        <button ref="cancelButton" data-testid="bookmark-delete-cancel" class="bookmark-delete-button bookmark-delete-cancel" type="button" :disabled="busy" @click="cancel">{{ t('common.cancel') }}</button>
         <button data-testid="bookmark-delete-confirm" class="bookmark-delete-button bookmark-delete-confirm" type="button" :disabled="busy" @click="emit('confirm')">
-          <Trash2 :size="16" />{{ busy ? '删除中' : '确认删除' }}
+          <Trash2 :size="16" />{{ busy ? t('deleteDialog.deleting') : t('deleteDialog.confirmDelete') }}
         </button>
       </div>
     </section>

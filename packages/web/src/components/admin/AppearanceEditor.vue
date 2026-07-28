@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { Gauge, LayoutGrid, RotateCcw, Search, SlidersHorizontal, Type } from 'lucide-vue-next';
+import { useI18n } from '@/composables/useI18n';
 import { appearanceDefaults, type AppearanceSettings } from '@/utils/appearance';
 
 const props = defineProps<{ appearance: AppearanceSettings }>();
+
+const { t } = useI18n();
 
 function applyPreset(preset: 'performance' | 'balanced' | 'clear') {
   const values = {
@@ -39,12 +42,12 @@ function rangeStyle(value: number, min: number, max: number) {
 <template>
   <section class="admin-card appearance-editor">
     <header class="admin-card-head">
-      <h2><SlidersHorizontal :size="18" /> 玻璃质感</h2>
-      <div class="preset-group" aria-label="外观预设">
-        <button type="button" @click="applyPreset('performance')"><Gauge :size="15" /> 性能</button>
-        <button type="button" @click="applyPreset('balanced')">均衡</button>
-        <button type="button" @click="applyPreset('clear')">通透</button>
-        <button class="reset-appearance" type="button" title="恢复默认外观" aria-label="恢复默认外观" @click="resetAppearance">
+      <h2><SlidersHorizontal :size="18" /> {{ t('appearance.glass') }}</h2>
+      <div class="preset-group" :aria-label="t('appearance.presetsAria')">
+        <button type="button" @click="applyPreset('performance')"><Gauge :size="15" /> {{ t('appearance.glassPerformance') }}</button>
+        <button type="button" @click="applyPreset('balanced')">{{ t('appearance.glassBalanced') }}</button>
+        <button type="button" @click="applyPreset('clear')">{{ t('appearance.glassClear') }}</button>
+        <button class="reset-appearance" type="button" :title="t('appearance.glassReset')" :aria-label="t('appearance.glassReset')" @click="resetAppearance">
           <RotateCcw :size="15" />
         </button>
       </div>
@@ -52,92 +55,92 @@ function rangeStyle(value: number, min: number, max: number) {
 
     <div class="appearance-controls">
       <fieldset>
-        <legend><Search :size="16" /> 导航玻璃</legend>
+        <legend><Search :size="16" /> {{ t('appearance.navGlass') }}</legend>
         <label class="color-field">
-          <span>玻璃底色</span>
+          <span>{{ t('appearance.glassBase') }}</span>
           <span class="color-control">
             <input v-model="appearance.searchColor" data-testid="search-color" type="color" />
             <code>{{ appearance.searchColor }}</code>
           </span>
         </label>
         <label class="range-field">
-          <span>圆角 <output>{{ appearance.searchRadius }}px</output></span>
+          <span>{{ t('appearance.radius') }} <output>{{ appearance.searchRadius }}px</output></span>
           <input v-model.number="appearance.searchRadius" data-testid="search-radius" type="range" min="8" max="40" step="1" :style="rangeStyle(appearance.searchRadius, 8, 40)" />
         </label>
         <label class="range-field">
-          <span>透明度 <output>{{ appearance.searchOpacity }}%</output></span>
+          <span>{{ t('appearance.opacity') }} <output>{{ appearance.searchOpacity }}%</output></span>
           <input v-model.number="appearance.searchOpacity" data-testid="search-opacity" type="range" min="12" max="90" step="1" :style="rangeStyle(appearance.searchOpacity, 12, 90)" />
         </label>
         <label class="range-field">
-          <span>高斯模糊 <output>{{ appearance.searchBlur }}px</output></span>
+          <span>{{ t('appearance.blur') }} <output>{{ appearance.searchBlur }}px</output></span>
           <input v-model.number="appearance.searchBlur" data-testid="search-blur" type="range" min="0" max="32" step="1" :style="rangeStyle(appearance.searchBlur, 0, 32)" />
         </label>
       </fieldset>
 
       <fieldset>
-        <legend><LayoutGrid :size="16" /> 内容玻璃</legend>
+        <legend><LayoutGrid :size="16" /> {{ t('appearance.contentGlass') }}</legend>
         <label class="color-field">
-          <span>玻璃底色</span>
+          <span>{{ t('appearance.glassBase') }}</span>
           <span class="color-control">
             <input v-model="appearance.cardColor" data-testid="card-color" type="color" />
             <code>{{ appearance.cardColor }}</code>
           </span>
         </label>
         <label class="range-field">
-          <span>圆角 <output>{{ appearance.cardRadius }}px</output></span>
+          <span>{{ t('appearance.radius') }} <output>{{ appearance.cardRadius }}px</output></span>
           <input v-model.number="appearance.cardRadius" data-testid="card-radius" type="range" min="0" max="24" step="1" :style="rangeStyle(appearance.cardRadius, 0, 24)" />
         </label>
         <label class="range-field">
-          <span>透明度 <output>{{ appearance.cardOpacity }}%</output></span>
+          <span>{{ t('appearance.opacity') }} <output>{{ appearance.cardOpacity }}%</output></span>
           <input v-model.number="appearance.cardOpacity" data-testid="card-opacity" type="range" min="12" max="90" step="1" :style="rangeStyle(appearance.cardOpacity, 12, 90)" />
         </label>
         <label class="range-field">
-          <span>高斯模糊 <output>{{ appearance.cardBlur }}px</output></span>
+          <span>{{ t('appearance.blur') }} <output>{{ appearance.cardBlur }}px</output></span>
           <input v-model.number="appearance.cardBlur" data-testid="card-blur" type="range" min="0" max="32" step="1" :style="rangeStyle(appearance.cardBlur, 0, 32)" />
         </label>
       </fieldset>
 
       <fieldset class="text-settings">
-        <legend><Type :size="16" /> 文字</legend>
+        <legend><Type :size="16" /> {{ t('appearance.text') }}</legend>
         <div class="text-setting-row">
           <strong>Notab</strong>
           <label class="color-field compact">
-            <span>颜色</span>
+            <span>{{ t('appearance.textColor') }}</span>
             <span class="color-control">
               <input v-model="appearance.notabTextColor" data-testid="notab-text-color" type="color" />
               <code>{{ appearance.notabTextColor }}</code>
             </span>
           </label>
           <label class="range-field compact">
-            <span>字号 <output>{{ appearance.notabTextSize }}px</output></span>
+            <span>{{ t('appearance.textSize') }} <output>{{ appearance.notabTextSize }}px</output></span>
             <input v-model.number="appearance.notabTextSize" data-testid="notab-text-size" type="range" min="12" max="18" step="1" :style="rangeStyle(appearance.notabTextSize, 12, 18)" />
           </label>
         </div>
         <div class="text-setting-row">
-          <strong>文件夹标签</strong>
+          <strong>{{ t('appearance.folderLabel') }}</strong>
           <label class="color-field compact">
-            <span>颜色</span>
+            <span>{{ t('appearance.textColor') }}</span>
             <span class="color-control">
               <input v-model="appearance.folderTextColor" data-testid="folder-text-color" type="color" />
               <code>{{ appearance.folderTextColor }}</code>
             </span>
           </label>
           <label class="range-field compact">
-            <span>字号 <output>{{ appearance.folderTextSize }}px</output></span>
+            <span>{{ t('appearance.textSize') }} <output>{{ appearance.folderTextSize }}px</output></span>
             <input v-model.number="appearance.folderTextSize" data-testid="folder-text-size" type="range" min="12" max="22" step="1" :style="rangeStyle(appearance.folderTextSize, 12, 22)" />
           </label>
         </div>
         <div class="text-setting-row">
-          <strong>书签</strong>
+          <strong>{{ t('appearance.bookmark') }}</strong>
           <label class="color-field compact">
-            <span>颜色</span>
+            <span>{{ t('appearance.textColor') }}</span>
             <span class="color-control">
               <input v-model="appearance.bookmarkTextColor" data-testid="bookmark-text-color" type="color" />
               <code>{{ appearance.bookmarkTextColor }}</code>
             </span>
           </label>
           <label class="range-field compact">
-            <span>字号 <output>{{ appearance.bookmarkTextSize }}px</output></span>
+            <span>{{ t('appearance.textSize') }} <output>{{ appearance.bookmarkTextSize }}px</output></span>
             <input v-model.number="appearance.bookmarkTextSize" data-testid="bookmark-text-size" type="range" min="12" max="18" step="1" :style="rangeStyle(appearance.bookmarkTextSize, 12, 18)" />
           </label>
         </div>
@@ -147,6 +150,29 @@ function rangeStyle(value: number, min: number, max: number) {
 </template>
 
 <style scoped>
+.appearance-editor {
+  --ae-text: #0f172a;
+  --ae-muted: #475569;
+  --ae-subtle: #64748b;
+  --ae-line: #e2e8f0;
+  --ae-hover: #f8fafc;
+  --ae-track: #cbd5e1;
+  --ae-accent: #0f766e;
+  --ae-thumb-ring: #ffffff;
+}
+
+/* The whole selector stays inside :global(): `:global(x) .y` loses the descendant part. */
+:global([data-color-mode='dark'] .appearance-editor) {
+  --ae-text: #f1f5f9;
+  --ae-muted: #b6c2d2;
+  --ae-subtle: #93a1b5;
+  --ae-line: rgba(255, 255, 255, 0.14);
+  --ae-hover: rgba(255, 255, 255, 0.08);
+  --ae-track: rgba(255, 255, 255, 0.2);
+  --ae-accent: #2dd4bf;
+  --ae-thumb-ring: rgba(0, 0, 0, 0.5);
+}
+
 .admin-card {
   margin: 0;
 }
@@ -168,7 +194,7 @@ function rangeStyle(value: number, min: number, max: number) {
 }
 
 .admin-card-head h2 {
-  color: #0f172a;
+  color: var(--ae-text);
   font-size: 13px;
   margin: 0;
 }
@@ -187,8 +213,8 @@ legend {
 
 .preset-group button {
   align-items: center;
-  border: 1px solid #dbe3ee;
-  color: #475569;
+  border: 1px solid var(--ae-line);
+  color: var(--ae-muted);
   display: inline-flex;
   font-size: 11px;
   gap: 4px;
@@ -209,7 +235,7 @@ legend {
 }
 
 .preset-group button:hover {
-  background: #f8fafc;
+  background: var(--ae-hover);
   color: var(--nono-accent);
   position: relative;
 }
@@ -223,7 +249,7 @@ legend {
 }
 
 fieldset {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ae-line);
   border-radius: 8px;
   display: grid;
   gap: 9px;
@@ -234,7 +260,7 @@ fieldset {
 }
 
 legend {
-  color: #0f172a;
+  color: var(--ae-text);
   font-size: 12px;
   font-weight: 750;
   padding: 0 6px;
@@ -255,7 +281,7 @@ legend {
 
 .color-field > span:first-child,
 .range-field span {
-  color: #475569;
+  color: var(--ae-muted);
   font-size: 11px;
 }
 
@@ -275,7 +301,7 @@ legend {
 }
 
 .color-control code {
-  color: #64748b;
+  color: var(--ae-subtle);
   font-size: 10px;
   min-width: 56px;
 }
@@ -303,7 +329,7 @@ legend {
 }
 
 .range-field input::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #0f766e 0 var(--range-progress, 0%), #cbd5e1 var(--range-progress, 0%) 100%);
+  background: linear-gradient(90deg, var(--ae-accent) 0 var(--range-progress, 0%), var(--ae-track) var(--range-progress, 0%) 100%);
   border-radius: 999px;
   height: 3px;
 }
@@ -311,8 +337,8 @@ legend {
 .range-field input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background: #0f766e;
-  border: 1px solid #ffffff;
+  background: var(--ae-accent);
+  border: 1px solid var(--ae-thumb-ring);
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.2);
   height: 13px;
@@ -321,21 +347,21 @@ legend {
 }
 
 .range-field input::-moz-range-track {
-  background: #cbd5e1;
+  background: var(--ae-track);
   border: 0;
   border-radius: 999px;
   height: 3px;
 }
 
 .range-field input::-moz-range-progress {
-  background: #0f766e;
+  background: var(--ae-accent);
   border-radius: 999px;
   height: 3px;
 }
 
 .range-field input::-moz-range-thumb {
-  background: #0f766e;
-  border: 1px solid #ffffff;
+  background: var(--ae-accent);
+  border: 1px solid var(--ae-thumb-ring);
   border-radius: 50%;
   height: 13px;
   width: 13px;
@@ -347,7 +373,7 @@ legend {
 
 .text-setting-row {
   align-items: center;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--ae-line);
   display: grid;
   gap: 12px;
   grid-template-columns: 100px minmax(150px, 0.8fr) minmax(190px, 1.2fr);
@@ -361,7 +387,7 @@ legend {
 }
 
 .text-setting-row strong {
-  color: #0f172a;
+  color: var(--ae-text);
   font-size: 12px;
 }
 

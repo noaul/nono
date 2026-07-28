@@ -7,9 +7,12 @@ import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
 import { useModalBehavior } from '@/composables/useModalBehavior';
+import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{ folder: Folder; highlight?: string }>(), { highlight: '' });
 const emit = defineEmits<{ close: [] }>();
+
+const { t } = useI18n();
 
 const rootRef = ref<HTMLElement | null>(null);
 const faviconErrors = ref<Record<string | number, boolean>>({});
@@ -35,7 +38,7 @@ useModalBehavior({
           <FolderGlyph class="expand-folder-icon" :icon="folder.icon" :size="22" />
           <h2>{{ folder.name }}</h2>
         </div>
-        <button class="folder-expand-close" type="button" title="关闭" aria-label="关闭文件夹" @click="emit('close')">
+        <button class="folder-expand-close" type="button" :title="t('common.close')" :aria-label="t('folder.closeFolder')" @click="emit('close')">
           <X :size="20" />
         </button>
       </header>
@@ -62,7 +65,7 @@ useModalBehavior({
             <small v-if="link.description">{{ link.description }}</small>
           </span>
         </a>
-        <p v-if="!(folder.links || []).length" class="expanded-empty">这个文件夹还没有可展示的书签。</p>
+        <p v-if="!(folder.links || []).length" class="expanded-empty">{{ t('folder.emptyExpanded') }}</p>
       </div>
     </section>
   </div>

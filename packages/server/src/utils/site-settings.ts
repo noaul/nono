@@ -218,6 +218,14 @@ const searchEngineSettingsSchema = z.object({
   };
 });
 
+/**
+ * The site-wide default language. Visitors may override it in their own browser, so this is
+ * only the starting point for someone who has never chosen.
+ */
+const i18nSettingsSchema = z.object({
+  defaultLocale: z.enum(['zh', 'en']).default('zh'),
+}).passthrough();
+
 export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) return {};
   const settings = { ...input };
@@ -225,6 +233,7 @@ export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if ('portal' in settings) settings.portal = portalSchema.parse(settings.portal);
   if ('navigationEntries' in settings) settings.navigationEntries = navigationEntriesSchema.parse(settings.navigationEntries);
   if ('searchEngines' in settings) settings.searchEngines = searchEngineSettingsSchema.parse(settings.searchEngines);
+  if ('i18n' in settings) settings.i18n = i18nSettingsSchema.parse(settings.i18n);
   return settings;
 }
 

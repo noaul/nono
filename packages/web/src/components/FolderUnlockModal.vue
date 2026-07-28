@@ -3,9 +3,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Lock } from 'lucide-vue-next';
 import type { Folder, Link } from '@/api/types';
 import { apiRequest, jsonBody } from '@/api/client';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<{ folder: Folder; username: string }>();
 const emit = defineEmits<{ close: []; verified: [links: Link[]] }>();
+
+const { t } = useI18n();
 
 const rootRef = ref<HTMLElement | null>(null);
 const password = ref('');
@@ -19,12 +22,12 @@ async function verify() {
       { method: 'POST', body: jsonBody({ password: password.value }) },
     );
     if (!result.verified) {
-      error.value = '密码不正确';
+      error.value = t('folder.wrongPassword');
       return;
     }
     emit('verified', result.links);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '验证失败';
+    error.value = cause instanceof Error ? cause.message : t('folder.verifyFailed');
   }
 }
 
@@ -83,15 +86,15 @@ onBeforeUnmount(() => {
         </div>
         <h2>{{ folder.name }}</h2>
       </div>
-      <p v-if="folder.passwordHint" class="password-hint">提示：{{ folder.passwordHint }}</p>
+      <p v-if="folder.passwordHint" class="password-hint">{{ t('folder.hint', { hint: folder.passwordHint }) }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <div class="field">
-        <label>请输入文件夹密码</label>
+        <label>{{ t('folder.enterPassword') }}</label>
         <input v-model="password" type="password" autofocus placeholder="••••••" />
       </div>
       <div class="toolbar modal-actions">
-        <button class="button" type="submit">确认解锁</button>
-        <button class="button secondary" type="button" @click="emit('close')">取消</button>
+        <button class="button" type="submit">{{ t('folder.confirmUnlock') }}</button>
+        <button class="button secondary" type="button" @click="emit('close')">{{ t('common.cancel') }}</button>
       </div>
     </form>
   </div>

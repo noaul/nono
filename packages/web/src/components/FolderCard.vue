@@ -7,6 +7,7 @@ import FolderGlyph from '@/components/FolderGlyph.vue';
 import { getFaviconUrl } from '@/utils/favicon';
 import { splitHighlight } from '@/utils/highlight';
 import { compactBookmarkLabel } from '@/utils/bookmark-name';
+import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{
   folder: Folder;
@@ -42,6 +43,8 @@ const emit = defineEmits<{
   'bookmark-drag-start': [payload: { link: NonNullable<Folder['links']>[number]; folderId: number; pointerId: number; clientX: number; clientY: number }];
   'folder-drag-start': [payload: { folder: Folder; pointerId: number; clientX: number; clientY: number }];
 }>();
+
+const { t } = useI18n();
 
 const faviconErrors = ref<Record<string | number, boolean>>({});
 const folder = computed(() => props.folder);
@@ -224,7 +227,7 @@ onUnmounted(() => {
         v-if="props.organizing"
         class="organize-delete-button"
         type="button"
-        title="删除文件夹"
+        :title="t('folder.deleteFolder')"
         :data-testid="`delete-folder-${folder.id}`"
         @pointerdown.stop
         @click.stop="emit('folder-delete-request', folder)"
@@ -235,10 +238,10 @@ onUnmounted(() => {
         <h2>{{ folder.name }}</h2>
       </div>
       <span v-if="props.organizing" class="folder-drag-indicator" aria-hidden="true"><GripVertical :size="16" /></span>
-      <button v-else-if="folder.locked" class="icon-button secondary lock-btn" title="验证密码" @click="$emit('verify', folder)">
+      <button v-else-if="folder.locked" class="icon-button secondary lock-btn" :title="t('folder.verifyPassword')" @click="$emit('verify', folder)">
         <Lock :size="16" />
       </button>
-      <button v-else class="folder-expand" type="button" title="展开文件夹" data-testid="folder-expand" @click="$emit('expand', folder)">
+      <button v-else class="folder-expand" type="button" :title="t('folder.expand')" data-testid="folder-expand" @click="$emit('expand', folder)">
         <Maximize2 :size="16" />
       </button>
     </header>
@@ -246,7 +249,7 @@ onUnmounted(() => {
       <div class="lock-illustration">
         <Lock :size="28" />
       </div>
-      <span>分类已锁定，请输入密码解锁</span>
+      <span>{{ t('folder.locked') }}</span>
     </div>
     <div
       v-else
@@ -305,7 +308,7 @@ onUnmounted(() => {
           v-if="props.organizing"
           class="bookmark-delete-button"
           type="button"
-          title="删除书签"
+          :title="t('folder.deleteBookmark')"
           :data-testid="`delete-bookmark-${link.id}`"
           @pointerdown.stop
           @click.stop="emit('bookmark-delete-request', { link, folderId: folder.id })"
