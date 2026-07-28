@@ -153,12 +153,12 @@ function rangeStyle(value: number, min: number, max: number) {
 .appearance-editor {
   --ae-text: #0f172a;
   --ae-muted: #475569;
-  --ae-subtle: #64748b;
-  --ae-line: #e2e8f0;
+  --ae-subtle: var(--admin-text-muted);
+  --ae-line: var(--admin-border);
   --ae-hover: #f8fafc;
   --ae-track: #cbd5e1;
-  --ae-accent: #0f766e;
-  --ae-thumb-ring: #ffffff;
+  --ae-accent: var(--admin-accent);
+  --ae-thumb-ring: var(--admin-surface-elevated);
 }
 
 /* The whole selector stays inside :global(): `:global(x) .y` loses the descendant part. */

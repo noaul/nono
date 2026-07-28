@@ -230,7 +230,7 @@ useModalBehavior({
   border: 1px solid rgba(255, 255, 255, 0.76);
   border-radius: var(--admin-surface-radius, 8px);
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  color: #18201d;
+  color: var(--admin-text);
   display: grid;
   max-height: min(780px, calc(100vh - 48px));
   max-width: 1040px;
@@ -257,7 +257,7 @@ useModalBehavior({
   background: rgba(255, 255, 255, 0.66);
   border: 1px solid rgba(76, 101, 94, 0.28);
   border-radius: 8px;
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: grid;
   gap: 10px;
   grid-template-columns: auto minmax(0, 1fr);
@@ -266,14 +266,14 @@ useModalBehavior({
 }
 
 .folder-icon-search-field:focus-within {
-  border-color: var(--nono-accent, #0f766e);
+  border-color: var(--nono-accent, var(--admin-accent));
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
 
 .folder-icon-search-field input {
   background: transparent;
   border: 0;
-  color: #18201d;
+  color: var(--admin-text);
   min-height: 46px;
   padding: 0;
   width: 100%;
@@ -289,7 +289,7 @@ useModalBehavior({
 .folder-icon-tabs button {
   background: transparent;
   border-bottom: 2px solid transparent;
-  color: #64748b;
+  color: var(--admin-text-muted);
   font-weight: 750;
   min-height: 46px;
 }
@@ -297,8 +297,8 @@ useModalBehavior({
 .folder-icon-tabs button:hover,
 .folder-icon-tabs button.active {
   background: rgba(15, 118, 110, 0.05);
-  border-bottom-color: var(--nono-accent, #0f766e);
-  color: var(--nono-accent, #0f766e);
+  border-bottom-color: var(--nono-accent, var(--admin-accent));
+  color: var(--nono-accent, var(--admin-accent));
 }
 
 .folder-icon-dialog-body {
@@ -309,7 +309,7 @@ useModalBehavior({
 }
 
 .folder-icon-section-title {
-  color: #64748b;
+  color: var(--admin-text-muted);
   font-size: 13px;
   font-weight: 800;
   margin: 0 0 12px;
@@ -348,14 +348,14 @@ useModalBehavior({
   background: rgba(236, 253, 245, 0.88);
   border-color: rgba(15, 118, 110, 0.52);
   box-shadow: 0 8px 20px rgba(15, 118, 110, 0.1);
-  color: #0f766e;
+  color: var(--admin-accent);
   outline: none;
   transform: translateY(-1px);
 }
 
 .folder-icon-empty {
   align-items: center;
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: flex;
   justify-content: center;
   min-height: 180px;
@@ -380,7 +380,7 @@ useModalBehavior({
 .folder-icon-dialog .button.secondary:hover {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(15, 118, 110, 0.42);
-  color: #0f766e;
+  color: var(--admin-accent);
 }
 
 @media (max-width: 880px) {

@@ -12,6 +12,9 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
@@ -108,7 +111,7 @@ async function load() {
     ensureSelectedCategory();
     selectedFolderIds.value = new Set();
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '加载文件夹失败');
+    notifyError(event instanceof Error ? event.message : t('folders.loadFailed'));
   } finally {
     isInitialLoading.value = false;
   }
@@ -177,9 +180,9 @@ async function bulkDeleteSelected() {
   const affectedIds = affectedFolderIds(ids);
   const linkCount = links.value.filter((link) => affectedIds.has(link.folderId)).length;
   const confirmed = await confirmApi.confirm({
-    title: '批量删除文件夹',
-    message: `确定删除涉及的 ${affectedIds.size} 个文件夹和 ${linkCount} 个书签吗？子文件夹也会一起删除。`,
-    confirmText: '删除',
+    title: t('folders.bulkDeleteTitle'),
+    message: t('folders.bulkDeleteConfirm', { folders: affectedIds.size, links: linkCount }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -192,9 +195,9 @@ async function bulkDeleteSelected() {
     if (affectedIds.has(form.id)) reset();
     ensureSelectedCategory();
     clearFolderSelection();
-    notifySuccess(`已删除 ${affectedIds.size} 个文件夹和 ${linkCount} 个书签`);
+    notifySuccess(t('folders.bulkDeleted', { folders: affectedIds.size, links: linkCount }));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '批量删除失败');
+    notifyError(event instanceof Error ? event.message : t('folders.bulkDeleteFailed'));
   } finally {
     isBulkDeleting.value = false;
   }
@@ -250,11 +253,11 @@ async function save() {
     const saved = await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) });
     folders.value = [...folders.value, saved];
     if (!selectedCategoryId.value) ensureSelectedCategory();
-    message.value = '文件夹已新增';
+    message.value = t('folders.created');
     notifySuccess(message.value);
     reset();
   } catch (event) {
-    const text = event instanceof Error ? event.message : '保存失败';
+    const text = event instanceof Error ? event.message : t('common.saveFailed');
     error.value = text;
     notifyError(text);
   } finally {
@@ -282,9 +285,9 @@ async function moveFolderToNotab(folder: Folder, event: Event) {
     folders.value = folders.value.map((item) => (item.id === folder.id ? { ...item, ...saved } : item));
     selectedCategoryId.value = saved.parentId || saved.id;
     clearFolderSelection();
-    notifySuccess(`已移动「${saved.name}」`);
+    notifySuccess(t('folders.moved', { name: saved.name }));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '移动文件夹失败');
+    notifyError(event instanceof Error ? event.message : t('folders.moveFailed'));
   } finally {
     const next = new Set(movingFolderIds.value);
     next.delete(folder.id);
@@ -311,9 +314,9 @@ async function saveInlineEdit(folder: Folder) {
     selectedCategoryId.value = saved.parentId || saved.id;
     editingFolderId.value = null;
     ensureSelectedCategory();
-    notifySuccess('文件夹已更新');
+    notifySuccess(t('folders.updated'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '文件夹更新失败');
+    notifyError(event instanceof Error ? event.message : t('folders.updateFailed'));
   } finally {
     isSavingInlineFolder.value = false;
   }
@@ -323,9 +326,9 @@ async function remove(folder: Folder) {
   const affectedFolderIds = folderTreeIds(folder.id);
   const linkCount = links.value.filter((link) => affectedFolderIds.has(link.folderId)).length;
   const confirmed = await confirmApi.confirm({
-    title: '删除文件夹',
-    message: `确定删除「${folder.name}」吗？该文件夹内的 ${linkCount} 个书签会一起删除。`,
-    confirmText: '删除',
+    title: t('folders.deleteTitle'),
+    message: t('folders.deleteConfirm', { name: folder.name, links: linkCount }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -338,9 +341,9 @@ async function remove(folder: Folder) {
     selectedFolderIds.value = new Set([...selectedFolderIds.value].filter((id) => !affectedFolderIds.has(id)));
     if (affectedFolderIds.has(form.id)) reset();
     ensureSelectedCategory();
-    notifySuccess('文件夹已删除');
+    notifySuccess(t('folders.deleted'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '删除失败');
+    notifyError(event instanceof Error ? event.message : t('folders.deleteFailed'));
   } finally {
     const next = new Set(deletingIds.value);
     next.delete(folder.id);
@@ -381,10 +384,10 @@ async function saveSorting() {
     await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids }) });
     const orderMap = new Map(ids.map((id, orderIndex) => [id, (ids.length - orderIndex) * 10]));
     folders.value = folders.value.map((item) => ({ ...item, sortOrder: orderMap.get(item.id) || item.sortOrder }));
-    notifySuccess('文件夹顺序已保存');
+    notifySuccess(t('folders.sortSaved'));
     stopSorting();
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '排序保存失败');
+    notifyError(event instanceof Error ? event.message : t('folders.sortSaveFailed'));
   } finally {
     isSavingSort.value = false;
   }
@@ -395,30 +398,30 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="导航内容" title="文件夹" />
+    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleFolders')" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <section class="admin-section compact-admin-section">
       <div class="admin-section-head">
-        <h2>文件夹管理</h2>
+        <h2>{{ t('folders.management') }}</h2>
         <div class="toolbar">
-          <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
+          <span v-if="sortMode" class="sort-save-state">{{ t('folders.unsaved') }}</span>
           <button v-if="!sortMode" class="button secondary" data-testid="start-folder-sort" type="button" :disabled="sortableFolders.length < 2" @click="startSorting">
-            <GripVertical :size="17" /> 调整顺序
+            <GripVertical :size="17" /> {{ t('folders.reorder') }}
           </button>
-          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
+          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('common.cancel') }}</button>
         </div>
       </div>
-      <LoadingOverlay v-if="isInitialLoading" label="正在加载文件夹" />
-      <EmptyState v-else-if="!sortedFolders.length" title="还没有文件夹" description="先创建一个文件夹，再添加导航链接。">
+      <LoadingOverlay v-if="isInitialLoading" :label="t('folders.loading')" />
+      <EmptyState v-else-if="!sortedFolders.length" :title="t('folders.emptyTitle')" :description="t('folders.emptyBody')">
         <template #action>
-          <button class="button" type="button" @click="reset">创建文件夹</button>
+          <button class="button" type="button" @click="reset">{{ t('folders.createFolder') }}</button>
         </template>
       </EmptyState>
       <template v-else>
-        <nav class="folder-pills category-manager-tabs" aria-label="文件夹 notab">
+        <nav class="folder-pills category-manager-tabs" :aria-label="t('folders.notabNav')">
           <button
             v-for="category in categoryFolders"
             :key="category.id"
@@ -434,26 +437,26 @@ onMounted(load);
           </button>
         </nav>
         <div v-if="!sortMode" class="bulk-action-bar">
-          <strong>{{ selectedFolderCount ? `已选择 ${selectedFolderCount} 个文件夹` : '批量操作' }}</strong>
+          <strong>{{ selectedFolderCount ? t('folders.selectedCount', { count: selectedFolderCount }) : t('folders.bulkActions') }}</strong>
           <div class="bulk-controls">
-            <button class="button secondary" data-testid="select-all-folders" type="button" @click="selectAllFolders"><CheckSquare :size="17" /> 全选</button>
-            <button class="button secondary" type="button" :disabled="!selectedFolderCount" @click="clearFolderSelection"><Square :size="17" /> 取消选择</button>
+            <button class="button secondary" data-testid="select-all-folders" type="button" @click="selectAllFolders"><CheckSquare :size="17" /> {{ t('folders.selectAll') }}</button>
+            <button class="button secondary" type="button" :disabled="!selectedFolderCount" @click="clearFolderSelection"><Square :size="17" /> {{ t('folders.clearSelection') }}</button>
             <button class="button danger" data-testid="bulk-delete-folders" type="button" :disabled="!selectedFolderCount || isBulkDeleting" @click="bulkDeleteSelected">
-              <Trash2 :size="17" /> {{ isBulkDeleting ? '删除中' : '批量删除' }}
+              <Trash2 :size="17" /> {{ isBulkDeleting ? t('folders.deleting') : t('folders.bulkDelete') }}
             </button>
           </div>
         </div>
         <div class="admin-table folder-table mobile-card-table">
         <div class="admin-table-head">
-          <span>选择</span>
-          <span>{{ sortMode ? '排序' : '图标' }}</span>
-          <span>名称</span>
+          <span>{{ t('folders.select') }}</span>
+          <span>{{ sortMode ? t('folders.sort') : t('folders.icon') }}</span>
+          <span>{{ t('folders.name') }}</span>
           <span>notab</span>
-          <span>书签数</span>
-          <span>AI 提示</span>
-          <span>操作</span>
+          <span>{{ t('folders.linkCountHeader') }}</span>
+          <span>{{ t('folders.aiHint') }}</span>
+          <span>{{ t('folders.actions') }}</span>
         </div>
-        <SortableList :disabled="!sortMode" aria-label="文件夹排序" @reorder="reorderDraft">
+        <SortableList :disabled="!sortMode" :aria-label="t('folders.sortAria')" @reorder="reorderDraft">
           <article
             v-for="(folder, index) in displayedFolders"
             :key="folder.id"
@@ -463,7 +466,7 @@ onMounted(load);
             :data-id="folder.id"
             :style="{ '--folder-depth': folderDepth(folder) }"
           >
-            <span class="selection-cell" data-label="选择">
+            <span class="selection-cell" :data-label="t('folders.select')">
               <input
                 :data-testid="`select-folder-${folder.id}`"
                 type="checkbox"
@@ -474,39 +477,39 @@ onMounted(load);
             </span>
             <div v-if="editingFolderId === folder.id" class="inline-folder-editor">
               <div class="inline-folder-field">
-                <label>图标</label>
+                <label>{{ t('folders.icon') }}</label>
                 <FolderIconPicker v-model="inlineForm.icon" :test-id="`inline-folder-icon-picker-${folder.id}`" />
               </div>
               <div class="inline-folder-field">
-                <label :for="`inline-folder-name-${folder.id}`">名称</label>
+                <label :for="`inline-folder-name-${folder.id}`">{{ t('folders.name') }}</label>
                 <input :id="`inline-folder-name-${folder.id}`" v-model="inlineForm.name" :data-testid="`inline-folder-name-${folder.id}`" maxlength="16" />
               </div>
               <div class="inline-folder-field">
-                <label :for="`inline-folder-parent-${folder.id}`">所属 notab</label>
+                <label :for="`inline-folder-parent-${folder.id}`">{{ t('folders.parentNotab') }}</label>
                 <select :id="`inline-folder-parent-${folder.id}`" v-model.number="inlineForm.parentId" :data-testid="`inline-folder-parent-${folder.id}`">
                   <option v-for="parent in inlineSelectableParents(folder.id)" :key="parent.id" :value="parent.id">{{ parent.name }}</option>
                 </select>
               </div>
               <div class="inline-folder-field">
-                <label :for="`inline-folder-hint-${folder.id}`">引导语</label>
+                <label :for="`inline-folder-hint-${folder.id}`">{{ t('folders.tagline') }}</label>
                 <input :id="`inline-folder-hint-${folder.id}`" v-model="inlineForm.passwordHint" :data-testid="`inline-folder-hint-${folder.id}`" maxlength="30" />
               </div>
               <div class="inline-folder-field inline-folder-ai-prompt">
-                <label :for="`inline-folder-ai-prompt-${folder.id}`">AI 归类提示</label>
-                <textarea :id="`inline-folder-ai-prompt-${folder.id}`" v-model="inlineForm.description" :data-testid="`inline-folder-ai-prompt-${folder.id}`" maxlength="400" placeholder="告诉 AI 这个 notab 或文件夹应收录什么" />
+                <label :for="`inline-folder-ai-prompt-${folder.id}`">{{ t('folders.aiPrompt') }}</label>
+                <textarea :id="`inline-folder-ai-prompt-${folder.id}`" v-model="inlineForm.description" :data-testid="`inline-folder-ai-prompt-${folder.id}`" maxlength="400" :placeholder="t('folders.aiPromptPlaceholder')" />
               </div>
               <div class="inline-folder-actions">
-                <span>{{ folderLinkCount(folder.id) }} 个书签</span>
-                <button class="icon-button success" :data-testid="`save-inline-folder-${folder.id}`" title="保存修改" :disabled="isSavingInlineFolder" @click="saveInlineEdit(folder)"><Save :size="16" /></button>
-                <button class="icon-button secondary" title="取消修改" :disabled="isSavingInlineFolder" @click="cancelInlineEdit"><X :size="16" /></button>
+                <span>{{ t('folders.linkCount', { count: folderLinkCount(folder.id) }) }}</span>
+                <button class="icon-button success" :data-testid="`save-inline-folder-${folder.id}`" :title="t('folders.saveEdit')" :disabled="isSavingInlineFolder" @click="saveInlineEdit(folder)"><Save :size="16" /></button>
+                <button class="icon-button secondary" :title="t('folders.cancelEdit')" :disabled="isSavingInlineFolder" @click="cancelInlineEdit"><X :size="16" /></button>
               </div>
             </div>
             <template v-else>
-              <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
-                <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整文件夹顺序"><GripVertical :size="18" /></button>
+              <span class="folder-sort-cell" :data-label="sortMode ? t('folders.sort') : t('folders.icon')">
+                <button v-if="sortMode" class="drag-handle" type="button" :title="t('folders.dragHandle')" :aria-label="t('folders.dragHandleAria')"><GripVertical :size="18" /></button>
                 <FolderGlyph :icon="folder.icon" :size="18" />
               </span>
-              <div class="folder-name-location" data-label="名称">
+              <div class="folder-name-location" :data-label="t('folders.name')">
                 <button class="text-button" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
               </div>
               <span class="folder-notab-cell" data-label="notab">
@@ -514,7 +517,7 @@ onMounted(load);
                   v-if="folder.parentId"
                   :value="folder.parentId"
                   :data-testid="`move-folder-${folder.id}`"
-                  aria-label="移动到 notab"
+                  :aria-label="t('folders.moveToNotab')"
                   :disabled="movingFolderIds.has(folder.id)"
                   @change="moveFolderToNotab(folder, $event)"
                 >
@@ -522,16 +525,16 @@ onMounted(load);
                 </select>
                 <small v-else>notab</small>
               </span>
-              <span data-label="书签数">{{ folderLinkCount(folder.id) }} 个书签</span>
-              <span data-label="AI 提示">{{ folder.description || '-' }}</span>
-              <span class="row-actions" data-label="操作">
+              <span :data-label="t('folders.linkCountHeader')">{{ t('folders.linkCount', { count: folderLinkCount(folder.id) }) }}</span>
+              <span :data-label="t('folders.aiHint')">{{ folder.description || '-' }}</span>
+              <span class="row-actions" :data-label="t('folders.actions')">
                 <template v-if="sortMode">
-                  <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
-                  <button class="icon-button secondary" title="下移" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
+                  <button class="icon-button secondary" :title="t('folders.moveUp')" :disabled="index === 0" @click="moveDraft(folder, -1)"><MoveUp :size="16" /></button>
+                  <button class="icon-button secondary" :title="t('folders.moveDown')" :disabled="index === displayedFolders.length - 1" @click="moveDraft(folder, 1)"><MoveDown :size="16" /></button>
                 </template>
                 <template v-else>
-                  <button class="icon-button secondary" :data-testid="`edit-folder-${folder.id}`" title="重命名和更改图标" @click="startInlineEdit(folder)"><Pencil :size="16" /></button>
-                  <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" title="删除" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
+                  <button class="icon-button secondary" :data-testid="`edit-folder-${folder.id}`" :title="t('folders.renameAndIcon')" @click="startInlineEdit(folder)"><Pencil :size="16" /></button>
+                  <button class="icon-button danger" :data-testid="`delete-folder-${folder.id}`" :title="t('common.delete')" :disabled="deletingIds.has(folder.id)" @click="remove(folder)"><Trash2 :size="16" /></button>
                 </template>
               </span>
             </template>
@@ -539,44 +542,44 @@ onMounted(load);
         </SortableList>
         <div v-if="isCreatingFolder && !sortMode" class="inline-folder-editor inline-create-folder-row">
           <div class="inline-folder-field">
-            <label>图标</label>
+            <label>{{ t('folders.icon') }}</label>
             <FolderIconPicker v-model="form.icon" test-id="new-folder-icon-picker" />
           </div>
           <div class="inline-folder-field">
-            <label>名称</label>
+            <label>{{ t('folders.name') }}</label>
             <input v-model="form.name" data-testid="new-folder-name" maxlength="16" @keydown.enter.prevent="save" />
           </div>
           <div class="inline-folder-field">
-            <label>所属 notab</label>
+            <label>{{ t('folders.parentNotab') }}</label>
             <select v-model.number="form.parentId" disabled>
               <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
             </select>
           </div>
           <div class="inline-folder-field">
-            <label>密码</label>
+            <label>{{ t('folders.password') }}</label>
             <input v-model="form.password" data-testid="new-folder-password" type="password" />
           </div>
           <div class="inline-folder-field">
-            <label>引导语</label>
+            <label>{{ t('folders.tagline') }}</label>
             <input v-model="form.passwordHint" maxlength="30" />
           </div>
           <div class="inline-folder-field inline-folder-ai-prompt">
-            <label>AI 归类提示</label>
+            <label>{{ t('folders.aiPrompt') }}</label>
             <textarea v-model="form.description" maxlength="400" />
           </div>
           <div class="inline-folder-actions">
-            <button class="icon-button success" data-testid="save-new-folder" type="button" title="保存文件夹" :disabled="isSaving" @click="save"><Save :size="16" /></button>
-            <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
+            <button class="icon-button success" data-testid="save-new-folder" type="button" :title="t('folders.saveFolder')" :disabled="isSaving" @click="save"><Save :size="16" /></button>
+            <button class="icon-button secondary" type="button" :title="t('common.cancel')" @click="reset"><X :size="16" /></button>
           </div>
         </div>
-        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-folder-row" type="button" title="新增文件夹" @click="startCreateFolder"><Plus :size="18" /></button>
+        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-folder-row" type="button" :title="t('folders.addFolder')" @click="startCreateFolder"><Plus :size="18" /></button>
         </div>
       </template>
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-        <strong>{{ displayedFolders.length }} 个文件夹</strong>
+        <strong>{{ t('folders.total', { count: displayedFolders.length }) }}</strong>
         <div class="toolbar">
-          <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
-          <button class="button" data-testid="save-folder-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+          <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('common.cancel') }}</button>
+          <button class="button" data-testid="save-folder-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? t('common.saving') : t('folders.saveChanges') }}</button>
         </div>
       </div>
     </section>
@@ -589,7 +592,7 @@ onMounted(load);
   background: rgba(255, 255, 255, 0.35);
   border: 1px dashed rgba(100, 116, 139, 0.38);
   border-radius: var(--admin-surface-radius, 8px);
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: flex;
   justify-content: center;
   min-height: 42px;
@@ -598,7 +601,7 @@ onMounted(load);
 
 .add-list-row:hover {
   background: rgba(255, 255, 255, 0.62);
-  color: #0f766e;
+  color: var(--admin-accent);
 }
 
 .inline-create-folder-row {
@@ -673,7 +676,7 @@ onMounted(load);
 }
 
 .inline-folder-field label {
-  color: #64748b;
+  color: var(--admin-text-muted);
   font-size: 11px;
   font-weight: 800;
 }
@@ -681,8 +684,8 @@ onMounted(load);
 .inline-folder-field input,
 .inline-folder-field select,
 .inline-folder-field textarea {
-  background: #ffffff;
-  border: 1px solid #aeb9c6;
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border-strong);
   border-radius: 8px;
   color: var(--text);
   font: inherit;
@@ -717,7 +720,7 @@ onMounted(load);
 }
 
 .inline-folder-actions > span {
-  color: #64748b;
+  color: var(--admin-text-muted);
   font-size: 12px;
   margin-right: 2px;
 }

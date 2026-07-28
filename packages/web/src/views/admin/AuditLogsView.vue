@@ -15,6 +15,10 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AuditLogEntry, AuditLogPage, AuditSettings } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+import type { MessageKey } from '@/locales';
+
+const { t } = useI18n();
 
 const logs = ref<AuditLogEntry[]>([]);
 const total = ref(0);
@@ -37,41 +41,43 @@ const filters = ref({
   to: '',
 });
 
-const resourceOptions = [
-  ['notab', 'Notab'],
-  ['folder', '文件夹'],
-  ['bookmark', '书签'],
-  ['site', '站点'],
-  ['user', '用户'],
-  ['token', 'Token'],
-  ['backup', '备份'],
-  ['account', '账户'],
-  ['session', '会话'],
-  ['passkey', '通行密钥'],
-  ['llm', 'LLM'],
-  ['nodesk', 'Nodesk'],
-  ['nostar', 'NoStar'],
-  ['system', '系统'],
-  ['audit', '审计设置'],
-] as const;
+const resourceKeys = [
+  ['notab', 'nav.kindNotab'],
+  ['folder', 'nav.kindFolder'],
+  ['bookmark', 'nav.kindBookmark'],
+  ['site', 'audit.rSite'],
+  ['user', 'audit.rUser'],
+  ['token', 'audit.rToken'],
+  ['backup', 'audit.rBackup'],
+  ['account', 'audit.rAccount'],
+  ['session', 'audit.rSession'],
+  ['passkey', 'audit.rPasskey'],
+  ['llm', 'audit.rLlm'],
+  ['nodesk', 'audit.rNodesk'],
+  ['nostar', 'audit.rNostar'],
+  ['system', 'audit.rSystem'],
+  ['audit', 'audit.rAudit'],
+] as const satisfies ReadonlyArray<readonly [string, MessageKey]>;
 
-const actionOptions = [
-  ['create', '新增'],
-  ['update', '修改'],
-  ['delete', '删除'],
-  ['reorder', '排序'],
-  ['bulk_move', '批量移动'],
-  ['bulk_delete', '批量删除'],
-  ['import', '导入'],
-  ['health_check', '健康检查'],
-  ['health_repair', '链接修复'],
-  ['settings_update', '设置修改'],
-  ['test_connection', '连接测试'],
-  ['sync', '同步'],
-] as const;
+const actionKeys = [
+  ['create', 'audit.aCreate'],
+  ['update', 'audit.aUpdate'],
+  ['delete', 'audit.aDelete'],
+  ['reorder', 'audit.aReorder'],
+  ['bulk_move', 'audit.aBulkMove'],
+  ['bulk_delete', 'audit.aBulkDelete'],
+  ['import', 'audit.aImport'],
+  ['health_check', 'audit.aHealthCheck'],
+  ['health_repair', 'audit.aHealthRepair'],
+  ['settings_update', 'audit.aSettingsUpdate'],
+  ['test_connection', 'audit.aTestConnection'],
+  ['sync', 'audit.aSync'],
+] as const satisfies ReadonlyArray<readonly [string, MessageKey]>;
 
-const resourceLabels = Object.fromEntries(resourceOptions) as Record<string, string>;
-const actionLabels = Object.fromEntries(actionOptions) as Record<string, string>;
+const resourceOptions = computed(() => resourceKeys.map(([value, key]) => [value, t(key)] as const));
+const actionOptions = computed(() => actionKeys.map(([value, key]) => [value, t(key)] as const));
+const resourceLabels = computed(() => Object.fromEntries(resourceOptions.value) as Record<string, string>);
+const actionLabels = computed(() => Object.fromEntries(actionOptions.value) as Record<string, string>);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 const rangeStart = computed(() => (total.value ? (page.value - 1) * pageSize + 1 : 0));
 const rangeEnd = computed(() => Math.min(page.value * pageSize, total.value));
@@ -93,7 +99,7 @@ async function loadLogs() {
     total.value = response.total;
     expandedId.value = null;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '审计日志加载失败';
+    error.value = event instanceof Error ? event.message : t('audit.loadFailed');
   } finally {
     isLoading.value = false;
   }
@@ -104,7 +110,7 @@ async function loadSettings() {
     const settings = await apiRequest<AuditSettings>('/api/admin/audit/settings');
     retentionDays.value = settings.retentionDays;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '保留策略加载失败';
+    error.value = event instanceof Error ? event.message : t('audit.retentionLoadFailed');
   }
 }
 
@@ -138,9 +144,9 @@ async function saveRetention() {
       body: jsonBody({ retentionDays: days }),
     });
     retentionDays.value = updated.retentionDays;
-    feedback.value = updated.removed ? `保留策略已保存，清理 ${updated.removed} 条过期记录` : '保留策略已保存';
+    feedback.value = updated.removed ? t('audit.retentionSavedCleaned', { count: updated.removed }) : t('audit.retentionSaved');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '保留策略保存失败';
+    error.value = event instanceof Error ? event.message : t('audit.retentionSaveFailed');
   } finally {
     isSavingSettings.value = false;
   }
@@ -175,31 +181,31 @@ onMounted(() => {
 
 <template>
   <div class="admin-page-stack audit-page">
-    <AdminPageHeader eyebrow="系统" title="操作审计">
+    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleAudit')">
       <template #actions>
         <div class="audit-header-actions">
           <div class="audit-retention-control">
-            <span class="audit-retention-label">保留</span>
+            <span class="audit-retention-label">{{ t('audit.retain') }}</span>
             <input
               v-model.number="retentionDays"
               data-testid="audit-retention-days"
               type="number"
               min="7"
               max="3650"
-              aria-label="审计日志保留天数"
+              :aria-label="t('audit.retentionDays')"
             />
-            <span class="audit-retention-unit">天</span>
+            <span class="audit-retention-unit">{{ t('audit.days') }}</span>
             <button
               class="icon-button secondary"
               data-testid="audit-save-retention"
               type="button"
-              title="保存保留策略"
-              aria-label="保存保留策略"
+              :title="t('audit.saveRetention')"
+              :aria-label="t('audit.saveRetention')"
               :disabled="isSavingSettings"
               @click="saveRetention"
             ><Save :size="16" /></button>
           </div>
-          <button class="icon-button secondary" type="button" title="刷新审计日志" aria-label="刷新审计日志" :disabled="isLoading" @click="loadLogs">
+          <button class="icon-button secondary" type="button" :title="t('audit.refresh')" :aria-label="t('audit.refresh')" :disabled="isLoading" @click="loadLogs">
             <RefreshCw :size="16" :class="{ spinning: isLoading }" />
           </button>
         </div>
@@ -209,61 +215,61 @@ onMounted(() => {
     <AdminStateBanner v-if="error" :message="error" tone="error" />
     <AdminStateBanner v-else-if="feedback" :message="feedback" tone="success" />
 
-    <section class="audit-workspace" aria-label="操作审计日志">
+    <section class="audit-workspace" :aria-label="t('audit.workspace')">
       <form data-testid="audit-filter-form" class="audit-filter-bar" @submit.prevent="applyFilters">
         <label class="audit-search-field">
           <Search :size="16" aria-hidden="true" />
-          <input v-model="filters.search" data-testid="audit-search" type="search" placeholder="搜索资源、ID 或 IP" aria-label="搜索审计日志" />
+          <input v-model="filters.search" data-testid="audit-search" type="search" :placeholder="t('audit.searchPlaceholder')" :aria-label="t('audit.searchAria')" />
         </label>
-        <input v-model="filters.actor" data-testid="audit-actor" type="search" placeholder="操作者" aria-label="筛选操作者" />
-        <select v-model="filters.resourceType" data-testid="audit-resource" aria-label="筛选资源类型">
-          <option value="">全部资源</option>
+        <input v-model="filters.actor" data-testid="audit-actor" type="search" :placeholder="t('audit.actor')" :aria-label="t('audit.filterActor')" />
+        <select v-model="filters.resourceType" data-testid="audit-resource" :aria-label="t('audit.filterResource')">
+          <option value="">{{ t('audit.allResources') }}</option>
           <option v-for="option in resourceOptions" :key="option[0]" :value="option[0]">{{ option[1] }}</option>
         </select>
-        <select v-model="filters.action" aria-label="筛选操作类型">
-          <option value="">全部操作</option>
+        <select v-model="filters.action" :aria-label="t('audit.filterAction')">
+          <option value="">{{ t('audit.allActions') }}</option>
           <option v-for="option in actionOptions" :key="option[0]" :value="option[0]">{{ option[1] }}</option>
         </select>
-        <select v-model="filters.result" data-testid="audit-result" aria-label="筛选执行结果">
-          <option value="">全部结果</option>
-          <option value="success">成功</option>
-          <option value="failure">失败</option>
+        <select v-model="filters.result" data-testid="audit-result" :aria-label="t('audit.filterResult')">
+          <option value="">{{ t('audit.allResults') }}</option>
+          <option value="success">{{ t('audit.success') }}</option>
+          <option value="failure">{{ t('audit.failure') }}</option>
         </select>
-        <input v-model="filters.from" type="datetime-local" aria-label="开始时间" />
-        <input v-model="filters.to" type="datetime-local" aria-label="结束时间" />
+        <input v-model="filters.from" type="datetime-local" :aria-label="t('audit.from')" />
+        <input v-model="filters.to" type="datetime-local" :aria-label="t('audit.to')" />
         <div class="audit-filter-actions">
-          <button class="button compact" type="submit"><Search :size="15" />筛选</button>
-          <button class="icon-button secondary" type="button" title="清除筛选" aria-label="清除筛选" @click="resetFilters"><RotateCcw :size="15" /></button>
+          <button class="button compact" type="submit"><Search :size="15" />{{ t('audit.filter') }}</button>
+          <button class="icon-button secondary" type="button" :title="t('audit.clearFilters')" :aria-label="t('audit.clearFilters')" @click="resetFilters"><RotateCcw :size="15" /></button>
         </div>
       </form>
 
       <div class="audit-list-meta">
-        <span>共 {{ total }} 条</span>
-        <span v-if="total">当前 {{ rangeStart }}–{{ rangeEnd }}</span>
+        <span>{{ t('audit.totalCount', { count: total }) }}</span>
+        <span v-if="total">{{ t('audit.range', { start: rangeStart, end: rangeEnd }) }}</span>
       </div>
 
       <div class="audit-table-scroll">
-        <div class="audit-table" role="table" aria-label="审计日志列表">
+        <div class="audit-table" role="table" :aria-label="t('audit.tableAria')">
           <div class="audit-grid audit-table-head" role="row">
             <span></span>
-            <span>操作者</span>
-            <span>操作</span>
-            <span>资源</span>
-            <span>结果</span>
-            <span>时间</span>
-            <span>来源 IP</span>
+            <span>{{ t('audit.actor') }}</span>
+            <span>{{ t('audit.action') }}</span>
+            <span>{{ t('audit.resource') }}</span>
+            <span>{{ t('audit.result') }}</span>
+            <span>{{ t('audit.time') }}</span>
+            <span>{{ t('audit.sourceIp') }}</span>
           </div>
 
-          <div v-if="isLoading" class="audit-empty">正在读取审计日志</div>
-          <div v-else-if="!logs.length" class="audit-empty">暂无符合条件的审计记录</div>
+          <div v-if="isLoading" class="audit-empty">{{ t('audit.loading') }}</div>
+          <div v-else-if="!logs.length" class="audit-empty">{{ t('audit.empty') }}</div>
           <article v-for="entry in logs" v-else :key="entry.id" class="audit-entry">
             <div :data-testid="`audit-row-${entry.id}`" class="audit-grid audit-row" role="row">
               <button
                 class="audit-expand-button"
                 type="button"
                 :data-testid="`audit-expand-${entry.id}`"
-                :title="expandedId === entry.id ? '收起详情' : '展开详情'"
-                :aria-label="expandedId === entry.id ? '收起详情' : '展开详情'"
+                :title="expandedId === entry.id ? t('audit.collapse') : t('audit.expand')"
+                :aria-label="expandedId === entry.id ? t('audit.collapse') : t('audit.expand')"
                 :aria-expanded="expandedId === entry.id"
                 @click="toggleDetails(entry.id)"
               >
@@ -272,7 +278,7 @@ onMounted(() => {
               </button>
               <div class="audit-actor">
                 <strong>{{ entry.actorUsername }}</strong>
-                <small>{{ entry.actorRole === 'admin' ? '管理员' : '成员' }}</small>
+                <small>{{ entry.actorRole === 'admin' ? t('admin.roleAdmin') : t('admin.roleMember') }}</small>
               </div>
               <span class="audit-action">{{ actionLabels[entry.action] || entry.action }}</span>
               <div class="audit-resource">
@@ -282,24 +288,24 @@ onMounted(() => {
               <span class="audit-result" :class="`is-${entry.result}`">
                 <CheckCircle2 v-if="entry.result === 'success'" :size="14" />
                 <CircleX v-else :size="14" />
-                {{ entry.result === 'success' ? '成功' : '失败' }} · {{ entry.statusCode }}
+                {{ entry.result === 'success' ? t('audit.success') : t('audit.failure') }} · {{ entry.statusCode }}
               </span>
               <time class="audit-time" :datetime="entry.createdAt">{{ formatTime(entry.createdAt) }}</time>
               <code class="audit-ip">{{ entry.ipAddress || '—' }}</code>
             </div>
             <div v-if="expandedId === entry.id" :data-testid="`audit-details-${entry.id}`" class="audit-details">
               <pre>{{ formatDetails(entry.details) }}</pre>
-              <div class="audit-client"><span>客户端</span><code>{{ entry.userAgent || '—' }}</code></div>
+              <div class="audit-client"><span>{{ t('audit.client') }}</span><code>{{ entry.userAgent || '—' }}</code></div>
             </div>
           </article>
         </div>
       </div>
 
       <footer class="audit-pagination">
-        <span>第 {{ page }} / {{ totalPages }} 页</span>
+        <span>{{ t('audit.pageOf', { page, total: totalPages }) }}</span>
         <div>
-          <button class="icon-button secondary" type="button" title="上一页" aria-label="上一页" :disabled="page <= 1 || isLoading" @click="movePage(-1)"><ChevronLeft :size="16" /></button>
-          <button class="icon-button secondary" data-testid="audit-next" type="button" title="下一页" aria-label="下一页" :disabled="page >= totalPages || isLoading" @click="movePage(1)"><ChevronRight :size="16" /></button>
+          <button class="icon-button secondary" type="button" :title="t('audit.prevPage')" :aria-label="t('audit.prevPage')" :disabled="page <= 1 || isLoading" @click="movePage(-1)"><ChevronLeft :size="16" /></button>
+          <button class="icon-button secondary" data-testid="audit-next" type="button" :title="t('audit.nextPage')" :aria-label="t('audit.nextPage')" :disabled="page >= totalPages || isLoading" @click="movePage(1)"><ChevronRight :size="16" /></button>
         </div>
       </footer>
     </section>
@@ -309,7 +315,7 @@ onMounted(() => {
 <style scoped>
 .audit-retention-control {
   align-items: center;
-  color: #5f5f5f;
+  color: var(--admin-text-muted);
   display: flex;
   font-size: 12px;
   gap: 6px;
@@ -329,8 +335,8 @@ onMounted(() => {
 .admin-page-actions > .icon-button { height: 34px; min-height: 34px; width: 34px; }
 
 .audit-workspace {
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
   min-width: 0;
   overflow: hidden;
@@ -338,7 +344,7 @@ onMounted(() => {
 
 .audit-filter-bar {
   align-items: center;
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid var(--admin-border);
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(190px, 1.4fr) minmax(110px, .7fr) repeat(3, minmax(116px, .72fr)) minmax(155px, .9fr) minmax(155px, .9fr) auto;
@@ -354,15 +360,15 @@ onMounted(() => {
 
 .audit-search-field {
   align-items: center;
-  border: 1px solid #d6d6d6;
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
-  color: #737373;
+  color: var(--admin-text-muted);
   display: flex;
   gap: 7px;
   padding: 0 9px;
 }
 
-.audit-search-field:focus-within { border-color: #0d0d0d; box-shadow: 0 0 0 2px rgb(13 13 13 / 10%); }
+.audit-search-field:focus-within { border-color: var(--admin-text); box-shadow: 0 0 0 2px rgb(13 13 13 / 10%); }
 .audit-search-field input { border: 0 !important; box-shadow: none !important; height: 34px; min-height: 34px !important; min-width: 0; padding: 0 !important; width: 100%; }
 .audit-filter-actions { display: flex; gap: 6px; }
 .audit-filter-actions .button { min-height: 36px; padding: 0 11px; }
@@ -370,9 +376,9 @@ onMounted(() => {
 
 .audit-list-meta {
   align-items: center;
-  background: #fafafa;
-  border-bottom: 1px solid #ececec;
-  color: #737373;
+  background: var(--admin-surface-elevated);
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
   display: flex;
   font-size: 11px;
   gap: 12px;
@@ -390,23 +396,23 @@ onMounted(() => {
 }
 
 .audit-table-head {
-  border-bottom: 1px solid #e9e9e9;
-  color: #737373;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
   font-size: 11px;
   font-weight: 600;
   min-height: 38px;
   padding: 0 13px;
 }
 
-.audit-entry + .audit-entry { border-top: 1px solid #eeeeee; }
+.audit-entry + .audit-entry { border-top: 1px solid var(--admin-border); }
 .audit-row { min-height: 64px; padding: 9px 13px; }
-.audit-row:hover { background: #fafafa; }
+.audit-row:hover { background: var(--panel-2); }
 .audit-expand-button {
   align-items: center;
   background: transparent;
   border: 0;
   border-radius: 5px;
-  color: #737373;
+  color: var(--admin-text-muted);
   cursor: pointer;
   display: inline-flex;
   height: 26px;
@@ -414,14 +420,14 @@ onMounted(() => {
   padding: 0;
   width: 26px;
 }
-.audit-expand-button:hover { background: #eeeeee; color: #171717; }
+.audit-expand-button:hover { background: var(--admin-border); color: var(--admin-text); }
 .audit-actor,
 .audit-resource { display: grid; gap: 3px; min-width: 0; }
 .audit-actor strong,
-.audit-resource strong { color: #171717; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-resource strong { color: var(--admin-text); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .audit-actor small,
-.audit-resource small { color: #858585; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.audit-action { color: #404040; font-size: 12px; }
+.audit-resource small { color: var(--admin-text-muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-action { color: var(--admin-text); font-size: 12px; }
 .audit-result {
   align-items: center;
   border-radius: 6px;
@@ -433,23 +439,23 @@ onMounted(() => {
   min-height: 26px;
   padding: 4px 7px;
 }
-.audit-result.is-success { background: #edf8f4; color: #087f5b; }
-.audit-result.is-failure { background: #fff1f1; color: #b42318; }
-.audit-row time { color: #525252; font-size: 11px; }
-.audit-row code { color: #666666; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
+.audit-result.is-success { background: color-mix(in srgb, var(--admin-status-ok) 16%, transparent); color: var(--admin-status-ok); }
+.audit-result.is-failure { background: color-mix(in srgb, var(--admin-status-danger) 16%, transparent); color: var(--admin-status-danger); }
+.audit-row time { color: var(--admin-text-muted); font-size: 11px; }
+.audit-row code { color: var(--admin-text-muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
 
 .audit-details {
-  background: #f7f7f7;
-  border-top: 1px solid #eeeeee;
+  background: var(--admin-surface-elevated);
+  border-top: 1px solid var(--admin-border);
   display: grid;
   gap: 8px;
   padding: 12px 13px 12px 51px;
 }
 .audit-details pre {
-  background: #ffffff;
-  border: 1px solid #dedede;
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
   border-radius: 6px;
-  color: #303030;
+  color: var(--admin-text);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11px;
   line-height: 1.55;
@@ -460,14 +466,14 @@ onMounted(() => {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.audit-client { color: #737373; display: flex; font-size: 10px; gap: 8px; min-width: 0; }
+.audit-client { color: var(--admin-text-muted); display: flex; font-size: 10px; gap: 8px; min-width: 0; }
 .audit-client code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.audit-empty { align-items: center; color: #737373; display: flex; font-size: 13px; justify-content: center; min-height: 220px; }
+.audit-empty { align-items: center; color: var(--admin-text-muted); display: flex; font-size: 13px; justify-content: center; min-height: 220px; }
 
 .audit-pagination {
   align-items: center;
-  border-top: 1px solid #ececec;
-  color: #737373;
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
   display: flex;
   font-size: 11px;
   justify-content: space-between;
@@ -499,8 +505,7 @@ onMounted(() => {
   .audit-row {
     align-items: start;
     gap: 5px 10px;
-    grid-template-areas:
-      'expand actor result'
+    grid-template-areas: 'expand actor result'
       'expand resource result'
       '. action time'
       '. ip ip';

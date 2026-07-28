@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border: 0;
   border-radius: 7px;
-  color: #404040;
+  color: var(--admin-text);
   cursor: pointer;
   display: inline-flex;
   height: 32px;
@@ -133,14 +133,14 @@ onBeforeUnmount(() => {
 }
 
 .notification-bell-button:hover,
-.notification-bell-button:focus-visible { background: #f2f2f2; color: #0d0d0d; outline: none; }
+.notification-bell-button:focus-visible { background: var(--panel-2); color: var(--admin-text); outline: none; }
 
 .notification-badge {
   align-items: center;
-  background: #d92d20;
-  border: 2px solid #ffffff;
+  background: var(--admin-danger);
+  border: 2px solid var(--admin-border);
   border-radius: 999px;
-  color: #ffffff;
+  color: var(--admin-surface-elevated);
   display: inline-flex;
   font-size: 9px;
   font-weight: 700;
@@ -154,8 +154,8 @@ onBeforeUnmount(() => {
 }
 
 .notification-popover {
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
   box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
   overflow: hidden;
@@ -168,21 +168,21 @@ onBeforeUnmount(() => {
 
 .notification-popover header {
   align-items: center;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid var(--admin-border);
   display: flex;
   justify-content: space-between;
   min-height: 46px;
   padding: 0 14px;
 }
 
-.notification-popover header strong { color: #0d0d0d; font-size: 14px; }
-.notification-popover header span { color: #6b6b6b; font-size: 12px; }
+.notification-popover header strong { color: var(--admin-text); font-size: 14px; }
+.notification-popover header span { color: var(--admin-text-muted); font-size: 12px; }
 .notification-preview-list { max-height: 330px; overflow-y: auto; padding: 5px; }
 
 .notification-preview-item {
   align-items: flex-start;
   border-radius: 6px;
-  color: #262626;
+  color: var(--admin-text);
   display: grid;
   gap: 10px;
   grid-template-columns: 8px minmax(0, 1fr);
@@ -190,21 +190,21 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.notification-preview-item:hover { background: #f5f5f5; }
+.notification-preview-item:hover { background: var(--panel-2); }
 .notification-preview-item > i { border-radius: 50%; height: 7px; margin-top: 5px; width: 7px; }
-.notification-preview-item > i.severity-critical { background: #d92d20; }
-.notification-preview-item > i.severity-warning { background: #d97706; }
-.notification-preview-item > i.severity-info { background: #10a37f; }
+.notification-preview-item > i.severity-critical { background: var(--admin-status-danger-dot); }
+.notification-preview-item > i.severity-warning { background: var(--admin-status-warn-dot); }
+.notification-preview-item > i.severity-info { background: var(--admin-status-ok-dot); }
 .notification-preview-item > span { display: grid; gap: 3px; min-width: 0; }
 .notification-preview-item strong { font-size: 13px; font-weight: 500; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notification-preview-item.is-unread strong { font-weight: 650; }
-.notification-preview-item small { color: #737373; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.notification-popover-empty { color: #737373; font-size: 13px; padding: 34px 14px; text-align: center; }
+.notification-preview-item small { color: var(--admin-text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-popover-empty { color: var(--admin-text-muted); font-size: 13px; padding: 34px 14px; text-align: center; }
 
 .notification-popover-footer {
   align-items: center;
-  border-top: 1px solid #eeeeee;
-  color: #262626;
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-text);
   display: flex;
   font-size: 12px;
   font-weight: 500;
@@ -214,5 +214,5 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.notification-popover-footer:hover { background: #f7f7f7; }
+.notification-popover-footer:hover { background: var(--panel-2); }
 </style>

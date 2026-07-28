@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it } from 'vitest';
 import FolderCard from '../src/components/FolderCard.vue';
 import AdminLayout from '../src/components/AdminLayout.vue';
+import { translate } from '../src/locales';
 
 const readSource = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 const readStyle = (name: string) => readSource(`src/styles/${name}.css`);
@@ -357,7 +358,8 @@ describe('visual contracts', () => {
 
     expect(source).toContain('class="native-file-input"');
     expect(source).toContain('id="bookmark-html-file"');
-    expect(source).toContain('aria-label="选择 HTML"');
+    expect(source).toContain(`:aria-label="t('transfer.pickHtml')"`);
+    expect(translate('zh', 'transfer.pickHtml')).toBe('选择 HTML');
     expect(source).not.toContain('openFilePicker');
     expect(source).not.toContain('opacity: 0');
     expect(source).not.toContain('position: absolute');

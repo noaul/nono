@@ -391,11 +391,11 @@ onMounted(load);
 .notification-row.is-unread { background: color-mix(in srgb, var(--source-soft) 68%, var(--admin-surface-elevated)); }
 .notification-row.is-unread:hover { background: color-mix(in srgb, var(--source-soft) 82%, var(--admin-surface-elevated)); }
 
-.source-links { --source-color: #be123c; --source-soft: #fff1f2; }
-.source-nodesk { --source-color: #1d4ed8; --source-soft: #eff6ff; }
-.source-nomoney { --source-color: #047857; --source-soft: #ecfdf5; }
-.source-nostar { --source-color: #6d28d9; --source-soft: #f5f3ff; }
-.source-backup { --source-color: #b45309; --source-soft: #fffbeb; }
+.source-links { --source-color: var(--admin-status-danger); --source-soft: color-mix(in srgb, var(--admin-status-danger) 16%, transparent); }
+.source-nodesk { --source-color: var(--admin-link); --source-soft: color-mix(in srgb, var(--admin-link) 16%, transparent); }
+.source-nomoney { --source-color: var(--admin-status-ok); --source-soft: color-mix(in srgb, var(--admin-status-ok) 16%, transparent); }
+.source-nostar { --source-color: #8b5cf6; --source-soft: color-mix(in srgb, #8b5cf6 16%, transparent); }
+.source-backup { --source-color: var(--admin-status-warn); --source-soft: color-mix(in srgb, var(--admin-status-warn) 16%, transparent); }
 
 .notification-source-icon {
   align-items: center;
@@ -416,9 +416,9 @@ onMounted(load);
 .notification-copy small { color: var(--admin-text-muted); font-size: 11px; }
 
 .notification-severity { border-radius: 50%; height: 7px; width: 7px; }
-.severity-critical .notification-severity { background: #d92d20; }
-.severity-warning .notification-severity { background: #d97706; }
-.severity-info .notification-severity { background: #10a37f; }
+.severity-critical .notification-severity { background: var(--admin-status-danger-dot); }
+.severity-warning .notification-severity { background: var(--admin-status-warn-dot); }
+.severity-info .notification-severity { background: var(--admin-status-ok-dot); }
 .notification-actions { display: flex; gap: 5px; }
 .notification-actions .icon-button { height: 30px; min-height: 30px; width: 30px; }
 .notification-actions a.icon-button { align-items: center; display: inline-flex; justify-content: center; }

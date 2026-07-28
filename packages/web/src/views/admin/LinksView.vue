@@ -11,6 +11,9 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult, LinkHealthSummary } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
@@ -38,22 +41,22 @@ const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
 
 function healthStatusLabel(status: Link['healthStatus']) {
-  if (status === 'ok') return '正常';
-  if (status === 'redirected') return '重定向';
-  if (status === 'restricted') return '访问受限';
-  if (status === 'broken') return '异常';
-  if (status === 'timeout') return '超时';
-  if (status === 'invalid') return '无效';
-  return '未检测';
+  if (status === 'ok') return t('health.ok');
+  if (status === 'redirected') return t('health.redirected');
+  if (status === 'restricted') return t('health.restricted');
+  if (status === 'broken') return t('health.broken');
+  if (status === 'timeout') return t('health.timeout');
+  if (status === 'invalid') return t('health.invalid');
+  return t('links.unchecked');
 }
 
 function healthStatusTitle(link: Link) {
-  if (!link.healthStatus) return '尚未执行健康检查';
+  if (!link.healthStatus) return t('links.noHealthCheck');
   return [
     healthStatusLabel(link.healthStatus),
     link.healthStatusCode,
     link.healthReason,
-    link.healthCheckedAt ? `检测于 ${new Date(link.healthCheckedAt).toLocaleString()}` : '',
+    link.healthCheckedAt ? t('links.checkedAt', { date: new Date(link.healthCheckedAt).toLocaleString() }) : '',
   ].filter(Boolean).join(' · ');
 }
 
@@ -138,7 +141,7 @@ async function load() {
     ensureCreationSelection();
     selectedLinkIds.value = new Set();
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '加载书签失败');
+    notifyError(event instanceof Error ? event.message : t('links.loadFailed'));
   } finally {
     isInitialLoading.value = false;
   }
@@ -192,9 +195,9 @@ async function saveInlineEdit(link: Link) {
     const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, { method: 'PUT', body: jsonBody(payload) });
     links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved } : item));
     editingLinkId.value = null;
-    notifySuccess('书签已更新');
+    notifySuccess(t('links.updated'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '书签更新失败');
+    notifyError(event instanceof Error ? event.message : t('links.updateFailed'));
   }
 }
 
@@ -238,11 +241,11 @@ async function save() {
     links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [...links.value, saved];
     selectedCategoryId.value = categoryIdForFolder(saved.folderId);
     selectedFolderId.value = saved.folderId;
-    message.value = form.id ? '书签已更新' : '书签已新增';
+    message.value = form.id ? t('links.updated') : t('links.created');
     notifySuccess(message.value);
     reset();
   } catch (event) {
-    const text = event instanceof Error ? event.message : '保存失败';
+    const text = event instanceof Error ? event.message : t('common.saveFailed');
     error.value = text;
     notifyError(text);
   } finally {
@@ -252,9 +255,9 @@ async function save() {
 
 async function remove(link: Link) {
   const confirmed = await confirmApi.confirm({
-    title: '删除书签',
-    message: `确定删除「${link.name}」吗？这个操作会立即从公开导航页移除该链接。`,
-    confirmText: '删除',
+    title: t('links.deleteTitle'),
+    message: t('links.deleteConfirm', { name: link.name }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -263,9 +266,9 @@ async function remove(link: Link) {
   try {
     await apiRequest(`/api/admin/links/${link.id}`, { method: 'DELETE' });
     links.value = links.value.filter((item) => item.id !== link.id);
-    notifySuccess('书签已删除');
+    notifySuccess(t('links.deleted'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '删除失败');
+    notifyError(event instanceof Error ? event.message : t('links.deleteFailed'));
   } finally {
     const next = new Set(deletingIds.value);
     next.delete(link.id);
@@ -296,9 +299,9 @@ async function bulkDeleteSelected() {
   if (!ids.length) return;
 
   const confirmed = await confirmApi.confirm({
-    title: '批量删除书签',
-    message: `确定删除选中的 ${ids.length} 个书签吗？这个操作会立即从公开导航页移除这些链接。`,
-    confirmText: '删除',
+    title: t('links.bulkDeleteTitle'),
+    message: t('links.bulkDeleteConfirm', { count: ids.length }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -309,9 +312,9 @@ async function bulkDeleteSelected() {
     const deletedIds = new Set(ids);
     links.value = links.value.filter((link) => !deletedIds.has(link.id));
     selectedLinkIds.value = new Set();
-    notifySuccess(`已删除 ${result.deleted ?? ids.length} 个书签`);
+    notifySuccess(t('links.bulkDeleted', { count: result.deleted ?? ids.length }));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '批量删除失败');
+    notifyError(event instanceof Error ? event.message : t('links.bulkDeleteFailed'));
   } finally {
     isBulkWorking.value = false;
   }
@@ -322,9 +325,9 @@ async function loadDuplicates() {
   try {
     const result = await apiRequest<{ groups: DuplicateLinkGroup[] }>('/api/admin/links/duplicates');
     duplicateGroups.value = result.groups;
-    notifySuccess(result.groups.length ? `发现 ${result.groups.length} 组重复链接` : '没有发现重复链接');
+    notifySuccess(result.groups.length ? t('links.duplicatesFound', { count: result.groups.length }) : t('links.noDuplicates'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '重复链接加载失败');
+    notifyError(event instanceof Error ? event.message : t('links.duplicatesFailed'));
   } finally {
     isLoadingDuplicates.value = false;
   }
@@ -338,9 +341,9 @@ async function checkLinkHealth() {
   try {
     const result = await apiRequest<{ summary: LinkHealthSummary; results: LinkHealthResult[] }>('/api/admin/links/health-check', { method: 'POST', body: jsonBody({ ids }) });
     mergeHealthResults(result.results);
-    notifySuccess(`健康检查完成：${result.summary.total} 个链接`);
+    notifySuccess(t('links.healthDone', { count: result.summary.total }));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '健康检查失败');
+    notifyError(event instanceof Error ? event.message : t('links.healthFailed'));
   } finally {
     isCheckingHealth.value = false;
   }
@@ -403,11 +406,11 @@ async function saveSorting() {
     await apiRequest('/api/admin/links/reorder', { method: 'PUT', body: jsonBody({ ids }) });
     const orderMap = new Map(ids.map((id, index) => [id, (ids.length - index) * 10]));
     links.value = links.value.map((link) => (orderMap.has(link.id) ? { ...link, sortOrder: orderMap.get(link.id)! } : link));
-    message.value = '书签顺序已保存';
+    message.value = t('links.sortSaved');
     notifySuccess(message.value);
     stopSorting();
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '排序保存失败');
+    notifyError(event instanceof Error ? event.message : t('links.sortSaveFailed'));
   } finally {
     isSavingSort.value = false;
   }
@@ -424,20 +427,20 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="导航内容" title="书签管理" />
+    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleLinks')" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <section class="admin-section compact-admin-section">
       <div class="admin-section-head">
-        <h2>书签列表</h2>
+        <h2>{{ t('links.list') }}</h2>
       </div>
-      <LoadingOverlay v-if="isInitialLoading" label="正在加载书签" />
+      <LoadingOverlay v-if="isInitialLoading" :label="t('links.loading')" />
       <template v-else>
         <div class="management-filter-group">
           <div class="management-filter-label">notab</div>
-          <nav class="folder-pills" aria-label="书签 notab">
+          <nav class="folder-pills" :aria-label="t('links.notabNav')">
             <button
               v-for="category in categoryFolders"
               :key="category.id"
@@ -453,7 +456,7 @@ onMounted(load);
           </nav>
         </div>
         <div class="management-filter-group">
-          <div class="management-filter-label">文件夹</div>
+          <div class="management-filter-label">{{ t('links.folder') }}</div>
           <div class="folder-pills">
             <button v-for="folder in selectedCategoryFolders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
               <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
@@ -461,49 +464,49 @@ onMounted(load);
           </div>
         </div>
         <div id="bookmark-tools" class="bulk-action-bar">
-          <strong>{{ sortMode ? '调整书签顺序' : selectedCount ? `已选择 ${selectedCount} 个书签` : '批量操作' }}</strong>
+          <strong>{{ sortMode ? t('links.sortingTitle') : selectedCount ? t('links.selectedCount', { count: selectedCount }) : t('links.bulkActions') }}</strong>
           <div class="bulk-list-tools">
-            <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> 调整顺序</button>
-            <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
+            <button v-if="!sortMode" class="button secondary" data-testid="start-link-sort" type="button" :disabled="!activeFolderLinks.length" @click="startSorting"><GripVertical :size="17" /> {{ t('links.reorder') }}</button>
+            <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('links.exitSort') }}</button>
             <button class="button secondary" data-testid="load-duplicates" type="button" :disabled="isLoadingDuplicates || sortMode" @click="loadDuplicates">
-              <Link2 :size="17" /> {{ isLoadingDuplicates ? '检查中' : '查重复' }}
+              <Link2 :size="17" /> {{ isLoadingDuplicates ? t('links.checking') : t('links.findDuplicates') }}
             </button>
-            <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" :disabled="sortMode" :placeholder="sortMode ? '排序时暂停搜索' : '搜索名称、链接或介绍'" />
+            <input data-testid="link-search" v-model="searchTerm" class="admin-search-input" :disabled="sortMode" :placeholder="sortMode ? t('links.searchPaused') : t('links.searchPlaceholder')" />
           </div>
           <div v-if="!sortMode" class="bulk-controls">
             <button class="button secondary" data-testid="select-all-links" type="button" :disabled="!filteredLinks.length || isBulkWorking" @click="toggleAllFilteredLinks">
-              {{ allFilteredSelected ? '取消全选' : '全选当前' }}
+              {{ allFilteredSelected ? t('links.deselectAll') : t('links.selectAllCurrent') }}
             </button>
             <button class="button secondary" data-testid="check-link-health" type="button" :disabled="isCheckingHealth || (!selectedCount && !filteredLinks.length)" @click="checkLinkHealth">
-              <Activity :size="17" /> {{ isCheckingHealth ? '检查中' : '健康检查' }}
+              <Activity :size="17" /> {{ isCheckingHealth ? t('links.checking') : t('links.healthCheck') }}
             </button>
             <button class="button danger" data-testid="bulk-delete" type="button" :disabled="!selectedCount || isBulkWorking" @click="bulkDeleteSelected">
-              <Trash2 :size="17" /> 删除
+              <Trash2 :size="17" /> {{ t('common.delete') }}
             </button>
           </div>
         </div>
         <LinkDuplicatePanel :groups="duplicateGroups" :folder-name="folderName" />
         <div class="admin-table bookmark-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
           <div class="admin-table-head">
-            <span>选择</span>
+            <span>{{ t('links.select') }}</span>
             <span></span>
-            <span>名称</span>
-            <span>链接</span>
-            <span>文件夹</span>
+            <span>{{ t('links.name') }}</span>
+            <span>{{ t('links.url') }}</span>
+            <span>{{ t('links.folder') }}</span>
             <span>notab</span>
-            <span>状态</span>
-            <span>操作</span>
+            <span>{{ t('links.status') }}</span>
+            <span>{{ t('links.actions') }}</span>
           </div>
-          <SortableList :disabled="!sortMode" aria-label="书签排序" @reorder="reorderDraft">
+          <SortableList :disabled="!sortMode" :aria-label="t('links.sortAria')" @reorder="reorderDraft">
             <article v-for="(link, index) in filteredLinks" :key="link.id" class="admin-table-row sortable-admin-row" :data-testid="`link-row-${link.id}`" :data-id="link.id">
-              <span class="selection-cell" data-label="选择">
+              <span class="selection-cell" :data-label="t('links.select')">
                 <input :data-testid="`select-link-${link.id}`" type="checkbox" :disabled="sortMode" :checked="selectedLinkIds.has(link.id)" @change="toggleLinkSelection(link.id, $event)" />
               </span>
-              <span class="sort-cell" data-label="排序">
-                <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整书签顺序"><GripVertical :size="18" /></button>
+              <span class="sort-cell" :data-label="t('links.sort')">
+                <button v-if="sortMode" class="drag-handle" type="button" :title="t('links.dragHandle')" :aria-label="t('links.dragHandleAria')"><GripVertical :size="18" /></button>
                 <Link2 v-else :size="16" />
               </span>
-              <span data-label="名称">
+              <span :data-label="t('links.name')">
                 <input
                   v-if="editingLinkId === link.id"
                   v-model="inlineForm.name"
@@ -513,7 +516,7 @@ onMounted(load);
                 />
                 <span v-else :data-testid="`link-name-${link.id}`">{{ link.name }}</span>
               </span>
-              <span class="url-cell" data-label="链接">
+              <span class="url-cell" :data-label="t('links.url')">
                 <input
                   v-if="editingLinkId === link.id"
                   v-model="inlineForm.url"
@@ -523,13 +526,13 @@ onMounted(load);
                 />
                 <template v-else>{{ link.url }}</template>
               </span>
-              <span data-label="文件夹">
+              <span :data-label="t('links.folder')">
                 <select
                   v-if="editingLinkId === link.id"
                   v-model.number="inlineForm.folderId"
                   class="inline-link-select"
                   :data-testid="`inline-link-folder-${link.id}`"
-                  aria-label="书签文件夹"
+                  :aria-label="t('links.linkFolder')"
                 >
                   <option v-for="folder in foldersForCategory(inlineForm.categoryId)" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
                 </select>
@@ -541,7 +544,7 @@ onMounted(load);
                   v-model.number="inlineForm.categoryId"
                   class="inline-link-select"
                   :data-testid="`inline-link-category-${link.id}`"
-                  aria-label="书签 notab"
+                  :aria-label="t('links.notabNav')"
                   @change="selectInlineCategory"
                 >
                   <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
@@ -551,26 +554,26 @@ onMounted(load);
               <span
                 class="link-health-cell"
                 :class="`status-${link.healthStatus || 'unchecked'}`"
-                data-label="状态"
+                :data-label="t('links.status')"
                 :data-testid="`link-health-${link.id}`"
                 :title="healthStatusTitle(link)"
               >
                 <span class="link-health-value"><i aria-hidden="true"></i>{{ healthStatusLabel(link.healthStatus) }}</span>
               </span>
-              <span class="row-actions" data-label="操作">
+              <span class="row-actions" :data-label="t('links.actions')">
                 <template v-if="sortMode">
-                  <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
-                  <button class="icon-button secondary" title="下移" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
+                  <button class="icon-button secondary" :title="t('links.moveUp')" :disabled="index === 0" @click="moveDraft(link, -1)"><MoveUp :size="16" /></button>
+                  <button class="icon-button secondary" :title="t('links.moveDown')" :disabled="index === filteredLinks.length - 1" @click="moveDraft(link, 1)"><MoveDown :size="16" /></button>
                 </template>
                 <template v-else>
                   <template v-if="editingLinkId === link.id">
-                    <button class="icon-button success" :data-testid="`save-inline-link-${link.id}`" title="保存快速修改" @click="saveInlineEdit(link)"><Save :size="16" /></button>
-                    <button class="icon-button secondary" title="取消快速修改" @click="cancelInlineEdit"><X :size="16" /></button>
+                    <button class="icon-button success" :data-testid="`save-inline-link-${link.id}`" :title="t('links.saveInline')" @click="saveInlineEdit(link)"><Save :size="16" /></button>
+                    <button class="icon-button secondary" :title="t('links.cancelInline')" @click="cancelInlineEdit"><X :size="16" /></button>
                   </template>
                   <template v-else>
-                    <button class="icon-button secondary" :data-testid="`edit-link-${link.id}`" title="快速修改名称、链接和文件夹" @click="startInlineEdit(link)"><Pencil :size="16" /></button>
-                    <a class="icon-button success" :href="link.url" title="打开" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
-                    <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" title="删除" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
+                    <button class="icon-button secondary" :data-testid="`edit-link-${link.id}`" :title="t('links.editInline')" @click="startInlineEdit(link)"><Pencil :size="16" /></button>
+                    <a class="icon-button success" :href="link.url" :title="t('links.open')" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
+                    <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" :title="t('common.delete')" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
                   </template>
                 </template>
               </span>
@@ -579,31 +582,31 @@ onMounted(load);
           <article v-if="isCreatingLink && !sortMode" class="admin-table-row inline-create-link-row">
             <span></span>
             <span class="sort-cell"><Plus :size="17" /></span>
-            <span data-label="名称"><input v-model="form.name" class="inline-link-input" data-testid="new-link-name" maxlength="24" aria-label="新书签名称" /></span>
-            <span class="url-cell" data-label="链接"><input v-model="form.url" class="inline-link-input" data-testid="new-link-url" type="url" aria-label="新书签链接" /></span>
-            <span data-label="文件夹">
-              <select v-model.number="form.folderId" class="inline-link-select" data-testid="new-link-folder" aria-label="新书签文件夹">
+            <span :data-label="t('links.name')"><input v-model="form.name" class="inline-link-input" data-testid="new-link-name" maxlength="24" :aria-label="t('links.newName')" /></span>
+            <span class="url-cell" :data-label="t('links.url')"><input v-model="form.url" class="inline-link-input" data-testid="new-link-url" type="url" :aria-label="t('links.newUrl')" /></span>
+            <span :data-label="t('links.folder')">
+              <select v-model.number="form.folderId" class="inline-link-select" data-testid="new-link-folder" :aria-label="t('links.newFolder')">
                 <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
               </select>
             </span>
             <span data-label="notab">
-              <select v-model.number="formCategoryId" class="inline-link-select" data-testid="new-link-category" aria-label="新书签 notab">
+              <select v-model.number="formCategoryId" class="inline-link-select" data-testid="new-link-category" :aria-label="t('links.newNotab')">
                 <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
               </select>
             </span>
-            <span class="link-health-cell status-unchecked" data-label="状态"><span class="link-health-value"><i aria-hidden="true"></i>未检测</span></span>
-            <span class="row-actions" data-label="操作">
-              <button class="icon-button success" data-testid="save-new-link" type="button" title="保存书签" :disabled="isSaving" @click="save"><Save :size="16" /></button>
-              <button class="icon-button secondary" type="button" title="取消" @click="reset"><X :size="16" /></button>
+            <span class="link-health-cell status-unchecked" :data-label="t('links.status')"><span class="link-health-value"><i aria-hidden="true"></i>{{ t('links.unchecked') }}</span></span>
+            <span class="row-actions" :data-label="t('links.actions')">
+              <button class="icon-button success" data-testid="save-new-link" type="button" :title="t('links.saveLink')" :disabled="isSaving" @click="save"><Save :size="16" /></button>
+              <button class="icon-button secondary" type="button" :title="t('common.cancel')" @click="reset"><X :size="16" /></button>
             </span>
           </article>
-          <button v-else-if="!sortMode" id="new-bookmark" class="add-list-row" data-testid="add-link-row" type="button" title="新增书签" @click="startCreateLink"><Plus :size="18" /></button>
+          <button v-else-if="!sortMode" id="new-bookmark" class="add-list-row" data-testid="add-link-row" type="button" :title="t('links.addLink')" @click="startCreateLink"><Plus :size="18" /></button>
         </div>
         <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-          <strong>{{ activeFolder?.name || '未选择文件夹' }} · {{ filteredLinks.length }} 个书签<span v-if="sortMode"> · 更改尚未保存</span></strong>
+          <strong>{{ activeFolder?.name || t('links.noFolderSelected') }} · {{ t('links.countSuffix', { count: filteredLinks.length }) }}<span v-if="sortMode">{{ t('links.unsavedSuffix') }}</span></strong>
           <div class="toolbar">
-            <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 退出排序</button>
-            <button class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+            <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('links.exitSort') }}</button>
+            <button class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? t('common.saving') : t('links.saveChanges') }}</button>
           </div>
         </div>
       </template>
@@ -646,32 +649,32 @@ onMounted(load);
 }
 
 .link-health-cell i {
-  background: #a3a3a3;
+  background: var(--admin-status-neutral-dot);
   border-radius: 50%;
   flex: 0 0 7px;
   height: 7px;
   width: 7px;
 }
 
-.link-health-cell.status-ok { color: #087f5b; }
-.link-health-cell.status-ok i { background: #10a37f; }
-.link-health-cell.status-redirected { color: #9a6700; }
-.link-health-cell.status-redirected i { background: #d97706; }
-.link-health-cell.status-restricted { color: #9a6700; }
-.link-health-cell.status-restricted i { background: #d97706; }
+.link-health-cell.status-ok { color: var(--admin-status-ok); }
+.link-health-cell.status-ok i { background: var(--admin-status-ok-dot); }
+.link-health-cell.status-redirected { color: var(--admin-status-warn); }
+.link-health-cell.status-redirected i { background: var(--admin-status-warn-dot); }
+.link-health-cell.status-restricted { color: var(--admin-status-warn); }
+.link-health-cell.status-restricted i { background: var(--admin-status-warn-dot); }
 .link-health-cell.status-broken,
-.link-health-cell.status-invalid { color: #b42318; }
+.link-health-cell.status-invalid { color: var(--admin-status-danger); }
 .link-health-cell.status-broken i,
-.link-health-cell.status-invalid i { background: #d92d20; }
-.link-health-cell.status-timeout { color: #7c3aed; }
-.link-health-cell.status-timeout i { background: #8b5cf6; }
+.link-health-cell.status-invalid i { background: var(--admin-status-danger-dot); }
+.link-health-cell.status-timeout { color: var(--admin-status-alt); }
+.link-health-cell.status-timeout i { background: var(--admin-status-alt-dot); }
 
 .add-list-row {
   align-items: center;
   background: rgba(255, 255, 255, 0.35);
   border: 1px dashed rgba(100, 116, 139, 0.38);
   border-radius: var(--admin-surface-radius, 8px);
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: flex;
   justify-content: center;
   min-height: 42px;
@@ -680,7 +683,7 @@ onMounted(load);
 
 .add-list-row:hover {
   background: rgba(255, 255, 255, 0.62);
-  color: #0f766e;
+  color: var(--admin-accent);
 }
 
 .inline-create-link-row {
@@ -724,7 +727,7 @@ onMounted(load);
 }
 
 .management-filter-label {
-  color: #64748b;
+  color: var(--admin-text-muted);
   font-size: 12px;
   font-weight: 700;
   line-height: 34px;

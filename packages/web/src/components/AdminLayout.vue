@@ -27,6 +27,7 @@ import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';
 import ToastHost from '@/components/admin/ToastHost.vue';
 import NotificationBell from '@/components/admin/NotificationBell.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
+import LanguageControl from '@/components/LanguageControl.vue';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import type { Component } from 'vue';
 import { useI18n } from '@/composables/useI18n';
@@ -209,6 +210,7 @@ async function logout() {
           </div>
         </div>
         <div class="topbar-actions">
+          <LanguageControl class="admin-language" />
           <ColorModeControl class="admin-color-mode" />
           <NotificationBell />
           <div ref="userMenuRef" class="topbar-user">

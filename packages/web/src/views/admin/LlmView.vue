@@ -5,6 +5,9 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const form = reactive({ provider: 'openai' as 'openai' | 'claude', model: 'gpt-4o-mini', apiKey: '', baseUrl: '', reasoningEffort: 'none' as 'none' | 'low' | 'medium' | 'high' });
 const hasKey = ref(false);
@@ -50,9 +53,9 @@ async function save() {
     await apiRequest('/api/admin/account/llm', { method: 'PUT', body: jsonBody(form) });
     hasKey.value = hasKey.value || Boolean(form.apiKey);
     form.apiKey = '';
-    message.value = 'LLM 配置已保存';
+    message.value = t('llm.saved');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '保存失败';
+    error.value = event instanceof Error ? event.message : t('common.saveFailed');
   }
 }
 
@@ -62,16 +65,16 @@ async function testConnection() {
   isTesting.value = true;
   try {
     const result = await apiRequest<{ model: string; reasoningEffort: string }>('/api/admin/account/llm/test', { method: 'POST', body: jsonBody(form) });
-    message.value = `连接成功 · ${result.model} · 思考深度：${reasoningLabel(result.reasoningEffort)}`;
+    message.value = t('llm.connected', { model: result.model, effort: reasoningLabel(result.reasoningEffort) });
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '连接测试失败';
+    error.value = event instanceof Error ? event.message : t('llm.testFailed');
   } finally {
     isTesting.value = false;
   }
 }
 
 function reasoningLabel(value: string) {
-  return { none: '关闭', low: '低', medium: '中', high: '高' }[value as 'none' | 'low' | 'medium' | 'high'] || '关闭';
+  return { none: t('llm.effortNone'), low: t('llm.effortLow'), medium: t('llm.effortMedium'), high: t('llm.effortHigh') }[value as 'none' | 'low' | 'medium' | 'high'] || t('llm.effortNone');
 }
 
 function addNoStarProfile() {
@@ -114,9 +117,9 @@ async function saveNoStarProfiles() {
     noStarProfiles.value.forEach((profile) => {
       if (profile.apiKey && !profile.apiKey.startsWith('***')) profile.apiKey = `***${profile.apiKey.slice(-4)}`;
     });
-    message.value = 'NoStar AI 配置已保存';
+    message.value = t('llm.nostarSaved');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : 'NoStar AI 配置保存失败';
+    error.value = event instanceof Error ? event.message : t('llm.nostarSaveFailed');
   } finally {
     isSavingNoStar.value = false;
   }
@@ -131,9 +134,9 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
       method: 'POST',
       body: jsonBody(profile),
     });
-    message.value = `NoStar 连接成功 · ${result.model}`;
+    message.value = t('llm.nostarConnected', { model: result.model });
   } catch (event) {
-    error.value = event instanceof Error ? event.message : 'NoStar 连接测试失败';
+    error.value = event instanceof Error ? event.message : t('llm.nostarTestFailed');
   } finally {
     testingProfileId.value = '';
   }
@@ -142,39 +145,39 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="自动化" title="AI 智能收藏">
+    <AdminPageHeader :eyebrow="t('admin.sectionAutomation')" :title="t('admin.titleLlm')">
       <template #actions>
-        <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? '测试中' : '测试连接' }}</button>
-        <button class="button" form="llm-settings-form" type="submit"><Save :size="17" /> 保存配置</button>
+        <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
+        <button class="button" form="llm-settings-form" type="submit"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>
       </template>
     </AdminPageHeader>
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
-    <AdminStateBanner :message="`API Key 使用 AES-256-GCM 加密存储。${hasKey ? '当前已配置，留空不会覆盖。' : '当前未配置。'}`" tone="info" />
+    <AdminStateBanner :message="t('llm.keyNotice', { state: hasKey ? t('llm.keyConfigured') : t('llm.keyMissing') })" tone="info" />
 
     <form id="llm-settings-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
-        <h2><Bot :size="18" /> 模型连接</h2>
+        <h2><Bot :size="18" /> {{ t('llm.connection') }}</h2>
       </header>
       <div class="admin-settings-grid">
         <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>
-        <div class="field"><label>模型</label><input v-model="form.model" /></div>
+        <div class="field"><label>{{ t('llm.model') }}</label><input v-model="form.model" /></div>
         <div class="field wide">
-          <label>API 地址</label>
-          <input v-model="form.baseUrl" data-testid="llm-base-url" type="url" placeholder="留空使用官方接口，例如 https://api.openai.com/v1" />
-          <small>支持 OpenAI 兼容接口、Claude 网关和内网 HTTP 地址。</small>
+          <label>{{ t('llm.baseUrl') }}</label>
+          <input v-model="form.baseUrl" data-testid="llm-base-url" type="url" :placeholder="t('llm.baseUrlPlaceholder')" />
+          <small>{{ t('llm.baseUrlHint') }}</small>
         </div>
-        <div class="field"><label>API Key</label><input v-model="form.apiKey" type="password" placeholder="留空则保留现有 Key" /></div>
+        <div class="field"><label>{{ t('llm.apiKey') }}</label><input v-model="form.apiKey" type="password" :placeholder="t('llm.apiKeyPlaceholder')" /></div>
         <div class="field">
-          <label>思考深度</label>
+          <label>{{ t('llm.effort') }}</label>
           <select v-model="form.reasoningEffort" data-testid="llm-reasoning-effort">
-            <option value="none">关闭</option>
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
+            <option value="none">{{ t('llm.effortNone') }}</option>
+            <option value="low">{{ t('llm.effortLow') }}</option>
+            <option value="medium">{{ t('llm.effortMedium') }}</option>
+            <option value="high">{{ t('llm.effortHigh') }}</option>
           </select>
-          <small>支持推理的模型会按此设置调整思考预算。</small>
+          <small>{{ t('llm.effortHint') }}</small>
         </div>
       </div>
     </form>
@@ -183,8 +186,8 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
       <header class="admin-section-head">
         <h2><Star :size="18" /> NoStar AI</h2>
         <div class="admin-section-actions">
-          <button class="button secondary" data-testid="add-nostar-ai-profile" type="button" @click="addNoStarProfile"><Plus :size="17" /> 新增</button>
-          <button class="button" data-testid="save-nostar-ai-profiles" type="button" :disabled="isSavingNoStar" @click="saveNoStarProfiles"><Save :size="17" /> {{ isSavingNoStar ? '保存中' : '保存' }}</button>
+          <button class="button secondary" data-testid="add-nostar-ai-profile" type="button" @click="addNoStarProfile"><Plus :size="17" /> {{ t('llm.addProfile') }}</button>
+          <button class="button" data-testid="save-nostar-ai-profiles" type="button" :disabled="isSavingNoStar" @click="saveNoStarProfiles"><Save :size="17" /> {{ isSavingNoStar ? t('common.saving') : t('common.save') }}</button>
         </div>
       </header>
 
@@ -193,14 +196,14 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
           <div class="nostar-profile-toolbar">
             <label class="nostar-active-choice">
               <input type="radio" name="nostar-active-profile" :checked="profile.isActive" @change="activateNoStarProfile(index)" />
-              默认
+              {{ t('llm.default') }}
             </label>
-            <button class="icon-button danger" type="button" title="删除配置" @click="removeNoStarProfile(index)"><Trash2 :size="16" /></button>
+            <button class="icon-button danger" type="button" :title="t('llm.deleteProfile')" @click="removeNoStarProfile(index)"><Trash2 :size="16" /></button>
           </div>
           <div class="admin-settings-grid nostar-profile-grid">
-            <div class="field"><label>名称</label><input v-model="profile.name" :data-testid="`nostar-profile-name-${index}`" maxlength="60" /></div>
+            <div class="field"><label>{{ t('llm.profileName') }}</label><input v-model="profile.name" :data-testid="`nostar-profile-name-${index}`" maxlength="60" /></div>
             <div class="field">
-              <label>接口类型</label>
+              <label>{{ t('llm.apiType') }}</label>
               <select v-model="profile.apiType">
                 <option value="openai">OpenAI</option>
                 <option value="openai-compatible">OpenAI Compatible</option>
@@ -210,25 +213,25 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
                 <option value="deepseek">DeepSeek</option>
               </select>
             </div>
-            <div class="field wide"><label>API 地址</label><input v-model="profile.baseUrl" type="url" /></div>
-            <div class="field"><label>模型</label><input v-model="profile.model" /></div>
-            <div class="field"><label>API Key</label><input v-model="profile.apiKey" type="password" placeholder="留空或掩码则保留" /></div>
+            <div class="field wide"><label>{{ t('llm.baseUrl') }}</label><input v-model="profile.baseUrl" type="url" /></div>
+            <div class="field"><label>{{ t('llm.model') }}</label><input v-model="profile.model" /></div>
+            <div class="field"><label>{{ t('llm.apiKey') }}</label><input v-model="profile.apiKey" type="password" :placeholder="t('llm.apiKeyKeep')" /></div>
             <div class="field">
-              <label>思考深度</label>
+              <label>{{ t('llm.effort') }}</label>
               <select v-model="profile.reasoningEffort">
-                <option value="none">关闭</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option>
+                <option value="none">{{ t('llm.effortNone') }}</option><option value="low">{{ t('llm.effortLow') }}</option><option value="medium">{{ t('llm.effortMedium') }}</option><option value="high">{{ t('llm.effortHigh') }}</option>
               </select>
             </div>
-            <div class="field"><label>并发数</label><input v-model.number="profile.concurrency" type="number" min="1" max="32" /></div>
-            <div class="field wide"><label>仓库分析提示词</label><textarea v-model="profile.customPrompt" rows="3" maxlength="8000" /></div>
+            <div class="field"><label>{{ t('llm.concurrency') }}</label><input v-model.number="profile.concurrency" type="number" min="1" max="32" /></div>
+            <div class="field wide"><label>{{ t('llm.repoPrompt') }}</label><textarea v-model="profile.customPrompt" rows="3" maxlength="8000" /></div>
           </div>
           <div class="nostar-profile-footer">
-            <label class="toggle-row"><input v-model="profile.useCustomPrompt" type="checkbox" /><span>启用自定义提示词</span></label>
-            <button class="button secondary" type="button" :disabled="testingProfileId === profile.id" @click="testNoStarProfile(profile)"><FlaskConical :size="16" /> {{ testingProfileId === profile.id ? '测试中' : '测试连接' }}</button>
+            <label class="toggle-row"><input v-model="profile.useCustomPrompt" type="checkbox" /><span>{{ t('llm.useCustomPrompt') }}</span></label>
+            <button class="button secondary" type="button" :disabled="testingProfileId === profile.id" @click="testNoStarProfile(profile)"><FlaskConical :size="16" /> {{ testingProfileId === profile.id ? t('llm.testing') : t('llm.testConnection') }}</button>
           </div>
         </article>
       </div>
-      <button v-else class="add-list-row" type="button" title="新增 NoStar AI 配置" @click="addNoStarProfile"><Plus :size="18" /></button>
+      <button v-else class="add-list-row" type="button" :title="t('llm.addNostarProfile')" @click="addNoStarProfile"><Plus :size="18" /></button>
     </section>
   </div>
 </template>

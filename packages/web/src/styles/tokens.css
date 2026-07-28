@@ -61,6 +61,19 @@
   --admin-danger: #b4233a;
   --admin-success: #067647;
   --admin-warning: #b54708;
+
+  /* Status colours for link health, notification severity and similar badges. */
+  --admin-status-ok: #087f5b;
+  --admin-status-ok-dot: #10a37f;
+  --admin-status-warn: #9a6700;
+  --admin-status-warn-dot: #d97706;
+  --admin-status-danger: #b42318;
+  --admin-status-danger-dot: #d92d20;
+  --admin-status-neutral: #6b7280;
+  --admin-status-neutral-dot: #a3a3a3;
+  --admin-status-alt: #7c3aed;
+  --admin-status-alt-dot: #8b5cf6;
+  --admin-link: #4f5ed9;
 }
 
 :root[data-color-mode='dark'],
@@ -82,4 +95,16 @@
   --admin-danger: #fb7185;
   --admin-success: #34d399;
   --admin-warning: #fbbf24;
+
+  --admin-status-ok: #4ade80;
+  --admin-status-ok-dot: #34d399;
+  --admin-status-warn: #fbbf24;
+  --admin-status-warn-dot: #f59e0b;
+  --admin-status-danger: #fb7185;
+  --admin-status-danger-dot: #f87171;
+  --admin-status-neutral: #a1a1aa;
+  --admin-status-neutral-dot: #71717a;
+  --admin-status-alt: #c4b5fd;
+  --admin-status-alt-dot: #a78bfa;
+  --admin-link: #8b9cff;
 }

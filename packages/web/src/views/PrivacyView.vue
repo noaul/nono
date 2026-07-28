@@ -84,7 +84,7 @@ const updatedAt = '2026-07-16';
 }
 
 .privacy-brand {
-  color: #4f5ed9;
+  color: var(--admin-link);
   font-size: 16px;
   font-weight: 800;
 }

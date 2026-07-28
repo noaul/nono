@@ -7,6 +7,9 @@ import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 interface PasskeyItem {
   id: string;
@@ -45,7 +48,7 @@ async function loadGuestAccess() {
     guestAccess.enabled = Boolean(site.guestAccessEnabled);
     guestAccess.passwordSet = Boolean(site.guestAccessPasswordSet);
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '开屏密码加载失败';
+    error.value = event instanceof Error ? event.message : t('account.guestLoadFailed');
   }
 }
 
@@ -56,7 +59,7 @@ async function loadSecurity() {
     passkeys.value = data.passkeys;
     sessions.value = data.sessions;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '安全信息加载失败';
+    error.value = event instanceof Error ? event.message : t('account.securityLoadFailed');
   } finally {
     isLoadingSecurity.value = false;
   }
@@ -77,49 +80,49 @@ async function addPasskey() {
     });
     passkeys.value = [passkey, ...passkeys.value.filter((item) => item.id !== passkey.id)];
     passkeyName.value = '';
-    message.value = '通行密钥已添加';
+    message.value = t('account.passkeyAdded');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '添加通行密钥失败';
+    error.value = event instanceof Error ? event.message : t('account.passkeyAddFailed');
   } finally {
     isAddingPasskey.value = false;
   }
 }
 
 async function removePasskey(passkey: PasskeyItem) {
-  if (!await confirmApi.confirm({ title: '删除通行密钥', message: passkey.name, confirmText: '删除', tone: 'danger' })) return;
+  if (!await confirmApi.confirm({ title: t('account.passkeyDelete'), message: passkey.name, confirmText: t('common.delete'), tone: 'danger' })) return;
   try {
     await apiRequest(`/api/admin/account/passkeys/${encodeURIComponent(passkey.id)}`, { method: 'DELETE' });
     passkeys.value = passkeys.value.filter((item) => item.id !== passkey.id);
-    message.value = '通行密钥已删除';
+    message.value = t('account.passkeyDeleted');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '删除通行密钥失败';
+    error.value = event instanceof Error ? event.message : t('account.passkeyDeleteFailed');
   }
 }
 
 async function revokeSession(session: SessionItem) {
-  if (!await confirmApi.confirm({ title: '退出设备', message: session.userAgent || session.ipAddress || '未知设备', confirmText: '退出', tone: 'danger' })) return;
+  if (!await confirmApi.confirm({ title: t('account.signOutDevice'), message: session.userAgent || session.ipAddress || t('account.unknownDevice'), confirmText: t('account.signOut'), tone: 'danger' })) return;
   try {
     await apiRequest(`/api/admin/account/sessions/${session.id}`, { method: 'DELETE' });
     sessions.value = sessions.value.filter((item) => item.id !== session.id);
-    message.value = '设备已退出';
+    message.value = t('account.deviceSignedOut');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '退出设备失败';
+    error.value = event instanceof Error ? event.message : t('account.deviceSignOutFailed');
   }
 }
 
 async function revokeOtherSessions() {
-  if (!await confirmApi.confirm({ title: '退出其他设备', message: '保留当前设备', confirmText: '全部退出', tone: 'danger' })) return;
+  if (!await confirmApi.confirm({ title: t('account.signOutOthers'), message: t('account.keepCurrent'), confirmText: t('account.signOutAll'), tone: 'danger' })) return;
   try {
     await apiRequest('/api/admin/account/sessions/revoke-others', { method: 'POST' });
     sessions.value = sessions.value.filter((item) => item.current);
-    message.value = '其他设备已退出';
+    message.value = t('account.othersSignedOut');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '退出其他设备失败';
+    error.value = event instanceof Error ? event.message : t('account.signOutOthersFailed');
   }
 }
 
 function formatDate(value: string | null) {
-  if (!value) return '尚未使用';
+  if (!value) return t('account.neverUsed');
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
@@ -130,9 +133,9 @@ async function save() {
     await apiRequest('/api/admin/account/password', { method: 'PUT', body: jsonBody(form) });
     form.currentPassword = '';
     form.newPassword = '';
-    message.value = '密码已更新';
+    message.value = t('account.passwordUpdated');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '更新失败';
+    error.value = event instanceof Error ? event.message : t('account.updateFailed');
   }
 }
 
@@ -151,9 +154,9 @@ async function saveGuestAccess() {
     guestAccess.enabled = Boolean(site.guestAccessEnabled);
     guestAccess.passwordSet = Boolean(site.guestAccessPasswordSet);
     guestAccess.password = '';
-    message.value = guestAccess.enabled ? '开屏密码已开启' : '开屏密码已关闭';
+    message.value = guestAccess.enabled ? t('account.guestOn') : t('account.guestOff');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '开屏密码保存失败';
+    error.value = event instanceof Error ? event.message : t('account.guestSaveFailed');
   } finally {
     isSavingGuestAccess.value = false;
   }
@@ -167,9 +170,9 @@ onMounted(() => {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="系统" title="账户设置">
+    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleAccount')">
       <template #actions>
-        <button class="button" form="account-password-form" type="submit"><Save :size="17" /> 修改密码</button>
+        <button class="button" form="account-password-form" type="submit"><Save :size="17" /> {{ t('account.changePassword') }}</button>
       </template>
     </AdminPageHeader>
 
@@ -178,15 +181,15 @@ onMounted(() => {
 
     <section class="admin-section security-section">
       <header class="admin-section-head">
-        <h2><Fingerprint :size="18" /> 通行密钥</h2>
+        <h2><Fingerprint :size="18" /> {{ t('account.passkeys') }}</h2>
       </header>
       <div class="security-add-row">
         <div class="field">
-          <label for="passkey-name">设备名称</label>
-          <input id="passkey-name" v-model="passkeyName" data-testid="passkey-name" maxlength="80" placeholder="例如：Windows Hello" @keydown.enter.prevent="addPasskey" />
+          <label for="passkey-name">{{ t('account.deviceName') }}</label>
+          <input id="passkey-name" v-model="passkeyName" data-testid="passkey-name" maxlength="80" :placeholder="t('account.deviceNamePlaceholder')" @keydown.enter.prevent="addPasskey" />
         </div>
         <button class="button" data-testid="add-passkey" type="button" :disabled="!passkeyName.trim() || isAddingPasskey" @click="addPasskey">
-          <Plus :size="17" /> {{ isAddingPasskey ? '添加中' : '添加' }}
+          <Plus :size="17" /> {{ isAddingPasskey ? t('account.adding') : t('account.add') }}
         </button>
       </div>
       <div v-if="passkeys.length" class="security-list">
@@ -194,31 +197,31 @@ onMounted(() => {
           <span class="security-row-icon"><Fingerprint :size="18" /></span>
           <div class="security-row-main">
             <strong>{{ passkey.name }}</strong>
-            <small>{{ passkey.backedUp ? '已同步' : '仅此设备' }} · {{ formatDate(passkey.lastUsedAt || passkey.createdAt) }}</small>
+            <small>{{ passkey.backedUp ? t('account.synced') : t('account.thisDeviceOnly') }} · {{ formatDate(passkey.lastUsedAt || passkey.createdAt) }}</small>
           </div>
-          <button class="icon-button secondary" type="button" title="删除通行密钥" aria-label="删除通行密钥" @click="removePasskey(passkey)">
+          <button class="icon-button secondary" type="button" :title="t('account.passkeyDelete')" :aria-label="t('account.passkeyDelete')" @click="removePasskey(passkey)">
             <Trash2 :size="16" />
           </button>
         </article>
       </div>
-      <p v-else-if="!isLoadingSecurity" class="security-empty">尚未添加通行密钥</p>
+      <p v-else-if="!isLoadingSecurity" class="security-empty">{{ t('account.noPasskeys') }}</p>
     </section>
 
     <section class="admin-section security-section">
       <header class="admin-section-head">
-        <h2><MonitorSmartphone :size="18" /> 登录设备</h2>
+        <h2><MonitorSmartphone :size="18" /> {{ t('account.devices') }}</h2>
         <button v-if="sessions.some((session) => !session.current)" class="button secondary compact" type="button" @click="revokeOtherSessions">
-          <LogOut :size="16" /> 退出其他设备
+          <LogOut :size="16" /> {{ t('account.signOutOthers') }}
         </button>
       </header>
       <div class="security-list">
         <article v-for="session in sessions" :key="session.id" class="security-row">
           <span class="security-row-icon"><MonitorSmartphone :size="18" /></span>
           <div class="security-row-main">
-            <strong>{{ session.userAgent || '未知设备' }} <span v-if="session.current" class="current-device">当前设备</span></strong>
-            <small>{{ session.ipAddress || '未知 IP' }} · {{ formatDate(session.lastSeenAt) }}</small>
+            <strong>{{ session.userAgent || t('account.unknownDevice') }} <span v-if="session.current" class="current-device">{{ t('account.currentDevice') }}</span></strong>
+            <small>{{ session.ipAddress || t('account.unknownIp') }} · {{ formatDate(session.lastSeenAt) }}</small>
           </div>
-          <button v-if="!session.current" class="icon-button secondary" type="button" title="退出设备" aria-label="退出设备" @click="revokeSession(session)">
+          <button v-if="!session.current" class="icon-button secondary" type="button" :title="t('account.signOutDevice')" :aria-label="t('account.signOutDevice')" @click="revokeSession(session)">
             <LogOut :size="16" />
           </button>
         </article>
@@ -227,25 +230,25 @@ onMounted(() => {
 
     <form id="account-password-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
-        <h2><KeyRound :size="18" /> 登录密码</h2>
+        <h2><KeyRound :size="18" /> {{ t('account.loginPassword') }}</h2>
       </header>
       <div class="admin-settings-grid">
-        <div class="field"><label>当前密码</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
-        <div class="field"><label>新密码</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
+        <div class="field"><label>{{ t('account.currentPassword') }}</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
+        <div class="field"><label>{{ t('account.newPassword') }}</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
       </div>
     </form>
 
     <form class="admin-section guest-access-section" @submit.prevent="saveGuestAccess">
       <header class="admin-section-head">
-        <h2><KeyRound :size="18" /> 开屏访问密码</h2>
+        <h2><KeyRound :size="18" /> {{ t('account.guestPassword') }}</h2>
         <label class="guest-access-toggle">
           <input v-model="guestAccess.enabled" data-testid="guest-access-enabled" type="checkbox" />
-          <span>{{ guestAccess.enabled ? '已开启' : '未开启' }}</span>
+          <span>{{ guestAccess.enabled ? t('account.enabled') : t('account.disabled') }}</span>
         </label>
       </header>
       <div class="guest-access-fields">
         <div class="field">
-          <label for="guest-access-password">简单密码</label>
+          <label for="guest-access-password">{{ t('account.simplePassword') }}</label>
           <input
             id="guest-access-password"
             v-model="guestAccess.password"
@@ -254,11 +257,11 @@ onMounted(() => {
             autocomplete="new-password"
             minlength="4"
             maxlength="72"
-            :placeholder="guestAccess.passwordSet ? '留空则保留当前密码' : '设置至少 4 位密码'"
+            :placeholder="guestAccess.passwordSet ? t('account.keepCurrentPassword') : t('account.setMinPassword')"
           />
         </div>
         <span class="password-state" :class="{ configured: guestAccess.passwordSet || guestAccess.password }">
-          {{ guestAccess.password || guestAccess.passwordSet ? '密码已配置' : '尚未配置密码' }}
+          {{ guestAccess.password || guestAccess.passwordSet ? t('account.passwordConfigured') : t('account.passwordNotConfigured') }}
         </span>
         <button
           class="button"
@@ -266,7 +269,7 @@ onMounted(() => {
           type="submit"
           :disabled="isSavingGuestAccess || (guestAccess.enabled && !guestAccess.passwordSet && guestAccess.password.length < 4)"
         >
-          <Save :size="17" /> {{ isSavingGuestAccess ? '保存中' : '保存开屏设置' }}
+          <Save :size="17" /> {{ isSavingGuestAccess ? t('common.saving') : t('account.saveGuest') }}
         </button>
       </div>
     </form>
@@ -391,7 +394,7 @@ onMounted(() => {
 .password-state.configured {
   background: rgba(16, 185, 129, 0.08);
   border-color: rgba(5, 150, 105, 0.24);
-  color: #047857;
+  color: var(--admin-success);
 }
 
 @media (max-width: 640px) {

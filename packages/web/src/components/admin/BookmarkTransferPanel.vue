@@ -3,6 +3,9 @@ import { computed, ref, watch } from 'vue';
 import { CheckSquare, Download, Eye, Square, Upload } from 'lucide-vue-next';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BookmarkImportPreview } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const html = ref('');
 const fileName = ref('');
@@ -33,7 +36,7 @@ async function previewBookmarks() {
   error.value = '';
   message.value = '';
   if (!html.value.trim()) {
-    error.value = '请先选择或粘贴浏览器书签 HTML。';
+    error.value = t('transfer.needSource');
     return;
   }
   isPreviewing.value = true;
@@ -44,9 +47,9 @@ async function previewBookmarks() {
     });
     preview.value = result;
     selectAllImportable();
-    message.value = `预览完成：解析 ${result.summary.parsedFolders} 个文件夹、${result.summary.parsedLinks} 个链接。`;
+    message.value = t('transfer.previewDone', { folders: result.summary.parsedFolders, links: result.summary.parsedLinks });
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '预览失败';
+    error.value = event instanceof Error ? event.message : t('transfer.previewFailed');
   } finally {
     isPreviewing.value = false;
   }
@@ -56,11 +59,11 @@ async function importBookmarks() {
   error.value = '';
   message.value = '';
   if (!html.value.trim()) {
-    error.value = '请先选择或粘贴浏览器书签 HTML。';
+    error.value = t('transfer.needSource');
     return;
   }
   if (!preview.value) {
-    error.value = '请先预览导入内容。';
+    error.value = t('transfer.needPreview');
     return;
   }
   isImporting.value = true;
@@ -76,9 +79,9 @@ async function importBookmarks() {
       }),
     });
     const skippedInvalid = result.skippedInvalid || 0;
-    message.value = `导入 ${result.addedFolders} 个文件夹、${result.addedLinks} 个链接，跳过 ${result.skippedDuplicates} 个重复链接、${skippedInvalid} 个不可导入链接。`;
+    message.value = t('transfer.importDone', { folders: result.addedFolders, links: result.addedLinks, duplicates: result.skippedDuplicates, invalid: skippedInvalid });
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '导入失败';
+    error.value = event instanceof Error ? event.message : t('transfer.importFailed');
   } finally {
     isImporting.value = false;
   }
@@ -166,7 +169,7 @@ function folderDepth(tempId: string | null) {
 }
 
 function folderName(tempId: string | null) {
-  return tempId ? folderByTempId.value.get(tempId)?.name || '导入书签' : '导入书签';
+  return tempId ? folderByTempId.value.get(tempId)?.name || t('transfer.importedFolder') : t('transfer.importedFolder');
 }
 
 function exportBookmarks() {
@@ -183,48 +186,48 @@ watch(html, () => {
   <section class="admin-card bookmark-transfer-panel">
     <div class="admin-card-head">
       <div>
-        <h2>书签导入导出</h2>
+        <h2>{{ t('transfer.title') }}</h2>
       </div>
       <div class="toolbar">
         <button class="button secondary" data-testid="preview-bookmarks" type="button" :disabled="isPreviewing" @click="previewBookmarks">
-          <Eye :size="17" /> {{ isPreviewing ? '预览中' : '预览' }}
+          <Eye :size="17" /> {{ isPreviewing ? t('transfer.previewing') : t('transfer.preview') }}
         </button>
         <button class="button" data-testid="confirm-import" type="button" :disabled="!preview || !hasImportSelection || isImporting" @click="importBookmarks">
-          <Upload :size="17" /> {{ isImporting ? '导入中' : '确认导入' }}
+          <Upload :size="17" /> {{ isImporting ? t('transfer.importing') : t('transfer.confirmImport') }}
         </button>
-        <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> 导出</button>
+        <button class="button secondary" type="button" @click="exportBookmarks"><Download :size="17" /> {{ t('transfer.export') }}</button>
       </div>
     </div>
     <p v-if="message" class="notice">{{ message }}</p>
     <p v-if="error" class="error">{{ error }}</p>
     <div class="field">
-      <label for="bookmark-html-file">选择 HTML</label>
-      <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" aria-label="选择 HTML" @change="pickFile" />
+      <label for="bookmark-html-file">{{ t('transfer.pickHtml') }}</label>
+      <input id="bookmark-html-file" class="native-file-input" type="file" accept=".html,.htm,text/html" :aria-label="t('transfer.pickHtml')" @change="pickFile" />
     </div>
-    <p v-if="fileName" class="row-subtitle">已选择：{{ fileName }}</p>
+    <p v-if="fileName" class="row-subtitle">{{ t('transfer.picked', { name: fileName }) }}</p>
     <div class="field">
       <label>Netscape Bookmark HTML</label>
-      <textarea v-model="html" placeholder="也可以直接粘贴浏览器导出的书签 HTML" />
+      <textarea v-model="html" :placeholder="t('transfer.pastePlaceholder')" />
     </div>
     <div v-if="preview" class="import-preview-panel">
       <div class="import-preview-head">
         <div>
-          <h3>预览结果</h3>
-          <span>已选 {{ selectedFolderCount }} 个文件夹 · {{ selectedLinkCount }} 个链接</span>
+          <h3>{{ t('transfer.previewResult') }}</h3>
+          <span>{{ t('transfer.selectedCount', { folders: selectedFolderCount, links: selectedLinkCount }) }}</span>
         </div>
         <div class="toolbar">
-          <button class="button secondary compact" data-testid="select-all-import" type="button" @click="selectAllImportable"><CheckSquare :size="15" /> 全选可导入</button>
-          <button class="button secondary compact" data-testid="clear-import-selection" type="button" @click="clearImportSelection"><Square :size="15" /> 清空选择</button>
+          <button class="button secondary compact" data-testid="select-all-import" type="button" @click="selectAllImportable"><CheckSquare :size="15" /> {{ t('transfer.selectAll') }}</button>
+          <button class="button secondary compact" data-testid="clear-import-selection" type="button" @click="clearImportSelection"><Square :size="15" /> {{ t('transfer.clearSelection') }}</button>
         </div>
       </div>
       <div class="preview-stats">
-        <span>新增文件夹 {{ preview.summary.newFolders }}</span>
-        <span>新增链接 {{ preview.summary.newLinks }}</span>
-        <span>重复链接 {{ preview.summary.duplicateLinks }}</span>
-        <span>不可导入 {{ preview.summary.invalidLinks }}</span>
+        <span>{{ t('transfer.newFolders', { count: preview.summary.newFolders }) }}</span>
+        <span>{{ t('transfer.newLinks', { count: preview.summary.newLinks }) }}</span>
+        <span>{{ t('transfer.duplicateLinks', { count: preview.summary.duplicateLinks }) }}</span>
+        <span>{{ t('transfer.invalidLinks', { count: preview.summary.invalidLinks }) }}</span>
       </div>
       <p v-if="preview.summary.ignoredFolders || preview.summary.ignoredLinks" class="import-scope-note">
-        已忽略 Bookmarks 外 {{ preview.summary.ignoredFolders }} 个文件夹、{{ preview.summary.ignoredLinks }} 个链接
+        {{ t('transfer.ignored', { folders: preview.summary.ignoredFolders, links: preview.summary.ignoredLinks }) }}
       </p>
       <div class="preview-list">
         <label
@@ -240,8 +243,8 @@ watch(html, () => {
             @change="toggleFolderSelection(folder.tempId, $event)"
           />
           <strong>{{ folder.name }}</strong>
-          <span>{{ folder.parentTempId ? `子文件夹 · ${folderName(folder.parentTempId)}` : '大分类' }}</span>
-          <small>导入文件夹</small>
+          <span>{{ folder.parentTempId ? t('transfer.subfolderOf', { name: folderName(folder.parentTempId) }) : t('transfer.topCategory') }}</span>
+          <small>{{ t('transfer.importFolder') }}</small>
         </label>
         <label
           v-for="link in preview.links"
@@ -259,7 +262,7 @@ watch(html, () => {
           />
           <strong>{{ link.name }}</strong>
           <span>{{ link.url }}</span>
-          <small>{{ link.status === 'new' ? folderName(link.folderTempId) : link.status === 'duplicate' ? '重复' : '不可导入' }}{{ link.reason ? `：${link.reason}` : '' }}</small>
+          <small>{{ link.status === 'new' ? folderName(link.folderTempId) : link.status === 'duplicate' ? t('transfer.duplicate') : t('transfer.invalid') }}{{ link.reason ? ` · ${link.reason}` : '' }}</small>
         </label>
       </div>
     </div>
@@ -273,10 +276,10 @@ watch(html, () => {
 }
 
 .native-file-input::file-selector-button {
-  background: #fff;
+  background: var(--admin-surface-elevated);
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: #334155;
+  color: var(--admin-text);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
@@ -298,7 +301,7 @@ watch(html, () => {
 .import-scope-note {
   background: rgba(245, 158, 11, 0.08);
   border-top: 1px solid rgba(245, 158, 11, 0.2);
-  color: #92400e;
+  color: var(--admin-status-warn);
   font-size: 13px;
   margin: 0;
   padding: 10px 16px;
@@ -317,11 +320,11 @@ watch(html, () => {
 }
 
 .preview-folder-row {
-  background: #fafbfe;
+  background: var(--panel-2);
 }
 
 .preview-link-row:has(input:disabled) {
-  color: #64748b;
+  color: var(--admin-text-muted);
   cursor: not-allowed;
   filter: saturate(0.45);
 }

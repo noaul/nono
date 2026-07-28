@@ -11,6 +11,9 @@ import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 import { defaultNavigationEntries, getNavigationEntries, navigationEntriesVersion } from '@/utils/navigationEntries';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const confirmApi = useConfirm();
 const folders = ref<Folder[]>([]);
@@ -54,7 +57,7 @@ async function load() {
     Object.assign(portal, getPortalSettings(loadedSite?.settings, '/nodesk'));
     navigationEntries.value = getNavigationEntries(loadedSite?.settings);
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '加载 Notab 失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.loadFailed'));
   } finally {
     isInitialLoading.value = false;
   }
@@ -82,9 +85,9 @@ async function saveNewNotab() {
     });
     folders.value = [...folders.value, saved];
     cancelCreateNotab();
-    notifySuccess('Notab 已新增');
+    notifySuccess(t('notabs.created'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : 'Notab 新增失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.createFailed'));
   } finally {
     isSavingNotab.value = false;
   }
@@ -127,9 +130,9 @@ async function saveNavigationEntries() {
     site.value = saved;
     Object.assign(portal, getPortalSettings(saved?.settings || settings, '/nodesk'));
     navigationEntries.value = getNavigationEntries(saved?.settings || settings);
-    notifySuccess('入口设置已保存');
+    notifySuccess(t('notabs.entriesSaved'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : '入口设置保存失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.entriesSaveFailed'));
   } finally {
     isSavingEntries.value = false;
   }
@@ -181,9 +184,9 @@ async function saveRename(notab: Folder) {
     });
     folders.value = folders.value.map((folder) => (folder.id === notab.id ? { ...folder, ...saved } : folder));
     cancelRename();
-    notifySuccess('Notab 名称已更新');
+    notifySuccess(t('notabs.renamed'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : 'Notab 更名失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.renameFailed'));
   } finally {
     const next = new Set(savingNotabIds.value);
     next.delete(notab.id);
@@ -196,9 +199,9 @@ async function removeNotab(notab: Folder) {
   const childCount = Math.max(0, affectedIds.size - 1);
   const affectedBookmarks = links.value.filter((link) => affectedIds.has(link.folderId)).length;
   const confirmed = await confirmApi.confirm({
-    title: '删除 Notab',
-    message: `确定删除「${notab.name}」吗？其下 ${childCount} 个文件夹和 ${affectedBookmarks} 个书签会一起删除，此操作无法撤销。`,
-    confirmText: '删除',
+    title: t('notabs.deleteTitle'),
+    message: t('notabs.deleteConfirm', { name: notab.name, folders: childCount, bookmarks: affectedBookmarks }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -209,9 +212,9 @@ async function removeNotab(notab: Folder) {
     folders.value = folders.value.filter((folder) => !affectedIds.has(folder.id));
     links.value = links.value.filter((link) => !affectedIds.has(link.folderId));
     if (editingNotabId.value && affectedIds.has(editingNotabId.value)) cancelRename();
-    notifySuccess('Notab 已删除');
+    notifySuccess(t('notabs.deleted'));
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : 'Notab 删除失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.deleteFailed'));
   } finally {
     const next = new Set(deletingNotabIds.value);
     next.delete(notab.id);
@@ -254,10 +257,10 @@ async function saveSorting() {
     });
     const orderMap = new Map(ids.map((id, index) => [id, (ids.length - index) * 10]));
     folders.value = folders.value.map((folder) => ({ ...folder, sortOrder: orderMap.get(folder.id) || folder.sortOrder }));
-    notifySuccess('Notab 顺序已保存');
+    notifySuccess(t('notabs.sortSaved'));
     stopSorting();
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : 'Notab 排序保存失败');
+    notifyError(event instanceof Error ? event.message : t('notabs.sortSaveFailed'));
   } finally {
     isSavingSort.value = false;
   }
@@ -268,31 +271,31 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="导航内容" title="Notab 管理" />
+    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleNotabs')" />
 
     <section class="admin-section compact-admin-section" data-testid="entry-management">
       <div class="admin-section-head">
-        <h2>入口管理</h2>
+        <h2>{{ t('notabs.entryManagement') }}</h2>
         <button class="button" data-testid="save-navigation-entries" type="button" :disabled="isSavingEntries" @click="saveNavigationEntries">
-          <Save :size="17" /> {{ isSavingEntries ? '保存中' : '保存' }}
+          <Save :size="17" /> {{ isSavingEntries ? t('common.saving') : t('common.save') }}
         </button>
       </div>
       <div class="entry-list">
         <div class="entry-editor-row">
           <span class="entry-icon"><Link2 :size="17" /></span>
-          <input v-model="portal.label" aria-label="Nodesk 名称" maxlength="60" />
-          <input v-model="portal.url" aria-label="Nodesk 地址" maxlength="2048" />
-          <label class="compact-toggle"><input v-model="portal.enabled" type="checkbox" /> 启用</label>
+          <input v-model="portal.label" :aria-label="t('notabs.nodeskName')" maxlength="60" />
+          <input v-model="portal.url" :aria-label="t('notabs.nodeskUrl')" maxlength="2048" />
+          <label class="compact-toggle"><input v-model="portal.enabled" type="checkbox" /> {{ t('notabs.enabled') }}</label>
           <span class="entry-kind">Nodesk</span>
         </div>
         <div v-for="(entry, index) in navigationEntries" :key="entry.id" class="entry-editor-row">
           <span class="entry-icon"><Link2 :size="17" /></span>
-          <input v-model="entry.label" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-label' : undefined" aria-label="入口名称" maxlength="60" placeholder="名称" />
-          <input v-model="entry.url" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-url' : undefined" aria-label="入口地址" maxlength="2048" placeholder="/path 或 https://" />
-          <label class="compact-toggle"><input v-model="entry.enabled" type="checkbox" /> 启用</label>
-          <button class="icon-button danger" type="button" title="删除入口" @click="removeNavigationEntry(index)"><Trash2 :size="16" /></button>
+          <input v-model="entry.label" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-label' : undefined" :aria-label="t('notabs.entryName')" maxlength="60" :placeholder="t('notabs.namePlaceholder')" />
+          <input v-model="entry.url" :data-testid="index === navigationEntries.length - 1 && entry.id.startsWith('entry-') ? 'new-entry-url' : undefined" :aria-label="t('notabs.entryUrl')" maxlength="2048" :placeholder="t('notabs.urlPlaceholder')" />
+          <label class="compact-toggle"><input v-model="entry.enabled" type="checkbox" /> {{ t('notabs.enabled') }}</label>
+          <button class="icon-button danger" type="button" :title="t('notabs.deleteEntry')" @click="removeNavigationEntry(index)"><Trash2 :size="16" /></button>
         </div>
-        <button class="add-list-row" data-testid="add-navigation-entry" type="button" title="新增入口" @click="addNavigationEntry">
+        <button class="add-list-row" data-testid="add-navigation-entry" type="button" :title="t('notabs.addEntry')" @click="addNavigationEntry">
           <Plus :size="18" />
         </button>
       </div>
@@ -300,9 +303,9 @@ onMounted(load);
 
     <section class="admin-section compact-admin-section" data-testid="notab-management">
       <div class="admin-section-head">
-        <h2>Notab 列表</h2>
+        <h2>{{ t('notabs.list') }}</h2>
         <div class="toolbar">
-          <span v-if="sortMode" class="sort-save-state">更改尚未保存</span>
+          <span v-if="sortMode" class="sort-save-state">{{ t('notabs.unsaved') }}</span>
           <button
             v-if="!sortMode"
             class="button secondary"
@@ -311,22 +314,22 @@ onMounted(load);
             :disabled="notabs.length < 2"
             @click="startSorting"
           >
-            <GripVertical :size="17" /> 调整顺序
+            <GripVertical :size="17" /> {{ t('notabs.reorder') }}
           </button>
-          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
+          <button v-else class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('common.cancel') }}</button>
         </div>
       </div>
 
-      <LoadingOverlay v-if="isInitialLoading" label="正在加载 Notab" />
+      <LoadingOverlay v-if="isInitialLoading" :label="t('notabs.loading')" />
       <div v-else class="admin-table notab-table mobile-card-table" :class="{ 'is-sorting': sortMode }">
         <div class="admin-table-head">
-          <span>{{ sortMode ? '排序' : '图标' }}</span>
-          <span>名称</span>
-          <span>文件夹</span>
-          <span>书签</span>
-          <span>操作</span>
+          <span>{{ sortMode ? t('notabs.sort') : t('notabs.icon') }}</span>
+          <span>{{ t('notabs.name') }}</span>
+          <span>{{ t('notabs.folders') }}</span>
+          <span>{{ t('notabs.bookmarks') }}</span>
+          <span>{{ t('notabs.actions') }}</span>
         </div>
-        <SortableList :disabled="!sortMode" aria-label="Notab 排序" @reorder="reorderDraft">
+        <SortableList :disabled="!sortMode" :aria-label="t('notabs.sortAria')" @reorder="reorderDraft">
           <article
             v-for="(notab, index) in displayedNotabs"
             :key="notab.id"
@@ -334,58 +337,58 @@ onMounted(load);
             :data-testid="`notab-row-${notab.id}`"
             :data-id="notab.id"
           >
-            <span class="folder-sort-cell" :data-label="sortMode ? '排序' : '图标'">
-              <button v-if="sortMode" class="drag-handle" type="button" title="拖动调整顺序" aria-label="拖动调整 Notab 顺序"><GripVertical :size="18" /></button>
+            <span class="folder-sort-cell" :data-label="sortMode ? t('notabs.sort') : t('notabs.icon')">
+              <button v-if="sortMode" class="drag-handle" type="button" :title="t('notabs.dragHandle')" :aria-label="t('notabs.dragHandleAria')"><GripVertical :size="18" /></button>
               <FolderGlyph v-else :icon="notab.icon" :size="19" />
             </span>
-            <span class="notab-name-cell" data-label="名称">
+            <span class="notab-name-cell" :data-label="t('notabs.name')">
               <input
                 v-if="editingNotabId === notab.id"
                 v-model="editingName"
                 :data-testid="`notab-name-${notab.id}`"
                 maxlength="16"
-                aria-label="Notab 名称"
+                :aria-label="t('notabs.nameAria')"
                 @keydown.enter.prevent="saveRename(notab)"
                 @keydown.esc.prevent="cancelRename"
               />
               <button v-else class="text-button" type="button" :disabled="sortMode" @click="startRename(notab)">{{ notab.name }}</button>
             </span>
-            <span data-label="文件夹">{{ descendantFolderCount(notab.id) }} 个文件夹</span>
-            <span data-label="书签">{{ bookmarkCount(notab.id) }} 个书签</span>
-            <span class="row-actions" data-label="操作">
+            <span :data-label="t('notabs.folders')">{{ t('notabs.folderCount', { count: descendantFolderCount(notab.id) }) }}</span>
+            <span :data-label="t('notabs.bookmarks')">{{ t('notabs.bookmarkCount', { count: bookmarkCount(notab.id) }) }}</span>
+            <span class="row-actions" :data-label="t('notabs.actions')">
               <template v-if="sortMode">
-                <button class="icon-button secondary" title="上移" :disabled="index === 0" @click="moveDraft(notab, -1)"><MoveUp :size="16" /></button>
-                <button class="icon-button secondary" title="下移" :disabled="index === displayedNotabs.length - 1" @click="moveDraft(notab, 1)"><MoveDown :size="16" /></button>
+                <button class="icon-button secondary" :title="t('notabs.moveUp')" :disabled="index === 0" @click="moveDraft(notab, -1)"><MoveUp :size="16" /></button>
+                <button class="icon-button secondary" :title="t('notabs.moveDown')" :disabled="index === displayedNotabs.length - 1" @click="moveDraft(notab, 1)"><MoveDown :size="16" /></button>
               </template>
               <template v-else-if="editingNotabId === notab.id">
-                <button class="icon-button success" :data-testid="`save-notab-${notab.id}`" title="保存名称" :disabled="savingNotabIds.has(notab.id)" @click="saveRename(notab)"><Save :size="16" /></button>
-                <button class="icon-button secondary" title="取消更名" :disabled="savingNotabIds.has(notab.id)" @click="cancelRename"><X :size="16" /></button>
+                <button class="icon-button success" :data-testid="`save-notab-${notab.id}`" :title="t('notabs.saveName')" :disabled="savingNotabIds.has(notab.id)" @click="saveRename(notab)"><Save :size="16" /></button>
+                <button class="icon-button secondary" :title="t('notabs.cancelRename')" :disabled="savingNotabIds.has(notab.id)" @click="cancelRename"><X :size="16" /></button>
               </template>
               <template v-else>
-                <button class="icon-button secondary" :data-testid="`edit-notab-${notab.id}`" title="重命名" @click="startRename(notab)"><Pencil :size="16" /></button>
-                <button class="icon-button danger" :data-testid="`delete-notab-${notab.id}`" title="删除 Notab" :disabled="deletingNotabIds.has(notab.id)" @click="removeNotab(notab)"><Trash2 :size="16" /></button>
+                <button class="icon-button secondary" :data-testid="`edit-notab-${notab.id}`" :title="t('notabs.rename')" @click="startRename(notab)"><Pencil :size="16" /></button>
+                <button class="icon-button danger" :data-testid="`delete-notab-${notab.id}`" :title="t('notabs.deleteTitle')" :disabled="deletingNotabIds.has(notab.id)" @click="removeNotab(notab)"><Trash2 :size="16" /></button>
               </template>
             </span>
           </article>
         </SortableList>
         <article v-if="isCreatingNotab" class="admin-table-row inline-create-row">
           <span class="folder-sort-cell"><Plus :size="18" /></span>
-          <span class="notab-name-cell"><input v-model="newNotab.name" data-testid="new-notab-name" maxlength="16" aria-label="新 Notab 名称" @keydown.enter.prevent="saveNewNotab" /></span>
+          <span class="notab-name-cell"><input v-model="newNotab.name" data-testid="new-notab-name" maxlength="16" :aria-label="t('notabs.newNameAria')" @keydown.enter.prevent="saveNewNotab" /></span>
           <span></span>
           <span></span>
           <span class="row-actions">
-            <button class="icon-button success" data-testid="save-new-notab" type="button" title="保存 Notab" :disabled="isSavingNotab" @click="saveNewNotab"><Save :size="16" /></button>
-            <button class="icon-button secondary" type="button" title="取消" @click="cancelCreateNotab"><X :size="16" /></button>
+            <button class="icon-button success" data-testid="save-new-notab" type="button" :title="t('notabs.saveNotab')" :disabled="isSavingNotab" @click="saveNewNotab"><Save :size="16" /></button>
+            <button class="icon-button secondary" type="button" :title="t('common.cancel')" @click="cancelCreateNotab"><X :size="16" /></button>
           </span>
         </article>
-        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-notab-row" type="button" title="新增 Notab" @click="startCreateNotab"><Plus :size="18" /></button>
+        <button v-else-if="!sortMode" class="add-list-row" data-testid="add-notab-row" type="button" :title="t('notabs.addNotab')" @click="startCreateNotab"><Plus :size="18" /></button>
       </div>
 
       <div v-if="sortMode" class="sort-footer sticky-sort-footer">
-        <strong>{{ displayedNotabs.length }} 个 Notab</strong>
+        <strong>{{ t('notabs.total', { count: displayedNotabs.length }) }}</strong>
         <div class="toolbar">
-          <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> 取消</button>
-          <button class="button" data-testid="save-notab-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? '保存中' : '保存变更' }}</button>
+          <button class="button secondary" type="button" @click="stopSorting"><X :size="17" /> {{ t('common.cancel') }}</button>
+          <button class="button" data-testid="save-notab-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? t('common.saving') : t('notabs.saveChanges') }}</button>
         </div>
       </div>
     </section>
@@ -431,7 +434,7 @@ onMounted(load);
 .entry-icon,
 .entry-kind {
   align-items: center;
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: inline-flex;
   font-size: 12px;
   justify-content: center;
@@ -450,7 +453,7 @@ onMounted(load);
   background: rgba(255, 255, 255, 0.35);
   border: 1px dashed rgba(100, 116, 139, 0.38);
   border-radius: var(--admin-surface-radius, 8px);
-  color: #64748b;
+  color: var(--admin-text-muted);
   display: flex;
   justify-content: center;
   min-height: 42px;
@@ -459,7 +462,7 @@ onMounted(load);
 
 .add-list-row:hover {
   background: rgba(255, 255, 255, 0.62);
-  color: #0f766e;
+  color: var(--admin-accent);
 }
 
 @media (max-width: 720px) {
