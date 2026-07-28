@@ -250,7 +250,15 @@ describe('NavigationPage public workflow', () => {
     // starlit-night ships opacity 0.4; a 50% dial halves it and thins the particle field.
     expect(scene.attributes('style')).toContain('--theme-scene-opacity: 0.2');
     expect(scene.attributes('style')).toContain('--theme-particle-alpha: 0.68');
-    expect(scene.findAll('.scene-particle').length).toBeLessThan(30);
+    const halfCount = scene.findAll('.scene-particle').length;
+
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 100 },
+    }));
+    const fullWrapper = await mountNavigationPage();
+    const fullCount = fullWrapper.get('[data-testid="theme-scene"]').findAll('.scene-particle').length;
+    expect(halfCount).toBeGreaterThan(0);
+    expect(halfCount).toBeLessThan(fullCount);
 
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 0 },

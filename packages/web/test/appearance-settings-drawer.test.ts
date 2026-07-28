@@ -28,7 +28,7 @@ describe('AppearanceSettingsDrawer', () => {
   beforeEach(() => apiRequest.mockReset());
 
   it('applies and saves a complete theme without dropping unrelated settings', async () => {
-    apiRequest.mockResolvedValue({ ...site, backgroundColor: '#edf3f8', fontColor: '#423832' });
+    apiRequest.mockResolvedValue({ ...site, backgroundColor: '#cfdcee', fontColor: '#3a3029' });
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
 
     expect(wrapper.findAll('[data-testid^="theme-"]')).toHaveLength(6);
@@ -42,10 +42,10 @@ describe('AppearanceSettingsDrawer', () => {
     const payload = JSON.parse(options.body);
     expect(url).toBe('/api/admin/site');
     expect(options.method).toBe('PUT');
-    expect(payload.backgroundColor).toBe('#edf3f8');
-    expect(payload.fontColor).toBe('#423832');
+    expect(payload.backgroundColor).toBe('#cfdcee');
+    expect(payload.fontColor).toBe('#3a3029');
     expect(payload.settings.analytics).toEqual({ enabled: true });
-    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#d97745', sceneIntensity: 100 });
+    expect(payload.settings.theme).toEqual({ id: 'winter-glow', accent: '#c8622f', sceneIntensity: 100 });
     expect(payload.settings.appearance).toMatchObject({
       cardColor: '#fffaf3',
       searchColor: '#fffdf8',
