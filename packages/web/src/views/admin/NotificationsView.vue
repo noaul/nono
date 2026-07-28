@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, type Component } from 'vue';
 import {
   Activity,
   Bell,
@@ -20,6 +20,10 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed, AdminNotificationSource } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
+import { useI18n } from '@/composables/useI18n';
+import type { MessageKey } from '@/locales';
+
+const { t } = useI18n();
 
 const confirmApi = useConfirm();
 const feed = ref<AdminNotificationFeed>({ items: [], unreadCount: 0, generatedAt: '' });
@@ -31,12 +35,12 @@ const error = ref('');
 const workingActions = ref(new Set<string>());
 
 const sourceMeta = {
-  links: { label: '书签', icon: Activity },
-  nodesk: { label: 'Nodesk', icon: CalendarDays },
-  nomoney: { label: 'NoMoney', icon: WalletCards },
-  nostar: { label: 'NoStar', icon: Github },
-  backup: { label: '备份', icon: DatabaseBackup },
-} as const;
+  links: { labelKey: 'notifications.sourceLinks', icon: Activity },
+  nodesk: { labelKey: 'notifications.sourceNodesk', icon: CalendarDays },
+  nomoney: { labelKey: 'notifications.sourceNomoney', icon: WalletCards },
+  nostar: { labelKey: 'notifications.sourceNostar', icon: Github },
+  backup: { labelKey: 'notifications.sourceBackup', icon: DatabaseBackup },
+} satisfies Record<AdminNotificationSource, { labelKey: MessageKey; icon: Component }>;
 
 const sourceOptions = computed(() => {
   const counts = new Map<AdminNotificationSource, number>();
@@ -56,7 +60,7 @@ async function load() {
   try {
     feed.value = await apiRequest<AdminNotificationFeed>('/api/admin/notifications?limit=100');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '通知加载失败';
+    error.value = event instanceof Error ? event.message : t('notifications.loadFailed');
   } finally {
     isLoading.value = false;
   }
@@ -75,7 +79,7 @@ async function markRead(item: AdminNotification, read = true) {
   } catch (event) {
     item.read = previous;
     recalculateUnread();
-    error.value = event instanceof Error ? event.message : '通知状态更新失败';
+    error.value = event instanceof Error ? event.message : t('notifications.updateFailed');
   }
 }
 
@@ -89,7 +93,7 @@ async function markAllRead() {
     feed.value.unreadCount = 0;
     announceChange();
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '全部标记已读失败';
+    error.value = event instanceof Error ? event.message : t('notifications.markAllFailed');
   } finally {
     isMarkingAll.value = false;
   }
@@ -106,7 +110,7 @@ async function dismiss(item: AdminNotification) {
   } catch (event) {
     feed.value.items.splice(index, 0, item);
     recalculateUnread();
-    error.value = event instanceof Error ? event.message : '忽略通知失败';
+    error.value = event instanceof Error ? event.message : t('notifications.dismissFailed');
   }
 }
 
@@ -120,10 +124,10 @@ async function disableBookmarkHealth(item: AdminNotification) {
       body: jsonBody({ healthCheckEnabled: false }),
     });
     removeItem(item);
-    notifySuccess('已停止检查该书签');
+    notifySuccess(t('notifications.stopped'));
     announceChange();
   } catch (event) {
-    const message = event instanceof Error ? event.message : '停用书签检查失败';
+    const message = event instanceof Error ? event.message : t('notifications.stopFailed');
     error.value = message;
     notifyError(message);
   } finally {
@@ -134,9 +138,9 @@ async function disableBookmarkHealth(item: AdminNotification) {
 async function deleteBookmark(item: AdminNotification) {
   if (!item.entityId || isWorking(item, 'delete')) return;
   const confirmed = await confirmApi.confirm({
-    title: '删除书签',
-    message: `确定删除“${item.title.replace(/ (访问异常|检测超时|链接无效|发生重定向)$/, '')}”吗？删除后可在回收站恢复。`,
-    confirmText: '删除',
+    title: t('notifications.deleteBookmark'),
+    message: t('notifications.deleteConfirm', { name: item.title.replace(/ (访问异常|检测超时|链接无效|发生重定向)$/, '') }),
+    confirmText: t('common.delete'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -145,10 +149,10 @@ async function deleteBookmark(item: AdminNotification) {
   try {
     await apiRequest(`/api/admin/links/${item.entityId}`, { method: 'DELETE' });
     removeItem(item);
-    notifySuccess('书签已移入回收站');
+    notifySuccess(t('notifications.trashed'));
     announceChange();
   } catch (event) {
-    const message = event instanceof Error ? event.message : '删除书签失败';
+    const message = event instanceof Error ? event.message : t('notifications.deleteFailed');
     error.value = message;
     notifyError(message);
   } finally {
@@ -206,7 +210,7 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack notifications-page">
-    <AdminPageHeader eyebrow="系统" title="通知中心">
+    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleNotifications')">
       <template #actions>
         <button
           class="button secondary"
@@ -215,25 +219,25 @@ onMounted(load);
           :disabled="isMarkingAll || !feed.unreadCount"
           @click="markAllRead"
         >
-          <CheckCheck :size="16" /> {{ isMarkingAll ? '处理中' : '全部已读' }}
+          <CheckCheck :size="16" /> {{ isMarkingAll ? t('notifications.markingAll') : t('notifications.markAllRead') }}
         </button>
       </template>
     </AdminPageHeader>
 
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="notification-center" aria-label="统一通知中心">
+    <section class="notification-center" :aria-label="t('notifications.center')">
       <header class="notification-toolbar">
-        <div class="notification-filters" aria-label="通知状态">
+        <div class="notification-filters" :aria-label="t('notifications.statusFilter')">
           <button type="button" :class="{ active: activeFilter === 'all' }" :aria-pressed="activeFilter === 'all'" @click="activeFilter = 'all'">
-            全部 <span>{{ feed.items.length }}</span>
+            {{ t('notifications.all') }} <span>{{ feed.items.length }}</span>
           </button>
           <button data-testid="notification-filter-unread" type="button" :class="{ active: activeFilter === 'unread' }" :aria-pressed="activeFilter === 'unread'" @click="activeFilter = 'unread'">
-            未读 <span data-testid="notification-unread-count">{{ feed.unreadCount }}</span>
+            {{ t('notifications.unread') }} <span data-testid="notification-unread-count">{{ feed.unreadCount }}</span>
           </button>
         </div>
-        <div class="notification-sources" aria-label="通知来源">
-          <button type="button" :class="{ active: activeSource === 'all' }" @click="activeSource = 'all'">全部来源</button>
+        <div class="notification-sources" :aria-label="t('notifications.sourceFilter')">
+          <button type="button" :class="{ active: activeSource === 'all' }" @click="activeSource = 'all'">{{ t('notifications.allSources') }}</button>
           <button
             v-for="option in sourceOptions"
             :key="option.source"
@@ -243,15 +247,15 @@ onMounted(load);
             :data-testid="`notification-source-${option.source}`"
             @click="activeSource = option.source"
           >
-            {{ option.label }} {{ option.count }}
+            {{ t(option.labelKey) }} {{ option.count }}
           </button>
         </div>
       </header>
 
-      <div v-if="isLoading" class="notification-empty">正在读取通知</div>
+      <div v-if="isLoading" class="notification-empty">{{ t('notifications.loading') }}</div>
       <div v-else-if="!visibleItems.length" class="notification-empty">
         <Bell :size="22" />
-        <strong>{{ feed.items.length ? '当前筛选下没有通知' : '暂无通知' }}</strong>
+        <strong>{{ feed.items.length ? t('notifications.noneInFilter') : t('notifications.none') }}</strong>
       </div>
       <div v-else class="notification-list">
         <article
@@ -260,14 +264,14 @@ onMounted(load);
           class="notification-row"
           :class="[{ 'is-unread': !item.read }, `severity-${item.severity}`, `source-${item.source}`]"
         >
-          <span class="notification-source-icon" :title="sourceMeta[item.source].label">
+          <span class="notification-source-icon" :title="t(sourceMeta[item.source].labelKey)">
             <component :is="sourceMeta[item.source].icon" :size="18" />
           </span>
           <div class="notification-copy">
             <RouterLink v-if="isAdminRoute(item)" :to="item.href" @click="markRead(item)">{{ item.title }}</RouterLink>
             <a v-else :href="item.href" target="_blank" rel="noreferrer" @click="markRead(item)">{{ item.title }}</a>
             <p>{{ item.description }}</p>
-            <small>{{ sourceMeta[item.source].label }} · {{ formatTime(item) }}</small>
+            <small>{{ t(sourceMeta[item.source].labelKey) }} · {{ formatTime(item) }}</small>
           </div>
           <span class="notification-severity" :title="item.severity"></span>
           <div class="notification-actions">
@@ -278,8 +282,8 @@ onMounted(load);
               :href="item.targetUrl"
               target="_blank"
               rel="noopener noreferrer"
-              title="打开网站"
-              aria-label="打开网站"
+              :title="t('notifications.openSite')"
+              :aria-label="t('notifications.openSite')"
               @click="markRead(item)"
             ><ExternalLink :size="15" /></a>
             <button
@@ -287,8 +291,8 @@ onMounted(load);
               class="icon-button secondary"
               :data-testid="`disable-bookmark-health-${item.entityId}`"
               type="button"
-              title="不再检查"
-              aria-label="不再检查"
+              :title="t('notifications.stopChecking')"
+              :aria-label="t('notifications.stopChecking')"
               :disabled="isWorking(item, 'disable')"
               @click="disableBookmarkHealth(item)"
             ><ShieldOff :size="15" /></button>
@@ -297,24 +301,24 @@ onMounted(load);
               class="icon-button secondary danger-action"
               :data-testid="`delete-bookmark-${item.entityId}`"
               type="button"
-              title="删除书签"
-              aria-label="删除书签"
+              :title="t('notifications.deleteBookmark')"
+              :aria-label="t('notifications.deleteBookmark')"
               :disabled="isWorking(item, 'delete')"
               @click="deleteBookmark(item)"
             ><Trash2 :size="15" /></button>
             <button
               class="icon-button secondary"
               type="button"
-              :title="item.read ? '标记未读' : '标记已读'"
-              :aria-label="item.read ? '标记未读' : '标记已读'"
+              :title="item.read ? t('notifications.markUnread') : t('notifications.markRead')"
+              :aria-label="item.read ? t('notifications.markUnread') : t('notifications.markRead')"
               @click="markRead(item, !item.read)"
             ><Check :size="15" /></button>
             <button
               class="icon-button secondary"
               :data-testid="`dismiss-notification-${item.key}`"
               type="button"
-              title="忽略"
-              aria-label="忽略"
+              :title="t('notifications.dismiss')"
+              :aria-label="t('notifications.dismiss')"
               @click="dismiss(item)"
             ><X :size="15" /></button>
           </div>

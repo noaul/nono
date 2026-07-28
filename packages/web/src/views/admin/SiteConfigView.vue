@@ -7,6 +7,9 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
 import { getSearchEngineSettings, type SearchEngineSettings } from '@/utils/searchEngines';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const form = reactive({
   name: '',
@@ -67,9 +70,9 @@ async function save() {
     };
     const site = await apiRequest<Site>('/api/admin/site', { method: 'PUT', body: jsonBody(payload) });
     Object.assign(form, site, { settings: { ...payload.settings, ...(site.settings || {}) } });
-    message.value = '已保存';
+    message.value = t('site.saved');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '保存失败';
+    error.value = event instanceof Error ? event.message : t('common.saveFailed');
   } finally {
     saving.value = false;
   }
@@ -79,8 +82,8 @@ function addSearchEngine() {
   const id = `custom-${Date.now()}-${searchEngines.items.length + 1}`;
   searchEngines.items.push({
     id,
-    label: '自定义搜索',
-    short: '搜',
+    label: t('site.customSearch'),
+    short: '#',
     template: 'https://example.com/search?q={query}',
     enabled: true,
   });
@@ -113,9 +116,9 @@ function setDefaultSearchEngine(id: string) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="运营" title="站点配置">
+    <AdminPageHeader :eyebrow="t('admin.sectionOperations')" :title="t('admin.titleSite')">
       <template #actions>
-        <button class="button" form="site-config-form" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? '保存中...' : '保存设置' }}</button>
+        <button class="button" form="site-config-form" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? t('common.saving') : t('site.saveSettings') }}</button>
       </template>
     </AdminPageHeader>
     <AdminStateBanner v-if="message" :message="message" tone="success" />
@@ -125,30 +128,30 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card site-basics">
         <header class="admin-card-head">
-          <h2><Palette :size="18" /> 基础信息</h2>
+          <h2><Palette :size="18" /> {{ t('site.basics') }}</h2>
         </header>
         <div class="config-fields">
-          <div class="field"><label>站点名</label><input v-model="form.name" /></div>
-          <div class="field"><label>发布地址</label><input v-model="form.slug" /></div>
-          <div class="field wide"><label>简介</label><textarea v-model="form.description" /></div>
-          <div class="field wide"><label>背景图片 URL</label><input v-model="form.backgroundImage" /></div>
+          <div class="field"><label>{{ t('site.name') }}</label><input v-model="form.name" /></div>
+          <div class="field"><label>{{ t('site.slug') }}</label><input v-model="form.slug" /></div>
+          <div class="field wide"><label>{{ t('site.description') }}</label><textarea v-model="form.description" /></div>
+          <div class="field wide"><label>{{ t('site.backgroundImage') }}</label><input v-model="form.backgroundImage" /></div>
           <div class="field color-field">
-            <label>背景色</label>
+            <label>{{ t('appearance.backgroundColor') }}</label>
             <div class="color-control"><input v-model="form.backgroundColor" type="color" /><code>{{ form.backgroundColor }}</code></div>
           </div>
-          <div class="field wide"><label>旧版默认搜索模板</label><input v-model="form.searchUrlTemplate" /></div>
+          <div class="field wide"><label>{{ t('site.legacyTemplate') }}</label><input v-model="form.searchUrlTemplate" /></div>
           <label class="switch-row wide">
             <input v-model="form.localSearchFirst" type="checkbox" />
-            <span><strong>站内优先搜索</strong><small>有本地结果时停留在导航页</small></span>
+            <span><strong>{{ t('site.localFirst') }}</strong><small>{{ t('site.localFirstHint') }}</small></span>
           </label>
         </div>
       </section>
 
       <section class="admin-card search-engine-editor">
         <header class="admin-card-head">
-          <h2><Search :size="18" /> 搜索引擎</h2>
+          <h2><Search :size="18" /> {{ t('site.searchEngines') }}</h2>
           <button class="button secondary" data-testid="add-search-engine" type="button" @click="addSearchEngine">
-            <Plus :size="16" /> 新增引擎
+            <Plus :size="16" /> {{ t('site.addEngine') }}
           </button>
         </header>
 
@@ -160,15 +163,15 @@ function setDefaultSearchEngine(id: string) {
             :data-testid="`search-engine-row-${engine.id}`"
           >
             <div class="field engine-name-field">
-              <label>名称</label>
+              <label>{{ t('tokens.name') }}</label>
               <input v-model="engine.label" data-testid="search-engine-label" maxlength="60" />
             </div>
             <div class="field engine-short-field">
-              <label>简称</label>
+              <label>{{ t('site.engineShort') }}</label>
               <input v-model="engine.short" data-testid="search-engine-short" maxlength="4" />
             </div>
             <div class="field engine-template-field">
-              <label>搜索 URL，必须包含 {query}</label>
+              <label>{{ t('site.engineTemplate') }}</label>
               <input v-model="engine.template" data-testid="search-engine-template" type="url" />
             </div>
             <label class="engine-toggle">
@@ -178,7 +181,7 @@ function setDefaultSearchEngine(id: string) {
                 type="checkbox"
                 @change="setEngineEnabled(engine.id, ($event.target as HTMLInputElement).checked)"
               />
-              <span>启用</span>
+              <span>{{ t('site.enabled') }}</span>
             </label>
             <label
               class="engine-default"
@@ -192,12 +195,12 @@ function setDefaultSearchEngine(id: string) {
                 type="radio"
                 @change="setDefaultSearchEngine(engine.id)"
               />
-              <span>默认</span>
+              <span>{{ t('site.default') }}</span>
             </label>
             <button
               class="icon-button danger"
               type="button"
-              title="删除搜索引擎"
+              :title="t('site.deleteEngine')"
               :disabled="searchEngines.items.length <= 1"
               @click="removeSearchEngine(engine.id)"
             >
@@ -209,41 +212,41 @@ function setDefaultSearchEngine(id: string) {
 
       <section class="admin-card portal-editor">
         <header class="admin-card-head">
-          <h2><Link2 :size="18" /> 博客联动</h2>
+          <h2><Link2 :size="18" /> {{ t('site.portal') }}</h2>
           <label class="portal-enabled">
             <input v-model="portal.enabled" type="checkbox" />
-            <span>启用入口</span>
+            <span>{{ t('site.portalEnabled') }}</span>
           </label>
         </header>
 
         <div class="portal-layout">
           <div class="config-fields">
             <div class="field">
-              <label>入口名称</label>
-              <input v-model="portal.label" data-testid="portal-label" placeholder="前往博客" />
+              <label>{{ t('site.portalLabel') }}</label>
+              <input v-model="portal.label" data-testid="portal-label" :placeholder="t('site.portalLabelPlaceholder')" />
             </div>
             <div class="field">
-              <label>博客地址</label>
+              <label>{{ t('site.portalUrl') }}</label>
               <input v-model="portal.url" data-testid="portal-url" type="url" placeholder="https://blog.example.com" />
             </div>
             <div class="field wide">
-              <label>自定义图片 URL</label>
+              <label>{{ t('site.portalImage') }}</label>
               <input v-model="portal.imageUrl" data-testid="portal-image-url" type="url" placeholder="https://cdn.example.com/avatar.png" />
             </div>
             <label class="switch-row wide">
               <input v-model="portal.openInNewTab" type="checkbox" />
-              <span><strong>新窗口打开</strong><small>关闭时会在当前页面直接切换到博客</small></span>
+              <span><strong>{{ t('site.portalNewTab') }}</strong><small>{{ t('site.portalNewTabHint') }}</small></span>
             </label>
           </div>
 
           <div class="portal-preview" :class="{ disabled: !portal.enabled }">
-            <span class="portal-preview-kicker"><ArrowUpRight :size="14" /> {{ portal.label || '前往博客' }}</span>
+            <span class="portal-preview-kicker"><ArrowUpRight :size="14" /> {{ portal.label || t('site.portalLabelPlaceholder') }}</span>
             <div class="portal-preview-avatar">
               <img v-if="portal.imageUrl" :src="portal.imageUrl" alt="" />
               <Image v-else :size="28" />
             </div>
             <strong>{{ form.name || 'Nono' }}</strong>
-            <small>{{ portal.url || '配置博客地址后即可双向跳转' }}</small>
+            <small>{{ portal.url || t('site.portalUrlHint') }}</small>
           </div>
         </div>
       </section>

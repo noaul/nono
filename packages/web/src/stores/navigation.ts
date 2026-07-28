@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { apiRequest } from '@/api/client';
 import type { NavigationPayload } from '@/api/types';
+import { tNow } from '@/composables/useI18n';
 
 const CACHE_PREFIX = 'nono:navigation:';
 
@@ -37,7 +38,7 @@ export const useNavigationStore = defineStore('navigation', {
         this.payload = await apiRequest<NavigationPayload>(`/api/navigation/${encodeURIComponent(username)}${suffix}`);
         return this.payload;
       } catch (error) {
-        this.error = error instanceof Error ? error.message : '导航内容加载失败';
+        this.error = error instanceof Error ? error.message : tNow('errors.navigationLoad');
         throw error;
       } finally {
         this.loading = false;

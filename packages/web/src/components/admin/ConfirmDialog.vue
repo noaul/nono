@@ -3,6 +3,9 @@ import { computed, ref } from 'vue';
 import { AlertTriangle, X } from 'lucide-vue-next';
 import { useConfirm } from '@/composables/useConfirm';
 import { useModalBehavior } from '@/composables/useModalBehavior';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const confirmApi = useConfirm();
 const dialog = ref<HTMLElement | null>(null);
@@ -28,7 +31,7 @@ useModalBehavior({
           <h2>{{ confirmApi.state.value.title }}</h2>
           <p>{{ confirmApi.state.value.message }}</p>
         </div>
-        <button class="icon-button secondary confirm-close" type="button" aria-label="关闭" @click="confirmApi.cancel">
+        <button class="icon-button secondary confirm-close" type="button" :aria-label="t('common.close')" @click="confirmApi.cancel">
           <X :size="16" />
         </button>
         <div class="confirm-actions">

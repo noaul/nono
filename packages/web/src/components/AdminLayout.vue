@@ -28,6 +28,9 @@ import ToastHost from '@/components/admin/ToastHost.vue';
 import NotificationBell from '@/components/admin/NotificationBell.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
 import { useModalBehavior } from '@/composables/useModalBehavior';
+import type { Component } from 'vue';
+import { useI18n } from '@/composables/useI18n';
+import type { MessageKey } from '@/locales';
 
 const props = withDefaults(defineProps<{ title?: string }>(), {
   title: '',
@@ -37,39 +40,46 @@ const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const userMenuOpen = ref(false);
+const { t } = useI18n();
+
 const mobileNavOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 const mobileNavRef = ref<HTMLElement | null>(null);
 const mobileNavCloseRef = ref<HTMLButtonElement | null>(null);
 
-const navSections = [
+// Nav entries carry catalogue keys; labels/titles resolve per render so switching language
+// updates the sidebar without a reload.
+type NavItem = { to: string; labelKey: MessageKey; titleKey: MessageKey; icon: Component; adminOnly?: boolean };
+type NavSection = { labelKey: MessageKey; items: NavItem[] };
+
+const navSections: NavSection[] = [
   {
-    label: '运营',
+    labelKey: 'admin.sectionOperations',
     items: [
-      { to: '/admin', label: '总览', title: '控制台总览', icon: Home },
-      { to: '/admin/site', label: '站点', title: '站点配置', icon: Settings },
-      { to: '/admin/notabs', label: 'Notab 管理', title: 'Notab 管理', icon: Layers },
-      { to: '/admin/folders', label: '文件夹', title: '文件夹', icon: Folder },
-      { to: '/admin/links', label: '书签管理', title: '书签管理', icon: Link2 },
+      { to: '/admin', labelKey: 'admin.navDashboard', titleKey: 'admin.titleDashboard', icon: Home },
+      { to: '/admin/site', labelKey: 'admin.navSite', titleKey: 'admin.titleSite', icon: Settings },
+      { to: '/admin/notabs', labelKey: 'admin.navNotabs', titleKey: 'admin.titleNotabs', icon: Layers },
+      { to: '/admin/folders', labelKey: 'admin.navFolders', titleKey: 'admin.titleFolders', icon: Folder },
+      { to: '/admin/links', labelKey: 'admin.navLinks', titleKey: 'admin.titleLinks', icon: Link2 },
     ],
   },
   {
-    label: '自动化',
+    labelKey: 'admin.sectionAutomation',
     items: [
-      { to: '/admin/automation', label: '导入导出', title: '书签导入导出', icon: ArrowUpDown },
-      { to: '/admin/llm', label: 'LLM', title: 'AI 智能收藏', icon: Bot },
-      { to: '/admin/tokens', label: 'Token', title: 'API Token', icon: KeyRound },
+      { to: '/admin/automation', labelKey: 'admin.navAutomation', titleKey: 'admin.titleAutomation', icon: ArrowUpDown },
+      { to: '/admin/llm', labelKey: 'admin.navLlm', titleKey: 'admin.titleLlm', icon: Bot },
+      { to: '/admin/tokens', labelKey: 'admin.navTokens', titleKey: 'admin.titleTokens', icon: KeyRound },
     ],
   },
   {
-    label: '系统',
+    labelKey: 'admin.sectionSystem',
     items: [
-      { to: '/admin/notifications', label: '通知中心', title: '通知中心', icon: Bell },
-      { to: '/admin/account', label: '账户', title: '账户设置', icon: User },
-      { to: '/admin/trash', label: '回收站', title: '回收站', icon: Trash2 },
-      { to: '/admin/backups', label: '备份', title: '备份与恢复', icon: Archive, adminOnly: true },
-      { to: '/admin/audit', label: '审计日志', title: '操作审计', icon: ScrollText, adminOnly: true },
-      { to: '/admin/users', label: '用户', title: '用户管理', icon: Users, adminOnly: true },
+      { to: '/admin/notifications', labelKey: 'admin.navNotifications', titleKey: 'admin.titleNotifications', icon: Bell },
+      { to: '/admin/account', labelKey: 'admin.navAccount', titleKey: 'admin.titleAccount', icon: User },
+      { to: '/admin/trash', labelKey: 'admin.navTrash', titleKey: 'admin.titleTrash', icon: Trash2 },
+      { to: '/admin/backups', labelKey: 'admin.navBackups', titleKey: 'admin.titleBackups', icon: Archive, adminOnly: true },
+      { to: '/admin/audit', labelKey: 'admin.navAudit', titleKey: 'admin.titleAudit', icon: ScrollText, adminOnly: true },
+      { to: '/admin/users', labelKey: 'admin.navUsers', titleKey: 'admin.titleUsers', icon: Users, adminOnly: true },
     ],
   },
 ];
@@ -79,11 +89,12 @@ const visibleNavSections = computed(() =>
     .map((section) => ({ ...section, items: section.items.filter((entry) => !entry.adminOnly || auth.isAdmin) }))
     .filter((section) => section.items.length),
 );
-const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) => section.items.map((item) => ({ ...item, sectionLabel: section.label }))));
-const pageTitle = computed(() => props.title || String(route?.meta?.title || '控制台总览'));
-const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.title === pageTitle.value || item.label === pageTitle.value) || flatNavItems.value[0]);
+const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) => section.items.map((item) => ({ ...item, sectionLabelKey: section.labelKey }))));
+const routeTitleKey = computed(() => (route?.meta?.titleKey as MessageKey | undefined) || 'admin.titleDashboard');
+const pageTitle = computed(() => props.title || t(routeTitleKey.value));
+const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.titleKey === routeTitleKey.value) || flatNavItems.value[0]);
 const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
-const operatorRole = computed(() => (auth.isAdmin ? '管理员' : '成员'));
+const operatorRole = computed(() => t(auth.isAdmin ? 'admin.roleAdmin' : 'admin.roleMember'));
 const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
 
 useModalBehavior({
@@ -140,7 +151,7 @@ async function logout() {
       :class="{ 'is-mobile-open': mobileNavOpen }"
       :role="mobileNavOpen ? 'dialog' : undefined"
       :aria-modal="mobileNavOpen ? 'true' : undefined"
-      :aria-label="mobileNavOpen ? '后台导航' : undefined"
+      :aria-label="mobileNavOpen ? t('admin.nav') : undefined"
       :tabindex="mobileNavOpen ? -1 : undefined"
     >
       <RouterLink class="sidebar-brand" to="/">
@@ -149,13 +160,13 @@ async function logout() {
           <h1>Nono</h1>
         </div>
       </RouterLink>
-      <button ref="mobileNavCloseRef" class="sidebar-mobile-close" type="button" aria-label="关闭后台导航" @click="mobileNavOpen = false">
+      <button ref="mobileNavCloseRef" class="sidebar-mobile-close" type="button" :aria-label="t('admin.closeNav')" @click="mobileNavOpen = false">
         <X :size="18" />
       </button>
 
-      <nav class="admin-nav workbench-nav" aria-label="后台导航">
-        <section v-for="section in visibleNavSections" :key="section.label" class="nav-section">
-          <p>{{ section.label }}</p>
+      <nav class="admin-nav workbench-nav" :aria-label="t('admin.nav')">
+        <section v-for="section in visibleNavSections" :key="section.labelKey" class="nav-section">
+          <p>{{ t(section.labelKey) }}</p>
           <RouterLink
             v-for="item in section.items"
             :key="item.to"
@@ -166,7 +177,7 @@ async function logout() {
             exact-active-class="nav-route-exact"
           >
             <span class="nav-icon"><component :is="item.icon" :size="17" /></span>
-            <span class="nav-label">{{ item.label }}</span>
+            <span class="nav-label">{{ t(item.labelKey) }}</span>
           </RouterLink>
         </section>
       </nav>
@@ -184,8 +195,8 @@ async function logout() {
           <button
             class="mobile-nav-toggle"
             type="button"
-            title="打开后台导航"
-            aria-label="打开后台导航"
+            :title="t('admin.openNav')"
+            :aria-label="t('admin.openNav')"
             :aria-expanded="mobileNavOpen"
             @click="mobileNavOpen = !mobileNavOpen"
           >
@@ -193,7 +204,7 @@ async function logout() {
             <Menu v-else :size="18" />
           </button>
           <div class="page-title">
-            <p><strong>{{ activeNavItem?.sectionLabel || '运营' }}</strong></p>
+            <p><strong>{{ t(activeNavItem?.sectionLabelKey || 'admin.sectionOperations') }}</strong></p>
             <h1>{{ pageTitle }}</h1>
           </div>
         </div>
@@ -205,7 +216,7 @@ async function logout() {
               class="topbar-avatar"
               type="button"
               :title="operatorName"
-              :aria-label="`打开用户菜单，${operatorName}`"
+              :aria-label="t('admin.userMenu', { name: operatorName })"
               aria-haspopup="menu"
               :aria-expanded="userMenuOpen"
               @click="userMenuOpen = !userMenuOpen"
@@ -218,10 +229,10 @@ async function logout() {
                 <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>
               </div>
               <RouterLink class="user-menu-item" role="menuitem" to="/" @click="userMenuOpen = false">
-                <Compass :size="16" /> 查看主页
+                <Compass :size="16" /> {{ t('admin.viewHome') }}
               </RouterLink>
               <button class="user-menu-item" role="menuitem" type="button" @click="logout">
-                <LogOut :size="16" /> 退出登录
+                <LogOut :size="16" /> {{ t('admin.signOut') }}
               </button>
             </div>
           </div>
@@ -237,7 +248,7 @@ async function logout() {
       v-if="mobileNavOpen"
       class="mobile-nav-backdrop"
       type="button"
-      aria-label="关闭后台导航"
+      :aria-label="t('admin.closeNav')"
       @click="mobileNavOpen = false"
     ></button>
 

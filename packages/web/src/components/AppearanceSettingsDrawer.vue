@@ -256,7 +256,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
             <section class="theme-section">
               <div class="drawer-section-title">
                 <h3><Palette :size="16" /> {{ t('appearance.theme') }}</h3>
-                <span v-if="selectedTheme"><Check :size="14" /> {{ selectedTheme.name }}</span>
+                <span v-if="selectedTheme"><Check :size="14" /> {{ t(selectedTheme.nameKey) }}</span>
               </div>
               <div class="theme-wall">
                 <button
@@ -275,8 +275,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
                     <span class="theme-swatch-card"></span>
                     <span class="theme-swatch-accent"></span>
                   </span>
-                  <strong>{{ preset.name }}</strong>
-                  <small>{{ preset.description }}</small>
+                  <strong>{{ t(preset.nameKey) }}</strong>
+                  <small>{{ t(preset.descriptionKey) }}</small>
                 </button>
               </div>
               <label class="scene-intensity-field" data-testid="scene-intensity-field">

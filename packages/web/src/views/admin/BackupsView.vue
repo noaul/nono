@@ -5,6 +5,9 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
 import { useConfirm } from '@/composables/useConfirm';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 interface BackupRecord {
   id: string;
@@ -58,7 +61,7 @@ async function loadBackups() {
     backups.value = data.backups;
     automation.value = automationData;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '备份列表加载失败';
+    error.value = event instanceof Error ? event.message : t('backups.loadFailed');
   } finally {
     isLoading.value = false;
   }
@@ -74,9 +77,9 @@ async function saveAutomation() {
       method: 'PUT',
       body: JSON.stringify(automation.value.settings),
     });
-    message.value = '自动备份策略已保存';
+    message.value = t('backups.automationSaved');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '自动备份策略保存失败';
+    error.value = event instanceof Error ? event.message : t('backups.automationSaveFailed');
   } finally {
     isSavingAutomation.value = false;
   }
@@ -91,25 +94,25 @@ async function createBackup() {
     const data = await apiRequest<{ backup: BackupRecord; automation: BackupAutomationSnapshot }>('/api/admin/backups', { method: 'POST' });
     backups.value = [data.backup, ...backups.value.filter((item) => item.id !== data.backup.id)];
     automation.value = data.automation;
-    message.value = '全站备份已创建并校验';
+    message.value = t('backups.created');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '创建备份失败';
+    error.value = event instanceof Error ? event.message : t('backups.createFailed');
   } finally {
     isCreating.value = false;
   }
 }
 
 async function removeBackup(backup: BackupRecord) {
-  if (!await confirmApi.confirm({ title: '删除备份', message: formatDate(backup.createdAt), confirmText: '删除', tone: 'danger' })) return;
+  if (!await confirmApi.confirm({ title: t('backups.deleteTitle'), message: formatDate(backup.createdAt), confirmText: t('common.delete'), tone: 'danger' })) return;
   deletingIds.value = new Set(deletingIds.value).add(backup.id);
   message.value = '';
   error.value = '';
   try {
     await apiRequest(`/api/admin/backups/${backup.id}`, { method: 'DELETE' });
     backups.value = backups.value.filter((item) => item.id !== backup.id);
-    message.value = '备份已删除';
+    message.value = t('backups.deleted');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '删除备份失败';
+    error.value = event instanceof Error ? event.message : t('backups.deleteFailed');
   } finally {
     const remaining = new Set(deletingIds.value);
     remaining.delete(backup.id);
@@ -137,10 +140,10 @@ onMounted(loadBackups);
 
 <template>
   <div class="admin-page-stack backups-page">
-    <AdminPageHeader eyebrow="系统" title="备份与恢复">
+    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleBackups')">
       <template #actions>
         <button class="button" data-testid="create-backup" type="button" :disabled="isCreating" @click="createBackup">
-          <Plus :size="17" /> {{ isCreating ? '备份中' : '创建备份' }}
+          <Plus :size="17" /> {{ isCreating ? t('backups.creating') : t('backups.create') }}
         </button>
       </template>
     </AdminPageHeader>
@@ -150,65 +153,65 @@ onMounted(loadBackups);
 
     <section class="admin-section backup-section">
       <header class="admin-section-head">
-        <h2><CalendarClock :size="18" /> 自动备份</h2>
+        <h2><CalendarClock :size="18" /> {{ t('backups.automatic') }}</h2>
         <label class="backup-toggle">
           <input v-model="automation.settings.enabled" data-testid="backup-automation-enabled" type="checkbox">
-          <span>{{ automation.settings.enabled ? '已开启' : '已关闭' }}</span>
+          <span>{{ automation.settings.enabled ? t('backups.on') : t('backups.off') }}</span>
         </label>
       </header>
 
       <div class="backup-policy-grid">
         <label class="field">
-          <span>频率</span>
+          <span>{{ t('backups.frequency') }}</span>
           <select v-model="automation.settings.cadence" class="select" data-testid="backup-cadence">
-            <option value="daily">每天</option>
-            <option value="weekly">每周</option>
+            <option value="daily">{{ t('backups.daily') }}</option>
+            <option value="weekly">{{ t('backups.weekly') }}</option>
           </select>
         </label>
         <label v-if="automation.settings.cadence === 'weekly'" class="field">
-          <span>星期</span>
+          <span>{{ t('backups.weekday') }}</span>
           <select v-model.number="automation.settings.weekday" class="select" data-testid="backup-weekday">
-            <option :value="0">星期日</option>
-            <option :value="1">星期一</option>
-            <option :value="2">星期二</option>
-            <option :value="3">星期三</option>
-            <option :value="4">星期四</option>
-            <option :value="5">星期五</option>
-            <option :value="6">星期六</option>
+            <option :value="0">{{ t('backups.sunday') }}</option>
+            <option :value="1">{{ t('backups.monday') }}</option>
+            <option :value="2">{{ t('backups.tuesday') }}</option>
+            <option :value="3">{{ t('backups.wednesday') }}</option>
+            <option :value="4">{{ t('backups.thursday') }}</option>
+            <option :value="5">{{ t('backups.friday') }}</option>
+            <option :value="6">{{ t('backups.saturday') }}</option>
           </select>
         </label>
         <label class="field">
-          <span>执行小时</span>
+          <span>{{ t('backups.hour') }}</span>
           <input v-model.number="automation.settings.hour" class="input" data-testid="backup-hour" type="number" min="0" max="23">
         </label>
         <label class="field">
-          <span>保留天数</span>
+          <span>{{ t('backups.retentionDays') }}</span>
           <input v-model.number="automation.settings.retentionDays" class="input" data-testid="backup-retention-days" type="number" min="1" max="3650">
         </label>
         <label class="field">
-          <span>最多份数</span>
+          <span>{{ t('backups.maxCopies') }}</span>
           <input v-model.number="automation.settings.maxBackups" class="input" data-testid="backup-max-count" type="number" min="2" max="365">
         </label>
         <button class="button backup-policy-save" data-testid="save-backup-automation" type="button" :disabled="isSavingAutomation" @click="saveAutomation">
-          <Save :size="16" /> {{ isSavingAutomation ? '保存中' : '保存策略' }}
+          <Save :size="16" /> {{ isSavingAutomation ? t('common.saving') : t('backups.savePolicy') }}
         </button>
       </div>
 
       <div class="backup-policy-status">
-        <span>最近成功：{{ automation.status.lastSuccessAt ? formatDate(automation.status.lastSuccessAt) : '暂无' }}</span>
-        <span v-if="automation.status.lastFailureAt" class="is-error">最近失败：{{ formatDate(automation.status.lastFailureAt) }}</span>
+        <span>{{ t('backups.lastSuccess', { value: automation.status.lastSuccessAt ? formatDate(automation.status.lastSuccessAt) : t('backups.none') }) }}</span>
+        <span v-if="automation.status.lastFailureAt" class="is-error">{{ t('backups.lastFailure', { date: formatDate(automation.status.lastFailureAt) }) }}</span>
         <span v-if="automation.status.lastError" class="is-error">{{ automation.status.lastError }}</span>
       </div>
     </section>
 
     <section class="admin-section backup-section">
       <header class="admin-section-head">
-        <h2><Archive :size="18" /> 全站备份</h2>
+        <h2><Archive :size="18" /> {{ t('backups.fullBackup') }}</h2>
         <span class="backup-count">{{ backups.length }}</span>
       </header>
 
-      <p v-if="isLoading" class="backup-empty">正在读取备份</p>
-      <p v-else-if="!backups.length" class="backup-empty">暂无备份</p>
+      <p v-if="isLoading" class="backup-empty">{{ t('backups.loading') }}</p>
+      <p v-else-if="!backups.length" class="backup-empty">{{ t('backups.empty') }}</p>
       <div v-else class="backup-list">
         <article v-for="backup in backups" :key="backup.id" class="backup-row" :data-testid="`backup-${backup.id}`">
           <span class="backup-icon"><Database :size="19" /></span>
@@ -220,7 +223,7 @@ onMounted(loadBackups);
             <small>{{ backup.sourceCommit.slice(0, 12) }} · {{ backup.sha256.slice(0, 12) }}</small>
           </div>
           <div class="backup-state">
-            <span><CheckCircle2 :size="14" /> 已校验</span>
+            <span><CheckCircle2 :size="14" /> {{ t('backups.verified') }}</span>
             <strong>{{ formatBytes(backup.size) }}</strong>
           </div>
           <div class="backup-actions">
@@ -229,15 +232,15 @@ onMounted(loadBackups);
               :data-testid="`download-backup-${backup.id}`"
               :href="`/api/admin/backups/${backup.id}/download`"
               :download="backup.filename"
-              title="下载备份"
-              aria-label="下载备份"
+              :title="t('backups.download')"
+              :aria-label="t('backups.download')"
             ><Download :size="16" /></a>
             <button
               class="icon-button danger"
               :data-testid="`delete-backup-${backup.id}`"
               type="button"
-              title="删除备份"
-              aria-label="删除备份"
+              :title="t('backups.deleteTitle')"
+              :aria-label="t('backups.deleteTitle')"
               :disabled="deletingIds.has(backup.id)"
               @click="removeBackup(backup)"
             ><Trash2 :size="16" /></button>

@@ -1046,7 +1046,8 @@ const externalSearchUrl = computed(() => {
 const externalSearchLabel = computed(() => {
   searchEngineTick.value;
   const engine = getEngine(getSelectedEngineId(searchEngineSettings.value), searchEngineSettings.value);
-  return engine.template ? engine.label : t('nav.externalSearch');
+  if (!engine.template) return t('nav.externalSearch');
+  return engine.labelKey ? t(engine.labelKey) : engine.label;
 });
 
 function onFolderVerified(links: Link[]) {

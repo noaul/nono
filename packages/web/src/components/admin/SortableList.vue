@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Sortable, { type SortableEvent } from 'sortablejs';
+import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{
   disabled?: boolean;
   ariaLabel?: string;
 }>(), {
   disabled: false,
-  ariaLabel: '可拖动排序列表',
+  ariaLabel: '',
 });
 
 const emit = defineEmits<{
   reorder: [ids: number[]];
 }>();
+
+const { t } = useI18n();
 
 const root = ref<HTMLElement | null>(null);
 const dragging = ref(false);
@@ -70,7 +73,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="sortable-list" role="list" :aria-label="ariaLabel" :data-dragging="String(dragging)">
+  <div ref="root" class="sortable-list" role="list" :aria-label="ariaLabel || t('ui.sortableList')" :data-dragging="String(dragging)">
     <slot />
   </div>
 </template>

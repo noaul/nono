@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { translate } from '../src/locales';
 
 describe('Notab management entry', () => {
   it('adds a dedicated Notab management route and sidebar item', () => {
@@ -8,7 +9,8 @@ describe('Notab management entry', () => {
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
     const viewPath = path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue');
 
-    expect(layoutSource).toContain("to: '/admin/notabs', label: 'Notab 管理'");
+    expect(layoutSource).toContain("to: '/admin/notabs', labelKey: 'admin.navNotabs'");
+    expect(translate('zh', 'admin.navNotabs')).toBe('Notab 管理');
     expect(routerSource).toContain("path: '/admin/notabs'");
     expect(fs.existsSync(viewPath)).toBe(true);
   });

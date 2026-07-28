@@ -1,4 +1,5 @@
 import { readonly, ref } from 'vue';
+import { tNow } from '@/composables/useI18n';
 
 export interface ConfirmOptions {
   title: string;
@@ -16,8 +17,8 @@ const defaultState: ConfirmState = {
   open: false,
   title: '',
   message: '',
-  confirmText: '确认',
-  cancelText: '取消',
+  confirmText: '',
+  cancelText: '',
   tone: 'primary',
 };
 
@@ -37,8 +38,8 @@ export function useConfirm() {
       open: true,
       title: options.title,
       message: options.message,
-      confirmText: options.confirmText || '确认',
-      cancelText: options.cancelText || '取消',
+      confirmText: options.confirmText || tNow('common.confirm'),
+      cancelText: options.cancelText || tNow('common.cancel'),
       tone: options.tone || 'primary',
     };
     return new Promise<boolean>((resolve) => {

@@ -65,6 +65,14 @@ export function setSiteDefaultLocale(next: Locale | null) {
   applyDocumentLocale();
 }
 
+/**
+ * One-shot translation for code outside a component (stores, composables, plain modules).
+ * Not reactive: the caller gets the string for the locale that is active right now.
+ */
+export function tNow(key: MessageKey, params?: Record<string, string | number>): string {
+  return translate(locale.value, key, params);
+}
+
 export function useI18n() {
   const t = (key: MessageKey, params?: Record<string, string | number>) => translate(locale.value, key, params);
   return { locale, preference, siteDefault, t, setLocalePreference, setSiteDefaultLocale };

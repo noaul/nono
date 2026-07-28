@@ -1,6 +1,11 @@
+import type { MessageKey } from '@/locales';
+
 export type SearchEngine = {
   id: string;
+  /** Admin-authored engine names stay as typed; they are site data, not UI chrome. */
   label: string;
+  /** Set only on the built-in entry, which is chrome and therefore translated. */
+  labelKey?: MessageKey;
   short: string;
   template: string | null;
   enabled: boolean;
@@ -12,7 +17,7 @@ export type SearchEngineSettings = {
 };
 
 export const SEARCH_ENGINES: SearchEngine[] = [
-  { id: 'default', label: '站点默认', short: '默', template: null, enabled: true },
+  { id: 'default', label: 'Site default', labelKey: 'search.siteDefaultEngine', short: '·', template: null, enabled: true },
   { id: 'google', label: 'Google', short: 'G', template: 'https://www.google.com/search?q={query}', enabled: true },
   { id: 'bing', label: 'Bing', short: 'B', template: 'https://www.bing.com/search?q={query}', enabled: true },
   { id: 'baidu', label: '百度', short: '百', template: 'https://www.baidu.com/s?wd={query}', enabled: true },
@@ -44,7 +49,7 @@ export function getSearchEngineSettings(settings?: Record<string, unknown> | nul
     return [{
       id,
       label,
-      short: String(value.short || label.slice(0, 1)).trim().slice(0, 4) || '搜',
+      short: String(value.short || label.slice(0, 1)).trim().slice(0, 4) || '#',
       template,
       enabled: value.enabled !== false,
     }];

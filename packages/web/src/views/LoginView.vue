@@ -4,6 +4,9 @@ import { Fingerprint } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { requiresDocumentNavigation, resolveInternalRedirect } from '@/utils/redirect';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -28,7 +31,7 @@ async function submit() {
     await auth.login({ username: username.value, password: password.value });
     await enterApplication();
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '登录失败';
+    error.value = event instanceof Error ? event.message : t('auth.signInFailed');
   }
 }
 
@@ -40,7 +43,7 @@ async function loginWithPasskey() {
     await auth.loginWithPasskey();
     await enterApplication();
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '通行密钥登录失败';
+    error.value = event instanceof Error ? event.message : t('auth.passkeyFailed');
   } finally {
     isPasskeyLoading.value = false;
   }
@@ -50,23 +53,23 @@ async function loginWithPasskey() {
 <template>
   <main class="auth-page">
     <form class="auth-card" @submit.prevent="submit">
-      <h1>登录 Nono</h1>
-      <p v-if="auth.setupRequired" class="notice">还没有管理员账号，请先初始化。</p>
+      <h1>{{ t('auth.signInTitle') }}</h1>
+      <p v-if="auth.setupRequired" class="notice">{{ t('auth.setupNotice') }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <div class="field">
-        <label>用户名</label>
+        <label>{{ t('auth.username') }}</label>
         <input v-model="username" autocomplete="username" />
       </div>
       <div class="field">
-        <label>密码</label>
+        <label>{{ t('auth.password') }}</label>
         <input v-model="password" type="password" autocomplete="current-password" />
       </div>
-      <button class="button" type="submit">登录</button>
-      <div class="auth-divider"><span>或</span></div>
+      <button class="button" type="submit">{{ t('auth.signIn') }}</button>
+      <div class="auth-divider"><span>{{ t('auth.or') }}</span></div>
       <button class="button secondary passkey-login" data-testid="passkey-login" type="button" :disabled="isPasskeyLoading" @click="loginWithPasskey">
-        <Fingerprint :size="18" /> {{ isPasskeyLoading ? '验证中' : '使用通行密钥' }}
+        <Fingerprint :size="18" /> {{ isPasskeyLoading ? t('auth.passkeyVerifying') : t('auth.usePasskey') }}
       </button>
-      <RouterLink class="button secondary" to="/setup">初始化管理员</RouterLink>
+      <RouterLink class="button secondary" to="/setup">{{ t('auth.initAdmin') }}</RouterLink>
     </form>
   </main>
 </template>

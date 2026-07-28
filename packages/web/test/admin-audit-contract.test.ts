@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { translate } from '../src/locales';
 
 const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 
@@ -14,6 +15,8 @@ describe('admin audit log entry', () => {
     expect(router).toContain("const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue')");
     expect(router).toContain("path: '/admin/audit', component: AuditLogsView");
     expect(layout).toContain("to: '/admin/audit'");
-    expect(layout).toContain("label: '审计日志'");
+    // Nav labels are catalogue keys now; assert the wiring and that the key still resolves.
+    expect(layout).toContain("labelKey: 'admin.navAudit'");
+    expect(translate('zh', 'admin.navAudit')).toBe('审计日志');
   });
 });

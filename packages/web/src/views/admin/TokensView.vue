@@ -5,6 +5,9 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const tokens = ref<ApiToken[]>([]);
 const form = reactive({ name: 'Chrome extension', expiresAt: '', scopeProfile: 'extension' as 'extension' | 'full' });
@@ -51,70 +54,70 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader eyebrow="自动化" title="API Token" />
+    <AdminPageHeader :eyebrow="t('admin.sectionAutomation')" :title="t('admin.titleTokens')" />
 
     <div class="token-summary-grid">
       <section>
-        <span>Token 总数</span>
+        <span>{{ t('tokens.total') }}</span>
         <strong>{{ summary.total }}</strong>
       </section>
       <section>
-        <span>活跃 Token</span>
+        <span>{{ t('tokens.active') }}</span>
         <strong>{{ summary.active }}</strong>
       </section>
       <section>
-        <span>永久 Token</span>
+        <span>{{ t('tokens.permanent') }}</span>
         <strong>{{ summary.neverExpires }}</strong>
       </section>
       <section>
-        <span>即将过期</span>
+        <span>{{ t('tokens.expiringSoon') }}</span>
         <strong>{{ summary.expiringSoon }}</strong>
       </section>
       <section>
-        <span>已过期</span>
+        <span>{{ t('tokens.expired') }}</span>
         <strong>{{ summary.expired }}</strong>
       </section>
     </div>
     <div class="admin-settings-grid">
       <form class="admin-section" @submit.prevent="createToken">
         <header class="admin-section-head">
-          <h2><Plus :size="18" /> 创建 Token</h2>
+          <h2><Plus :size="18" /> {{ t('tokens.create') }}</h2>
         </header>
         <div class="grid">
-          <div class="field"><label>名称</label><input data-testid="token-name" v-model="form.name" /></div>
+          <div class="field"><label>{{ t('tokens.name') }}</label><input data-testid="token-name" v-model="form.name" /></div>
           <div class="field">
-            <label>权限</label>
+            <label>{{ t('tokens.scope') }}</label>
             <select data-testid="token-scope-profile" v-model="form.scopeProfile">
-              <option value="extension">书签扩展</option>
-              <option value="full">完全访问</option>
+              <option value="extension">{{ t('tokens.scopeExtension') }}</option>
+              <option value="full">{{ t('tokens.scopeFull') }}</option>
             </select>
           </div>
           <div class="field">
-            <label>过期预设</label>
+            <label>{{ t('tokens.expiryPreset') }}</label>
             <select data-testid="token-expiry-preset" @change="setExpiryPreset(($event.target as HTMLSelectElement).value)">
-              <option value="">不过期</option>
-              <option value="7">7 天</option>
-              <option value="30">30 天</option>
-              <option value="90">90 天</option>
+              <option value="">{{ t('tokens.never') }}</option>
+              <option value="7">{{ t('tokens.days', { count: 7 }) }}</option>
+              <option value="30">{{ t('tokens.days', { count: 30 }) }}</option>
+              <option value="90">{{ t('tokens.days', { count: 90 }) }}</option>
             </select>
           </div>
-          <div class="field"><label>过期时间</label><input v-model="form.expiresAt" type="datetime-local" /></div>
-          <button class="button" type="submit"><Plus :size="17" /> 创建 Token</button>
+          <div class="field"><label>{{ t('tokens.expiresAt') }}</label><input v-model="form.expiresAt" type="datetime-local" /></div>
+          <button class="button" type="submit"><Plus :size="17" /> {{ t('tokens.create') }}</button>
           <p v-if="createdToken" class="token-created-secret">{{ createdToken }}</p>
         </div>
       </form>
       <section class="admin-section">
         <header class="admin-section-head">
-          <h2><KeyRound :size="18" /> 已创建 Token</h2>
+          <h2><KeyRound :size="18" /> {{ t('tokens.existing') }}</h2>
         </header>
         <div class="list">
-          <EmptyState v-if="!tokens.length" title="还没有 API Token" description="创建一个 Token 供浏览器扩展或脚本访问接口。" />
+          <EmptyState v-if="!tokens.length" :title="t('tokens.emptyTitle')" :description="t('tokens.emptyBody')" />
           <article v-for="token in tokens" :key="token.id" class="row">
             <div>
               <div class="row-title"><KeyRound :size="15" /> {{ token.name }}</div>
-              <div class="row-subtitle">{{ token.token }} · {{ token.scopes.includes('*') ? '完全访问' : '书签扩展' }} · {{ token.expiresAt || '不过期' }}</div>
+              <div class="row-subtitle">{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt || t('tokens.never') }}</div>
             </div>
-            <button class="icon-button danger" :data-testid="`revoke-token-${token.id}`" title="撤销" @click="remove(token)"><Trash2 :size="17" /></button>
+            <button class="icon-button danger" :data-testid="`revoke-token-${token.id}`" :title="t('tokens.revoke')" @click="remove(token)"><Trash2 :size="17" /></button>
           </article>
         </div>
       </section>

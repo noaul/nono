@@ -3,6 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Bell, CheckCheck } from 'lucide-vue-next';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed } from '@/api/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const open = ref(false);
 const isLoading = ref(false);
@@ -62,7 +65,7 @@ onBeforeUnmount(() => {
     <button
       class="notification-bell-button"
       type="button"
-      aria-label="通知"
+      :aria-label="t('ui.notifications')"
       aria-haspopup="dialog"
       :aria-expanded="open"
       @click="openPanel"
@@ -71,13 +74,13 @@ onBeforeUnmount(() => {
       <span v-if="feed.unreadCount" class="notification-badge">{{ badgeLabel }}</span>
     </button>
 
-    <section v-if="open" class="notification-popover" aria-label="最近通知">
+    <section v-if="open" class="notification-popover" :aria-label="t('ui.recentNotifications')">
       <header>
-        <strong>通知</strong>
-        <span v-if="feed.unreadCount">{{ feed.unreadCount }} 条未读</span>
+        <strong>{{ t('ui.notifications') }}</strong>
+        <span v-if="feed.unreadCount">{{ t('ui.unread', { count: feed.unreadCount }) }}</span>
       </header>
-      <div v-if="isLoading && !feed.items.length" class="notification-popover-empty">正在读取</div>
-      <div v-else-if="!feed.items.length" class="notification-popover-empty">暂无通知</div>
+      <div v-if="isLoading && !feed.items.length" class="notification-popover-empty">{{ t('ui.reading') }}</div>
+      <div v-else-if="!feed.items.length" class="notification-popover-empty">{{ t('ui.noNotifications') }}</div>
       <div v-else class="notification-preview-list">
         <template v-for="item in feed.items" :key="item.key">
           <RouterLink
@@ -105,7 +108,7 @@ onBeforeUnmount(() => {
         </template>
       </div>
       <RouterLink class="notification-popover-footer" to="/admin/notifications" @click="open = false">
-        <CheckCheck :size="15" /> 查看全部
+        <CheckCheck :size="15" /> {{ t('ui.viewAll') }}
       </RouterLink>
     </section>
   </div>

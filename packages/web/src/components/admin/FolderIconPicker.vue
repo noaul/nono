@@ -4,6 +4,7 @@ import { ChevronDown, Search, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import { folderIconOptions, getFolderIconOption, type FolderIconOption } from '@/utils/folder-icons';
+import { useI18n } from '@/composables/useI18n';
 
 type IconTab = 'recommended' | 'recent' | 'all';
 
@@ -18,6 +19,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
+const { t } = useI18n();
+
 const recentStorageKey = 'nono-recent-folder-icons';
 const tabValues: IconTab[] = ['recommended', 'recent', 'all'];
 const open = ref(false);
@@ -28,7 +31,7 @@ const searchInput = ref<HTMLInputElement | null>(null);
 const dialog = ref<HTMLElement | null>(null);
 
 const currentOption = computed(() => getFolderIconOption(props.modelValue));
-const currentLabel = computed(() => currentOption.value?.label || (props.modelValue ? '当前图标' : '选择图标'));
+const currentLabel = computed(() => (currentOption.value ? t(currentOption.value.labelKey) : t(props.modelValue ? 'folderIcons.current' : 'folderIcons.pickerLabel')));
 const filteredOptions = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase();
   let options: FolderIconOption[];
@@ -44,7 +47,7 @@ const filteredOptions = computed(() => {
   }
 
   if (!normalizedQuery) return options;
-  return options.filter((option) => [option.label, option.value, ...option.keywords].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)));
+  return options.filter((option) => [t(option.labelKey), option.value, ...option.keywords].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)));
 });
 
 function readRecent() {
@@ -117,25 +120,25 @@ useModalBehavior({
 
   <Teleport to="body">
     <div v-if="open" class="folder-icon-backdrop" role="presentation" @click.self="closePicker">
-      <section ref="dialog" class="folder-icon-dialog" data-testid="folder-icon-dialog" role="dialog" aria-modal="true" aria-label="选择图标" tabindex="-1">
+      <section ref="dialog" class="folder-icon-dialog" data-testid="folder-icon-dialog" role="dialog" aria-modal="true" :aria-label="t('folderIcons.pickerLabel')" tabindex="-1">
         <header class="folder-icon-dialog-head">
-          <h2>选择图标</h2>
-          <button class="icon-button secondary" type="button" aria-label="关闭图标选择" @click="closePicker"><X :size="17" /></button>
+          <h2>{{ t('folderIcons.pickerLabel') }}</h2>
+          <button class="icon-button secondary" type="button" :aria-label="t('folderIcons.closeLabel')" @click="closePicker"><X :size="17" /></button>
         </header>
 
         <label class="folder-icon-search-field">
           <Search :size="19" />
-          <input ref="searchInput" v-model="query" data-testid="folder-icon-search" type="search" placeholder="搜索图标，如：文件夹、开发、AI、购物…" />
+          <input ref="searchInput" v-model="query" data-testid="folder-icon-search" type="search" :placeholder="t('ui.iconSearchPlaceholder')" />
         </label>
 
-        <div class="folder-icon-tabs" role="tablist" aria-label="图标范围">
-          <button data-testid="folder-icon-tab-recommended" type="button" role="tab" :aria-selected="activeTab === 'recommended'" :class="{ active: activeTab === 'recommended' }" @click="selectTab('recommended')">推荐</button>
-          <button data-testid="folder-icon-tab-recent" type="button" role="tab" :aria-selected="activeTab === 'recent'" :class="{ active: activeTab === 'recent' }" @click="selectTab('recent')">最近</button>
-          <button data-testid="folder-icon-tab-all" type="button" role="tab" :aria-selected="activeTab === 'all'" :class="{ active: activeTab === 'all' }" @click="selectTab('all')">全部</button>
+        <div class="folder-icon-tabs" role="tablist" :aria-label="t('folderIcons.scopeLabel')">
+          <button data-testid="folder-icon-tab-recommended" type="button" role="tab" :aria-selected="activeTab === 'recommended'" :class="{ active: activeTab === 'recommended' }" @click="selectTab('recommended')">{{ t('ui.tabRecommended') }}</button>
+          <button data-testid="folder-icon-tab-recent" type="button" role="tab" :aria-selected="activeTab === 'recent'" :class="{ active: activeTab === 'recent' }" @click="selectTab('recent')">{{ t('ui.tabRecent') }}</button>
+          <button data-testid="folder-icon-tab-all" type="button" role="tab" :aria-selected="activeTab === 'all'" :class="{ active: activeTab === 'all' }" @click="selectTab('all')">{{ t('ui.tabAll') }}</button>
         </div>
 
         <div class="folder-icon-dialog-body">
-          <p class="folder-icon-section-title">{{ query ? '搜索结果' : activeTab === 'recommended' ? '文件夹推荐' : activeTab === 'recent' ? '最近使用' : '全部图标' }}</p>
+          <p class="folder-icon-section-title">{{ query ? t('ui.searchResults') : activeTab === 'recommended' ? t('ui.recommendedFolders') : activeTab === 'recent' ? t('ui.recentlyUsed') : t('ui.allIcons') }}</p>
           <div v-if="filteredOptions.length" class="folder-icon-grid">
             <button
               v-for="option in filteredOptions"
@@ -148,14 +151,14 @@ useModalBehavior({
               @click="chooseIcon(option)"
             >
               <component :is="option.component" :size="29" :stroke-width="1.9" />
-              <span>{{ option.label }}</span>
+              <span>{{ t(option.labelKey) }}</span>
             </button>
           </div>
-          <div v-else class="folder-icon-empty">没有匹配的图标</div>
+          <div v-else class="folder-icon-empty">{{ t('ui.noIconMatch') }}</div>
         </div>
 
         <footer class="folder-icon-dialog-footer">
-          <button class="button secondary" type="button" @click="clearIcon">清除图标</button>
+          <button class="button secondary" type="button" @click="clearIcon">{{ t('ui.clearIcon') }}</button>
         </footer>
       </section>
     </div>

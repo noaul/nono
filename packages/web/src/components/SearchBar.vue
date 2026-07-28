@@ -66,7 +66,7 @@ defineExpose({
       <button
         class="engine-trigger"
         type="button"
-        :title="t('search.engineTitle', { label: engine.label })"
+        :title="t('search.engineTitle', { label: engine.labelKey ? t(engine.labelKey) : engine.label })"
         aria-haspopup="listbox"
         :aria-expanded="pickerOpen"
         data-testid="engine-trigger"

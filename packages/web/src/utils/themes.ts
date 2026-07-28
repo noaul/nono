@@ -1,3 +1,4 @@
+import type { MessageKey } from '@/locales';
 import { appearanceDefaults, type AppearanceSettings } from '@/utils/appearance';
 
 export type ThemeTone = 'light' | 'dark';
@@ -7,7 +8,8 @@ export type ThemeSceneMotion = 'float' | 'fall' | 'drift' | 'shimmer' | 'breathe
 
 export type ThemeScene = {
   kind: ThemeSceneKind;
-  label: string;
+  /** Catalogue key, e.g. 'themes.summerBreeze.scene'; resolved at render time. */
+  labelKey: MessageKey;
   asset: string;
   mode: ThemeSceneMode;
   motion: ThemeSceneMotion;
@@ -26,8 +28,9 @@ export type ThemeSurface = {
 
 export type PublicTheme = {
   id: string;
-  name: string;
-  description: string;
+  /** Catalogue keys, so a theme reads in whichever language the viewer picked. */
+  nameKey: MessageKey;
+  descriptionKey: MessageKey;
   tone: ThemeTone;
   backgroundColor: string;
   fontColor: string;
@@ -40,8 +43,8 @@ export type PublicTheme = {
 export const PUBLIC_THEMES: PublicTheme[] = [
   {
     id: 'summer-breeze',
-    name: '夏日清爽',
-    description: '水光气泡与薄荷晴空',
+    nameKey: 'themes.summerBreeze.name',
+    descriptionKey: 'themes.summerBreeze.description',
     tone: 'light',
     backgroundColor: '#cbe9e4',
     fontColor: '#16343a',
@@ -56,7 +59,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'bubbles',
-      label: '水下气泡',
+      labelKey: 'themes.summerBreeze.scene',
       asset: '/theme-scenes/summer-bubbles.jpg',
       mode: 'texture',
       motion: 'float',
@@ -86,8 +89,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
   },
   {
     id: 'winter-glow',
-    name: '冬日暖暖',
-    description: '细雪与暖光',
+    nameKey: 'themes.winterGlow.name',
+    descriptionKey: 'themes.winterGlow.description',
     tone: 'light',
     backgroundColor: '#cfdcee',
     fontColor: '#3a3029',
@@ -102,7 +105,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'snow',
-      label: '缓落细雪',
+      labelKey: 'themes.winterGlow.scene',
       asset: '/theme-scenes/winter-snowflake.png',
       mode: 'particles',
       motion: 'fall',
@@ -132,8 +135,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
   },
   {
     id: 'verdant-leaves',
-    name: '绿叶芬芳',
-    description: '真实叶影与雨后青绿',
+    nameKey: 'themes.verdantLeaves.name',
+    descriptionKey: 'themes.verdantLeaves.description',
     tone: 'light',
     backgroundColor: '#d7e6d8',
     fontColor: '#173b2a',
@@ -148,7 +151,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'leaves',
-      label: '真实叶影',
+      labelKey: 'themes.verdantLeaves.scene',
       asset: '/theme-scenes/verdant-leaves.jpg',
       mode: 'texture',
       motion: 'float',
@@ -178,8 +181,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
   },
   {
     id: 'starlit-night',
-    name: '星光闪耀',
-    description: '深夜星河与暖金微光',
+    nameKey: 'themes.starlitNight.name',
+    descriptionKey: 'themes.starlitNight.description',
     tone: 'dark',
     backgroundColor: '#101622',
     fontColor: '#f3f4ef',
@@ -194,7 +197,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'stars',
-      label: '呼吸星河',
+      labelKey: 'themes.starlitNight.scene',
       asset: '/theme-scenes/starlit-sky.jpg',
       mode: 'texture',
       motion: 'shimmer',
@@ -224,8 +227,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
   },
   {
     id: 'clear-day',
-    name: '万物明朗',
-    description: '林间光束与通透明色',
+    nameKey: 'themes.clearDay.name',
+    descriptionKey: 'themes.clearDay.description',
     tone: 'light',
     backgroundColor: '#dceaef',
     fontColor: '#203238',
@@ -240,7 +243,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'sunbeams',
-      label: '丁达尔光束',
+      labelKey: 'themes.clearDay.scene',
       asset: '/theme-scenes/clear-sunbeams.jpg',
       mode: 'texture',
       motion: 'breathe',
@@ -270,8 +273,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
   },
   {
     id: 'rainy-world',
-    name: '雨落万物',
-    description: '玻璃雨痕与湿润雾青',
+    nameKey: 'themes.rainyWorld.name',
+    descriptionKey: 'themes.rainyWorld.description',
     tone: 'light',
     backgroundColor: '#c7d4d2',
     fontColor: '#172d31',
@@ -286,7 +289,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
     scene: {
       kind: 'rain',
-      label: '缓落雨痕',
+      labelKey: 'themes.rainyWorld.scene',
       asset: '/theme-scenes/rain-window.jpg',
       mode: 'texture',
       motion: 'rain',

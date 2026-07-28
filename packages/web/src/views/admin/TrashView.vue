@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, type Component } from 'vue';
+import type { MessageKey } from '@/locales';
 import { Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
@@ -7,6 +8,9 @@ import { apiRequest } from '@/api/client';
 import type { TrashItem, TrashItemKind } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToasts } from '@/composables/useToasts';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 type TrashFilter = 'all' | TrashItemKind;
 
@@ -19,17 +23,17 @@ const error = ref('');
 const confirmApi = useConfirm();
 const toasts = useToasts();
 
-const filters: Array<{ id: TrashFilter; label: string }> = [
-  { id: 'all', label: '全部' },
-  { id: 'bookmark', label: '书签' },
-  { id: 'folder', label: '文件夹' },
-  { id: 'notab', label: 'Notab' },
+const filters: Array<{ id: TrashFilter; labelKey: MessageKey }> = [
+  { id: 'all', labelKey: 'trash.all' },
+  { id: 'bookmark', labelKey: 'nav.kindBookmark' },
+  { id: 'folder', labelKey: 'nav.kindFolder' },
+  { id: 'notab', labelKey: 'nav.kindNotab' },
 ];
-const kindMeta = {
-  bookmark: { label: '书签', icon: Link2 },
-  folder: { label: '文件夹', icon: Folder },
-  notab: { label: 'Notab', icon: Layers3 },
-} as const;
+const kindMeta: Record<'bookmark' | 'folder' | 'notab', { labelKey: MessageKey; icon: Component }> = {
+  bookmark: { labelKey: 'nav.kindBookmark', icon: Link2 },
+  folder: { labelKey: 'nav.kindFolder', icon: Folder },
+  notab: { labelKey: 'nav.kindNotab', icon: Layers3 },
+};
 const filteredItems = computed(() => filter.value === 'all' ? items.value : items.value.filter((item) => item.kind === filter.value));
 
 async function load() {
@@ -38,7 +42,7 @@ async function load() {
   try {
     items.value = await apiRequest<TrashItem[]>('/api/admin/trash');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '回收站加载失败';
+    error.value = event instanceof Error ? event.message : t('trash.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -53,14 +57,14 @@ function setWorking(id: string, active: boolean) {
 
 async function restore(item: TrashItem) {
   if (workingIds.value.has(item.id)) return;
-  if (!await confirmApi.confirm({ title: `恢复${kindMeta[item.kind].label}`, message: `将「${item.label}」恢复到原来的位置。`, confirmText: '恢复' })) return;
+  if (!await confirmApi.confirm({ title: t('trash.restoreKind', { kind: t(kindMeta[item.kind].labelKey) }), message: t('trash.restoreMessage', { name: item.label }), confirmText: t('trash.restore') })) return;
   setWorking(item.id, true);
   try {
     await apiRequest(`/api/admin/trash/${item.id}/restore`, { method: 'POST' });
     items.value = items.value.filter((entry) => entry.id !== item.id);
-    toasts.push(`${kindMeta[item.kind].label}已恢复`, 'success');
+    toasts.push(t('trash.restored', { kind: t(kindMeta[item.kind].labelKey) }), 'success');
   } catch (event) {
-    toasts.push(event instanceof Error ? event.message : '恢复失败', 'error');
+    toasts.push(event instanceof Error ? event.message : t('trash.restoreFailed'), 'error');
   } finally {
     setWorking(item.id, false);
   }
@@ -69,18 +73,18 @@ async function restore(item: TrashItem) {
 async function removePermanently(item: TrashItem) {
   if (workingIds.value.has(item.id)) return;
   if (!await confirmApi.confirm({
-    title: '永久删除',
-    message: `「${item.label}」删除后无法恢复。`,
-    confirmText: '永久删除',
+    title: t('trash.deleteForever'),
+    message: t('trash.deleteForeverMessage', { name: item.label }),
+    confirmText: t('trash.deleteForever'),
     tone: 'danger',
   })) return;
   setWorking(item.id, true);
   try {
     await apiRequest(`/api/admin/trash/${item.id}`, { method: 'DELETE' });
     items.value = items.value.filter((entry) => entry.id !== item.id);
-    toasts.push('已永久删除', 'success');
+    toasts.push(t('trash.deletedForever'), 'success');
   } catch (event) {
-    toasts.push(event instanceof Error ? event.message : '删除失败', 'error');
+    toasts.push(event instanceof Error ? event.message : t('nav.deleteFailed'), 'error');
   } finally {
     setWorking(item.id, false);
   }
@@ -89,18 +93,18 @@ async function removePermanently(item: TrashItem) {
 async function emptyTrash() {
   if (!items.value.length || emptying.value) return;
   if (!await confirmApi.confirm({
-    title: '清空回收站',
-    message: `永久删除回收站中的 ${items.value.length} 个项目，此操作无法撤销。`,
-    confirmText: '清空',
+    title: t('trash.emptyTrash'),
+    message: t('trash.emptyMessage', { count: items.value.length }),
+    confirmText: t('trash.empty'),
     tone: 'danger',
   })) return;
   emptying.value = true;
   try {
     await apiRequest('/api/admin/trash', { method: 'DELETE' });
     items.value = [];
-    toasts.push('回收站已清空', 'success');
+    toasts.push(t('trash.emptied'), 'success');
   } catch (event) {
-    toasts.push(event instanceof Error ? event.message : '清空失败', 'error');
+    toasts.push(event instanceof Error ? event.message : t('trash.emptyFailed'), 'error');
   } finally {
     emptying.value = false;
   }
@@ -115,10 +119,10 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack trash-page">
-    <AdminPageHeader eyebrow="系统" title="回收站" description="删除的书签、文件夹和 Notab 会保留在这里，直到手动清空。">
+    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleTrash')" :description="t('trash.description')">
       <template #actions>
         <button class="button danger" type="button" :disabled="!items.length || emptying" @click="emptyTrash">
-          <Trash2 :size="17" /> {{ emptying ? '清空中' : '清空回收站' }}
+          <Trash2 :size="17" /> {{ emptying ? t('trash.emptying') : t('trash.emptyTrash') }}
         </button>
       </template>
     </AdminPageHeader>
@@ -127,7 +131,7 @@ onMounted(load);
 
     <section class="admin-section trash-section">
       <header class="trash-toolbar">
-        <div class="trash-filters" aria-label="回收站筛选">
+        <div class="trash-filters" :aria-label="t('trash.filters')">
           <button
             v-for="entry in filters"
             :key="entry.id"
@@ -135,26 +139,26 @@ onMounted(load);
             :class="{ active: filter === entry.id }"
             :aria-pressed="filter === entry.id"
             @click="filter = entry.id"
-          >{{ entry.label }}</button>
+          >{{ t(entry.labelKey) }}</button>
         </div>
-        <span class="trash-count">{{ filteredItems.length }} 项</span>
+        <span class="trash-count">{{ t('trash.itemCount', { count: filteredItems.length }) }}</span>
       </header>
 
-      <p v-if="loading" class="trash-empty">正在读取回收站</p>
-      <p v-else-if="!filteredItems.length" class="trash-empty">{{ items.length ? '当前筛选下没有项目' : '回收站是空的' }}</p>
+      <p v-if="loading" class="trash-empty">{{ t('trash.loading') }}</p>
+      <p v-else-if="!filteredItems.length" class="trash-empty">{{ items.length ? t('trash.noneInFilter') : t('trash.isEmpty') }}</p>
       <div v-else class="trash-list">
         <article v-for="item in filteredItems" :key="item.id" class="trash-row" :data-testid="`trash-item-${item.id}`">
           <span class="trash-icon"><component :is="kindMeta[item.kind].icon" :size="19" /></span>
           <div class="trash-main">
             <strong>{{ item.label }}</strong>
-            <span>{{ kindMeta[item.kind].label }} · 删除于 {{ formatDate(item.deletedAt) }}</span>
+            <span>{{ t(kindMeta[item.kind].labelKey) }} · {{ t('trash.deletedAt', { date: formatDate(item.deletedAt) }) }}</span>
           </div>
           <div class="trash-actions">
             <button
               class="icon-button secondary"
               type="button"
-              title="恢复"
-              aria-label="恢复"
+              :title="t('trash.restore')"
+              :aria-label="t('trash.restore')"
               :data-testid="`restore-trash-${item.id}`"
               :disabled="workingIds.has(item.id)"
               @click="restore(item)"
@@ -162,8 +166,8 @@ onMounted(load);
             <button
               class="icon-button danger"
               type="button"
-              title="永久删除"
-              aria-label="永久删除"
+              :title="t('trash.deleteForever')"
+              :aria-label="t('trash.deleteForever')"
               :disabled="workingIds.has(item.id)"
               @click="removePermanently(item)"
             ><Trash2 :size="16" /></button>

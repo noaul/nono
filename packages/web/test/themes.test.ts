@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { translate } from '../src/locales';
 import {
   PUBLIC_THEMES,
   accentCssVars,
@@ -10,13 +11,22 @@ import {
 
 describe('public themes', () => {
   it('ships six seasonal presets with unique ids and complete visual tokens', () => {
-    expect(PUBLIC_THEMES.map((theme) => theme.name)).toEqual([
+    // Names live in the catalogues now, so assert both locales resolve rather than one literal.
+    expect(PUBLIC_THEMES.map((theme) => translate('zh', theme.nameKey))).toEqual([
       '夏日清爽',
       '冬日暖暖',
       '绿叶芬芳',
       '星光闪耀',
       '万物明朗',
       '雨落万物',
+    ]);
+    expect(PUBLIC_THEMES.map((theme) => translate('en', theme.nameKey))).toEqual([
+      'Summer Breeze',
+      'Winter Glow',
+      'Verdant Leaves',
+      'Starlit Night',
+      'Clear Day',
+      'Rainy World',
     ]);
     const ids = new Set(PUBLIC_THEMES.map((theme) => theme.id));
     expect(ids.size).toBe(6);
@@ -31,7 +41,13 @@ describe('public themes', () => {
       expect(theme.surface.shadow).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.surface.overlay).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.scene.asset).toMatch(/^\/theme-scenes\/.+\.(?:png|jpg|webp)$/);
-      expect(theme.scene.label.length).toBeGreaterThan(0);
+      // Every catalogue key must resolve in both locales, never echo back as the key itself.
+      for (const locale of ['zh', 'en'] as const) {
+        for (const key of [theme.nameKey, theme.descriptionKey, theme.scene.labelKey]) {
+          expect(translate(locale, key)).not.toBe(key);
+          expect(translate(locale, key).length).toBeGreaterThan(0);
+        }
+      }
       expect(theme.scene.opacity).toBeGreaterThan(0);
       expect(theme.scene.opacity).toBeLessThanOrEqual(1);
       expect(theme.appearance.cardColor).toMatch(/^#[0-9a-f]{6}$/i);
@@ -49,7 +65,7 @@ describe('public themes', () => {
   });
 
   it('resolves current ids and migrates legacy ids without breaking saved settings', () => {
-    expect(getTheme('verdant-leaves')?.name).toBe('绿叶芬芳');
+    expect(translate('zh', getTheme('verdant-leaves')!.nameKey)).toBe('绿叶芬芳');
     expect(getTheme('midnight-glass')?.id).toBe('starlit-night');
     expect(getTheme('warm-paper')?.id).toBe('winter-glow');
     expect(getTheme('nope')).toBeUndefined();

@@ -326,11 +326,11 @@ describe('visual contracts', () => {
 
     expect(routerSource).toContain("path: '/admin/add-bookmark', redirect: '/admin/links'");
     expect(routerSource).not.toContain("path: '/admin/nodesk'");
-    expect(layoutSource).not.toContain("to: '/admin/add-bookmark', label: '新增书签'");
-    expect(layoutSource).not.toContain("to: '/admin/nodesk', label: 'Nodesk'");
+    expect(layoutSource).not.toContain("to: '/admin/add-bookmark'");
+    expect(layoutSource).not.toContain("to: '/admin/nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
     expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/links'");
-    expect(layoutSource).toContain("to: '/admin/automation', label: '导入导出'");
+    expect(layoutSource).toContain("to: '/admin/automation', labelKey: 'admin.navAutomation'");
     expect(routerSource).toContain("path: '/admin/automation'");
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
   });

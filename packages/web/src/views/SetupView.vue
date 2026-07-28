@@ -2,6 +2,9 @@
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -14,7 +17,7 @@ async function submit() {
     await auth.setup(form);
     await router.push('/admin');
   } catch (event) {
-    error.value = event instanceof Error ? event.message : '初始化失败';
+    error.value = event instanceof Error ? event.message : t('auth.setupFailed');
   }
 }
 </script>
@@ -22,13 +25,13 @@ async function submit() {
 <template>
   <main class="auth-page">
     <form class="auth-card" @submit.prevent="submit">
-      <h1>初始化管理员</h1>
+      <h1>{{ t('auth.initAdmin') }}</h1>
       <p v-if="error" class="error">{{ error }}</p>
-      <div class="field"><label>用户名</label><input v-model="form.username" /></div>
-      <div class="field"><label>邮箱</label><input v-model="form.email" type="email" /></div>
-      <div class="field"><label>显示名</label><input v-model="form.displayName" /></div>
-      <div class="field"><label>密码</label><input v-model="form.password" type="password" autocomplete="new-password" /></div>
-      <button class="button" type="submit">创建管理员</button>
+      <div class="field"><label>{{ t('auth.username') }}</label><input v-model="form.username" /></div>
+      <div class="field"><label>{{ t('auth.email') }}</label><input v-model="form.email" type="email" /></div>
+      <div class="field"><label>{{ t('auth.displayName') }}</label><input v-model="form.displayName" /></div>
+      <div class="field"><label>{{ t('auth.password') }}</label><input v-model="form.password" type="password" autocomplete="new-password" /></div>
+      <button class="button" type="submit">{{ t('auth.createAdmin') }}</button>
     </form>
   </main>
 </template>

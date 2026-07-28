@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed } from '@/api/types';
+import { tNow } from '@/composables/useI18n';
 
 const HOME_NOTIFICATION_SOURCES = new Set(['nodesk', 'nomoney']);
 const HOME_NOTIFICATION_SOURCE_QUERY = encodeURIComponent('nodesk,nomoney');
@@ -41,7 +42,7 @@ export function useHomeNotifications(enabled: MaybeRefOrGetter<boolean>) {
       feedUrgentUnreadCount.value = feed.urgentUnreadCount
         ?? items.value.filter((item) => !item.read && item.severity !== 'info').length;
     } catch (event) {
-      if (version === requestVersion) error.value = event instanceof Error ? event.message : '通知加载失败';
+      if (version === requestVersion) error.value = event instanceof Error ? event.message : tNow('errors.notificationLoad');
     } finally {
       if (version === requestVersion) loading.value = false;
     }
