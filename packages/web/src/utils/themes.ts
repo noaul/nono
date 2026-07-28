@@ -43,9 +43,9 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     name: '夏日清爽',
     description: '水光气泡与薄荷晴空',
     tone: 'light',
-    backgroundColor: '#dff5f2',
+    backgroundColor: '#cbe9e4',
     fontColor: '#16343a',
-    accent: '#0f8f91',
+    accent: '#0b7d80',
     surface: {
       border: '#ffffff',
       highlight: '#ffffff',
@@ -60,7 +60,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
       asset: '/theme-scenes/summer-bubbles.jpg',
       mode: 'texture',
       motion: 'float',
-      opacity: 0.18,
+      opacity: 0.32,
       blendMode: 'soft-light',
     },
     appearance: {
@@ -89,9 +89,9 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     name: '冬日暖暖',
     description: '细雪与暖光',
     tone: 'light',
-    backgroundColor: '#edf3f8',
-    fontColor: '#423832',
-    accent: '#d97745',
+    backgroundColor: '#cfdcee',
+    fontColor: '#3a3029',
+    accent: '#c8622f',
     surface: {
       border: '#ffffff',
       highlight: '#fff8e9',
@@ -106,7 +106,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
       asset: '/theme-scenes/winter-snowflake.png',
       mode: 'particles',
       motion: 'fall',
-      opacity: 0.3,
+      opacity: 0.44,
       blendMode: 'screen',
     },
     appearance: {
@@ -135,7 +135,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     name: '绿叶芬芳',
     description: '真实叶影与雨后青绿',
     tone: 'light',
-    backgroundColor: '#dfeadf',
+    backgroundColor: '#d7e6d8',
     fontColor: '#173b2a',
     accent: '#2f855a',
     surface: {
@@ -152,7 +152,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
       asset: '/theme-scenes/verdant-leaves.jpg',
       mode: 'texture',
       motion: 'float',
-      opacity: 0.2,
+      opacity: 0.3,
       blendMode: 'soft-light',
     },
     appearance: {
@@ -227,9 +227,9 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     name: '万物明朗',
     description: '林间光束与通透明色',
     tone: 'light',
-    backgroundColor: '#e7f3f5',
+    backgroundColor: '#dceaef',
     fontColor: '#203238',
-    accent: '#d9862f',
+    accent: '#c26a17',
     surface: {
       border: '#ffffff',
       highlight: '#fffbe6',
@@ -244,7 +244,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
       asset: '/theme-scenes/clear-sunbeams.jpg',
       mode: 'texture',
       motion: 'breathe',
-      opacity: 0.2,
+      opacity: 0.34,
       blendMode: 'soft-light',
     },
     appearance: {
@@ -290,7 +290,7 @@ export const PUBLIC_THEMES: PublicTheme[] = [
       asset: '/theme-scenes/rain-window.jpg',
       mode: 'texture',
       motion: 'rain',
-      opacity: 0.24,
+      opacity: 0.32,
       blendMode: 'soft-light',
     },
     appearance: {
