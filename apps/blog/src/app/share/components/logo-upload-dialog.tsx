@@ -27,7 +27,7 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 		if (!file) return
 
 		if (!file.type.startsWith('image/')) {
-			toast.error('请选择图片文件')
+			toast.error(copy('请选择图片文件', 'Choose an image file'))
 			return
 		}
 
@@ -51,7 +51,7 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 				url: urlInput.trim()
 			})
 		} else {
-			toast.error('请上传图片或输入 URL')
+			toast.error(copy('请上传图片或输入 URL', 'Upload an image or enter a URL'))
 			return
 		}
 
@@ -70,10 +70,10 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 	}
 	return (
 		<DialogModal open onClose={handleClose} className='card w-md'>
-			<h2 className='mb-4 text-xl font-bold'>选择图标</h2>
+			<h2 className='mb-4 text-xl font-bold'>{copy('选择图标', 'Choose an icon')}</h2>
 			<form onSubmit={handleSubmit} className='space-y-4'>
 				<div>
-					<label className='text-secondary mb-2 block text-sm font-medium'>上传图片</label>
+					<label className='text-secondary mb-2 block text-sm font-medium'>{copy('上传图片', 'Upload image')}</label>
 					<input ref={fileInputRef} type='file' accept='image/*' className='hidden' onChange={handleFileSelect} />
 					<div
 						onClick={() => fileInputRef.current?.click()}
@@ -83,7 +83,7 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 						) : (
 							<div className='text-center'>
 								<Plus className='text-secondary mx-auto mb-1 h-8 w-8' />
-								<p className='text-secondary text-xs'>点击上传图片</p>
+								<p className='text-secondary text-xs'>{copy('点击上传图片', 'Click to upload')}</p>
 							</div>
 						)}
 					</div>
@@ -94,12 +94,12 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 						<div className='w-full border-t border-gray-300'></div>
 					</div>
 					<div className='relative flex justify-center text-sm'>
-						<span className='text-secondary rounded-lg bg-white px-4 py-1'>或</span>
+						<span className='text-secondary rounded-lg bg-white px-4 py-1'>{copy('或', 'or')}</span>
 					</div>
 				</div>
 
 				<div>
-					<label className='text-secondary mb-2 block text-sm font-medium'>图片 URL</label>
+					<label className='text-secondary mb-2 block text-sm font-medium'>{copy('图片 URL', 'Image URL')}</label>
 					<input
 						type='url'
 						value={urlInput}

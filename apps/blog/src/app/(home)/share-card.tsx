@@ -9,6 +9,7 @@ import shareList from '@/app/share/list.json'
 import Link from 'next/link'
 import { HomeDraggableLayer } from './home-draggable-layer'
 import { loadNodeskContent } from '@/lib/nodesk-content'
+import { useI18n } from '@/i18n'
 
 type ShareItem = {
 	name: string
@@ -20,6 +21,8 @@ type ShareItem = {
 }
 
 export default function ShareCard() {
+
+	const { copy } = useI18n()
 	const center = useCenterStore()
 	const { cardStyles, siteContent } = useConfigStore()
 	const [randomItem, setRandomItem] = useState<ShareItem | null>(null)
@@ -62,7 +65,7 @@ export default function ShareCard() {
 					</>
 				)}
 
-				<h2 className='text-secondary text-sm'>随机推荐</h2>
+				<h2 className='text-secondary text-sm'>{copy('随机推荐', 'Surprise me')}</h2>
 
 				<Link href='/share' className='mt-2 block space-y-2'>
 					<div className='flex items-center'>

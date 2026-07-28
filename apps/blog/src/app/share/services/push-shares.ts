@@ -6,6 +6,7 @@ import type { Share } from '../components/share-card'
 import type { LogoItem } from '../components/logo-upload-dialog'
 import { getFileExt } from '@/lib/utils'
 import { toast } from 'sonner'
+import { localeCopy as copy } from '@/i18n/language'
 
 export type PushSharesParams = {
 	shares: Share[]
@@ -26,13 +27,13 @@ export async function pushShares(params: PushSharesParams): Promise<Share[]> {
 	// 获取认证 token（自动从全局认证状态获取）
 	const token = await getAuthToken()
 
-	toast.info('正在获取分支信息...')
+	toast.info(copy('正在获取分支信息...', 'Fetching branch info…'))
 	const refData = await getRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, `heads/${GITHUB_CONFIG.BRANCH}`)
 	const latestCommitSha = refData.sha
 
 	const commitMessage = `更新分享列表`
 
-	toast.info('正在准备文件...')
+	toast.info(copy('正在准备文件...', 'Preparing files…'))
 
 	const treeItems: TreeItem[] = []
 	const uploadedHashes = new Set<string>()
@@ -40,7 +41,7 @@ export async function pushShares(params: PushSharesParams): Promise<Share[]> {
 
 	// Process logo uploads
 	if (logoItems && logoItems.size > 0) {
-		toast.info('正在上传图标...')
+		toast.info(copy('正在上传图标...', 'Uploading icon…'))
 		for (const [url, logoItem] of logoItems.entries()) {
 			if (logoItem.type === 'file') {
 				const hash = logoItem.hash || (await hashFileSHA256(logoItem.file))
@@ -78,18 +79,18 @@ export async function pushShares(params: PushSharesParams): Promise<Share[]> {
 	})
 
 	// Create tree
-	toast.info('正在创建文件树...')
+	toast.info(copy('正在创建文件树...', 'Creating file tree…'))
 	const treeData = await createTree(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, treeItems, latestCommitSha)
 
 	// Create commit
-	toast.info('正在创建提交...')
+	toast.info(copy('正在创建提交...', 'Creating commit…'))
 	const commitData = await createCommit(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, commitMessage, treeData.sha, [latestCommitSha])
 
 	// Update branch reference
-	toast.info('正在更新分支...')
+	toast.info(copy('正在更新分支...', 'Updating branch…'))
 	await updateRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, `heads/${GITHUB_CONFIG.BRANCH}`, commitData.sha)
 
-	toast.success('发布成功！')
+	toast.success(copy('发布成功！', 'Published'))
 
 	return updatedShares
 }

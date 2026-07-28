@@ -3,6 +3,7 @@
 import clsx from 'clsx'
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
+import { useI18n } from '@/i18n'
 
 type TocItem = {
 	id: string
@@ -16,6 +17,9 @@ type BlogTocProps = {
 }
 
 export function BlogToc({ toc, delay = 0 }: BlogTocProps) {
+
+
+	const { copy } = useI18n()
 	const [activeIds, setActiveIds] = useState<Set<string>>(new Set())
 	const minActiveId = useMemo(() => {
 		return Array.from(activeIds).sort((a, b) => toc.findIndex(item => item.id === a) - toc.findIndex(item => item.id === b))[0]
@@ -64,9 +68,9 @@ export function BlogToc({ toc, delay = 0 }: BlogTocProps) {
 			animate={{ opacity: 1, scale: 1 }}
 			transition={{ delay }}
 			className='bg-card w-full rounded-xl border p-3 text-sm'>
-			<h2 className='text-secondary mb-2 font-medium'>目录</h2>
+			<h2 className='text-secondary mb-2 font-medium'>{copy('目录', 'Contents')}</h2>
 			<div className='relative max-h-[300px] space-y-2 overflow-auto'>
-				{toc.length === 0 && <div className='text-secondary'>暂无</div>}
+				{toc.length === 0 && <div className='text-secondary'>{copy('暂无', 'None')}</div>}
 				{toc.map(item => (
 					<a
 						key={item.id + item.level}

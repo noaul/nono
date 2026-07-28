@@ -1,4 +1,7 @@
+'use client'
+
 import { useState } from 'react'
+import { useI18n } from '@/i18n'
 
 type TagInputProps = {
 	tags: string[]
@@ -6,6 +9,9 @@ type TagInputProps = {
 }
 
 export function TagInput({ tags, onChange }: TagInputProps) {
+
+
+	const { copy } = useI18n()
 	const [tagInput, setTagInput] = useState<string>('')
 
 	const handleAddTag = () => {
@@ -35,7 +41,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
 			)}
 			<input
 				type='text'
-				placeholder='添加标签（按回车）'
+				placeholder={copy('添加标签（按回车）', 'Add a tag (press Enter)')}
 				className='w-full bg-transparent text-sm outline-none'
 				value={tagInput}
 				onChange={e => setTagInput(e.target.value)}

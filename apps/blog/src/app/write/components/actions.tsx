@@ -112,7 +112,7 @@ export function WriteActions() {
 					className='bg-card rounded-xl border px-4 py-2 text-sm'
 					disabled={loading}
 					onClick={handleImportMd}>
-					导入 MD
+					{copy('导入 MD', 'Import MD')}
 				</motion.button>
 				<motion.button
 					initial={{ opacity: 0, scale: 0.6 }}

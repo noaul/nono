@@ -74,7 +74,7 @@ export default function Page() {
 
 	const handleSaveClick = () => {
 		if (!isAuth) {
-			toast.error('请先登录 Nono 后台')
+			toast.error(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
 			return
 		}
 		void handleSave()
@@ -93,10 +93,10 @@ export default function Page() {
 			setOriginalShares(updatedShares)
 			setLogoItems(new Map())
 			setIsEditMode(false)
-			toast.success('保存成功！')
+			toast.success(copy('保存成功！', 'Saved'))
 		} catch (error: any) {
 			console.error('Failed to save:', error)
-			toast.error(`保存失败: ${error?.message || '未知错误'}`)
+			toast.error(`保存失败: ${error?.message || copy('未知错误', 'Unknown error')}`)
 		} finally {
 			setIsSaving(false)
 		}
@@ -108,7 +108,7 @@ export default function Page() {
 		setIsEditMode(false)
 	}
 
-	const buttonText = '保存'
+	const buttonText = copy('保存', 'Save')
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -155,7 +155,7 @@ export default function Page() {
 								{copy('添加', 'Add')}
 							</motion.button>
 							<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-6'>
-								{isSaving ? '保存中...' : buttonText}
+								{isSaving ? copy('保存中...', 'Saving…') : buttonText}
 							</motion.button>
 						</>
 					) : (

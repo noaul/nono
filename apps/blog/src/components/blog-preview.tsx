@@ -6,6 +6,7 @@ import { useMarkdownRender } from '@/hooks/use-markdown-render'
 import { useSize } from '@/hooks/use-size'
 import { BlogSidebar } from '@/components/blog-sidebar'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
+import { useI18n } from '@/i18n'
 
 type BlogPreviewProps = {
 	markdown: string
@@ -18,13 +19,16 @@ type BlogPreviewProps = {
 }
 
 export function BlogPreview({ markdown, title, tags, date, summary, cover, slug }: BlogPreviewProps) {
+
+
+	const { copy } = useI18n()
 	const { maxSM: isMobile } = useSize()
 	const { content, toc, loading } = useMarkdownRender(markdown)
 	const { siteContent } = useConfigStore()
 	const summaryInContent = siteContent.summaryInContent ?? false
 
 	if (loading) {
-		return <div className='text-secondary flex h-full items-center justify-center text-sm'>渲染中...</div>
+		return <div className='text-secondary flex h-full items-center justify-center text-sm'>{copy('渲染中...', 'Rendering…')}</div>
 	}
 
 	return (

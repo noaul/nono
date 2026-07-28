@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useI18n } from '@/i18n'
+import { localeCopy } from '@/i18n/language'
 
 interface CardRecord {
 	cardPoolType: string
@@ -19,9 +21,12 @@ type PitySegment = {
 }
 
 function parseCardRecords(raw: string): CardRecord[] {
+
+
+	const { copy } = useI18n()
 	const data = JSON.parse(raw) as unknown
 	if (!Array.isArray(data)) {
-		throw new Error('根节点必须是数组')
+		throw new Error(localeCopy('根节点必须是数组', 'The root node must be an array'))
 	}
 	return data.map((item, i) => {
 		if (typeof item !== 'object' || item === null) {
@@ -69,6 +74,7 @@ function buildPitySegments(records: CardRecord[]): PitySegment[] {
 }
 
 export default function Page() {
+	const { copy } = useI18n()
 	const [input, setInput] = useState('')
 	const [error, setError] = useState<string | null>(null)
 	const [segments, setSegments] = useState<PitySegment[]>([])
@@ -85,15 +91,15 @@ export default function Page() {
 			setSegments(buildPitySegments(records))
 		} catch (e) {
 			setSegments([])
-			setError(e instanceof Error ? e.message : '解析失败')
+			setError(e instanceof Error ? e.message : copy('解析失败', 'Could not parse'))
 		}
 	}, [input])
 
 	return (
 		<div className='mx-auto max-w-3xl space-y-4 px-4 py-24'>
-			<h1 className='text-xl font-semibold tracking-tight'>鸣潮 · 抽卡记录分析</h1>
+			<h1 className='text-xl font-semibold tracking-tight'>{copy('鸣潮 · 抽卡记录分析', 'Wuthering Waves · pull history')}</h1>
 			<p className='text-sm'>
-				<span>使用方法：</span>
+				<span>{copy('使用方法：', 'How to use:')}</span>
 			</p>
 			<ul className='text-secondary list-inside list-disc text-sm'>
 				<li>
@@ -101,17 +107,17 @@ export default function Page() {
 					<a href='https://mc.kurogames.com/cloud/#/tools' target='_blank' className='text-brand hover:underline'>
 						https://mc.kurogames.com/cloud/#/tools
 					</a>
-					，登录账号。
+					{copy('，登录账号。', ', then sign in.')}
 				</li>
 				<li>
-					点击 <span className='text-brand'>F12</span>，点击右侧 <span className='text-brand'>Network</span> 面板。左侧选择<span className='text-brand'>换取记录</span>
+					点击 <span className='text-brand'>F12</span>{copy('，点击右侧', ', then click')}<span className='text-brand'>Network</span>{copy('面板。左侧选择', 'panel. On the left choose')}<span className='text-brand'>{copy('换取记录', 'Convene history')}</span>
 					，右侧观察出现最新的 <span className='text-brand'>query</span> 请求。
 				</li>
 				<li>
-					点击 <span className='text-brand'>query</span> 请求，点击 <span className='text-brand'>Preview</span> 面板，右键 <span className='text-brand'>data</span> 值{' '}
+					点击 <span className='text-brand'>query</span>{copy('请求，点击', 'request, then click')}<span className='text-brand'>Preview</span>{copy('面板，右键', 'panel, right-click')}<span className='text-brand'>data</span> 值{' '}
 					<span className='text-brand'>Copy Value</span>。
 				</li>
-				<li>最后粘贴到下方输入框 - 分析。</li>
+				<li>{copy('最后粘贴到下方输入框 - 分析。', 'and paste it into the box below to analyse.')}</li>
 			</ul>
 
 			<textarea
@@ -125,7 +131,7 @@ export default function Page() {
 			/>
 
 			<button type='button' onClick={analyze} className='bg-brand rounded-md px-4 py-2 text-sm font-medium text-white hover:opacity-90'>
-				分析
+				{copy('分析', 'Analyse')}
 			</button>
 
 			{error ? (
@@ -150,7 +156,7 @@ export default function Page() {
 										{seg.name} <span className='text-secondary hidden text-xs group-hover:inline'>({seg.time?.slice(0, 10)})</span>
 									</span>
 								) : (
-									<span className='text-secondary'>（未到 5 星）</span>
+									<span className='text-secondary'>{copy('（未到 5 星）', '(no 5-star yet)')}</span>
 								)}
 							</span>
 						</li>

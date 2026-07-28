@@ -4,10 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/i18n'
 
 type TimerMode = 'stopwatch' | 'timer'
 
 export default function ClockPage() {
+
+
+	const { copy } = useI18n()
 	const [mode, setMode] = useState<TimerMode>('stopwatch')
 	const [stopwatchTime, setStopwatchTime] = useState(0)
 	const [timerTime, setTimerTime] = useState(0)
@@ -153,7 +157,7 @@ export default function ClockPage() {
 							`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-all`,
 							mode === 'stopwatch' ? 'bg-brand text-white shadow-sm' : 'text-secondary hover:text-brand'
 						)}>
-						秒表
+						{copy('秒表', 'Stopwatch')}
 					</motion.button>
 					<motion.button
 						whileHover={{ scale: 1.02 }}
@@ -171,7 +175,7 @@ export default function ClockPage() {
 							`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-all`,
 							mode === 'timer' ? 'bg-brand text-white shadow-sm' : 'text-secondary hover:text-brand'
 						)}>
-						计时器
+						{copy('计时器', 'Timer')}
 					</motion.button>
 				</div>
 
@@ -186,7 +190,7 @@ export default function ClockPage() {
 					<motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className='card relative space-y-4'>
 						<div className='flex items-center justify-center gap-4'>
 							<div className='flex flex-col items-center gap-2'>
-								<label className='text-secondary text-xs'>时</label>
+								<label className='text-secondary text-xs'>{copy('时', 'h')}</label>
 								<input
 									type='number'
 									min='0'
@@ -198,7 +202,7 @@ export default function ClockPage() {
 							</div>
 							<div className='text-secondary mt-8 text-2xl font-bold'>:</div>
 							<div className='flex flex-col items-center gap-2'>
-								<label className='text-secondary text-xs'>分</label>
+								<label className='text-secondary text-xs'>{copy('分', 'm')}</label>
 								<input
 									type='number'
 									min='0'
@@ -210,7 +214,7 @@ export default function ClockPage() {
 							</div>
 							<div className='text-secondary mt-8 text-2xl font-bold'>:</div>
 							<div className='flex flex-col items-center gap-2'>
-								<label className='text-secondary text-xs'>秒</label>
+								<label className='text-secondary text-xs'>{copy('秒', 's')}</label>
 								<input
 									type='number'
 									min='0'
@@ -233,7 +237,7 @@ export default function ClockPage() {
 							onClick={handleLap}
 							disabled={!isRunning}
 							className='flex h-16 w-16 items-center justify-center rounded-full border bg-white/60 text-sm font-medium backdrop-blur-sm transition-all hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-50'>
-							计次
+							{copy('计次', 'Lap')}
 						</motion.button>
 					)}
 					<motion.button

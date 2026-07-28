@@ -1,7 +1,10 @@
+'use client'
+
 import { motion } from 'motion/react'
 import { BlogPreview } from '@/components/blog-preview'
 import { useWriteData } from '../hooks/use-write-data'
 import type { PublishForm } from '../types'
+import { useI18n } from '@/i18n'
 
 type WritePreviewProps = {
 	form: PublishForm
@@ -11,6 +14,9 @@ type WritePreviewProps = {
 }
 
 export function WritePreview({ form, coverPreviewUrl, onClose, slug }: WritePreviewProps) {
+
+
+	const { copy } = useI18n()
 	const previewData = useWriteData()
 	return (
 		<div>
@@ -32,7 +38,7 @@ export function WritePreview({ form, coverPreviewUrl, onClose, slug }: WritePrev
 				whileTap={{ scale: 0.95 }}
 				className='absolute top-4 right-6 rounded-xl border bg-white/60 px-6 py-2 text-sm'
 				onClick={onClose}>
-				关闭预览
+				{copy('关闭预览', 'Close preview')}
 			</motion.button>
 		</div>
 	)

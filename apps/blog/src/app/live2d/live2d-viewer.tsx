@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useI18n } from '@/i18n'
 
 /** PIXI Application 实例（CDN 加载，无类型包） */
 interface PixiAppInstance {
@@ -41,6 +42,9 @@ function loadScript(src: string): Promise<void> {
 }
 
 export default function Live2DViewer() {
+
+
+	const { copy } = useI18n()
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 	const [errorMsg, setErrorMsg] = useState<string>('')
@@ -116,7 +120,7 @@ export default function Live2DViewer() {
 	return (
 		<div className='relative aspect-square w-full overflow-hidden rounded-full'>
 			<div ref={containerRef} className='absolute inset-0 h-full w-full' />
-			{status === 'loading' && <div className='text-secondary absolute inset-0 flex items-center justify-center'>加载 Live2D 模型中…</div>}
+			{status === 'loading' && <div className='text-secondary absolute inset-0 flex items-center justify-center'>{copy('加载 Live2D 模型中…', 'Loading the Live2D model…')}</div>}
 			{status === 'error' && <div className='absolute inset-0 flex items-center justify-center p-4 text-center text-red-500'>{errorMsg}</div>}
 		</div>
 	)

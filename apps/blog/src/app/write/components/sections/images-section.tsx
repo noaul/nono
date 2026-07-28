@@ -23,9 +23,9 @@ export function ImagesSection({ delay = 0 }: ImagesSectionProps) {
 	return (
 		<motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay }} className='card relative'>
 			<div className='flex items-center justify-between'>
-				<h2 className='text-sm'>图片管理</h2>
+				<h2 className='text-sm'>{copy('图片管理', 'Images')}</h2>
 				<Link href='/image-toolbox' target='_blank' className='text-xs hover:underline'>
-					压缩工具
+					{copy('压缩工具', 'Compressor')}
 				</Link>
 			</div>
 
@@ -99,7 +99,7 @@ export function ImagesSection({ delay = 0 }: ImagesSectionProps) {
 									e.dataTransfer.setData('text/markdown', markdown)
 								}}
 							/>
-							{isCover && <div className='absolute top-1 left-1 rounded-md bg-blue-500 px-1.5 py-0.5 text-white shadow'>封面</div>}
+							{isCover && <div className='absolute top-1 left-1 rounded-md bg-blue-500 px-1.5 py-0.5 text-white shadow'>{copy('封面', 'Cover')}</div>}
 							<div className='absolute top-1 right-1 hidden group-hover:flex'>
 								<button type='button' className='rounded-md bg-white/80 px-1.5 py-0.5 shadow hover:bg-white' onClick={() => deleteImage(item.id)}>
 									{copy('删除', 'Delete')}

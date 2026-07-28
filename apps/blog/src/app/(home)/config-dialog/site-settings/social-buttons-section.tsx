@@ -103,7 +103,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 		if (!file) return
 
 		if (!file.type.startsWith('image/')) {
-			toast.error('请选择图片文件')
+			toast.error(copy('请选择图片文件', 'Choose an image file'))
 			return
 		}
 
@@ -147,8 +147,8 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 
 	return (
 		<div>
-			<label className='mb-2 block text-sm font-medium'>社交按钮</label>
-			{buttons.length === 0 && <p className='mb-2 text-xs text-gray-500'>暂未配置社交按钮，点击下方「+」添加。</p>}
+			<label className='mb-2 block text-sm font-medium'>{copy('社交按钮', 'Social buttons')}</label>
+			{buttons.length === 0 && <p className='mb-2 text-xs text-gray-500'>{copy('暂未配置社交按钮，点击下方「+」添加。', 'No social buttons yet — use “+” below to add one.')}</p>}
 			<div className='space-y-2 whitespace-nowrap'>
 				{sortedButtons.map((button, index) => (
 					<div key={button.id} className='flex items-center gap-2'>
@@ -158,20 +158,20 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 							className='w-24'
 							options={[
 								{ value: 'github', label: 'Github' },
-								{ value: 'juejin', label: '掘金' },
-								{ value: 'email', label: '邮箱' },
+								{ value: 'juejin', label: copy('掘金', 'Juejin') },
+								{ value: 'email', label: copy('邮箱', 'Email') },
 								{ value: 'x', label: 'X' },
 								{ value: 'tg', label: 'Telegram' },
-								{ value: 'wechat', label: '微信' },
+								{ value: 'wechat', label: copy('微信', 'WeChat') },
 								{ value: 'facebook', label: 'Facebook' },
 								{ value: 'tiktok', label: 'TikTok' },
 								{ value: 'instagram', label: 'Instagram' },
-								{ value: 'weibo', label: '微博' },
-								{ value: 'xiaohongshu', label: '小红书' },
-								{ value: 'zhihu', label: '知乎' },
-								{ value: 'bilibili', label: '哔哩哔哩' },
+								{ value: 'weibo', label: copy('微博', 'Weibo') },
+								{ value: 'xiaohongshu', label: copy('小红书', 'RED') },
+								{ value: 'zhihu', label: copy('知乎', 'Zhihu') },
+								{ value: 'bilibili', label: copy('哔哩哔哩', 'Bilibili') },
 								{ value: 'qq', label: 'QQ' },
-								{ value: 'link', label: '链接' }
+								{ value: 'link', label: copy('链接', 'Link') }
 							]}
 						/>
 						{button.type === 'wechat' || button.type === 'qq' ? (
@@ -196,11 +196,11 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 											type='text'
 											value={button.value}
 											onChange={e => handleUpdateButton(button.id, { value: e.target.value })}
-											placeholder={button.type === 'wechat' ? '微信号或二维码链接' : 'QQ号或二维码链接'}
+											placeholder={button.type === 'wechat' ? copy('微信号或二维码链接', 'WeChat ID or QR link') : copy('QQ号或二维码链接', 'QQ number or QR link')}
 											className='bg-secondary/10 flex-1 rounded-lg border px-3 py-1.5 text-xs'
 										/>
 										<button type='button' onClick={() => handleRemoveImage(button.id)} className='text-xs text-red-500 hover:text-red-600'>
-											删除图片
+											{copy('删除图片', 'Delete image')}
 										</button>
 									</div>
 								) : button.value && button.value.startsWith('/images/social-buttons/') ? (
@@ -210,7 +210,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 											type='text'
 											value={button.value}
 											onChange={e => handleUpdateButton(button.id, { value: e.target.value })}
-											placeholder={button.type === 'wechat' ? '微信号或二维码链接' : 'QQ号或二维码链接'}
+											placeholder={button.type === 'wechat' ? copy('微信号或二维码链接', 'WeChat ID or QR link') : copy('QQ号或二维码链接', 'QQ number or QR link')}
 											className='bg-secondary/10 flex-1 rounded-lg border px-3 py-1.5 text-xs'
 										/>
 									</div>
@@ -220,14 +220,14 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 											type='text'
 											value={button.value}
 											onChange={e => handleUpdateButton(button.id, { value: e.target.value })}
-											placeholder={button.type === 'wechat' ? '微信号或二维码链接' : 'QQ号或二维码链接'}
+											placeholder={button.type === 'wechat' ? copy('微信号或二维码链接', 'WeChat ID or QR link') : copy('QQ号或二维码链接', 'QQ number or QR link')}
 											className='bg-secondary/10 flex-1 rounded-lg border px-3 py-1.5 text-xs'
 										/>
 										<button
 											type='button'
 											onClick={() => imageInputRefs.current[button.id]?.click()}
 											className='bg-card rounded-lg border px-3 py-1.5 text-xs font-medium'>
-											上传图片
+											{copy('上传图片', 'Upload image')}
 										</button>
 									</>
 								)}
@@ -246,7 +246,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 								type='text'
 								value={button.label || ''}
 								onChange={e => handleUpdateButton(button.id, { label: e.target.value })}
-								placeholder='标签文本（可选）'
+								placeholder={copy('标签文本（可选）', 'Label text (optional)')}
 								className='bg-secondary/10 w-32 rounded-lg border px-3 py-1.5 text-xs'
 							/>
 						)}
@@ -260,7 +260,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 								}
 							}}
 							min={1}
-							placeholder='顺序'
+							placeholder={copy('顺序', 'Order')}
 							className='bg-secondary/10 w-16 rounded-lg border px-2 py-1.5 text-xs'
 						/>
 						<div className='flex gap-1'>
@@ -288,7 +288,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 					type='button'
 					onClick={handleAddButton}
 					className='hover:border-brand/60 text-secondary hover:bg-card flex w-full items-center justify-center rounded-xl border border-dashed py-2 text-sm'>
-					+ 添加按钮
+					{copy('+ 添加按钮', '+ Add button')}
 				</button>
 			</div>
 		</div>

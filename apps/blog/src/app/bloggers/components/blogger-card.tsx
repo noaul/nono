@@ -63,7 +63,7 @@ export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }:
 								{copy('取消', 'Cancel')}
 							</button>
 							<button onClick={() => setIsEditing(false)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
-								完成
+								{copy('完成', 'Done')}
 							</button>
 						</>
 					) : (
@@ -90,7 +90,7 @@ export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }:
 						/>
 						{canEdit && (
 							<div className='ev pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100'>
-								<span className='text-xs text-white'>更换</span>
+								<span className='text-xs text-white'>{copy('更换', 'Replace')}</span>
 							</div>
 						)}
 					</div>
@@ -138,7 +138,7 @@ export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }:
 								className={`rounded-full px-3 py-1 text-xs transition-colors ${
 									(localBlogger.status ?? 'recent') === status ? 'bg-brand text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
 								}`}>
-								{status === 'recent' ? '近期更新' : '长期失联'}
+								{status === 'recent' ? copy('近期更新', 'Recently updated') : copy('长期失联', 'Long inactive')}
 							</button>
 						))}
 					</div>

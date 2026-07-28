@@ -81,7 +81,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 
 	const handleSaveClick = () => {
 		if (!isAuth) {
-			toast.error('请先登录 Nono 后台')
+			toast.error(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
 			return
 		}
 		void handleSave()
@@ -108,7 +108,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 			onClose()
 		} catch (error: any) {
 			console.error('Failed to save:', error)
-			toast.error(`保存失败: ${error?.message || '未知错误'}`)
+			toast.error(`保存失败: ${error?.message || copy('未知错误', 'Unknown error')}`)
 		} finally {
 			setIsSaving(false)
 		}
@@ -188,12 +188,12 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 		onClose()
 	}
 
-	const buttonText = '保存'
+	const buttonText = copy('保存', 'Save')
 
 	const tabs: { id: TabType; label: string }[] = [
-		{ id: 'site', label: '网站设置' },
-		{ id: 'color', label: '色彩配置' },
-		{ id: 'layout', label: '首页布局' }
+		{ id: 'site', label: copy('网站设置', 'Site settings') },
+		{ id: 'color', label: copy('色彩配置', 'Colours') },
+		{ id: 'layout', label: copy('首页布局', 'Home layout') }
 	]
 
 	return (
@@ -233,7 +233,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							{copy('取消', 'Cancel')}
 						</motion.button>
 						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-4'>
-							{isSaving ? '保存中...' : buttonText}
+							{isSaving ? copy('保存中...', 'Saving…') : buttonText}
 						</motion.button>
 					</div>
 				</div>

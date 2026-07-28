@@ -11,10 +11,13 @@ import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { HomeDraggableLayer } from '@/app/(home)/home-draggable-layer'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
+import { useI18n } from '@/i18n'
 
 dayjs.locale('zh-cn')
 
 export default function ScheduleSummaryCard() {
+
+	const { copy } = useI18n()
 	const pathname = usePathname()
 	const center = useCenterStore()
 	const { cardStyles, siteContent } = useConfigStore()
@@ -57,20 +60,20 @@ export default function ScheduleSummaryCard() {
 					<CalendarDays className='size-5' />
 				</div>
 				<div className='min-w-0 flex-1'>
-					<div className='text-secondary text-[11px] font-medium'>最近日程</div>
+					<div className='text-secondary text-[11px] font-medium'>{copy('最近日程', 'Upcoming')}</div>
 					<div className='text-primary mt-0.5 truncate text-sm font-medium'>
-						{nearest ? `${dayjs(nearest.date).format('M月D日')} ${nearest.time ? `${nearest.time} ` : ''}${nearest.title}` : '暂无待办日程'}
+						{nearest ? `${dayjs(nearest.date).format('M月D日')} ${nearest.time ? `${nearest.time} ` : ''}${nearest.title}` : copy('暂无待办日程', 'Nothing scheduled')}
 					</div>
 				</div>
 				<div className='bg-border/60 h-9 w-px shrink-0 max-sm:hidden' />
-				<div className='flex min-w-0 flex-1 items-stretch gap-1.5 max-sm:basis-full' aria-label='未来三天日程'>
+				<div className='flex min-w-0 flex-1 items-stretch gap-1.5 max-sm:basis-full' aria-label={copy('未来三天日程', 'Next three days')}>
 					{nextDays.map(({ date, events: dayEvents }) => (
 						<div key={date.format('YYYY-MM-DD')} className='min-w-0 flex-1 rounded-xl bg-white/30 px-2 py-1.5 text-center'>
 							<div className={cn('text-[10px]', date.day() === 0 || date.day() === 6 ? 'text-secondary' : 'text-brand')}>
 								{date.format('M/D')} {date.format('ddd')}
 							</div>
-							<div className='text-primary mt-0.5 truncate text-[11px]' title={dayEvents[0]?.title || '暂无'}>
-								{dayEvents[0]?.title || '暂无'}
+							<div className='text-primary mt-0.5 truncate text-[11px]' title={dayEvents[0]?.title || copy('暂无', 'None')}>
+								{dayEvents[0]?.title || copy('暂无', 'None')}
 							</div>
 						</div>
 					))}

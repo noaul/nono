@@ -1,11 +1,17 @@
+'use client'
+
 import { motion } from 'motion/react'
 import { useWriteStore } from '../stores/write-store'
 import { INIT_DELAY } from '@/consts'
 import { useRef } from 'react'
+import { useI18n } from '@/i18n'
 
 const defaultText = 'text'
 
 export function WriteEditor() {
+
+
+	const { copy } = useI18n()
 	const { form, updateForm, images, addFiles } = useWriteStore()
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -164,7 +170,7 @@ export function WriteEditor() {
 			<div className='mb-3 flex gap-3'>
 				<input
 					type='text'
-					placeholder='标题'
+					placeholder={copy('标题', 'Title')}
 					className='bg-card flex-1 rounded-lg border px-3 py-2 text-sm'
 					value={form.title}
 					onChange={e => updateForm({ title: e.target.value })}
@@ -179,7 +185,7 @@ export function WriteEditor() {
 			</div>
 			<textarea
 				ref={textareaRef}
-				placeholder='Markdown 内容'
+				placeholder={copy('Markdown 内容', 'Markdown content')}
 				className='bg-card h-[650px] w-full flex-1 resize-none rounded-xl border p-4 text-sm'
 				value={form.md}
 				onChange={e => updateForm({ md: e.target.value })}

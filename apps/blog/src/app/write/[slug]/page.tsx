@@ -9,8 +9,11 @@ import { WriteSidebar } from '../components/sidebar'
 import { WriteActions } from '../components/actions'
 import { WritePreview } from '../components/preview'
 import { WriteAccessGate } from '../components/write-access-gate'
+import { useI18n } from '@/i18n'
 
 export default function EditBlogPage() {
+
+	const { copy } = useI18n()
 	const params = useParams() as { slug?: string }
 	const slug = params?.slug || ''
 
@@ -21,11 +24,11 @@ export default function EditBlogPage() {
 	const coverPreviewUrl = cover ? (cover.type === 'url' ? cover.url : cover.previewUrl) : null
 
 	if (loading) {
-		return <div className='text-secondary flex h-screen items-center justify-center text-sm'>加载中...</div>
+		return <div className='text-secondary flex h-screen items-center justify-center text-sm'>{copy('加载中...', 'Loading…')}</div>
 	}
 
 	if (!slug) {
-		return <div className='flex h-screen items-center justify-center text-sm text-red-500'>无效的博客 ID</div>
+		return <div className='flex h-screen items-center justify-center text-sm text-red-500'>{copy('无效的博客 ID', 'Invalid post ID')}</div>
 	}
 
 	return (

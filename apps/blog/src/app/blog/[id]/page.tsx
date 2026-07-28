@@ -38,7 +38,7 @@ export default function Page() {
 					markAsRead(slug)
 				}
 			} catch (e: any) {
-				if (!cancelled) setError(e?.message || '加载失败')
+				if (!cancelled) setError(e?.message || copy('加载失败', 'Could not load'))
 			} finally {
 				if (!cancelled) setLoading(false)
 			}
@@ -59,11 +59,11 @@ export default function Page() {
 	}
 
 	if (!slug) {
-		return <div className='text-secondary flex h-full items-center justify-center text-sm'>无效的链接</div>
+		return <div className='text-secondary flex h-full items-center justify-center text-sm'>{copy('无效的链接', 'Invalid link')}</div>
 	}
 
 	if (loading) {
-		return <div className='text-secondary flex h-full items-center justify-center text-sm'>加载中...</div>
+		return <div className='text-secondary flex h-full items-center justify-center text-sm'>{copy('加载中...', 'Loading…')}</div>
 	}
 
 	if (error) {
@@ -71,7 +71,7 @@ export default function Page() {
 	}
 
 	if (!blog) {
-		return <div className='text-secondary flex h-full items-center justify-center text-sm'>文章不存在</div>
+		return <div className='text-secondary flex h-full items-center justify-center text-sm'>{copy('文章不存在', 'That post does not exist')}</div>
 	}
 
 	return (

@@ -38,7 +38,7 @@ export function CategoryModal({
 	const { copy } = useI18n()
 	const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
 	const categoryOptions = useMemo(
-		() => [{ value: '', label: '未分类' }, ...categoryList.map(cat => ({ value: cat, label: cat }))],
+		() => [{ value: '', label: copy('未分类', 'Uncategorised') }, ...categoryList.map(cat => ({ value: cat, label: cat }))],
 		[categoryList]
 	)
 
@@ -78,7 +78,7 @@ export function CategoryModal({
 	return (
 		<DialogModal open={open} onClose={onClose} className='card w-[720px] max-w-[90vw] rounded-2xl p-6'>
 			<div className='mb-4 flex items-center justify-between'>
-				<div className='text-lg font-semibold'>文章分类</div>
+				<div className='text-lg font-semibold'>{copy('文章分类', 'Categories')}</div>
 				<button onClick={onClose} className='text-secondary hover:text-brand text-sm'>
 					{copy('关闭', 'Close')}
 				</button>
@@ -88,16 +88,16 @@ export function CategoryModal({
 					<input
 						value={newCategory}
 						onChange={e => onNewCategoryChange(e.target.value)}
-						placeholder='输入分类名称'
+						placeholder={copy('输入分类名称', 'Enter a category name')}
 						className='focus:border-brand w-full rounded-lg border px-3 py-2 text-sm outline-none'
 					/>
 					<button onClick={onAddCategory} className='brand-btn px-4 py-2 text-sm whitespace-nowrap'>
-						新增分类
+						{copy('新增分类', 'New category')}
 					</button>
 				</div>
 				<div className='flex flex-wrap gap-2 rounded-lg bg-white/60 p-3 text-sm'>
 					{categoryList.length === 0 ? (
-						<span className='text-secondary'>暂无分类</span>
+						<span className='text-secondary'>{copy('暂无分类', 'No categories')}</span>
 					) : (
 						categoryList.map((cat, index) => (
 							<span
@@ -137,7 +137,7 @@ export function CategoryModal({
 							/>
 						</div>
 					))}
-					{editableItems.length === 0 && <div className='text-secondary text-sm'>暂无文章</div>}
+					{editableItems.length === 0 && <div className='text-secondary text-sm'>{copy('暂无文章', 'No posts yet')}</div>}
 				</div>
 			</div>
 		</DialogModal>

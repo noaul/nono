@@ -1,3 +1,4 @@
+import { localeCopy as copy } from '../i18n/language.ts'
 type SessionUser = {
 	role?: string
 }
@@ -66,7 +67,7 @@ export async function hasAuth(): Promise<boolean> {
  */
 export async function getAuthToken(): Promise<string> {
 	if (!isAdminSession(await readSession(true))) {
-		throw new Error('需要先登录 Nono 管理员账户')
+		throw new Error(copy('需要先登录 Nono 管理员账户', 'Sign in to a Nono admin account first'))
 	}
 	return 'nono-session'
 }

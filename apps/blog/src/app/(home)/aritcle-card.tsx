@@ -1,3 +1,5 @@
+'use client'
+
 import Card from '@/components/card'
 import { useCenterStore } from '@/hooks/use-center'
 import { useLatestBlog } from '@/hooks/use-blog-index'
@@ -6,8 +8,11 @@ import { CARD_SPACING } from '@/consts'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { HomeDraggableLayer } from './home-draggable-layer'
+import { useI18n } from '@/i18n'
 
 export default function ArticleCard() {
+
+	const { copy } = useI18n()
 	const center = useCenterStore()
 	const { cardStyles, siteContent } = useConfigStore()
 	const { blog, loading } = useLatestBlog()
@@ -38,11 +43,11 @@ export default function ArticleCard() {
 					</>
 				)}
 
-				<h2 className='text-secondary text-sm'>最新文章</h2>
+				<h2 className='text-secondary text-sm'>{copy('最新文章', 'Latest posts')}</h2>
 
 				{loading ? (
 					<div className='flex h-[60px] items-center justify-center'>
-						<span className='text-secondary text-xs'>加载中...</span>
+						<span className='text-secondary text-xs'>{copy('加载中...', 'Loading…')}</span>
 					</div>
 				) : blog ? (
 					<Link href={`/blog/${blog.slug}`} className='flex transition-opacity hover:opacity-80'>
@@ -59,7 +64,7 @@ export default function ArticleCard() {
 					</Link>
 				) : (
 					<div className='flex h-[60px] items-center justify-center'>
-						<span className='text-secondary text-xs'>暂无文章</span>
+						<span className='text-secondary text-xs'>{copy('暂无文章', 'No posts yet')}</span>
 					</div>
 				)}
 			</Card>

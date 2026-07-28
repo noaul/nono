@@ -3,6 +3,7 @@
 import { ArrowUpRight, Compass, ImageIcon } from 'lucide-react'
 import { getPortalSettings } from '@/lib/portal'
 import type { SiteContent } from '../../stores/config-store'
+import { useI18n } from '@/i18n'
 
 interface PortalSectionProps {
 	formData: SiteContent
@@ -10,6 +11,9 @@ interface PortalSectionProps {
 }
 
 export function PortalSection({ formData, setFormData }: PortalSectionProps) {
+
+
+	const { copy } = useI18n()
 	const portal = getPortalSettings(formData.portal)
 	const updatePortal = (patch: Partial<SiteContent['portal']>) => {
 		setFormData(previous => ({
@@ -27,9 +31,9 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 				<div>
 					<h3 className='flex items-center gap-2 text-sm font-semibold'>
 						<Compass className='text-brand size-4' />
-						网址导航联动
+						{copy('网址导航联动', 'Link home integration')}
 					</h3>
-					<p className='text-secondary mt-1 text-xs'>控制中心头像和右上角返回 Nono 的入口</p>
+					<p className='text-secondary mt-1 text-xs'>{copy('控制中心头像和右上角返回 Nono 的入口', 'Controls the centre avatar and the “back to Nono” entry')}</p>
 				</div>
 				<label className='flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium'>
 					<input
@@ -38,46 +42,46 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 						onChange={event => updatePortal({ enabled: event.target.checked })}
 						className='accent-brand size-4'
 					/>
-					启用
+					{copy('启用', 'Enabled')}
 				</label>
 			</div>
 
 			<div className='grid grid-cols-2 gap-3 max-sm:grid-cols-1'>
 				<label className='space-y-2'>
-					<span className='block text-xs font-medium'>入口名称</span>
+					<span className='block text-xs font-medium'>{copy('入口名称', 'Entry label')}</span>
 					<input
 						type='text'
 						value={formData.portal.label}
 						onChange={event => updatePortal({ label: event.target.value })}
 						className='bg-secondary/10 w-full rounded-lg border px-3 py-2 text-sm'
-						placeholder='返回网址导航'
+						placeholder={copy('返回网址导航', 'Back to the link home page')}
 					/>
 				</label>
 				<label className='space-y-2'>
-					<span className='block text-xs font-medium'>Nono 地址</span>
+					<span className='block text-xs font-medium'>{copy('Nono 地址', 'Nono URL')}</span>
 					<input
 						type='text'
 						value={formData.portal.url}
 						onChange={event => updatePortal({ url: event.target.value })}
 						className='bg-secondary/10 w-full rounded-lg border px-3 py-2 text-sm'
-						placeholder='由 NEXT_PUBLIC_NONO_URL 提供'
+						placeholder={copy('由 NEXT_PUBLIC_NONO_URL 提供', 'Provided by NEXT_PUBLIC_NONO_URL')}
 					/>
 				</label>
 				<label className='col-span-2 space-y-2 max-sm:col-span-1'>
-					<span className='block text-xs font-medium'>中心自定义图片</span>
+					<span className='block text-xs font-medium'>{copy('中心自定义图片', 'Custom centre image')}</span>
 					<div className='flex gap-2'>
 						<input
 							type='text'
 							value={formData.portal.imageUrl}
 							onChange={event => updatePortal({ imageUrl: event.target.value })}
 							className='bg-secondary/10 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm'
-							placeholder='/images/avatar.png 或 https://...'
+							placeholder={copy('/images/avatar.png 或 https://...', '/images/avatar.png or https://…')}
 						/>
 						<button
 							type='button'
 							onClick={() => updatePortal({ imageUrl: formData.meta.avatarUrl || '/images/avatar.png' })}
 							className='bg-card shrink-0 rounded-lg border px-3 text-xs font-medium'>
-							使用头像
+							{copy('使用头像', 'Use avatar')}
 						</button>
 					</div>
 				</label>
@@ -90,7 +94,7 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 					onChange={event => updatePortal({ openInNewTab: event.target.checked })}
 					className='accent-brand size-4'
 				/>
-				在新窗口打开
+				{copy('在新窗口打开', 'Open in a new tab')}
 			</label>
 
 			<div className={`relative overflow-hidden rounded-lg border border-white/65 bg-white/38 p-4 backdrop-blur-xl ${formData.portal.enabled ? '' : 'opacity-45'}`}>
@@ -100,10 +104,10 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 					</div>
 					<div className='min-w-0'>
 						<strong className='flex items-center gap-1.5 text-sm'>
-							{formData.portal.label || '返回网址导航'}
+							{formData.portal.label || copy('返回网址导航', 'Back to the link home page')}
 							<ArrowUpRight className='size-3.5' />
 						</strong>
-						<p className='text-secondary mt-1 truncate text-xs'>{portal.url || '尚未配置跳转地址'}</p>
+						<p className='text-secondary mt-1 truncate text-xs'>{portal.url || copy('尚未配置跳转地址', 'No link configured yet')}</p>
 					</div>
 				</div>
 			</div>

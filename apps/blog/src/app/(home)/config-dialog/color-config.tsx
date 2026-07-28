@@ -212,7 +212,7 @@ export function ColorConfig({ formData, setFormData }: ColorConfigProps) {
 							whileTap={{ scale: 0.95 }}
 							onClick={handleAddColor}
 							className='rounded-lg border bg-white/60 px-3 py-1 text-xs whitespace-nowrap'>
-							+ 添加颜色
+							{copy('+ 添加颜色', '+ Add colour')}
 						</motion.button>
 					</div>
 				</div>

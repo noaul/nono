@@ -1,3 +1,5 @@
+'use client'
+
 import { ANIMATION_DELAY, CARD_SPACING } from '@/consts'
 import PenSVG from '@/svgs/pen.svg'
 import { motion } from 'motion/react'
@@ -9,8 +11,11 @@ import { useSize } from '@/hooks/use-size'
 import DotsSVG from '@/svgs/dots.svg'
 import { HomeDraggableLayer } from './home-draggable-layer'
 import { useAuthStore } from '@/hooks/use-auth'
+import { useI18n } from '@/i18n'
 
 export default function WriteButton() {
+
+	const { copy } = useI18n()
 	const center = useCenterStore()
 	const { cardStyles, setConfigDialogOpen, siteContent } = useConfigStore()
 	const { maxSM } = useSize()
@@ -56,7 +61,7 @@ export default function WriteButton() {
 					)}
 
 					<PenSVG />
-					<span>写文章</span>
+					<span>{copy('写文章', 'Write')}</span>
 				</motion.button>
 				<motion.button
 					initial={{ opacity: 0, scale: 0.6 }}

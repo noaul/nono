@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { type LogoItem } from './components/logo-upload-dialog'
 import { ShareCard, type Share } from './components/share-card'
+import { useI18n } from '@/i18n'
 
 interface GridViewProps {
 	shares: Share[]
@@ -13,6 +14,9 @@ interface GridViewProps {
 }
 
 export default function GridView({ shares, isEditMode = false, onUpdate, onDelete }: GridViewProps) {
+
+
+	const { copy } = useI18n()
 	const [searchTerm, setSearchTerm] = useState('')
 	const [selectedTag, setSelectedTag] = useState<string>('all')
 
@@ -29,7 +33,7 @@ export default function GridView({ shares, isEditMode = false, onUpdate, onDelet
 			<div className='mb-8 space-y-4'>
 				<input
 					type='text'
-					placeholder='搜索资源...'
+					placeholder={copy('搜索资源...', 'Search resources…')}
 					value={searchTerm}
 					onChange={e => setSearchTerm(e.target.value)}
 					className='focus:ring-brand mx-auto block w-full max-w-md rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:outline-none'
@@ -41,7 +45,7 @@ export default function GridView({ shares, isEditMode = false, onUpdate, onDelet
 						className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
 							selectedTag === 'all' ? 'bg-brand text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
 						}`}>
-						全部
+						{copy('全部', 'All')}
 					</button>
 					{allTags.map(tag => (
 						<button
@@ -64,7 +68,7 @@ export default function GridView({ shares, isEditMode = false, onUpdate, onDelet
 
 			{filteredShares.length === 0 && (
 				<div className='mt-12 text-center text-gray-500'>
-					<p>没有找到相关资源</p>
+					<p>{copy('没有找到相关资源', 'No matching resources')}</p>
 				</div>
 			)}
 		</div>

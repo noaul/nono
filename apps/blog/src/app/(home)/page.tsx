@@ -38,12 +38,12 @@ export default function Home() {
 
 	const handleSave = () => {
 		saveEditing()
-		toast.success('首页布局偏移已保存（尚未提交到远程配置）')
+		toast.success(copy('首页布局偏移已保存（尚未提交到远程配置）', 'Layout offsets saved locally (not yet pushed to the remote config)'))
 	}
 
 	const handleCancel = () => {
 		cancelEditing()
-		toast.info('已取消此次拖拽布局修改')
+		toast.info(copy('已取消此次拖拽布局修改', 'Layout changes discarded'))
 	}
 
 	useEffect(() => {
@@ -75,7 +75,7 @@ export default function Home() {
 			{editing && isAuth && (
 				<div className='pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-6'>
 					<div className='pointer-events-auto flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-2 shadow-lg backdrop-blur'>
-						<span className='text-xs text-gray-600'>正在编辑首页布局，拖拽卡片调整位置</span>
+						<span className='text-xs text-gray-600'>{copy('正在编辑首页布局，拖拽卡片调整位置', 'Editing the home layout — drag cards to reposition')}</span>
 						<div className='flex gap-2'>
 							<motion.button
 								type='button'
@@ -86,7 +86,7 @@ export default function Home() {
 								{copy('取消', 'Cancel')}
 							</motion.button>
 							<motion.button type='button' whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSave} className='brand-btn px-3 py-1 text-xs'>
-								保存偏移
+								{copy('保存偏移', 'Save offsets')}
 							</motion.button>
 						</div>
 					</div>
@@ -110,15 +110,15 @@ export default function Home() {
 
 			{maxSM && isAuth && (
 				<div className='fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-2xl border bg-white/75 p-2 shadow-lg backdrop-blur-xl'>
-					<Link href='/write' className='brand-btn h-10 px-3' aria-label='写文章'>
+					<Link href='/write' className='brand-btn h-10 px-3' aria-label={copy('写文章', 'Write a post')}>
 						<PenLine className='size-4' />
-						<span>写文章</span>
+						<span>{copy('写文章', 'Write')}</span>
 					</Link>
 					<button
 						type='button'
 						onClick={() => setConfigDialogOpen(true)}
 						className='grid size-10 place-items-center rounded-xl border bg-white/70'
-						aria-label='网站设置'>
+						aria-label={copy('网站设置', 'Site settings')}>
 						<Settings2 className='size-4' />
 					</button>
 				</div>

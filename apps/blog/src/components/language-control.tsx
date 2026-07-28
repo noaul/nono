@@ -26,7 +26,7 @@ export function LanguageControl() {
 	}, [])
 
 	const options: { value: Language; label: string }[] = [
-		{ value: 'zh', label: '中文' },
+		{ value: 'zh', label: copy('中文', 'Chinese') },
 		{ value: 'en', label: 'English' }
 	]
 

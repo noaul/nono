@@ -2,9 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-export type Language = 'zh' | 'en'
-
-export const LANGUAGE_STORAGE_KEY = 'nono-blog-language'
+export { LANGUAGE_STORAGE_KEY, localeCopy, readStoredLanguage, type Language } from './language'
+import { readStoredLanguage, type Language } from './language'
 
 type I18nContextValue = {
 	language: Language
@@ -15,15 +14,6 @@ type I18nContextValue = {
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
-
-export function readStoredLanguage(): Language {
-	if (typeof window === 'undefined') return 'zh'
-	try {
-		return window.localStorage.getItem(LANGUAGE_STORAGE_KEY) === 'en' ? 'en' : 'zh'
-	} catch {
-		return 'zh'
-	}
-}
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
 	// Always start on Chinese so the server and the first client render agree; the stored
@@ -38,7 +28,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 	const setLanguage = useCallback((next: Language) => {
 		setLanguageState(next)
 		try {
-			window.localStorage.setItem(LANGUAGE_STORAGE_KEY, next)
+			window.localStorage.setItem('nono-blog-language', next)
 		} catch {
 			// The tab still switches when storage is unavailable.
 		}

@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { hashFileSHA256 } from '@/lib/file-utils'
 import { loadBlog } from '@/lib/load-blog'
 import type { PublishForm, ImageItem } from '../types'
+import { localeCopy as copy } from '@/i18n/language'
 
 export const formatDateTimeLocal = (date: Date = new Date()): string => {
 	const pad = (n: number) => String(n).padStart(2, '0')
@@ -74,7 +75,7 @@ export const useWriteStore = create<WriteStore>((set, get) => ({
 		const { images } = get()
 		const exists = images.some(it => it.type === 'url' && it.url === url)
 		if (exists) {
-			toast.info('该图片已在列表中')
+			toast.info(copy('该图片已在列表中', 'That image is already in the list'))
 			return
 		}
 		const id = Math.random().toString(36).slice(2, 10)
@@ -127,7 +128,7 @@ export const useWriteStore = create<WriteStore>((set, get) => ({
 			set(state => ({ images: [...newItems, ...state.images] }))
 			resultImages.push(...newItems)
 		} else if (resultImages.length === 0) {
-			toast.info('图片已存在，不重复添加')
+			toast.info(copy('图片已存在，不重复添加', 'Image already added'))
 		}
 
 		return resultImages
@@ -202,10 +203,10 @@ export const useWriteStore = create<WriteStore>((set, get) => ({
 				loading: false
 			})
 
-			toast.success('博客加载成功')
+			toast.success(copy('博客加载成功', 'Blog loaded'))
 		} catch (err: any) {
 			console.error('Failed to load blog:', err)
-			toast.error(err?.message || '加载博客失败')
+			toast.error(err?.message || copy('加载博客失败', 'Could not load the blog'))
 			set({ loading: false })
 			throw err
 		}

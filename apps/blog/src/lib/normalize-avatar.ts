@@ -1,3 +1,4 @@
+import { localeCopy as copy } from '@/i18n/language'
 const AVATAR_SIZE = 512
 
 type DecodedImage = {
@@ -27,7 +28,7 @@ async function decodeImage(file: File): Promise<DecodedImage> {
 		const image = await new Promise<HTMLImageElement>((resolve, reject) => {
 			const element = new Image()
 			element.onload = () => resolve(element)
-			element.onerror = () => reject(new Error('当前浏览器无法读取这张图片'))
+			element.onerror = () => reject(new Error(copy('当前浏览器无法读取这张图片', 'This browser cannot read that image')))
 			element.src = objectUrl
 		})
 		return {
@@ -45,13 +46,13 @@ async function decodeImage(file: File): Promise<DecodedImage> {
 export async function normalizeAvatar(file: File): Promise<File> {
 	const decoded = await decodeImage(file)
 	try {
-		if (!decoded.width || !decoded.height) throw new Error('图片尺寸无效')
+		if (!decoded.width || !decoded.height) throw new Error(copy('图片尺寸无效', 'Invalid image dimensions'))
 
 		const canvas = document.createElement('canvas')
 		canvas.width = AVATAR_SIZE
 		canvas.height = AVATAR_SIZE
 		const context = canvas.getContext('2d')
-		if (!context) throw new Error('浏览器无法处理这张图片')
+		if (!context) throw new Error(copy('浏览器无法处理这张图片', 'This browser cannot process that image'))
 
 		const sourceSize = Math.min(decoded.width, decoded.height)
 		const sourceX = (decoded.width - sourceSize) / 2
@@ -59,7 +60,7 @@ export async function normalizeAvatar(file: File): Promise<File> {
 		decoded.draw(context, sourceX, sourceY, sourceSize)
 
 		const blob = await new Promise<Blob>((resolve, reject) => {
-			canvas.toBlob(result => (result ? resolve(result) : reject(new Error('头像转换失败'))), 'image/webp', 0.9)
+			canvas.toBlob(result => (result ? resolve(result) : reject(new Error(copy('头像转换失败', 'Avatar conversion failed')))), 'image/webp', 0.9)
 		})
 		return new File([blob], 'avatar.webp', { type: 'image/webp', lastModified: Date.now() })
 	} finally {

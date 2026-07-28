@@ -1,3 +1,5 @@
+'use client'
+
 import { useCenterStore } from '@/hooks/use-center'
 import GithubSVG from '@/svgs/github.svg'
 import { ANIMATION_DELAY, CARD_SPACING } from '@/consts'
@@ -22,6 +24,7 @@ import { toast } from 'sonner'
 import { useSize } from '@/hooks/use-size'
 import { HomeDraggableLayer } from './home-draggable-layer'
 import { createPortal } from 'react-dom'
+import { useI18n } from '@/i18n'
 
 type SocialButtonType =
 	| 'github'
@@ -49,6 +52,8 @@ interface SocialButtonConfig {
 }
 
 export default function SocialButtons() {
+
+	const { copy } = useI18n()
 	const center = useCenterStore()
 	const { cardStyles, siteContent } = useConfigStore()
 	const { maxSM, init } = useSize()
@@ -158,9 +163,9 @@ export default function SocialButtons() {
 
 		if (button.type === 'email' || button.type === 'wechat' || button.type === 'qq') {
 			const messageMap: Record<'email' | 'wechat' | 'qq', string> = {
-				email: '邮箱已复制到剪贴板',
-				wechat: '微信号已复制到剪贴板',
-				qq: 'QQ号已复制到剪贴板'
+				email: copy('邮箱已复制到剪贴板', 'Email copied'),
+				wechat: copy('微信号已复制到剪贴板', 'WeChat ID copied'),
+				qq: copy('QQ号已复制到剪贴板', 'QQ number copied')
 			}
 
 			const isImagePath = button.value.startsWith('/images/social-buttons/')

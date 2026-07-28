@@ -1,3 +1,5 @@
+'use client'
+
 import { useCallback, useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { motion, AnimatePresence } from 'motion/react'
@@ -6,6 +8,7 @@ import clsx from 'clsx'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { BLOG_SLUG_KEY } from '@/consts'
+import { useI18n } from '@/i18n'
 
 type LikeButtonProps = {
 	slug?: string
@@ -16,6 +19,9 @@ type LikeButtonProps = {
 const ENDPOINT = 'https://blog-liker.yysuni1001.workers.dev/api/like'
 
 export default function LikeButton({ slug = 'yysuni', delay, className }: LikeButtonProps) {
+
+
+	const { copy } = useI18n()
 	slug = BLOG_SLUG_KEY + slug
 	const [liked, setLiked] = useState(false)
 	const [show, setShow] = useState(false)
@@ -67,7 +73,7 @@ export default function LikeButton({ slug = 'yysuni', delay, className }: LikeBu
 			const url = `${ENDPOINT}?slug=${encodeURIComponent(slug)}`
 			const res = await fetch(url, { method: 'POST' })
 			const data = await res.json().catch(() => ({}))
-			if (data.reason == 'rate_limited') toast('谢谢啦😘，今天已经不能再点赞啦💕')
+			if (data.reason == 'rate_limited') toast(copy('谢谢啦😘，今天已经不能再点赞啦💕', 'Thank you 😘 — no more likes today 💕'))
 			const value = typeof data?.count === 'number' ? data.count : (fetchedCount ?? 0) + 1
 			await mutate(value, { revalidate: false })
 		} catch {
