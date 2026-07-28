@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
+import { resolveRequestLocale } from '../../utils/i18n.js';
 
 const notificationSourceSchema = z.enum(['nodesk', 'nomoney', 'nostar', 'links', 'backup']);
 const sourceFilterSchema = z.preprocess(
@@ -30,6 +31,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
     const query = listQuerySchema.parse(request.query);
     return sendOk(reply, await services.notificationService.list(user, {
       limit: query.limit,
+      locale: resolveRequestLocale(request.headers as Record<string, unknown>),
       ...(query.sources ? { sources: query.sources } : {}),
     }));
   });

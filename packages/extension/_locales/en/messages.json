@@ -1,0 +1,7 @@
+{
+  "extName": { "message": "Nono Smart Bookmark" },
+  "extDescription": { "message": "Save the current page to Nono in one click." },
+  "actionTitle": { "message": "NONO quick save" },
+  "commandOpenPopup": { "message": "Open Nono quick save" },
+  "commandQuickSave": { "message": "Save to the last used folder" }
+}

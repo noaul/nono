@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
+import { DEFAULT_LOCALE, t, type Locale } from '../utils/i18n.js';
 import type { AuthUser } from '../types.js';
 import type { BackupService, BackupCommandRunner } from './backup.service.js';
 import { runBackupCommand } from './backup.service.js';
@@ -22,6 +23,8 @@ export interface NotificationItem {
   dueAt: string | null;
   entityId?: number | null;
   targetUrl?: string | null;
+  /** The bare entity name, so clients never have to parse it back out of `title`. */
+  entityLabel?: string | null;
   read: boolean;
 }
 
@@ -41,7 +44,7 @@ export interface NoMoneyDueItem {
 }
 
 export interface NotificationService {
-  list(user: AuthUser, options?: { limit?: number; sources?: NotificationSource[] }): Promise<NotificationFeed>;
+  list(user: AuthUser, options?: { limit?: number; sources?: NotificationSource[]; locale?: Locale }): Promise<NotificationFeed>;
   markRead(user: AuthUser, key: string, read: boolean): Promise<void>;
   markAllRead(user: AuthUser, options?: { sources?: NotificationSource[] }): Promise<number>;
   dismiss(user: AuthUser, key: string): Promise<void>;
@@ -65,18 +68,18 @@ export function createNotificationService(options: NotificationServiceOptions): 
   const timeZone = options.timeZone || process.env.TZ || 'Asia/Shanghai';
   const backupStaleHours = options.backupStaleHours;
 
-  async function collect(user: AuthUser, sources?: NotificationSource[]): Promise<RawNotification[]> {
+  async function collect(user: AuthUser, sources?: NotificationSource[], locale: Locale = DEFAULT_LOCALE): Promise<RawNotification[]> {
     const requested = sources?.length ? new Set(sources) : null;
     const includes = (source: NotificationSource) => !requested || requested.has(source);
     const [links, releases] = await Promise.all([
-      includes('links') ? collectLinkNotifications(options.prisma, user.id, now()) : Promise.resolve([]),
-      includes('nostar') ? collectReleaseNotifications(options.prisma, user.id) : Promise.resolve([]),
+      includes('links') ? collectLinkNotifications(options.prisma, user.id, now(), locale) : Promise.resolve([]),
+      includes('nostar') ? collectReleaseNotifications(options.prisma, user.id, locale) : Promise.resolve([]),
     ]);
     const globalCollectors: Array<Promise<RawNotification[]>> = [];
     if (user.role === 'admin') {
       if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(options.nodeskReader, now(), timeZone));
-      if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone));
-      if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours));
+      if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone, locale));
+      if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours, locale));
     }
     const global = (await Promise.all(globalCollectors)).flat();
     return [...links, ...releases, ...global].sort(compareNotifications);
@@ -92,7 +95,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
   return {
     async list(user, listOptions = {}) {
       const generatedAt = now().toISOString();
-      const rawItems = filterNotificationSources(await collect(user, listOptions.sources), listOptions.sources);
+      const rawItems = filterNotificationSources(await collect(user, listOptions.sources, listOptions.locale), listOptions.sources);
       const states = rawItems.length
         ? await options.prisma.notificationState.findMany({
             where: { userId: user.id, key: { in: rawItems.map((item) => item.key) } },
@@ -189,7 +192,7 @@ FROM subscriptions
 WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived');
 `;
 
-async function collectLinkNotifications(prisma: PrismaClient, userId: number, fallbackNow: Date): Promise<RawNotification[]> {
+async function collectLinkNotifications(prisma: PrismaClient, userId: number, fallbackNow: Date, locale: Locale): Promise<RawNotification[]> {
   const links = await prisma.link.findMany({
     where: {
       folder: { userId },
@@ -212,23 +215,24 @@ async function collectLinkNotifications(prisma: PrismaClient, userId: number, fa
   });
   return links.filter((link) => link.healthStatus !== 'redirected' && !shouldSkipLinkHealthCheck(link.url)).map((link) => {
     const status = link.healthStatus || 'broken';
-    const statusLabel = status === 'timeout' ? '检测超时' : status === 'invalid' ? '链接无效' : '访问异常';
+    const statusLabel = t(locale, status === 'timeout' ? 'linkTimeout' : status === 'invalid' ? 'linkInvalid' : 'linkBroken');
     return {
       key: stableKey('links', `${link.id}:${status}`),
       source: 'links',
       severity: status === 'timeout' ? 'warning' : 'critical',
-      title: `${link.name} ${statusLabel}`,
+      title: t(locale, 'linkNotificationTitle', { name: link.name, status: statusLabel }),
       description: link.healthReason || (link.healthStatusCode ? `HTTP ${link.healthStatusCode}` : `${link.folder.name} · ${link.url}`),
       href: '/admin/links',
       entityId: link.id,
       targetUrl: link.url,
+      entityLabel: link.name,
       occurredAt: (link.healthCheckedAt || fallbackNow).toISOString(),
       dueAt: null,
     };
   });
 }
 
-async function collectReleaseNotifications(prisma: PrismaClient, userId: number): Promise<RawNotification[]> {
+async function collectReleaseNotifications(prisma: PrismaClient, userId: number, locale: Locale): Promise<RawNotification[]> {
   const releases = await prisma.noStarRelease.findMany({
     where: { userId, isRead: false },
     select: {
@@ -247,8 +251,8 @@ async function collectReleaseNotifications(prisma: PrismaClient, userId: number)
     key: stableKey('nostar', release.githubId.toString()),
     source: 'nostar',
     severity: 'info',
-    title: `${release.repoFullName} 发布 ${release.tagName}`,
-    description: release.name || 'NoStar 发现新的 GitHub Release',
+    title: t(locale, 'releaseTitle', { repo: release.repoFullName, tag: release.tagName }),
+    description: release.name || t(locale, 'releaseFallback'),
     href: release.htmlUrl || '/nostar/',
     occurredAt: (release.publishedAt || release.createdAt).toISOString(),
     dueAt: null,
@@ -283,24 +287,24 @@ async function collectNodeskNotifications(reader: () => Promise<unknown>, curren
   });
 }
 
-async function collectNoMoneyNotifications(reader: () => Promise<NoMoneyDueItem[]>, current: Date, timeZone: string): Promise<RawNotification[]> {
+async function collectNoMoneyNotifications(reader: () => Promise<NoMoneyDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
   const items = await reader().catch(() => []);
   const today = dateKeyInTimeZone(current, timeZone);
   const firstDay = addDateDays(today, -30);
   const lastDay = addDateDays(today, 30);
-  const sourceNames = { domain: '域名', vps: 'VPS', subscription: '订阅' } as const;
+  const sourceNames = { domain: t(locale, 'sourceDomain'), vps: t(locale, 'sourceVps'), subscription: t(locale, 'sourceSubscription') } as const;
   const hrefs = { domain: '/nomoney/domains', vps: '/nomoney/vps', subscription: '/nomoney/subscriptions' } as const;
   return items
     .filter((item) => isDateKey(item.dueDate) && item.dueDate >= firstDay && item.dueDate <= lastDay)
     .map((item) => {
       const daysLeft = daysBetween(today, item.dueDate);
-      const timing = daysLeft < 0 ? `已逾期 ${Math.abs(daysLeft)} 天` : daysLeft === 0 ? '今天到期' : `${daysLeft} 天后到期`;
+      const timing = daysLeft < 0 ? t(locale, 'overdueDays', { days: Math.abs(daysLeft) }) : daysLeft === 0 ? t(locale, 'dueToday') : t(locale, 'dueInDays', { days: daysLeft });
       return {
         key: stableKey('nomoney', `${item.assetType}:${item.id}:${item.dueDate}`),
         source: 'nomoney' as const,
         severity: daysLeft < 0 ? 'critical' as const : daysLeft <= 7 ? 'warning' as const : 'info' as const,
         title: `${sourceNames[item.assetType]} ${item.name} ${timing}`,
-        description: `到期日期 ${item.dueDate}`,
+        description: t(locale, 'dueDate', { date: item.dueDate }),
         href: hrefs[item.assetType],
         occurredAt: `${item.dueDate}T23:59:00`,
         dueAt: `${item.dueDate}T23:59:00`,
@@ -312,18 +316,19 @@ async function collectBackupNotifications(
   service: Pick<BackupService, 'list'>,
   automationService: Pick<BackupAutomationService, 'get'> | undefined,
   current: Date,
-  configuredStaleHours?: number,
+  configuredStaleHours: number | undefined,
+  locale: Locale,
 ): Promise<RawNotification[]> {
   const automation = await automationService?.get().catch(() => null) || null;
-  const notifications = activeBackupFailure(automation);
+  const notifications = activeBackupFailure(automation, locale);
   const backups = await service.list().catch(() => []);
   if (!backups.length) {
     notifications.push({
       key: stableKey('backup', 'missing'),
       source: 'backup',
       severity: 'critical',
-      title: '尚无可用的全站备份',
-      description: '请创建并校验一次全站备份',
+      title: t(locale, 'noBackupYet'),
+      description: t(locale, 'noBackupYetHint'),
       href: '/admin/backups',
       occurredAt: current.toISOString(),
       dueAt: null,
@@ -338,8 +343,8 @@ async function collectBackupNotifications(
       key: stableKey('backup', `stale:${latest.id}`),
       source: 'backup',
       severity: 'warning',
-      title: '全站备份已过期',
-      description: `最近备份创建于 ${latest.createdAt}`,
+      title: t(locale, 'backupStale'),
+      description: t(locale, 'backupStaleHint', { date: latest.createdAt }),
       href: '/admin/backups',
       occurredAt: latest.createdAt,
       dueAt: null,
@@ -348,7 +353,7 @@ async function collectBackupNotifications(
   return notifications;
 }
 
-function activeBackupFailure(automation: BackupAutomationSnapshot | null): RawNotification[] {
+function activeBackupFailure(automation: BackupAutomationSnapshot | null, locale: Locale): RawNotification[] {
   const failureAt = automation?.status.lastFailureAt;
   const successAt = automation?.status.lastSuccessAt;
   const error = automation?.status.lastError;
@@ -357,7 +362,7 @@ function activeBackupFailure(automation: BackupAutomationSnapshot | null): RawNo
     key: stableKey('backup', `failure:${failureAt}`),
     source: 'backup',
     severity: 'critical',
-    title: '自动备份失败',
+    title: t(locale, 'backupFailed'),
     description: error,
     href: '/admin/backups',
     occurredAt: failureAt,

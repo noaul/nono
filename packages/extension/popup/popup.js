@@ -8,7 +8,9 @@ import {
   preferredFolderId,
   tokenExpiryText,
 } from '../shared/popup-workflow.js';
+import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
 
+const languageSelect = document.querySelector('#languageSelect');
 const settingsPanel = document.querySelector('#settings');
 const workflow = document.querySelector('#workflow');
 const details = document.querySelector('#details');
@@ -42,15 +44,40 @@ document.querySelector('#saveBookmark').addEventListener('click', saveBookmark);
 document.querySelector('#analyzeBookmark').addEventListener('click', analyzeBookmark);
 document.querySelector('#toggleDetails').addEventListener('click', toggleDetails);
 categorySelect.addEventListener('change', () => renderFolderOptions());
+languageSelect?.addEventListener('change', () => changeLanguage(languageSelect.value));
 nameInput.addEventListener('input', () => {
   nameMode = 'manual';
   if (pageInfo) renderPagePreview();
 });
 
+applyTranslations();
 init();
 
+/** Re-renders every data-i18n hook; called on load and whenever the language changes. */
+function applyTranslations() {
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  document.documentElement.lang = getLocale() === 'zh' ? 'zh-CN' : 'en';
+  if (languageSelect) languageSelect.value = getLocale();
+}
+
+async function changeLanguage(next) {
+  setLocale(next);
+  try {
+    await chrome.storage.local.set({ [LOCALE_STORAGE_KEY]: getLocale() });
+  } catch {
+    // The popup still switches for this session when storage is unavailable.
+  }
+  applyTranslations();
+}
+
 async function init() {
-  config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId']);
+  config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId', LOCALE_STORAGE_KEY]);
+  // A stored choice wins; otherwise follow the browser UI language, then Chinese.
+  const stored = config[LOCALE_STORAGE_KEY];
+  setLocale(isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh');
+  applyTranslations();
   serverUrlInput.value = config.serverUrl || 'https://noaul.com';
   tokenInput.value = config.token || '';
   if (!config.serverUrl || !config.token) {
@@ -70,35 +97,35 @@ async function saveSettings() {
       await prepareQuickSave();
     }
   } catch (error) {
-    setTokenStatus(error.message || '服务地址无效。');
+    setTokenStatus(error.message || t('invalidServerUrl'));
   }
 }
 
 async function testConnection() {
-  setTokenStatus('正在连接...');
+  setTokenStatus(t('connecting'));
   try {
     const [session, token] = await Promise.all([
       request('/api/auth/session', undefined, 'GET'),
       request('/api/admin/tokens/current', undefined, 'GET'),
     ]);
-    setTokenStatus(`${session.user?.displayName || session.user?.username || '已连接'} · ${tokenExpiryText(token)}`);
+    setTokenStatus(`${session.user?.displayName || session.user?.username || t('connected')} · ${tokenExpiryText(token)}`);
     return true;
   } catch (error) {
-    setTokenStatus(error.message || '连接失败，请检查服务地址与 Token。');
+    setTokenStatus(error.message || t('connectFailed'));
     return false;
   }
 }
 
 async function prepareQuickSave() {
   workflow.classList.remove('hidden');
-  setStatus('读取当前网页...');
+  setStatus(t('readingPage'));
   try {
     await Promise.all([refreshFolders(), readCurrentPage()]);
     duplicateLink = findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
-    setStatus('选好位置后，一次点击即可收藏。');
+    setStatus(t('pickThenSave'));
   } catch (error) {
-    setStatus(error.message || '无法读取当前网页。', 'error');
+    setStatus(error.message || t('cannotReadPage'), 'error');
   }
 }
 
@@ -121,7 +148,7 @@ async function refreshFolders() {
 
 async function readCurrentPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) throw new Error('请在普通网页标签中使用快速收藏。');
+  if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) throw new Error(t('useOnNormalTab'));
   let meta = {};
   try {
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
@@ -139,10 +166,10 @@ async function saveBookmark() {
   if (!pageInfo) return;
   const folderId = folderSelect.value;
   if (!folderId) {
-    setStatus('请先选择一个文件夹。', 'error');
+    setStatus(t('pickFolderFirst'), 'error');
     return;
   }
-  setBusy(saveButton, true, '收藏中...');
+  setBusy(saveButton, true, t('saving'));
   try {
     const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value });
     await request('/api/admin/links', payload);
@@ -151,18 +178,18 @@ async function saveBookmark() {
     links = [{ ...payload, id: `saved-${Date.now()}` }, ...links];
     duplicateLink = findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
-    setStatus('已收藏到 Nono。', 'success');
+    setStatus(t('saved'), 'success');
     chrome.action.setBadgeText({ text: 'OK' });
   } catch (error) {
-    setStatus(error.message || '收藏失败。', 'error');
+    setStatus(error.message || t('saveFailed'), 'error');
   } finally {
-    setBusy(saveButton, false, '收藏此页');
+    setBusy(saveButton, false, t('saveThisPage'));
   }
 }
 
 async function analyzeBookmark() {
   if (!pageInfo) return;
-  setBusy(analyzeButton, true, '整理中...');
+  setBusy(analyzeButton, true, t('tidying'));
   try {
     const analysis = await request('/api/ai/analyze', pageInfo);
     setAutoName(analysis.suggestedName || nameInput.value);
@@ -172,11 +199,11 @@ async function analyzeBookmark() {
       categorySelect.value = String(suggestedGroup.category.id);
       renderFolderOptions(analysis.suggestedFolderId);
     }
-    setStatus('AI 已补充标题、描述与建议位置。', 'success');
+    setStatus(t('tidied'), 'success');
   } catch (error) {
-    setStatus(error.message || 'AI 整理失败，仍可直接收藏。', 'error');
+    setStatus(error.message || t('tidyFailed'), 'error');
   } finally {
-    setBusy(analyzeButton, false, 'AI 整理');
+    setBusy(analyzeButton, false, t('aiTidy'));
   }
 }
 
@@ -226,13 +253,13 @@ function renderDuplicateWarning() {
     duplicateWarningEl.textContent = '';
     return;
   }
-  duplicateWarningEl.textContent = `这个链接已收藏为「${duplicateLink.name}」，仍可再次保存。`;
+  duplicateWarningEl.textContent = t('duplicateWarning', { name: duplicateLink.name });
   duplicateWarningEl.classList.remove('hidden');
 }
 
 function toggleDetails() {
   const expanded = details.classList.toggle('hidden') === false;
-  toggleDetailsButton.textContent = expanded ? '收起' : '编辑';
+  toggleDetailsButton.textContent = expanded ? t('collapse') : t('edit');
   toggleDetailsButton.setAttribute('aria-expanded', String(expanded));
 }
 
@@ -270,6 +297,6 @@ async function request(path, body, method = 'POST') {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const payload = await response.json();
-  if (payload.code !== 0) throw new Error(payload.message || '请求失败');
+  if (payload.code !== 0) throw new Error(payload.message || t('requestFailed'));
   return payload.data;
 }

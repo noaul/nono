@@ -175,6 +175,8 @@ export interface AdminNotification {
   dueAt: string | null;
   entityId?: number | null;
   targetUrl?: string | null;
+  /** Bare entity name from the server, so the client never parses it out of a localized title. */
+  entityLabel?: string | null;
   read: boolean;
 }
 

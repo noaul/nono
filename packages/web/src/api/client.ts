@@ -18,6 +18,17 @@ export function unwrapApiResponse<T>(envelope: ApiEnvelope<T>) {
   return envelope.data;
 }
 
+/** Reads the active locale without importing the composable (keeps this module dependency-free). */
+function currentLocale(): string {
+  try {
+    const stored = window.localStorage.getItem('nono:locale');
+    if (stored === 'zh' || stored === 'en') return stored;
+  } catch {
+    // Fall through to the document language when storage is unavailable.
+  }
+  return document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+}
+
 export async function apiRequest<T>(url: string, options: RequestInit = {}) {
   const hasBody = options.body !== undefined;
   const response = await fetch(url, {
@@ -25,6 +36,8 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}) {
     ...options,
     headers: {
       ...(hasBody ? { 'content-type': 'application/json' } : {}),
+      // The visitor's choice lives in localStorage, so Accept-Language alone is not enough.
+      'x-nono-locale': currentLocale(),
       ...(options.headers || {}),
     },
   });

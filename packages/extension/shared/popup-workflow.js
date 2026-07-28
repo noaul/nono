@@ -1,19 +1,21 @@
+import { t } from './i18n.js';
+
 export function normalizeServerUrl(value) {
   const rawUrl = String(value || '').trim();
-  if (!rawUrl) throw new Error('请输入 Nono 服务地址。');
+  if (!rawUrl) throw new Error(t('needServerUrl'));
 
   let url;
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new Error('请输入有效的 Nono 服务地址。');
+    throw new Error(t('needValidServerUrl'));
   }
 
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
   const isSecure = url.protocol === 'https:';
   const isLoopbackDevelopment = url.protocol === 'http:' && loopbackHosts.has(url.hostname);
   if (!isSecure && !isLoopbackDevelopment) {
-    throw new Error('服务地址必须使用 HTTPS；本机开发可使用 loopback HTTP。');
+    throw new Error(t('needHttps'));
   }
 
   url.search = '';
@@ -35,12 +37,12 @@ export function findDuplicateLink(links, url) {
 }
 
 export function tokenExpiryText(token, now = new Date()) {
-  if (!token?.expiresAt) return 'Token 不过期';
+  if (!token?.expiresAt) return t('tokenNeverExpires');
   const expiresAt = new Date(token.expiresAt);
   const diff = expiresAt.getTime() - now.getTime();
-  if (diff <= 0) return 'Token 已过期';
+  if (diff <= 0) return t('tokenExpired');
   const days = Math.max(1, Math.ceil(diff / (24 * 60 * 60 * 1000)));
-  return `Token 还有 ${days} 天过期`;
+  return t('tokenExpiresIn', { days });
 }
 
 export function buildFolderGroups(folders) {
@@ -60,7 +62,7 @@ export function buildFolderGroups(folders) {
     return { category: root, folders: children.length ? children : [root] };
   });
 
-  if (orphanFolders.length) groups.push({ category: { id: '__other__', name: '其他文件夹' }, folders: orphanFolders });
+  if (orphanFolders.length) groups.push({ category: { id: '__other__', name: t('otherFolders') }, folders: orphanFolders });
   return groups;
 }
 
@@ -126,6 +128,6 @@ function siteNameFromUrl(rawUrl) {
     if (match) return match[1];
     return hostname.split('.').at(-2) || hostname;
   } catch {
-    return '未命名书签';
+    return t('untitledBookmark');
   }
 }

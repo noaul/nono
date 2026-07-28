@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
+import { resolveRequestLocale, t } from '../../utils/i18n.js';
 
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_HTML_BYTES = 512 * 1024;
@@ -55,7 +56,7 @@ export async function metaRoutes(app: FastifyInstance, services: AppServices) {
 
     const url = String((request.query as any).url || '').trim();
     if (!isFetchableUrl(url)) {
-      return reply.status(400).send({ code: 400, data: null, message: '无法抓取该地址' });
+      return reply.status(400).send({ code: 400, data: null, message: t(resolveRequestLocale(request.headers as Record<string, unknown>), 'cannotFetchUrl') });
     }
 
     try {
@@ -72,7 +73,7 @@ export async function metaRoutes(app: FastifyInstance, services: AppServices) {
       return sendOk(reply, extractPageMeta(html));
     } catch (error) {
       if (error instanceof Error && error.message === 'Target address is not public') {
-        return reply.status(400).send({ code: 400, data: null, message: '无法抓取该地址' });
+        return reply.status(400).send({ code: 400, data: null, message: t(resolveRequestLocale(request.headers as Record<string, unknown>), 'cannotFetchUrl') });
       }
       return sendOk(reply, { title: '', description: '' });
     }

@@ -1,3 +1,4 @@
+import { t } from './shared/i18n.js';
 import { normalizeServerUrl } from './shared/popup-workflow.js';
 
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
@@ -28,8 +29,8 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 async function createContextMenus() {
   await chrome.contextMenus.removeAll();
-  chrome.contextMenus.create({ id: QUICK_SAVE_MENU_ID, title: '保存到 Nono（上次文件夹）', contexts: ['page'] });
-  chrome.contextMenus.create({ id: OPEN_MENU_ID, title: '选择文件夹后保存到 Nono', contexts: ['page'] });
+  chrome.contextMenus.create({ id: QUICK_SAVE_MENU_ID, title: t('quickSaveMenu'), contexts: ['page'] });
+  chrome.contextMenus.create({ id: OPEN_MENU_ID, title: t('pickFolderMenu'), contexts: ['page'] });
 }
 
 async function quickSave(tab) {
@@ -46,7 +47,7 @@ async function quickSave(tab) {
       body: JSON.stringify({ folderId: Number(lastFolderId), name: tab.title || new URL(tab.url).hostname, nameMode: 'auto', url: tab.url, description: '' }),
     });
     const payload = await response.json();
-    if (payload.code !== 0) throw new Error(payload.message || '收藏失败');
+    if (payload.code !== 0) throw new Error(payload.message || t('bookmarkFailed'));
     chrome.action.setBadgeText({ text: 'OK', tabId: tab.id });
   } catch {
     chrome.action.setBadgeText({ text: '!', tabId: tab.id });

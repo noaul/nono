@@ -17,6 +17,7 @@ import {
   vectorConfigData,
 } from './common.js';
 import { aiTarget, aiTestBody, privateHostsFor } from './network.js';
+import { resolveRequestLocale, t } from '../../utils/i18n.js';
 
 export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/nostar/configs/ai', async (request, reply) => {
@@ -83,7 +84,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
       ? rawKey
       : decryptSecret(existing?.apiKeyEncrypted, services.encryptionKey);
     if (!baseUrl || !model || (!apiKey && apiType !== 'ollama')) {
-      throw Object.assign(new Error('请完整填写 API 地址、模型和 API Key'), { statusCode: 400 });
+      throw Object.assign(new Error(t(resolveRequestLocale(request.headers as Record<string, unknown>), 'needNoStarFields')), { statusCode: 400 });
     }
     const target = aiTarget({ apiType, baseUrl, apiKey, model });
     const response = await services.safeRequester(target.url, {
@@ -96,7 +97,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
       allowPrivateHosts: privateHostsFor(user, services),
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Object.assign(new Error(`连接失败：HTTP ${response.statusCode}`), { statusCode: 400 });
+      throw Object.assign(new Error(t(resolveRequestLocale(request.headers as Record<string, unknown>), 'connectFailedHttp', { status: response.statusCode })), { statusCode: 400 });
     }
     return sendOk(reply, { ok: true, model, apiType });
   });

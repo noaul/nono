@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Nono Smart Bookmark",
+  "default_locale": "en",
+  "name": "__MSG_extName__",
   "version": "0.2.2",
-  "description": "快速把当前网页收藏到 Nono。",
+  "description": "__MSG_extDescription__",
   "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
-    "default_title": "NONO 快速收藏",
+    "default_title": "__MSG_actionTitle__",
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/nono-16.png",
@@ -31,14 +32,14 @@
         "default": "Alt+Shift+S",
         "mac": "MacCtrl+Shift+S"
       },
-      "description": "打开 Nono 快速收藏"
+      "description": "__MSG_commandOpenPopup__"
     },
     "quick-save-last-folder": {
       "suggested_key": {
         "default": "Alt+Shift+B",
         "mac": "MacCtrl+Shift+B"
       },
-      "description": "保存到上次使用的文件夹"
+      "description": "__MSG_commandQuickSave__"
     }
   },
   "content_scripts": [

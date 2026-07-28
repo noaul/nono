@@ -57,7 +57,8 @@ describe('notification routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1, role: 'admin' }), { limit: 5 });
+    // The route negotiates a locale per request so server-rendered notification text matches the UI.
+    expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1, role: 'admin' }), { limit: 5, locale: 'zh' });
     expect(response.json().data).toMatchObject({ unreadCount: 0, items: [] });
   });
 
@@ -77,6 +78,7 @@ describe('notification routes', () => {
     expect(markAll.statusCode).toBe(200);
     expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
       limit: 100,
+      locale: 'zh',
       sources: ['nodesk', 'nomoney'],
     });
     expect(notificationService.markAllRead).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nono 快速收藏</title>
+    <title data-i18n="popupTitle">Nono 快速收藏</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -13,74 +13,75 @@
           <img class="brand-mark" src="../icons/nono-48.png" alt="" />
           <strong>NONO</strong>
         </div>
-        <button id="settingsButton" class="icon-button" type="button" title="连接设置" aria-label="连接设置">&#9881;</button>
+        <button id="settingsButton" class="icon-button" type="button" data-i18n-title="connectionSettings" data-i18n-aria="connectionSettings" title="连接设置" aria-label="连接设置">&#9881;</button>
       </header>
 
       <section id="settings" class="settings panel hidden">
         <div class="section-heading">
           <div>
-            <span class="eyebrow">连接</span>
-            <h1>连接 Nono</h1>
+            <span class="eyebrow" data-i18n="connect">连接</span>
+            <h1 data-i18n="connectTitle">连接 Nono</h1>
           </div>
-          <button id="closeSettings" class="icon-button" type="button" title="关闭设置" aria-label="关闭设置">&#215;</button>
+          <button id="closeSettings" class="icon-button" type="button" data-i18n-title="closeSettings" data-i18n-aria="closeSettings" title="关闭设置" aria-label="关闭设置">&#215;</button>
         </div>
-        <label>服务地址<input id="serverUrl" placeholder="https://noaul.com" inputmode="url" /></label>
+        <label><span data-i18n="serverUrl">服务地址</span><input id="serverUrl" placeholder="https://noaul.com" inputmode="url" /></label>
         <label>API Token<input id="token" type="password" placeholder="nono_..." autocomplete="off" /></label>
         <div class="button-row">
-          <button id="testConnection" class="secondary-button" type="button">测试连接</button>
-          <button id="saveSettings" type="button">保存并开始</button>
+          <button id="testConnection" class="secondary-button" type="button" data-i18n="testConnection">测试连接</button>
+          <button id="saveSettings" type="button" data-i18n="saveAndStart">保存并开始</button>
         </div>
-        <p id="tokenStatus" class="meta-text">填入后台创建的 API Token。</p>
+        <label class="language-row"><span data-i18n="language">界面语言</span><select id="languageSelect"><option value="zh">中文</option><option value="en">English</option></select></label>
+        <p id="tokenStatus" class="meta-text" data-i18n="tokenHint">填入后台创建的 API Token。</p>
       </section>
 
       <section id="workflow" class="workflow hidden">
         <section class="page-preview" aria-live="polite">
           <span id="siteInitial" class="site-initial">N</span>
           <div>
-            <p id="pageDomain" class="page-domain">读取当前网页...</p>
-            <h1 id="pageTitle">准备收藏</h1>
+            <p id="pageDomain" class="page-domain" data-i18n="readingPage">读取当前网页...</p>
+            <h1 id="pageTitle" data-i18n="readyToSave">准备收藏</h1>
           </div>
         </section>
 
         <section class="name-editor panel">
           <div class="section-heading compact">
             <div>
-              <span class="eyebrow">书签名称</span>
+              <span class="eyebrow" data-i18n="bookmarkName">书签名称</span>
             </div>
-            <button id="analyzeBookmark" class="text-button" type="button">AI 整理</button>
+            <button id="analyzeBookmark" class="text-button" type="button" data-i18n="aiTidy">AI 整理</button>
           </div>
-          <input id="name" maxlength="180" aria-label="书签名称" />
+          <input id="name" maxlength="180" data-i18n-aria="bookmarkName" aria-label="书签名称" />
         </section>
 
         <section class="destination panel">
           <div class="section-heading compact">
             <div>
-              <span class="eyebrow">保存到</span>
+              <span class="eyebrow" data-i18n="saveTo">保存到</span>
             </div>
-            <button id="refreshFolders" class="icon-button subtle" type="button" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
+            <button id="refreshFolders" class="icon-button subtle" type="button" data-i18n-title="refreshFolders" data-i18n-aria="refreshFolders" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
           </div>
           <div class="field-grid">
             <label>notab<select id="categorySelect"></select></label>
-            <label>文件夹<select id="folderSelect"></select></label>
+            <label><span data-i18n="folder">文件夹</span><select id="folderSelect"></select></label>
           </div>
         </section>
 
         <p id="duplicateWarning" class="warning hidden"></p>
-        <p id="status" class="status" aria-live="polite">准备保存。</p>
+        <p id="status" class="status" aria-live="polite" data-i18n="readyStatus">准备保存。</p>
 
         <div class="save-actions">
-          <button id="saveBookmark" class="primary-save" type="button">收藏此页</button>
-          <button id="toggleDetails" class="secondary-button" type="button" aria-expanded="false">编辑</button>
+          <button id="saveBookmark" class="primary-save" type="button" data-i18n="saveThisPage">收藏此页</button>
+          <button id="toggleDetails" class="secondary-button" type="button" aria-expanded="false" data-i18n="edit">编辑</button>
         </div>
 
         <section id="details" class="details panel hidden">
           <div class="section-heading compact">
             <div>
-              <span class="eyebrow">可选</span>
-              <h2>补充信息</h2>
+              <span class="eyebrow" data-i18n="optional">可选</span>
+              <h2 data-i18n="extraInfo">补充信息</h2>
             </div>
           </div>
-          <label>描述<textarea id="description" maxlength="1000"></textarea></label>
+          <label><span data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
         </section>
       </section>
     </main>

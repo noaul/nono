@@ -139,7 +139,7 @@ async function deleteBookmark(item: AdminNotification) {
   if (!item.entityId || isWorking(item, 'delete')) return;
   const confirmed = await confirmApi.confirm({
     title: t('notifications.deleteBookmark'),
-    message: t('notifications.deleteConfirm', { name: item.title.replace(/ (访问异常|检测超时|链接无效|发生重定向)$/, '') }),
+    message: t('notifications.deleteConfirm', { name: item.entityLabel || item.title }),
     confirmText: t('common.delete'),
     tone: 'danger',
   });
