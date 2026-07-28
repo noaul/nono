@@ -6,6 +6,7 @@ import type { SiteContent } from '../../stores/config-store'
 import { Select } from '@/components/select'
 import type { SocialButtonImageUploads } from './types'
 import { hashFileSHA256 } from '@/lib/file-utils'
+import { useI18n } from '@/i18n'
 
 type SocialButtonType =
 	| 'github'
@@ -40,6 +41,9 @@ interface SocialButtonsSectionProps {
 }
 
 export function SocialButtonsSection({ formData, setFormData, socialButtonImageUploads, setSocialButtonImageUploads }: SocialButtonsSectionProps) {
+
+
+	const { copy } = useI18n()
 	const buttons = (formData.socialButtons || []) as SocialButtonConfig[]
 	const imageInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -275,7 +279,7 @@ export function SocialButtonsSection({ formData, setFormData, socialButtonImageU
 								↓
 							</button>
 							<button type='button' onClick={() => handleRemoveButton(button.id)} className='rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50'>
-								删除
+								{copy('删除', 'Delete')}
 							</button>
 						</div>
 					</div>

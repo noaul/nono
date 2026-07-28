@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { motion } from 'motion/react'
 import { ANIMATION_DELAY, INIT_DELAY } from '@/consts'
 import { DialogModal } from '@/components/dialog-modal'
+import { useI18n } from '@/i18n'
 
 type ConvertedMeta = {
 	url: string
@@ -74,6 +75,9 @@ async function fileToWebp(file: File, quality: number, maxWidth?: number) {
 }
 
 export default function Page() {
+
+
+	const { copy } = useI18n()
 	const [images, setImages] = useState<SelectedImage[]>([])
 	const [quality, setQuality] = useState(0.8)
 	const [limitMaxWidth, setLimitMaxWidth] = useState(false)
@@ -366,7 +370,7 @@ export default function Page() {
 													<button
 														onClick={() => handleDownloadImage(index)}
 														className='border-brand text-brand hover:bg-brand/10 rounded-full border px-3 py-1 font-semibold transition'>
-														下载
+														{copy('下载', 'Download')}
 													</button>
 												</>
 											) : null}

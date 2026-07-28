@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { DialogModal } from '@/components/dialog-modal'
+import { useI18n } from '@/i18n'
 
 export type LogoItem = { type: 'url'; url: string } | { type: 'file'; file: File; previewUrl: string; hash?: string }
 
@@ -14,6 +15,9 @@ interface LogoUploadDialogProps {
 }
 
 export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: LogoUploadDialogProps) {
+
+
+	const { copy } = useI18n()
 	const [urlInput, setUrlInput] = useState(currentLogo || '')
 	const [previewFile, setPreviewFile] = useState<{ file: File; previewUrl: string } | null>(null)
 	const fileInputRef = useRef<HTMLInputElement>(null)
@@ -113,13 +117,13 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 
 				<div className='flex gap-3 pt-2'>
 					<button type='submit' className='brand-btn flex-1 justify-center rounded-lg px-6 py-2.5'>
-						确认
+						{copy('确认', 'Confirm')}
 					</button>
 					<button
 						type='button'
 						onClick={handleClose}
 						className='flex-1 rounded-lg border border-gray-300 bg-white px-6 py-2.5 transition-colors hover:bg-gray-50'>
-						取消
+						{copy('取消', 'Cancel')}
 					</button>
 				</div>
 			</form>

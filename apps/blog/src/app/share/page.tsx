@@ -12,8 +12,11 @@ import initialList from './list.json'
 import type { Share } from './components/share-card'
 import type { LogoItem } from './components/logo-upload-dialog'
 import { loadNodeskContent } from '@/lib/nodesk-content'
+import { useI18n } from '@/i18n'
 
 export default function Page() {
+
+	const { copy } = useI18n()
 	const [shares, setShares] = useState<Share[]>(initialList as Share[])
 	const [originalShares, setOriginalShares] = useState<Share[]>(initialList as Share[])
 	const [isEditMode, setIsEditMode] = useState(false)
@@ -142,14 +145,14 @@ export default function Page() {
 								onClick={handleCancel}
 								disabled={isSaving}
 								className='rounded-xl border bg-white/60 px-6 py-2 text-sm'>
-								取消
+								{copy('取消', 'Cancel')}
 							</motion.button>
 							<motion.button
 								whileHover={{ scale: 1.05 }}
 								whileTap={{ scale: 0.95 }}
 								onClick={handleAdd}
 								className='rounded-xl border bg-white/60 px-6 py-2 text-sm'>
-								添加
+								{copy('添加', 'Add')}
 							</motion.button>
 							<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-6'>
 								{isSaving ? '保存中...' : buttonText}
@@ -162,7 +165,7 @@ export default function Page() {
 								whileTap={{ scale: 0.95 }}
 								onClick={() => setIsEditMode(true)}
 								className='bg-card rounded-xl border px-6 py-2 text-sm backdrop-blur-sm transition-colors hover:bg-white/80'>
-								编辑
+								{copy('编辑', 'Edit')}
 							</motion.button>
 						)
 					)}

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import EditableStarRating from '@/components/editable-star-rating'
 import { useState } from 'react'
 import LogoUploadDialog, { type LogoItem } from './logo-upload-dialog'
+import { useI18n } from '@/i18n'
 
 export interface Share {
 	name: string
@@ -25,6 +26,9 @@ interface ShareCardProps {
 }
 
 export function ShareCard({ share, isEditMode = false, onUpdate, onDelete }: ShareCardProps) {
+
+
+	const { copy } = useI18n()
 	const [expanded, setExpanded] = useState(false)
 	const [isEditing, setIsEditing] = useState(false)
 	const { maxSM } = useSize()
@@ -72,7 +76,7 @@ export function ShareCard({ share, isEditMode = false, onUpdate, onDelete }: Sha
 					{isEditing ? (
 						<>
 							<button onClick={handleCancel} className='rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:text-gray-600'>
-								取消
+								{copy('取消', 'Cancel')}
 							</button>
 							<button onClick={() => setIsEditing(false)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
 								完成
@@ -81,10 +85,10 @@ export function ShareCard({ share, isEditMode = false, onUpdate, onDelete }: Sha
 					) : (
 						<>
 							<button onClick={() => setIsEditing(true)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
-								编辑
+								{copy('编辑', 'Edit')}
 							</button>
 							<button onClick={onDelete} className='rounded-lg px-2 py-1.5 text-xs text-red-400 transition-colors hover:text-red-600'>
-								删除
+								{copy('删除', 'Delete')}
 							</button>
 						</>
 					)}

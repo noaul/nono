@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { DialogModal } from '@/components/dialog-modal'
 import type { ImageItem } from '../../projects/components/image-upload-dialog'
+import { useI18n } from '@/i18n'
 
 interface UploadDialogProps {
 	onClose: () => void
@@ -12,6 +13,7 @@ interface UploadDialogProps {
 }
 
 export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
+	const { copy } = useI18n()
 	const [description, setDescription] = useState('')
 	const [images, setImages] = useState<ImageItem[]>([])
 	const fileInputRef = useRef<HTMLInputElement>(null)
@@ -24,7 +26,7 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 
 		for (const file of files) {
 			if (!file.type.startsWith('image/')) {
-				toast.error('请选择图片文件')
+				toast.error(copy('请选择图片文件', 'Choose an image file'))
 				return
 			}
 
@@ -41,7 +43,7 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 
 	const handleSubmit = () => {
 		if (images.length === 0) {
-			toast.error('请至少选择一张图片')
+			toast.error(copy('请至少选择一张图片', 'Choose at least one image'))
 			return
 		}
 
@@ -69,10 +71,10 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 	return (
 		<DialogModal open onClose={handleClose} className='card w-md max-sm:w-full'>
 			<div className='space-y-4'>
-				<h2 className='text-xl font-bold'>上传图片</h2>
+				<h2 className='text-xl font-bold'>{copy('上传图片', 'Upload images')}</h2>
 
 				<div>
-					<label className='text-secondary mb-2 block text-sm font-medium'>选择图片（可多选）</label>
+					<label className='text-secondary mb-2 block text-sm font-medium'>{copy('选择图片（可多选）', 'Choose images (multiple allowed)')}</label>
 					<input ref={fileInputRef} type='file' accept='image/*' multiple className='hidden' onChange={handleFileSelect} />
 
 					{images.length === 0 ? (
@@ -81,7 +83,7 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 							className='flex h-32 cursor-pointer items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 transition-colors hover:bg-secondary/10'>
 							<div className='text-center'>
 								<Plus className='mx-auto mb-1 h-8 w-8 text-gray-500' />
-								<p className='text-secondary text-xs'>点击选择图片</p>
+								<p className='text-secondary text-xs'>{copy('点击选择图片', 'Click to choose images')}</p>
 							</div>
 						</div>
 					) : (
@@ -100,17 +102,17 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 								)}
 
 								{images.length > 3 && (
-									<div className='absolute right-4 -bottom-2 rounded-full bg-black/70 px-3 py-1 text-xs text-white shadow-lg'>共 {images.length} 张</div>
+									<div className='absolute right-4 -bottom-2 rounded-full bg-black/70 px-3 py-1 text-xs text-white shadow-lg'>{copy(`共 ${images.length} 张`, `${images.length} total`)}</div>
 								)}
 							</div>
 
 							<div className='mt-3 flex items-center justify-between'>
-								<span className='text-secondary text-xs'>已选择 {images.length} 张图片</span>
+								<span className='text-secondary text-xs'>{copy(`已选择 ${images.length} 张图片`, `${images.length} selected`)}</span>
 								<button
 									type='button'
 									onClick={() => fileInputRef.current?.click()}
 									className='rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50'>
-									继续添加
+									{copy('继续添加', 'Add more')}
 								</button>
 							</div>
 						</>
@@ -118,11 +120,11 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 				</div>
 
 				<div>
-					<label className='text-secondary mb-2 block text-sm font-medium'>描述（可选，应用于本次所有图片）</label>
+					<label className='text-secondary mb-2 block text-sm font-medium'>{copy('描述（可选，应用于本次所有图片）', 'Description (optional, applied to all images)')}</label>
 					<textarea
 						value={description}
 						onChange={e => setDescription(e.target.value)}
-						placeholder='这组图片的说明...'
+						placeholder={copy('这组图片的说明...', 'Describe this batch…')}
 						className='w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:outline-none'
 						rows={3}
 					/>
@@ -133,10 +135,10 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 						type='button'
 						onClick={handleClose}
 						className='flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition-colors hover:bg-gray-50'>
-						取消
+						{copy('取消', 'Cancel')}
 					</button>
 					<button type='button' onClick={handleSubmit} className='brand-btn flex-1 justify-center px-4'>
-						确认上传
+						{copy('确认上传', 'Upload')}
 					</button>
 				</div>
 			</div>

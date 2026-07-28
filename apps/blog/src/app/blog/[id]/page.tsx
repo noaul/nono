@@ -9,8 +9,11 @@ import { loadBlog, type BlogConfig } from '@/lib/load-blog'
 import { useReadArticles } from '@/hooks/use-read-articles'
 import LiquidGrass from '@/components/liquid-grass'
 import { useAuthStore } from '@/hooks/use-auth'
+import { useI18n } from '@/i18n'
 
 export default function Page() {
+
+	const { copy } = useI18n()
 	const params = useParams() as { id?: string | string[] }
 	const slug = Array.isArray(params?.id) ? params.id[0] : params?.id || ''
 	const router = useRouter()
@@ -91,7 +94,7 @@ export default function Page() {
 					whileTap={{ scale: 0.95 }}
 					onClick={handleEdit}
 					className='absolute top-4 right-6 z-40 rounded-xl border bg-white/60 px-6 py-2 text-sm backdrop-blur-sm transition-colors hover:bg-white/80 max-sm:fixed max-sm:top-auto max-sm:right-4 max-sm:bottom-4'>
-					编辑
+					{copy('编辑', 'Edit')}
 				</motion.button>
 			)}
 

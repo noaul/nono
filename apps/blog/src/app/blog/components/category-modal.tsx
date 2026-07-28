@@ -6,6 +6,7 @@ import type { BlogIndexItem } from '@/hooks/use-blog-index'
 import { DialogModal } from '@/components/dialog-modal'
 import { Select } from '@/components/select'
 import { X } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 interface CategoryModalProps {
 	open: boolean
@@ -32,6 +33,9 @@ export function CategoryModal({
 	editableItems,
 	onAssignCategory
 }: CategoryModalProps) {
+
+
+	const { copy } = useI18n()
 	const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
 	const categoryOptions = useMemo(
 		() => [{ value: '', label: '未分类' }, ...categoryList.map(cat => ({ value: cat, label: cat }))],
@@ -76,7 +80,7 @@ export function CategoryModal({
 			<div className='mb-4 flex items-center justify-between'>
 				<div className='text-lg font-semibold'>文章分类</div>
 				<button onClick={onClose} className='text-secondary hover:text-brand text-sm'>
-					关闭
+					{copy('关闭', 'Close')}
 				</button>
 			</div>
 			<div className='space-y-4'>

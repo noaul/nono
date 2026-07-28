@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useSize } from '@/hooks/use-size'
 import ImageUploadDialog, { type ImageItem } from './image-upload-dialog'
+import { useI18n } from '@/i18n'
 
 export interface Project {
 	name: string
@@ -26,6 +27,9 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, isEditMode = false, onUpdate, onDelete }: ProjectCardProps) {
+
+
+	const { copy } = useI18n()
 	const [isEditing, setIsEditing] = useState(false)
 	const { maxSM } = useSize()
 	const [localProject, setLocalProject] = useState(project)
@@ -72,7 +76,7 @@ export function ProjectCard({ project, isEditMode = false, onUpdate, onDelete }:
 					{isEditing ? (
 						<>
 							<button onClick={handleCancel} className='rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:text-gray-600'>
-								取消
+								{copy('取消', 'Cancel')}
 							</button>
 							<button onClick={() => setIsEditing(false)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
 								完成
@@ -81,10 +85,10 @@ export function ProjectCard({ project, isEditMode = false, onUpdate, onDelete }:
 					) : (
 						<>
 							<button onClick={() => setIsEditing(true)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
-								编辑
+								{copy('编辑', 'Edit')}
 							</button>
 							<button onClick={onDelete} className='rounded-lg px-2 py-1.5 text-xs text-red-400 transition-colors hover:text-red-600'>
-								删除
+								{copy('删除', 'Delete')}
 							</button>
 						</>
 					)}

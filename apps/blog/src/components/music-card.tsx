@@ -11,6 +11,7 @@ import { HomeDraggableLayer } from '../app/(home)/home-draggable-layer'
 import { Pause, SkipForward } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
+import { useI18n } from '@/i18n'
 
 const MUSIC_FILES = [
 	{ name: '五月天拥抱', url: '/music/五月天拥抱.mp3' },
@@ -35,6 +36,7 @@ const MUSIC_FILES = [
 ]
 
 export default function MusicCard() {
+	const { copy } = useI18n()
 	const pathname = usePathname()
 	const center = useCenterStore()
 	const { cardStyles, siteContent } = useConfigStore()
@@ -207,7 +209,7 @@ export default function MusicCard() {
 					</button>
 					<button
 						onClick={playNext}
-						aria-label='下一首'
+						aria-label={copy('下一首', 'Next track')}
 						className='flex h-8 w-8 items-center justify-center rounded-full bg-white/80 transition-opacity hover:opacity-80'>
 						<SkipForward className='text-brand h-4 w-4' />
 					</button>

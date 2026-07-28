@@ -8,6 +8,7 @@ import EditableStarRating from '@/components/editable-star-rating'
 import { Blogger, type BloggerStatus } from '../grid-view'
 import { useState } from 'react'
 import AvatarUploadDialog, { type AvatarItem } from './avatar-upload-dialog'
+import { useI18n } from '@/i18n'
 
 interface BloggerCardProps {
 	blogger: Blogger
@@ -17,6 +18,9 @@ interface BloggerCardProps {
 }
 
 export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }: BloggerCardProps) {
+
+
+	const { copy } = useI18n()
 	const [expanded, setExpanded] = useState(false)
 	const [isEditing, setIsEditing] = useState(false)
 	const { maxSM } = useSize()
@@ -56,7 +60,7 @@ export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }:
 					{isEditing ? (
 						<>
 							<button onClick={handleCancel} className='rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:text-gray-600'>
-								取消
+								{copy('取消', 'Cancel')}
 							</button>
 							<button onClick={() => setIsEditing(false)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
 								完成
@@ -65,10 +69,10 @@ export function BloggerCard({ blogger, isEditMode = false, onUpdate, onDelete }:
 					) : (
 						<>
 							<button onClick={() => setIsEditing(true)} className='rounded-lg px-2 py-1.5 text-xs text-blue-400 transition-colors hover:text-blue-600'>
-								编辑
+								{copy('编辑', 'Edit')}
 							</button>
 							<button onClick={onDelete} className='rounded-lg px-2 py-1.5 text-xs text-red-400 transition-colors hover:text-red-600'>
-								删除
+								{copy('删除', 'Delete')}
 							</button>
 						</>
 					)}

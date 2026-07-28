@@ -21,10 +21,12 @@ import { saveBlogEdits } from './services/save-blog-edits'
 import { Check } from 'lucide-react'
 import { BlogCoverHoverPreview, useBlogCoverHover } from './components/blog-cover-hover'
 import { CategoryModal } from './components/category-modal'
+import { useI18n } from '@/i18n'
 
 type DisplayMode = 'day' | 'week' | 'month' | 'year' | 'category'
 
 export default function BlogPage() {
+	const { copy } = useI18n()
 	const { items, loading } = useBlogIndex()
 	const { categories: categoriesFromServer } = useCategories()
 	const { isRead } = useReadArticles()
@@ -67,26 +69,26 @@ export default function BlogPage() {
 
 				switch (displayMode) {
 					case 'category':
-						key = item.category || '未分类'
+						key = item.category || copy('未分类', 'Uncategorised')
 						label = key
 						break
 					case 'day':
 						key = date.format('YYYY-MM-DD')
-						label = date.format('YYYY年MM月DD日')
+						label = copy(date.format('YYYY年MM月DD日'), date.format('D MMM YYYY'))
 						break
 					case 'week':
 						const week = date.week()
 						key = `${date.format('YYYY')}-W${week.toString().padStart(2, '0')}`
-						label = `${date.format('YYYY')}年第${week}周`
+						label = copy(`${date.format('YYYY')}年第${week}周`, `Week ${week}, ${date.format('YYYY')}`)
 						break
 					case 'month':
 						key = date.format('YYYY-MM')
-						label = date.format('YYYY年MM月')
+						label = copy(date.format('YYYY年MM月'), date.format('MMMM YYYY'))
 						break
 					case 'year':
 					default:
 						key = date.format('YYYY')
-						label = date.format('YYYY年')
+						label = copy(date.format('YYYY年'), date.format('YYYY'))
 						break
 				}
 
@@ -126,7 +128,7 @@ export default function BlogPage() {
 	}, [displayItems, displayMode, categoryList])
 
 	const selectedCount = selectedSlugs.size
-	const buttonText = '保存'
+	const buttonText = copy('保存', 'Save')
 
 	const toggleEditMode = useCallback(() => {
 		if (!isAuth) return
@@ -202,7 +204,7 @@ export default function BlogPage() {
 
 	const handleDeleteSelected = useCallback(() => {
 		if (selectedCount === 0) {
-			toast.info('请选择要删除的文章')
+			toast.info(copy('请选择要删除的文章', 'Select the posts to delete'))
 			return
 		}
 		setEditableItems(prev => prev.filter(item => !selectedSlugs.has(item.slug)))
@@ -223,7 +225,7 @@ export default function BlogPage() {
 	const handleAddCategory = useCallback(() => {
 		const value = newCategory.trim()
 		if (!value) {
-			toast.info('请输入分类名称')
+			toast.info(copy('请输入分类名称', 'Enter a category name'))
 			return
 		}
 		setCategoryList(prev => (prev.includes(value) ? prev : [...prev, value]))
@@ -258,7 +260,7 @@ export default function BlogPage() {
 		const hasChanges = removedSlugs.length > 0 || categoryListChanged || categoryAssignmentChanged
 
 		if (!hasChanges) {
-			toast.info('没有需要保存的改动')
+			toast.info(copy('没有需要保存的改动', 'Nothing to save'))
 			return
 		}
 
@@ -270,7 +272,7 @@ export default function BlogPage() {
 			setCategoryModalOpen(false)
 		} catch (error: any) {
 			console.error(error)
-			toast.error(error?.message || '保存失败')
+			toast.error(error?.message || copy('保存失败', 'Could not save'))
 		} finally {
 			setSaving(false)
 		}
@@ -278,7 +280,7 @@ export default function BlogPage() {
 
 	const handleSaveClick = useCallback(() => {
 		if (!isAuth) {
-			toast.error('请先登录 Nono 后台')
+			toast.error(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
 			return
 		}
 		void handleSave()
@@ -311,11 +313,11 @@ export default function BlogPage() {
 						animate={{ opacity: 1, scale: 1 }}
 						className='card btn-rounded relative mx-auto flex items-center gap-1 p-1 max-sm:hidden'>
 						{[
-							{ value: 'day', label: '日' },
-							{ value: 'week', label: '周' },
-							{ value: 'month', label: '月' },
-							{ value: 'year', label: '年' },
-							...(enableCategories ? ([{ value: 'category', label: '分类' }] as const) : [])
+							{ value: 'day', label: copy('日', 'Day') },
+							{ value: 'week', label: copy('周', 'Week') },
+							{ value: 'month', label: copy('月', 'Month') },
+							{ value: 'year', label: copy('年', 'Year') },
+							...(enableCategories ? ([{ value: 'category', label: copy('分类', 'Category') }] as const) : [])
 						].map(option => (
 							<motion.button
 								key={option.value}
@@ -348,7 +350,7 @@ export default function BlogPage() {
 								<div className='flex items-center gap-3'>
 									<div className='font-medium'>{getGroupLabel(groupKey)}</div>
 									<div className='h-2 w-2 rounded-full bg-[#D9D9D9]'></div>
-									<div className='text-secondary text-sm'>{group.items.length} 篇文章</div>
+									<div className='text-secondary text-sm'>{copy(`${group.items.length} 篇文章`, `${group.items.length} posts`)}</div>
 								</div>
 								{editMode &&
 									(() => {
@@ -364,7 +366,7 @@ export default function BlogPage() {
 														? 'border-brand/40 bg-brand/10 text-brand hover:bg-brand/20'
 														: 'text-secondary hover:border-brand/40 hover:text-brand border-transparent bg-white/60 hover:bg-white/80'
 												)}>
-												{groupAllSelected ? '取消全选' : '全选该分组'}
+												{groupAllSelected ? copy('取消全选', 'Deselect all') : copy('全选该分组', 'Select this group')}
 											</motion.button>
 										)
 									})()}
@@ -410,7 +412,7 @@ export default function BlogPage() {
 													editMode ? null : 'group-hover:text-brand group-hover:translate-x-2'
 												)}>
 												{it.title || it.slug}
-												{hasRead && <span className='text-secondary ml-2 text-xs'>[已阅读]</span>}
+												{hasRead && <span className='text-secondary ml-2 text-xs'>{copy('[已阅读]', '[read]')}</span>}
 											</div>
 											<div className='flex flex-wrap items-center gap-2 max-sm:hidden'>
 												{(it.tags || []).map(t => (
@@ -437,15 +439,15 @@ export default function BlogPage() {
 							target='_blank'
 							className='card text-secondary static inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs'>
 							<JuejinSVG className='h-4 w-4' />
-							更多
+							{copy('更多', 'More')}
 						</motion.a>
 					</div>
 				)}
 			</div>
 
 			<div className='pt-12'>
-				{!loading && items.length === 0 && <div className='text-secondary py-6 text-center text-sm'>暂无文章</div>}
-				{loading && <div className='text-secondary py-6 text-center text-sm'>加载中...</div>}
+				{!loading && items.length === 0 && <div className='text-secondary py-6 text-center text-sm'>{copy('暂无文章', 'No posts yet')}</div>}
+				{loading && <div className='text-secondary py-6 text-center text-sm'>{copy('加载中...', 'Loading…')}</div>}
 			</div>
 
 			{isAuth && (
@@ -462,7 +464,7 @@ export default function BlogPage() {
 									onClick={() => setCategoryModalOpen(true)}
 									disabled={saving}
 									className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
-									分类
+									{copy('分类', 'Category')}
 								</motion.button>
 							)}
 							<motion.button
@@ -471,14 +473,14 @@ export default function BlogPage() {
 								onClick={handleCancel}
 								disabled={saving}
 								className='rounded-xl border bg-white/60 px-6 py-2 text-sm'>
-								取消
+								{copy('取消', 'Cancel')}
 							</motion.button>
 							<motion.button
 								whileHover={{ scale: 1.05 }}
 								whileTap={{ scale: 0.95 }}
 								onClick={selectedCount === editableItems.length ? handleDeselectAll : handleSelectAll}
 								className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
-								{selectedCount === editableItems.length ? '取消全选' : '全选'}
+								{selectedCount === editableItems.length ? copy('取消全选', 'Deselect all') : copy('全选', 'Select all')}
 							</motion.button>
 							<motion.button
 								whileHover={{ scale: 1.05 }}
@@ -486,10 +488,10 @@ export default function BlogPage() {
 								onClick={handleDeleteSelected}
 								disabled={selectedCount === 0}
 								className='rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 transition-colors disabled:opacity-60'>
-								删除(已选:{selectedCount}篇)
+								{copy(`删除(已选:${selectedCount}篇)`, `Delete (${selectedCount})`)}
 							</motion.button>
 							<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={saving} className='brand-btn px-6'>
-								{saving ? '保存中...' : buttonText}
+								{saving ? copy('保存中...', 'Saving…') : buttonText}
 							</motion.button>
 						</>
 					) : (
@@ -499,7 +501,7 @@ export default function BlogPage() {
 								whileTap={{ scale: 0.95 }}
 								onClick={toggleEditMode}
 								className='bg-card rounded-xl border px-6 py-2 text-sm backdrop-blur-sm transition-colors hover:bg-white/80'>
-								编辑
+								{copy('编辑', 'Edit')}
 							</motion.button>
 						)
 					)}

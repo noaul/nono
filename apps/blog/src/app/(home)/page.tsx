@@ -24,8 +24,11 @@ import ScheduleSummaryCard from '@/components/schedule-summary-card'
 import { useAuthStore } from '@/hooks/use-auth'
 import { PenLine, Settings2 } from 'lucide-react'
 import Link from 'next/link'
+import { useI18n } from '@/i18n'
 
 export default function Home() {
+
+	const { copy } = useI18n()
 	const { maxSM } = useSize()
 	const isAuth = useAuthStore(state => state.isAuth)
 	const { cardStyles, configDialogOpen, setConfigDialogOpen, siteContent } = useConfigStore()
@@ -80,7 +83,7 @@ export default function Home() {
 								whileTap={{ scale: 0.95 }}
 								onClick={handleCancel}
 								className='rounded-xl border bg-white px-3 py-1 text-xs font-medium text-gray-700'>
-								取消
+								{copy('取消', 'Cancel')}
 							</motion.button>
 							<motion.button type='button' whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSave} className='brand-btn px-3 py-1 text-xs'>
 								保存偏移

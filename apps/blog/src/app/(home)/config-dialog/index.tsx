@@ -12,6 +12,7 @@ import { SiteSettings, type FileItem, type BackgroundImageUploads, type SocialBu
 import { ColorConfig } from './color-config'
 import { HomeLayout } from './home-layout'
 import { avatarAssetPath } from '@/lib/site-assets'
+import { useI18n } from '@/i18n'
 
 interface ConfigDialogProps {
 	open: boolean
@@ -21,6 +22,8 @@ interface ConfigDialogProps {
 type TabType = 'site' | 'color' | 'layout'
 
 export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
+
+	const { copy } = useI18n()
 	const { isAuth } = useAuthStore()
 	const { siteContent, setSiteContent, cardStyles, setCardStyles, regenerateBubbles } = useConfigStore()
 	const [formData, setFormData] = useState<SiteContent>(siteContent)
@@ -219,7 +222,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							whileTap={{ scale: 0.95 }}
 							onClick={handlePreview}
 							className='bg-card rounded-xl border px-4 py-2 text-sm'>
-							预览
+							{copy('预览', 'Preview')}
 						</motion.button>
 						<motion.button
 							whileHover={{ scale: 1.05 }}
@@ -227,7 +230,7 @@ export default function ConfigDialog({ open, onClose }: ConfigDialogProps) {
 							onClick={handleCancel}
 							disabled={isSaving}
 							className='bg-card rounded-xl border px-4 py-2 text-sm'>
-							取消
+							{copy('取消', 'Cancel')}
 						</motion.button>
 						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={isSaving} className='brand-btn px-4'>
 							{isSaving ? '保存中...' : buttonText}

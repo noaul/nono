@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { hashFileSHA256 } from '@/lib/file-utils'
 import type { SiteContent } from '../../stores/config-store'
 import type { BackgroundImageUploads, FileItem } from './types'
+import { useI18n } from '@/i18n'
 
 interface BackgroundImagesSectionProps {
 	formData: SiteContent
@@ -14,6 +15,9 @@ interface BackgroundImagesSectionProps {
 }
 
 export function BackgroundImagesSection({ formData, setFormData, backgroundImageUploads, setBackgroundImageUploads }: BackgroundImagesSectionProps) {
+
+
+	const { copy } = useI18n()
 	const backgroundInputRef = useRef<HTMLInputElement>(null)
 	const [backgroundUrlInput, setBackgroundUrlInput] = useState('')
 
@@ -150,7 +154,7 @@ export function BackgroundImagesSection({ formData, setFormData, backgroundImage
 									type='button'
 									onClick={() => handleRemoveBackgroundImage(item.id)}
 									className='text-secondary absolute top-1 right-1 hidden rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] shadow group-hover:block'>
-									删除
+									{copy('删除', 'Delete')}
 								</button>
 							</div>
 						)

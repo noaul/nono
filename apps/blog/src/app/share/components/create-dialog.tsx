@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react'
 import LogoUploadDialog, { type LogoItem } from './logo-upload-dialog'
 import type { Share } from './share-card'
 import { DialogModal } from '@/components/dialog-modal'
+import { useI18n } from '@/i18n'
 
 interface CreateDialogProps {
 	share: Share | null
@@ -14,6 +15,7 @@ interface CreateDialogProps {
 }
 
 export default function CreateDialog({ share, onClose, onSave }: CreateDialogProps) {
+	const { copy } = useI18n()
 	const [formData, setFormData] = useState<Share>({
 		name: '',
 		logo: '',
@@ -61,23 +63,23 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 
 	const handleSubmit = () => {
 		if (!formData.name.trim() || !formData.logo.trim() || !formData.url.trim() || !formData.description.trim()) {
-			toast.error('请填写所有必填项')
+			toast.error(copy('请填写所有必填项', 'Fill in every required field'))
 			return
 		}
 
 		if (formData.tags.length === 0) {
-			toast.error('请至少添加一个标签')
+			toast.error(copy('请至少添加一个标签', 'Add at least one tag'))
 			return
 		}
 
 		onSave(formData, logoItem || undefined)
 		onClose()
-		toast.success(share ? '更新成功' : '添加成功')
+		toast.success(share ? copy('更新成功', 'Updated') : copy('添加成功', 'Added'))
 	}
 
 	return (
 		<DialogModal open onClose={onClose} className='card max-h-[90vh] w-sm overflow-y-auto'>
-			{/* 卡片样式的内容 */}
+			{/* Card-styled body */}
 			<div>
 				<div className='mb-4 flex items-center gap-4'>
 					<div className='group relative cursor-pointer' onClick={() => setShowLogoDialog(true)}>
@@ -85,7 +87,7 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 							<>
 								<img src={formData.logo} alt={formData.name} className='h-16 w-16 rounded-xl object-cover' />
 								<div className='pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 transition-opacity group-hover:opacity-100'>
-									<span className='text-xs text-white'>更换</span>
+									<span className='text-xs text-white'>{copy('更换', 'Replace')}</span>
 								</div>
 							</>
 						) : (
@@ -99,7 +101,7 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 							type='text'
 							value={formData.name}
 							onChange={e => setFormData({ ...formData, name: e.target.value })}
-							placeholder='资源名称'
+							placeholder={copy('资源名称', 'Resource name')}
 							className='w-full text-lg font-bold focus:outline-none'
 						/>
 						<input
@@ -112,7 +114,7 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 					</div>
 				</div>
 
-				{/* 星级评分 */}
+				{/* Star rating */}
 				<div className='flex items-center gap-0.5'>
 					{[1, 2, 3, 4, 5].map(index => (
 						<div key={index} onClick={() => setFormData({ ...formData, stars: index })} className='cursor-pointer'>
@@ -123,13 +125,13 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 					))}
 				</div>
 
-				{/* 标签输入 */}
+				{/* Tag input */}
 				<div className='mt-3'>
 					<input
 						type='text'
 						value={tagsInput}
 						onChange={e => handleTagsChange(e.target.value)}
-						placeholder='标签，用逗号分隔（如：图片, 工具）'
+						placeholder={copy('标签，用逗号分隔（如：图片, 工具）', 'Tags, comma separated (e.g. images, tools)')}
 						className='w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:outline-none'
 					/>
 					<div className='mt-2 flex flex-wrap gap-1.5'>
@@ -144,19 +146,19 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 				<textarea
 					value={formData.description}
 					onChange={e => setFormData({ ...formData, description: e.target.value })}
-					placeholder='资源介绍...'
+					placeholder={copy('资源介绍...', 'Describe the resource…')}
 					className='mt-3 w-full resize-none text-sm leading-relaxed focus:outline-none'
 					rows={4}
 				/>
 			</div>
 
-			{/* 操作按钮 */}
+			{/* Actions */}
 			<div className='mt-6 flex gap-3'>
 				<button onClick={onClose} className='flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition-colors hover:bg-gray-50'>
-					取消
+					{copy('取消', 'Cancel')}
 				</button>
 				<button onClick={handleSubmit} className='brand-btn flex-1 justify-center px-4'>
-					{share ? '保存' : '添加'}
+					{share ? copy('保存', 'Save') : copy('添加', 'Add')}
 				</button>
 			</div>
 
