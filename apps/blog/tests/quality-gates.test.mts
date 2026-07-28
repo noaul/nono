@@ -157,11 +157,12 @@ test('hydrates editable Nodesk content from the VPS runtime store', async () => 
 test('keeps the home navigation focused on articles and projects', async () => {
 	const navCard = await read('src/components/nav-card.tsx')
 
-	assert.match(navCard, /label: '近期文章'/)
-	assert.match(navCard, /label: '我的项目'/)
-	assert.doesNotMatch(navCard, /label: '关于网站'/)
-	assert.doesNotMatch(navCard, /label: '推荐分享'/)
-	assert.doesNotMatch(navCard, /label: '优秀博客'/)
+	// Labels go through copy(zh, en) now, so assert the pair rather than a bare literal.
+	assert.match(navCard, /label: copy\('近期文章', '[^']+'\)/)
+	assert.match(navCard, /label: copy\('我的项目', '[^']+'\)/)
+	assert.doesNotMatch(navCard, /'关于网站'/)
+	assert.doesNotMatch(navCard, /'推荐分享'/)
+	assert.doesNotMatch(navCard, /'优秀博客'/)
 })
 
 test('supports persisted calendar schedules and cache-safe avatar assets', async () => {

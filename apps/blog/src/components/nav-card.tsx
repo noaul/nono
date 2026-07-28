@@ -17,18 +17,19 @@ import { cn } from '@/lib/utils'
 import { useSize } from '@/hooks/use-size'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
 import { HomeDraggableLayer } from '@/app/(home)/home-draggable-layer'
+import { useI18n } from '@/i18n'
 
-const list = [
+const buildList = (copy: (zh: string, en: string) => string) => [
 	{
 		icon: ScrollOutlineSVG,
 		iconActive: ScrollFilledSVG,
-		label: '近期文章',
+		label: copy('近期文章', 'Recent posts'),
 		href: '/blog'
 	},
 	{
 		icon: ProjectsOutlineSVG,
 		iconActive: ProjectsFilledSVG,
-		label: '我的项目',
+		label: copy('我的项目', 'Projects'),
 		href: '/projects'
 	}
 ]
@@ -36,6 +37,8 @@ const list = [
 const extraSize = 8
 
 export default function NavCard() {
+	const { copy } = useI18n()
+	const list = useMemo(() => buildList(copy), [copy])
 	const pathname = usePathname()
 	const center = useCenterStore()
 	const [show, setShow] = useState(false)

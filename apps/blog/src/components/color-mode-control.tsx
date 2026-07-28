@@ -2,17 +2,14 @@
 
 import { Check, Laptop, Moon, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useI18n } from '@/i18n'
 
 type ColorModePreference = 'system' | 'light' | 'dark'
 type ResolvedColorMode = 'light' | 'dark'
 
 const STORAGE_KEY = 'nono:color-mode'
 const CHANGE_EVENT = 'nono-color-mode-change'
-const options = [
-	{ value: 'system' as const, label: '跟随系统', Icon: Laptop },
-	{ value: 'light' as const, label: '浅色', Icon: Sun },
-	{ value: 'dark' as const, label: '深色', Icon: Moon }
-]
+const optionIcons = { system: Laptop, light: Sun, dark: Moon } as const
 
 function normalizeMode(value: unknown): ColorModePreference {
 	return value === 'light' || value === 'dark' ? value : 'system'
@@ -29,6 +26,12 @@ function applyMode(preference: ColorModePreference, mediaQuery?: MediaQueryList 
 }
 
 export function ColorModeControl() {
+	const { copy } = useI18n()
+	const options = [
+		{ value: 'system' as const, label: copy('跟随系统', 'Match system'), Icon: optionIcons.system },
+		{ value: 'light' as const, label: copy('浅色', 'Light'), Icon: optionIcons.light },
+		{ value: 'dark' as const, label: copy('深色', 'Dark'), Icon: optionIcons.dark }
+	]
 	const [preference, setPreference] = useState<ColorModePreference>('system')
 	const [resolvedMode, setResolvedMode] = useState<ResolvedColorMode>('light')
 	const [open, setOpen] = useState(false)
@@ -87,17 +90,17 @@ export function ColorModeControl() {
 	}
 
 	const CurrentIcon = preference === 'system' ? Laptop : resolvedMode === 'dark' ? Moon : Sun
-	const currentLabel = options.find(option => option.value === preference)?.label ?? '跟随系统'
+	const currentLabel = options.find(option => option.value === preference)?.label ?? copy('跟随系统', 'Match system')
 
 	return (
 		<div ref={rootRef} className='nodesk-color-mode'>
 			<button
 				type='button'
 				className='nodesk-color-mode-trigger'
-				aria-label='切换显示模式'
+				aria-label={copy('切换显示模式', 'Change appearance')}
 				aria-haspopup='menu'
 				aria-expanded={open}
-				title={`显示模式：${currentLabel}`}
+				title={`${copy('显示模式', 'Appearance')}: ${currentLabel}`}
 				onClick={() => setOpen(value => !value)}>
 				<CurrentIcon className='size-[18px]' />
 			</button>

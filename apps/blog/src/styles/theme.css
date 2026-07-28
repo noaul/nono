@@ -62,6 +62,15 @@
 	z-index: 60;
 }
 
+/* Sits just right of the colour-mode control, sharing its trigger and menu styling. */
+.nodesk-language-mode {
+	color: var(--color-primary);
+	left: max(68px, calc(env(safe-area-inset-left) + 48px));
+	position: fixed;
+	top: max(20px, env(safe-area-inset-top));
+	z-index: 60;
+}
+
 .nodesk-portal-shortcut {
 	right: max(20px, env(safe-area-inset-right));
 	top: max(20px, env(safe-area-inset-top));

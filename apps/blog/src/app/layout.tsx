@@ -5,6 +5,7 @@ import Layout from '@/layout'
 import Head from '@/layout/head'
 import siteContent from '@/config/site-content.json'
 import { getSiteUrl } from '@/lib/site-url'
+import { I18nProvider } from '@/i18n'
 
 const {
 	meta: { title, description },
@@ -60,7 +61,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 					}}
 				/>
 
-				<Layout>{children}</Layout>
+				<I18nProvider>
+					<Layout>{children}</Layout>
+				</I18nProvider>
 			</body>
 		</html>
 	)
