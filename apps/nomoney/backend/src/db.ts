@@ -39,6 +39,8 @@ export async function createDatabase(options: DatabaseOptions): Promise<DbClient
 }
 
 class SqlJsClient implements DbClient {
+  private transactionDepth = 0;
+
   constructor(
     private readonly sql: SqlDatabase,
     private readonly filePath: string | undefined,
@@ -46,8 +48,22 @@ class SqlJsClient implements DbClient {
   ) {}
 
   exec(sql: string): void {
+    const statement = sql.trim().toUpperCase();
     this.sql.exec(sql);
-    this.save();
+    if (/^BEGIN\b/.test(statement)) {
+      this.transactionDepth += 1;
+      return;
+    }
+    if (/^(COMMIT|END)\b/.test(statement)) {
+      this.transactionDepth = Math.max(0, this.transactionDepth - 1);
+      this.save();
+      return;
+    }
+    if (/^ROLLBACK\b/.test(statement)) {
+      this.transactionDepth = Math.max(0, this.transactionDepth - 1);
+      return;
+    }
+    this.saveIfOutsideTransaction();
   }
 
   run(sql: string, params: DbValue[] = []): void {
@@ -57,7 +73,7 @@ class SqlJsClient implements DbClient {
     } finally {
       stmt.free();
     }
-    this.save();
+    this.saveIfOutsideTransaction();
   }
 
   get<T extends Record<string, unknown>>(sql: string, params: DbValue[] = []): T | undefined {
@@ -88,7 +104,7 @@ class SqlJsClient implements DbClient {
       stmt.free();
     }
     const row = this.get<{ id: number }>('SELECT last_insert_rowid() as id');
-    this.save();
+    this.saveIfOutsideTransaction();
     return Number(row?.id);
   }
 
@@ -97,7 +113,26 @@ class SqlJsClient implements DbClient {
       return;
     }
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-    fs.writeFileSync(this.filePath, Buffer.from(this.sql.export()));
+    const tempPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
+    let fileDescriptor: number | undefined;
+    try {
+      fileDescriptor = fs.openSync(tempPath, 'wx', 0o600);
+      fs.writeFileSync(fileDescriptor, Buffer.from(this.sql.export()));
+      fs.fsyncSync(fileDescriptor);
+      fs.closeSync(fileDescriptor);
+      fileDescriptor = undefined;
+      fs.renameSync(tempPath, this.filePath);
+    } catch (error) {
+      if (fileDescriptor !== undefined) fs.closeSync(fileDescriptor);
+      fs.rmSync(tempPath, { force: true });
+      throw error;
+    }
+  }
+
+  private saveIfOutsideTransaction(): void {
+    if (this.transactionDepth === 0) {
+      this.save();
+    }
   }
 }
 
@@ -185,6 +220,7 @@ function migrate(db: DbClient): void {
       ssh_password TEXT,
       ssh_private_key TEXT,
       ssh_private_key_passphrase TEXT,
+      ssh_host_fingerprint TEXT,
       ssh_command TEXT,
       probe_url TEXT,
       probe_port INTEGER,
@@ -386,6 +422,7 @@ function migrate(db: DbClient): void {
   ensureColumn(db, 'vps', 'ssh_password', 'TEXT');
   ensureColumn(db, 'vps', 'ssh_private_key', 'TEXT');
   ensureColumn(db, 'vps', 'ssh_private_key_passphrase', 'TEXT');
+  ensureColumn(db, 'vps', 'ssh_host_fingerprint', 'TEXT');
   ensureColumn(db, 'vps', 'ssh_command', 'TEXT');
   ensureColumn(db, 'vps', 'probe_url', 'TEXT');
   ensureColumn(db, 'vps', 'probe_port', 'INTEGER');

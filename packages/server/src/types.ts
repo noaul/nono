@@ -39,7 +39,14 @@ export interface AppServices {
   backupAutomationService: BackupAutomationService;
   auditLogService: AuditLogService;
   notificationService: NotificationService;
+  readinessCheck: () => Promise<ReadinessChecks>;
 }
+
+export type ReadinessChecks = {
+  postgres: boolean;
+  nodesk: boolean;
+  nomoney: boolean;
+};
 
 export interface LlmClient {
   complete(input: { provider: LlmProvider; apiKey: string; model: string; baseUrl?: string | null; prompt: string; reasoningEffort?: LlmReasoningEffort | null; allowPrivateHosts?: string[] }): Promise<string>;

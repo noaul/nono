@@ -21,7 +21,7 @@
     "@types/node": "^24.12.4",
     "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "^6.0.2",
-    "@vue/test-utils": "^2.4.6",
+    "@vue/test-utils": "2.4.11",
     "jsdom": "^27.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.4",

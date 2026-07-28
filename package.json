@@ -60,6 +60,11 @@
   "engines": {
     "node": ">=22"
   },
+  "overrides": {
+    "@vue/test-utils": {
+      "js-beautify": "2.0.3"
+    }
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
   }

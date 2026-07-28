@@ -31,12 +31,12 @@ describe('TokensView governance workflow', () => {
 
   it('shows token summary, creates with a preset expiry, and revokes locally', async () => {
     apiRequest
-      .mockResolvedValueOnce([{ id: 1, name: 'Chrome extension', token: 'abc123...', expiresAt: null, createdAt: '2026-06-04T09:00:00.000Z' }])
+      .mockResolvedValueOnce([{ id: 1, name: 'Chrome extension', token: 'abc123...', scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'], expiresAt: null, createdAt: '2026-06-04T09:00:00.000Z' }])
       .mockResolvedValueOnce({ total: 1, active: 1, expired: 0, neverExpires: 1, expiringSoon: 0 })
-      .mockResolvedValueOnce({ id: 2, name: 'CLI', token: 'secret-token', expiresAt: '2026-07-04T09:00:00.000Z', createdAt: '2026-06-04T09:00:00.000Z' })
+      .mockResolvedValueOnce({ id: 2, name: 'CLI', token: 'secret-token', scopes: ['*'], expiresAt: '2026-07-04T09:00:00.000Z', createdAt: '2026-06-04T09:00:00.000Z' })
       .mockResolvedValueOnce([
-        { id: 1, name: 'Chrome extension', token: 'abc123...', expiresAt: null, createdAt: '2026-06-04T09:00:00.000Z' },
-        { id: 2, name: 'CLI', token: 'secret...', expiresAt: '2026-07-04T09:00:00.000Z', createdAt: '2026-06-04T09:00:00.000Z' },
+        { id: 1, name: 'Chrome extension', token: 'abc123...', scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'], expiresAt: null, createdAt: '2026-06-04T09:00:00.000Z' },
+        { id: 2, name: 'CLI', token: 'secret...', scopes: ['*'], expiresAt: '2026-07-04T09:00:00.000Z', createdAt: '2026-06-04T09:00:00.000Z' },
       ])
       .mockResolvedValueOnce({ total: 2, active: 2, expired: 0, neverExpires: 1, expiringSoon: 0 })
       .mockResolvedValueOnce({ ok: true })
@@ -49,11 +49,16 @@ describe('TokensView governance workflow', () => {
     expect(wrapper.text()).toContain('永久 Token');
 
     await wrapper.get('[data-testid="token-name"]').setValue('CLI');
+    await wrapper.get('[data-testid="token-scope-profile"]').setValue('full');
     await wrapper.get('[data-testid="token-expiry-preset"]').setValue('30');
     await wrapper.get('form').trigger('submit');
     await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenCalledWith('/api/admin/tokens', expect.objectContaining({ method: 'POST' }));
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/tokens', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('"scopes":["*"]'),
+    }));
+    expect(wrapper.text()).toContain('完全访问');
     expect(wrapper.text()).toContain('secret-token');
 
     await wrapper.get('[data-testid="revoke-token-1"]').trigger('click');

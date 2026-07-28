@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -264,7 +264,7 @@ function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition
           </div>
           <p className="mt-1 text-xs text-slate-500">{definition.description} · {cost.recurringCount} 项循环计费</p>
         </div>
-        <Link to={definition.path} aria-label={`查看${definition.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white">
+        <Link href={definition.path} aria-label={`查看${definition.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white">
           <ArrowUpRight size={17} />
         </Link>
       </header>

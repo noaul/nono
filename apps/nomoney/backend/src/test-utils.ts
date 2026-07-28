@@ -9,6 +9,7 @@ export async function createTestContext(): Promise<AppContext> {
   return {
     db,
     jwtSecret: 'test-secret',
+    encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     cookieSecure: false,
     cookiePath: '/',
     now: () => new Date('2026-05-22T01:00:00.000Z'),
@@ -16,6 +17,7 @@ export async function createTestContext(): Promise<AppContext> {
       status: 200,
       headers: { 'content-type': 'application/json' }
     }),
+    privateOutboundHosts: [],
     mailer: {
       sent: [],
       async send(message) {

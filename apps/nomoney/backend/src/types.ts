@@ -38,6 +38,7 @@ export interface SshExecOptions {
   password?: string;
   privateKey?: string;
   passphrase?: string;
+  expectedHostFingerprint?: string;
   command: string;
   timeoutMs?: number;
 }
@@ -47,6 +48,7 @@ export interface SshExecResult {
   stderr: string;
   code: number | null;
   signal?: string;
+  hostFingerprint?: string;
 }
 
 export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
@@ -54,11 +56,13 @@ export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
 export interface AppContext {
   db: DbClient;
   jwtSecret: string;
+  encryptionKey: string;
   cookieSecure: boolean;
   cookiePath: string;
   now: () => Date;
   mailer: Mailer;
   fetch?: typeof fetch;
+  privateOutboundHosts?: string[];
   sshRunner?: SshRunner;
 }
 

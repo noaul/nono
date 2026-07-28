@@ -1,9 +1,8 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useOutletContext } from 'react-router-dom';
 import type { AssetPageConfig } from './assetConfig';
-import type { LayoutOutletContext } from './Layout';
+import { useLayoutActions } from './Layout';
 import type { AssetItem, AssetStatus, BillingCycle, Currency, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
 import { compactDate, daysLeft, dueTone, formatCycle, formatMoney } from './format';
@@ -189,7 +188,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const isPhone = config.endpoint === 'phones';
   const isSubscription = config.endpoint === 'subscriptions';
   const { copy, language } = useI18n();
-  const { setTopbarActions } = useOutletContext<LayoutOutletContext>();
+  const { setTopbarActions } = useLayoutActions();
   const [items, setItems] = useState<AssetItem[]>([]);
   const [meta, setMeta] = useState<ListMeta | null>(null);
   const [loading, setLoading] = useState(true);

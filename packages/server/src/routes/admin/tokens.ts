@@ -5,10 +5,12 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { ApiTokenRecord } from '../../services/repository.js';
 import { setAuditContext } from '../../plugins/audit.js';
+import { API_TOKEN_SCOPES, DEFAULT_API_TOKEN_SCOPES } from '../../utils/api-token-scopes.js';
 
 const tokenSchema = z.object({
   name: z.string().trim().min(1).max(80),
   expiresAt: z.string().datetime().optional().nullable(),
+  scopes: z.array(z.enum(API_TOKEN_SCOPES)).min(1).max(API_TOKEN_SCOPES.length).optional(),
 });
 
 export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
@@ -37,6 +39,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
       id: record.id,
       name: record.name,
       token: `${record.tokenPrefix}...`,
+      scopes: record.scopes,
       expiresAt: record.expiresAt || null,
       createdAt: record.createdAt,
       user: { id: record.user.id, username: record.user.username, displayName: record.user.displayName, role: record.user.role },
@@ -49,18 +52,20 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
     const input = tokenSchema.parse(request.body);
     const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
     assertFutureExpiry(expiresAt);
-    const token = await services.repo.createToken(user.id, input.name, expiresAt);
+    const scopes = input.scopes || DEFAULT_API_TOKEN_SCOPES;
+    const token = await services.repo.createToken(user.id, input.name, expiresAt, scopes);
     setAuditContext(request, {
       action: 'create',
       resourceType: 'token',
       resourceId: token.id,
       resourceLabel: token.name,
-      details: { after: { id: token.id, name: token.name, expiresAt: token.expiresAt || null, createdAt: token.createdAt } },
+      details: { after: { id: token.id, name: token.name, scopes: token.scopes, expiresAt: token.expiresAt || null, createdAt: token.createdAt } },
     });
     return sendOk(reply, {
       id: token.id,
       name: token.name,
       token: token.token,
+      scopes: token.scopes,
       expiresAt: token.expiresAt || null,
       createdAt: token.createdAt,
     });
@@ -110,6 +115,7 @@ function publicToken(token: ApiTokenRecord) {
     id: token.id,
     name: token.name,
     token: `${token.tokenPrefix}...`,
+    scopes: token.scopes,
     expiresAt: token.expiresAt || null,
     createdAt: token.createdAt,
   };

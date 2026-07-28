@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Redirect, Route, Switch, useLocation } from 'wouter';
 import type { User } from './types';
 import { api, ApiError } from './api';
 import { assetPageConfigs } from './assetConfig';
@@ -22,7 +22,7 @@ type AuthState =
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading', user: null });
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     async function loadAuth() {
@@ -54,7 +54,7 @@ export default function App() {
   if (auth.status === 'needsSetup') {
     return (
       <Suspense fallback={<RouteLoading />}>
-        <Routes><Route path="/setup" element={<SetupPage onAuthenticated={onAuthenticated} />} /><Route path="*" element={<Navigate to="/setup" replace />} /></Routes>
+        <Switch><Route path="/setup"><SetupPage onAuthenticated={onAuthenticated} /></Route><Route><Redirect to="/setup" replace /></Route></Switch>
       </Suspense>
     );
   }
@@ -62,27 +62,27 @@ export default function App() {
   if (auth.status === 'anonymous') {
     return (
       <Suspense fallback={<RouteLoading />}>
-        <Routes><Route path="/login" element={<LoginPage onAuthenticated={onAuthenticated} />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>
+        <Switch><Route path="/login"><LoginPage onAuthenticated={onAuthenticated} /></Route><Route><Redirect to="/login" replace /></Route></Switch>
       </Suspense>
     );
   }
 
   return (
     <Suspense fallback={<RouteLoading />}>
-      <Routes>
-        <Route element={<Layout user={auth.user} onLogout={() => { setAuth({ status: 'anonymous', user: null }); navigate('/login'); }} />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+      <Layout user={auth.user} onLogout={() => { setAuth({ status: 'anonymous', user: null }); navigate('/login'); }}>
+        <Switch>
+          <Route path="/"><Redirect to="/dashboard" replace /></Route>
+          <Route path="/dashboard"><Dashboard /></Route>
           {assetPageConfigs.map((config) => (
-            <Route key={config.endpoint} path={`/${config.endpoint}`} element={<AssetPage config={config} />} />
+            <Route key={config.endpoint} path={`/${config.endpoint}`}><AssetPage config={config} /></Route>
           ))}
-          <Route path="/accounts" element={<AccountPage />} />
-          <Route path="/trash" element={<TrashPage />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+          <Route path="/accounts"><AccountPage /></Route>
+          <Route path="/trash"><TrashPage /></Route>
+          <Route path="/expenses"><Expenses /></Route>
+          <Route path="/settings"><SettingsPage /></Route>
+          <Route><Redirect to="/dashboard" replace /></Route>
+        </Switch>
+      </Layout>
     </Suspense>
   );
 }

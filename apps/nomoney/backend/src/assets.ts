@@ -9,6 +9,8 @@ import { billingCycleSchema, currencySchema, statusSchema } from './schemas.js';
 import { getSettings } from './settings.js';
 import { runSshCommand } from './ssh.js';
 import { fetchExchangeRates, type ExchangeRates } from './exchange-rates.js';
+import { decryptSecret, encryptSecret } from './secret-crypto.js';
+import { requestOutbound } from './outbound-request.js';
 import {
   calculateDomainRarity,
   composeDomainName,
@@ -181,6 +183,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'sshPassword', db: 'ssh_password' },
       { api: 'sshPrivateKey', db: 'ssh_private_key' },
       { api: 'sshPrivateKeyPassphrase', db: 'ssh_private_key_passphrase' },
+      { api: 'sshHostFingerprint', db: 'ssh_host_fingerprint' },
       { api: 'sshCommand', db: 'ssh_command' },
       { api: 'probeUrl', db: 'probe_url' },
       { api: 'probePort', db: 'probe_port' },
@@ -453,11 +456,13 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
           try {
             const result = await executeVpsSsh(context, actionItem, 'printf moneypulse-ssh-ok', 20_000);
             const message = normalizeActionMessage(result.stdout || result.stderr || 'moneypulse-ssh-ok');
+            const hostFingerprint = fingerprintForPersistentHost(item, actionItem, result.hostFingerprint);
             context.db.run(
               `UPDATE ${config.table}
-               SET ssh_last_test_status = ?, ssh_last_test_message = ?, ssh_last_tested_at = ?, updated_at = ?
+               SET ssh_host_fingerprint = COALESCE(ssh_host_fingerprint, ?),
+                   ssh_last_test_status = ?, ssh_last_test_message = ?, ssh_last_tested_at = ?, updated_at = ?
                WHERE id = ?`,
-              ['success', message, testedAt, testedAt, id]
+              [hostFingerprint, 'success', message, testedAt, testedAt, id]
             );
             res.json({ ok: true, testedAt, message, item: getAssetOrThrow(context, config, id) });
           } catch (error) {
@@ -492,12 +497,14 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
               120_000
             );
             const message = normalizeActionMessage(result.stdout || result.stderr || 'moneypulse-probe-installed');
+            const hostFingerprint = fingerprintForPersistentHost(item, actionItem, result.hostFingerprint);
             context.db.run(
               `UPDATE ${config.table}
-               SET probe_port = ?, probe_api_key = ?, probe_url = ?, probe_install_status = ?,
+               SET ssh_host_fingerprint = COALESCE(ssh_host_fingerprint, ?),
+                   probe_port = ?, probe_api_key = ?, probe_url = ?, probe_install_status = ?,
                    probe_install_message = ?, probe_installed_at = ?, updated_at = ?
                WHERE id = ?`,
-              [probePort, probeApiKey || null, probeUrl, 'installed', message, installedAt, installedAt, id]
+              [hostFingerprint, probePort, encryptAssetSecret(context, config, 'probeApiKey', probeApiKey), probeUrl, 'installed', message, installedAt, installedAt, id]
             );
             res.json({
               ok: true,
@@ -526,7 +533,7 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
         const body = enrichAssetBody(config, parseBody(config.schema, req.body) as Record<string, unknown>);
         const now = toIsoDateTime(context.now());
         const columns = [...config.fields.map((field) => field.db), 'created_at', 'updated_at'];
-        const values = [...config.fields.map((field) => toDbValue(field.api, body[field.api])), now, now];
+        const values = [...config.fields.map((field) => toAssetDbValue(context, config, field.api, body[field.api])), now, now];
         const placeholders = columns.map(() => '?').join(', ');
         const id = context.db.insert(
           `INSERT INTO ${config.table} (${columns.join(', ')}) VALUES (${placeholders})`,
@@ -563,7 +570,7 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
         const entries = config.fields.filter((field) => Object.prototype.hasOwnProperty.call(body, field.api));
         if (entries.length > 0) {
           const assignments = entries.map((field) => `${field.db} = ?`);
-          const params = entries.map((field) => toDbValue(field.api, body[field.api]));
+          const params = entries.map((field) => toAssetDbValue(context, config, field.api, body[field.api]));
           assignments.push('updated_at = ?');
           params.push(toIsoDateTime(context.now()), Number(req.params.id));
           context.db.run(`UPDATE ${config.table} SET ${assignments.join(', ')} WHERE id = ?`, params);
@@ -626,13 +633,13 @@ export function getAssetOrThrow(
   if (!row) {
     throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   }
-  return mapAssetRow(config, row, options);
+  return mapAssetRow(config, row, { ...options, encryptionKey: context.encryptionKey });
 }
 
 export function mapAssetRow(
   config: AssetConfig,
   row: Record<string, unknown>,
-  options: { includeSecrets?: boolean } = {}
+  options: { includeSecrets?: boolean; encryptionKey?: string } = {}
 ) {
   const item: Record<string, unknown> = {
     id: Number(row.id),
@@ -645,9 +652,15 @@ export function mapAssetRow(
 
   for (const field of config.fields) {
     const value = row[field.db];
-    if (sensitiveFields?.has(field.api) && !options.includeSecrets) {
-      item[field.api] = null;
-      item[`has${capitalize(field.api)}`] = Boolean(value);
+    if (sensitiveFields?.has(field.api)) {
+      if (!options.includeSecrets) {
+        item[field.api] = null;
+        item[`has${capitalize(field.api)}`] = Boolean(value);
+      } else {
+        item[field.api] = typeof value === 'string' && options.encryptionKey
+          ? decryptSecret(value, options.encryptionKey)
+          : value ?? null;
+      }
     } else if (field.api === 'autoRenew' || field.api === 'isSecondaryCard' || field.api === 'isEsim') {
       item[field.api] = Boolean(value);
     } else if (field.api === 'tags') {
@@ -701,6 +714,28 @@ export function normalizeBillingCycle(value: unknown): BillingCycle {
 export function normalizeCurrency(value: unknown): Currency {
   if (value === 'USD' || value === 'GBP' || value === 'EUR' || value === 'CAD') return value;
   return 'CNY';
+}
+
+function toAssetDbValue(
+  context: AppContext,
+  config: AssetConfig,
+  apiField: string,
+  value: unknown
+): DbValue {
+  const normalized = toDbValue(apiField, value);
+  if (!sensitiveFieldsByAssetType[config.type]?.has(apiField) || typeof normalized !== 'string') {
+    return normalized;
+  }
+  return encryptSecret(normalized, context.encryptionKey);
+}
+
+function encryptAssetSecret(
+  context: AppContext,
+  config: AssetConfig,
+  apiField: string,
+  value: string
+): string | null {
+  return value ? String(toAssetDbValue(context, config, apiField, value)) : null;
 }
 
 function emptyToUndefined(value: unknown): unknown {
@@ -838,6 +873,13 @@ function enrichVpsBody(body: Record<string, unknown>, current?: Record<string, u
   if (nextIpAddress && (!hasSshHost || !stringValue(next.sshHost)) && (!current || hasIpAddress || sshHostWasIp)) {
     next.sshHost = nextIpAddress;
   }
+  if (
+    current &&
+    sshTarget({ ...current, ...next }) !== sshTarget(current) &&
+    !Object.prototype.hasOwnProperty.call(next, 'sshHostFingerprint')
+  ) {
+    next.sshHostFingerprint = null;
+  }
 
   const hasExpireDate = Object.prototype.hasOwnProperty.call(next, 'expireDate');
   if (!hasExpireDate) {
@@ -892,6 +934,9 @@ function mergeActionItem(item: Record<string, unknown>, overrides: Record<string
     if (sensitiveVpsFields.has(key) && !stringValue(value)) continue;
     if (value !== undefined) next[key] = value;
   }
+  if (sshTarget(next) !== sshTarget(item)) {
+    next.sshHostFingerprint = null;
+  }
   return next;
 }
 
@@ -927,6 +972,7 @@ function buildSshExecOptions(
     port,
     username,
     authType,
+    expectedHostFingerprint: stringValue(item.sshHostFingerprint) || undefined,
     command,
     timeoutMs
   };
@@ -948,6 +994,22 @@ function buildSshExecOptions(
   }
 
   return options;
+}
+
+function fingerprintForPersistentHost(
+  storedItem: Record<string, unknown>,
+  actionItem: Record<string, unknown>,
+  presentedFingerprint: string | undefined
+): string | null {
+  if (!presentedFingerprint || sshTarget(storedItem) !== sshTarget(actionItem)) {
+    return null;
+  }
+  return presentedFingerprint;
+}
+
+function sshTarget(item: Record<string, unknown>): string {
+  const host = stringValue(item.sshHost) || stringValue(item.ipAddress);
+  return `${host}:${numberValue(item.sshPort) ?? 22}`;
 }
 
 function normalizeSshAuthType(value: unknown): SshAuthType {
@@ -1151,8 +1213,10 @@ async function refreshVpsMonitor(
       headers.Authorization = `Bearer ${apiKey}`;
       headers['X-API-Key'] = apiKey;
     }
-    const client = context.fetch ?? fetch;
-    const response = await client(probeUrl, { headers });
+    const response = await requestOutbound(context, probeUrl, { headers }, {
+      maxBytes: 512 * 1024,
+      timeoutMs: 5_000
+    });
     if (!response.ok) {
       throw new Error(`Probe returned HTTP ${response.status}`);
     }

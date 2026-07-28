@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { decryptSecret } from '../../utils/crypto.js';
+import { isBearerRequest } from '../../plugins/auth.js';
 import {
   arrayField,
   asRecord,
@@ -22,6 +23,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const user = await authed(request, reply, services);
     if (!user) return;
     const decrypt = asRecord(request.query).decrypt === 'true';
+    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarAiProfile.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
@@ -111,6 +113,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const user = await authed(request, reply, services);
     if (!user) return;
     const decrypt = asRecord(request.query).decrypt === 'true';
+    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarWebDavConfig.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
@@ -135,6 +138,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const user = await authed(request, reply, services);
     if (!user) return;
     const decrypt = asRecord(request.query).decrypt === 'true';
+    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarEmbeddingConfig.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
@@ -160,6 +164,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const user = await authed(request, reply, services);
     if (!user) return;
     const decrypt = asRecord(request.query).decrypt === 'true';
+    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const row = await services.prisma.noStarVectorSearchConfig.findUnique({
       where: { userId: user.id },
       include: { embeddingConfig: true },

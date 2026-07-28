@@ -32,6 +32,18 @@ export function createApp(context: AppContext) {
   api.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
+  api.get('/livez', (_req, res) => {
+    res.json({ ok: true });
+  });
+  api.get('/readyz', (_req, res) => {
+    try {
+      const row = context.db.get<{ ok: number }>('SELECT 1 AS ok');
+      if (Number(row?.ok) !== 1) throw new Error('SQLite readiness query failed');
+      res.json({ ok: true, checks: { sqlite: true } });
+    } catch {
+      res.status(503).json({ ok: false, checks: { sqlite: false } });
+    }
+  });
   registerAuthRoutes(api, context);
 
   api.use(requireAuth(context));

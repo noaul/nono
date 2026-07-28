@@ -132,6 +132,7 @@ describe('auth flow', () => {
     const app = createApp({
       db,
       jwtSecret: 'test-secret',
+      encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
       cookieSecure: false,
       cookiePath: '/',
       now: () => new Date('2026-05-22T01:00:00.000Z'),

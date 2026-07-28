@@ -101,6 +101,7 @@ GitHub Actions 对 `main` 推送和 Pull Request 执行同等级门禁，包括 
 | `SESSION_SECRET` | Nono Session 随机长密钥 |
 | `ENCRYPTION_KEY` | 64 位十六进制密钥，用于加密集成凭据 |
 | `NOMONEY_JWT_SECRET` | NoMoney 独立随机长密钥 |
+| `NOMONEY_ENCRYPTION_KEY` | 可选的 NoMoney 独立 64 位十六进制加密密钥；为空时复用 `ENCRYPTION_KEY` |
 | `NONO_PUBLIC_URL` | 浏览器实际访问的 HTTPS 根地址 |
 | `BLOG_PUBLIC_URL` | Nodesk 的完整 HTTPS 地址，通常为 `<root>/nodesk` |
 

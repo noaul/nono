@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ContactRound, Globe2, Languages, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, Trash2, X } from 'lucide-react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
 import { api } from './api';
@@ -23,15 +23,23 @@ export type LayoutOutletContext = {
   setTopbarActions: (actions: ReactNode | null) => void;
 };
 
-export function Layout({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const location = useLocation();
+const LayoutActionsContext = createContext<LayoutOutletContext | null>(null);
+
+export function useLayoutActions(): LayoutOutletContext {
+  const value = useContext(LayoutActionsContext);
+  if (!value) throw new Error('Layout actions are unavailable outside the authenticated layout');
+  return value;
+}
+
+export function Layout({ user, onLogout, children }: { user: User; onLogout: () => void; children: ReactNode }) {
+  const [location] = useLocation();
   const { copy, language, toggleLanguage } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileDrawerRef = useRef<HTMLElement | null>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [theme, setTheme] = useState(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
-  const current = useMemo(() => navItems.find((item) => location.pathname.startsWith(item.to)), [location.pathname]);
+  const current = useMemo(() => navItems.find((item) => location.startsWith(item.to)), [location]);
   const outletContext = useMemo<LayoutOutletContext>(() => ({ setTopbarActions }), []);
 
   useEffect(() => {
@@ -103,23 +111,21 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
-          <NavLink
+          <Link
             key={item.to}
-            to={item.to}
+            href={item.to}
             onClick={() => setMobileOpen(false)}
-            className={({ isActive }) =>
-              clsx(
+            className={clsx(
                 'group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition',
-                isActive
+                location.startsWith(item.to)
                   ? 'bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
-              )
-            }
+              )}
           >
             <Icon size={17} />
             <span className="flex-1">{language === 'zh' ? item.labelZh : item.labelEn}</span>
             <span className="hidden text-[11px] font-normal text-slate-400 lg:inline">{item.hint}</span>
-          </NavLink>
+          </Link>
         );
       })}
     </nav>
@@ -193,7 +199,7 @@ export function Layout({ user, onLogout }: { user: User; onLogout: () => void })
           </div>
         </header>
         <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pb-6 pt-3 sm:px-6 lg:pb-7 lg:pt-4">
-          <Outlet context={outletContext} />
+          <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
         </main>
       </div>
     </div>

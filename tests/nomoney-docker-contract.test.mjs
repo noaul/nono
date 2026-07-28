@@ -19,6 +19,7 @@ test('persists NoMoney data and requires its session secret', () => {
   assert.match(compose, /NOMONEY_COOKIE_SECURE:\s*\$\{NOMONEY_COOKIE_SECURE:-true\}/);
   assert.match(compose, /nomoney_data:\/app\/nomoney-data/);
   assert.match(compose, /^\s*nomoney_data:\s*$/m);
+  assert.match(compose, /wget -qO- http:\/\/127\.0\.0\.1:3000\/readyz/);
 });
 
 test('binds the application to loopback by default', () => {

@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from './types.js';
 import { asyncHandler, parseBody } from './http.js';
+import { decryptSecret, encryptSecret } from './secret-crypto.js';
 
 export interface Settings {
   reminderDays: number[];
@@ -65,7 +66,7 @@ export function registerSettingsRoutes(router: Router, context: AppContext): voi
         context.db.run(
           `INSERT INTO settings (key, value) VALUES (?, ?)
            ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          [key, JSON.stringify(value)]
+          [key, JSON.stringify(isSensitiveSetting(key) ? encryptSecret(String(value), context.encryptionKey) : value)]
         );
       }
       res.json({ settings: getPublicSettings(context) });
@@ -98,6 +99,12 @@ export function getSettings(context: AppContext): Settings {
       }
     })
   ) as Partial<Settings>;
+
+  for (const key of ['webdavPassword', 'webdavEncryptionKey'] as const) {
+    if (settings[key]) {
+      settings[key] = decryptSecret(settings[key], context.encryptionKey);
+    }
+  }
 
   return {
     reminderDays: settings.reminderDays ?? [30, 14, 7, 3, 1, 0],

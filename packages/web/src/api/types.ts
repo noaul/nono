@@ -148,6 +148,7 @@ export interface ApiToken {
   id: number;
   name: string;
   token: string;
+  scopes: string[];
   expiresAt?: string | null;
   createdAt: string;
 }

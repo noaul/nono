@@ -181,6 +181,7 @@ model ApiToken {
   tokenHash   String    @unique @map("token")
   tokenPrefix String
   name        String
+  scopes      String[]  @default(["bookmarks:read", "bookmarks:write", "ai:analyze"])
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())
 }

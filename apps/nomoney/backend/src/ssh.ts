@@ -5,6 +5,8 @@ export function runSshCommand(options: SshExecOptions): Promise<SshExecResult> {
   return new Promise((resolve, reject) => {
     const client = new Client();
     let settled = false;
+    let presentedHostFingerprint = '';
+    let fingerprintMismatch = false;
     const timeout = setTimeout(() => {
       finish(new Error('SSH command timed out'));
     }, options.timeoutMs ?? 30_000);
@@ -34,7 +36,7 @@ export function runSshCommand(options: SshExecOptions): Promise<SshExecResult> {
                 finish(new Error(stderr.trim() || `SSH command failed with exit code ${code}`));
                 return;
               }
-              finish(null, { stdout, stderr, code, signal });
+              finish(null, { stdout, stderr, code, signal, hostFingerprint: presentedHostFingerprint });
             })
             .on('data', (data: Buffer) => {
               stdout += data.toString('utf8');
@@ -44,7 +46,9 @@ export function runSshCommand(options: SshExecOptions): Promise<SshExecResult> {
           });
         });
       })
-      .on('error', (error) => finish(error))
+      .on('error', (error) => finish(
+        fingerprintMismatch ? new Error('SSH host fingerprint mismatch') : error
+      ))
       .connect({
         host: options.host,
         port: options.port,
@@ -52,6 +56,14 @@ export function runSshCommand(options: SshExecOptions): Promise<SshExecResult> {
         password: options.authType === 'password' ? options.password : undefined,
         privateKey: options.authType === 'privateKey' ? options.privateKey : undefined,
         passphrase: options.authType === 'privateKey' ? options.passphrase : undefined,
+        hostHash: 'sha256',
+        hostVerifier: (hashedKey: string) => {
+          presentedHostFingerprint = `SHA256:${hashedKey}`;
+          fingerprintMismatch = Boolean(
+            options.expectedHostFingerprint && options.expectedHostFingerprint !== presentedHostFingerprint
+          );
+          return !fingerprintMismatch;
+        },
         readyTimeout: options.timeoutMs ?? 30_000
       });
   });

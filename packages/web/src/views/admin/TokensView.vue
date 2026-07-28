@@ -7,7 +7,7 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
 
 const tokens = ref<ApiToken[]>([]);
-const form = reactive({ name: 'Chrome extension', expiresAt: '' });
+const form = reactive({ name: 'Chrome extension', expiresAt: '', scopeProfile: 'extension' as 'extension' | 'full' });
 const createdToken = ref('');
 const summary = ref<ApiTokenSummary>({ total: 0, active: 0, expired: 0, neverExpires: 0, expiringSoon: 0 });
 
@@ -20,7 +20,8 @@ async function loadSummary() {
 }
 
 async function createToken() {
-  const token = await apiRequest<ApiToken>('/api/admin/tokens', { method: 'POST', body: jsonBody({ name: form.name, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null }) });
+  const scopes = form.scopeProfile === 'full' ? ['*'] : ['bookmarks:read', 'bookmarks:write', 'ai:analyze'];
+  const token = await apiRequest<ApiToken>('/api/admin/tokens', { method: 'POST', body: jsonBody({ name: form.name, scopes, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null }) });
   createdToken.value = token.token;
   await load();
 }
@@ -82,6 +83,13 @@ onMounted(load);
         <div class="grid">
           <div class="field"><label>名称</label><input data-testid="token-name" v-model="form.name" /></div>
           <div class="field">
+            <label>权限</label>
+            <select data-testid="token-scope-profile" v-model="form.scopeProfile">
+              <option value="extension">书签扩展</option>
+              <option value="full">完全访问</option>
+            </select>
+          </div>
+          <div class="field">
             <label>过期预设</label>
             <select data-testid="token-expiry-preset" @change="setExpiryPreset(($event.target as HTMLSelectElement).value)">
               <option value="">不过期</option>
@@ -104,7 +112,7 @@ onMounted(load);
           <article v-for="token in tokens" :key="token.id" class="row">
             <div>
               <div class="row-title"><KeyRound :size="15" /> {{ token.name }}</div>
-              <div class="row-subtitle">{{ token.token }} · {{ token.expiresAt || '不过期' }}</div>
+              <div class="row-subtitle">{{ token.token }} · {{ token.scopes.includes('*') ? '完全访问' : '书签扩展' }} · {{ token.expiresAt || '不过期' }}</div>
             </div>
             <button class="icon-button danger" :data-testid="`revoke-token-${token.id}`" title="撤销" @click="remove(token)"><Trash2 :size="17" /></button>
           </article>

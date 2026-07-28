@@ -4,6 +4,8 @@ import type { AppContext, DbValue } from './types.js';
 import { asyncHandler, HttpError } from './http.js';
 import { getSettings, type Settings } from './settings.js';
 import { toIsoDateTime } from './utils.js';
+import { migrateStoredSecrets } from './secret-migration.js';
+import { requestOutbound } from './outbound-request.js';
 
 type BackupRow = Record<string, unknown>;
 
@@ -44,7 +46,7 @@ const backupTables: BackupTable[] = [
     columns: [
       'id', 'name', 'vps_type', 'provider', 'ip_address', 'location', 'cpu', 'memory', 'storage', 'bandwidth',
       'os', 'ssh_host', 'ssh_port', 'ssh_user', 'ssh_auth_type', 'ssh_password', 'ssh_private_key',
-      'ssh_private_key_passphrase', 'ssh_command', 'probe_url', 'probe_port', 'probe_api_key',
+      'ssh_private_key_passphrase', 'ssh_host_fingerprint', 'ssh_command', 'probe_url', 'probe_port', 'probe_api_key',
       'probe_install_status', 'probe_install_message', 'probe_installed_at',
       'ssh_last_test_status', 'ssh_last_test_message', 'ssh_last_tested_at',
       'monitor_status', 'monitor_cpu_percent', 'monitor_memory_percent', 'monitor_disk_percent',
@@ -177,6 +179,7 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
       }
       counts[table.key] = rows.length;
     }
+    migrateStoredSecrets(context);
     context.db.exec('COMMIT');
   } catch (error) {
     context.db.exec('ROLLBACK');
@@ -245,8 +248,10 @@ async function requestWebdav(
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  const client = context.fetch ?? fetch;
-  return client(url, { method, headers, body });
+  return requestOutbound(context, url, { method, headers, body }, {
+    maxBytes: method === 'GET' ? 32 * 1024 * 1024 : 256 * 1024,
+    timeoutMs: 10_000
+  });
 }
 
 function parseBackupPayload(text: string, settings: Settings): Record<string, unknown> {

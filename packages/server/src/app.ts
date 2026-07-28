@@ -30,7 +30,7 @@ import { trashRoutes } from './routes/admin/trash.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { registerAuditHooks } from './plugins/audit.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
-import type { AppServices, LlmClient } from './types.js';
+import type { AppServices, LlmClient, ReadinessChecks } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
 import { createBackupServiceFromEnv } from './services/backup.service.js';
@@ -79,6 +79,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupAutomationService,
     auditLogService,
     notificationService,
+    readinessCheck: overrides.readinessCheck || createReadinessCheck(prisma, nodeskStore),
   };
 
   const app = fastify({
@@ -128,7 +129,15 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   });
   registerAuditHooks(app, services);
 
-  app.get('/healthz', async (_request, reply) => sendOk(reply, { ok: true }));
+  const sendLive = async (_request: unknown, reply: Parameters<typeof sendOk>[0]) => sendOk(reply, { ok: true });
+  app.get('/livez', sendLive);
+  app.get('/healthz', sendLive);
+  app.get('/readyz', async (_request, reply) => {
+    const checks = await services.readinessCheck();
+    const ok = Object.values(checks).every(Boolean);
+    if (!ok) reply.status(503);
+    return reply.send({ code: ok ? 0 : 503, data: { ok, checks }, message: ok ? '' : 'Service is not ready' });
+  });
 
   await authRoutes(app, services);
   await passkeyRoutes(app, services);
@@ -176,6 +185,27 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   }
 
   return app;
+}
+
+function createReadinessCheck(prisma: PrismaClient, nodeskStore: NodeskContentStore) {
+  return async (): Promise<ReadinessChecks> => {
+    const nomoneyPort = Number(process.env.NOMONEY_INTERNAL_PORT || 2030);
+    const [postgres, nodesk, nomoney] = await Promise.allSettled([
+      prisma.$queryRawUnsafe('SELECT 1'),
+      nodeskStore.readPublicJson('site'),
+      fetch(`http://127.0.0.1:${nomoneyPort}/api/readyz`, {
+        signal: AbortSignal.timeout(2_000),
+        redirect: 'error',
+      }).then((response) => {
+        if (!response.ok) throw new Error('NoMoney is not ready');
+      }),
+    ]);
+    return {
+      postgres: postgres.status === 'fulfilled',
+      nodesk: nodesk.status === 'fulfilled',
+      nomoney: nomoney.status === 'fulfilled',
+    };
+  };
 }
 
 function envOrThrow(name: string) {

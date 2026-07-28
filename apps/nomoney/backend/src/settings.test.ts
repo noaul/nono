@@ -28,9 +28,10 @@ describe('settings APIs', () => {
     const rows = context.db.all<{ key: string; value: string }>(
       "SELECT key, value FROM settings WHERE key IN ('webdavPassword', 'webdavEncryptionKey') ORDER BY key"
     );
-    expect(Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value)]))).toEqual({
-      webdavEncryptionKey: 'backup-secret',
-      webdavPassword: 'webdav-secret'
-    });
+    const stored = Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value)]));
+    expect(stored.webdavEncryptionKey).toMatch(/^enc:v1:/);
+    expect(stored.webdavPassword).toMatch(/^enc:v1:/);
+    expect(JSON.stringify(stored)).not.toContain('backup-secret');
+    expect(JSON.stringify(stored)).not.toContain('webdav-secret');
   });
 });

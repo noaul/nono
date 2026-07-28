@@ -286,7 +286,7 @@ describe('asset APIs', () => {
   });
 
   test('stores, protects, and filters buyout details', async () => {
-    const { agent } = await setupAgent();
+    const { agent, context } = await setupAgent();
 
     const created = await agent.post('/api/subscriptions').send({
       name: 'Lifetime Tool',
@@ -319,6 +319,9 @@ describe('asset APIs', () => {
       autoRenew: false,
       renewalUrl: null
     });
+    const storedLicense = context.db.get<{ license_key: string }>('SELECT license_key FROM subscriptions WHERE id = 1');
+    expect(storedLicense?.license_key).toMatch(/^enc:v1:/);
+    expect(storedLicense?.license_key).not.toContain('secret-license');
 
     const filtered = await agent.get('/api/subscriptions?purchaseType=buyout');
     expect(filtered.body.items).toHaveLength(1);
@@ -468,6 +471,9 @@ describe('asset APIs', () => {
       probeApiKey: null,
       hasProbeApiKey: true
     });
+    const storedProbe = context.db.get<{ probe_api_key: string }>('SELECT probe_api_key FROM vps WHERE id = 1');
+    expect(storedProbe?.probe_api_key).toMatch(/^enc:v1:/);
+    expect(storedProbe?.probe_api_key).not.toContain('probe-secret');
 
     const monitor = await agent.get('/api/vps/1/monitor');
 
@@ -537,6 +543,28 @@ describe('asset APIs', () => {
     expect(response.body.item).toMatchObject({ monitorStatus: 'offline' });
   });
 
+  test('does not request a private probe address unless it is allowlisted', async () => {
+    const { agent, context } = await setupAgent();
+    let requested = false;
+    context.fetch = async () => {
+      requested = true;
+      return new Response('{}');
+    };
+
+    await agent.post('/api/vps').send({
+      name: 'private-probe',
+      probeUrl: 'http://127.0.0.1:9100/api/stat',
+      amountMinorUnits: 0,
+      currency: 'CNY',
+      billingCycle: 'annual',
+      status: 'active'
+    }).expect(201);
+
+    const response = await agent.get('/api/vps/1/monitor').expect(200);
+    expect(response.body.monitor.status).toBe('offline');
+    expect(requested).toBe(false);
+  });
+
   test('tests VPS SSH connections with password credentials', async () => {
     const { agent, context } = await setupAgent();
     const sshCalls: Array<Record<string, unknown>> = [];
@@ -589,6 +617,43 @@ describe('asset APIs', () => {
         sshLastTestedAt: '2026-05-22T01:00:00.000Z'
       }
     });
+  });
+
+  test('pins the SSH host fingerprint after the first successful connection', async () => {
+    const { agent, context } = await setupAgent();
+    const sshCalls: Array<Record<string, unknown>> = [];
+    context.sshRunner = async (options) => {
+      sshCalls.push({ ...options });
+      return {
+        stdout: 'moneypulse-ssh-ok\n',
+        stderr: '',
+        code: 0,
+        hostFingerprint: 'SHA256:server-host-key'
+      };
+    };
+
+    await agent.post('/api/vps').send({
+      name: 'pinned-node',
+      ipAddress: '203.0.113.49',
+      sshPort: 22,
+      sshUser: 'root',
+      sshAuthType: 'password',
+      sshPassword: 'saved-password',
+      amountMinorUnits: 0,
+      currency: 'CNY',
+      billingCycle: 'annual',
+      status: 'active'
+    }).expect(201);
+
+    const first = await agent.post('/api/vps/1/ssh/test').send({}).expect(200);
+    expect(first.body.item.sshHostFingerprint).toBe('SHA256:server-host-key');
+
+    await agent.post('/api/vps/1/ssh/test').send({}).expect(200);
+    expect(sshCalls[0].expectedHostFingerprint).toBeUndefined();
+    expect(sshCalls[1].expectedHostFingerprint).toBe('SHA256:server-host-key');
+
+    const moved = await agent.put('/api/vps/1').send({ ipAddress: '203.0.113.50' }).expect(200);
+    expect(moved.body.item.sshHostFingerprint).toBeNull();
   });
 
   test('defaults the VPS SSH host to the IP address', async () => {

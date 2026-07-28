@@ -337,10 +337,10 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     async listTokens(userId) {
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;
     },
-    async createToken(userId, name, expiresAt) {
+    async createToken(userId, name, expiresAt, scopes = []) {
       const token = generateApiToken();
       const record = await prisma.apiToken.create({
-        data: { userId, name, tokenHash: hashApiToken(token), tokenPrefix: token.slice(0, 10), expiresAt },
+        data: { userId, name, tokenHash: hashApiToken(token), tokenPrefix: token.slice(0, 10), expiresAt, scopes },
       });
       return { ...record, token } as any;
     },

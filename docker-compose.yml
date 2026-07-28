@@ -58,6 +58,7 @@ services:
       NOMONEY_INTERNAL_PORT: 2030
       NOMONEY_DATA_DIR: /app/nomoney-data
       NOMONEY_JWT_SECRET: ${NOMONEY_JWT_SECRET:?NOMONEY_JWT_SECRET is required}
+      NOMONEY_ENCRYPTION_KEY: ${NOMONEY_ENCRYPTION_KEY:-}
       NOMONEY_COOKIE_SECURE: ${NOMONEY_COOKIE_SECURE:-true}
       NOMONEY_SMTP_HOST: ${NOMONEY_SMTP_HOST:-}
       NOMONEY_SMTP_PORT: ${NOMONEY_SMTP_PORT:-587}
@@ -70,7 +71,7 @@ services:
       - nomoney_data:/app/nomoney-data
       - nono_backups:/app/backups
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz >/dev/null && wget -qO- http://127.0.0.1:3000/nomoney/api/health >/dev/null"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/readyz >/dev/null"]
       interval: 30s
       timeout: 5s
       retries: 3

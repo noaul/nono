@@ -73,6 +73,27 @@ describe('Nono Fastify app', () => {
     expect(response.json()).toEqual({ code: 0, data: { ok: true }, message: '' });
   });
 
+  it('separates liveness from dependency readiness', async () => {
+    const readyApp = await buildApp({
+      repo: new MemoryRepository(false),
+      sessionSecret,
+      encryptionKey,
+      readinessCheck: async () => ({ postgres: true, nodesk: true, nomoney: true }),
+    } as any);
+
+    const live = await readyApp.inject({ method: 'GET', url: '/livez' });
+    const ready = await readyApp.inject({ method: 'GET', url: '/readyz' });
+
+    expect(live.statusCode).toBe(200);
+    expect(ready.statusCode).toBe(200);
+    expect(ready.json()).toEqual({
+      code: 0,
+      data: { ok: true, checks: { postgres: true, nodesk: true, nomoney: true } },
+      message: '',
+    });
+    await readyApp.close();
+  });
+
   it('sends a content security policy that blocks third-party scripts and embedding', async () => {
     const response = await app.inject({ method: 'GET', url: '/healthz' });
     const policy = response.headers['content-security-policy'];
@@ -288,7 +309,7 @@ describe('Nono Fastify app', () => {
       method: 'POST',
       url: '/api/admin/tokens',
       headers: { cookie },
-      payload: { name: 'Chrome extension' },
+      payload: { name: 'Automation', scopes: ['*'] },
     });
     expect(tokenResponse.statusCode).toBe(200);
     const token = tokenResponse.json().data.token;
@@ -306,6 +327,48 @@ describe('Nono Fastify app', () => {
     });
     expect(folders.statusCode).toBe(200);
     expect(folders.json().data.name).toBe('AI 工具');
+  });
+
+  it('limits extension tokens to bookmark operations by default', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'Inbox', icon: 'inbox' },
+    });
+    const tokenResponse = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Chrome extension' },
+    });
+    const token = tokenResponse.json().data.token;
+
+    expect(tokenResponse.json().data.scopes).toEqual(['bookmarks:read', 'bookmarks:write', 'ai:analyze']);
+
+    const folders = await app.inject({
+      method: 'GET',
+      url: '/api/admin/folders',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { folderId: folder.json().data.id, name: 'Example', url: 'https://example.com', description: '' },
+    });
+    const forbidden = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'Forbidden', icon: 'lock' },
+    });
+
+    expect(folders.statusCode).toBe(200);
+    expect(link.statusCode).toBe(200);
+    expect(forbidden.statusCode).toBe(403);
+    expect(forbidden.json().message).toBe('API token scope is insufficient');
   });
 
   it('normalizes site appearance settings and rejects unsafe portal URLs', async () => {
@@ -488,7 +551,11 @@ describe('Nono Fastify app', () => {
     });
 
     expect(current.statusCode).toBe(200);
-    expect(current.json().data).toMatchObject({ name: 'Extension token', expiresAt });
+    expect(current.json().data).toMatchObject({
+      name: 'Extension token',
+      expiresAt,
+      scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'],
+    });
     expect(current.json().data.token).toContain('...');
   });
 

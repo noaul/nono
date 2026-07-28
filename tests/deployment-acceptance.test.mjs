@@ -5,10 +5,10 @@ import { acceptDeployment } from '../scripts/accept-deployment.mjs';
 test('checks all public routes and recursively verifies NoStar lazy chunks', async () => {
   const baseUrl = 'http://127.0.0.1:8188';
   const responses = new Map([
-    [`${baseUrl}/healthz`, response('ok')],
+    [`${baseUrl}/readyz`, response('{"ok":true}', 'application/json')],
     [`${baseUrl}/`, response('<main>Nono</main>', 'text/html')],
     [`${baseUrl}/nodesk`, response('<main>Nodesk</main>', 'text/html')],
-    [`${baseUrl}/nomoney/api/health`, response('{"status":"ok"}', 'application/json')],
+    [`${baseUrl}/nomoney/api/readyz`, response('{"ok":true}', 'application/json')],
     [`${baseUrl}/nostar/`, response('<script type="module" src="/nostar/assets/index-test.js"></script>', 'text/html')],
     [`${baseUrl}/nostar/assets/index-test.js`, response('import("./RepositoriesView-test.js")', 'text/javascript')],
     [`${baseUrl}/nostar/assets/RepositoriesView-test.js`, response('import("./ReadmeModal-test.js"); import("./RepositoryEditModal-test.js")', 'text/javascript')],
@@ -37,10 +37,10 @@ test('fails acceptance when a required route is unavailable', async () => {
   await assert.rejects(
     () => acceptDeployment({
       baseUrl: 'http://127.0.0.1:8188',
-      fetchImpl: async (url) => response(String(url).endsWith('/healthz') ? 'down' : 'ok', 'text/plain', String(url).endsWith('/healthz') ? 503 : 200),
+      fetchImpl: async (url) => response(String(url).endsWith('/readyz') ? 'down' : 'ok', 'text/plain', String(url).endsWith('/readyz') ? 503 : 200),
       log: () => {},
     }),
-    /healthz returned HTTP 503/,
+    /readyz returned HTTP 503/,
   );
 });
 

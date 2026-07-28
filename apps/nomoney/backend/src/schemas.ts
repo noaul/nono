@@ -78,6 +78,7 @@ export const vpsSchema = commonAssetSchema.extend({
   sshPassword: nullableText,
   sshPrivateKey: nullableText,
   sshPrivateKeyPassphrase: nullableText,
+  sshHostFingerprint: nullableText,
   sshCommand: nullableText,
   probeUrl: nullableText,
   probePort: z.number().int().min(1).max(65535).optional().nullable(),

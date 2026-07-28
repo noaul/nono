@@ -98,6 +98,7 @@ export interface ApiTokenRecord {
   tokenHash: string;
   tokenPrefix: string;
   name: string;
+  scopes: string[];
   expiresAt?: Date | null;
   createdAt: Date;
 }
@@ -256,7 +257,7 @@ export interface Repository {
   permanentlyDeleteTrashItem(userId: number, id: string): Promise<void>;
   emptyTrash(userId: number): Promise<number>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
-  createToken(userId: number, name: string, expiresAt?: Date | null): Promise<CreatedApiTokenRecord>;
+  createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
   deleteToken(userId: number, id: number): Promise<void>;
   createSession(userId: number, input: { userAgent?: string | null; ipAddress?: string | null; expiresAt: Date }): Promise<CreatedAuthSessionRecord>;
@@ -658,7 +659,7 @@ export class MemoryRepository implements Repository {
     return this.tokens.filter((token) => token.userId === userId);
   }
 
-  async createToken(userId: number, name: string, expiresAt?: Date | null) {
+  async createToken(userId: number, name: string, expiresAt?: Date | null, scopes: string[] = []) {
     const token = generateApiToken();
     const record = {
       id: nextId(this.tokens),
@@ -666,6 +667,7 @@ export class MemoryRepository implements Repository {
       tokenHash: hashApiToken(token),
       tokenPrefix: token.slice(0, 10),
       name,
+      scopes,
       expiresAt,
       createdAt: new Date(),
     };

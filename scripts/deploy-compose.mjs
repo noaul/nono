@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
@@ -9,12 +10,29 @@ export function imageTagForCommit(repository, commit) {
   return `${repository}:${normalized.slice(0, 12).toLowerCase()}`;
 }
 
+export function destructiveMigrationStatements(sql) {
+  const cleaned = stripSqlCommentsAndStrings(String(sql));
+  const findings = [];
+  for (const statement of cleaned.split(';').map((item) => item.trim()).filter(Boolean)) {
+    const compact = statement.replace(/\s+/g, ' ');
+    const dropColumn = compact.match(/^ALTER TABLE ("[^"]+"|[\w.]+).*\bDROP COLUMN\b/i);
+    if (dropColumn) findings.push(`ALTER TABLE ${dropColumn[1]} DROP COLUMN`);
+    else if (/^DROP\s+TABLE\b/i.test(compact)) findings.push('DROP TABLE');
+    else if (/^TRUNCATE(?:\s+TABLE)?\b/i.test(compact)) findings.push('TRUNCATE TABLE');
+    else if (/^DELETE\s+FROM\b/i.test(compact)) findings.push('DELETE FROM');
+    else if (/^ALTER\s+TABLE\b.*\bALTER(?:\s+COLUMN)?\b.*\bTYPE\b/i.test(compact)) findings.push('ALTER COLUMN TYPE');
+    else if (/^DROP\s+(?:SCHEMA|TYPE|DATABASE)\b/i.test(compact)) findings.push('DROP DATABASE OBJECT');
+  }
+  return findings;
+}
+
 export function parseDeployArgs(argv) {
   const options = {
     cwd: process.cwd(),
     baseUrl: 'http://127.0.0.1:8188',
     imageRepository: 'nono-app',
     skipPull: false,
+    allowDestructiveMigrations: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -22,6 +40,7 @@ export function parseDeployArgs(argv) {
     else if (argument === '--base-url') options.baseUrl = argv[++index];
     else if (argument === '--image-repository') options.imageRepository = argv[++index];
     else if (argument === '--skip-pull') options.skipPull = true;
+    else if (argument === '--allow-destructive-migrations') options.allowDestructiveMigrations = true;
     else throw new Error(`Unknown argument: ${argument}`);
   }
   return options;
@@ -32,6 +51,7 @@ export async function deployCompose({
   baseUrl,
   imageRepository,
   skipPull,
+  allowDestructiveMigrations = false,
   run = runCommand,
   accept = acceptDeployment,
   wait = sleep,
@@ -44,11 +64,27 @@ export async function deployCompose({
 
   if (!skipPull) await run('git', ['pull', '--ff-only', 'origin', 'main'], commandOptions);
   const currentCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();
+  await enforceMigrationGate({
+    cwd,
+    previousCommit,
+    currentCommit,
+    allowDestructiveMigrations,
+    run,
+    log
+  });
   const imageTag = imageTagForCommit(imageRepository, currentCommit);
   const deployEnv = { ...process.env, NONO_APP_IMAGE: imageTag, NONO_BUILD_COMMIT: currentCommit };
 
   log(`deploying ${previousCommit.slice(0, 12)} -> ${currentCommit.slice(0, 12)} as ${imageTag}`);
   await run('docker', ['compose', 'up', '-d', 'postgres'], { ...commandOptions, env: deployEnv });
+  if (previousImage.id) {
+    await run('docker', [
+      'compose', 'exec', '-T', 'app', 'node',
+      '/app/nono/packages/server/dist/cli/backup.js', 'create'
+    ], { ...commandOptions, env: deployEnv });
+  } else {
+    log('initial deployment detected; no existing application data to back up');
+  }
   await run('docker', ['compose', 'build', 'app'], { ...commandOptions, env: deployEnv });
   await run('docker', ['compose', 'up', '-d', '--no-deps', 'app'], { ...commandOptions, env: deployEnv });
 
@@ -77,6 +113,37 @@ export async function deployCompose({
       deploymentError: errorText(deploymentError),
     };
   }
+}
+
+async function enforceMigrationGate({ cwd, previousCommit, currentCommit, allowDestructiveMigrations, run, log }) {
+  if (previousCommit === currentCommit) return;
+  const result = await run('git', [
+    'diff', '--name-only', `${previousCommit}..${currentCommit}`, '--',
+    'packages/server/prisma/migrations/*/migration.sql'
+  ], { cwd, capture: true });
+  const migrationRoot = path.resolve(cwd, 'packages/server/prisma/migrations');
+  const findings = [];
+  for (const relativePath of result.stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
+    const absolutePath = path.resolve(cwd, relativePath);
+    if (!absolutePath.startsWith(`${migrationRoot}${path.sep}`) || path.basename(absolutePath) !== 'migration.sql') {
+      throw new Error(`Unexpected migration path: ${relativePath}`);
+    }
+    for (const statement of destructiveMigrationStatements(fs.readFileSync(absolutePath, 'utf8'))) {
+      findings.push(`${relativePath}: ${statement}`);
+    }
+  }
+  if (!findings.length) return;
+  if (!allowDestructiveMigrations) {
+    throw new Error(`Destructive database migration blocked:\n${findings.join('\n')}\nReview it and rerun with --allow-destructive-migrations only after a rollback plan is ready.`);
+  }
+  log(`destructive migration override accepted:\n${findings.join('\n')}`);
+}
+
+function stripSqlCommentsAndStrings(sql) {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--[^\r\n]*/g, ' ')
+    .replace(/'(?:''|[^'])*'/g, "''");
 }
 
 export async function waitForAcceptance({ baseUrl, accept, wait, attempts, log }) {

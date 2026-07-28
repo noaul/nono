@@ -234,6 +234,33 @@ describe('NoStar routes', () => {
     expect(response.body).not.toContain('internal-service-secret');
   });
 
+  it('never reveals stored integration secrets to bearer tokens', async () => {
+    const adminCookie = await setupAdmin();
+    const tokenResponse = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie: adminCookie },
+      payload: { name: 'Full automation', scopes: ['*'] },
+    });
+    const token = tokenResponse.json().data.token;
+
+    const bearerResponse = await app.inject({
+      method: 'GET',
+      url: '/api/nostar/configs/ai?decrypt=true',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: '/api/nostar/configs/ai?decrypt=true',
+      headers: { cookie: adminCookie },
+    });
+
+    expect(bearerResponse.statusCode).toBe(403);
+    expect(bearerResponse.body).not.toContain('secret-ai-key');
+    expect(sessionResponse.statusCode).toBe(200);
+    expect(sessionResponse.json()[0].apiKey).toBe('secret-ai-key');
+  });
+
   it('exports only the authenticated user data with masked secrets', async () => {
     const adminCookie = await setupAdmin();
     const response = await app.inject({ method: 'POST', url: '/api/nostar/sync/export', headers: { cookie: adminCookie } });

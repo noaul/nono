@@ -1,12 +1,17 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AppServices, AuthUser } from '../types.js';
 import { sendError } from './responses.js';
+import { hasApiTokenScope, requiredApiTokenScope } from '../utils/api-token-scopes.js';
 
 export async function resolveUser(request: FastifyRequest, services: AppServices): Promise<AuthUser | null> {
   const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (bearer) {
     const record = await services.repo.findToken(bearer);
-    return record ? publicAuthUser(record.user) : null;
+    if (record) {
+      (request as any).authTokenScopes = record.scopes;
+      return publicAuthUser(record.user);
+    }
+    return null;
   }
   const token = (request.cookies as Record<string, string> | undefined)?.nono_session;
   if (token) {
@@ -28,8 +33,17 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply, 
     sendError(reply, 401, 'Authentication required');
     return null;
   }
+  const tokenScopes = (request as any).authTokenScopes as string[] | undefined;
+  if (tokenScopes && !hasApiTokenScope(tokenScopes, requiredApiTokenScope(request))) {
+    sendError(reply, 403, 'API token scope is insufficient');
+    return null;
+  }
   (request as any).user = user;
   return user;
+}
+
+export function isBearerRequest(request: FastifyRequest) {
+  return /^Bearer\s+/i.test(request.headers.authorization || '');
 }
 
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply, services: AppServices) {
