@@ -143,7 +143,9 @@ const SIZE_RANGE: Record<SceneKind, [number, number]> = {
 
 /** How many particles a full-strength field wants at this viewport size. */
 export function targetCount(kind: SceneKind, width: number, height: number, intensity: number): number {
-  const area = Math.max(1, (width * height) / (1280 * 800));
+  // Small screens should not pay the full desktop simulation cost, while very large monitors
+  // need a ceiling so particle-to-ledge collision work stays predictable.
+  const area = Math.min(2.5, Math.max(0.4, (width * height) / (1280 * 800)));
   const base: Record<SceneKind, number> = {
     rain: 340,
     snow: 150,

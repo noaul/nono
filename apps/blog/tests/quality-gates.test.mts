@@ -204,3 +204,21 @@ test('keeps homepage image settings focused on image hosting and click-through U
 		assert.doesNotMatch(siteSettings, new RegExp(unusedSetting))
 	}
 })
+
+test('keeps Nodesk locale state and visible article actions bilingual', async () => {
+	const provider = await read('src/i18n/index.tsx')
+	const article = await read('src/app/blog/[id]/page.tsx')
+	const loader = await read('src/lib/load-blog.ts')
+	const shares = await read('src/app/share/page.tsx')
+	const projects = await read('src/app/projects/page.tsx')
+	const wuthering = await read('src/app/wuthering-waves/page.tsx')
+	const parser = wuthering.slice(wuthering.indexOf('function parseCardRecords'), wuthering.indexOf('function buildPitySegments'))
+
+	assert.match(provider, /document\.documentElement\.lang\s*=[\s\S]*language/)
+	assert.match(article, /const \{ copy, language \} = useI18n\(\)/)
+	assert.match(article, /language === 'zh'[\s\S]*YYYY年 M月 D日[\s\S]*MMM D, YYYY/)
+	assert.match(loader, /localeCopy\('文章不存在', 'Blog not found'\)/)
+	assert.match(shares, /confirm\(copy\(`/)
+	assert.match(projects, /confirm\(copy\(`/)
+	assert.doesNotMatch(parser, /useI18n\(/)
+})

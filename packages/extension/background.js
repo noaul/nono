@@ -1,4 +1,4 @@
-import { t } from './shared/i18n.js';
+import { LOCALE_STORAGE_KEY, isLocale, localeFromUiLanguage, setLocale, t } from './shared/i18n.js';
 import { normalizeServerUrl } from './shared/popup-workflow.js';
 
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
@@ -6,10 +6,16 @@ const OPEN_MENU_ID = 'nono-open-save';
 
 chrome.runtime.onInstalled.addListener(async () => {
   chrome.action.setBadgeBackgroundColor({ color: '#5c67e8' });
-  await createContextMenus();
+  await syncContextMenus();
 });
 
-chrome.runtime.onStartup.addListener(() => createContextMenus());
+chrome.runtime.onStartup.addListener(() => syncContextMenus());
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !(LOCALE_STORAGE_KEY in changes)) return;
+  setLocale(resolveLocale(changes[LOCALE_STORAGE_KEY]?.newValue));
+  void createContextMenus();
+});
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === OPEN_MENU_ID) {
@@ -31,6 +37,16 @@ async function createContextMenus() {
   await chrome.contextMenus.removeAll();
   chrome.contextMenus.create({ id: QUICK_SAVE_MENU_ID, title: t('quickSaveMenu'), contexts: ['page'] });
   chrome.contextMenus.create({ id: OPEN_MENU_ID, title: t('pickFolderMenu'), contexts: ['page'] });
+}
+
+async function syncContextMenus() {
+  const stored = await chrome.storage.local.get([LOCALE_STORAGE_KEY]);
+  setLocale(resolveLocale(stored[LOCALE_STORAGE_KEY]));
+  await createContextMenus();
+}
+
+function resolveLocale(stored) {
+  return isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh';
 }
 
 async function quickSave(tab) {

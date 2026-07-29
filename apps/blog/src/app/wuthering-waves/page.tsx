@@ -21,21 +21,18 @@ type PitySegment = {
 }
 
 function parseCardRecords(raw: string): CardRecord[] {
-
-
-	const { copy } = useI18n()
 	const data = JSON.parse(raw) as unknown
 	if (!Array.isArray(data)) {
 		throw new Error(localeCopy('根节点必须是数组', 'The root node must be an array'))
 	}
 	return data.map((item, i) => {
 		if (typeof item !== 'object' || item === null) {
-			throw new Error(`第 ${i + 1} 项不是对象`)
+			throw new Error(localeCopy(`第 ${i + 1} 项不是对象`, `Item ${i + 1} is not an object`))
 		}
 		const r = item as Record<string, unknown>
 		const qualityLevel = Number(r.qualityLevel)
 		if (!Number.isFinite(qualityLevel)) {
-			throw new Error(`第 ${i + 1} 项缺少有效的 qualityLevel`)
+			throw new Error(localeCopy(`第 ${i + 1} 项缺少有效的 qualityLevel`, `Item ${i + 1} has no valid qualityLevel`))
 		}
 		return {
 			cardPoolType: String(r.cardPoolType ?? ''),
@@ -93,7 +90,7 @@ export default function Page() {
 			setSegments([])
 			setError(e instanceof Error ? e.message : copy('解析失败', 'Could not parse'))
 		}
-	}, [input])
+	}, [copy, input])
 
 	return (
 		<div className='mx-auto max-w-3xl space-y-4 px-4 py-24'>
@@ -103,7 +100,7 @@ export default function Page() {
 			</p>
 			<ul className='text-secondary list-inside list-disc text-sm'>
 				<li>
-					进入{' '}
+					{copy('进入', 'Open')}{' '}
 					<a href='https://mc.kurogames.com/cloud/#/tools' target='_blank' className='text-brand hover:underline'>
 						https://mc.kurogames.com/cloud/#/tools
 					</a>
@@ -111,7 +108,7 @@ export default function Page() {
 				</li>
 				<li>
 					点击 <span className='text-brand'>F12</span>{copy('，点击右侧', ', then click')}<span className='text-brand'>Network</span>{copy('面板。左侧选择', 'panel. On the left choose')}<span className='text-brand'>{copy('换取记录', 'Convene history')}</span>
-					，右侧观察出现最新的 <span className='text-brand'>query</span> 请求。
+					{copy('，右侧观察出现最新的', ', then find the latest')} <span className='text-brand'>query</span> {copy('请求。', 'request on the right.')}
 				</li>
 				<li>
 					点击 <span className='text-brand'>query</span>{copy('请求，点击', 'request, then click')}<span className='text-brand'>Preview</span>{copy('面板，右键', 'panel, right-click')}<span className='text-brand'>data</span> 值{' '}
@@ -147,7 +144,7 @@ export default function Page() {
 							<div
 								className='bg-brand-secondary flex h-7 shrink-0 items-center overflow-hidden rounded-sm pl-2 text-xs leading-none font-bold text-white tabular-nums'
 								style={{ width: seg.pulls * 4 + 16 }}
-								title={`${seg.pulls} 抽`}>
+								title={copy(`${seg.pulls} 抽`, `${seg.pulls} pulls`)}>
 								{seg.pulls}
 							</div>
 							<span className='text-foreground min-w-0 flex-1 truncate text-sm'>

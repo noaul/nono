@@ -409,7 +409,7 @@ export default function Page() {
 									/>
 									<span className='w-12 text-right text-sm font-medium'>{Math.round(quality * 100)}%</span>
 								</div>
-								<p className='text-xs text-slate-500'>使用 canvas.toDataURL('image/webp', {quality.toFixed(2)})</p>
+								<p className='text-xs text-slate-500'>{copy('使用', 'Uses')} canvas.toDataURL('image/webp', {quality.toFixed(2)})</p>
 							</div>
 							<div className='flex items-center gap-3'>
 								<div className='flex items-center gap-2'>

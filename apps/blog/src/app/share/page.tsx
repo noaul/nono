@@ -67,7 +67,7 @@ export default function Page() {
 	}
 
 	const handleDelete = (share: Share) => {
-		if (confirm(`确定要删除 ${share.name} 吗？`)) {
+		if (confirm(copy(`确定要删除 ${share.name} 吗？`, `Delete ${share.name}?`))) {
 			setShares(shares.filter(s => s.url !== share.url))
 		}
 	}

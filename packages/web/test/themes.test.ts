@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { translate } from '../src/locales';
 import {
   PUBLIC_THEMES,
@@ -10,6 +12,18 @@ import {
 } from '../src/utils/themes';
 
 describe('public themes', () => {
+  it('does not ship or reference the removed photographic scene backgrounds', () => {
+    const publicScenes = path.resolve(process.cwd(), 'public/theme-scenes');
+    const sceneSource = readFileSync(path.resolve(process.cwd(), 'src/components/ThemeScene.vue'), 'utf8');
+
+    expect(existsSync(publicScenes)).toBe(false);
+    expect(sceneSource).not.toMatch(/theme-scenes|\.(?:jpe?g|png|webp)/i);
+    expect(sceneSource).not.toMatch(/background-image\s*:\s*url\(/i);
+    expect(sceneSource).toContain('MAX_SCENE_CANVAS_PIXELS');
+    expect(sceneSource).toContain('scheduleMeasureLedges');
+    expect(sceneSource).not.toContain("addEventListener('scroll', measureLedges");
+  });
+
   it('ships six seasonal presets with unique ids and complete visual tokens', () => {
     // Names live in the catalogues now, so assert both locales resolve rather than one literal.
     expect(PUBLIC_THEMES.map((theme) => translate('zh', theme.nameKey))).toEqual([

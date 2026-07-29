@@ -1,4 +1,5 @@
 import type { BlogConfig } from '@/app/blog/types'
+import { localeCopy } from '@/i18n/language'
 
 export type { BlogConfig } from '@/app/blog/types'
 
@@ -15,7 +16,7 @@ export type LoadedBlog = {
  */
 export async function loadBlog(slug: string): Promise<LoadedBlog> {
 	if (!slug) {
-		throw new Error('Slug is required')
+		throw new Error(localeCopy('需要文章标识', 'Slug is required'))
 	}
 
 	// Load config.json
@@ -32,7 +33,7 @@ export async function loadBlog(slug: string): Promise<LoadedBlog> {
 	// Load index.md
 	const mdRes = await fetch(`/blogs/${encodeURIComponent(slug)}/index.md`)
 	if (!mdRes.ok) {
-		throw new Error('Blog not found')
+		throw new Error(localeCopy('文章不存在', 'Blog not found'))
 	}
 	const markdown = await mdRes.text()
 

@@ -10,6 +10,16 @@ const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'ut
 const archive = path.join(root, 'artifacts', `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
 
 describe('extension release package', () => {
+  it('keeps background context menus in sync with the saved locale', async () => {
+    const background = await readFile(path.join(root, 'background.js'), 'utf8');
+
+    expect(background).toContain('LOCALE_STORAGE_KEY');
+    expect(background).toContain('localeFromUiLanguage');
+    expect(background).toContain('chrome.storage.local.get');
+    expect(background).toContain('chrome.storage.onChanged.addListener');
+    expect(background).toContain('createContextMenus()');
+  });
+
   it('keeps package and manifest versions aligned', () => {
     expect(manifest.version).toBe(packageJson.version);
   });

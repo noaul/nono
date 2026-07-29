@@ -13,7 +13,7 @@ import { useI18n } from '@/i18n'
 
 export default function Page() {
 
-	const { copy } = useI18n()
+	const { copy, language } = useI18n()
 	const params = useParams() as { id?: string | string[] }
 	const slug = Array.isArray(params?.id) ? params.id[0] : params?.id || ''
 	const router = useRouter()
@@ -50,7 +50,10 @@ export default function Page() {
 	}, [slug, markAsRead])
 
 	const title = useMemo(() => (blog?.config.title ? blog.config.title : slug), [blog?.config.title, slug])
-	const date = useMemo(() => dayjs(blog?.config.date).format('YYYY年 M月 D日'), [blog?.config.date])
+	const date = useMemo(
+		() => dayjs(blog?.config.date).format(language === 'zh' ? 'YYYY年 M月 D日' : 'MMM D, YYYY'),
+		[blog?.config.date, language]
+	)
 	const tags = blog?.config.tags || []
 
 	const handleEdit = () => {

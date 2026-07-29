@@ -25,6 +25,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 		if (stored !== 'zh') setLanguageState(stored)
 	}, [])
 
+	useEffect(() => {
+		document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en'
+	}, [language])
+
 	const setLanguage = useCallback((next: Language) => {
 		setLanguageState(next)
 		try {
@@ -32,7 +36,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 		} catch {
 			// The tab still switches when storage is unavailable.
 		}
-		document.documentElement.lang = next === 'zh' ? 'zh-CN' : 'en'
 	}, [])
 
 	const value = useMemo<I18nContextValue>(

@@ -52,6 +52,9 @@ let frame = 0;
 let lastTime = 0;
 let ledgeTimer = 0;
 let reducedMotion = false;
+let ledgeMeasureFrame = 0;
+
+const MAX_SCENE_CANVAS_PIXELS = 8_000_000;
 
 // Piles are keyed by folder id so accumulated snow survives a re-measure (scroll, resize,
 // a card animating in) instead of resetting every time the layout is sampled.
@@ -107,12 +110,21 @@ function measureLedges() {
   ledges = next;
 }
 
+function scheduleMeasureLedges() {
+  if (ledgeMeasureFrame) return;
+  ledgeMeasureFrame = requestAnimationFrame(() => {
+    ledgeMeasureFrame = 0;
+    measureLedges();
+  });
+}
+
 function resize() {
   const element = canvas.value;
   if (!element) return;
-  const ratio = Math.min(2, window.devicePixelRatio || 1);
   const width = window.innerWidth;
   const height = window.innerHeight;
+  const pixelBudgetRatio = Math.sqrt(MAX_SCENE_CANVAS_PIXELS / Math.max(1, width * height));
+  const ratio = Math.min(2, window.devicePixelRatio || 1, pixelBudgetRatio);
   element.width = Math.floor(width * ratio);
   element.height = Math.floor(height * ratio);
   element.style.width = `${width}px`;
@@ -356,7 +368,7 @@ onMounted(() => {
   paused.value = document.visibilityState === 'hidden';
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('resize', resize, { passive: true });
-  window.addEventListener('scroll', measureLedges, { passive: true });
+  window.addEventListener('scroll', scheduleMeasureLedges, { passive: true });
   parallaxEnabled.value = supportsParallax();
   if (parallaxEnabled.value) window.addEventListener('pointermove', onPointerMove, { passive: true });
 
@@ -370,10 +382,11 @@ onBeforeUnmount(() => {
   if (typeof window === 'undefined') return;
   document.removeEventListener('visibilitychange', onVisibilityChange);
   window.removeEventListener('resize', resize);
-  window.removeEventListener('scroll', measureLedges);
+  window.removeEventListener('scroll', scheduleMeasureLedges);
   if (parallaxEnabled.value) window.removeEventListener('pointermove', onPointerMove);
   if (frame) cancelAnimationFrame(frame);
   if (parallaxFrame) cancelAnimationFrame(parallaxFrame);
+  if (ledgeMeasureFrame) cancelAnimationFrame(ledgeMeasureFrame);
 });
 
 watch(() => props.theme?.scene.kind, () => {

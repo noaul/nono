@@ -52,7 +52,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     load().catch((err) => {
-      setMessage(err instanceof ApiError ? err.message : '设置加载失败');
+      setMessage(err instanceof ApiError ? err.message : copy('设置加载失败', 'Failed to load settings'));
       setMessageTone('danger');
       setLoading(false);
     });

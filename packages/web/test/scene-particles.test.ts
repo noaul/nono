@@ -64,6 +64,17 @@ describe('scene particle simulation', () => {
     expect(targetCount('rain', 1280, 800, 0)).toBe(0);
   });
 
+  it('keeps mobile and high-resolution particle counts within a practical budget', () => {
+    const desktop = targetCount('rain', 1280, 800, 1);
+    const mobile = targetCount('rain', 390, 844, 1);
+    const fourK = targetCount('rain', 3840, 2160, 1);
+
+    expect(mobile).toBeLessThan(desktop);
+    expect(mobile).toBeGreaterThanOrEqual(100);
+    expect(fourK).toBeGreaterThan(desktop);
+    expect(fourK).toBeLessThanOrEqual(850);
+  });
+
   it('fills every scene with particles and keeps them on screen', () => {
     for (const kind of KINDS) {
       const field = run(createField(kind, 1280, 800), [], 3);

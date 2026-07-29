@@ -60,7 +60,7 @@ export default function Page() {
 	}
 
 	const handleDelete = (project: Project) => {
-		if (confirm(`确定要删除 ${project.name} 吗？`)) {
+		if (confirm(copy(`确定要删除 ${project.name} 吗？`, `Delete ${project.name}?`))) {
 			setProjects(projects.filter(p => p.url !== project.url))
 		}
 	}

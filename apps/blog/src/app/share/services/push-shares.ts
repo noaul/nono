@@ -20,7 +20,7 @@ export async function pushShares(params: PushSharesParams): Promise<Share[]> {
 	if (blobShares.length > 0) {
 		const missing = blobShares.filter(s => !logoItems?.has(s.url))
 		if (missing.length > 0) {
-			throw new Error(`图标未上传完成：${missing.map(s => s.name).join('、')}`)
+			throw new Error(copy(`图标未上传完成：${missing.map(s => s.name).join('、')}`, `Logo upload did not finish: ${missing.map(s => s.name).join(', ')}`))
 		}
 	}
 

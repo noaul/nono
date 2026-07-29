@@ -176,11 +176,11 @@ const phoneVisualAccents: PhoneVisualAccent[] = [
   { key: 'amber', labelZh: '琥珀', labelEn: 'Amber', primary: '#f59e0b', secondary: '#ef4444', tertiary: '#22c55e', chart: ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#f97316'] }
 ];
 const domainSortOptions = [
-  { value: 'expireDate', label: '到期时间' },
-  { value: 'renewalDate', label: '续费日期' },
-  { value: 'registerDate', label: '注册时间' },
-  { value: 'name', label: '域名' },
-  { value: 'amount', label: '费用' }
+  { value: 'expireDate', labelZh: '到期时间', labelEn: 'Expiry date' },
+  { value: 'renewalDate', labelZh: '续费日期', labelEn: 'Renewal date' },
+  { value: 'registerDate', labelZh: '注册时间', labelEn: 'Registration date' },
+  { value: 'name', labelZh: '域名', labelEn: 'Domain' },
+  { value: 'amount', labelZh: '费用', labelEn: 'Cost' }
 ];
 
 export function AssetPage({ config }: { config: AssetPageConfig }) {
@@ -377,7 +377,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     setLoading(true);
     setError('');
     load().catch((err) => {
-      setError(err instanceof ApiError ? err.message : '加载失败');
+      setError(err instanceof ApiError ? err.message : copy('加载失败', 'Failed to load'));
       setLoading(false);
     });
   }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
@@ -591,7 +591,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setDrawerOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '保存失败');
+      setError(err instanceof ApiError ? err.message : copy('保存失败', 'Failed to save'));
     } finally {
       setSubmitting(false);
     }
@@ -736,17 +736,17 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   ];
 
   const genericColumns: DataTableColumn<AssetItem>[] = [
-    { key: 'name', header: '名称', render: (item) => <span className="font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</span> },
-    { key: 'provider', header: '供应商', render: (item) => <span className="text-slate-500">{getText(item, config.secondaryKey)}</span> },
-    { key: 'amount', header: '金额', align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'cycle', header: '周期', align: 'right', render: (item) => <span className="text-slate-500">{isSubscription && item.purchaseType === 'buyout' ? copy('买断', 'Buyout') : formatCycle(item.billingCycle, language)}</span> },
-    { key: 'days', header: '剩余', align: 'right', render: (item) => {
+    { key: 'name', header: copy('名称', 'Name'), render: (item) => <span className="font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</span> },
+    { key: 'provider', header: copy('供应商', 'Provider'), render: (item) => <span className="text-slate-500">{getText(item, config.secondaryKey)}</span> },
+    { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
+    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{isSubscription && item.purchaseType === 'buyout' ? copy('买断', 'Buyout') : formatCycle(item.billingCycle, language)}</span> },
+    { key: 'days', header: copy('剩余', 'Remaining'), align: 'right', render: (item) => {
       if (isSubscription && item.purchaseType === 'buyout') return <span className="text-slate-400">-</span>;
       const dueDate = String(item[config.dueKey] ?? item.nextDueDate ?? item.expireDate ?? '');
       const left = daysLeft(dueDate || null);
       return <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>;
     } },
-    { key: 'status', header: '状态', align: 'center', render: (item) => <StatusBadge status={item.status} /> },
+    { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {item.renewalUrl && (
@@ -764,7 +764,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     ) }
   ];
   const domainColumns: DataTableColumn<AssetItem>[] = [
-    { key: 'domain', header: '域名', render: (item) => {
+    { key: 'domain', header: copy('域名', 'Domain'), render: (item) => {
       const domainName = getText(item, 'domainName');
       return (
         <div className="min-w-[190px]">
@@ -779,13 +779,13 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         </div>
       );
     } },
-    { key: 'registrar', header: '服务商 / 账号', render: (item) => (
+    { key: 'registrar', header: copy('服务商 / 账号', 'Provider / account'), render: (item) => (
       <div className="min-w-0">
         <span className="text-slate-800 dark:text-slate-200">{getText(item, 'registrar')}</span>
         <p className="mt-1 truncate font-mono text-xs text-slate-500">{stringValue(item.registrarAccount) || '-'}</p>
       </div>
     ) },
-    { key: 'dates', header: '续费 / 到期', align: 'right', render: (item) => {
+    { key: 'dates', header: copy('续费 / 到期', 'Renewal / expiry'), align: 'right', render: (item) => {
       const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
       const left = daysLeft(dueDate || null);
       return (
@@ -795,8 +795,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         </div>
       );
     } },
-    { key: 'amount', header: '费用', align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatDisplayMoney(item)}</span> },
-    { key: 'status', header: '状态', align: 'center', render: (item) => <StatusBadge status={item.status} /> },
+    { key: 'amount', header: copy('费用', 'Cost'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatDisplayMoney(item)}</span> },
+    { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {(() => {
@@ -820,16 +820,16 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           );
         })()}
         {domainLink(item) && (
-          <a href={domainLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title="打开服务商">
+          <a href={domainLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
             <ExternalLink size={14} />
           </a>
         )}
         {dnsProviderLink(item) && dnsProviderLink(item) !== domainLink(item) && (
-          <a href={dnsProviderLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title="打开 DNS">
+          <a href={dnsProviderLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
             <Link2 size={14} />
           </a>
         )}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title="编辑">
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
@@ -964,17 +964,17 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             </select>
           ) : (
             <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">未归档</option>
+              <option value="">{copy('未归档', 'Not archived')}</option>
               {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           )}
           <select className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            <option value="">全部币种</option>
+            <option value="">{copy('全部币种', 'All currencies')}</option>
             {currencies.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
           {!isDomain && (
             <select className={inputClass} value={billingCycle} onChange={(e) => setBillingCycle(e.target.value)}>
-              <option value="">全部周期</option>
+              <option value="">{copy('全部周期', 'All cycles')}</option>
             {cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}
             </select>
           )}
@@ -990,33 +990,33 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
                 ))}
               </select>
               <select className={inputClass} value={domainExtension} onChange={(e) => setDomainExtension(e.target.value)}>
-                <option value="">全部后缀</option>
+                <option value="">{copy('全部后缀', 'All extensions')}</option>
                 {commonDomainExtensions.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
               <select className={inputClass} value={displayCurrency} onChange={(e) => setDisplayCurrency(e.target.value as Currency)}>
                 {currencies.map((value) => <option key={value} value={value}>{copy(`统一 ${value}`, `Total in ${value}`)}</option>)}
               </select>
               <select className={inputClass} value={sort} onChange={(e) => setSort(e.target.value)}>
-                {domainSortOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                {domainSortOptions.map((item) => <option key={item.value} value={item.value}>{language === 'zh' ? item.labelZh : item.labelEn}</option>)}
               </select>
               <IconButton
                 onClick={() => setDirection(direction === 'asc' ? 'desc' : 'asc')}
-                title={direction === 'asc' ? '升序' : '降序'}
+                title={direction === 'asc' ? copy('升序', 'Ascending') : copy('降序', 'Descending')}
               >
                 {direction === 'asc' ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />}
               </IconButton>
             </>
           )}
           <div className="flex gap-1 xl:justify-end">
-            <IconButton onClick={() => setView('card')} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title="卡片">
+            <IconButton onClick={() => setView('card')} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('卡片', 'Cards')}>
               <Grid3X3 size={16} />
             </IconButton>
             {(isDomain || isPhone) && (
-              <IconButton onClick={() => setView('compact')} className={view === 'compact' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title="小卡片">
+              <IconButton onClick={() => setView('compact')} className={view === 'compact' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('小卡片', 'Compact cards')}>
                 <CalendarClock size={16} />
               </IconButton>
             )}
-            <IconButton onClick={() => setView('table')} className={view === 'table' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title="表格">
+            <IconButton onClick={() => setView('table')} className={view === 'table' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('表格', 'Table')}>
               <List size={16} />
             </IconButton>
           </div>
@@ -1056,10 +1056,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
       {meta && !isPhoneVisual && meta.total > pageSize && (
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-ink-900">
-          <span className="text-slate-500">第 {Math.floor(offset / pageSize) + 1} 页，共 {Math.ceil(meta.total / pageSize)} 页</span>
+          <span className="text-slate-500">{copy(`第 ${Math.floor(offset / pageSize) + 1} 页，共 ${Math.ceil(meta.total / pageSize)} 页`, `Page ${Math.floor(offset / pageSize) + 1} of ${Math.ceil(meta.total / pageSize)}`)}</span>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))}>上一页</Button>
-            <Button variant="secondary" size="sm" disabled={offset + pageSize >= meta.total} onClick={() => setOffset(offset + pageSize)}>下一页</Button>
+            <Button variant="secondary" size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))}>{copy('上一页', 'Previous')}</Button>
+            <Button variant="secondary" size="sm" disabled={offset + pageSize >= meta.total} onClick={() => setOffset(offset + pageSize)}>{copy('下一页', 'Next')}</Button>
           </div>
         </div>
       )}
@@ -1081,7 +1081,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <SubscriptionFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} />
           ) : (
             <>
-              <Section title="基础信息">
+              <Section title={copy('基础信息', 'Basic information')}>
                 {config.fields.map((field) => (
                   <Field key={field.key} label={assetLabel(field.label, language)}>
                     {field.type === 'textarea' ? (
@@ -1092,25 +1092,25 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
                   </Field>
                 ))}
               </Section>
-              <Section title="费用信息">
+              <Section title={copy('费用信息', 'Cost information')}>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="金额"><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.amount ?? '')} onChange={(e) => updateForm('amount', e.target.value)} /></Field>
-                  <Field label="币种"><select className={inputClass} value={String(form.currency)} onChange={(e) => updateForm('currency', e.target.value)}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
+                  <Field label={copy('金额', 'Amount')}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.amount ?? '')} onChange={(e) => updateForm('amount', e.target.value)} /></Field>
+                  <Field label={copy('币种', 'Currency')}><select className={inputClass} value={String(form.currency)} onChange={(e) => updateForm('currency', e.target.value)}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="计费周期"><select className={inputClass} value={String(form.billingCycle)} onChange={(e) => updateForm('billingCycle', e.target.value)}>{cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}</select></Field>
-                  <Field label="下次扣费"><input className={inputClass} type="date" value={String(form.nextDueDate ?? '')} onChange={(e) => updateForm('nextDueDate', e.target.value)} /></Field>
+                  <Field label={copy('计费周期', 'Billing cycle')}><select className={inputClass} value={String(form.billingCycle)} onChange={(e) => updateForm('billingCycle', e.target.value)}>{cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}</select></Field>
+                  <Field label={copy('下次扣费', 'Next charge')}><input className={inputClass} type="date" value={String(form.nextDueDate ?? '')} onChange={(e) => updateForm('nextDueDate', e.target.value)} /></Field>
                 </div>
               </Section>
-              <Section title="状态与备注">
+              <Section title={copy('状态与备注', 'Status and notes')}>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="状态"><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-                  <Field label="自动续费"><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
+                  <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
+                  <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
                 </div>
-                <Field label="支付方式"><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
-                <Field label="续费链接"><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>
-                <Field label="标签"><input className={inputClass} value={String(form.tags ?? '')} placeholder="prod, infra, personal" onChange={(e) => updateForm('tags', e.target.value)} /></Field>
-                <Field label="备注"><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.notes ?? '')} onChange={(e) => updateForm('notes', e.target.value)} /></Field>
+                <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
+                <Field label={copy('续费链接', 'Renewal URL')}><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>
+                <Field label={copy('标签', 'Tags')}><input className={inputClass} value={String(form.tags ?? '')} placeholder="prod, infra, personal" onChange={(e) => updateForm('tags', e.target.value)} /></Field>
+                <Field label={copy('备注', 'Notes')}><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.notes ?? '')} onChange={(e) => updateForm('notes', e.target.value)} /></Field>
               </Section>
             </>
           )}
@@ -2156,7 +2156,7 @@ function DomainCardView({
             <h3 className="truncate font-mono text-xl font-semibold tracking-normal text-slate-950 dark:text-white">{domainName}</h3>
             {suffix && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-white/[0.06]">{suffix}</span>}
           </div>
-          <p className="mt-1 truncate text-sm text-slate-500">{registrar || '-'} · {stringValue(item.registrarAccount) || '未记录账号'}</p>
+          <p className="mt-1 truncate text-sm text-slate-500">{registrar || '-'} · {stringValue(item.registrarAccount) || copy('未记录账号', 'No account recorded')}</p>
         </div>
         <StatusBadge status={item.status} />
       </div>
@@ -2178,7 +2178,7 @@ function DomainCardView({
       <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
         <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
           <UserRound size={13} />
-          <span className="truncate">{stringValue(item.dnsProvider) || stringValue(item.purpose) || '未记录 DNS/用途'}</span>
+          <span className="truncate">{stringValue(item.dnsProvider) || stringValue(item.purpose) || copy('未记录 DNS/用途', 'No DNS or purpose recorded')}</span>
         </div>
         <div className="flex shrink-0 justify-end gap-1">
           <button
@@ -2200,16 +2200,16 @@ function DomainCardView({
             {duplicated ? <Check size={14} /> : <Copy className={duplicating ? 'animate-pulse' : ''} size={14} />}
           </button>
           {link && (
-            <a href={link} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title="打开服务商">
+            <a href={link} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
               <ExternalLink size={14} />
             </a>
           )}
           {dnsLink && dnsLink !== link && (
-            <a href={dnsLink} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title="打开 DNS">
+            <a href={dnsLink} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
               <Link2 size={14} />
             </a>
           )}
-          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title="编辑">
+          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
             <Pencil size={14} />
           </button>
           <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
@@ -2501,7 +2501,7 @@ function AssetCardView({
       <div className="mt-5 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${formatCycle(item.billingCycle)} · ${item.autoRenew ? '自动续费' : '手动续费'}`}</p>
+          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${formatCycle(item.billingCycle)} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
         </div>
         {left !== null && (
           <div className={`text-right font-mono text-sm font-semibold ${dueTone(left)}`}>
@@ -2517,11 +2517,11 @@ function AssetCardView({
       )}
       <div className="mt-5 flex justify-end gap-1 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
         {item.renewalUrl && (
-          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title="打开续费链接">
+          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开续费链接', 'Open renewal link')}>
             <ExternalLink size={14} />
           </a>
         )}
-        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title="编辑">
+        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
         <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>

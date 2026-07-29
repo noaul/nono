@@ -155,8 +155,8 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
 
       {mobileOpen && (
         <div className="nomoney-mobile-overlay fixed inset-0 z-50 md:hidden">
-          <button aria-label="关闭" className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 w-72 border-r border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900" role="dialog" aria-modal="true" aria-label="主导航" tabIndex={-1}>
+          <button aria-label={copy('关闭', 'Close')} className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 w-72 border-r border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900" role="dialog" aria-modal="true" aria-label={copy('主导航', 'Main navigation')} tabIndex={-1}>
             <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
@@ -164,7 +164,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
                 </div>
                 <span className="text-sm font-semibold">NoMoney</span>
               </div>
-              <IconButton onClick={() => setMobileOpen(false)} title="关闭">
+              <IconButton onClick={() => setMobileOpen(false)} title={copy('关闭', 'Close')}>
                 <X size={16} />
               </IconButton>
             </div>
@@ -176,7 +176,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
       <div className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/85 px-4 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-ink-950/85 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <button ref={mobileTriggerRef} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label="菜单">
+            <button ref={mobileTriggerRef} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label={copy('菜单', 'Menu')}>
               <Menu size={20} />
             </button>
             <div className="min-w-0">
