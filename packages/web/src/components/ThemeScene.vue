@@ -390,8 +390,9 @@ onBeforeUnmount(() => {
 });
 
 watch(() => props.theme?.scene.kind, () => {
+  resize();
   startField();
-});
+}, { flush: 'post' });
 
 defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
 </script>
