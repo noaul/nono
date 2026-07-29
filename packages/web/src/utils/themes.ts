@@ -3,18 +3,15 @@ import { appearanceDefaults, type AppearanceSettings } from '@/utils/appearance'
 
 export type ThemeTone = 'light' | 'dark';
 export type ThemeSceneKind = 'bubbles' | 'snow' | 'leaves' | 'stars' | 'sunbeams' | 'rain';
-export type ThemeSceneMode = 'texture' | 'particles';
 export type ThemeSceneMotion = 'float' | 'fall' | 'drift' | 'shimmer' | 'breathe' | 'rain';
 
 export type ThemeScene = {
   kind: ThemeSceneKind;
   /** Catalogue key, e.g. 'themes.summerBreeze.scene'; resolved at render time. */
   labelKey: MessageKey;
-  asset: string;
-  mode: ThemeSceneMode;
   motion: ThemeSceneMotion;
+  /** Drives the ambient wash and particle alpha; the background carries no imagery. */
   opacity: number;
-  blendMode: 'normal' | 'multiply' | 'screen' | 'soft-light' | 'overlay';
 };
 
 export type ThemeSurface = {
@@ -60,11 +57,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'bubbles',
       labelKey: 'themes.summerBreeze.scene',
-      asset: '/theme-scenes/summer-bubbles.jpg',
-      mode: 'texture',
       motion: 'float',
       opacity: 0.32,
-      blendMode: 'soft-light',
     },
     appearance: {
       ...appearanceDefaults,
@@ -106,11 +100,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'snow',
       labelKey: 'themes.winterGlow.scene',
-      asset: '/theme-scenes/winter-snowflake.png',
-      mode: 'particles',
       motion: 'fall',
       opacity: 0.44,
-      blendMode: 'screen',
     },
     appearance: {
       ...appearanceDefaults,
@@ -152,11 +143,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'leaves',
       labelKey: 'themes.verdantLeaves.scene',
-      asset: '/theme-scenes/verdant-leaves.jpg',
-      mode: 'texture',
       motion: 'float',
       opacity: 0.3,
-      blendMode: 'soft-light',
     },
     appearance: {
       ...appearanceDefaults,
@@ -198,11 +186,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'stars',
       labelKey: 'themes.starlitNight.scene',
-      asset: '/theme-scenes/starlit-sky.jpg',
-      mode: 'texture',
       motion: 'shimmer',
       opacity: 0.4,
-      blendMode: 'screen',
     },
     appearance: {
       ...appearanceDefaults,
@@ -244,11 +229,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'sunbeams',
       labelKey: 'themes.clearDay.scene',
-      asset: '/theme-scenes/clear-sunbeams.jpg',
-      mode: 'texture',
       motion: 'breathe',
       opacity: 0.34,
-      blendMode: 'soft-light',
     },
     appearance: {
       ...appearanceDefaults,
@@ -290,11 +272,8 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     scene: {
       kind: 'rain',
       labelKey: 'themes.rainyWorld.scene',
-      asset: '/theme-scenes/rain-window.jpg',
-      mode: 'texture',
       motion: 'rain',
       opacity: 0.32,
-      blendMode: 'soft-light',
     },
     appearance: {
       ...appearanceDefaults,

@@ -1266,7 +1266,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <nav ref="tabsRef" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing }" aria-label="notab">
+          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing }" aria-label="notab">
             <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
             <span
               v-for="tab in categoryTabs"

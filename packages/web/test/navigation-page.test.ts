@@ -236,7 +236,9 @@ describe('NavigationPage public workflow', () => {
     expect(page.attributes('style')).toContain('--public-hover-rgb:');
     expect(scene.attributes('data-scene')).toBe('leaves');
     expect(scene.attributes('aria-hidden')).toBe('true');
-    expect(scene.findAll('img').length).toBeGreaterThan(0);
+    // The scene carries no background imagery; the canvas is the whole effect.
+    expect(scene.findAll('img')).toHaveLength(0);
+    expect(scene.find('[data-testid="scene-canvas"]').exists()).toBe(true);
   });
 
   it('scales the scene by the persisted intensity dial and hides it entirely at zero', async () => {
@@ -250,15 +252,9 @@ describe('NavigationPage public workflow', () => {
     // starlit-night ships opacity 0.4; a 50% dial halves it and thins the particle field.
     expect(scene.attributes('style')).toContain('--theme-scene-opacity: 0.2');
     expect(scene.attributes('style')).toContain('--theme-particle-alpha: 0.68');
-    const halfCount = scene.findAll('.scene-particle').length;
-
-    apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 100 },
-    }));
-    const fullWrapper = await mountNavigationPage();
-    const fullCount = fullWrapper.get('[data-testid="theme-scene"]').findAll('.scene-particle').length;
-    expect(halfCount).toBeGreaterThan(0);
-    expect(halfCount).toBeLessThan(fullCount);
+    // Particles live on a canvas now; the dial's effect on field size is covered by the
+    // sceneParticles unit tests, so here we only assert the canvas is mounted and scaled.
+    expect(scene.find('[data-testid="scene-canvas"]').exists()).toBe(true);
 
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 0 },
@@ -273,16 +269,18 @@ describe('NavigationPage public workflow', () => {
     expect(source).toContain('pointer-events: none');
     expect(source).toContain('@media (prefers-reduced-motion: reduce)');
     expect(source).toContain('@media (max-width: 640px)');
-    expect(source).toContain('class="scene-particle"');
-    expect(source).not.toContain('class="scene-particle"\n        :src="theme.scene.asset"');
-    expect(source).toContain("[data-scene='snow'] .scene-particle::before");
-    expect(source).toContain("[data-scene='rain'] .scene-particle");
+    // The background is deliberately still: nothing in the scene uses keyframes any more,
+    // and the particles are simulated onto a canvas instead of being DOM nodes.
+    expect(source).not.toMatch(/@keyframes/);
+    expect(source).toContain('data-testid="scene-canvas"');
     // Battery + depth contracts: pause off-screen, parallax only for fine pointers.
     expect(source).toContain('visibilitychange');
     expect(source).toContain('is-paused');
     expect(source).toContain('scene-parallax');
     expect(source).toContain("matchMedia('(hover: hover) and (pointer: fine)')");
     expect(source).toContain('animation-play-state: paused');
+    // Reduced motion never starts the simulation.
+    expect(source).toContain('if (!reducedMotion) frame = requestAnimationFrame(render)');
   });
 
   it('shows the public background image immediately while keeping preload hints', async () => {

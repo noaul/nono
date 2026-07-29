@@ -1,28 +1,41 @@
-# Theme scene assets
+# Theme scenes
 
-The public navigation themes use local copies of the following CC0 images. Openverse identifiers are retained so each source can be audited independently of the upstream CDN.
+The public navigation themes no longer ship background imagery. Each theme is a colour
+palette plus a particle scene; the page background is the theme's own colour with one soft
+vertical wash over it, so nothing competes with the content.
 
-| Local file | Theme | Openverse ID | Source | License |
-| --- | --- | --- | --- | --- |
-| `summer-bubbles.jpg` | Summer Breeze | `6f538031-6ede-4fb5-a3c1-48c5a94b3268` | [Water bubbles floating underwater](https://openverse.org/image/6f538031-6ede-4fb5-a3c1-48c5a94b3268) | CC0 1.0 |
-| `winter-snowflake.png` | Winter Glow | `89c80529-a3b9-47b1-b939-158da30f2987` | [Snowflake transparent PNG](https://openverse.org/image/89c80529-a3b9-47b1-b939-158da30f2987) | CC0 1.0 |
-| `verdant-leaves.jpg` | Verdant Leaves | `b49590b1-d6f8-4d6b-ab30-fe2bfeac7429` | [Sunlight on Green Ivy Leaves](https://openverse.org/image/b49590b1-d6f8-4d6b-ab30-fe2bfeac7429) | CC0 1.0 |
-| `starlit-sky.jpg` | Starlit Night | `0c2c3228-2e9f-47e8-845a-b2b2b67fb825` | [Milky Way Galaxy in Star Filled Night Sky](https://openverse.org/image/0c2c3228-2e9f-47e8-845a-b2b2b67fb825) | CC0 1.0 |
-| `clear-sunbeams.jpg` | Clear Day | `5f1dc6bb-7a41-4657-a512-dfafddfee862` | [Crepuscular rays over pine forest](https://openverse.org/image/5f1dc6bb-7a41-4657-a512-dfafddfee862) | CC0 1.0 |
-| `rain-window.jpg` | Rainy World | `75352819-64f2-4b74-944b-944493fac893` | [Rain droplets window background](https://openverse.org/image/75352819-64f2-4b74-944b-944493fac893) | CC0 1.0 |
-
-The files are served from `/theme-scenes/` and are intentionally kept near 1024 px. Raster files are low-opacity environment textures only. Bubbles, snowflakes, leaves, stars, sun dust, rain lines, ripples, god rays, and glass droplets are generated as transparent CSS shapes, so falling elements never carry a rectangular image background.
+The CC0 photographs that used to sit behind the scenes (`public/theme-scenes/*`) were removed
+along with the `optimize:scenes` script that generated their WebP variants. Nothing references
+them any more; recover them from git history if a background is ever wanted again.
 
 ## Scene motion
 
-`ThemeScene.vue` builds the field from a deterministic hash noise, so the layout is identical on the server, in the browser, and in tests. Each particle carries a `depth` in 0–1 that drives its size, brightness, and travel speed, so near and far layers separate instead of moving as one sheet. Motion is split across three clocks that never line up:
+`src/utils/sceneParticles.ts` holds the whole simulation and has no DOM dependency, which is
+what makes the physics unit-testable (`test/scene-particles.test.ts`). `ThemeScene.vue` owns
+rendering: it sizes a canvas, samples collision surfaces from the page, and steps the field on
+`requestAnimationFrame`.
 
-- the span travels (fall / rise / twinkle) on `--scene-duration`;
-- its `::before` sways, wobbles, or flutters on an unrelated `--scene-sway-duration`;
-- `.scene-wind` gusts the whole field together for snow, leaves, and rain, and drifts the sky for stars.
+**Weather evolves.** `intensityEnvelope` combines two incommensurable periods, so rainfall
+builds to a downpour and eases to a drizzle without repeating on an obvious cycle.
+`sizeEnvelope` drifts particle size on its own period, so a squall brings visibly fatter drops.
 
-Behind the field, `.scene-atmosphere` and `.scene-aura` run the same light at two different speeds, and `.scene-vignette` tints the edges with the theme's own overlay colour. Pointer parallax moves the texture and the particle field in opposite directions for depth.
+**Particles collide with the interface.** Collision surfaces come from anything carrying
+`data-folder-card-id` or `data-scene-collider-id` — folder cards and the tab strip today.
+Surfaces are measured about four times a second and keyed by id, so a drift survives scrolling
+and re-layout instead of resetting.
 
-Contrast is deliberate: on the light themes white-on-white particles disappear, so bubbles carry an accent-tinted rim and shadow, rain draws a dark body with a bright head, and god rays use a warm amber wash rather than a `screen` blend (which collapses to white on a light page).
+Per scene:
 
-Scene layers ignore pointer input, thin out on mobile, pause entirely in hidden tabs, and stop animating when `prefers-reduced-motion` is enabled.
+- **rain** splashes. Impact energy scales with speed and size, and the spray fans to both sides.
+- **snow** accumulates as a depth field per surface. `relaxPile` compacts it and slumps steep
+  columns into their neighbours, so it settles into rounded banks rather than spikes.
+- **leaves** come to rest as individual leaves, lying flatter than they fell, capped per surface
+  so the oldest is blown off as new ones land.
+- **bubbles**, **stars**, and **sunbeams** pass through: nothing lands.
+
+Shared behaviour: a fast landing bounces before it settles, a particle touching down within
+`EDGE_SLIP` of a lip slides off instead of balancing on the corner, and a particle that clips
+the flank of a card is deflected clear of it.
+
+Scene layers ignore pointer input, thin out on mobile, pause entirely in hidden tabs, and skip
+the simulation altogether when `prefers-reduced-motion` is set.

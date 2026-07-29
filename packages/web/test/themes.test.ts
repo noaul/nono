@@ -40,7 +40,8 @@ describe('public themes', () => {
       expect(theme.surface.hover).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.surface.shadow).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.surface.overlay).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(theme.scene.asset).toMatch(/^\/theme-scenes\/.+\.(?:png|jpg|webp)$/);
+      // Scenes carry no background imagery any more: particles are the whole effect.
+      expect(theme.scene).not.toHaveProperty('asset');
       // Every catalogue key must resolve in both locales, never echo back as the key itself.
       for (const locale of ['zh', 'en'] as const) {
         for (const key of [theme.nameKey, theme.descriptionKey, theme.scene.labelKey]) {
