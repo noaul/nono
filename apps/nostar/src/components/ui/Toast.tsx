@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { copy } from '../../i18n';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -70,8 +71,8 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration =
         <p className="text-sm text-gray-900 dark:text-text-primary whitespace-pre-line">{message}</p>
         <button
           onClick={onClose}
-          aria-label="关闭通知"
-          title="关闭通知"
+          aria-label={copy('关闭通知', 'Dismiss notification')}
+          title={copy('关闭通知', 'Dismiss notification')}
           className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
         >
           <X className="w-4 h-4 text-gray-400 dark:text-text-tertiary" aria-hidden="true" />

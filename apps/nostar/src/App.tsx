@@ -4,6 +4,7 @@ import { DebugModeIndicator } from './components/DebugModeIndicator';
 import { BackToTop } from './components/BackToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppStore } from './store/useAppStore';
+import { copy } from './i18n';
 import { useAutoUpdateCheck } from './hooks/useAutoUpdateCheck';
 import { logger } from './services/logger';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
@@ -169,7 +170,7 @@ function App() {
           className="rounded-lg bg-brand-indigo px-4 py-2 font-medium text-white"
           onClick={() => window.location.reload()}
         >
-          重新连接
+          {copy('重新连接', 'Reconnect')}
         </button>
       </div>
     );
