@@ -245,7 +245,7 @@ onUnmounted(() => {
         <Maximize2 :size="16" />
       </button>
     </header>
-    <div v-if="folder.locked" class="large-links folder-glass-panel locked">
+    <div v-if="folder.locked" class="large-links folder-glass-panel locked" :data-scene-collider-id="`folder-panel-${folder.id}`">
       <div class="lock-illustration">
         <Lock :size="28" />
       </div>
@@ -255,6 +255,7 @@ onUnmounted(() => {
       v-else
       class="large-links folder-glass-panel"
       :class="{ 'is-scrollable': (folder.links || []).length > 15, 'is-drop-target': props.dropActive }"
+      :data-scene-collider-id="`folder-panel-${folder.id}`"
       :data-drop-folder-id="folder.id"
       :data-testid="`bookmark-drop-folder-${folder.id}`"
     >

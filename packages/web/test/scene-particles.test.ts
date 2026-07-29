@@ -5,10 +5,13 @@ import {
   createField,
   createLedge,
   createRandom,
+  energyAfterPass,
   findLedgeHit,
   findSideHit,
   intensityEnvelope,
+  MAX_DROPLETS,
   relaxPile,
+  retainChance,
   settlesOnLedges,
   sizeEnvelope,
   splashesOnLedges,
@@ -230,6 +233,82 @@ describe('scene particle simulation', () => {
     // Spray fans out to both sides rather than all going one way.
     expect(field.bursts.some((burst) => burst.vx > 0)).toBe(true);
     expect(field.bursts.some((burst) => burst.vx < 0)).toBe(true);
+  });
+
+  it('lets rain through a border instead of treating the first row as a ceiling', () => {
+    const top = createLedge('row-1', 0, 200, 1280, 150);
+    const bottom = createLedge('row-2', 0, 500, 1280, 150);
+    const field = run(createField('rain', 1280, 800), [top, bottom], 6);
+
+    // Drops that passed the first border are still falling, and some reached the second.
+    expect(field.particles.some((particle) => particle.passes >= 1)).toBe(true);
+    expect(field.particles.some((particle) => particle.y > top.y)).toBe(true);
+    expect(top.droplets.length + bottom.droplets.length).toBeGreaterThan(0);
+  });
+
+  it('makes a drop likelier to be caught the more layers it has crossed', () => {
+    expect(retainChance(0)).toBeLessThan(retainChance(1));
+    expect(retainChance(1)).toBeLessThan(retainChance(3));
+    // Never certain, so rain can always reach a lower row.
+    expect(retainChance(99)).toBeLessThan(1);
+    expect(retainChance(0)).toBeGreaterThan(0);
+  });
+
+  it('costs a drop size and speed on every layer it crosses', () => {
+    const drained = energyAfterPass(20, 1200);
+    expect(drained.size).toBeLessThan(20);
+    expect(drained.vy).toBeLessThan(1200);
+    expect(drained.vy).toBeGreaterThan(0);
+  });
+
+  it('never keeps held water permanently', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(4);
+    for (let index = 0; index < 300; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 1, random });
+    }
+    const held = ledge.droplets.length;
+    expect(held).toBeLessThanOrEqual(MAX_DROPLETS);
+
+    // With the rain switched off every drop on the border clears within its lifetime.
+    for (let index = 0; index < 240; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 0, random });
+    }
+    expect(ledge.droplets.length).toBe(0);
+  });
+
+  it('sends run-off downward as a smaller drop below the panel', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    ledge.droplets.push({ x: 300, size: 3, age: 0, life: 0.05, fate: 'runoff' });
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(6);
+
+    stepField(field, { delta: 0.1, ledges: [ledge], intensity: 0, random });
+
+    const below = field.particles.filter((particle) => particle.y > ledge.y + ledge.height);
+    expect(below.length).toBeGreaterThan(0);
+    // It resumes as a spent drop, not a fresh one.
+    expect(below[0].passes).toBeGreaterThan(0);
+    expect(ledge.droplets).toHaveLength(0);
+  });
+
+  it('absorbs a drop once it has no energy left', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(8);
+    const drop = spawnParticle(field, random, true);
+    drop.size = 1;
+    drop.x = 300;
+    drop.y = 299;
+    drop.vy = 900;
+    field.particles.push(drop);
+
+    stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 0, random });
+
+    // A spent drop is always held rather than punching through again.
+    expect(field.particles).not.toContain(drop);
+    expect(ledge.droplets.length).toBe(1);
   });
 
   it('floats bubbles upward', () => {

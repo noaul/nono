@@ -15,6 +15,18 @@ export type RestedItem = {
   variant: number;
 };
 
+/**
+ * Water sitting on a panel's top border. It never stays: it either evaporates or runs off the
+ * edge and carries on downward as a smaller drop.
+ */
+export type SurfaceDroplet = {
+  x: number;
+  size: number;
+  age: number;
+  life: number;
+  fate: 'evaporate' | 'runoff';
+};
+
 export type Ledge = {
   id: string;
   x: number;
@@ -26,6 +38,8 @@ export type Ledge = {
   piles: Float32Array;
   /** Individual settled leaves; a ridge would not read as foliage. */
   rested: RestedItem[];
+  /** Rain held on the border for a moment before it evaporates or runs off. */
+  droplets: SurfaceDroplet[];
 };
 
 export type Particle = {
@@ -43,6 +57,8 @@ export type Particle = {
   /** Seconds before the particle is recycled. Infinity for endless fields like stars. */
   life: number;
   variant: number;
+  /** Layers already passed through; drives energy loss for rain. */
+  passes: number;
 };
 
 /** A short-lived splash or pop, spawned when a particle hits something. */
@@ -184,6 +200,7 @@ export function spawnParticle(field: Field, random: () => number, initial = fals
     age: initial ? random() * 4 : 0,
     life: kind === 'stars' ? Infinity : 60,
     variant: Math.floor(random() * 4),
+    passes: 0,
   };
 }
 
@@ -206,6 +223,26 @@ export function addToPile(ledge: Ledge, x: number, amount: number, max: number):
 
 /** Within this distance of an edge a particle slips off instead of balancing on the corner. */
 export const EDGE_SLIP = 7;
+
+/** At most this much water is held on one border at a time. */
+export const MAX_DROPLETS = 10;
+
+/** Below this a drop has spent its energy and is absorbed rather than passing on again. */
+const MIN_RAIN_SIZE = 4;
+
+/**
+ * Odds a drop is held by the border it hits rather than passing through. Rises with each
+ * layer already crossed, so a drop that has lost energy is likelier to be caught — which is
+ * what keeps lower rows lit without the top row acting as a ceiling.
+ */
+export function retainChance(passes: number): number {
+  return Math.min(0.72, 0.3 + passes * 0.16);
+}
+
+/** Each crossing costs size and speed. */
+export function energyAfterPass(size: number, vy: number): { size: number; vy: number } {
+  return { size: size * 0.78, vy: vy * 0.86 };
+}
 
 /** Impact speed above which a particle bounces before it settles. */
 const BOUNCE_SPEED: Record<SceneKind, number> = {
@@ -324,6 +361,33 @@ export function stepField(field: Field, options: StepOptions): Field {
             size: 0.9 + random() * 1.5,
           });
         }
+
+        // A border either holds the drop for a moment or lets it through. Without this the
+        // first row of folders would be an impermeable ceiling and nothing below would rain.
+        const spent = particle.size <= MIN_RAIN_SIZE;
+        if (spent || random() < retainChance(particle.passes)) {
+          if (hit.droplets.length < MAX_DROPLETS) {
+            hit.droplets.push({
+              x: particle.x,
+              size: Math.min(3.4, 1.4 + particle.size * 0.09),
+              age: 0,
+              life: 0.5 + random() * 1.5,
+              // Some of the held water runs off the edge and keeps falling.
+              fate: random() < 0.45 ? 'runoff' : 'evaporate',
+            });
+          }
+          continue;
+        }
+
+        // Passes through, poorer for it, and resumes below the border so it cannot
+        // immediately re-collide with the same surface.
+        const drained = energyAfterPass(particle.size, particle.vy);
+        particle.size = drained.size;
+        particle.vy = drained.vy;
+        particle.passes += 1;
+        particle.y = surfaceY + 1.5;
+        particle.x += (random() - 0.5) * 6;
+        survivors.push(particle);
         continue;
       }
 
@@ -377,6 +441,37 @@ export function stepField(field: Field, options: StepOptions): Field {
     field.particles.length = wanted;
   }
 
+  // Held water is always temporary: it evaporates, or runs off the bottom of the panel and
+  // carries on downward as a smaller drop.
+  if (kind === 'rain') {
+    for (const ledge of ledges) {
+      if (!ledge.droplets.length) continue;
+      ledge.droplets = ledge.droplets.filter((droplet) => {
+        droplet.age += delta;
+        // Beading water creeps toward the nearer edge while it sits.
+        droplet.x += (droplet.x < ledge.x + ledge.width / 2 ? -4 : 4) * delta;
+        if (droplet.age < droplet.life) return true;
+        if (droplet.fate === 'runoff') {
+          field.particles.push({
+            x: droplet.x,
+            y: ledge.y + ledge.height + 2,
+            vx: -20 - random() * 30,
+            vy: 260 + random() * 160,
+            size: MIN_RAIN_SIZE + random() * 3,
+            depth: 0.35 + random() * 0.3,
+            rotation: 0,
+            spin: 0,
+            age: 0,
+            life: 20,
+            variant: 0,
+            passes: 2,
+          });
+        }
+        return false;
+      });
+    }
+  }
+
   field.bursts = field.bursts.filter((burst) => {
     burst.age += delta;
     burst.vy += 900 * delta;
@@ -425,6 +520,7 @@ export function createLedge(id: string, x: number, y: number, width: number, hei
     height,
     piles: new Float32Array(Math.max(1, Math.ceil(width / PILE_BUCKET))),
     rested: [],
+    droplets: [],
   };
 }
 

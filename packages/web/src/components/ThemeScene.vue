@@ -62,11 +62,11 @@ const ledgeCache = new Map<string, Ledge>();
 let ledges: Ledge[] = [];
 
 /**
- * Everything the weather can land on. Folder cards are the main event, but the search bar and
- * the tab strip catch snow and leaves too, which is what makes the scene feel attached to the
- * page rather than painted behind it.
+ * Everything the weather can land on. Deliberately NOT the folder card root: its top edge is
+ * the floating title, so colliding there would pile weather above the folder label. The
+ * marker sits on the glass content panel instead, plus the tab strip.
  */
-const COLLIDER_SELECTOR = '[data-folder-card-id], [data-scene-collider-id]';
+const COLLIDER_SELECTOR = '[data-scene-collider-id]';
 
 const PALETTE: Record<SceneKind, { body: string; accent: string; glow: string }> = {
   rain: { body: 'rgba(92, 128, 138, 0.55)', accent: 'rgba(242, 253, 255, 0.95)', glow: 'rgba(226, 248, 250, 0.7)' },
@@ -89,7 +89,7 @@ function measureLedges() {
   for (const element of document.querySelectorAll<HTMLElement>(COLLIDER_SELECTOR)) {
     const rect = element.getBoundingClientRect();
     if (rect.width < 40 || rect.bottom < 0 || rect.top > window.innerHeight) continue;
-    const id = element.dataset.folderCardId || element.dataset.sceneColliderId || '';
+    const id = element.dataset.sceneColliderId || '';
     if (!id) continue;
     seen.add(id);
     const cached = ledgeCache.get(id);
@@ -139,8 +139,25 @@ function resize() {
 }
 
 function drawPiles(ctx: CanvasRenderingContext2D, kind: SceneKind) {
-  if (!settlesOnLedges(kind)) return;
   const palette = PALETTE[kind];
+
+  if (kind === 'rain') {
+    // Water beaded on a panel's top border, fading as it evaporates or runs off.
+    for (const ledge of ledges) {
+      for (const droplet of ledge.droplets) {
+        const remaining = 1 - droplet.age / droplet.life;
+        ctx.globalAlpha = Math.max(0, remaining) * 0.75;
+        ctx.fillStyle = palette.accent;
+        ctx.beginPath();
+        ctx.ellipse(droplet.x, ledge.y - droplet.size * 0.35, droplet.size, droplet.size * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  if (!settlesOnLedges(kind)) return;
 
   if (kind === 'leaves') {
     // Leaves rest as leaves; a filled ridge would read as a green bar, not foliage.
@@ -196,16 +213,18 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
 
   if (kind === 'rain') {
     // Streaks are drawn along the velocity vector, so wind visibly slants the rain.
+    // Each layer crossed costs opacity as well as size, so deeper rain reads as spent.
+    const spent = 1 / (1 + particle.passes * 0.45);
     const speed = Math.hypot(particle.vx, particle.vy) || 1;
     const length = particle.size;
     ctx.strokeStyle = palette.body;
     ctx.lineWidth = 0.7 + particle.depth * 1.1;
-    ctx.globalAlpha = fade;
+    ctx.globalAlpha = fade * spent;
     ctx.beginPath();
     ctx.moveTo(particle.x, particle.y);
     ctx.lineTo(particle.x - (particle.vx / speed) * length, particle.y - (particle.vy / speed) * length);
     ctx.stroke();
-    ctx.globalAlpha = fade * 0.9;
+    ctx.globalAlpha = fade * spent * 0.9;
     ctx.fillStyle = palette.accent;
     ctx.fillRect(particle.x - 0.6, particle.y - 1.6, 1.2 + particle.depth, 1.8);
     return;
