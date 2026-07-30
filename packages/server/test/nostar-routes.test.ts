@@ -215,6 +215,44 @@ describe('NoStar routes', () => {
     );
   });
 
+  it('keeps WebDAV requests on the configured origin', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/webdav',
+      headers: { cookie: readerCookie },
+      payload: { configId: 'webdav-1', method: 'GET', path: 'https://attacker.example/collect' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('INVALID_WEBDAV_PATH');
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
+  it('does not let bearer tokens use stored WebDAV credentials', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+    const tokenResponse = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie: readerCookie },
+      payload: { name: 'Full automation', scopes: ['*'] },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/webdav',
+      headers: { authorization: `Bearer ${tokenResponse.json().data.token}` },
+      payload: { configId: 'webdav-1', method: 'GET', path: '/backup/' },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().code).toBe('SECRET_USE_FORBIDDEN');
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
   it('does not echo upstream AI response bodies from connection tests', async () => {
     const adminCookie = await setupAdmin();
     safeRequester.mockResolvedValueOnce({

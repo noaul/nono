@@ -403,7 +403,8 @@ export function stepField(field: Field, options: StepOptions): Field {
   const { delta, ledges, intensity, random } = options;
   const tuning = resolveTuning(options.tuning);
   const { kind } = field;
-  field.time += delta;
+  const ambientDelta = delta * tuning.speed;
+  field.time += ambientDelta;
 
   const weather = intensityEnvelope(field.time);
   const wanted = targetCount(kind, field.width, field.height, intensity * weather);
@@ -411,7 +412,7 @@ export function stepField(field: Field, options: StepOptions): Field {
 
   const survivors: Particle[] = [];
   for (const particle of field.particles) {
-    particle.age += delta;
+    particle.age += kind === 'bubbles' || kind === 'sunbeams' || kind === 'stars' ? ambientDelta : delta;
 
     if (kind === 'stars') {
       // Stars hold position; only their twinkle phase advances.
@@ -422,7 +423,8 @@ export function stepField(field: Field, options: StepOptions): Field {
     const previousY = particle.y;
     const previousX = particle.x;
 
-    // Leaves ride the wind and tumble, snow wanders gently, rain falls almost straight.
+    // Leaves ride the wind, snow wanders gently, and rain/bubbles still answer the same site
+    // wind controls instead of keeping their hard-coded spawn direction forever.
     if (kind === 'leaves') {
       const wind = tunedWind(field.time, tuning);
       const gust = gustStrength(field.time) * tuning.wind;
@@ -457,15 +459,20 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.vy -= gust * response * particle.driftBias * 34 * delta;
       particle.rotation += particle.spin * (1 + gust * 1.8) * delta;
     } else if (kind === 'bubbles') {
+      const wind = tunedWind(field.time, tuning) * 0.55;
+      particle.vx += (wind - particle.vx) * Math.min(1, (0.8 + particle.depth) * ambientDelta);
       particle.vx += Math.sin(particle.age * 2.1 + particle.depth * 4) * 14 * delta;
     }
 
     if (kind === 'rain') {
+      const wind = tunedWind(field.time, tuning);
+      particle.vx += (wind - particle.vx) * Math.min(1, (1.8 + particle.depth) * delta);
       particle.vy = Math.min(RAIN_TERMINAL * tuning.speed, particle.vy + 2600 * tuning.speed * delta);
     }
 
-    particle.x += particle.vx * delta;
-    particle.y += particle.vy * delta;
+    const motionDelta = kind === 'bubbles' || kind === 'sunbeams' ? ambientDelta : delta;
+    particle.x += particle.vx * motionDelta;
+    particle.y += particle.vy * motionDelta;
 
     if (splashes) {
       // Flanks first: a drop brushing the side of a card is pushed clear of it.
@@ -497,7 +504,7 @@ export function stepField(field: Field, options: StepOptions): Field {
         // A border either holds the drop for a moment or lets it through. Without this the
         // first row of folders would be an impermeable ceiling and nothing below would rain.
         const spent = particle.size <= MIN_RAIN_SIZE;
-        if (spent || random() < retainChance(particle.passes) * tuning.collision) {
+        if (tuning.collision > 0 && (spent || random() < retainChance(particle.passes) * tuning.collision)) {
           if (hit.beads.length < MAX_DROPLETS) {
             hit.beads.push({
               x: particle.x,

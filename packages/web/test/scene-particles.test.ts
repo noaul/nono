@@ -871,6 +871,29 @@ describe('per-site scene tuning', () => {
     expect(meanFall(fast)).toBeGreaterThan(meanFall(slow) * 1.5);
   });
 
+  it('applies the speed dial to bubbles, dust, and star animation time', () => {
+    for (const kind of ['bubbles', 'sunbeams'] as const) {
+      const slow = drift(kind, { speed: 0.25, wind: 0 }, 3);
+      const fast = drift(kind, { speed: 2, wind: 0 }, 3);
+      expect(fast.particles[0].y).not.toBeCloseTo(slow.particles[0].y, 4);
+    }
+    expect(drift('stars', { speed: 2 }, 3).time).toBeGreaterThan(
+      drift('stars', { speed: 0.25 }, 3).time * 4,
+    );
+  });
+
+  it('applies wind strength and direction to rain and bubbles', () => {
+    const calmRain = drift('rain', { wind: 0 }, 3);
+    const rightRain = drift('rain', { wind: 1, windDirection: 1 }, 3);
+    const meanX = (field: typeof calmRain) => field.particles.reduce((sum, particle) => sum + particle.vx, 0) / field.particles.length;
+    expect(meanX(rightRain)).toBeGreaterThan(meanX(calmRain) + 40);
+
+    const calmBubbles = drift('bubbles', { wind: 0 }, 3);
+    const windyBubbles = drift('bubbles', { wind: 2 }, 3);
+    const meanAbsX = (field: typeof calmBubbles) => field.particles.reduce((sum, particle) => sum + Math.abs(particle.vx), 0) / field.particles.length;
+    expect(meanAbsX(windyBubbles)).toBeGreaterThan(meanAbsX(calmBubbles) * 1.2);
+  });
+
   it('flattens the depth spread at zero and widens it above one', () => {
     const flat = drift('snow', { depth: 0 }, 8);
     const deep = drift('snow', { depth: 1.5 }, 8);
@@ -883,18 +906,18 @@ describe('per-site scene tuning', () => {
   });
 
   it('lets every drop through at zero collision', () => {
-    const ledge = createLedge('panel', 0, 300, 1280, 140);
+    const ledges = Array.from({ length: 5 }, (_, index) => createLedge(`panel-${index}`, 0, 140 + index * 120, 1280, 80));
     const field = createField('rain', 1280, 800);
     const random = createRandom(29);
-    for (let index = 0; index < 60 * 6; index += 1) {
-      stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 1, random, tuning: { collision: 0 } });
+    for (let index = 0; index < 60 * 8; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges, intensity: 1, random, tuning: { collision: 0 } });
     }
 
     // Nothing is ever held, so no water beads and nothing hangs from the eave.
-    expect(ledge.beads).toHaveLength(0);
-    expect(ledge.hanging).toHaveLength(0);
+    expect(ledges.every((ledge) => ledge.beads.length === 0)).toBe(true);
+    expect(ledges.every((ledge) => ledge.hanging.length === 0)).toBe(true);
     // Rain still reaches below the panel.
-    expect(field.particles.some((drop) => drop.y > ledge.y)).toBe(true);
+    expect(field.particles.some((drop) => drop.y > ledges.at(-1)!.y)).toBe(true);
   });
 
   it('scales the splash without suppressing the impact entirely', () => {

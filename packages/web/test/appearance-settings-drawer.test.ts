@@ -104,6 +104,27 @@ describe('AppearanceSettingsDrawer', () => {
     expect(wrapper.get('[data-testid="save-appearance-preset-button"]').attributes('disabled')).toBeDefined();
   });
 
+  it('restores scene intensity from a saved user preset', async () => {
+    const savedSite = {
+      ...site,
+      settings: {
+        ...site.settings,
+        appearancePresets: [{
+          id: 'quiet-rain',
+          name: '小雨',
+          appearance: {},
+          theme: { id: 'rainy-world', accent: '#367c87', sceneIntensity: 35 },
+          backgroundColor: '#c7d4d2',
+          fontColor: '#172d31',
+        }],
+      },
+    };
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site: savedSite } });
+
+    await wrapper.get('.user-preset-apply').trigger('click');
+    expect((wrapper.get('[data-testid="scene-intensity"]').element as HTMLInputElement).value).toBe('35');
+  });
+
   it('prevents horizontal drawer scrolling and gives text controls responsive width', () => {
     const drawerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
     const editorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/AppearanceEditor.vue'), 'utf8');
@@ -158,6 +179,10 @@ describe('appearance header actions', () => {
     // Saving re-establishes the baseline, so the drawer is clean and Save is inert again.
     expect(wrapper.find('[data-testid="appearance-unsaved"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="appearance-save"]').attributes('disabled')).toBeDefined();
+
+    await wrapper.get('[data-testid="control-folderColumns"] input[type="range"]').setValue('5');
+    expect(wrapper.get('.drawer-header').text()).not.toContain('外观已保存');
+    expect(wrapper.get('[data-testid="appearance-unsaved"]').text()).toBe('有未保存的改动');
   });
 
   it('asks before closing with unsaved changes and respects the answer', async () => {
@@ -312,6 +337,24 @@ describe('schema-driven appearance editor', () => {
     await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
     expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="control-sceneSplash"]').exists()).toBe(true);
+  });
+
+  it('resets hidden scene-specific values when resetting the scene group', async () => {
+    const wrapper = mountDrawer();
+    await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
+    await wrapper.get('[data-testid="appearance-advanced-scene"]').trigger('click');
+    await rangeOf(wrapper, 'sceneCollision').setValue('50');
+
+    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
+    await wrapper.get('[data-testid="appearance-reset-scene"]').trigger('click');
+    await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
+
+    expect(rangeValue(wrapper, 'sceneCollision')).toBe('100');
+  });
+
+  it('wires the folder title gap setting to the folder component', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
+    expect(source).toMatch(/gap:\s*var\(--public-folder-title-gap,\s*\d+px\)/);
   });
 
   it('saves every new setting group in the payload', async () => {

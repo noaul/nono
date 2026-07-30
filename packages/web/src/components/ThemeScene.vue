@@ -61,7 +61,8 @@ const modeMultiplier = computed(() => {
 const visibleParticles = ref(0);
 
 const sceneStyle = computed<Record<string, string>>(() => {
-  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value * modeMultiplier.value;
+  const enabled = props.tuning?.enabled === false ? 0 : 1;
+  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value * modeMultiplier.value * enabled;
   return {
     '--theme-scene-opacity': String(opacity),
     '--theme-scene-mobile-opacity': String(opacity * 0.72),
@@ -81,7 +82,8 @@ let random = createRandom(1);
 let frame = 0;
 let lastTime = 0;
 let ledgeTimer = 0;
-let reducedMotion = false;
+const reducedMotion = ref(false);
+let mounted = false;
 let ledgeMeasureFrame = 0;
 
 const MAX_SCENE_CANVAS_PIXELS = 8_000_000;
@@ -375,6 +377,25 @@ function onVisibilityChange() {
   paused.value = document.visibilityState === 'hidden';
 }
 
+function shouldReduceMotion() {
+  return (props.tuning?.followReducedMotion ?? true)
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function syncReducedMotion() {
+  if (!mounted) return;
+  const next = shouldReduceMotion();
+  reducedMotion.value = next;
+  if (next) {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+  } else if (!frame) {
+    lastTime = 0;
+    frame = requestAnimationFrame(render);
+  }
+}
+
 // The texture leans a few pixels against the pointer for depth. Fine hover pointers only,
 // and never under reduced motion.
 const parallaxEnabled = ref(false);
@@ -408,10 +429,7 @@ function onPointerMove(event: PointerEvent) {
 
 onMounted(() => {
   if (typeof window === 'undefined') return;
-  // A site can opt out of following the OS preference; by default it is honoured.
-  reducedMotion = (props.tuning?.followReducedMotion ?? true)
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  mounted = true;
   paused.value = document.visibilityState === 'hidden';
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('resize', resize, { passive: true });
@@ -422,11 +440,12 @@ onMounted(() => {
   resize();
   startField();
   // Reduced motion keeps the still texture and skips the simulation entirely.
-  if (!reducedMotion) frame = requestAnimationFrame(render);
+  syncReducedMotion();
 });
 
 onBeforeUnmount(() => {
   if (typeof window === 'undefined') return;
+  mounted = false;
   document.removeEventListener('visibilitychange', onVisibilityChange);
   window.removeEventListener('resize', resize);
   window.removeEventListener('scroll', scheduleMeasureLedges);
@@ -441,6 +460,8 @@ watch(() => props.theme?.scene.kind, () => {
   startField();
 }, { flush: 'post' });
 
+watch(() => props.tuning?.followReducedMotion, syncReducedMotion);
+
 defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
 </script>
 
@@ -448,7 +469,7 @@ defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
   <div
     v-if="theme"
     class="theme-scene"
-    :class="[`scene-${theme.scene.kind}`, { 'is-paused': paused }]"
+    :class="[`scene-${theme.scene.kind}`, { 'is-paused': paused, 'is-reduced-motion': reducedMotion }]"
     :data-scene="theme.scene.kind"
     :data-color-mode="mode"
     :style="[sceneStyle, parallaxStyle]"
@@ -552,15 +573,13 @@ defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scene-parallax {
-    transform: none;
-    transition: none;
-  }
+.theme-scene.is-reduced-motion .scene-parallax {
+  transform: none;
+  transition: none;
+}
 
-  /* The simulation never starts under reduced motion; hide the empty canvas too. */
-  .scene-canvas {
-    display: none;
-  }
+/* The simulation never starts while this site follows reduced motion. */
+.theme-scene.is-reduced-motion .scene-canvas {
+  display: none;
 }
 </style>

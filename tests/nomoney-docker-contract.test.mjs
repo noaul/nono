@@ -29,3 +29,9 @@ test('binds the application to loopback by default', () => {
   assert.match(exampleEnv, /^PORT=127\.0\.0\.1:3000$/m);
   assert.match(exampleEnv, /^NOMONEY_COOKIE_SECURE=true$/m);
 });
+
+test('runs both NoMoney backend and frontend tests from the repository quality gate', () => {
+  const packageJson = JSON.parse(fs.readFileSync('apps/nomoney/package.json', 'utf8'));
+  assert.match(packageJson.scripts.test, /npm run test -w backend/);
+  assert.match(packageJson.scripts.test, /npm run test -w frontend/);
+});

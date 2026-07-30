@@ -29,7 +29,9 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     if (!config.allowRegistration) throw Object.assign(new Error('Registration is closed'), { statusCode: 403 });
     const input = authSchema.required({ email: true }).parse(request.body);
     assertStrongPassword(input.password);
-    const user = await registerUser(services.repo, input as any, config.defaultRole);
+    // Self-registration is never an administrator grant. Promotion remains an authenticated
+    // action in the user-management screen even if an old database still stores defaultRole=admin.
+    const user = await registerUser(services.repo, input as any, 'user');
     await recordUserCreation(services, request, user, 'registration');
     return sendOk(reply, { user: publicUser(user) });
   });

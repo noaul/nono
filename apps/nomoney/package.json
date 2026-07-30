@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w backend",
-    "test": "npm run test -w backend",
+    "test": "npm run test -w backend && npm run test -w frontend",
     "build": "npm run build -w backend && npm run build -w frontend",
     "lint": "npm run lint -w frontend"
   },

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp, FetchLlmClient } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 import { hashApiToken } from '../src/utils/crypto.js';
+import { appearanceDefaults as webAppearanceDefaults } from '../../web/src/utils/appearance.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -303,6 +304,36 @@ describe('Nono Fastify app', () => {
     expect(folders.json()).toEqual({ code: 401, data: null, message: 'Authentication required' });
   });
 
+  it('rejects oversized folder and bookmark fields before writing them', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'x'.repeat(121) },
+    });
+    expect(folder.statusCode).toBe(400);
+
+    const validFolder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'Safe' },
+    });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie },
+      payload: {
+        folderId: validFolder.json().data.id,
+        name: 'x'.repeat(241),
+        url: 'https://example.com/',
+      },
+    });
+    expect(link.statusCode).toBe(400);
+    expect(await repo.listLinks(1)).toHaveLength(0);
+  });
+
   it('creates API tokens and accepts bearer authentication', async () => {
     const cookie = await setupAdmin();
     const tokenResponse = await app.inject({
@@ -327,6 +358,24 @@ describe('Nono Fastify app', () => {
     });
     expect(folders.statusCode).toBe(200);
     expect(folders.json().data.name).toBe('AI 工具');
+  });
+
+  it('never grants administrator role through public registration', async () => {
+    await setupAdmin();
+    await repo.updateConfig({ allowRegistration: true, defaultRole: 'admin' });
+
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        username: 'public-user',
+        email: 'public-user@nono.test',
+        password: adminPassword,
+      },
+    });
+
+    expect(registered.statusCode).toBe(200);
+    expect(registered.json().data.user.role).toBe('user');
   });
 
   it('limits extension tokens to bookmark operations by default', async () => {
@@ -439,6 +488,19 @@ describe('Nono Fastify app', () => {
     });
 
     expect(unsafe.statusCode).toBe(400);
+  });
+
+  it('round-trips every public appearance setting through the site API', async () => {
+    const cookie = await setupAdmin();
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: { settings: { appearance: webAppearanceDefaults } },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().data.settings.appearance).toEqual(webAppearanceDefaults);
   });
 
   it('sends LLM requests through the safe outbound requester', async () => {

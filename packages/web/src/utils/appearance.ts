@@ -402,7 +402,16 @@ export function fontStack(appearance: AppearanceSettings): string {
   const base = FONT_STACKS[appearance.fontFamily] ?? FONT_STACKS.system;
   const latin = appearance.fontFamilyEn === 'inherit' ? base : EN_FONT_STACKS[appearance.fontFamilyEn];
   const han = appearance.fontFamilyZh === 'inherit' ? '' : ZH_FONT_STACKS[appearance.fontFamilyZh];
-  return han ? `${latin}, ${han}` : latin;
+  if (!han) return latin;
+  const generic = appearance.fontFamilyZh === 'songti' || appearance.fontFamilyZh === 'kaiti'
+    ? 'serif'
+    : 'sans-serif';
+  return `${withoutGenericFamily(latin)}, ${withoutGenericFamily(han)}, ${generic}`;
+}
+
+function withoutGenericFamily(stack: string) {
+  const generics = new Set(['serif', 'sans-serif', 'monospace', 'system-ui']);
+  return stack.split(',').map((family) => family.trim()).filter((family) => !generics.has(family)).join(', ');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

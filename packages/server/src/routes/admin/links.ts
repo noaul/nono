@@ -12,12 +12,22 @@ import { setAuditContext } from '../../plugins/audit.js';
 
 const linkUpdateSchema = z.object({
   folderId: z.coerce.number().int().positive().optional(),
-  name: z.string().optional(),
-  url: z.string().optional(),
-  icon: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
+  name: z.string().trim().max(240).optional(),
+  url: z.string().trim().min(1).max(4096).optional(),
+  icon: z.string().max(2048).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
   sortOrder: z.coerce.number().finite().optional(),
   healthCheckEnabled: z.boolean().optional(),
+});
+
+const linkCreateSchema = z.object({
+  folderId: z.coerce.number().int().positive(),
+  name: z.string().trim().max(240).optional().default(''),
+  nameMode: z.enum(['auto', 'manual']).optional().default('auto'),
+  url: z.string().trim().min(1).max(4096),
+  icon: z.string().max(2048).optional().default(''),
+  description: z.string().max(2000).optional().default(''),
+  sortOrder: z.coerce.number().finite().optional(),
 });
 
 const linkMoveSchema = z.object({
@@ -37,7 +47,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/admin/links', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const body = request.body as any;
+    const body = linkCreateSchema.parse(request.body);
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
     const url = normalizeUrl(body.url);

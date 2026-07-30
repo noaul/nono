@@ -15,6 +15,7 @@ const props = defineProps<{ open: boolean; site: Site }>();
 const emit = defineEmits<{
   close: [];
   saved: [site: Site];
+  preview: [site: Site];
 }>();
 
 const { t, setSiteDefaultLocale } = useI18n();
@@ -46,7 +47,7 @@ type UserAppearancePreset = {
   id: string;
   name: string;
   appearance: AppearanceSettings;
-  theme: { id: string; accent: string };
+  theme: { id: string; accent: string; sceneIntensity: number };
   backgroundColor: string;
   fontColor: string;
 };
@@ -88,6 +89,7 @@ function readUserPresets(settings?: Record<string, unknown>): UserAppearancePres
       theme: {
         id: typeof savedTheme.id === 'string' ? savedTheme.id : '',
         accent: typeof savedTheme.accent === 'string' ? savedTheme.accent : '',
+        sceneIntensity: getSceneIntensity({ theme: savedTheme }),
       },
       backgroundColor: typeof item.backgroundColor === 'string' ? item.backgroundColor : '#090a0f',
       fontColor: typeof item.fontColor === 'string' ? item.fontColor : '#ffffff',
@@ -225,6 +227,7 @@ async function removeUserPreset(preset: UserAppearancePreset) {
 /** Asks before discarding unsaved work; a clean drawer closes straight away. */
 function requestClose() {
   if (dirty.value && !window.confirm(t('appearance.editor.closeConfirm'))) return;
+  setSiteDefaultLocale(getSiteDefaultLocale(props.site.settings) || 'zh');
   emit('close');
 }
 
@@ -235,6 +238,31 @@ function onKeydown(event: KeyboardEvent) {
 watch(() => props.open, (open) => {
   if (open) resetDraft();
 }, { immediate: true });
+
+watch(dirty, (isDirty) => {
+  if (!isDirty) return;
+  message.value = '';
+  window.clearTimeout(successTimer);
+});
+
+watch(draftSignature, () => {
+  if (!props.open) return;
+  emit('preview', {
+    ...props.site,
+    backgroundColor: backgroundColor.value,
+    fontColor: fontColor.value,
+    settings: {
+      ...(props.site.settings || {}),
+      appearance: appearanceSettingsForSave(appearance),
+      theme: { ...theme },
+      appearancePresets: userPresets.value,
+      i18n: {
+        ...(isRecord(props.site.settings?.i18n) ? props.site.settings.i18n : {}),
+        defaultLocale: siteLocale.value,
+      },
+    },
+  });
+}, { flush: 'post' });
 
 window.addEventListener('keydown', onKeydown);
 onBeforeUnmount(() => {

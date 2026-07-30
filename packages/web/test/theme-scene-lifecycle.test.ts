@@ -35,4 +35,33 @@ describe('ThemeScene lifecycle', () => {
 
     wrapper.unmount();
   });
+
+  it('can opt out of reduced motion and reacts when the option changes', async () => {
+    const raf = vi.mocked(requestAnimationFrame);
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    const wrapper = mount(ThemeScene, {
+      props: { theme: getTheme('rainy-world'), tuning: { followReducedMotion: true } as any },
+    });
+    await wrapper.vm.$nextTick();
+    expect(raf).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="theme-scene"]').classes()).toContain('is-reduced-motion');
+
+    await wrapper.setProps({ tuning: { followReducedMotion: false } as any });
+    expect(raf).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="theme-scene"]').classes()).not.toContain('is-reduced-motion');
+    wrapper.unmount();
+  });
+
+  it('removes the whole scene treatment when the scene is disabled', () => {
+    const wrapper = mount(ThemeScene, {
+      props: { theme: getTheme('rainy-world'), tuning: { enabled: false } as any },
+    });
+    expect(wrapper.get('[data-testid="theme-scene"]').attributes('style')).toContain('--theme-scene-opacity: 0');
+    expect(wrapper.get('[data-testid="theme-scene"]').attributes('style')).toContain('--theme-ambient-opacity: 0');
+    wrapper.unmount();
+  });
 });

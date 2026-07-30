@@ -267,7 +267,7 @@ describe('NavigationPage public workflow', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ThemeScene.vue'), 'utf8');
 
     expect(source).toContain('pointer-events: none');
-    expect(source).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(source).toContain('.theme-scene.is-reduced-motion .scene-canvas');
     expect(source).toContain('@media (max-width: 640px)');
     // The background is deliberately still: nothing in the scene uses keyframes any more,
     // and the particles are simulated onto a canvas instead of being DOM nodes.
@@ -280,7 +280,8 @@ describe('NavigationPage public workflow', () => {
     expect(source).toContain("matchMedia('(hover: hover) and (pointer: fine)')");
     expect(source).toContain('animation-play-state: paused');
     // Reduced motion never starts the simulation.
-    expect(source).toContain('if (!reducedMotion) frame = requestAnimationFrame(render)');
+    expect(source).toContain('function syncReducedMotion()');
+    expect(source).toContain('if (frame) cancelAnimationFrame(frame)');
   });
 
   it('shows the public background image immediately while keeping preload hints', async () => {
@@ -346,6 +347,17 @@ describe('NavigationPage public workflow', () => {
     expect(center.attributes('target')).toBe('_blank');
     expect(center.attributes('rel')).toBe('noreferrer');
     expect(center.get('img').attributes('src')).toBe('https://cdn.example.com/avatar.png');
+  });
+
+  it('previews appearance changes on the homepage before saving', async () => {
+    const wrapper = await mountNavigationPage(true);
+    await wrapper.get('[data-testid="portal-corner-link"]').trigger('click');
+    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const style = wrapper.get('.nav-page').attributes('style');
+    expect(style).toContain('--public-search-color: #fffdf8');
+    expect(style).toContain('--nav-bg-color: #cfdcee');
   });
 
   it('keeps the settings entry visible but requires signed-out visitors to log in', async () => {

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
+import { isBearerRequest } from '../../plugins/auth.js';
 import { decryptSecret } from '../../utils/crypto.js';
 import { asRecord, authed, nullableText, text } from './common.js';
 import {
@@ -114,6 +115,9 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
   app.post('/api/nostar/proxy/webdav', { bodyLimit: 16 * 1024 * 1024 }, async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
+    if (isBearerRequest(request)) {
+      return reply.status(403).send({ error: 'Bearer tokens cannot use stored secrets', code: 'SECRET_USE_FORBIDDEN' });
+    }
     const input = asRecord(request.body);
     const proxy = await userProxyConfig(services, user);
     const config = await services.prisma.noStarWebDavConfig.findUnique({
@@ -124,7 +128,15 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
     if (!['GET', 'PUT', 'DELETE', 'PROPFIND', 'MKCOL', 'MOVE', 'COPY', 'HEAD'].includes(method)) {
       return reply.status(400).send({ error: 'Unsupported WebDAV method', code: 'INVALID_WEBDAV_METHOD' });
     }
-    const targetUrl = new URL(text(input.path).replace(/^\/+/, ''), config.url.endsWith('/') ? config.url : `${config.url}/`);
+    const rawPath = text(input.path);
+    if (!rawPath || /^[a-z][a-z\d+.-]*:/i.test(rawPath) || rawPath.startsWith('//') || /[\r\n]/.test(rawPath)) {
+      return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
+    }
+    const configuredUrl = new URL(config.url.endsWith('/') ? config.url : `${config.url}/`);
+    const targetUrl = new URL(rawPath.replace(/^\/+/, ''), configuredUrl);
+    if (targetUrl.origin !== configuredUrl.origin) {
+      return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
+    }
     const headers = asRecord(input.headers);
     delete headers.authorization;
     delete headers.Authorization;

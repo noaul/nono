@@ -59,6 +59,10 @@ function groupKeys(group: AppearanceGroup, advanced: boolean) {
   });
 }
 
+function allGroupKeys(group: AppearanceGroup) {
+  return EDITABLE_APPEARANCE_KEYS.filter((key) => APPEARANCE_FIELDS[key].group === group);
+}
+
 /** While searching, the label is matched so a control can be found without knowing its group. */
 function matchesQuery(key: AppearanceKey) {
   if (!searching.value) return true;
@@ -79,14 +83,13 @@ const changedKeys = computed(() => new Set(
 ));
 
 function changedInGroup(group: AppearanceGroup) {
-  return [...groupKeys(group, false), ...groupKeys(group, true)]
-    .filter((key) => changedKeys.value.has(key)).length;
+  return allGroupKeys(group).filter((key) => changedKeys.value.has(key)).length;
 }
 
 function resetGroup(group: AppearanceGroup) {
   // A per-key copy keeps the reactive object identity, which is what the live preview watches.
   const restored: Partial<AppearanceSettings> = {};
-  for (const key of [...groupKeys(group, false), ...groupKeys(group, true)]) {
+  for (const key of allGroupKeys(group)) {
     Object.assign(restored, { [key]: appearanceDefaults[key] });
   }
   Object.assign(props.appearance, restored);

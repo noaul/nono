@@ -8,7 +8,7 @@ describe('NoMoney account management UI', () => {
     const layout = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
 
     expect(app).toContain("const AccountPage = lazy(() => import('./AccountPage')");
-    expect(app).toContain('<Route path="/accounts" element={<AccountPage />} />');
+    expect(app).toContain('<Route path="/accounts"><AccountPage /></Route>');
     expect(layout).toContain("to: '/accounts'");
     expect(layout).toContain("labelZh: '账号'");
   });

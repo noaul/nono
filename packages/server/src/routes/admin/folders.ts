@@ -18,6 +18,10 @@ const folderUpdateSchema = z.object({
   passwordHint: z.string().max(120).optional(),
 });
 
+const folderCreateSchema = folderUpdateSchema.extend({
+  name: z.string().trim().min(1).max(120),
+});
+
 export async function folderRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/folders', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
@@ -28,7 +32,7 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
   app.post('/api/admin/folders', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const body = request.body as any;
+    const body = folderCreateSchema.parse(request.body);
     const parentId = normalizeParentId(body.parentId);
     setAuditContext(request, {
       action: 'create',

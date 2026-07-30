@@ -324,7 +324,7 @@ onUnmounted(() => {
   animation: folder-card-enter 0.45s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1)) both;
   animation-delay: var(--enter-delay, 0ms);
   display: grid;
-  gap: 12px;
+  gap: var(--public-folder-title-gap, 12px);
   grid-template-rows: 38px auto;
   height: auto;
   min-width: 0;

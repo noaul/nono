@@ -20,9 +20,15 @@ test('detects destructive SQL migration statements', () => {
   assert.deepEqual(destructiveMigrationStatements(`
     ALTER TABLE "ApiToken" ADD COLUMN "scopes" TEXT[];
     ALTER TABLE "User" DROP COLUMN "legacy";
+    ALTER TABLE "User" RENAME COLUMN "name" TO "displayName";
+    ALTER TABLE "User" DROP CONSTRAINT "User_email_key";
+    ALTER TABLE "User" ALTER COLUMN "email" SET NOT NULL;
     TRUNCATE TABLE "AuditLog";
   `), [
     'ALTER TABLE "User" DROP COLUMN',
+    'ALTER TABLE "User" RENAME COLUMN',
+    'ALTER TABLE "User" DROP CONSTRAINT',
+    'ALTER TABLE "User" SET NOT NULL',
     'TRUNCATE TABLE'
   ]);
 });

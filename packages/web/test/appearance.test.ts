@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appearanceDefaults, getAppearanceSettings, toAppearanceCssVars } from '../src/utils/appearance';
+import { appearanceDefaults, fontStack, getAppearanceSettings, toAppearanceCssVars } from '../src/utils/appearance';
 
 describe('appearance settings', () => {
   it('normalizes saved UI controls and clamps unsafe values', () => {
@@ -94,5 +94,17 @@ describe('appearance settings', () => {
       '--public-tab-blur': '20px',
     });
     expect(toAppearanceCssVars(appearanceDefaults)).not.toHaveProperty('--admin-surface-radius');
+  });
+
+  it('places an explicitly selected Chinese font before the generic fallback', () => {
+    const stack = fontStack({
+      ...appearanceDefaults,
+      fontFamilyEn: 'inter',
+      fontFamilyZh: 'songti',
+    });
+
+    expect(stack.indexOf("'Songti SC'")).toBeGreaterThan(stack.indexOf("'Inter'"));
+    expect(stack.indexOf("'Songti SC'")).toBeLessThan(stack.lastIndexOf('serif'));
+    expect(stack.indexOf('sans-serif')).toBe(-1);
   });
 });

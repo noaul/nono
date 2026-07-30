@@ -49,6 +49,7 @@ const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
+const appearancePreview = ref<Site | null>(null);
 const unlocking = ref(false);
 const pendingDelete = ref<{
   kind: 'bookmark' | 'folder' | 'notab';
@@ -129,6 +130,7 @@ watch(query, (value) => {
 
 const username = computed(() => String(route.params.username || 'admin'));
 const payload = computed(() => navigation.payload);
+const visualSite = computed(() => appearancePreview.value || payload.value?.site || null);
 const accessLocked = computed(() => Boolean(payload.value?.access?.required && !payload.value.access.unlocked));
 const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
 const {
@@ -163,16 +165,16 @@ const localMatchCount = computed(() => {
   return matchedLinkIds.value?.size ?? allLinks.value.length;
 });
 const activeTheme = computed(() => {
-  const settings = payload.value?.site.settings as { theme?: { id?: string } } | null | undefined;
+  const settings = visualSite.value?.settings as { theme?: { id?: string } } | null | undefined;
   return getTheme(settings?.theme?.id);
 });
-const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.settings));
+const sceneIntensity = computed(() => getSceneIntensity(visualSite.value?.settings));
 // The public page owns the site payload, so it publishes the admin-chosen default language to
 // the shared locale state. A visitor's own override still wins over it.
 watch(() => payload.value?.site.settings, (settings) => {
   setSiteDefaultLocale(getSiteDefaultLocale(settings));
 }, { immediate: true });
-const appearance = computed(() => getAppearanceSettings(payload.value?.site.settings));
+const appearance = computed(() => getAppearanceSettings(visualSite.value?.settings));
 const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
   if (resolvedMode.value !== 'dark') {
     return {
@@ -237,8 +239,9 @@ const backgroundScrim = computed(() => (
 const backgroundStyle = computed(() => {
   const appearanceVars = toAppearanceCssVars(appearance.value);
   const publicThemeVars = activeTheme.value ? themeCssVars(activeTheme.value) : {};
-  const accentVars = getThemeAccentVars(payload.value?.site.settings);
-  if (!payload.value?.site) {
+  const site = visualSite.value;
+  const accentVars = getThemeAccentVars(site?.settings);
+  if (!site) {
     return {
       ...appearanceVars,
       ...pageTextCssVars('#f3f4f6'),
@@ -253,8 +256,8 @@ const backgroundStyle = computed(() => {
     ...appearanceVars,
     ...publicThemeVars,
     ...accentVars,
-    ...pageTextCssVars(payload.value.site.fontColor || activeTheme.value?.fontColor || '#f3f4f6'),
-    '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
+    ...pageTextCssVars(site.fontColor || activeTheme.value?.fontColor || '#f3f4f6'),
+    '--nav-bg-color': site.backgroundColor || '#090a0f',
     // The scrim rides on the image layer as a flat gradient rather than a pseudo-element:
     // `.nav-page` and `.public-glass-page` are the same element, so an `::after` here would
     // replace the mode scrim that rule already owns.
@@ -262,7 +265,7 @@ const backgroundStyle = computed(() => {
       ? `linear-gradient(${backgroundScrim.value}, ${backgroundScrim.value}), url(${JSON.stringify(activeBackgroundImage.value)})`
       : 'none',
     ...modeCssVars.value,
-    color: resolvedMode.value === 'dark' ? '#f4f6f8' : payload.value.site.fontColor || '#f3f4f6',
+    color: resolvedMode.value === 'dark' ? '#f4f6f8' : site.fontColor || '#f3f4f6',
   };
 });
 const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
@@ -1086,6 +1089,16 @@ function onFolderVerified(links: Link[]) {
 function onAppearanceSaved(site: Site) {
   if (!navigation.payload) return;
   navigation.updateSite(username.value, { ...navigation.payload.site, ...site });
+  appearancePreview.value = null;
+}
+
+function onAppearancePreview(site: Site) {
+  appearancePreview.value = site;
+}
+
+function closeAppearance() {
+  appearanceOpen.value = false;
+  appearancePreview.value = null;
 }
 
 // Modals own Escape/focus handling; the page only locks body scroll while one is open.
@@ -1424,7 +1437,8 @@ onUnmounted(() => {
       v-if="payload?.site && canEditAppearance"
       :open="appearanceOpen"
       :site="payload.site"
-      @close="appearanceOpen = false"
+      @close="closeAppearance"
+      @preview="onAppearancePreview"
       @saved="onAppearanceSaved"
     />
   </main>

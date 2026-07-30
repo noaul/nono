@@ -17,6 +17,9 @@ export function destructiveMigrationStatements(sql) {
     const compact = statement.replace(/\s+/g, ' ');
     const dropColumn = compact.match(/^ALTER TABLE ("[^"]+"|[\w.]+).*\bDROP COLUMN\b/i);
     if (dropColumn) findings.push(`ALTER TABLE ${dropColumn[1]} DROP COLUMN`);
+    else if (/^ALTER\s+TABLE\b.*\bRENAME\s+COLUMN\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} RENAME COLUMN`);
+    else if (/^ALTER\s+TABLE\b.*\bDROP\s+CONSTRAINT\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} DROP CONSTRAINT`);
+    else if (/^ALTER\s+TABLE\b.*\bSET\s+NOT\s+NULL\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} SET NOT NULL`);
     else if (/^DROP\s+TABLE\b/i.test(compact)) findings.push('DROP TABLE');
     else if (/^TRUNCATE(?:\s+TABLE)?\b/i.test(compact)) findings.push('TRUNCATE TABLE');
     else if (/^DELETE\s+FROM\b/i.test(compact)) findings.push('DELETE FROM');
@@ -24,6 +27,10 @@ export function destructiveMigrationStatements(sql) {
     else if (/^DROP\s+(?:SCHEMA|TYPE|DATABASE)\b/i.test(compact)) findings.push('DROP DATABASE OBJECT');
   }
   return findings;
+}
+
+function tableName(statement) {
+  return statement.match(/^ALTER\s+TABLE\s+("[^"]+"|[\w.]+)/i)?.[1] || '<unknown>';
 }
 
 export function parseDeployArgs(argv) {

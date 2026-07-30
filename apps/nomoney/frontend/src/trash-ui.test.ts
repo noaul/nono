@@ -9,7 +9,7 @@ describe('NoMoney recycle bin UI', () => {
     const trashPath = path.resolve(process.cwd(), 'src/TrashPage.tsx');
 
     expect(app).toContain("const TrashPage = lazy(() => import('./TrashPage')");
-    expect(app).toContain('<Route path="/trash" element={<TrashPage />} />');
+    expect(app).toContain('<Route path="/trash"><TrashPage /></Route>');
     expect(layout).toContain("to: '/trash'");
     expect(layout).toContain("labelZh: '回收站'");
     expect(fs.existsSync(trashPath)).toBe(true);

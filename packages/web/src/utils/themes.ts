@@ -37,7 +37,7 @@ export type PublicTheme = {
   appearance: AppearanceSettings;
 };
 
-export const PUBLIC_THEMES: PublicTheme[] = [
+const THEME_DEFINITIONS: PublicTheme[] = [
   {
     id: 'summer-breeze',
     nameKey: 'themes.summerBreeze.name',
@@ -297,6 +297,19 @@ export const PUBLIC_THEMES: PublicTheme[] = [
     },
   },
 ];
+
+// Theme text follows the theme palette rather than the global white defaults. Keeping this
+// derivation here means a new light theme cannot accidentally ship white text on pale surfaces.
+export const PUBLIC_THEMES: PublicTheme[] = THEME_DEFINITIONS.map((theme) => ({
+  ...theme,
+  appearance: {
+    ...theme.appearance,
+    pageTitleColor: theme.fontColor,
+    descriptionColor: theme.fontColor,
+    searchTextColor: theme.appearance.bookmarkTextColor,
+    placeholderColor: theme.appearance.notabTextColor,
+  },
+}));
 
 const LEGACY_THEME_ALIASES: Record<string, string> = {
   'midnight-glass': 'starlit-night',
