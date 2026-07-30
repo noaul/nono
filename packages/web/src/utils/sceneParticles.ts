@@ -6,15 +6,6 @@
 
 export type SceneKind = 'bubbles' | 'snow' | 'leaves' | 'stars' | 'sunbeams' | 'rain';
 
-/** A horizontal surface a particle can land on — in practice the top edge of a folder card. */
-/** A leaf that has come to rest on a ledge, kept so it can be drawn as a leaf, not a ridge. */
-export type RestedItem = {
-  x: number;
-  rotation: number;
-  size: number;
-  variant: number;
-};
-
 /**
  * A bead of water sitting on a panel's top border. It slides slowly along the border, can
  * merge with a neighbour, and eventually either evaporates or runs off toward the eave.
@@ -46,6 +37,10 @@ export type HangingDrop = {
   phase: number;
 };
 
+/**
+ * A surface a particle can interact with — in practice a folder's glass content panel. Rain
+ * beads on its top border and drips from its bottom edge; snow drifts on top of it.
+ */
 export type Ledge = {
   id: string;
   x: number;
@@ -55,8 +50,6 @@ export type Ledge = {
   height: number;
   /** Settled depth per bucket across the ledge, in pixels. Snow forms a continuous drift. */
   piles: Float32Array;
-  /** Individual settled leaves; a ridge would not read as foliage. */
-  rested: RestedItem[];
   /** Rain beaded on the top border before it evaporates or runs off. */
   beads: Bead[];
   /** Run-off hanging from the bottom edge, waiting to get heavy enough to fall. */
@@ -80,6 +73,14 @@ export type Particle = {
   variant: number;
   /** Layers already passed through; drives energy loss for rain. */
   passes: number;
+  /** Sway phase, so no two leaves swing together. */
+  phase: number;
+  /** Sway frequency in rad/s; randomised per leaf. */
+  swayRate: number;
+  /** Rotation about the viewing axis, used to compress width as a leaf turns edge-on. */
+  flip: number;
+  /** Flip speed, signed so leaves tumble both ways. */
+  flipRate: number;
 };
 
 /** A short-lived splash or pop, spawned when a particle hits something. */
@@ -119,15 +120,18 @@ const GRAVITY: Record<SceneKind, number> = {
 const MAX_PILE: Record<SceneKind, number> = {
   rain: 0,
   snow: 14,
-  leaves: 9,
+  leaves: 0,
   bubbles: 0,
   sunbeams: 0,
   stars: 0,
 };
 
-/** Particles that come to rest on ledges rather than passing through. */
+/**
+ * Particles that come to rest on ledges rather than passing through. Leaves deliberately do
+ * not: they drift through folders, tabs, and headings without settling, bouncing, or sticking.
+ */
 export function settlesOnLedges(kind: SceneKind): boolean {
-  return kind === 'snow' || kind === 'leaves';
+  return kind === 'snow';
 }
 
 export function splashesOnLedges(kind: SceneKind): boolean {
@@ -169,6 +173,21 @@ export function sizeEnvelope(time: number): number {
   return 1 + 0.25 * Math.sin(time / 23 + 0.6);
 }
 
+/**
+ * Horizontal wind in px/s. Two slow sines give a wandering breeze; the shaped term adds an
+ * occasional gust that builds and fades rather than switching on.
+ */
+export function windField(time: number): number {
+  const breeze = 26 * Math.sin(time / 6.5) + 14 * Math.sin(time / 2.7 + 1.1);
+  const gust = 95 * Math.max(0, Math.sin(time / 9.5)) ** 6;
+  return breeze - gust;
+}
+
+/** 0 at rest, 1 at the peak of a gust. Drives extra tumble while the gust lasts. */
+export function gustStrength(time: number): number {
+  return Math.max(0, Math.sin(time / 9.5)) ** 6;
+}
+
 const SIZE_RANGE: Record<SceneKind, [number, number]> = {
   rain: [9, 26],
   snow: [1.6, 4.6],
@@ -196,7 +215,8 @@ export function targetCount(kind: SceneKind, width: number, height: number, inte
 
 export function spawnParticle(field: Field, random: () => number, initial = false): Particle {
   const { kind, width, height } = field;
-  const depth = random();
+  // Leaves lean toward the far layer: big fast foreground leaves read badly if there are many.
+  const depth = kind === 'leaves' ? random() ** 1.7 : random();
   const [minSize, maxSize] = SIZE_RANGE[kind];
   const size = lerp(minSize, maxSize, depth) * sizeEnvelope(field.time);
 
@@ -222,6 +242,10 @@ export function spawnParticle(field: Field, random: () => number, initial = fals
     life: kind === 'stars' ? Infinity : 60,
     variant: Math.floor(random() * 4),
     passes: 0,
+    phase: random() * Math.PI * 2,
+    swayRate: 0.7 + random() * 1.9,
+    flip: random() * Math.PI * 2,
+    flipRate: (random() < 0.5 ? -1 : 1) * (0.5 + random() * 2.1),
   };
 }
 
@@ -286,7 +310,7 @@ export function energyAfterPass(size: number, vy: number): { size: number; vy: n
 const BOUNCE_SPEED: Record<SceneKind, number> = {
   rain: Infinity,
   snow: 70,
-  leaves: 90,
+  leaves: Infinity,
   bubbles: Infinity,
   stars: Infinity,
   sunbeams: Infinity,
@@ -355,10 +379,22 @@ export function stepField(field: Field, options: StepOptions): Field {
     const previousY = particle.y;
     const previousX = particle.x;
 
-    // Leaves and snow wander sideways; rain is driven almost straight by the wind.
+    // Leaves ride the wind and tumble, snow wanders gently, rain falls almost straight.
     if (kind === 'leaves') {
-      particle.vx += Math.sin(particle.age * 1.7 + particle.rotation) * 26 * delta;
-      particle.rotation += particle.spin * delta;
+      const wind = windField(field.time);
+      const gust = gustStrength(field.time);
+      // Air resistance: horizontal speed eases toward the wind rather than snapping to it,
+      // and a bigger leaf has more drag, so it is pushed around more.
+      const drag = 0.9 + particle.size * 0.05;
+      particle.vx += (wind - particle.vx) * Math.min(1, drag * delta);
+      // Sway on the leaf's own period, plus a little lift so it rises and falls as it drifts.
+      particle.vx += Math.sin(particle.age * particle.swayRate + particle.phase) * 34 * delta;
+      const terminal = 26 + particle.depth * 46;
+      particle.vy += (terminal - particle.vy) * Math.min(1, 1.4 * delta);
+      particle.vy += Math.cos(particle.age * particle.swayRate * 0.6 + particle.phase) * 22 * delta;
+      // A gust spins leaves faster as well as blowing them sideways.
+      particle.rotation += particle.spin * (1 + gust * 2.4) * delta;
+      particle.flip += particle.flipRate * (1 + gust * 1.6) * delta;
     } else if (kind === 'snow') {
       particle.vx += Math.sin(particle.age * 0.9 + particle.depth * 6) * 9 * delta;
       particle.rotation += particle.spin * delta;
@@ -450,18 +486,7 @@ export function stepField(field: Field, options: StepOptions): Field {
         continue;
       }
 
-      if (kind === 'leaves') {
-        hit.rested.push({
-          x: particle.x,
-          // Leaves come to rest lying flat-ish, not standing on edge.
-          rotation: particle.rotation * 0.25 + (random() - 0.5) * 0.5,
-          size: particle.size,
-          variant: particle.variant,
-        });
-        if (hit.rested.length > MAX_RESTED) hit.rested.shift();
-      } else {
-        addToPile(hit, particle.x, particle.size * 0.5, maxPile);
-      }
+      addToPile(hit, particle.x, particle.size * 0.5, maxPile);
       continue;
     }
 
@@ -592,6 +617,10 @@ export function stepLedgeWater(ledge: Ledge, field: Field, delta: number, random
         // Already spent, so it behaves like run-off rather than fresh rain, and can still
         // pass through, bead up, or splash on the panels below.
         passes: 1,
+        phase: 0,
+        swayRate: 0,
+        flip: 0,
+        flipRate: 0,
       });
       continue;
     }
@@ -607,7 +636,10 @@ export function stepLedgeWater(ledge: Ledge, field: Field, delta: number, random
 export function relaxPile(ledge: Ledge, delta: number, angleOfRepose = 2.4): void {
   const piles = ledge.piles;
   for (let index = 0; index < piles.length; index += 1) {
-    piles[index] = Math.max(0, piles[index] - 0.35 * delta);
+    // Compaction is mostly proportional to depth: a deep drift settles under its own weight,
+    // a thin dusting barely moves. A flat rate would instead scrub thin cover off wide
+    // surfaces faster than any plausible snowfall could lay it down.
+    piles[index] = Math.max(0, piles[index] - (0.015 + piles[index] * 0.03) * delta);
   }
   for (let index = 0; index < piles.length - 1; index += 1) {
     const difference = piles[index] - piles[index + 1];
@@ -628,11 +660,8 @@ export function createLedge(id: string, x: number, y: number, width: number, hei
     width,
     height,
     piles: new Float32Array(Math.max(1, Math.ceil(width / PILE_BUCKET))),
-    rested: [],
     beads: [],
     hanging: [],
   };
 }
 
-/** How many leaves a ledge holds before the oldest is blown off. */
-export const MAX_RESTED = 14;

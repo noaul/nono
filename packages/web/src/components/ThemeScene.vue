@@ -14,6 +14,7 @@ import {
   type Ledge,
   type SceneKind,
 } from '@/utils/sceneParticles';
+import { drawLeaf } from '@/utils/sceneLeaf';
 
 const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number; mode?: ResolvedColorMode }>(), {
   intensity: 100,
@@ -191,25 +192,6 @@ function drawPiles(ctx: CanvasRenderingContext2D, kind: SceneKind) {
 
   if (!settlesOnLedges(kind)) return;
 
-  if (kind === 'leaves') {
-    // Leaves rest as leaves; a filled ridge would read as a green bar, not foliage.
-    for (const ledge of ledges) {
-      for (const item of ledge.rested) {
-        ctx.save();
-        ctx.translate(item.x, ledge.y - item.size * 0.22);
-        ctx.rotate(item.rotation);
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = item.variant === 1 || item.variant === 3 ? palette.accent : palette.body;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, item.size, item.size * 0.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-    ctx.globalAlpha = 1;
-    return;
-  }
-
   // Snow forms a continuous drift: draw a smoothed curve through the bucket tops rather
   // than the raw stair-step, which is very visible at this scale.
   ctx.fillStyle = palette.body;
@@ -276,17 +258,7 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
   }
 
   if (kind === 'leaves') {
-    ctx.save();
-    ctx.translate(particle.x, particle.y);
-    ctx.rotate(particle.rotation);
-    // Flip factor fakes the leaf turning over as it falls.
-    ctx.scale(1, Math.max(0.25, Math.abs(Math.cos(particle.age * 2.2))));
-    ctx.globalAlpha = fade;
-    ctx.fillStyle = particle.variant === 1 || particle.variant === 3 ? palette.accent : palette.body;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, particle.size, particle.size * 0.52, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    drawLeaf(ctx, particle);
     return;
   }
 

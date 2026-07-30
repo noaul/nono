@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LEAF_TINTS,
+  bladeHalfWidth,
+  drawLeaf,
+  leafFacing,
+  leafShape,
+  leafTint,
+  midribOffset,
+} from '../src/utils/sceneLeaf';
+import {
   PILE_BUCKET,
   addToPile,
   createField,
@@ -9,6 +18,7 @@ import {
   findLedgeHit,
   findSideHit,
   feedEave,
+  gustStrength,
   intensityEnvelope,
   MAX_DROPLETS,
   MAX_HANGING,
@@ -22,6 +32,7 @@ import {
   stepField,
   stepLedgeWater,
   targetCount,
+  windField,
   type Ledge,
   type SceneKind,
 } from '../src/utils/sceneParticles';
@@ -99,15 +110,84 @@ describe('scene particle simulation', () => {
     expect(field.particles.length).toBe(0);
   });
 
-  it('only lands snow and leaves; rain splashes and the rest pass through', () => {
+  it('only lands snow; rain splashes and everything else passes through', () => {
     expect(settlesOnLedges('snow')).toBe(true);
-    expect(settlesOnLedges('leaves')).toBe(true);
-    expect(settlesOnLedges('rain')).toBe(false);
     expect(splashesOnLedges('rain')).toBe(true);
+    expect(settlesOnLedges('rain')).toBe(false);
+    // Leaves drift through the interface: no settling, no bouncing, no sticking.
+    expect(settlesOnLedges('leaves')).toBe(false);
+    expect(splashesOnLedges('leaves')).toBe(false);
     for (const kind of ['bubbles', 'stars', 'sunbeams'] as SceneKind[]) {
       expect(settlesOnLedges(kind), kind).toBe(false);
       expect(splashesOnLedges(kind), kind).toBe(false);
     }
+  });
+
+  it('never retains a leaf on a folder, tab, or heading', () => {
+    const panel = createLedge('panel', 0, 300, 1280, 160);
+    const tabs = createLedge('tabs', 0, 120, 900, 44);
+    const field = run(createField('leaves', 1280, 800), [panel, tabs], 14);
+
+    for (const ledge of [panel, tabs]) {
+      expect(Math.max(...ledge.piles), ledge.id).toBe(0);
+      expect(ledge.beads, ledge.id).toHaveLength(0);
+      expect(ledge.hanging, ledge.id).toHaveLength(0);
+    }
+    // Leaves keep drifting: some are below the surfaces they crossed.
+    expect(field.particles.some((particle) => particle.y > panel.y)).toBe(true);
+    expect(field.particles.length).toBeGreaterThan(0);
+  });
+
+  it('blows leaves on a wandering wind with occasional gusts', () => {
+    const samples = Array.from({ length: 240 }, (_, index) => windField(index * 0.25));
+    const gusts = Array.from({ length: 240 }, (_, index) => gustStrength(index * 0.25));
+
+    // The breeze reverses rather than always pushing one way.
+    expect(Math.min(...samples)).toBeLessThan(0);
+    expect(Math.max(...samples)).toBeGreaterThan(0);
+    // Gusts are occasional peaks, not a constant: mostly near zero, sometimes near one.
+    expect(Math.max(...gusts)).toBeGreaterThan(0.8);
+    expect(gusts.filter((value) => value < 0.05).length).toBeGreaterThan(gusts.length / 2);
+    for (const value of gusts) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('gives every leaf its own sway, tumble, and flip', () => {
+    const field = run(createField('leaves', 1280, 800), [], 3);
+    const leaves = field.particles.slice(0, 12);
+
+    expect(new Set(leaves.map((leaf) => leaf.swayRate.toFixed(4))).size).toBeGreaterThan(1);
+    expect(new Set(leaves.map((leaf) => leaf.phase.toFixed(4))).size).toBeGreaterThan(1);
+    // Tumble and flip both run in either direction.
+    expect(leaves.some((leaf) => leaf.flipRate > 0)).toBe(true);
+    expect(leaves.some((leaf) => leaf.flipRate < 0)).toBe(true);
+  });
+
+  it('keeps foreground leaves sparse by biasing depth toward the distance', () => {
+    const field = run(createField('leaves', 1280, 800), [], 2);
+    const near = field.particles.filter((leaf) => leaf.depth > 0.7).length;
+
+    expect(field.particles.length).toBeGreaterThan(10);
+    // Fewer than a third sit in the near layer, so the foreground stays uncluttered.
+    expect(near / field.particles.length).toBeLessThan(0.34);
+  });
+
+  it('lets leaves rise as well as fall while drifting', () => {
+    const field = createField('leaves', 1280, 800);
+    const random = createRandom(15);
+    const leaf = spawnParticle(field, random, true);
+    leaf.y = 400;
+    field.particles.push(leaf);
+
+    const speeds: number[] = [];
+    for (let index = 0; index < 400; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [], intensity: 0.2, random });
+      if (field.particles.includes(leaf)) speeds.push(leaf.vy);
+    }
+    // Vertical speed varies as it sways rather than holding one constant fall rate.
+    expect(Math.max(...speeds) - Math.min(...speeds)).toBeGreaterThan(3);
   });
 
   it('detects a ledge only when a particle crosses its surface', () => {
@@ -345,6 +425,7 @@ describe('scene particle simulation', () => {
     field.particles.push({
       x: 100, y: 100, vx: 0, vy: 30, size: 6, depth: 0.5,
       rotation: 0, spin: 0, age: 0, life: 20, variant: 0, passes: 1,
+      phase: 0, swayRate: 0, flip: 0, flipRate: 0,
     });
     const drip = field.particles[0];
 
@@ -393,5 +474,136 @@ describe('scene particle simulation', () => {
   it('floats bubbles upward', () => {
     const field = run(createField('bubbles', 1280, 800), [], 1);
     expect(field.particles.every((particle) => particle.vy < 0)).toBe(true);
+  });
+});
+
+describe('leaf geometry', () => {
+  function leaves(count: number) {
+    const field = createField('leaves', 1280, 800);
+    const random = createRandom(23);
+    return Array.from({ length: count }, () => spawnParticle(field, random, true));
+  }
+
+  it('closes the blade to a point at the tip and the stem', () => {
+    for (const leaf of leaves(24)) {
+      const shape = leafShape(leaf);
+      expect(bladeHalfWidth(shape, 0)).toBeCloseTo(0, 6);
+      expect(bladeHalfWidth(shape, 1)).toBeCloseTo(0, 6);
+      // Widest somewhere in between, so it is a blade rather than a sliver.
+      expect(bladeHalfWidth(shape, 0.5)).toBeGreaterThan(shape.width * 0.2);
+    }
+  });
+
+  it('gives each half of the blade a different width, so no leaf is a mirror image', () => {
+    for (const leaf of leaves(24)) {
+      const shape = leafShape(leaf);
+      expect(shape.leftScale).not.toBeCloseTo(shape.rightScale, 2);
+    }
+  });
+
+  it('varies size, width, taper, and lean from leaf to leaf', () => {
+    const shapes = leaves(24).map(leafShape);
+    for (const key of ['width', 'peak', 'taper', 'lean'] as const) {
+      expect(new Set(shapes.map((shape) => shape[key].toFixed(4))).size).toBeGreaterThan(4);
+    }
+    // Leaves curve both ways rather than all leaning the same direction.
+    expect(shapes.some((shape) => shape.lean > 0)).toBe(true);
+    expect(shapes.some((shape) => shape.lean < 0)).toBe(true);
+  });
+
+  it('keeps side veins inside the blade outline', () => {
+    for (const leaf of leaves(24)) {
+      const shape = leafShape(leaf);
+      for (const u of [0.24, 0.44, 0.64]) {
+        const reach = u + 0.13;
+        const half = bladeHalfWidth(shape, reach);
+        // Veins end at 0.68 of the envelope at their own end point, so they cannot poke out.
+        expect(half * 0.68).toBeLessThan(half + 1e-9);
+        expect(half).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('compresses and dims a leaf as it turns edge-on', () => {
+    const leaf = leaves(1)[0];
+    const flat = leafFacing({ ...leaf, flip: 0 });
+    const edge = leafFacing({ ...leaf, flip: Math.PI / 2 });
+
+    expect(flat.squash).toBeCloseTo(1, 5);
+    expect(edge.squash).toBeLessThan(0.2);
+    expect(edge.lit).toBeLessThan(flat.lit);
+  });
+
+  it('keeps dry yellow a minority of the canopy', () => {
+    const sample = leaves(400);
+    const dry = sample.filter((leaf) => leafTint(leaf) === LEAF_TINTS[3]).length;
+
+    expect(dry).toBeGreaterThan(0);
+    expect(dry / sample.length).toBeLessThan(0.2);
+  });
+});
+
+describe('leaf rendering', () => {
+  /** Minimal 2D context that records every point the leaf routine touches. */
+  function recorder() {
+    const points: Array<[number, number]> = [];
+    const stack: Array<{ x: number; y: number; scaleX: number }> = [{ x: 0, y: 0, scaleX: 1 }];
+    const top = () => stack[stack.length - 1];
+    const mark = (x: number, y: number) => {
+      const frame = top();
+      points.push([frame.x + x * frame.scaleX, frame.y + y]);
+    };
+    return {
+      points,
+      filter: 'none',
+      globalAlpha: 1,
+      lineWidth: 1,
+      strokeStyle: '',
+      fillStyle: '' as unknown,
+      save() { stack.push({ ...top() }); },
+      restore() { stack.pop(); },
+      translate(x: number, y: number) { top().x += x; top().y += y; },
+      rotate() {},
+      scale(x: number) { top().scaleX *= x; },
+      beginPath() {},
+      closePath() {},
+      moveTo: mark,
+      lineTo: mark,
+      stroke() {},
+      fill() {},
+      createLinearGradient() { return { addColorStop() {} }; },
+    } as unknown as CanvasRenderingContext2D & { points: Array<[number, number]> };
+  }
+
+  it('draws a leaf inside its own footprint and leaves the context clean', () => {
+    const field = createField('leaves', 1280, 800);
+    const leaf = spawnParticle(field, createRandom(31), true);
+    leaf.x = 500;
+    leaf.y = 300;
+    leaf.size = 40;
+    leaf.flip = 0;
+    leaf.rotation = 0;
+
+    const ctx = recorder();
+    drawLeaf(ctx, leaf);
+
+    expect(ctx.points.length).toBeGreaterThan(20);
+    for (const [x, y] of ctx.points) {
+      expect(Math.abs(x - leaf.x)).toBeLessThanOrEqual(leaf.size);
+      // The stem hangs below the base, so the footprint runs a little past half the length.
+      expect(Math.abs(y - leaf.y)).toBeLessThanOrEqual(leaf.size * 0.75);
+    }
+    // globalAlpha and filter are reset, so the next particle starts from a clean slate.
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.filter).toBe('none');
+  });
+
+  it('leans the midrib toward the tip rather than bending the base', () => {
+    const field = createField('leaves', 1280, 800);
+    const leaf = spawnParticle(field, createRandom(37), true);
+    const shape = leafShape(leaf);
+
+    expect(midribOffset(shape, 0)).toBeCloseTo(0, 6);
+    expect(Math.abs(midribOffset(shape, 1))).toBeGreaterThan(Math.abs(midribOffset(shape, 0.5)));
   });
 });
