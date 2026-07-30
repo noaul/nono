@@ -90,7 +90,7 @@ export function leafFacing(particle: Particle) {
  * Draws one leaf at its own position and attitude. Everything is scaled from `size`, so the
  * same routine draws a distant speck and a foreground leaf.
  */
-export function drawLeaf(ctx: CanvasRenderingContext2D, particle: Particle): void {
+export function drawLeaf(ctx: CanvasRenderingContext2D, particle: Particle, blurScale = 1): void {
   const [shadow, mid, highlight] = leafTint(particle);
   const shape = leafShape(particle);
   const { length, width } = shape;
@@ -100,8 +100,10 @@ export function drawLeaf(ctx: CanvasRenderingContext2D, particle: Particle): voi
   ctx.translate(particle.x, particle.y);
   ctx.rotate(particle.rotation);
   ctx.scale(squash, 1);
-  // Nearby leaves get a touch of blur so the foreground layer reads as closer.
-  if (particle.depth > 0.9) ctx.filter = 'blur(1.1px)';
+  // Nearby leaves get a touch of blur so the foreground layer reads as closer. A scale of 0
+  // turns it off, which is what low-performance mode wants.
+  const blur = particle.depth > 0.9 ? 1.1 * blurScale : 0;
+  if (blur > 0.05) ctx.filter = `blur(${blur.toFixed(2)}px)`;
   // Translucent, so leaves never look like solid stickers.
   ctx.globalAlpha = (0.32 + 0.5 * particle.depth) * (0.75 + 0.25 * facing);
 

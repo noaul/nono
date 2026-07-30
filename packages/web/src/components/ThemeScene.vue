@@ -12,16 +12,46 @@ import {
   type Ledge,
   type SceneKind,
 } from '@/utils/sceneParticles';
+import type { SceneTuning } from '@/utils/appearance';
 import { drawLeaf } from '@/utils/sceneLeaf';
 import { drawSnowflake } from '@/utils/sceneSnow';
 
-const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number; mode?: ResolvedColorMode }>(), {
+const props = withDefaults(defineProps<{
+  theme?: PublicTheme;
+  intensity?: number;
+  mode?: ResolvedColorMode;
+  /** Per-site scene tuning; every multiplier defaults to 1 when omitted. */
+  tuning?: SceneTuning;
+}>(), {
   intensity: 100,
   mode: 'light',
 });
 
 // 0-100 dial persisted in settings.theme.sceneIntensity; 100 keeps each theme's tuned look.
 const intensityRatio = computed(() => Math.min(100, Math.max(0, Math.round(props.intensity))) / 100);
+/**
+ * Low-performance mode trades fidelity for frame time: fewer particles, no foreground blur.
+ * `followReducedMotion` lets a site opt out of honouring the OS preference.
+ */
+const lowPerformance = computed(() => props.tuning?.lowPerformance ?? false);
+const effectiveIntensity = computed(() => {
+  const dialled = intensityRatio.value * (props.tuning?.enabled === false ? 0 : 1);
+  return lowPerformance.value ? dialled * 0.5 : dialled;
+});
+/** Low-performance mode drops the foreground blur, which is the most expensive part of a frame. */
+const blurScale = computed(() => (
+  lowPerformance.value ? 0 : props.tuning?.foregroundBlur ?? 1
+));
+const stepTuning = computed(() => ({
+  particleSize: props.tuning?.particleSize ?? 1,
+  speed: props.tuning?.speed ?? 1,
+  wind: props.tuning?.wind ?? 1,
+  windDirection: props.tuning?.windDirection ?? 0,
+  depth: props.tuning?.depth ?? 1,
+  collision: props.tuning?.collision ?? 1,
+  splash: props.tuning?.splash ?? 1,
+}));
+
 const modeMultiplier = computed(() => {
   if (props.mode !== 'dark') return 1;
   return props.theme?.scene.kind === 'stars' || props.theme?.scene.kind === 'snow' ? 0.92 : 0.72;
@@ -225,12 +255,12 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
   }
 
   if (kind === 'snow') {
-    drawSnowflake(ctx, particle);
+    drawSnowflake(ctx, particle, blurScale.value);
     return;
   }
 
   if (kind === 'leaves') {
-    drawLeaf(ctx, particle);
+    drawLeaf(ctx, particle, blurScale.value);
     return;
   }
 
@@ -295,7 +325,7 @@ function render(time: number) {
     measureLedges();
   }
 
-  stepField(field, { delta, ledges, intensity: intensityRatio.value, random });
+  stepField(field, { delta, ledges, intensity: effectiveIntensity.value, random, tuning: stepTuning.value });
   visibleParticles.value = field.particles.length;
 
   ctx.clearRect(0, 0, field.width, field.height);
@@ -378,7 +408,9 @@ function onPointerMove(event: PointerEvent) {
 
 onMounted(() => {
   if (typeof window === 'undefined') return;
-  reducedMotion = typeof window.matchMedia === 'function'
+  // A site can opt out of following the OS preference; by default it is honoured.
+  reducedMotion = (props.tuning?.followReducedMotion ?? true)
+    && typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   paused.value = document.visibilityState === 'hidden';
   document.addEventListener('visibilitychange', onVisibilityChange);

@@ -19,7 +19,7 @@ import type { Folder, Link, Site } from '@/api/types';
 import { useHomeNotifications } from '@/composables/useHomeNotifications';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
-import { getAppearanceSettings, toAppearanceCssVars } from '@/utils/appearance';
+import { getAppearanceSettings, toAppearanceCssVars, toSceneTuning } from '@/utils/appearance';
 import { getPortalSettings } from '@/utils/portal';
 import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
@@ -172,6 +172,7 @@ const sceneIntensity = computed(() => getSceneIntensity(payload.value?.site.sett
 watch(() => payload.value?.site.settings, (settings) => {
   setSiteDefaultLocale(getSiteDefaultLocale(settings));
 }, { immediate: true });
+const appearance = computed(() => getAppearanceSettings(payload.value?.site.settings));
 const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
   if (resolvedMode.value !== 'dark') {
     return {
@@ -184,7 +185,8 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     };
   }
   return {
-    '--public-mode-scrim': 'rgba(5, 8, 14, 0.38)',
+    // The dark-mode overlay strength is a setting; 0.38 is what the default 42 works out to.
+    '--public-mode-scrim': `rgba(5, 8, 14, ${(appearance.value.glassDarkOverlay * 0.009).toFixed(3)})`,
     '--public-card-color-rgb': '22, 25, 33',
     '--public-card-opacity': '0.52',
     '--public-search-color-rgb': '20, 23, 31',
@@ -212,8 +214,28 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     '--public-notification-hover-rgb': '226, 231, 238',
   };
 });
+const sceneTuning = computed(() => toSceneTuning(appearance.value));
+
+/** The user's own homepage background, honouring the on/off switch. */
+const activeBackgroundImage = computed(() => (
+  appearance.value.backgroundImageEnabled ? visibleBackgroundImage.value : ''
+));
+
+/**
+ * Scrim over the background image: the shared strength plus whichever mode-specific strength
+ * applies, so a photo can be dimmed harder in dark mode than in light.
+ */
+const backgroundOverlayTotal = computed(() => {
+  const perMode = resolvedMode.value === 'dark' ? appearance.value.overlayDark : appearance.value.overlayLight;
+  return Math.min(1, (appearance.value.backgroundOverlay + perMode) / 100);
+});
+
+const backgroundScrim = computed(() => (
+  `rgba(var(--public-overlay-rgb, 8, 12, 18), ${backgroundOverlayTotal.value.toFixed(3)})`
+));
+
 const backgroundStyle = computed(() => {
-  const appearanceVars = toAppearanceCssVars(getAppearanceSettings(payload.value?.site.settings));
+  const appearanceVars = toAppearanceCssVars(appearance.value);
   const publicThemeVars = activeTheme.value ? themeCssVars(activeTheme.value) : {};
   const accentVars = getThemeAccentVars(payload.value?.site.settings);
   if (!payload.value?.site) {
@@ -233,8 +255,11 @@ const backgroundStyle = computed(() => {
     ...accentVars,
     ...pageTextCssVars(payload.value.site.fontColor || activeTheme.value?.fontColor || '#f3f4f6'),
     '--nav-bg-color': payload.value.site.backgroundColor || '#090a0f',
-    '--nav-bg-image': visibleBackgroundImage.value
-      ? `linear-gradient(rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04), rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)), url(${JSON.stringify(visibleBackgroundImage.value)})`
+    // The scrim rides on the image layer as a flat gradient rather than a pseudo-element:
+    // `.nav-page` and `.public-glass-page` are the same element, so an `::after` here would
+    // replace the mode scrim that rule already owns.
+    '--nav-bg-image': activeBackgroundImage.value
+      ? `linear-gradient(${backgroundScrim.value}, ${backgroundScrim.value}), url(${JSON.stringify(activeBackgroundImage.value)})`
       : 'none',
     ...modeCssVars.value,
     color: resolvedMode.value === 'dark' ? '#f4f6f8' : payload.value.site.fontColor || '#f3f4f6',
@@ -1163,12 +1188,18 @@ onUnmounted(() => {
 <template>
   <main
     class="nav-page public-glass-page"
-    :class="{ 'nav-bg-visible': visibleBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage, 'navigation-locked': accessLocked }"
+    :class="{ 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
     :data-color-mode="resolvedMode"
     :data-theme-tone="activeTheme?.tone"
   >
-    <ThemeScene v-if="sceneIntensity > 0" :theme="activeTheme" :intensity="sceneIntensity" :mode="resolvedMode" />
+    <ThemeScene
+      v-if="sceneIntensity > 0 && appearance.sceneEnabled"
+      :theme="activeTheme"
+      :intensity="sceneIntensity"
+      :mode="resolvedMode"
+      :tuning="sceneTuning"
+    />
     <div class="public-corner-actions">
       <HomeNotificationBell
         v-if="canEditAppearance"
@@ -1266,7 +1297,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing }" aria-label="notab">
+          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing, 'notab-wraps': appearance.notabOverflow === 'wrap' }" aria-label="notab">
             <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
             <span
               v-for="tab in categoryTabs"
@@ -1402,7 +1433,9 @@ onUnmounted(() => {
 <style scoped>
 .nav-page {
   background: var(--nav-bg-color, #090a0f);
+  font-family: var(--public-font-family, inherit);
   isolation: isolate;
+  line-height: var(--public-line-height, 1.5);
   min-height: 100dvh;
   padding: 48px 0 80px;
   position: relative;
@@ -1507,11 +1540,15 @@ onUnmounted(() => {
 
 .nav-page::before {
   background-image: var(--nav-bg-image, none);
-  background-position: center;
+  background-position: var(--public-bg-position, center);
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: var(--public-bg-size, cover);
   content: '';
-  inset: 0;
+  /* Only the user's own homepage background is filtered here; the themes ship no imagery. */
+  filter: brightness(var(--public-bg-brightness, 100%)) blur(var(--public-bg-blur, 0px));
+  /* Overhangs the viewport by the blur radius, or the blur would feather the page through
+     around the edges. */
+  inset: calc(-2 * var(--public-bg-blur, 0px));
   opacity: 0;
   pointer-events: none;
   position: fixed;
@@ -1536,11 +1573,11 @@ onUnmounted(() => {
 
 .nav-content {
   display: grid;
-  gap: 28px;
+  gap: var(--public-search-grid-gap, 28px);
   margin: 0 auto;
-  max-width: 2600px;
+  max-width: var(--public-content-max, 2600px);
   min-width: 0;
-  padding: 0 32px;
+  padding: 0 var(--public-page-padding-x, 32px);
   position: relative;
   z-index: 2;
 }
@@ -1746,12 +1783,13 @@ onUnmounted(() => {
 }
 
 h1 {
-  font-size: 56px;
+  /* The setting is the base; the heading is still the largest thing on the page. */
+  font-size: calc(var(--public-title-text-size, 30px) * 1.86);
   line-height: 1.1;
   margin: 0;
-  font-weight: 900;
+  font-weight: calc(var(--public-font-weight, 400) + 400);
   letter-spacing: 0;
-  color: var(--public-page-text, #f3f4f6);
+  color: var(--public-title-text, var(--public-page-text, #f3f4f6));
 }
 
 /* Text shadows only earn their keep over a background image; on flat color they just blur. */
@@ -1761,16 +1799,17 @@ h1 {
 
 @media (max-width: 768px) {
   h1 {
-    font-size: 36px;
+    font-size: calc(var(--public-title-text-size, 30px) * 1.2);
   }
 }
 
 .nav-header p {
-  color: rgba(var(--public-page-text-rgb), 0.8);
-  font-size: 15px;
+  color: rgba(var(--public-description-text-rgb, var(--public-page-text-rgb)), 0.8);
+  font-size: var(--public-description-text-size, 14px);
+  line-height: var(--public-line-height, 1.5);
   margin: 12px 0 0;
   max-width: 600px;
-  font-weight: 500;
+  font-weight: calc(var(--public-font-weight, 400) + 100);
 }
 
 .nav-bg-visible .nav-header p {
@@ -1843,18 +1882,24 @@ h1 {
   backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
-  border: 1px solid rgba(var(--public-border-rgb), 0.3);
+  border: var(--public-glass-border-width, 1px) solid
+    rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.3));
   border-radius: var(--public-search-radius, 28px);
   display: flex;
-  gap: 4px;
-  justify-content: safe center;
+  flex-wrap: var(--public-notab-wrap, nowrap);
+  gap: var(--public-notab-gap, 4px);
+  justify-content: var(--public-notab-justify, safe center);
   margin: 8px auto;
   max-width: 100%;
+  min-height: var(--public-notab-height, 38px);
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: var(--public-notab-overflow-x, auto);
   padding: 5px;
   width: min(100%, 1200px);
-  box-shadow: 0 8px 30px rgba(var(--public-shadow-rgb), 0.14), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.26);
+  box-shadow:
+    0 8px var(--public-glass-shadow-spread, 30px)
+      rgba(var(--public-shadow-rgb), calc(var(--public-glass-shadow-strength, 0.32) * 0.44)),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb), var(--public-glass-highlight, 0.26));
   position: sticky;
   top: 12px;
   z-index: 10;
@@ -1870,8 +1915,15 @@ h1 {
   mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
 }
 
+/* Wrapped tabs have nothing to scroll, so the edge fade would just clip the first and last. */
+.folder-tabs.tabs-scrollable.notab-wraps {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .tab-indicator {
   background: rgba(var(--accent-rgb), 0.22);
+  border-bottom: var(--public-notab-indicator, 2px) solid rgba(var(--accent-rgb), 0.85);
   border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
   box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
   height: calc(100% - 10px);
@@ -1897,8 +1949,11 @@ h1 {
 
 .notab-select {
   -webkit-touch-callout: none;
+  align-items: center;
   border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
+  display: inline-flex;
   flex: 0 0 auto;
+  min-height: calc(var(--public-notab-height, 38px) - 10px);
   padding: 6px 14px;
   font-size: var(--public-notab-text-size, 15px);
   font-weight: 600;
@@ -2048,39 +2103,28 @@ mark {
 .adaptive-folder-grid {
   align-items: start;
   display: grid;
-  gap: 24px 20px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-@media (min-width: 2250px) {
-  .adaptive-folder-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 2500px) {
-  .adaptive-folder-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
+  gap: var(--public-folder-gap-y, 24px) var(--public-folder-gap-x, 20px);
+  /* The configured count is the ceiling; narrower viewports still step down below. */
+  grid-template-columns: repeat(var(--public-folder-columns, 4), minmax(0, 1fr));
 }
 
 @media (max-width: 1800px) {
   .nav-content {
-    padding: 0 24px;
+    padding: 0 min(24px, var(--public-page-padding-x, 32px));
   }
 
   .adaptive-folder-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(min(3, var(--public-folder-columns, 4)), minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1100px) {
   .nav-content {
-    padding: 0 20px;
+    padding: 0 min(20px, var(--public-page-padding-x, 32px));
   }
 
   .adaptive-folder-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(min(2, var(--public-folder-columns, 4)), minmax(0, 1fr));
   }
 }
 

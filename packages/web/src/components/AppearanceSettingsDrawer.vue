@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { ArrowUpRight, Check, Languages, Layers, Palette, Plus, Save, Settings, Sliders, Trash2, X } from 'lucide-vue-next';
+import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Sliders, Trash2, X } from 'lucide-vue-next';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
 import LanguageControl from '@/components/LanguageControl.vue';
@@ -28,6 +28,9 @@ const saving = ref(false);
 const message = ref('');
 const error = ref('');
 const presetName = ref('');
+/** Serialised copy of what is on the server, so "dirty" is a comparison rather than a flag. */
+const savedSnapshot = ref('');
+let successTimer = 0;
 
 // Three panels instead of one ~1900px scroll: pick a look, fine-tune the glass, set preferences.
 type DrawerTab = 'theme' | 'texture' | 'general';
@@ -52,6 +55,20 @@ const userPresets = ref<UserAppearancePreset[]>([]);
 
 const selectedTheme = computed(() => getTheme(theme.id));
 const presetsFull = computed(() => userPresets.value.length >= 3);
+
+/** Everything the Save button would send, in a stable shape for comparison. */
+function draftSignature() {
+  return JSON.stringify({
+    appearance: appearanceSettingsForSave(appearance),
+    theme: { ...theme },
+    backgroundColor: backgroundColor.value,
+    fontColor: fontColor.value,
+    siteLocale: siteLocale.value,
+  });
+}
+
+const dirty = computed(() => savedSnapshot.value !== '' && draftSignature() !== savedSnapshot.value);
+const canSave = computed(() => dirty.value && !saving.value);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -92,6 +109,7 @@ function resetDraft() {
   presetName.value = '';
   message.value = '';
   error.value = '';
+  savedSnapshot.value = draftSignature();
 }
 
 function applyTheme(preset: PublicTheme) {
@@ -160,6 +178,10 @@ async function persist(successMessage = t('appearance.saved')) {
       }),
     });
     message.value = successMessage;
+    savedSnapshot.value = draftSignature();
+    // Brief confirmation: long enough to read, short enough not to linger over the controls.
+    window.clearTimeout(successTimer);
+    successTimer = window.setTimeout(() => { message.value = ''; }, 2600);
     emit('saved', updated);
     return true;
   } catch (event) {
@@ -200,8 +222,14 @@ async function removeUserPreset(preset: UserAppearancePreset) {
   if (!await persist(t('appearance.presetRemoved', { name: preset.name }))) userPresets.value = previous;
 }
 
+/** Asks before discarding unsaved work; a clean drawer closes straight away. */
+function requestClose() {
+  if (dirty.value && !window.confirm(t('appearance.editor.closeConfirm'))) return;
+  emit('close');
+}
+
 function onKeydown(event: KeyboardEvent) {
-  if (props.open && event.key === 'Escape') emit('close');
+  if (props.open && event.key === 'Escape') requestClose();
 }
 
 watch(() => props.open, (open) => {
@@ -209,27 +237,68 @@ watch(() => props.open, (open) => {
 }, { immediate: true });
 
 window.addEventListener('keydown', onKeydown);
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown);
+  window.clearTimeout(successTimer);
+});
 </script>
 
 <template>
   <Transition name="appearance-drawer">
-    <div v-if="open" class="appearance-backdrop" data-testid="appearance-settings-drawer" @click.self="emit('close')">
+    <div v-if="open" class="appearance-backdrop" data-testid="appearance-settings-drawer" @click.self="requestClose">
       <aside class="appearance-drawer" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+        <!-- Sticky: the actions stay reachable however far the panel is scrolled, and the
+             bottom action bar is gone, which gives the controls the height back. -->
         <header class="drawer-header">
-          <div>
+          <div class="header-titles">
             <span><Settings :size="15" /> {{ t('appearance.eyebrow') }}</span>
             <h2 id="appearance-title">{{ t('appearance.title') }}</h2>
+            <!-- Mobile puts the state here, where there is room for it on one line; the copy in
+                 the action row is hidden at that width. -->
+            <small v-if="message || error || dirty" class="mobile-save-state" aria-hidden="true">
+              <span v-if="message" class="state-saved">{{ message }}</span>
+              <span v-else-if="error" class="state-error">{{ error }}</span>
+              <span v-else class="state-dirty">{{ t('appearance.editor.unsaved') }}</span>
+            </small>
           </div>
-          <button
-            class="drawer-icon-button"
-            type="button"
-            :title="t('common.close')"
-            :aria-label="t('appearance.closeLabel')"
-            @click="emit('close')"
-          >
-            <X :size="19" />
-          </button>
+          <div class="header-actions">
+            <span class="save-state" aria-live="polite">
+              <span v-if="message" class="state-saved"><Check :size="13" /> {{ message }}</span>
+              <span v-else-if="error" class="state-error">{{ error }}</span>
+              <span v-else-if="dirty" class="state-dirty" data-testid="appearance-unsaved">
+                {{ t('appearance.editor.unsaved') }}
+              </span>
+            </span>
+            <a
+              class="header-secondary"
+              data-testid="appearance-admin-link"
+              href="/admin"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ t('appearance.adminEntry') }} <ArrowUpRight :size="14" />
+            </a>
+            <button
+              class="header-primary"
+              data-testid="appearance-save"
+              type="button"
+              :disabled="!canSave"
+              @click="save"
+            >
+              <Loader2 v-if="saving" class="spin" :size="15" />
+              <Save v-else :size="15" />
+              {{ saving ? t('common.saving') : t('appearance.saveAppearance') }}
+            </button>
+            <button
+              class="drawer-icon-button"
+              type="button"
+              :title="t('common.close')"
+              :aria-label="t('appearance.closeLabel')"
+              @click="requestClose"
+            >
+              <X :size="18" />
+            </button>
+          </div>
         </header>
 
         <nav class="drawer-tabs" role="tablist" :aria-label="t('appearance.title')">
@@ -346,7 +415,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
           </div>
 
           <div v-show="activeTab === 'texture'" class="drawer-panel" role="tabpanel">
-            <AppearanceEditor :appearance="appearance" />
+            <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene.kind" />
           </div>
 
           <div v-show="activeTab === 'general'" class="drawer-panel" role="tabpanel">
@@ -387,20 +456,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
           </div>
         </div>
 
-        <footer class="drawer-footer">
-          <div class="drawer-feedback" aria-live="polite">
-            <span v-if="message" class="success">{{ message }}</span>
-            <span v-else-if="error" class="error">{{ error }}</span>
-          </div>
-          <div class="drawer-actions">
-            <a data-testid="appearance-admin-link" href="/admin" target="_blank" rel="noreferrer">
-              {{ t('appearance.adminEntry') }} <ArrowUpRight :size="16" />
-            </a>
-            <button data-testid="appearance-save" type="button" :disabled="saving" @click="save">
-              <Save :size="16" /> {{ saving ? t('common.saving') : t('appearance.saveAppearance') }}
-            </button>
-          </div>
-        </footer>
       </aside>
     </div>
   </Transition>
@@ -421,7 +476,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   --drawer-surface: #ffffff;
   --drawer-input: rgba(255, 255, 255, 0.82);
   --drawer-chip: rgba(226, 232, 240, 0.64);
-  --drawer-footer: rgba(248, 250, 252, 0.82);
   --drawer-accent: #0f766e;
   --drawer-accent-ink: #ffffff;
   --drawer-success: #047857;
@@ -444,7 +498,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   --drawer-surface: rgba(255, 255, 255, 0.07);
   --drawer-input: rgba(255, 255, 255, 0.06);
   --drawer-chip: rgba(255, 255, 255, 0.08);
-  --drawer-footer: rgba(13, 15, 19, 0.86);
   --drawer-accent: #2dd4bf;
   --drawer-accent-ink: #04241f;
   --drawer-success: #34d399;
@@ -481,8 +534,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   backdrop-filter: blur(28px) saturate(1.16);
 }
 
-.drawer-header,
-.drawer-footer {
+.drawer-header {
   align-items: center;
   display: flex;
   gap: 10px;
@@ -491,12 +543,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 }
 
 .drawer-header {
+  background: var(--drawer-bg);
   border-bottom: 1px solid var(--drawer-divider);
-}
-
-.drawer-header > div {
-  display: grid;
-  gap: 2px;
+  /* Carries the actions, so it has to stay put while the panel scrolls. */
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .drawer-header span,
@@ -999,51 +1051,91 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   color: var(--drawer-danger);
 }
 
-.drawer-footer {
-  background: var(--drawer-footer);
-  border-top: 1px solid var(--drawer-divider);
-}
-
-.drawer-feedback {
-  font-size: 12px;
+.header-titles {
+  display: grid;
+  gap: 2px;
   min-width: 0;
 }
 
-.drawer-feedback .success { color: var(--drawer-success); }
-.drawer-feedback .error { color: var(--drawer-danger); }
-
-.drawer-actions {
+.header-actions {
+  align-items: center;
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
+  min-width: 0;
 }
 
-.drawer-actions a,
-.drawer-actions button {
+.save-state {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 0;
+  text-align: right;
+}
+
+.save-state .state-saved {
+  align-items: center;
+  color: var(--drawer-success);
+  display: inline-flex;
+  gap: 3px;
+}
+
+.save-state .state-error { color: var(--drawer-danger); }
+.save-state .state-dirty { color: var(--drawer-subtle); }
+
+/* Only shown at the narrow width, where the action row has no space for the state. */
+.mobile-save-state {
+  display: none;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.mobile-save-state .state-saved { color: var(--drawer-success); }
+.mobile-save-state .state-error { color: var(--drawer-danger); }
+.mobile-save-state .state-dirty { color: var(--drawer-subtle); }
+
+.header-secondary,
+.header-primary {
   align-items: center;
   border-radius: 8px;
   display: inline-flex;
+  flex: 0 0 auto;
   font-size: 11px;
   font-weight: 750;
-  gap: 6px;
+  gap: 5px;
+  justify-content: center;
   min-height: 34px;
   padding: 0 10px;
+  white-space: nowrap;
 }
 
-.drawer-actions a {
+.header-secondary {
   background: var(--drawer-surface);
   border: 1px solid var(--drawer-line);
   color: var(--drawer-strong);
 }
 
-.drawer-actions button {
+.header-primary {
   background: var(--drawer-accent);
   border: 1px solid var(--drawer-accent);
   color: var(--drawer-accent-ink);
 }
 
-.drawer-actions button:disabled {
+/* Disabled means "nothing to save", so it reads as inert rather than busy. */
+.header-primary:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.header-primary:disabled:has(.spin) {
   cursor: wait;
-  opacity: 0.6;
+}
+
+.spin {
+  animation: drawer-spin 0.9s linear infinite;
+}
+
+@keyframes drawer-spin {
+  to { transform: rotate(360deg); }
 }
 
 :deep(.appearance-editor) {
@@ -1107,14 +1199,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   }
 
   .drawer-header,
-  .drawer-footer,
   .drawer-tabs {
     padding-left: 12px;
     padding-right: 12px;
   }
 
-  .drawer-header,
-  .drawer-footer {
+  .drawer-header {
     padding-bottom: 10px;
     padding-top: 10px;
   }
@@ -1128,24 +1218,43 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
     gap: 4px;
   }
 
-  .drawer-footer {
+  /* Title on the first row, the three controls on a compact second row. */
+  .drawer-header {
     align-items: stretch;
     flex-direction: column;
+    gap: 8px;
   }
 
-  .drawer-actions {
+  .header-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* Admin and Save share the width; Close keeps its square. */
+    grid-template-columns: 1fr 1fr 44px;
+  }
+
+  .save-state {
+    display: none;
+  }
+
+  /* Unsaved state moves under the title, where there is room for it on one line. */
+  .header-titles .mobile-save-state {
+    display: block;
+  }
+
+  /* 44px minimum touch target on every control in the row. */
+  .header-secondary,
+  .header-primary,
+  .header-actions .drawer-icon-button {
+    min-height: 44px;
+  }
+
+  .header-actions .drawer-icon-button {
+    height: 44px;
+    width: 44px;
   }
 
   .preset-create,
   .user-preset-list {
     grid-template-columns: 1fr;
-  }
-
-  .drawer-actions a,
-  .drawer-actions button {
-    justify-content: center;
   }
 }
 

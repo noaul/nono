@@ -103,8 +103,8 @@ defineExpose({
     />
     <kbd v-if="mode === 'search'" class="search-kbd" aria-hidden="true">/</kbd>
     <button type="submit" class="search-btn" :title="mode === 'password' ? t('search.unlock') : t('common.search')" :disabled="busy">
-      <KeyRound v-if="mode === 'password'" :size="18" />
-      <Search v-else :size="18" />
+      <KeyRound v-if="mode === 'password'" class="search-glyph" :size="18" />
+      <Search v-else class="search-glyph" :size="18" />
     </button>
   </form>
 </template>
@@ -112,17 +112,18 @@ defineExpose({
 <style scoped>
 .search-bar {
   align-items: center;
-  backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
-  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(1.22);
+  backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(var(--public-glass-saturation, 122%));
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(var(--public-glass-saturation, 122%));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
-  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.36);
+  border: var(--public-glass-border-width, 1px) solid
+    rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.36));
   border-radius: var(--public-search-radius, 28px);
   display: flex;
   gap: 10px;
-  min-height: 52px;
+  min-height: var(--public-search-height, 52px);
   min-width: 0;
   margin: 0 auto;
-  max-width: 680px;
+  max-width: var(--public-search-max-width, 680px);
   padding: 0 6px 0 10px;
   position: relative;
   width: 100%;
@@ -268,16 +269,22 @@ defineExpose({
 .search-bar input {
   background: transparent;
   border: 0;
-  color: var(--public-bookmark-text, #ffffff);
+  color: var(--public-search-text, var(--public-bookmark-text, #ffffff));
   flex: 1;
   min-width: 0;
   outline: 0;
-  font-size: var(--public-bookmark-text-size, 14px);
-  font-weight: 600;
+  font-size: var(--public-search-text-size, 15px);
+  font-weight: var(--public-font-weight, 600);
+}
+
+/* Sized in CSS rather than through the icon's numeric prop, so it tracks the setting live. */
+.search-glyph {
+  height: var(--public-search-icon-size, 18px);
+  width: var(--public-search-icon-size, 18px);
 }
 
 .search-bar input::placeholder {
-  color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.62);
+  color: rgba(var(--public-placeholder-text-rgb, var(--public-bookmark-text-rgb, 255, 255, 255)), 0.62);
 }
 
 .search-kbd {

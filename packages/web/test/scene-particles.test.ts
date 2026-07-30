@@ -27,8 +27,10 @@ import {
   mergedSize,
   retainChance,
   sizeEnvelope,
+  resolveTuning,
   splashesOnLedges,
   spawnParticle,
+  tunedWind,
   stepField,
   stepLedgeWater,
   targetCount,
@@ -812,5 +814,100 @@ describe('snowflake variety is independent of distance', () => {
     // And the roll is stable for a given flake but differs between flakes.
     const other = spawnParticle(field, createRandom(8), true);
     expect(snowRoll(flake, 1.7)).not.toBe(snowRoll(other, 1.7));
+  });
+});
+
+describe('per-site scene tuning', () => {
+  function drift(kind: SceneKind, tuning: Parameters<typeof stepField>[1]['tuning'], seconds = 6) {
+    const field = createField(kind, 1280, 800);
+    const random = createRandom(19);
+    for (let index = 0; index < seconds * 60; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [], intensity: 1, random, tuning });
+    }
+    return field;
+  }
+
+  it('leaves every multiplier at one when nothing is configured', () => {
+    expect(resolveTuning()).toEqual({
+      particleSize: 1, speed: 1, wind: 1, windDirection: 0, depth: 1, collision: 1, splash: 1,
+    });
+    // An omitted tuning object and an all-defaults one produce the same field.
+    const bare = drift('snow', undefined, 3);
+    const explicit = drift('snow', resolveTuning(), 3);
+    expect(bare.particles.length).toBe(explicit.particles.length);
+    expect(bare.particles[0].x).toBeCloseTo(explicit.particles[0].x, 6);
+  });
+
+  it('stills the air at zero wind and biases it with the direction dial', () => {
+    const calm = resolveTuning({ wind: 0 });
+    for (const time of [0, 5, 12, 30, 47]) expect(tunedWind(time, calm)).toBe(0);
+
+    const rightward = resolveTuning({ windDirection: 1 });
+    const leftward = resolveTuning({ windDirection: -1 });
+    const samples = [0, 3, 7, 14, 22, 35];
+    // The bias shifts the whole field rather than clamping it, so a rightward setting still
+    // varies but sits well to the right of a leftward one.
+    for (const time of samples) {
+      expect(tunedWind(time, rightward)).toBeGreaterThan(tunedWind(time, leftward));
+    }
+    expect(samples.every((time) => tunedWind(time, rightward) > 0)).toBe(true);
+  });
+
+  it('scales particle size at spawn', () => {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(23);
+    const plain = spawnParticle(field, createRandom(23), true);
+    const doubled = spawnParticle(field, random, true, { particleSize: 2 });
+
+    expect(doubled.size).toBeCloseTo(plain.size * 2, 5);
+  });
+
+  it('makes snow fall faster or slower on the speed dial', () => {
+    const slow = drift('snow', { speed: 0.4 }, 8);
+    const fast = drift('snow', { speed: 2 }, 8);
+    const meanFall = (field: typeof slow) =>
+      field.particles.reduce((total, flake) => total + flake.vy, 0) / Math.max(1, field.particles.length);
+
+    expect(meanFall(fast)).toBeGreaterThan(meanFall(slow) * 1.5);
+  });
+
+  it('flattens the depth spread at zero and widens it above one', () => {
+    const flat = drift('snow', { depth: 0 }, 8);
+    const deep = drift('snow', { depth: 1.5 }, 8);
+    const spread = (field: typeof flat) => {
+      const speeds = field.particles.map((flake) => flake.vy);
+      return Math.max(...speeds) - Math.min(...speeds);
+    };
+
+    expect(spread(flat)).toBeLessThan(spread(deep));
+  });
+
+  it('lets every drop through at zero collision', () => {
+    const ledge = createLedge('panel', 0, 300, 1280, 140);
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(29);
+    for (let index = 0; index < 60 * 6; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 1, random, tuning: { collision: 0 } });
+    }
+
+    // Nothing is ever held, so no water beads and nothing hangs from the eave.
+    expect(ledge.beads).toHaveLength(0);
+    expect(ledge.hanging).toHaveLength(0);
+    // Rain still reaches below the panel.
+    expect(field.particles.some((drop) => drop.y > ledge.y)).toBe(true);
+  });
+
+  it('scales the splash without suppressing the impact entirely', () => {
+    const ledge = createLedge('panel', 0, 300, 1280, 140);
+    const quiet = createField('rain', 1280, 800);
+    const loud = createField('rain', 1280, 800);
+    for (const [field, splash] of [[quiet, 0.2], [loud, 1.5]] as const) {
+      const random = createRandom(31);
+      for (let index = 0; index < 60 * 3; index += 1) {
+        stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 1, random, tuning: { splash } });
+      }
+    }
+
+    expect(loud.bursts.length).toBeGreaterThan(quiet.bursts.length);
   });
 });

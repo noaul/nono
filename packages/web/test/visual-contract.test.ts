@@ -137,7 +137,10 @@ describe('visual contracts', () => {
     expect(source).toContain("'--nav-bg-image'");
     expect(source).toContain("'--nav-bg-color'");
     expect(source).toContain('visibleBackgroundImage');
-    expect(source).toContain('JSON.stringify(visibleBackgroundImage.value)');
+    // Gated on the background-image switch, and still passed through JSON.stringify for the url().
+    expect(source).toContain('activeBackgroundImage');
+    expect(source).toContain('JSON.stringify(activeBackgroundImage.value)');
+    expect(source).toContain('backgroundImageEnabled');
     expect(source).toContain('preloadPublicBackground');
     expect(source).toContain('data-nono-background-preload');
     expect(source).toContain("addBackgroundHint('dns-prefetch', origin)");
@@ -164,14 +167,16 @@ describe('visual contracts', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
 
     expect(css).toContain('adaptive-folder-grid');
-    expect(css).toContain('max-width: 2600px');
-    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 32px;/);
-    expect(css).toContain('gap: 24px 20px');
-    expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(min-width: 2250px\)[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(min-width: 2500px\)[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 24px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(3,/);
-    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 20px;[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(2,/);
+    // Content width, side padding, column count and both gaps are settings now; the old
+    // literals survive as the var() fallbacks, so an unconfigured site looks unchanged.
+    expect(css).toContain('var(--public-content-max, 2600px)');
+    expect(css).toMatch(/\.nav-content \{[\s\S]*?padding:\s*0 var\(--public-page-padding-x, 32px\);/);
+    expect(css).toContain('var(--public-folder-gap-y, 24px) var(--public-folder-gap-x, 20px)');
+    expect(css).toMatch(/\.adaptive-folder-grid \{[\s\S]*?grid-template-columns:\s*repeat\(var\(--public-folder-columns, 4\),\s*minmax\(0,\s*1fr\)\)/);
+    // Narrow viewports still step down, but clamp against the configured count rather than
+    // overriding it, so a site set to 2 columns never widens to 3.
+    expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(min\(3, var\(--public-folder-columns, 4\)\),/);
+    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(min\(2, var\(--public-folder-columns, 4\)\),/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?gap:\s*24px;/);
     expect(css).not.toContain('@media (max-width: 820px)');
@@ -192,14 +197,17 @@ describe('visual contracts', () => {
     expect(source).toContain('grid-template-rows: 38px auto');
     expect(source).toContain('contain-intrinsic-size: 398px 264px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(source).toContain('grid-auto-rows: 30px');
+    expect(source).toContain('grid-auto-rows: var(--public-bookmark-row-height, 38px)');
     expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*12px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*8px 4px;[\s\S]*?padding:\s*15px 4px 15px 16px;/);
-    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*30px;[\s\S]*?padding:\s*2px 0 2px 5px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*var\(--public-bookmark-gap-y, 4px\) var\(--public-bookmark-gap-x, 8px\);[\s\S]*?padding:\s*15px 4px 15px 16px;/);
+    expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*var\(--public-bookmark-row-height, 38px\);[\s\S]*?padding:\s*2px 0 2px 5px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*var\(--public-bookmark-text-size, 14px\);/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
     expect(source).toContain(':size="16"');
-    expect(source).toMatch(/\.link-favicon \{[\s\S]*?height:\s*16px;[\s\S]*?width:\s*16px;/);
+    // Bookmark icons are sized by the setting on the shared `.large-link-icon`, so the favicon
+    // rule only has to keep them square and unstretched.
+    expect(source).toMatch(/\.large-link-icon \{[\s\S]*?height:\s*var\(--public-bookmark-icon-size, 20px\);[\s\S]*?width:\s*var\(--public-bookmark-icon-size, 20px\);/);
+    expect(source).toMatch(/\.link-favicon \{[\s\S]*?object-fit:\s*contain;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?height: 214px;[\s\S]*?max-height: 214px;/);
     expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
     expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
@@ -552,8 +560,11 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('public-empty-state');
     expect(navigationSource).toContain('public-glass-page');
     expect(navigationSource).toContain('--public-overlay-rgb');
-    expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.04)');
-    expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 10, 11, 16), 0.2)');
+    expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 8, 12, 18)');
+    expect(navigationSource).toContain('backgroundOverlayTotal');
+    // Light and dark carry their own strength on top of the shared one.
+    expect(navigationSource).toContain('overlayDark');
+    expect(navigationSource).toContain('overlayLight');
     expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
     expect(navigationSource).toMatch(/\.notab-select \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');
@@ -678,7 +689,9 @@ describe('visual contracts', () => {
     expect(themesSource).toContain('getSceneIntensity');
     expect(navigationSource).toContain('getSceneIntensity');
     expect(navigationSource).toContain(':intensity="sceneIntensity"');
-    expect(navigationSource).toContain('v-if="sceneIntensity > 0"');
+    // The dial still gates the scene, now alongside the explicit on/off switch.
+    expect(navigationSource).toContain('sceneIntensity > 0 && appearance.sceneEnabled');
+    expect(navigationSource).toContain(':tuning="sceneTuning"');
     expect(sceneSource).toContain('intensityRatio');
     expect(sceneSource).toContain('visibleParticles');
     expect(drawerSource).toContain('data-testid="scene-intensity"');

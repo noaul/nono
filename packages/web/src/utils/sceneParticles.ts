@@ -229,11 +229,16 @@ export function targetCount(kind: SceneKind, width: number, height: number, inte
   return Math.round(base[kind] * area * intensity);
 }
 
-export function spawnParticle(field: Field, random: () => number, initial = false): Particle {
+export function spawnParticle(
+  field: Field,
+  random: () => number,
+  initial = false,
+  tuning?: SceneTuningInput,
+): Particle {
   const { kind, width, height } = field;
   const depth = depthDistribution(kind, random);
   const [minSize, maxSize] = SIZE_RANGE[kind];
-  const size = lerp(minSize, maxSize, depth) * sizeEnvelope(field.time);
+  const size = lerp(minSize, maxSize, depth) * sizeEnvelope(field.time) * (tuning?.particleSize ?? 1);
 
   // Stars and dust live in place; everything else enters from off-screen.
   const startY = kind === 'stars'
@@ -339,13 +344,56 @@ export function findLedgeHit(ledges: Ledge[], particle: Particle, previousY: num
   return null;
 }
 
+/**
+ * Multipliers applied on top of each scene's tuned defaults. All default to 1, so an
+ * unconfigured site behaves exactly as before.
+ */
+export type SceneTuningInput = {
+  /** Scales particle size on top of `sizeEnvelope`. */
+  particleSize?: number;
+  /** Scales fall and drift speed. */
+  speed?: number;
+  /** Scales how hard the wind blows. 0 stills the air. */
+  wind?: number;
+  /** Biases the wind one way: -1 fully left, 0 neutral, 1 fully right. */
+  windDirection?: number;
+  /** Scales the spread between the far and near layers. 0 flattens the field. */
+  depth?: number;
+  /** Scales collision response for the scenes that collide. 0 lets everything pass. */
+  collision?: number;
+  /** Scales splash count and reach. */
+  splash?: number;
+};
+
 export type StepOptions = {
   /** Seconds since the previous frame, already clamped by the caller. */
   delta: number;
   ledges: Ledge[];
   intensity: number;
   random: () => number;
+  tuning?: SceneTuningInput;
 };
+
+/** Fills in the multipliers a caller left out. */
+export function resolveTuning(tuning?: SceneTuningInput): Required<SceneTuningInput> {
+  return {
+    particleSize: tuning?.particleSize ?? 1,
+    speed: tuning?.speed ?? 1,
+    wind: tuning?.wind ?? 1,
+    windDirection: tuning?.windDirection ?? 0,
+    depth: tuning?.depth ?? 1,
+    collision: tuning?.collision ?? 1,
+    splash: tuning?.splash ?? 1,
+  };
+}
+
+/**
+ * Wind after the site's own strength and direction bias. A direction bias shifts the whole field
+ * rather than clamping it, so a breeze set to blow right still gusts with some variety.
+ */
+export function tunedWind(time: number, tuning: Required<SceneTuningInput>): number {
+  return windField(time) * tuning.wind + tuning.windDirection * 120 * tuning.wind;
+}
 
 /**
  * Advances the field one frame: moves particles, resolves rain against collision surfaces, ages
@@ -353,6 +401,7 @@ export type StepOptions = {
  */
 export function stepField(field: Field, options: StepOptions): Field {
   const { delta, ledges, intensity, random } = options;
+  const tuning = resolveTuning(options.tuning);
   const { kind } = field;
   field.time += delta;
 
@@ -375,23 +424,23 @@ export function stepField(field: Field, options: StepOptions): Field {
 
     // Leaves ride the wind and tumble, snow wanders gently, rain falls almost straight.
     if (kind === 'leaves') {
-      const wind = windField(field.time);
-      const gust = gustStrength(field.time);
+      const wind = tunedWind(field.time, tuning);
+      const gust = gustStrength(field.time) * tuning.wind;
       // Air resistance: horizontal speed eases toward the wind rather than snapping to it,
       // and a bigger leaf has more drag, so it is pushed around more.
       const drag = 0.9 + particle.size * 0.05;
       particle.vx += (wind - particle.vx) * Math.min(1, drag * delta);
       // Sway on the leaf's own period, plus a little lift so it rises and falls as it drifts.
       particle.vx += Math.sin(particle.age * particle.swayRate + particle.phase) * 34 * delta;
-      const terminal = 26 + particle.depth * 46;
+      const terminal = (26 + particle.depth * 46 * tuning.depth) * tuning.speed;
       particle.vy += (terminal - particle.vy) * Math.min(1, 1.4 * delta);
       particle.vy += Math.cos(particle.age * particle.swayRate * 0.6 + particle.phase) * 22 * delta;
       // A gust spins leaves faster as well as blowing them sideways.
       particle.rotation += particle.spin * (1 + gust * 2.4) * delta;
       particle.flip += particle.flipRate * (1 + gust * 1.6) * delta;
     } else if (kind === 'snow') {
-      const wind = windField(field.time);
-      const gust = gustStrength(field.time);
+      const wind = tunedWind(field.time, tuning);
+      const gust = gustStrength(field.time) * tuning.wind;
       // Depth decides how much of the wind a flake actually feels: a distant flake drifts
       // lazily, a near one is visibly shoved around.
       const response = 0.3 + particle.depth * 1.0;
@@ -401,7 +450,7 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.vx += Math.sin(particle.age * particle.swayRate + particle.phase) * 12 * delta;
       // Terminal speed follows the slow speed envelope, so the whole fall eases between lazy
       // and brisk instead of stepping.
-      const terminal = (13 + particle.depth * 34) * speedEnvelope(field.time);
+      const terminal = (13 + particle.depth * 34 * tuning.depth) * speedEnvelope(field.time) * tuning.speed;
       particle.vy += (terminal - particle.vy) * Math.min(1, 1.2 * delta);
       // A gust lifts some flakes briefly; once it passes, the pull back toward terminal above
       // returns them to a calm descent on its own.
@@ -411,7 +460,9 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.vx += Math.sin(particle.age * 2.1 + particle.depth * 4) * 14 * delta;
     }
 
-    if (kind === 'rain') particle.vy = Math.min(RAIN_TERMINAL, particle.vy + 2600 * delta);
+    if (kind === 'rain') {
+      particle.vy = Math.min(RAIN_TERMINAL * tuning.speed, particle.vy + 2600 * tuning.speed * delta);
+    }
 
     particle.x += particle.vx * delta;
     particle.y += particle.vy * delta;
@@ -428,8 +479,8 @@ export function stepField(field: Field, options: StepOptions): Field {
       if (hit) {
         const surfaceY = hit.y;
         // Faster, fatter drops throw more and further; the spray fans away from impact.
-        const energy = Math.min(1, Math.abs(particle.vy) / 1400) * (0.5 + particle.depth);
-        const count = 2 + Math.round(energy * 3);
+        const energy = Math.min(1, Math.abs(particle.vy) / 1400) * (0.5 + particle.depth) * tuning.splash;
+        const count = Math.round((2 + energy * 3) * tuning.splash);
         for (let index = 0; index < count; index += 1) {
           const outward = random() < 0.5 ? -1 : 1;
           field.bursts.push({
@@ -446,7 +497,7 @@ export function stepField(field: Field, options: StepOptions): Field {
         // A border either holds the drop for a moment or lets it through. Without this the
         // first row of folders would be an impermeable ceiling and nothing below would rain.
         const spent = particle.size <= MIN_RAIN_SIZE;
-        if (spent || random() < retainChance(particle.passes)) {
+        if (spent || random() < retainChance(particle.passes) * tuning.collision) {
           if (hit.beads.length < MAX_DROPLETS) {
             hit.beads.push({
               x: particle.x,
@@ -489,7 +540,7 @@ export function stepField(field: Field, options: StepOptions): Field {
   if (deficit > 0) {
     const admitted = Math.min(deficit, Math.max(1, Math.ceil(wanted * delta * 1.6)));
     for (let index = 0; index < admitted; index += 1) {
-      field.particles.push(spawnParticle(field, random, field.time < 0.1));
+      field.particles.push(spawnParticle(field, random, field.time < 0.1, tuning));
     }
   } else if (field.particles.length > wanted * SURPLUS_TOLERANCE + 8) {
     // A passing lull is not trimmed: the count is left to fall on its own as particles leave

@@ -358,7 +358,8 @@ onUnmounted(() => {
 }
 
 .large-folder:hover {
-  transform: translateY(-2px);
+  transform: translateY(calc(-2px * var(--public-hover-animation, 1))) scale(var(--public-hover-scale, 1));
+  transition: transform var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .large-folder.is-organizing {
@@ -427,21 +428,25 @@ h2 {
   min-width: 0;
 }
 
+/* Sized in CSS rather than through the glyph's numeric prop, so it tracks the setting live. */
 .title-icon {
   color: rgba(var(--public-folder-text-rgb, 255, 255, 255), 0.92);
-  font-size: 18px;
+  font-size: var(--public-folder-icon-size, 18px);
+  height: var(--public-folder-icon-size, 18px);
+  width: var(--public-folder-icon-size, 18px);
   filter: drop-shadow(0 2px 4px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.2));
 }
 
 .large-links {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
-  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(1.2);
-  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.34);
+  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
+  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
+  border: var(--public-glass-border-width, 1px) solid
+    rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.34));
   border-radius: var(--public-card-radius, 8px);
   display: grid;
-  gap: 8px 4px;
-  grid-auto-rows: 30px;
+  gap: var(--public-bookmark-gap-y, 4px) var(--public-bookmark-gap-x, 8px);
+  grid-auto-rows: var(--public-bookmark-row-height, 38px);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
   height: 214px;
@@ -452,9 +457,10 @@ h2 {
   scrollbar-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.32) transparent;
   scrollbar-width: thin;
   box-shadow:
-    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.42),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.42)),
     inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.1),
-    0 14px 34px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.1);
+    0 14px var(--public-glass-shadow-spread, 34px)
+      rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-folder-shadow, 0.3) * 0.34));
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -477,7 +483,7 @@ h2 {
 }
 
 .bookmark-cell {
-  height: 30px;
+  height: var(--public-bookmark-row-height, 38px);
   min-width: 0;
   position: relative;
 }
@@ -491,7 +497,7 @@ h2 {
   display: flex;
   gap: 2px;
   justify-content: flex-start;
-  min-height: 30px;
+  min-height: var(--public-bookmark-row-height, 38px);
   min-width: 0;
   overflow: hidden;
   padding: 2px 0 2px 5px;
@@ -603,16 +609,16 @@ h2 {
 
 .large-link:hover,
 .large-link:focus-visible {
-  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.3);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), calc(var(--public-hover-highlight, 0.4) * 0.75));
   border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   color: var(--public-bookmark-text, #ffffff);
   outline: none;
-  transform: translateY(-1px);
+  transform: translateY(calc(-1px * var(--public-hover-animation, 1)));
   box-shadow: 0 8px 18px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.13), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.18);
 }
 
 .large-link:active {
-  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.42);
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), calc(var(--public-hover-highlight, 0.4) * 1.05));
   transform: translateY(0) scale(0.985);
   transition-duration: 0.12s;
 }
@@ -630,14 +636,14 @@ h2 {
 .large-link-icon {
   flex-shrink: 0;
   color: currentColor;
+  height: var(--public-bookmark-icon-size, 20px);
   opacity: 0.96;
+  width: var(--public-bookmark-icon-size, 20px);
 }
 
 .link-favicon {
   border-radius: 4px;
-  height: 16px;
   object-fit: contain;
-  width: 16px;
 }
 
 .fallback-link-icon {

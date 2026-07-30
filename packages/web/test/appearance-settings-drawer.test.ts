@@ -33,8 +33,11 @@ describe('AppearanceSettingsDrawer', () => {
 
     expect(wrapper.findAll('[data-testid^="theme-"]')).toHaveLength(6);
     await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
-    expect((wrapper.get('[data-testid="card-color"]').element as HTMLInputElement).value).toBe('#fffaf3');
-    expect((wrapper.get('[data-testid="search-color"]').element as HTMLInputElement).value).toBe('#fffdf8');
+    // The editor is generated from the schema, so a control is addressed by its setting key.
+    const colorInput = (key: string) =>
+      wrapper.get(`[data-testid="control-${key}"] input[type="color"]`).element as HTMLInputElement;
+    expect(colorInput('cardColor').value).toBe('#fffaf3');
+    expect(colorInput('searchColor').value).toBe('#fffdf8');
     await wrapper.get('[data-testid="appearance-save"]').trigger('click');
     await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
 
@@ -110,5 +113,225 @@ describe('AppearanceSettingsDrawer', () => {
     expect(editorSource).not.toContain('setting-scope');
     expect(editorSource).toMatch(/::-webkit-slider-runnable-track \{[\s\S]*?height:\s*3px/);
     expect(editorSource).toMatch(/::-webkit-slider-thumb \{[\s\S]*?height:\s*13px/);
+  });
+});
+
+describe('appearance header actions', () => {
+  beforeEach(() => apiRequest.mockReset());
+
+  it('puts Admin, Save, and Close in the header and drops the bottom bar', () => {
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    const header = wrapper.get('.drawer-header');
+
+    expect(header.find('[data-testid="appearance-admin-link"]').exists()).toBe(true);
+    expect(header.find('[data-testid="appearance-save"]').exists()).toBe(true);
+    expect(header.find('.drawer-icon-button').exists()).toBe(true);
+    // The bottom action bar is gone, so the controls get that height back.
+    expect(wrapper.find('.drawer-footer').exists()).toBe(false);
+    // Save is the primary action, Admin the secondary one.
+    expect(wrapper.get('[data-testid="appearance-save"]').classes()).toContain('header-primary');
+    expect(wrapper.get('[data-testid="appearance-admin-link"]').classes()).toContain('header-secondary');
+  });
+
+  it('disables Save until something actually changes, then flags it as unsaved', async () => {
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    const saveButton = () => wrapper.get('[data-testid="appearance-save"]');
+
+    expect(saveButton().attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="appearance-unsaved"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
+    expect(saveButton().attributes('disabled')).toBeUndefined();
+    expect(wrapper.get('[data-testid="appearance-unsaved"]').text()).toBe('有未保存的改动');
+  });
+
+  it('shows a brief confirmation after saving and goes clean again', async () => {
+    apiRequest.mockResolvedValue(site);
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+
+    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
+    await wrapper.get('[data-testid="appearance-save"]').trigger('click');
+    await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get('.drawer-header').text()).toContain('外观已保存');
+    // Saving re-establishes the baseline, so the drawer is clean and Save is inert again.
+    expect(wrapper.find('[data-testid="appearance-unsaved"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="appearance-save"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('asks before closing with unsaved changes and respects the answer', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+
+    // Clean: closes without asking.
+    await wrapper.get('.drawer-icon-button').trigger('click');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(wrapper.emitted('close')).toHaveLength(1);
+
+    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
+    confirmSpy.mockReturnValue(false);
+    await wrapper.get('.drawer-icon-button').trigger('click');
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // Declining keeps the drawer open.
+    expect(wrapper.emitted('close')).toHaveLength(1);
+
+    confirmSpy.mockReturnValue(true);
+    await wrapper.get('.drawer-icon-button').trigger('click');
+    expect(wrapper.emitted('close')).toHaveLength(2);
+    confirmSpy.mockRestore();
+  });
+
+  it('keeps the header sticky and the mobile row at a 44px touch target', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
+
+    expect(source).toMatch(/\.drawer-header \{[\s\S]*?position:\s*sticky/);
+    expect(source).toMatch(/\.drawer-header \{[\s\S]*?top:\s*0/);
+    // Title on row one, the three controls on a compact row two.
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.drawer-header \{[\s\S]*?flex-direction:\s*column/);
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.header-actions \{[\s\S]*?grid-template-columns:\s*1fr 1fr 44px/);
+    expect(source).toMatch(/min-height:\s*44px/);
+  });
+});
+
+describe('schema-driven appearance editor', () => {
+  beforeEach(() => apiRequest.mockReset());
+
+  /**
+   * The editor lives in the drawer's second tab, and the panels stay mounted behind `v-show`, so
+   * the tab has to be opened before anything inside it counts as visible.
+   */
+  async function openEditor() {
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    await wrapper.get('[data-testid="drawer-tab-texture"]').trigger('click');
+    return wrapper;
+  }
+
+  const mountDrawer = () => mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+  const rangeOf = (wrapper: ReturnType<typeof mountDrawer>, key: string) =>
+    wrapper.get('[data-testid="control-' + key + '"] input[type="range"]');
+  const rangeValue = (wrapper: ReturnType<typeof mountDrawer>, key: string) =>
+    (rangeOf(wrapper, key).element as HTMLInputElement).value;
+
+  it('renders a section per group with the advanced controls folded away', async () => {
+    const wrapper = await openEditor();
+
+    for (const group of ['layout', 'folders', 'search', 'glass', 'background', 'scene', 'typography']) {
+      expect(wrapper.find('[data-testid="appearance-group-' + group + '"]').exists(), group).toBe(true);
+    }
+    // A common control is visible; an advanced one is rendered but hidden until expanded.
+    expect(wrapper.get('[data-testid="control-folderColumns"]').isVisible()).toBe(true);
+    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(false);
+  });
+
+  it('expands an advanced block on demand', async () => {
+    const wrapper = await openEditor();
+
+    await wrapper.get('[data-testid="appearance-advanced-folders"]').trigger('click');
+    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(true);
+  });
+
+  it('filters controls by search and reports when nothing matches', async () => {
+    const wrapper = await openEditor();
+
+    await wrapper.get('[data-testid="appearance-search"]').setValue('列数');
+    expect(wrapper.find('[data-testid="control-folderColumns"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="control-cardBlur"]').exists()).toBe(false);
+
+    // Search reaches advanced controls too, without needing them expanded first.
+    await wrapper.get('[data-testid="appearance-search"]').setValue('悬停放大');
+    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(true);
+
+    await wrapper.get('[data-testid="appearance-search"]').setValue('zzzz');
+    expect(wrapper.find('[data-testid="appearance-search-empty"]').exists()).toBe(true);
+  });
+
+  it('marks a modified control as changed and counts it on the group', async () => {
+    const wrapper = mountDrawer();
+
+    expect(wrapper.get('[data-testid="control-folderColumns"]').attributes('data-changed')).toBeUndefined();
+    await rangeOf(wrapper, 'folderColumns').setValue('6');
+
+    expect(wrapper.get('[data-testid="control-folderColumns"]').attributes('data-changed')).toBe('true');
+    expect(wrapper.get('[data-testid="appearance-group-layout"]').text()).toContain('已改 1 项');
+  });
+
+  it('resets one group without touching another', async () => {
+    const wrapper = mountDrawer();
+
+    await rangeOf(wrapper, 'folderColumns').setValue('6');
+    await rangeOf(wrapper, 'cardBlur').setValue('4');
+
+    await wrapper.get('[data-testid="appearance-reset-layout"]').trigger('click');
+    expect(rangeValue(wrapper, 'folderColumns')).toBe('4');
+    // The folders group keeps its edit.
+    expect(rangeValue(wrapper, 'cardBlur')).toBe('4');
+  });
+
+  it('resets everything only after confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const wrapper = mountDrawer();
+
+    await rangeOf(wrapper, 'folderColumns').setValue('6');
+    await wrapper.get('[data-testid="appearance-reset-all"]').trigger('click');
+    expect(rangeValue(wrapper, 'folderColumns')).toBe('6');
+
+    confirmSpy.mockReturnValue(true);
+    await wrapper.get('[data-testid="appearance-reset-all"]').trigger('click');
+    expect(rangeValue(wrapper, 'folderColumns')).toBe('4');
+    confirmSpy.mockRestore();
+  });
+
+  it('applies a density preset while leaving the values adjustable', async () => {
+    const wrapper = mountDrawer();
+
+    await wrapper.get('[data-testid="density-compact"]').trigger('click');
+    expect(rangeValue(wrapper, 'folderGapX')).toBe('12');
+
+    // A preset is a starting point, not a lock.
+    await rangeOf(wrapper, 'folderGapX').setValue('40');
+    expect(rangeValue(wrapper, 'folderGapX')).toBe('40');
+  });
+
+  it('only offers the scene controls the selected scene uses', async () => {
+    const wrapper = mountDrawer();
+
+    // Verdant Leaves: leaves neither collide nor splash.
+    await wrapper.get('[data-testid="theme-verdant-leaves"]').trigger('click');
+    await wrapper.get('[data-testid="appearance-advanced-scene"]').trigger('click');
+    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="control-sceneSplash"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="control-sceneWind"]').exists()).toBe(true);
+
+    // Starlit Night: stars hold position, so wind is meaningless too.
+    await wrapper.get('[data-testid="theme-starlit-night"]').trigger('click');
+    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="control-sceneWind"]').exists()).toBe(false);
+
+    // Rainy World is the one scene that collides.
+    await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
+    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="control-sceneSplash"]').exists()).toBe(true);
+  });
+
+  it('saves every new setting group in the payload', async () => {
+    apiRequest.mockResolvedValue(site);
+    const wrapper = mountDrawer();
+
+    await rangeOf(wrapper, 'folderColumns').setValue('5');
+    await rangeOf(wrapper, 'searchHeight').setValue('64');
+    await wrapper.get('[data-testid="appearance-save"]').trigger('click');
+    await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
+
+    const payload = JSON.parse(apiRequest.mock.calls[0][1].body);
+    expect(payload.settings.appearance).toMatchObject({
+      folderColumns: 5,
+      searchHeight: 64,
+      density: 'balanced',
+      notabAlign: 'center',
+      backgroundImageEnabled: true,
+      sceneEnabled: true,
+      fontFamily: 'system',
+    });
   });
 });

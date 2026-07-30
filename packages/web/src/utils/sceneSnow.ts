@@ -114,13 +114,14 @@ function traceHexagon(ctx: CanvasRenderingContext2D, radius: number): void {
 }
 
 /** Draws one snowflake at its own position, size and rotation. */
-export function drawSnowflake(ctx: CanvasRenderingContext2D, particle: Particle): void {
+export function drawSnowflake(ctx: CanvasRenderingContext2D, particle: Particle, blurScale = 1): void {
   const shape = snowShape(particle);
+  const blur = shape.blur * blurScale;
 
   ctx.save();
   ctx.translate(particle.x, particle.y);
   ctx.rotate(particle.rotation);
-  if (shape.blur > 0) ctx.filter = `blur(${shape.blur.toFixed(2)}px)`;
+  if (blur > 0.05) ctx.filter = `blur(${blur.toFixed(2)}px)`;
   ctx.globalAlpha = shape.alpha;
   ctx.strokeStyle = shape.tint;
   ctx.fillStyle = shape.tint;
