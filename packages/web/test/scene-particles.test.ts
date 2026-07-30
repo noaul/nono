@@ -8,8 +8,11 @@ import {
   energyAfterPass,
   findLedgeHit,
   findSideHit,
+  feedEave,
   intensityEnvelope,
   MAX_DROPLETS,
+  MAX_HANGING,
+  mergedSize,
   relaxPile,
   retainChance,
   settlesOnLedges,
@@ -17,6 +20,7 @@ import {
   splashesOnLedges,
   spawnParticle,
   stepField,
+  stepLedgeWater,
   targetCount,
   type Ledge,
   type SceneKind,
@@ -243,7 +247,7 @@ describe('scene particle simulation', () => {
     // Drops that passed the first border are still falling, and some reached the second.
     expect(field.particles.some((particle) => particle.passes >= 1)).toBe(true);
     expect(field.particles.some((particle) => particle.y > top.y)).toBe(true);
-    expect(top.droplets.length + bottom.droplets.length).toBeGreaterThan(0);
+    expect(top.beads.length + bottom.beads.length + top.hanging.length).toBeGreaterThan(0);
   });
 
   it('makes a drop likelier to be caught the more layers it has crossed', () => {
@@ -268,29 +272,104 @@ describe('scene particle simulation', () => {
     for (let index = 0; index < 300; index += 1) {
       stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 1, random });
     }
-    const held = ledge.droplets.length;
-    expect(held).toBeLessThanOrEqual(MAX_DROPLETS);
+    expect(ledge.beads.length).toBeLessThanOrEqual(MAX_DROPLETS);
+    expect(ledge.hanging.length).toBeLessThanOrEqual(MAX_HANGING);
 
-    // With the rain switched off every drop on the border clears within its lifetime.
-    for (let index = 0; index < 240; index += 1) {
+    // With the rain switched off every bead clears, and the eave drips itself dry.
+    for (let index = 0; index < 900; index += 1) {
       stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 0, random });
     }
-    expect(ledge.droplets.length).toBe(0);
+    expect(ledge.beads.length).toBe(0);
+    expect(ledge.hanging.length).toBe(0);
   });
 
-  it('sends run-off downward as a smaller drop below the panel', () => {
+  it('runs a spent bead off to the eave rather than deleting it', () => {
     const ledge = createLedge('panel', 0, 300, 600, 120);
-    ledge.droplets.push({ x: 300, size: 3, age: 0, life: 0.05, fate: 'runoff' });
+    ledge.beads.push({ x: 300, size: 2.5, vx: 0, age: 0, life: 0.05, squash: 0.7, fate: 'runoff' });
     const field = createField('rain', 1280, 800);
-    const random = createRandom(6);
 
-    stepField(field, { delta: 0.1, ledges: [ledge], intensity: 0, random });
+    stepLedgeWater(ledge, field, 0.1, createRandom(6));
 
-    const below = field.particles.filter((particle) => particle.y > ledge.y + ledge.height);
-    expect(below.length).toBeGreaterThan(0);
-    // It resumes as a spent drop, not a fresh one.
-    expect(below[0].passes).toBeGreaterThan(0);
-    expect(ledge.droplets).toHaveLength(0);
+    expect(ledge.beads).toHaveLength(0);
+    expect(ledge.hanging).toHaveLength(1);
+    // Carries the bead's volume across, plus the trickle it picks up in the same frame.
+    expect(ledge.hanging[0].size).toBeGreaterThanOrEqual(2.5);
+    expect(ledge.hanging[0].size).toBeLessThan(2.6);
+  });
+
+  it('slides beads along the border and coalesces the ones that touch', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    ledge.beads.push({ x: 300, size: 2, vx: 30, age: 0, life: 9, squash: 0.7, fate: 'runoff' });
+    ledge.beads.push({ x: 303, size: 2, vx: 0, age: 0, life: 9, squash: 0.7, fate: 'runoff' });
+    const field = createField('rain', 1280, 800);
+
+    stepLedgeWater(ledge, field, 1 / 60, createRandom(2));
+
+    expect(ledge.beads).toHaveLength(1);
+    // Volume adds, so two equal beads make one of cbrt(2)x the radius, not 2x.
+    expect(ledge.beads[0].size).toBeCloseTo(mergedSize(2, 2), 5);
+    expect(ledge.beads[0].size).toBeLessThan(4);
+  });
+
+  it('merges volume rather than radius', () => {
+    expect(mergedSize(2, 2)).toBeCloseTo(2 * Math.cbrt(2), 5);
+    expect(mergedSize(3, 0)).toBeCloseTo(3, 5);
+    expect(mergedSize(2, 3)).toBeLessThan(5);
+  });
+
+  it('grows a hanging drop until it detaches and accelerates downward', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(3);
+    feedEave(ledge, 300, 2, random);
+
+    const start = ledge.hanging[0].size;
+    let detached = false;
+    for (let index = 0; index < 2000 && !detached; index += 1) {
+      stepLedgeWater(ledge, field, 1 / 60, random);
+      detached = ledge.hanging.length === 0;
+    }
+
+    expect(detached).toBe(true);
+    const drip = field.particles.at(-1)!;
+    // Hangs below the panel, starts slow, and is already spent so it re-enters the system.
+    expect(drip.y).toBeGreaterThan(ledge.y + ledge.height);
+    expect(drip.vy).toBeLessThan(100);
+    expect(drip.passes).toBeGreaterThan(0);
+    expect(start).toBeLessThan(ledge.hanging.length ? Infinity : drip.size);
+  });
+
+  it('accelerates a detached drip toward terminal velocity', () => {
+    const field = createField('rain', 1280, 800);
+    const random = createRandom(12);
+    field.particles.push({
+      x: 100, y: 100, vx: 0, vy: 30, size: 6, depth: 0.5,
+      rotation: 0, spin: 0, age: 0, life: 20, variant: 0, passes: 1,
+    });
+    const drip = field.particles[0];
+
+    stepField(field, { delta: 1 / 60, ledges: [], intensity: 0, random });
+    expect(drip.vy).toBeGreaterThan(30);
+  });
+
+  it('varies detachment size so drips are never evenly timed', () => {
+    const random = createRandom(21);
+    const ledge = createLedge('panel', 0, 300, 900, 120);
+    for (const x of [60, 200, 340, 480, 620, 760]) feedEave(ledge, x, 1.5, random);
+    const thresholds = ledge.hanging.map((drop) => drop.detachAt);
+
+    expect(new Set(thresholds).size).toBeGreaterThan(1);
+    expect(new Set(ledge.hanging.map((drop) => drop.phase)).size).toBeGreaterThan(1);
+  });
+
+  it('coalesces run-off into a drop already hanging nearby', () => {
+    const ledge = createLedge('panel', 0, 300, 600, 120);
+    const random = createRandom(5);
+    feedEave(ledge, 300, 2, random);
+    feedEave(ledge, 310, 2, random);
+
+    expect(ledge.hanging).toHaveLength(1);
+    expect(ledge.hanging[0].size).toBeCloseTo(mergedSize(2, 2), 5);
   });
 
   it('absorbs a drop once it has no energy left', () => {
@@ -308,7 +387,7 @@ describe('scene particle simulation', () => {
 
     // A spent drop is always held rather than punching through again.
     expect(field.particles).not.toContain(drop);
-    expect(ledge.droplets.length).toBe(1);
+    expect(ledge.beads.length).toBe(1);
   });
 
   it('floats bubbles upward', () => {

@@ -69,7 +69,7 @@ let ledges: Ledge[] = [];
 const COLLIDER_SELECTOR = '[data-scene-collider-id]';
 
 const PALETTE: Record<SceneKind, { body: string; accent: string; glow: string }> = {
-  rain: { body: 'rgba(92, 128, 138, 0.55)', accent: 'rgba(242, 253, 255, 0.95)', glow: 'rgba(226, 248, 250, 0.7)' },
+  rain: { body: 'rgba(92, 128, 138, 0.55)', accent: 'rgba(126, 158, 170, 0.5)', glow: 'rgba(150, 180, 192, 0.42)' },
   snow: { body: '#ffffff', accent: 'rgba(226, 240, 255, 0.95)', glow: 'rgba(44, 72, 110, 0.35)' },
   leaves: { body: '#6cb075', accent: '#c07a48', glow: 'rgba(31, 82, 52, 0.28)' },
   bubbles: { body: 'rgba(255, 255, 255, 0.9)', accent: 'rgba(11, 125, 128, 0.35)', glow: 'rgba(11, 125, 128, 0.22)' },
@@ -142,14 +142,46 @@ function drawPiles(ctx: CanvasRenderingContext2D, kind: SceneKind) {
   const palette = PALETTE[kind];
 
   if (kind === 'rain') {
-    // Water beaded on a panel's top border, fading as it evaporates or runs off.
+    // Beads on the top border, plus whatever is hanging from the eave below. Both are drawn as
+    // translucent blue-grey water with one small highlight, not opaque white spheres.
     for (const ledge of ledges) {
-      for (const droplet of ledge.droplets) {
-        const remaining = 1 - droplet.age / droplet.life;
-        ctx.globalAlpha = Math.max(0, remaining) * 0.75;
+      for (const bead of ledge.beads) {
+        const remaining = Math.max(0, 1 - bead.age / bead.life);
+        // Fades in as it lands and out as it dries, so nothing pops.
+        const alpha = Math.min(1, bead.age * 6) * (0.35 + 0.55 * remaining);
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = palette.accent;
         ctx.beginPath();
-        ctx.ellipse(droplet.x, ledge.y - droplet.size * 0.35, droplet.size, droplet.size * 0.7, 0, 0, Math.PI * 2);
+        ctx.ellipse(bead.x, ledge.y - bead.size * bead.squash * 0.6, bead.size, bead.size * bead.squash, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // A single off-centre glint is enough to read as water.
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.beginPath();
+        ctx.ellipse(bead.x - bead.size * 0.3, ledge.y - bead.size * bead.squash, bead.size * 0.26, bead.size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const drop of ledge.hanging) {
+        // Wobble and stretch grow with the drop, so it visibly strains before letting go.
+        const ripeness = Math.min(1, drop.size / drop.detachAt);
+        const wobble = Math.sin(drop.age * 7 + drop.phase) * ripeness * 1.4;
+        const neckY = ledge.y + ledge.height;
+        const bellyY = neckY + drop.size * (0.9 + ripeness * 0.8);
+        const radius = drop.size * 0.85;
+        ctx.globalAlpha = 0.55 + 0.25 * ripeness;
+        ctx.fillStyle = palette.accent;
+        // Teardrop: a narrow neck at the border widening into a belly below.
+        ctx.beginPath();
+        ctx.moveTo(drop.x - radius * 0.35 + wobble * 0.4, neckY);
+        ctx.quadraticCurveTo(drop.x - radius + wobble, bellyY - radius * 0.5, drop.x + wobble, bellyY);
+        ctx.quadraticCurveTo(drop.x + radius + wobble, bellyY - radius * 0.5, drop.x + radius * 0.35 + wobble * 0.4, neckY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.ellipse(drop.x - radius * 0.28 + wobble, bellyY - radius * 0.35, radius * 0.2, radius * 0.14, 0, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -224,9 +256,13 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
     ctx.moveTo(particle.x, particle.y);
     ctx.lineTo(particle.x - (particle.vx / speed) * length, particle.y - (particle.vy / speed) * length);
     ctx.stroke();
-    ctx.globalAlpha = fade * spent * 0.9;
+    // A slightly fatter, rounded head sells the teardrop without a bright white block.
+    const headRadius = 0.55 + particle.depth * 0.75;
+    ctx.globalAlpha = fade * spent * 0.75;
     ctx.fillStyle = palette.accent;
-    ctx.fillRect(particle.x - 0.6, particle.y - 1.6, 1.2 + particle.depth, 1.8);
+    ctx.beginPath();
+    ctx.ellipse(particle.x, particle.y - headRadius, headRadius * 0.85, headRadius * 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
     return;
   }
 
@@ -325,12 +361,28 @@ function render(time: number) {
 
   if (field.bursts.length) {
     const palette = PALETTE[kind];
-    ctx.fillStyle = palette.glow;
-    for (const burst of field.bursts) {
-      ctx.globalAlpha = Math.max(0, 1 - burst.age / burst.life) * 0.8;
-      ctx.beginPath();
-      ctx.arc(burst.x, burst.y, burst.size, 0, Math.PI * 2);
-      ctx.fill();
+    if (kind === 'rain') {
+      // Spray, not beads: short strokes along each fleck's own direction of travel.
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 0.8;
+      for (const burst of field.bursts) {
+        const remaining = Math.max(0, 1 - burst.age / burst.life);
+        const speed = Math.hypot(burst.vx, burst.vy) || 1;
+        const length = Math.min(5, burst.size * 2.2 * remaining + 1);
+        ctx.globalAlpha = remaining * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(burst.x, burst.y);
+        ctx.lineTo(burst.x - (burst.vx / speed) * length, burst.y - (burst.vy / speed) * length);
+        ctx.stroke();
+      }
+    } else {
+      ctx.fillStyle = palette.glow;
+      for (const burst of field.bursts) {
+        ctx.globalAlpha = Math.max(0, 1 - burst.age / burst.life) * 0.8;
+        ctx.beginPath();
+        ctx.arc(burst.x, burst.y, burst.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
   ctx.globalAlpha = 1;

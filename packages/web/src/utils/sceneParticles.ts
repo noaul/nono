@@ -16,15 +16,34 @@ export type RestedItem = {
 };
 
 /**
- * Water sitting on a panel's top border. It never stays: it either evaporates or runs off the
- * edge and carries on downward as a smaller drop.
+ * A bead of water sitting on a panel's top border. It slides slowly along the border, can
+ * merge with a neighbour, and eventually either evaporates or runs off toward the eave.
  */
-export type SurfaceDroplet = {
+export type Bead = {
   x: number;
+  /** Roughly the radius in px. Merging adds volume, not radius. */
   size: number;
+  /** Slide speed along the border; varies per bead so nothing marches in step. */
+  vx: number;
   age: number;
   life: number;
+  /** Per-bead shape jitter, so beads are not identical circles. */
+  squash: number;
   fate: 'evaporate' | 'runoff';
+};
+
+/**
+ * A drop hanging from a panel's bottom edge, fed by run-off. It grows, stretches, wobbles,
+ * and once heavy enough lets go and falls — the eave behaviour.
+ */
+export type HangingDrop = {
+  x: number;
+  size: number;
+  /** Size at which surface tension gives up and the drop detaches. */
+  detachAt: number;
+  age: number;
+  /** Wobble phase, offset per drop so neighbours are never synchronised. */
+  phase: number;
 };
 
 export type Ledge = {
@@ -38,8 +57,10 @@ export type Ledge = {
   piles: Float32Array;
   /** Individual settled leaves; a ridge would not read as foliage. */
   rested: RestedItem[];
-  /** Rain held on the border for a moment before it evaporates or runs off. */
-  droplets: SurfaceDroplet[];
+  /** Rain beaded on the top border before it evaporates or runs off. */
+  beads: Bead[];
+  /** Run-off hanging from the bottom edge, waiting to get heavy enough to fall. */
+  hanging: HangingDrop[];
 };
 
 export type Particle = {
@@ -224,11 +245,28 @@ export function addToPile(ledge: Ledge, x: number, amount: number, max: number):
 /** Within this distance of an edge a particle slips off instead of balancing on the corner. */
 export const EDGE_SLIP = 7;
 
-/** At most this much water is held on one border at a time. */
-export const MAX_DROPLETS = 10;
+/** At most this many beads sit on one border at a time. */
+export const MAX_DROPLETS = 12;
+
+/** At most this many drops hang from one eave. */
+export const MAX_HANGING = 4;
+
+/** Beads closer than this coalesce into one larger bead. */
+export const MERGE_DISTANCE = 7;
 
 /** Below this a drop has spent its energy and is absorbed rather than passing on again. */
 const MIN_RAIN_SIZE = 4;
+
+/** Rain accelerates toward this instead of falling at a fixed rate. */
+const RAIN_TERMINAL = 1600;
+
+/**
+ * Volume-preserving merge: two beads of radius a and b make one of radius cbrt(a^3 + b^3), so
+ * combining does not balloon the result the way adding radii would.
+ */
+export function mergedSize(a: number, b: number): number {
+  return Math.cbrt(a ** 3 + b ** 3);
+}
 
 /**
  * Odds a drop is held by the border it hits rather than passing through. Rises with each
@@ -328,6 +366,8 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.vx += Math.sin(particle.age * 2.1 + particle.depth * 4) * 14 * delta;
     }
 
+    if (kind === 'rain') particle.vy = Math.min(RAIN_TERMINAL, particle.vy + 2600 * delta);
+
     particle.x += particle.vx * delta;
     particle.y += particle.vy * delta;
 
@@ -366,14 +406,17 @@ export function stepField(field: Field, options: StepOptions): Field {
         // first row of folders would be an impermeable ceiling and nothing below would rain.
         const spent = particle.size <= MIN_RAIN_SIZE;
         if (spent || random() < retainChance(particle.passes)) {
-          if (hit.droplets.length < MAX_DROPLETS) {
-            hit.droplets.push({
+          if (hit.beads.length < MAX_DROPLETS) {
+            hit.beads.push({
               x: particle.x,
-              size: Math.min(3.4, 1.4 + particle.size * 0.09),
+              size: 1.1 + particle.size * 0.075 + random() * 0.9,
+              // Slide direction and speed both vary, so beads never travel in formation.
+              vx: (random() < 0.5 ? -1 : 1) * (4 + random() * 16),
               age: 0,
-              life: 0.5 + random() * 1.5,
-              // Some of the held water runs off the edge and keeps falling.
-              fate: random() < 0.45 ? 'runoff' : 'evaporate',
+              life: 0.9 + random() * 3.2,
+              squash: 0.55 + random() * 0.35,
+              // Most water works its way to the eave; the rest simply dries.
+              fate: random() < 0.62 ? 'runoff' : 'evaporate',
             });
           }
           continue;
@@ -441,34 +484,12 @@ export function stepField(field: Field, options: StepOptions): Field {
     field.particles.length = wanted;
   }
 
-  // Held water is always temporary: it evaporates, or runs off the bottom of the panel and
-  // carries on downward as a smaller drop.
+  // Held water is always temporary. Beads slide along the top border, merge with neighbours,
+  // then either dry out or run off to the eave, where a drop hangs and grows until it is heavy
+  // enough to let go.
   if (kind === 'rain') {
     for (const ledge of ledges) {
-      if (!ledge.droplets.length) continue;
-      ledge.droplets = ledge.droplets.filter((droplet) => {
-        droplet.age += delta;
-        // Beading water creeps toward the nearer edge while it sits.
-        droplet.x += (droplet.x < ledge.x + ledge.width / 2 ? -4 : 4) * delta;
-        if (droplet.age < droplet.life) return true;
-        if (droplet.fate === 'runoff') {
-          field.particles.push({
-            x: droplet.x,
-            y: ledge.y + ledge.height + 2,
-            vx: -20 - random() * 30,
-            vy: 260 + random() * 160,
-            size: MIN_RAIN_SIZE + random() * 3,
-            depth: 0.35 + random() * 0.3,
-            rotation: 0,
-            spin: 0,
-            age: 0,
-            life: 20,
-            variant: 0,
-            passes: 2,
-          });
-        }
-        return false;
-      });
+      stepLedgeWater(ledge, field, delta, random);
     }
   }
 
@@ -489,6 +510,94 @@ export function stepField(field: Field, options: StepOptions): Field {
   }
 
   return field;
+}
+
+/** Feeds run-off into the eave, merging into a drop already hanging nearby. */
+export function feedEave(ledge: Ledge, x: number, volume: number, random: () => number): void {
+  const clamped = Math.min(ledge.x + ledge.width - 2, Math.max(ledge.x + 2, x));
+  const near = ledge.hanging.find((drop) => Math.abs(drop.x - clamped) < 26);
+  if (near) {
+    near.size = mergedSize(near.size, volume);
+    return;
+  }
+  if (ledge.hanging.length >= MAX_HANGING) return;
+  ledge.hanging.push({
+    x: clamped,
+    size: volume,
+    // Detach threshold varies, so drips are never evenly timed across cards. Large enough
+    // that a drop visibly swells and stretches before surface tension gives up.
+    detachAt: 5.5 + random() * 3.6,
+    age: 0,
+    phase: random() * Math.PI * 2,
+  });
+}
+
+/**
+ * Advances one panel's water: beads slide and coalesce on the top border, run-off gathers at
+ * the eave, and a hanging drop detaches once it outgrows surface tension.
+ */
+export function stepLedgeWater(ledge: Ledge, field: Field, delta: number, random: () => number): void {
+  // Slide, age, and retire the beads on the top border.
+  const surviving: Bead[] = [];
+  for (const bead of ledge.beads) {
+    bead.age += delta;
+    bead.x += bead.vx * delta;
+    // Drag makes a bead ease to a halt rather than gliding forever.
+    bead.vx *= 1 - Math.min(0.9, 1.6 * delta);
+
+    const pastEdge = bead.x <= ledge.x + 1 || bead.x >= ledge.x + ledge.width - 1;
+    if (pastEdge || bead.age >= bead.life) {
+      if (bead.fate === 'runoff' || pastEdge) feedEave(ledge, bead.x, bead.size, random);
+      continue;
+    }
+    surviving.push(bead);
+  }
+
+  // Coalesce neighbours: the larger bead absorbs the smaller one's volume.
+  surviving.sort((left, right) => left.x - right.x);
+  const merged: Bead[] = [];
+  for (const bead of surviving) {
+    const previous = merged[merged.length - 1];
+    if (previous && bead.x - previous.x < MERGE_DISTANCE) {
+      previous.size = mergedSize(previous.size, bead.size);
+      // A heavier bead keeps moving, and its clock restarts.
+      previous.vx = (previous.vx + bead.vx) * 0.5;
+      previous.age = Math.min(previous.age, bead.age);
+      continue;
+    }
+    merged.push(bead);
+  }
+  ledge.beads = merged;
+
+  // The eave: grow, wobble, and eventually drip.
+  const stillHanging: HangingDrop[] = [];
+  for (const drop of ledge.hanging) {
+    drop.age += delta;
+    // A slow trickle keeps a fed drop growing even between bead arrivals.
+    drop.size += 0.62 * delta;
+    if (drop.size >= drop.detachAt) {
+      field.particles.push({
+        x: drop.x,
+        y: ledge.y + ledge.height + drop.size,
+        vx: (random() - 0.5) * 18,
+        // Starts nearly at rest and accelerates under gravity, like a real drip.
+        vy: 24 + random() * 34,
+        size: MIN_RAIN_SIZE + drop.size * 1.6,
+        depth: 0.4 + random() * 0.35,
+        rotation: 0,
+        spin: 0,
+        age: 0,
+        life: 20,
+        variant: 0,
+        // Already spent, so it behaves like run-off rather than fresh rain, and can still
+        // pass through, bead up, or splash on the panels below.
+        passes: 1,
+      });
+      continue;
+    }
+    stillHanging.push(drop);
+  }
+  ledge.hanging = stillHanging;
 }
 
 /**
@@ -520,7 +629,8 @@ export function createLedge(id: string, x: number, y: number, width: number, hei
     height,
     piles: new Float32Array(Math.max(1, Math.ceil(width / PILE_BUCKET))),
     rested: [],
-    droplets: [],
+    beads: [],
+    hanging: [],
   };
 }
 
