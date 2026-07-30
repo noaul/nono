@@ -8,13 +8,12 @@ import {
   intensityEnvelope,
   stepField,
   createRandom,
-  PILE_BUCKET,
-  settlesOnLedges,
   type Field,
   type Ledge,
   type SceneKind,
 } from '@/utils/sceneParticles';
 import { drawLeaf } from '@/utils/sceneLeaf';
+import { drawSnowflake } from '@/utils/sceneSnow';
 
 const props = withDefaults(defineProps<{ theme?: PublicTheme; intensity?: number; mode?: ResolvedColorMode }>(), {
   intensity: 100,
@@ -57,15 +56,18 @@ let ledgeMeasureFrame = 0;
 
 const MAX_SCENE_CANVAS_PIXELS = 8_000_000;
 
-// Piles are keyed by folder id so accumulated snow survives a re-measure (scroll, resize,
-// a card animating in) instead of resetting every time the layout is sampled.
+// Surfaces are keyed by folder id so water already beaded on a border survives a re-measure
+// (scroll, resize, a card animating in) instead of resetting every time the layout is sampled.
 const ledgeCache = new Map<string, Ledge>();
+
+/** A width change smaller than this reuses the cached surface rather than rebuilding it. */
+const LEDGE_WIDTH_TOLERANCE = 8;
 let ledges: Ledge[] = [];
 
 /**
- * Everything the weather can land on. Deliberately NOT the folder card root: its top edge is
- * the floating title, so colliding there would pile weather above the folder label. The
- * marker sits on the glass content panel instead, plus the tab strip.
+ * Everything rain can run off. Deliberately NOT the folder card root: its top edge is the
+ * floating title, so water would collect above the folder label. The marker sits on the glass
+ * content panel instead, plus the tab strip.
  */
 const COLLIDER_SELECTOR = '[data-scene-collider-id]';
 
@@ -81,7 +83,8 @@ const PALETTE: Record<SceneKind, { body: string; accent: string; glow: string }>
 function measureLedges() {
   if (typeof document === 'undefined') return;
   const kind = props.theme?.scene.kind;
-  if (!kind || (!settlesOnLedges(kind) && kind !== 'rain')) {
+  // Rain is the only scene that collides, so no other scene pays to sample the page.
+  if (kind !== 'rain') {
     ledges = [];
     return;
   }
@@ -94,7 +97,7 @@ function measureLedges() {
     if (!id) continue;
     seen.add(id);
     const cached = ledgeCache.get(id);
-    if (cached && Math.abs(cached.width - rect.width) < PILE_BUCKET) {
+    if (cached && Math.abs(cached.width - rect.width) < LEDGE_WIDTH_TOLERANCE) {
       cached.x = rect.left;
       cached.y = rect.top;
       cached.height = rect.height;
@@ -139,10 +142,12 @@ function resize() {
   measureLedges();
 }
 
-function drawPiles(ctx: CanvasRenderingContext2D, kind: SceneKind) {
+/** Draws the water rain leaves behind: beads on a top border and drops hanging from an eave. */
+function drawLedgeWater(ctx: CanvasRenderingContext2D, kind: SceneKind) {
+  if (kind !== 'rain') return;
   const palette = PALETTE[kind];
 
-  if (kind === 'rain') {
+  {
     // Beads on the top border, plus whatever is hanging from the eave below. Both are drawn as
     // translucent blue-grey water with one small highlight, not opaque white spheres.
     for (const ledge of ledges) {
@@ -190,35 +195,6 @@ function drawPiles(ctx: CanvasRenderingContext2D, kind: SceneKind) {
     return;
   }
 
-  if (!settlesOnLedges(kind)) return;
-
-  // Snow forms a continuous drift: draw a smoothed curve through the bucket tops rather
-  // than the raw stair-step, which is very visible at this scale.
-  ctx.fillStyle = palette.body;
-  ctx.globalAlpha = 0.92;
-  for (const ledge of ledges) {
-    const peak = Math.max(...ledge.piles);
-    if (peak < 0.4) continue;
-    ctx.beginPath();
-    ctx.moveTo(ledge.x, ledge.y + 1);
-    const midpoint = (index: number) => ({
-      x: ledge.x + index * PILE_BUCKET + PILE_BUCKET / 2,
-      y: ledge.y - ledge.piles[index],
-    });
-    let previous = midpoint(0);
-    ctx.lineTo(previous.x, previous.y);
-    for (let index = 1; index < ledge.piles.length; index += 1) {
-      const point = midpoint(index);
-      const controlX = (previous.x + point.x) / 2;
-      ctx.quadraticCurveTo(previous.x, previous.y, controlX, (previous.y + point.y) / 2);
-      previous = point;
-    }
-    ctx.lineTo(ledge.x + ledge.width, previous.y);
-    ctx.lineTo(ledge.x + ledge.width, ledge.y + 1);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
 }
 
 function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: Field['particles'][number], time: number) {
@@ -249,11 +225,7 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
   }
 
   if (kind === 'snow') {
-    ctx.globalAlpha = fade;
-    ctx.fillStyle = particle.variant === 1 ? palette.accent : palette.body;
-    ctx.beginPath();
-    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-    ctx.fill();
+    drawSnowflake(ctx, particle);
     return;
   }
 
@@ -328,7 +300,7 @@ function render(time: number) {
 
   ctx.clearRect(0, 0, field.width, field.height);
   ctx.globalAlpha = 1;
-  drawPiles(ctx, kind);
+  drawLedgeWater(ctx, kind);
   for (const particle of field.particles) drawParticle(ctx, kind, particle, field.time);
 
   if (field.bursts.length) {

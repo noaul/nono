@@ -38,8 +38,8 @@ export type HangingDrop = {
 };
 
 /**
- * A surface a particle can interact with — in practice a folder's glass content panel. Rain
- * beads on its top border and drips from its bottom edge; snow drifts on top of it.
+ * A surface rain can interact with — in practice a folder's glass content panel. Water beads on
+ * its top border and drips from its bottom edge. No other scene collides with anything.
  */
 export type Ledge = {
   id: string;
@@ -48,8 +48,6 @@ export type Ledge = {
   width: number;
   /** Needed for side hits: a particle can clip the flank of a card, not just its top. */
   height: number;
-  /** Settled depth per bucket across the ledge, in pixels. Snow forms a continuous drift. */
-  piles: Float32Array;
   /** Rain beaded on the top border before it evaporates or runs off. */
   beads: Bead[];
   /** Run-off hanging from the bottom edge, waiting to get heavy enough to fall. */
@@ -81,6 +79,8 @@ export type Particle = {
   flip: number;
   /** Flip speed, signed so leaves tumble both ways. */
   flipRate: number;
+  /** How strongly this particle answers a gust. Independent of sway and spin. */
+  driftBias: number;
 };
 
 /** A short-lived splash or pop, spawned when a particle hits something. */
@@ -105,9 +105,6 @@ export type Field = {
   seed: number;
 };
 
-/** Pixels per accumulation bucket. Narrow enough to read as a drift, wide enough to stay cheap. */
-export const PILE_BUCKET = 8;
-
 const GRAVITY: Record<SceneKind, number> = {
   rain: 1500,
   snow: 42,
@@ -117,23 +114,11 @@ const GRAVITY: Record<SceneKind, number> = {
   stars: 0,
 };
 
-const MAX_PILE: Record<SceneKind, number> = {
-  rain: 0,
-  snow: 14,
-  leaves: 0,
-  bubbles: 0,
-  sunbeams: 0,
-  stars: 0,
-};
-
 /**
- * Particles that come to rest on ledges rather than passing through. Leaves deliberately do
- * not: they drift through folders, tabs, and headings without settling, bouncing, or sticking.
+ * Rain is the only scene that touches the interface. Snow and leaves are purely airborne: they
+ * never settle, bounce, slide, accumulate, or melt on a folder, a tab, or a heading, so an upper
+ * row of folders can never shadow the weather below it.
  */
-export function settlesOnLedges(kind: SceneKind): boolean {
-  return kind === 'snow';
-}
-
 export function splashesOnLedges(kind: SceneKind): boolean {
   return kind === 'rain';
 }
@@ -174,28 +159,57 @@ export function sizeEnvelope(time: number): number {
 }
 
 /**
- * Horizontal wind in px/s. Two slow sines give a wandering breeze; the shaped term adds an
- * occasional gust that builds and fades rather than switching on.
+ * Horizontal wind in px/s. Two slow sines give a breeze whose direction wanders rather than
+ * holding still, and the shaped term adds an occasional gust that builds and fades instead of
+ * switching on. The gust takes its own slowly flipping direction, so a squall is as likely to
+ * blow one way as the other.
  */
 export function windField(time: number): number {
   const breeze = 26 * Math.sin(time / 6.5) + 14 * Math.sin(time / 2.7 + 1.1);
-  const gust = 95 * Math.max(0, Math.sin(time / 9.5)) ** 6;
-  return breeze - gust;
+  return breeze + 95 * gustStrength(time) * gustDirection(time);
 }
 
-/** 0 at rest, 1 at the peak of a gust. Drives extra tumble while the gust lasts. */
+/** 0 at rest, 1 at the peak of a gust. Drives extra tumble and lift while the gust lasts. */
 export function gustStrength(time: number): number {
   return Math.max(0, Math.sin(time / 9.5)) ** 6;
 }
 
+/** Which way the current gust blows. Turns over far more slowly than the gusts themselves. */
+export function gustDirection(time: number): number {
+  return Math.sin(time / 37 + 0.6) >= 0 ? 1 : -1;
+}
+
+/**
+ * Fall speed drifts on its own slow schedule, independent of how heavy the weather is, so snow
+ * alternates between lazy and brisk without the density changing in lockstep.
+ */
+export function speedEnvelope(time: number): number {
+  return 1 + 0.3 * (0.62 * Math.sin(time / 29 + 2.3) + 0.38 * Math.sin(time / 11.5 + 0.4));
+}
+
 const SIZE_RANGE: Record<SceneKind, [number, number]> = {
   rain: [9, 26],
-  snow: [1.6, 4.6],
+  // Wide enough at the top end that a foreground flake reads as a crystal rather than a dot.
+  snow: [2.4, 11],
   leaves: [7, 15],
   bubbles: [3, 17],
   stars: [0.7, 2.1],
   sunbeams: [0.7, 2.2],
 };
+
+/**
+ * Where a particle sits between the far layer (0) and the near one (1).
+ *
+ * Leaves lean toward the distance, because big fast foreground leaves read badly in numbers.
+ * Snow wants the midground to carry the snowfall: averaging two draws peaks the population in
+ * the middle, and the exponent skews it back down so distant flakes stay the most numerous while
+ * large foreground flakes remain rare enough not to sit on top of bookmarks and text.
+ */
+export function depthDistribution(kind: SceneKind, random: () => number): number {
+  if (kind === 'leaves') return random() ** 1.7;
+  if (kind === 'snow') return ((random() + random()) / 2) ** 1.3;
+  return random();
+}
 
 /** How many particles a full-strength field wants at this viewport size. */
 export function targetCount(kind: SceneKind, width: number, height: number, intensity: number): number {
@@ -204,7 +218,9 @@ export function targetCount(kind: SceneKind, width: number, height: number, inte
   const area = Math.min(2.5, Math.max(0.4, (width * height) / (1280 * 800)));
   const base: Record<SceneKind, number> = {
     rain: 340,
-    snow: 150,
+    // Calm and soft rather than a blizzard: the crystals are larger than the old dots, so fewer
+    // of them fill the same amount of sky.
+    snow: 108,
     leaves: 40,
     bubbles: 46,
     stars: 130,
@@ -215,8 +231,7 @@ export function targetCount(kind: SceneKind, width: number, height: number, inte
 
 export function spawnParticle(field: Field, random: () => number, initial = false): Particle {
   const { kind, width, height } = field;
-  // Leaves lean toward the far layer: big fast foreground leaves read badly if there are many.
-  const depth = kind === 'leaves' ? random() ** 1.7 : random();
+  const depth = depthDistribution(kind, random);
   const [minSize, maxSize] = SIZE_RANGE[kind];
   const size = lerp(minSize, maxSize, depth) * sizeEnvelope(field.time);
 
@@ -246,28 +261,13 @@ export function spawnParticle(field: Field, random: () => number, initial = fals
     swayRate: 0.7 + random() * 1.9,
     flip: random() * Math.PI * 2,
     flipRate: (random() < 0.5 ? -1 : 1) * (0.5 + random() * 2.1),
+    driftBias: 0.45 + random() * 1.1,
   };
 }
 
 export function createField(kind: SceneKind, width: number, height: number, seed = 1): Field {
   return { kind, particles: [], bursts: [], time: 0, width, height, seed };
 }
-
-function bucketIndex(ledge: Ledge, x: number): number {
-  const local = Math.floor((x - ledge.x) / PILE_BUCKET);
-  return Math.min(ledge.piles.length - 1, Math.max(0, local));
-}
-
-/** Adds settled depth at `x`, spilling a little into the neighbours so piles look drifted. */
-export function addToPile(ledge: Ledge, x: number, amount: number, max: number): void {
-  const index = bucketIndex(ledge, x);
-  ledge.piles[index] = Math.min(max, ledge.piles[index] + amount);
-  if (index > 0) ledge.piles[index - 1] = Math.min(max, ledge.piles[index - 1] + amount * 0.35);
-  if (index < ledge.piles.length - 1) ledge.piles[index + 1] = Math.min(max, ledge.piles[index + 1] + amount * 0.35);
-}
-
-/** Within this distance of an edge a particle slips off instead of balancing on the corner. */
-export const EDGE_SLIP = 7;
 
 /** At most this many beads sit on one border at a time. */
 export const MAX_DROPLETS = 12;
@@ -279,6 +279,12 @@ export const MAX_HANGING = 4;
 export const MERGE_DISTANCE = 7;
 
 /** Below this a drop has spent its energy and is absorbed rather than passing on again. */
+/**
+ * How far over target the field is allowed to run before it is trimmed. Wide enough that a lull
+ * in the weather never causes a visible cull, tight enough to reclaim memory after a resize.
+ */
+export const SURPLUS_TOLERANCE = 1.35;
+
 const MIN_RAIN_SIZE = 4;
 
 /** Rain accelerates toward this instead of falling at a fixed rate. */
@@ -306,16 +312,6 @@ export function energyAfterPass(size: number, vy: number): { size: number; vy: n
   return { size: size * 0.78, vy: vy * 0.86 };
 }
 
-/** Impact speed above which a particle bounces before it settles. */
-const BOUNCE_SPEED: Record<SceneKind, number> = {
-  rain: Infinity,
-  snow: 70,
-  leaves: Infinity,
-  bubbles: Infinity,
-  stars: Infinity,
-  sunbeams: Infinity,
-};
-
 /**
  * Returns the surface whose vertical flank the particle just crossed. Only counts when the
  * particle is beside the card body, so it does not fire for something dropping onto the top.
@@ -337,7 +333,7 @@ export function findSideHit(ledges: Ledge[], particle: Particle, previousX: numb
 export function findLedgeHit(ledges: Ledge[], particle: Particle, previousY: number): Ledge | null {
   for (const ledge of ledges) {
     if (particle.x < ledge.x || particle.x > ledge.x + ledge.width) continue;
-    const surface = ledge.y - ledge.piles[bucketIndex(ledge, particle.x)];
+    const surface = ledge.y;
     if (previousY <= surface && particle.y >= surface) return ledge;
   }
   return null;
@@ -352,8 +348,8 @@ export type StepOptions = {
 };
 
 /**
- * Advances the field one frame: moves particles, resolves ledge collisions (splash or settle),
- * ages bursts and piles, and tops the field back up to the count the current weather calls for.
+ * Advances the field one frame: moves particles, resolves rain against collision surfaces, ages
+ * bursts and held water, and tops the field back up to the count the current weather calls for.
  */
 export function stepField(field: Field, options: StepOptions): Field {
   const { delta, ledges, intensity, random } = options;
@@ -362,9 +358,7 @@ export function stepField(field: Field, options: StepOptions): Field {
 
   const weather = intensityEnvelope(field.time);
   const wanted = targetCount(kind, field.width, field.height, intensity * weather);
-  const settles = settlesOnLedges(kind);
   const splashes = splashesOnLedges(kind);
-  const maxPile = MAX_PILE[kind];
 
   const survivors: Particle[] = [];
   for (const particle of field.particles) {
@@ -396,8 +390,23 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.rotation += particle.spin * (1 + gust * 2.4) * delta;
       particle.flip += particle.flipRate * (1 + gust * 1.6) * delta;
     } else if (kind === 'snow') {
-      particle.vx += Math.sin(particle.age * 0.9 + particle.depth * 6) * 9 * delta;
-      particle.rotation += particle.spin * delta;
+      const wind = windField(field.time);
+      const gust = gustStrength(field.time);
+      // Depth decides how much of the wind a flake actually feels: a distant flake drifts
+      // lazily, a near one is visibly shoved around.
+      const response = 0.3 + particle.depth * 1.0;
+      const drag = 0.9 + particle.depth * 1.3;
+      particle.vx += (wind * response - particle.vx) * Math.min(1, drag * delta);
+      // Each flake sways on its own period and phase, so nothing moves in formation.
+      particle.vx += Math.sin(particle.age * particle.swayRate + particle.phase) * 12 * delta;
+      // Terminal speed follows the slow speed envelope, so the whole fall eases between lazy
+      // and brisk instead of stepping.
+      const terminal = (13 + particle.depth * 34) * speedEnvelope(field.time);
+      particle.vy += (terminal - particle.vy) * Math.min(1, 1.2 * delta);
+      // A gust lifts some flakes briefly; once it passes, the pull back toward terminal above
+      // returns them to a calm descent on its own.
+      particle.vy -= gust * response * particle.driftBias * 34 * delta;
+      particle.rotation += particle.spin * (1 + gust * 1.8) * delta;
     } else if (kind === 'bubbles') {
       particle.vx += Math.sin(particle.age * 2.1 + particle.depth * 4) * 14 * delta;
     }
@@ -407,21 +416,17 @@ export function stepField(field: Field, options: StepOptions): Field {
     particle.x += particle.vx * delta;
     particle.y += particle.vy * delta;
 
-    if (settles || splashes) {
-      // Flanks first: a particle brushing the side of a card is pushed clear of it.
+    if (splashes) {
+      // Flanks first: a drop brushing the side of a card is pushed clear of it.
       const flank = findSideHit(ledges, particle, previousX);
       if (flank) {
         particle.vx = -particle.vx * 0.45;
         particle.x = particle.x < flank.x + flank.width / 2 ? flank.x - 1 : flank.x + flank.width + 1;
       }
-    }
 
-    const hit = settles || splashes ? findLedgeHit(ledges, particle, previousY) : null;
-    if (hit) {
-      const surfaceY = hit.y - hit.piles[bucketIndex(hit, particle.x)];
-      const nearEdge = Math.min(particle.x - hit.x, hit.x + hit.width - particle.x) < EDGE_SLIP;
-
-      if (splashes) {
+      const hit = findLedgeHit(ledges, particle, previousY);
+      if (hit) {
+        const surfaceY = hit.y;
         // Faster, fatter drops throw more and further; the spray fans away from impact.
         const energy = Math.min(1, Math.abs(particle.vy) / 1400) * (0.5 + particle.depth);
         const count = 2 + Math.round(energy * 3);
@@ -469,25 +474,6 @@ export function stepField(field: Field, options: StepOptions): Field {
         survivors.push(particle);
         continue;
       }
-
-      // A fast, glancing hit bounces before it settles; a soft landing sticks first time.
-      const impact = Math.abs(particle.vy);
-      if (impact > BOUNCE_SPEED[kind] && particle.age < particle.life - 1) {
-        particle.y = surfaceY - 1;
-        particle.vy = -impact * 0.28;
-        particle.vx += (random() - 0.5) * 40;
-        continue;
-      }
-
-      // Landing on the lip slides off rather than balancing on the corner.
-      if (nearEdge && random() < 0.55) {
-        particle.x += particle.x < hit.x + hit.width / 2 ? -EDGE_SLIP : EDGE_SLIP;
-        particle.vy = Math.abs(particle.vy) * 0.4;
-        continue;
-      }
-
-      addToPile(hit, particle.x, particle.size * 0.5, maxPile);
-      continue;
     }
 
     const offScreen = particle.y > field.height + 40 || particle.y < -field.height * 0.6 - 40
@@ -505,8 +491,11 @@ export function stepField(field: Field, options: StepOptions): Field {
     for (let index = 0; index < admitted; index += 1) {
       field.particles.push(spawnParticle(field, random, field.time < 0.1));
     }
-  } else if (deficit < 0) {
-    field.particles.length = wanted;
+  } else if (field.particles.length > wanted * SURPLUS_TOLERANCE + 8) {
+    // A passing lull is not trimmed: the count is left to fall on its own as particles leave
+    // the bottom, because truncating the list would make a chunk of weather vanish mid-air.
+    // Only a real surplus — a viewport that just got much smaller — is cut back.
+    field.particles.length = Math.ceil(wanted * SURPLUS_TOLERANCE + 8);
   }
 
   // Held water is always temporary. Beads slide along the top border, merge with neighbours,
@@ -525,14 +514,6 @@ export function stepField(field: Field, options: StepOptions): Field {
     burst.y += burst.vy * delta;
     return burst.age < burst.life;
   });
-
-  // Settled snow compacts, and a drift that gets too steep slumps into its neighbour
-  // instead of standing up as a wall.
-  if (kind === 'snow') {
-    for (const ledge of ledges) {
-      relaxPile(ledge, delta);
-    }
-  }
 
   return field;
 }
@@ -621,6 +602,7 @@ export function stepLedgeWater(ledge: Ledge, field: Field, delta: number, random
         swayRate: 0,
         flip: 0,
         flipRate: 0,
+        driftBias: 1,
       });
       continue;
     }
@@ -629,29 +611,7 @@ export function stepLedgeWater(ledge: Ledge, field: Field, delta: number, random
   ledge.hanging = stillHanging;
 }
 
-/**
- * Compacts a drift and lets steep neighbouring columns slump into each other, so snow settles
- * into rounded banks rather than isolated spikes.
- */
-export function relaxPile(ledge: Ledge, delta: number, angleOfRepose = 2.4): void {
-  const piles = ledge.piles;
-  for (let index = 0; index < piles.length; index += 1) {
-    // Compaction is mostly proportional to depth: a deep drift settles under its own weight,
-    // a thin dusting barely moves. A flat rate would instead scrub thin cover off wide
-    // surfaces faster than any plausible snowfall could lay it down.
-    piles[index] = Math.max(0, piles[index] - (0.015 + piles[index] * 0.03) * delta);
-  }
-  for (let index = 0; index < piles.length - 1; index += 1) {
-    const difference = piles[index] - piles[index + 1];
-    if (Math.abs(difference) <= angleOfRepose) continue;
-    const move = (Math.abs(difference) - angleOfRepose) * 0.5;
-    const direction = difference > 0 ? 1 : -1;
-    piles[index] -= move * direction;
-    piles[index + 1] += move * direction;
-  }
-}
-
-/** Allocates the pile buckets for a ledge of the given width. */
+/** A collision surface for rain: water beads on its top border and drips from its bottom edge. */
 export function createLedge(id: string, x: number, y: number, width: number, height = 0): Ledge {
   return {
     id,
@@ -659,7 +619,6 @@ export function createLedge(id: string, x: number, y: number, width: number, hei
     y,
     width,
     height,
-    piles: new Float32Array(Math.max(1, Math.ceil(width / PILE_BUCKET))),
     beads: [],
     hanging: [],
   };

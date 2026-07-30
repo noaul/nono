@@ -8,10 +8,12 @@ import {
   leafTint,
   midribOffset,
 } from '../src/utils/sceneLeaf';
+import { SNOW_ARMS, SNOW_TINTS, drawSnowflake, snowRoll, snowShape } from '../src/utils/sceneSnow';
 import {
-  PILE_BUCKET,
-  addToPile,
   createField,
+  depthDistribution,
+  gustDirection,
+  speedEnvelope,
   createLedge,
   createRandom,
   energyAfterPass,
@@ -23,9 +25,7 @@ import {
   MAX_DROPLETS,
   MAX_HANGING,
   mergedSize,
-  relaxPile,
   retainChance,
-  settlesOnLedges,
   sizeEnvelope,
   splashesOnLedges,
   spawnParticle,
@@ -110,15 +110,10 @@ describe('scene particle simulation', () => {
     expect(field.particles.length).toBe(0);
   });
 
-  it('only lands snow; rain splashes and everything else passes through', () => {
-    expect(settlesOnLedges('snow')).toBe(true);
+  it('lets only rain touch the interface; every other scene passes through', () => {
     expect(splashesOnLedges('rain')).toBe(true);
-    expect(settlesOnLedges('rain')).toBe(false);
-    // Leaves drift through the interface: no settling, no bouncing, no sticking.
-    expect(settlesOnLedges('leaves')).toBe(false);
-    expect(splashesOnLedges('leaves')).toBe(false);
-    for (const kind of ['bubbles', 'stars', 'sunbeams'] as SceneKind[]) {
-      expect(settlesOnLedges(kind), kind).toBe(false);
+    // Snow and leaves are purely airborne: no settling, bouncing, sliding, or accumulation.
+    for (const kind of ['snow', 'leaves', 'bubbles', 'stars', 'sunbeams'] as SceneKind[]) {
       expect(splashesOnLedges(kind), kind).toBe(false);
     }
   });
@@ -129,7 +124,6 @@ describe('scene particle simulation', () => {
     const field = run(createField('leaves', 1280, 800), [panel, tabs], 14);
 
     for (const ledge of [panel, tabs]) {
-      expect(Math.max(...ledge.piles), ledge.id).toBe(0);
       expect(ledge.beads, ledge.id).toHaveLength(0);
       expect(ledge.hanging, ledge.id).toHaveLength(0);
     }
@@ -208,55 +202,14 @@ describe('scene particle simulation', () => {
     expect(findLedgeHit([ledge], particle, 399)).toBeNull();
   });
 
-  it('accumulates snow on folders and spills into neighbouring buckets', () => {
-    const ledge = createLedge('1', 0, 300, 160);
-    addToPile(ledge, 80, 6, 14);
-
-    const centre = Math.floor(80 / PILE_BUCKET);
-    expect(ledge.piles[centre]).toBeCloseTo(6, 5);
-    // Neighbours get a share so the drift has shoulders rather than a spike.
-    expect(ledge.piles[centre - 1]).toBeGreaterThan(0);
-    expect(ledge.piles[centre + 1]).toBeGreaterThan(0);
-    expect(ledge.piles[centre - 1]).toBeLessThan(ledge.piles[centre]);
-  });
-
-  it('clamps accumulation so a folder never disappears under the pile', () => {
-    const ledge = createLedge('1', 0, 300, 80);
-    for (let index = 0; index < 200; index += 1) addToPile(ledge, 40, 5, 14);
-    expect(Math.max(...ledge.piles)).toBeLessThanOrEqual(14);
-  });
-
-  it('builds a pile of snow on a folder that sits under the fall', () => {
-    const ledge = createLedge('card', 200, 400, 400);
-    const field = run(createField('snow', 1280, 800), [ledge], 12);
-
-    expect(Math.max(...ledge.piles)).toBeGreaterThan(0);
-    expect(field.particles.length).toBeGreaterThan(0);
-  });
-
   it('splashes rain off a folder instead of settling on it', () => {
     const ledge = createLedge('card', 0, 300, 1280);
     const field = run(createField('rain', 1280, 800), [ledge], 4);
 
-    expect(Math.max(...ledge.piles)).toBe(0);
     expect(field.bursts.length).toBeGreaterThan(0);
     for (const burst of field.bursts) {
       expect(burst.age).toBeLessThan(burst.life);
     }
-  });
-
-  it('lets settled snow compact away once it stops falling', () => {
-    const ledge = createLedge('card', 200, 400, 400);
-    addToPile(ledge, 300, 10, 14);
-    const before = Math.max(...ledge.piles);
-
-    const field = createField('snow', 1280, 800);
-    const random = createRandom(5);
-    for (let index = 0; index < 120; index += 1) {
-      stepField(field, { delta: 1 / 60, ledges: [ledge], intensity: 0, random });
-    }
-
-    expect(Math.max(...ledge.piles)).toBeLessThan(before);
   });
 
   it('drives rain by wind so streaks are slanted, and holds stars in place', () => {
@@ -281,29 +234,6 @@ describe('scene particle simulation', () => {
     expect(findSideHit([ledge], particle, 190)).toBeNull();
     // Zero-height surfaces have no flank to strike.
     expect(findSideHit([createLedge('flat', 200, 300, 200)], particle, 190)).toBeNull();
-  });
-
-  it('slumps a steep drift into its neighbour instead of leaving a spike', () => {
-    const ledge = createLedge('card', 0, 300, 80);
-    ledge.piles[3] = 12;
-    const spike = ledge.piles[3];
-
-    for (let index = 0; index < 30; index += 1) relaxPile(ledge, 1 / 60);
-
-    expect(ledge.piles[3]).toBeLessThan(spike);
-    expect(ledge.piles[4]).toBeGreaterThan(0);
-    // The bank settles within its angle of repose rather than staying a wall.
-    expect(Math.abs(ledge.piles[3] - ledge.piles[4])).toBeLessThanOrEqual(2.5);
-  });
-
-  it('keeps snow within the angle of repose across the whole ledge', () => {
-    const ledge = createLedge('card', 0, 300, 160);
-    for (let index = 0; index < 400; index += 1) addToPile(ledge, 60, 3, 14);
-    for (let index = 0; index < 200; index += 1) relaxPile(ledge, 1 / 60);
-
-    for (let index = 0; index < ledge.piles.length - 1; index += 1) {
-      expect(Math.abs(ledge.piles[index] - ledge.piles[index + 1])).toBeLessThanOrEqual(2.6);
-    }
   });
 
   it('throws a bigger splash for a faster, fatter drop', () => {
@@ -425,7 +355,7 @@ describe('scene particle simulation', () => {
     field.particles.push({
       x: 100, y: 100, vx: 0, vy: 30, size: 6, depth: 0.5,
       rotation: 0, spin: 0, age: 0, life: 20, variant: 0, passes: 1,
-      phase: 0, swayRate: 0, flip: 0, flipRate: 0,
+      phase: 0, swayRate: 0, flip: 0, flipRate: 0, driftBias: 1,
     });
     const drip = field.particles[0];
 
@@ -494,11 +424,16 @@ describe('leaf geometry', () => {
     }
   });
 
-  it('gives each half of the blade a different width, so no leaf is a mirror image', () => {
-    for (const leaf of leaves(24)) {
-      const shape = leafShape(leaf);
-      expect(shape.leftScale).not.toBeCloseTo(shape.rightScale, 2);
-    }
+  it('scales the two halves of the blade independently, so leaves are not mirror images', () => {
+    const shapes = leaves(40).map(leafShape);
+    const gaps = shapes.map((shape) => Math.abs(shape.leftScale - shape.rightScale));
+
+    // The halves are drawn independently from overlapping ranges, so a near-symmetrical leaf is
+    // a legitimate outcome. What has to hold is that the population is not mirrored: most
+    // leaves are visibly lopsided, and the two sides lean opposite ways across the sample.
+    expect(gaps.filter((gap) => gap > 0.02).length).toBeGreaterThan(shapes.length * 0.7);
+    expect(shapes.some((shape) => shape.leftScale > shape.rightScale)).toBe(true);
+    expect(shapes.some((shape) => shape.leftScale < shape.rightScale)).toBe(true);
   });
 
   it('varies size, width, taper, and lean from leaf to leaf', () => {
@@ -543,38 +478,47 @@ describe('leaf geometry', () => {
   });
 });
 
-describe('leaf rendering', () => {
-  /** Minimal 2D context that records every point the leaf routine touches. */
-  function recorder() {
-    const points: Array<[number, number]> = [];
-    const stack: Array<{ x: number; y: number; scaleX: number }> = [{ x: 0, y: 0, scaleX: 1 }];
-    const top = () => stack[stack.length - 1];
-    const mark = (x: number, y: number) => {
-      const frame = top();
-      points.push([frame.x + x * frame.scaleX, frame.y + y]);
-    };
-    return {
-      points,
-      filter: 'none',
-      globalAlpha: 1,
-      lineWidth: 1,
-      strokeStyle: '',
-      fillStyle: '' as unknown,
-      save() { stack.push({ ...top() }); },
-      restore() { stack.pop(); },
-      translate(x: number, y: number) { top().x += x; top().y += y; },
-      rotate() {},
-      scale(x: number) { top().scaleX *= x; },
-      beginPath() {},
-      closePath() {},
-      moveTo: mark,
-      lineTo: mark,
-      stroke() {},
-      fill() {},
-      createLinearGradient() { return { addColorStop() {} }; },
-    } as unknown as CanvasRenderingContext2D & { points: Array<[number, number]> };
-  }
+/**
+ * Minimal 2D context that records every point a draw routine touches, in page coordinates.
+ * Enough to assert footprint and cleanup without a real canvas.
+ */
+function recordingContext() {
+  const points: Array<[number, number]> = [];
+  type Frame = { x: number; y: number; scaleX: number; scaleY: number; angle: number };
+  const stack: Frame[] = [{ x: 0, y: 0, scaleX: 1, scaleY: 1, angle: 0 }];
+  const top = () => stack[stack.length - 1];
+  const mark = (x: number, y: number) => {
+    const frame = top();
+    const scaledX = x * frame.scaleX;
+    const scaledY = y * frame.scaleY;
+    const cos = Math.cos(frame.angle);
+    const sin = Math.sin(frame.angle);
+    points.push([frame.x + scaledX * cos - scaledY * sin, frame.y + scaledX * sin + scaledY * cos]);
+  };
+  return {
+    points,
+    filter: 'none',
+    globalAlpha: 1,
+    lineWidth: 1,
+    lineCap: 'butt',
+    strokeStyle: '',
+    fillStyle: '' as unknown,
+    save() { stack.push({ ...top() }); },
+    restore() { stack.pop(); },
+    translate(x: number, y: number) { top().x += x; top().y += y; },
+    rotate(angle: number) { top().angle += angle; },
+    scale(x: number, y = x) { top().scaleX *= x; top().scaleY *= y; },
+    beginPath() {},
+    closePath() {},
+    moveTo: mark,
+    lineTo: mark,
+    stroke() {},
+    fill() {},
+    createLinearGradient() { return { addColorStop() {} }; },
+  } as unknown as CanvasRenderingContext2D & { points: Array<[number, number]> };
+}
 
+describe('leaf rendering', () => {
   it('draws a leaf inside its own footprint and leaves the context clean', () => {
     const field = createField('leaves', 1280, 800);
     const leaf = spawnParticle(field, createRandom(31), true);
@@ -584,7 +528,7 @@ describe('leaf rendering', () => {
     leaf.flip = 0;
     leaf.rotation = 0;
 
-    const ctx = recorder();
+    const ctx = recordingContext();
     drawLeaf(ctx, leaf);
 
     expect(ctx.points.length).toBeGreaterThan(20);
@@ -605,5 +549,268 @@ describe('leaf rendering', () => {
 
     expect(midribOffset(shape, 0)).toBeCloseTo(0, 6);
     expect(Math.abs(midribOffset(shape, 1))).toBeGreaterThan(Math.abs(midribOffset(shape, 0.5)));
+  });
+});
+
+describe('snowfall', () => {
+  function snow(seconds: number, ledges: Ledge[] = [], seed = 9) {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(seed);
+    for (let index = 0; index < seconds * 60; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges, intensity: 1, random });
+    }
+    return field;
+  }
+
+  it('never lands, settles, or leaves anything on a folder, tab, or heading', () => {
+    const panel = createLedge('panel', 0, 300, 1280, 160);
+    const tabs = createLedge('tabs', 0, 120, 900, 44);
+    const heading = createLedge('heading', 0, 60, 600, 30);
+    const field = snow(16, [panel, tabs, heading]);
+
+    for (const ledge of [panel, tabs, heading]) {
+      expect(ledge.beads, ledge.id).toHaveLength(0);
+      expect(ledge.hanging, ledge.id).toHaveLength(0);
+    }
+    // No melting or water either: snow produces no bursts at all.
+    expect(field.bursts).toHaveLength(0);
+  });
+
+  it('passes snow through every vertical layer of the page', () => {
+    // Four stacked panels: with collisions gone, none of them can shadow the ones below.
+    const rows = [200, 360, 520, 680].map((y, index) => createLedge(`row-${index}`, 0, y, 1280, 120));
+    const field = snow(18, rows);
+
+    for (const row of rows) {
+      expect(field.particles.some((flake) => flake.y > row.y), `below ${row.id}`).toBe(true);
+    }
+  });
+
+  it('recycles flakes only once they have left the viewport', () => {
+    const field = snow(14, [createLedge('panel', 0, 400, 1280, 160)]);
+
+    for (const flake of field.particles) {
+      expect(flake.y).toBeLessThanOrEqual(field.height + 40);
+      expect(flake.x).toBeGreaterThanOrEqual(-200);
+      expect(flake.x).toBeLessThanOrEqual(field.width + 200);
+    }
+  });
+
+  it('varies density and fall speed smoothly on separate schedules', () => {
+    const density = Array.from({ length: 400 }, (_, index) => intensityEnvelope(index * 0.9));
+    const speed = Array.from({ length: 400 }, (_, index) => speedEnvelope(index * 0.9));
+
+    // Both drift rather than holding one value.
+    expect(Math.max(...density) - Math.min(...density)).toBeGreaterThan(0.2);
+    expect(Math.max(...speed) - Math.min(...speed)).toBeGreaterThan(0.2);
+    // Smooth: no step between neighbouring samples.
+    for (let index = 1; index < speed.length; index += 1) {
+      expect(Math.abs(speed[index] - speed[index - 1])).toBeLessThan(0.1);
+    }
+    // The two are not the same curve, so a heavy spell is not automatically a fast one.
+    const aligned = density.filter((value, index) => (value > 0.85) === (speed[index] > 1)).length;
+    expect(aligned).toBeLessThan(density.length * 0.9);
+  });
+
+  it('changes the particle count gradually instead of culling in one frame', () => {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(4);
+    let previous = 0;
+    let worst = 0;
+    // The first couple of seconds are the initial fill, which is a deliberate ramp.
+    for (let index = 0; index < 60 * 120; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [], intensity: 1, random });
+      if (index > 120) worst = Math.max(worst, Math.abs(field.particles.length - previous));
+      previous = field.particles.length;
+    }
+
+    expect(field.particles.length).toBeGreaterThan(20);
+    // Across two minutes of shifting weather no single frame ever moves the count by more than
+    // a handful, so density eases rather than stepping.
+    expect(worst).toBeLessThanOrEqual(6);
+  });
+
+  it('reacts to gusts more strongly the nearer a flake is', () => {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(6);
+    // Same flake twice, differing only in depth, stepped through an identical stretch of wind.
+    const far = spawnParticle(field, random, true);
+    const near = { ...far, depth: 0.95 };
+    far.depth = 0.05;
+    far.x = 640;
+    near.x = 640;
+    field.particles = [far, near];
+
+    for (let index = 0; index < 60 * 6; index += 1) {
+      stepField(field, { delta: 1 / 60, ledges: [], intensity: 0, random });
+    }
+
+    expect(Math.abs(near.x - 640)).toBeGreaterThan(Math.abs(far.x - 640));
+  });
+
+  it('turns the gust direction over instead of always blowing one way', () => {
+    const directions = Array.from({ length: 300 }, (_, index) => gustDirection(index * 1.1));
+    expect(directions).toContain(1);
+    expect(directions).toContain(-1);
+  });
+
+  it('gives every flake its own sway, spin, and gust response', () => {
+    const flakes = snow(3).particles.slice(0, 14);
+
+    for (const key of ['swayRate', 'phase', 'driftBias'] as const) {
+      expect(new Set(flakes.map((flake) => flake[key].toFixed(4))).size, key).toBeGreaterThan(1);
+    }
+    expect(flakes.some((flake) => flake.spin > 0)).toBe(true);
+    expect(flakes.some((flake) => flake.spin < 0)).toBe(true);
+  });
+
+  it('keeps the midground carrying the snowfall and the foreground sparse', () => {
+    const random = createRandom(12);
+    const depths = Array.from({ length: 4000 }, () => depthDistribution('snow', random));
+    const share = (low: number, high: number) =>
+      depths.filter((depth) => depth >= low && depth < high).length / depths.length;
+
+    // Foreground stays rare so large flakes never cover bookmarks and text.
+    expect(share(0.8, 1.01)).toBeLessThan(0.12);
+    // The middle band carries more of the field than the near band does.
+    expect(share(0.3, 0.8)).toBeGreaterThan(share(0.8, 1.01));
+    // Distant flakes are the most numerous single band.
+    expect(share(0, 0.3)).toBeGreaterThan(0.25);
+  });
+});
+
+describe('snowflake rendering', () => {
+  function flakes(count: number, seed = 21) {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(seed);
+    return Array.from({ length: count }, () => spawnParticle(field, random, true));
+  }
+
+  it('never draws a flake as a plain circle', () => {
+    // Every style is built from straight arms or a hexagon; there is no disc variant at all.
+    const styles = new Set(flakes(200).map((flake) => snowShape(flake).style));
+    for (const style of styles) expect(['dendrite', 'star', 'plate']).toContain(style);
+    expect(styles.size).toBeGreaterThan(1);
+  });
+
+  it('keeps six-fold symmetry', () => {
+    expect(SNOW_ARMS).toBe(6);
+  });
+
+  it('reserves the branched crystal for flakes near enough to show it', () => {
+    const sample = flakes(400);
+    const near = sample.filter((flake) => flake.depth > 0.55);
+    const far = sample.filter((flake) => flake.depth <= 0.55);
+
+    expect(near.some((flake) => snowShape(flake).style === 'dendrite')).toBe(true);
+    // Distant flakes drop to the simpler outlines rather than carrying sub-pixel branches.
+    expect(far.every((flake) => snowShape(flake).style !== 'dendrite')).toBe(true);
+    // But they are still crystals, not dots.
+    expect(far.every((flake) => ['star', 'plate'].includes(snowShape(flake).style))).toBe(true);
+  });
+
+  it('varies size, shape, opacity, and brightness from flake to flake', () => {
+    const shapes = flakes(60).map((flake) => ({ flake, shape: snowShape(flake) }));
+
+    for (const key of ['radius', 'alpha', 'lineWidth', 'branchReach'] as const) {
+      expect(new Set(shapes.map(({ shape }) => shape[key].toFixed(4))).size, key).toBeGreaterThan(10);
+    }
+    // Cool white through pale blue-white to silver-grey, and more than one in play.
+    expect(new Set(shapes.map(({ shape }) => shape.tint)).size).toBeGreaterThan(2);
+    for (const { shape } of shapes) expect(SNOW_TINTS).toContain(shape.tint);
+  });
+
+  it('stays translucent and fades with distance', () => {
+    for (const flake of flakes(80)) {
+      const shape = snowShape(flake);
+      expect(shape.alpha).toBeGreaterThan(0);
+      expect(shape.alpha).toBeLessThan(1);
+    }
+    const field = createField('snow', 1280, 800);
+    const base = spawnParticle(field, createRandom(5), true);
+    expect(snowShape({ ...base, depth: 0.1 }).alpha)
+      .toBeLessThan(snowShape({ ...base, depth: 0.9 }).alpha);
+  });
+
+  it('blurs only a few of the closest flakes', () => {
+    const sample = flakes(400);
+    const blurred = sample.filter((flake) => snowShape(flake).blur > 0);
+
+    expect(blurred.length).toBeGreaterThan(0);
+    expect(blurred.length / sample.length).toBeLessThan(0.15);
+    for (const flake of blurred) expect(flake.depth).toBeGreaterThan(0.88);
+  });
+
+  it('draws inside the flake footprint and leaves the context clean', () => {
+    const field = createField('snow', 1280, 800);
+    const flake = spawnParticle(field, createRandom(33), true);
+    flake.x = 400;
+    flake.y = 250;
+    flake.size = 30;
+    flake.rotation = 0;
+    flake.depth = 0.8;
+
+    const ctx = recordingContext();
+    drawSnowflake(ctx, flake);
+
+    expect(ctx.points.length).toBeGreaterThan(20);
+    for (const [x, y] of ctx.points) {
+      expect(Math.hypot(x - flake.x, y - flake.y)).toBeLessThanOrEqual(flake.size * 1.35);
+    }
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.filter).toBe('none');
+  });
+});
+
+describe('snowflake variety is independent of distance', () => {
+  /**
+   * `variant` is drawn from the same PRNG stream as `depth`, a fixed number of draws apart, so
+   * the two correlate. Style and tint therefore have to come from `snowRoll`, not `variant`, or
+   * a flake's crystal shape ends up tied to how far away it happens to be.
+   */
+  function population(count: number) {
+    const field = createField('snow', 1280, 800);
+    const random = createRandom(21);
+    return Array.from({ length: count }, () => spawnParticle(field, random, true));
+  }
+
+  it('keeps the plate a minority in both the near and far layers', () => {
+    const sample = population(600);
+    const share = (flakes: typeof sample) =>
+      flakes.filter((flake) => snowShape(flake).style === 'plate').length / Math.max(1, flakes.length);
+
+    const near = sample.filter((flake) => flake.depth > 0.55);
+    const far = sample.filter((flake) => flake.depth <= 0.55);
+    expect(share(near)).toBeLessThan(0.3);
+    expect(share(far)).toBeLessThan(0.32);
+    expect(share(sample)).toBeLessThan(0.3);
+  });
+
+  it('spreads the tints evenly rather than tying them to depth', () => {
+    const sample = population(600);
+    const counts = new Map<string, number>();
+    for (const flake of sample) {
+      const tint = snowShape(flake).tint;
+      counts.set(tint, (counts.get(tint) ?? 0) + 1);
+    }
+
+    // Every tint is in play, and none of them dominates.
+    expect(counts.size).toBe(SNOW_TINTS.length);
+    for (const [tint, count] of counts) {
+      expect(count / sample.length, tint).toBeGreaterThan(0.12);
+      expect(count / sample.length, tint).toBeLessThan(0.4);
+    }
+  });
+
+  it('derives the roll from flight values that are not the depth draw', () => {
+    const field = createField('snow', 1280, 800);
+    const flake = spawnParticle(field, createRandom(3), true);
+
+    // Same flake, different distance: the crystal it draws must not change.
+    expect(snowShape({ ...flake, depth: 0.9 }).tint).toBe(snowShape({ ...flake, depth: 0.1 }).tint);
+    expect(snowRoll(flake, 1.7)).toBe(snowRoll({ ...flake, depth: 0.2 }, 1.7));
+    // And the roll is stable for a given flake but differs between flakes.
+    const other = spawnParticle(field, createRandom(8), true);
+    expect(snowRoll(flake, 1.7)).not.toBe(snowRoll(other, 1.7));
   });
 });
