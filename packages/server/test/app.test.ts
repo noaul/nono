@@ -241,6 +241,49 @@ describe('Nono Fastify app', () => {
     expect(navigation.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
   });
 
+  it('serves the saved homepage background through the public navigation origin', async () => {
+    await app.close();
+    const body = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const publicFetcher = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      headers: { 'content-type': 'image/png', 'content-length': String(body.length) },
+      body,
+    });
+    app = await buildApp({ repo, sessionSecret, encryptionKey, publicFetcher } as any);
+    await setupAdmin();
+
+    const response = await app.inject({ method: 'GET', url: '/api/navigation/admin/background' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('image/png');
+    expect(response.headers['cache-control']).toContain('stale-while-revalidate');
+    expect(response.rawPayload).toEqual(body);
+    expect(publicFetcher).toHaveBeenCalledWith('https://api.dujin.org/bing/1920.php', expect.objectContaining({
+      maxBytes: expect.any(Number),
+      timeoutMs: expect.any(Number),
+    }));
+
+    const cached = await app.inject({ method: 'GET', url: '/api/navigation/admin/background?retry=1' });
+    expect(cached.statusCode).toBe(200);
+    expect(cached.rawPayload).toEqual(body);
+    expect(publicFetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not relay a non-image response as a homepage background', async () => {
+    await app.close();
+    const publicFetcher = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      headers: { 'content-type': 'text/html' },
+      body: Buffer.from('<html>upstream error</html>'),
+    });
+    app = await buildApp({ repo, sessionSecret, encryptionKey, publicFetcher } as any);
+    await setupAdmin();
+
+    const response = await app.inject({ method: 'GET', url: '/api/navigation/admin/background' });
+
+    expect(response.statusCode).toBe(502);
+  });
+
   it('never exposes private records or locked links through public navigation APIs', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({

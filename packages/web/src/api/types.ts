@@ -22,6 +22,7 @@ export interface Site {
   fontColor: string;
   searchUrlTemplate: string;
   localSearchFirst: boolean;
+  updatedAt?: string;
   guestAccessEnabled?: boolean;
   guestAccessPasswordSet?: boolean;
   settings?: Record<string, unknown>;

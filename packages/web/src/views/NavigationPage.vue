@@ -268,7 +268,13 @@ const backgroundStyle = computed(() => {
     color: resolvedMode.value === 'dark' ? '#f4f6f8' : site.fontColor || '#f3f4f6',
   };
 });
-const backgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
+const savedBackgroundImageUrl = computed(() => payload.value?.site.backgroundImage || '');
+const backgroundImageUrl = computed(() => {
+  const site = payload.value?.site;
+  if (!savedBackgroundImageUrl.value) return '';
+  const endpoint = `/api/navigation/${encodeURIComponent(username.value)}/background`;
+  return site?.updatedAt ? `${endpoint}?v=${encodeURIComponent(site.updatedAt)}` : endpoint;
+});
 const portal = computed(() => getPortalSettings(payload.value?.site.settings, import.meta.env.VITE_BLOG_URL));
 const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
 const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
@@ -1021,6 +1027,10 @@ function preloadPublicBackground(url?: string | null) {
   }
 
   addBackgroundHint('preload', url, 'image');
+  preloadBackgroundCandidate(url, requestVersion, savedBackgroundImageUrl.value);
+}
+
+function preloadBackgroundCandidate(url: string, requestVersion: number, fallbackUrl = '') {
   const image = new Image();
   image.decoding = 'async';
   image.fetchPriority = 'high';
@@ -1028,10 +1038,24 @@ function preloadPublicBackground(url?: string | null) {
     if (requestVersion === backgroundPreloadVersion) loadedBackgroundImage.value = url;
   };
   image.onerror = () => {
-    if (requestVersion === backgroundPreloadVersion) {
-      visibleBackgroundImage.value = '';
+    if (requestVersion !== backgroundPreloadVersion) return;
+    if (fallbackUrl && fallbackUrl !== url) {
+      visibleBackgroundImage.value = fallbackUrl;
       loadedBackgroundImage.value = '';
+      try {
+        const origin = new URL(fallbackUrl, window.location.href).origin;
+        if (origin !== window.location.origin) {
+          addBackgroundHint('dns-prefetch', origin);
+          addBackgroundHint('preconnect', origin);
+        }
+      } catch {
+        // The second image load below is the final validity check.
+      }
+      preloadBackgroundCandidate(fallbackUrl, requestVersion);
+      return;
     }
+    visibleBackgroundImage.value = '';
+    loadedBackgroundImage.value = '';
   };
   image.src = url;
 }

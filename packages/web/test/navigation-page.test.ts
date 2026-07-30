@@ -284,7 +284,7 @@ describe('NavigationPage public workflow', () => {
     expect(source).toContain('if (frame) cancelAnimationFrame(frame)');
   });
 
-  it('shows the public background image immediately while keeping preload hints', async () => {
+  it('loads the saved public background through the same-origin navigation endpoint', async () => {
     const imageInstances: Array<{ src: string; onload: (() => void) | null; onerror: (() => void) | null; fetchPriority?: string; decoding?: string }> = [];
     class MockImage {
       src = '';
@@ -305,17 +305,41 @@ describe('NavigationPage public workflow', () => {
 
     expect(page.classes()).toContain('nav-bg-visible');
     expect(page.classes()).not.toContain('nav-bg-loaded');
-    expect(page.attributes('style')).toContain('url("https://cdn.example.com/bg.jpg")');
-    expect(document.head.querySelector('link[data-nono-background-preload][rel="dns-prefetch"]')?.getAttribute('href')).toBe('https://cdn.example.com');
-    expect(document.head.querySelector('link[data-nono-background-preload][rel="preconnect"]')?.getAttribute('href')).toBe('https://cdn.example.com');
-    expect(document.head.querySelector('link[data-nono-background-preload][rel="preload"]')?.getAttribute('href')).toBe('https://cdn.example.com/bg.jpg');
+    expect(page.attributes('style')).toContain('url("/api/navigation/admin/background")');
+    expect(document.head.querySelector('link[data-nono-background-preload][rel="dns-prefetch"]')).toBeNull();
+    expect(document.head.querySelector('link[data-nono-background-preload][rel="preconnect"]')).toBeNull();
+    expect(document.head.querySelector('link[data-nono-background-preload][rel="preload"]')?.getAttribute('href')).toBe('/api/navigation/admin/background');
     expect(document.head.querySelector('link[data-nono-background-preload][rel="preload"]')?.getAttribute('as')).toBe('image');
     expect(imageInstances[0]?.fetchPriority).toBe('high');
+    expect(imageInstances[0]?.src).toBe('/api/navigation/admin/background');
 
     imageInstances[0].onload?.();
     await wrapper.vm.$nextTick();
 
     expect(page.classes()).toContain('nav-bg-loaded');
+  });
+
+  it('falls back to the saved image URL when the same-origin background endpoint fails', async () => {
+    const imageInstances: Array<{ src: string; onload: (() => void) | null; onerror: (() => void) | null }> = [];
+    class MockImage {
+      src = '';
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      constructor() {
+        imageInstances.push(this);
+      }
+    }
+    vi.stubGlobal('Image', MockImage);
+    apiRequest.mockResolvedValue(navigationPayload('https://cdn.example.com/bg.jpg'));
+
+    const wrapper = await mountNavigationPage();
+    imageInstances[0].onerror?.();
+    await wrapper.vm.$nextTick();
+
+    expect(imageInstances[1]?.src).toBe('https://cdn.example.com/bg.jpg');
+    expect(wrapper.get('.nav-page').classes()).toContain('nav-bg-visible');
+    expect(wrapper.get('.nav-page').attributes('style')).toContain('url("https://cdn.example.com/bg.jpg")');
   });
 
   it('keeps the center portal link and gives the signed-in owner a settings drawer', async () => {

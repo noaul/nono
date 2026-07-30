@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { AppServices } from '../types.js';
 import { sendOk } from '../plugins/responses.js';
 import { resolveUser } from '../plugins/auth.js';
@@ -6,8 +6,65 @@ import { createNavigationAccessToken, verifyNavigationAccessToken, verifyPasswor
 import type { FolderRecord, LinkRecord, SiteRecord } from '../services/repository.js';
 
 const NAVIGATION_ACCESS_COOKIE = 'nono_navigation_access';
+const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024;
+const BACKGROUND_FETCH_TIMEOUT_MS = 12_000;
+const BACKGROUND_CACHE_TTL_MS = 60 * 60 * 1000;
+const MAX_BACKGROUND_CACHE_ENTRIES = 16;
+
+type BackgroundCacheEntry = {
+  body: Buffer;
+  contentType: string;
+  expiresAt: number;
+};
 
 export async function navigationRoutes(app: FastifyInstance, services: AppServices) {
+  const backgroundCache = new Map<string, BackgroundCacheEntry>();
+
+  app.get('/api/navigation/:username/background', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const site = await findNavigationSite(services, (request.params as any).username);
+    if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
+    if (!site.backgroundImage) throw Object.assign(new Error('Background image not configured'), { statusCode: 404 });
+
+    const cached = backgroundCache.get(site.backgroundImage);
+    if (cached && cached.expiresAt > Date.now()) {
+      backgroundCache.delete(site.backgroundImage);
+      backgroundCache.set(site.backgroundImage, cached);
+      return sendBackground(reply, cached);
+    }
+    if (cached) backgroundCache.delete(site.backgroundImage);
+
+    try {
+      const response = await services.publicFetcher!(site.backgroundImage, {
+        headers: { accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.8,*/*;q=0.1' },
+        maxBytes: MAX_BACKGROUND_BYTES,
+        timeoutMs: BACKGROUND_FETCH_TIMEOUT_MS,
+      });
+      const declaredLength = Number(headerValue(response.headers['content-length']) || 0);
+      const contentType = detectBackgroundType(response.body);
+      if (
+        response.statusCode < 200
+        || response.statusCode >= 300
+        || declaredLength > MAX_BACKGROUND_BYTES
+        || !response.body.length
+        || response.body.length > MAX_BACKGROUND_BYTES
+        || !contentType
+      ) {
+        return reply.status(502).send({ code: 502, data: null, message: 'Background image unavailable' });
+      }
+      if (backgroundCache.size >= MAX_BACKGROUND_CACHE_ENTRIES) {
+        const oldest = backgroundCache.keys().next().value;
+        if (oldest !== undefined) backgroundCache.delete(oldest);
+      }
+      const entry = { body: response.body, contentType, expiresAt: Date.now() + BACKGROUND_CACHE_TTL_MS };
+      backgroundCache.set(site.backgroundImage, entry);
+      return sendBackground(reply, entry);
+    } catch {
+      return reply.status(502).send({ code: 502, data: null, message: 'Background image unavailable' });
+    }
+  });
+
   app.get('/api/navigation/:username', async (request, reply) => {
     const username = (request.params as any).username;
     const site = await findNavigationSite(services, username);
@@ -194,4 +251,31 @@ function publicLink(link: LinkRecord) {
     createdAt: link.createdAt,
     updatedAt: link.updatedAt,
   };
+}
+
+function headerValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || '' : value || '';
+}
+
+function sendBackground(reply: FastifyReply, entry: BackgroundCacheEntry) {
+  return reply
+    .header('cache-control', 'public, max-age=3600, stale-while-revalidate=86400')
+    .header('x-content-type-options', 'nosniff')
+    .type(entry.contentType)
+    .send(entry.body);
+}
+
+function detectBackgroundType(body: Buffer) {
+  if (body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return 'image/png';
+  }
+  if (body.length >= 3 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff) return 'image/jpeg';
+  const signature = body.subarray(0, 12).toString('ascii');
+  if (signature.startsWith('GIF87a') || signature.startsWith('GIF89a')) return 'image/gif';
+  if (signature.startsWith('RIFF') && signature.slice(8, 12) === 'WEBP') return 'image/webp';
+  if (body.length >= 12 && body.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brand = body.subarray(8, 12).toString('ascii');
+    if (brand === 'avif' || brand === 'avis') return 'image/avif';
+  }
+  return '';
 }
