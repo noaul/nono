@@ -1036,7 +1036,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               disabled={isLoading}
-              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-brand-indigo/20 dark:text-brand-violet rounded-lg hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-brand-indigo/30 transition-colors disabled:opacity-50 text-sm font-medium"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 text-gray-700 dark:bg-brand-indigo/20 dark:text-brand-violet rounded-lg hover:bg-gray-100 dark:hover:bg-brand-indigo/30 transition-colors disabled:opacity-50 text-sm font-medium"
             >
               <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="whitespace-nowrap">
@@ -1050,7 +1050,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
 
             {/* Dropdown Menu */}
             {showDropdown && !isLoading && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded-lg shadow-dialog z-10">
+              <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded-lg shadow-md z-10">
                 <button
                   onClick={() => handleAIAnalyze(false)}
                   className="w-full px-4 py-3 text-left hover:bg-light-bg dark:hover:bg-white/5 transition-colors border-b border-black/[0.04] dark:border-white/[0.04]"
@@ -1104,14 +1104,14 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
               </span>
               <button
                 onClick={handlePauseResume}
-                className="p-1 sm:p-1.5 rounded-lg bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-status-amber/20 dark:text-status-amber hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-status-amber/30 transition-colors"
+                className="p-1 sm:p-1.5 rounded-lg bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
                 title={isPaused ? t('继续', 'Resume') : t('暂停', 'Pause')}
               >
                 {isPaused ? <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
               <button
                 onClick={handleStop}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-status-red/20 dark:text-status-red hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-status-red/30 transition-colors text-xs sm:text-sm"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gray-100 text-gray-700 dark:bg-status-red/20 dark:text-status-red hover:bg-gray-100 dark:hover:bg-status-red/30 transition-colors text-xs sm:text-sm"
               >
                 {t('停止', 'Stop')}
               </button>

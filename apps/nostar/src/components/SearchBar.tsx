@@ -48,7 +48,7 @@ const SortByDropdown: React.FC<SortByDropdownProps> = ({ value, onChange, t }) =
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-gray-600 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-white/[0.08] transition-colors"
       >
         <span>{t(selected?.labelZh ?? '', selected?.labelEn ?? '')}</span>
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -1009,7 +1009,7 @@ export const SearchBar: React.FC = () => {
               </span>
               <button
                 onClick={clearSearchHistory}
-                className="text-xs text-gray-500 dark:text-text-tertiary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-700 dark:text-text-secondary transition-colors"
+                className="text-xs text-gray-500 dark:text-text-tertiary hover:text-gray-700 dark:hover:text-text-secondary transition-colors"
               >
                 {t('清除', 'Clear')}
               </button>
@@ -1059,7 +1059,7 @@ export const SearchBar: React.FC = () => {
           {searchQuery && (
             <button
               onClick={handleClearSearch}
-              className="p-1.5 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-300 transition-colors"
+              className="p-1.5 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
               title={t('清除搜索', 'Clear search')}
             >
               <X className="w-4 h-4" />
@@ -1169,7 +1169,7 @@ export const SearchBar: React.FC = () => {
             onClick={() => setSearchFilters({
               sortOrder: searchFilters.sortOrder === 'desc' ? 'asc' : 'desc'
             })}
-            className="px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-gray-600 transition-colors"
+            className="px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm hover:bg-light-bg dark:hover:bg-white/[0.08] transition-colors"
           >
             {searchFilters.sortOrder === 'desc' ? '↓' : '↑'}
           </button>

@@ -140,10 +140,11 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 
+/* The contract sets letter-spacing to 0; this control renders inside the unified admin shell. */
 .language-tag {
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .language-popover {

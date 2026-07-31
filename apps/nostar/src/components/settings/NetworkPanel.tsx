@@ -325,7 +325,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                       value={type}
                       checked={form.type === type}
                       onChange={() => setForm({ ...form, type })}
-                      className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+                      className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
                     />
                     <span className="text-sm font-medium text-gray-900 dark:text-text-primary uppercase">
                       {type}

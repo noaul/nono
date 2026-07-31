@@ -589,8 +589,8 @@ onMounted(load);
 <style scoped>
 .add-list-row {
   align-items: center;
-  background: rgba(255, 255, 255, 0.35);
-  border: 1px dashed rgba(100, 116, 139, 0.38);
+  background: var(--admin-surface-sunken);
+  border: 1px dashed var(--admin-border-strong);
   border-radius: var(--admin-surface-radius, 8px);
   color: var(--admin-text-muted);
   display: flex;
@@ -600,12 +600,12 @@ onMounted(load);
 }
 
 .add-list-row:hover {
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--admin-surface);
   color: var(--admin-accent);
 }
 
 .inline-create-folder-row {
-  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  border-top: 1px solid var(--admin-border);
   margin-top: 8px;
   padding-top: 12px;
 }
@@ -638,8 +638,8 @@ onMounted(load);
 }
 
 .folder-notab-cell select {
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border-strong);
   border-radius: 7px;
   color: var(--muted);
   font-size: 11px;

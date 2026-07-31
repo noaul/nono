@@ -4,6 +4,12 @@ import { logger } from '../services/logger';
 
 interface Props {
   children: ReactNode;
+  /**
+   * Heading level for the failure title. The root boundary in main.tsx renders the whole page,
+   * so it keeps the h1; a boundary nested inside AppShell sits below the topbar's h1 and passes
+   * 'h2'. Defaults to 'h1' so a standalone boundary is never left without a page heading.
+   */
+  headingLevel?: 'h1' | 'h2';
 }
 
 interface State {
@@ -81,15 +87,16 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       const strings = getLocalizedStrings();
       const { error, errorInfo, showDetails } = this.state;
+      const HeadingTag = this.props.headingLevel ?? 'h1';
 
       return (
         <div className="min-h-screen bg-light-bg dark:bg-panel-dark flex items-center justify-center p-4">
           <div className="max-w-lg w-full bg-white dark:bg-panel-dark rounded-lg shadow-lg p-6">
             <div className="text-center">
               <div className="text-5xl mb-4">😵</div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-text-primary mb-2">
+              <HeadingTag className="text-xl font-bold text-gray-900 dark:text-text-primary mb-2">
                 {strings.title}
-              </h1>
+              </HeadingTag>
               <p className="text-gray-700 dark:text-text-tertiary mb-4">
                 {strings.description}
               </p>
@@ -103,7 +110,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     </span>
                     <button
                       onClick={this.handleCopyError}
-                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary rounded hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-gray-100 dark:bg-white/[0.04] transition-colors"
+                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary rounded hover:bg-gray-100 dark:hover:bg-white/[0.08] transition-colors"
                     >
                       {strings.copyError}
                     </button>
@@ -118,7 +125,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="mb-4">
                 <button
                   onClick={this.handleToggleDetails}
-                  className="text-sm text-brand-violet dark:text-brand-violet hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-700 dark:text-text-secondary underline"
+                  className="text-sm text-brand-violet dark:text-brand-violet hover:text-gray-700 dark:hover:text-text-secondary underline"
                 >
                   {strings.toggleDetails}
                 </button>
@@ -154,7 +161,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </button>
                 <button
                   onClick={this.handleReportIssue}
-                  className="w-full px-4 py-2 bg-light-surfacetext-gray-900 dark:bg-white/[0.04] dark:text-text-secondary rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="w-full px-4 py-2 bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary rounded-lg hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
                 >
                   {strings.reportIssue}
                 </button>

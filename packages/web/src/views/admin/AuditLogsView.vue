@@ -368,7 +368,7 @@ onMounted(() => {
   padding: 0 9px;
 }
 
-.audit-search-field:focus-within { border-color: var(--admin-text); box-shadow: 0 0 0 2px rgb(13 13 13 / 10%); }
+.audit-search-field:focus-within { border-color: var(--admin-text); box-shadow: 0 0 0 2px var(--admin-border); }
 .audit-search-field input { border: 0 !important; box-shadow: none !important; height: 34px; min-height: 34px !important; min-width: 0; padding: 0 !important; width: 100%; }
 .audit-filter-actions { display: flex; gap: 6px; }
 .audit-filter-actions .button { min-height: 36px; padding: 0 11px; }
@@ -406,7 +406,7 @@ onMounted(() => {
 
 .audit-entry + .audit-entry { border-top: 1px solid var(--admin-border); }
 .audit-row { min-height: 64px; padding: 9px 13px; }
-.audit-row:hover { background: var(--panel-2); }
+.audit-row:hover { background: var(--admin-surface-sunken); }
 .audit-expand-button {
   align-items: center;
   background: transparent;

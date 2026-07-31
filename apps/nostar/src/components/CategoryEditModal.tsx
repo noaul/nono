@@ -939,7 +939,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
           
           {/* Custom Icon Input */}
           {showCustomInput && (
-            <div className="mb-3 p-3 bg-gray-100 dark:bg-white/[0.04] dark:bg-brand-indigo/10 border border-black/[0.06] dark:border-white/[0.04] dark:border-brand-violet/20 rounded-lg">
+            <div className="mb-3 p-3 bg-gray-100 dark:bg-brand-indigo/10 border border-black/[0.06] dark:border-white/[0.04] dark:border-brand-violet/20 rounded-lg">
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
@@ -953,7 +953,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                 <button
                   onClick={handleCustomIconSubmit}
                   disabled={!customIcon.trim()}
-                  className="px-3 py-2 bg-brand-indigo text-white rounded-lg hover:bg-brand-hover dark:bg-brand-indigo/80 dark:hover:bg-brand-indigo disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 bg-brand-indigo text-white rounded-lg hover:bg-brand-hover dark:hover:bg-brand-indigo disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t('确定', 'OK')}
                 </button>
@@ -962,7 +962,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                     setShowCustomInput(false);
                     setCustomIcon('');
                   }}
-                  className="px-3 py-2 bg-light-surface hover:bg-gray-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:bg-white/10 dark:hover:bg-white/20 dark:text-text-secondary"
+                  className="px-3 py-2 bg-light-surface hover:bg-gray-200 dark:hover:bg-white/[0.08] text-gray-900 rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:bg-white/10 dark:text-text-secondary"
                 >
                   {t('取消', 'Cancel')}
                 </button>
@@ -1026,15 +1026,15 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
 
         {/* Default Category Modified Hint */}
         {category && !category.isCustom && isDefaultCategoryModified && originalCategory && (
-          <div className="p-3 bg-gray-100 dark:bg-white/[0.04] dark:bg-status-amber/10 rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-status-amber/20">
-            <p className="text-xs text-gray-700 dark:text-text-secondary dark:text-status-amber mb-2">
+          <div className="p-3 bg-gray-100 dark:bg-status-amber/10 rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-status-amber/20">
+            <p className="text-xs text-gray-700 dark:text-status-amber mb-2">
               {t(
                 `此默认分类已被修改。原始值：${originalCategory.icon} ${originalCategory.name}`,
                 `This default category has been modified. Original: ${originalCategory.icon} ${originalCategory.name}`
               )}
             </p>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-700 dark:text-text-secondary dark:text-status-amber">{t('还原:', 'Reset:')}</span>
+              <span className="text-xs text-gray-700 dark:text-status-amber">{t('还原:', 'Reset:')}</span>
               {hasNameIconModified && (
                 <button
                   onClick={() => {
@@ -1045,7 +1045,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                       icon: originalCategory.icon
                     }));
                   }}
-                  className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-status-amber/30 transition-colors"
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
                 >
                   {t('名字/图标', 'Name/Icon')}
                 </button>
@@ -1059,7 +1059,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                       keywords: originalCategory.keywords.join(', ')
                     }));
                   }}
-                  className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-status-amber/30 transition-colors"
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
                 >
                   {t('关键词', 'Keywords')}
                 </button>
@@ -1073,7 +1073,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                     keywords: originalCategory.keywords.join(', ')
                   });
                 }}
-                className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-status-red/20 dark:text-status-red rounded hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-status-red/30 transition-colors"
+                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-red/20 dark:text-status-red rounded hover:bg-gray-100 dark:hover:bg-status-red/30 transition-colors"
               >
                 {t('全部', 'All')}
               </button>
@@ -1082,7 +1082,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
         )}
 
         {category && !category.isCustom && !isDefaultCategoryModified && (
-          <div className="p-3 bg-gray-100 dark:bg-white/[0.04] dark:bg-brand-indigo/10 rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-brand-violet/20">
+          <div className="p-3 bg-gray-100 dark:bg-brand-indigo/10 rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-brand-violet/20">
             <p className="text-xs text-brand-violet dark:text-brand-violet">
               {t('编辑默认分类将覆盖原始设置，可随时还原。', 'Editing default category will override original settings. You can reset anytime.')}
             </p>
@@ -1101,7 +1101,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
           <button
             onClick={handleSave}
             disabled={!hasChanges}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${hasChanges ? 'bg-brand-indigo text-white hover:bg-gray-100 dark:bg-white/[0.04] dark:bg-status-emerald/80 dark:hover:bg-status-emerald dark:bg-status-emerald/80 dark:hover:bg-status-emerald' : 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed'}`}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${hasChanges ? 'bg-brand-indigo text-white hover:bg-brand-hover' : 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed'}`}
           >
             <Save className="w-4 h-4" />
             <span>{t('保存', 'Save')}</span>

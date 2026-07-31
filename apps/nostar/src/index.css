@@ -19,12 +19,12 @@
   a,
   select,
   [role='button'] {
-    -webkit-tap-highlight-color: rgba(94, 106, 210, 0.18);
+    -webkit-tap-highlight-color: var(--ui-accent-soft);
     touch-action: manipulation;
   }
 
   :focus-visible {
-    outline: 2px solid rgba(94, 106, 210, 0.78);
+    outline: 2px solid var(--ui-accent-ring);
     outline-offset: 2px;
   }
 
@@ -309,34 +309,34 @@
   .prose pre:has(code.language-sh),
   .prose pre:has(code.language-shell),
   .prose pre:has(code.language-zsh) {
-    background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .dark .prose pre:has(code.language-bash),
   .dark .prose pre:has(code.language-sh),
   .dark .prose pre:has(code.language-shell),
   .dark .prose pre:has(code.language-zsh) {
-    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .prose pre:has(code.language-cmd),
   .prose pre:has(code.language-bat) {
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .dark .prose pre:has(code.language-cmd),
   .dark .prose pre:has(code.language-bat) {
-    background: linear-gradient(135deg, #0c1222 0%, #1a2332 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .prose pre:has(code.language-powershell),
   .prose pre:has(code.language-ps1) {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .dark .prose pre:has(code.language-powershell),
   .dark .prose pre:has(code.language-ps1) {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    background: var(--ui-surface-sunken) !important;
   }
 
   .prose pre:has(code[class*="language-bash"]) code,
@@ -753,36 +753,36 @@
 .prose pre:has(code.language-sh),
 .prose pre:has(code.language-shell),
 .prose pre:has(code.language-zsh) {
-  background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 .dark .prose pre:has(code.language-bash),
 .dark .prose pre:has(code.language-sh),
 .dark .prose pre:has(code.language-shell),
 .dark .prose pre:has(code.language-zsh) {
-  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 /* CMD 终端代码块特殊背景 */
 .prose pre:has(code.language-cmd),
 .prose pre:has(code.language-bat) {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 .dark .prose pre:has(code.language-cmd),
 .dark .prose pre:has(code.language-bat) {
-  background: linear-gradient(135deg, #0c1222 0%, #1a2332 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 /* PowerShell 终端代码块特殊背景 */
 .prose pre:has(code.language-powershell),
 .prose pre:has(code.language-ps1) {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 .dark .prose pre:has(code.language-powershell),
 .dark .prose pre:has(code.language-ps1) {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+  background: var(--ui-surface-sunken) !important;
 }
 
 /* 终端行高调整 */
@@ -915,13 +915,6 @@
   .input-search {
     @apply bg-transparent text-text-primary focus:outline-none placeholder:text-text-tertiary;
   }
-  
-  .linear-card {
-    @apply bg-white/[0.03] border border-white/[0.08] rounded-lg shadow-subtle hover:bg-white/[0.05] transition-colors duration-200;
-  }
-  .linear-panel {
-    @apply bg-white/[0.03] border border-white/[0.08] rounded-xl shadow-elevated;
-  }
 }
 
 option {
@@ -932,12 +925,8 @@ option {
 
 /* Optimized text selection colors for better readability */
 ::selection {
-  background-color: rgba(94, 106, 210, 0.2);
+  background-color: var(--ui-accent-soft);
   color: inherit;
-}
-
-.dark ::selection {
-  background-color: rgba(113, 112, 255, 0.3);
 }
 
 /* Enhanced focus states for form elements */
@@ -945,13 +934,7 @@ textarea:focus,
 input:focus,
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.1);
-}
-
-.dark textarea:focus,
-.dark input:focus,
-.dark select:focus {
-  box-shadow: 0 0 0 3px rgba(113, 112, 255, 0.15);
+  box-shadow: var(--ui-focus-ring);
 }
 
 /* Smooth scrolling for text areas */
@@ -1045,4 +1028,306 @@ textarea::-webkit-resizer {
     transition-delay: 0s !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================================================
+   Application shell — mirrors the Nono admin and NoMoney frame.
+   Geometry and colour come from design-tokens.css; nothing here is NoStar-specific
+   beyond the icon. See docs/design/ui-contract.md.
+   ========================================================================== */
+.nostar-shell {
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  min-height: 100dvh;
+  /* The drawer must never push the page sideways. */
+  overflow-x: hidden;
+}
+
+.nostar-shell :focus-visible {
+  box-shadow: var(--ui-focus-ring);
+  outline: 2px solid var(--ui-accent-ring);
+  outline-offset: 2px;
+}
+
+.nostar-sidebar {
+  background: var(--ui-surface);
+  border-right: 1px solid var(--ui-border);
+  display: flex;
+  flex-direction: column;
+  inset: 0 auto 0 0;
+  position: fixed;
+  width: var(--ui-sidebar-w);
+  z-index: 40;
+}
+
+.nostar-brand {
+  align-items: center;
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--ui-space-3);
+  height: var(--ui-topbar-h);
+  padding: 0 var(--ui-space-4);
+}
+
+.nostar-brand-logo {
+  border-radius: var(--ui-radius-sm);
+  flex: 0 0 auto;
+  height: 30px;
+  object-fit: cover;
+  width: 30px;
+}
+
+.nostar-brand-name {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.nostar-drawer-close {
+  display: none;
+}
+
+.nostar-nav {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ui-space-3);
+}
+
+.nostar-nav-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  gap: var(--ui-space-3);
+  height: var(--ui-control-h);
+  min-width: 0;
+  padding: 0 var(--ui-space-3);
+  text-align: left;
+  transition:
+    background-color var(--ui-dur-base) var(--ui-ease),
+    color var(--ui-dur-base) var(--ui-ease);
+  width: 100%;
+}
+
+.nostar-nav-item:hover {
+  background: var(--ui-surface-sunken);
+  color: var(--ui-text);
+}
+
+/* Active row is a solid inverted block, matching the other two apps. */
+.nostar-nav-item.is-active {
+  background: var(--ui-text);
+  color: var(--ui-canvas);
+  font-weight: 600;
+}
+
+.nostar-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nostar-operator {
+  align-items: center;
+  background: var(--ui-surface-sunken);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--ui-space-2);
+  margin: var(--ui-space-3);
+  min-width: 0;
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+
+.nostar-operator-avatar {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 26px;
+  width: 26px;
+}
+
+.nostar-operator-name {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nostar-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  min-width: 0;
+  padding-left: var(--ui-sidebar-w);
+}
+
+.nostar-topbar {
+  align-items: center;
+  background: var(--ui-surface);
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  gap: var(--ui-space-4);
+  justify-content: space-between;
+  min-height: var(--ui-topbar-h);
+  padding: var(--ui-space-2) var(--ui-space-5);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.nostar-topbar-title {
+  align-items: center;
+  display: flex;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+/* The topbar carries the page's only h1. */
+.nostar-page-title {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nostar-topbar-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--ui-space-2);
+}
+
+.nostar-icon-button,
+.nostar-menu-toggle {
+  align-items: center;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--ui-icon-btn);
+  justify-content: center;
+  transition:
+    background-color var(--ui-dur-base) var(--ui-ease),
+    color var(--ui-dur-base) var(--ui-ease);
+  width: var(--ui-icon-btn);
+}
+
+.nostar-icon-button:hover,
+.nostar-menu-toggle:hover {
+  background: var(--ui-surface-sunken);
+  color: var(--ui-text);
+}
+
+.nostar-menu-toggle {
+  display: none;
+}
+
+.nostar-stage {
+  flex: 1 1 auto;
+  margin: 0 auto;
+  max-width: var(--ui-content-max);
+  min-width: 0;
+  padding: var(--ui-space-5);
+  width: 100%;
+}
+
+.nostar-backdrop {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .nostar-sidebar {
+    box-shadow: var(--ui-shadow-md);
+    transform: translateX(-100%);
+    transition: transform var(--ui-dur-slow) var(--ui-ease);
+    visibility: hidden;
+    width: min(288px, 86vw);
+    z-index: 60;
+  }
+
+  .nostar-sidebar.is-mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .nostar-drawer-close {
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    height: var(--ui-icon-btn);
+    justify-content: center;
+    position: absolute;
+    right: var(--ui-space-3);
+    top: calc((var(--ui-topbar-h) - var(--ui-icon-btn)) / 2);
+    width: var(--ui-icon-btn);
+  }
+
+  .nostar-backdrop {
+    background: rgba(15, 23, 42, 0.5);
+    border: 0;
+    display: block;
+    inset: 0;
+    position: fixed;
+    z-index: 55;
+  }
+
+  .nostar-menu-toggle {
+    display: inline-flex;
+  }
+
+  .nostar-main {
+    padding-left: 0;
+  }
+
+  .nostar-topbar {
+    padding: var(--ui-space-2) var(--ui-space-4);
+  }
+
+  .nostar-stage {
+    padding: var(--ui-space-4);
+  }
+}
+
+/* Every filled alias resolves to a light colour in dark mode — accent is teal-400, hover is
+   teal-300, success is emerald-400, danger is rose-400 — so `text-white` on any of them fails
+   contrast badly. These rules swap in a readable ink instead of editing the ~60 call sites.
+   Class order in the attribute is irrelevant to a compound selector, so `text-white bg-...`
+   matches just as well as the reverse. */
+.dark .bg-brand-indigo.text-white,
+.dark .bg-brand-violet.text-white,
+.dark .bg-brand-hover.text-white {
+  /* Hue-matched dark teal from the contract. */
+  color: var(--ui-accent-ink);
+}
+
+.dark .bg-status-emerald.text-white,
+.dark .bg-status-green.text-white,
+.dark .bg-status-red.text-white {
+  /* Neutral near-black reads on emerald and rose alike. */
+  color: var(--ui-canvas);
 }

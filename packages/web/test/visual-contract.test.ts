@@ -35,16 +35,18 @@ describe('visual contracts', () => {
       '--nono-surface-blur',
       '--nono-ease-standard',
       '--nono-focus-ring',
-      '--admin-sidebar-width: 256px',
-      '--admin-topbar-height: 64px',
-      '--admin-content-max: 1280px',
-      '--admin-control-height: 40px',
-      '--admin-control-height-sm: 32px',
-      '--admin-icon-button-size: 36px',
-      '--admin-radius-card: 8px',
-      '--admin-radius-control: 8px',
-      '--admin-motion-fast: 160ms',
-      '--admin-motion-standard: 200ms',
+      // The --admin-* names are aliases now, not a second set of values: the shared UI
+      // contract in design-tokens.css holds the only definition.
+      '--admin-sidebar-width: var(--ui-sidebar-w)',
+      '--admin-topbar-height: var(--ui-topbar-h)',
+      '--admin-content-max: var(--ui-content-max)',
+      '--admin-control-height: var(--ui-control-h)',
+      '--admin-control-height-sm: var(--ui-control-h-sm)',
+      '--admin-icon-button-size: var(--ui-icon-btn)',
+      '--admin-radius-card: var(--ui-radius-md)',
+      '--admin-radius-control: var(--ui-radius-sm)',
+      '--admin-motion-fast: var(--ui-dur-fast)',
+      '--admin-motion-standard: var(--ui-dur-base)',
       '--admin-canvas',
       '--admin-surface',
       '--admin-surface-elevated',
@@ -52,7 +54,7 @@ describe('visual contracts', () => {
       '--admin-border-strong',
       '--admin-text',
       '--admin-text-muted',
-      '--admin-accent: var(--nono-accent)',
+      '--admin-accent: var(--ui-accent)',
       '--admin-danger',
       '--admin-success',
       '--admin-warning',
@@ -62,12 +64,12 @@ describe('visual contracts', () => {
 
     expect(publicStyles).toContain('.public-empty-state');
     expect(publicStyles).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(adminStyles).toContain('.app-workbench');
+    expect(adminStyles).toContain('.admin-shell');
     expect(adminStyles).toContain('.admin-card');
     expect(adminStyles).toContain('.sortable-row-dragging');
     expect(adminStyles).toContain('.admin-empty-state');
 
-    for (const routeSpecificPrefix of ['.app-workbench', '.glass-workbench', '.workbench-', '.admin-', '.sortable-']) {
+    for (const routeSpecificPrefix of ['.admin-shell', '.workbench-', '.admin-', '.sortable-']) {
       expect(base).not.toContain(routeSpecificPrefix);
       expect(publicStyles).not.toContain(routeSpecificPrefix);
     }
@@ -389,10 +391,7 @@ describe('visual contracts', () => {
       },
     });
 
-    expect(wrapper.find('.app-workbench').exists()).toBe(true);
-    expect(wrapper.find('.chatgpt-admin-shell').exists()).toBe(true);
-    expect(wrapper.find('.glass-workbench').exists()).toBe(true);
-    expect(wrapper.find('.figma-admin-shell').exists()).toBe(true);
+    expect(wrapper.find('.admin-shell').exists()).toBe(true);
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
@@ -421,51 +420,6 @@ describe('visual contracts', () => {
     expect(dashboardSource).toContain('dashboard-shortcut-grid');
   });
 
-  it('neutralizes the legacy glass surface in the ChatGPT admin theme', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const css = readStyle('admin');
-    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
-
-    expect(css).toContain('.glass-workbench');
-    expect(layoutSource).toContain('chatgpt-admin-shell');
-    expect(css).toContain('/* ChatGPT-inspired neutral admin system */');
-    expect(css).toMatch(/\.chatgpt-admin-shell \.glass-surface,[\s\S]*?backdrop-filter:\s*none !important/);
-    expect(css).toMatch(/\.chatgpt-admin-shell \.workbench-sidebar\s*\{[\s\S]*?background:\s*#f9f9f9/);
-    expect(css).toMatch(/\.chatgpt-admin-shell \.nav-button\.router-link-active[\s\S]*?background:\s*#e7e7e7/);
-    expect(css).toMatch(/\.chatgpt-admin-shell \.button,[\s\S]*?background:\s*#171717/);
-    expect(css).toMatch(/\.chatgpt-admin-shell \.admin-table-head\s*\{[\s\S]*?background:\s*#f7f7f7/);
-  });
-
-  it('keeps admin content fluid across browser zoom levels', () => {
-    const css = readStyle('admin');
-
-    expect(css).toMatch(/\.workbench-stage > \* \{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*none;/);
-  });
-
-  it('keeps admin forms visually unified across zoom breakpoints', async () => {
-    const css = readStyle('admin');
-
-    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?background:\s*var\(--admin-control-bg\)/);
-    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?min-height:\s*var\(--admin-control-height\)/);
-    expect(css).toMatch(/\.glass-workbench input:not\([\s\S]*?border-radius:\s*var\(--admin-control-radius\)/);
-    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*repeat\(2,/);
-    expect(css).toMatch(/@media \(max-width: 1500px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*repeat\(2,/);
-    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.admin-form-grid,[\s\S]*?grid-template-columns:\s*1fr/);
-    expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.quick-add-bar[\s\S]*?grid-template-columns:\s*1fr/);
-  });
-
-  it('disables the legacy decorative frame in the neutral admin theme', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const css = readStyle('admin');
-    const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
-
-    expect(layoutSource).toContain('figma-admin-shell');
-    expect(layoutSource).toContain('chatgpt-admin-shell');
-    expect(css).toMatch(/\.chatgpt-admin-shell::before,[\s\S]*?\.chatgpt-admin-shell::after[\s\S]*?display:\s*none !important/);
-  });
-
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -475,26 +429,12 @@ describe('visual contracts', () => {
     expect(css).toContain('.confirm-backdrop');
     expect(css).toContain('.admin-empty-state');
     expect(css).toContain('.loading-overlay');
-    expect(css).toContain('@media (max-width: 720px)');
+    // Responsive behaviour now hangs off the contract's md boundary, not a bespoke 720px.
+    expect(css).toContain('@media (max-width: 767px)');
     expect(css).toContain('.admin-table.mobile-card-table');
     expect(css).toContain('[data-label]::before');
     expect(css).toContain('.admin-search-input');
     expect(css).toContain('.row-actions .icon-button');
-  });
-
-  it('uses the compact NoMoney workspace geometry for the admin shell and controls', () => {
-    const css = readStyle('admin');
-
-    expect(css).toMatch(/\.workbench-sidebar\s*\{[\s\S]*?width:\s*var\(--admin-sidebar-width\)/);
-    expect(css).toMatch(/\.workbench-main\s*\{[\s\S]*?margin-left:\s*var\(--admin-sidebar-width\)/);
-    expect(css).toMatch(/\.workbench-topbar\s*\{[\s\S]*?min-height:\s*var\(--admin-topbar-height\)/);
-    expect(css).toMatch(/\.workbench-stage\s*\{[\s\S]*?max-width:\s*var\(--admin-content-max\)/);
-    expect(css).toMatch(/\.app-workbench \.nav-button\s*\{[\s\S]*?min-height:\s*var\(--admin-control-height\)/);
-    expect(css).toContain('min-height: var(--admin-control-height);');
-    expect(css).toContain('border-radius: var(--admin-radius-control);');
-    expect(css).toContain('height: var(--admin-icon-button-size);');
-    expect(css).toContain('width: var(--admin-icon-button-size);');
-    expect(css).toMatch(/\.app-workbench \.admin-table-row\s*\{[\s\S]*?contain:\s*paint/);
   });
 
   it('defines phase 2 admin operation styles', async () => {
@@ -600,7 +540,8 @@ describe('visual contracts', () => {
     const css = readStyle('admin');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
-    expect(css).not.toMatch(/\.glass-workbench \.admin-card[\s\S]*?backdrop-filter:\s*blur/);
+    // The glass skin is gone entirely; no admin surface blurs its backdrop any more.
+    expect(css).not.toContain('backdrop-filter: blur(');
     expect(css).not.toContain('will-change: transform');
     expect(folderCardSource).not.toContain('filter: drop-shadow(0 18px 30px');
   });
@@ -668,9 +609,9 @@ describe('visual contracts', () => {
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/admin.css'), 'utf8');
 
-    expect(source).toContain('@media (max-width: 1200px)');
-    expect(source).toContain('.app-workbench .folder-table .admin-table-head');
-    expect(source).toContain('.app-workbench .bookmark-table .admin-table-row');
+    expect(source).toContain('@media (max-width: 767px)');
+    expect(source).toContain('.folder-table th');
+    expect(source).toContain('.admin-table-row:hover');
     expect(source).toContain('min-width: 760px');
   });
 

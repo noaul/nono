@@ -55,7 +55,7 @@ const PaginatedRepoList: React.FC<PaginatedRepoListProps> = ({ repos, language, 
       <button
         type="button"
         onClick={() => setIsExpanded(prev => !prev)}
-        className="flex w-full items-center justify-between rounded-lg bg-white/60 px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-white dark:bg-white/[0.03] dark:text-text-tertiary dark:hover:bg-white/[0.06]"
+        className="flex w-full items-center justify-between rounded-lg bg-white/60 px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-white dark:hover:bg-white/[0.08] dark:text-text-tertiary"
       >
         <span>{t(`仓库列表（${repos.length}）`, `Repositories (${repos.length})`)}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -181,7 +181,7 @@ const RepoListEditor: React.FC<RepoListEditorProps> = ({
           <button
             type="button"
             onClick={() => removeReleaseSourceRepository(sourceId, repo.full_name)}
-            className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-status-red dark:text-text-tertiary dark:hover:bg-white/[0.08] dark:hover:text-status-red"
+            className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-status-red dark:hover:bg-white/[0.08] dark:hover:text-status-red"
             title={t('移除仓库', 'Remove repository')}
             aria-label={t('移除仓库', 'Remove repository')}
           >
@@ -268,7 +268,7 @@ const WatchCustomReleaseSyncPanel: React.FC<WatchCustomReleaseSyncPanelProps> = 
             <button
               type="button"
               onClick={() => updateReleaseSourceRepository(WATCH_CUSTOM_RELEASE_SOURCE_ID, repo.full_name, { release_hidden: !hidden })}
-              className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-text-tertiary dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
+              className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
               title={hidden ? t('显示并检查 Release', 'Show and check releases') : t('隐藏并跳过 Release 检查', 'Hide and skip release checks')}
               aria-label={hidden ? t('显示并检查 Release', 'Show and check releases') : t('隐藏并跳过 Release 检查', 'Hide and skip release checks')}
             >

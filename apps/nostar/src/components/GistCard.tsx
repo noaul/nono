@@ -202,7 +202,7 @@ export const GistCard: React.FC<GistCardProps> = ({
           <button
             type="button"
             onClick={handleCopyLink}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:text-text-tertiary dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
             title={t('复制链接', 'Copy link')}
           >
             <Copy className="h-4 w-4" />
@@ -212,7 +212,7 @@ export const GistCard: React.FC<GistCardProps> = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:text-text-tertiary dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
             title={t('打开链接', 'Open link')}
           >
             <ExternalLink className="h-4 w-4" />
@@ -236,7 +236,7 @@ export const GistCard: React.FC<GistCardProps> = ({
                   event.stopPropagation();
                   onEdit(gist);
                 }}
-                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:text-text-tertiary dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-light-surface hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary"
                 title={t('编辑', 'Edit')}
               >
                 <Edit3 className="h-4 w-4" />

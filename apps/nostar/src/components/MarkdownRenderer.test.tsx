@@ -25,17 +25,37 @@ describe('MarkdownRenderer', () => {
     });
 
     it('should render headings with correct hierarchy', () => {
+      // Embedded markdown sits below the app shell's h1, so every level shifts down by one.
+      // The relative hierarchy is preserved; it is not flattened.
       const { container } = render(
-        <MarkdownRenderer content="# Heading 1" />
+        <MarkdownRenderer content={'# One\n\n## Two\n\n### Three\n\n#### Four'} />
       );
-      expect(container.querySelector('h1')).toHaveTextContent('Heading 1');
+
+      expect(container.querySelector('h1')).toBeNull();
+      expect(container.querySelector('h2')).toHaveTextContent('One');
+      expect(container.querySelector('h3')).toHaveTextContent('Two');
+      expect(container.querySelector('h4')).toHaveTextContent('Three');
+      expect(container.querySelector('h5')).toHaveTextContent('Four');
     });
 
     it('should render h4-h6 headings', () => {
       const { container } = render(
         <MarkdownRenderer content="#### Heading 4" />
       );
-      expect(container.querySelector('h4')).toHaveTextContent('Heading 4');
+      // `####` lands on h5 after the shift.
+      expect(container.querySelector('h5')).toHaveTextContent('Heading 4');
+    });
+
+    it('should clamp the deepest source levels at h6', () => {
+      // The scale stops at h6, so both `#####` and `######` land there.
+      const { container } = render(
+        <MarkdownRenderer content={'##### Five\n\n###### Six'} />
+      );
+
+      const sixes = container.querySelectorAll('h6');
+      expect(sixes).toHaveLength(2);
+      expect(sixes[0]).toHaveTextContent('Five');
+      expect(sixes[1]).toHaveTextContent('Six');
     });
 
     it('should render bold text', () => {
@@ -265,16 +285,16 @@ describe('MarkdownRenderer', () => {
           headingIds={headingIds}
         />
       );
-      const h1 = container.querySelector('h1');
-      expect(h1).toHaveAttribute('id', 'custom-id-123');
+      const heading = container.querySelector('h2');
+      expect(heading).toHaveAttribute('id', 'custom-id-123');
     });
 
     it('should generate unique IDs for headings not in map', () => {
       const { container } = render(
         <MarkdownRenderer content="# New Heading" />
       );
-      const h1 = container.querySelector('h1');
-      expect(h1?.getAttribute('id')).toMatch(/^heading-extra-\d+$/);
+      const heading = container.querySelector('h2');
+      expect(heading?.getAttribute('id')).toMatch(/^heading-extra-\d+$/);
     });
   });
 });

@@ -76,7 +76,7 @@ export const LoginScreen: React.FC = () => {
   const t = (zh: string, en: string) => language === 'zh' ? zh : en;
 
   return (
-    <div className={`min-h-screen ${theme === 'light' ? 'bg-gradient-to-br from-blue-50 to-indigo-100' : 'bg-gradient-to-br from-gray-900 to-gray-800'} flex items-center justify-center p-4 transition-colors duration-300`}>
+    <div className="min-h-screen bg-light-bg dark:bg-marketing-black flex items-center justify-center p-4 transition-colors duration-300">
       {/* Theme and Language Toggle */}
       <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
         {/* Language Toggle */}
@@ -111,7 +111,7 @@ export const LoginScreen: React.FC = () => {
 
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center w-16 h-16 bg-white dark:bg-panel-dark rounded-2xl mx-auto mb-4 shadow-lg ring-1 ring-blue-100 dark:ring-gray-700 overflow-hidden">
+          <div className="flex items-center justify-center w-16 h-16 bg-white dark:bg-panel-dark rounded-xl mx-auto mb-4 shadow-lg ring-1 ring-blue-100 dark:ring-gray-700 overflow-hidden">
             <img
               src="./icon.png"
               alt="NoStar"
@@ -126,7 +126,7 @@ export const LoginScreen: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-panel-dark rounded-2xl shadow-xl border border-black/[0.06] dark:border-white/[0.04] p-8">
+        <div className="bg-white dark:bg-panel-dark rounded-xl shadow-xl border border-black/[0.06] dark:border-white/[0.04] p-8">
           <div className="text-center mb-6">
             <Github className="w-10 h-10 text-gray-900 dark:text-text-secondary mx-auto mb-3" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-text-primary mb-2">
@@ -139,9 +139,9 @@ export const LoginScreen: React.FC = () => {
 
           {/* 显示缓存状态 */}
           {repositories.length > 0 && lastSync && (
-            <div className="mb-4 p-3 bg-status-emerald border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04] rounded-lg">
+            <div className="mb-4 p-3 bg-status-emerald border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] rounded-lg">
               <div className="flex items-center space-x-2 text-status-emerald ">
-                <div className="w-2 h-2 bg-status-emerald0 rounded-full"></div>
+                <div className="w-2 h-2 bg-status-emerald rounded-full"></div>
                 <span className="text-sm font-medium">
                   {t(`已缓存 ${repositories.length} 个仓库`, `${repositories.length} repositories cached`)}
                 </span>
@@ -175,7 +175,7 @@ export const LoginScreen: React.FC = () => {
             </div>
 
             {error && (
-              <div className="flex items-center space-x-2 p-3 bg-gray-100 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04] rounded-lg">
+              <div className="flex items-center space-x-2 p-3 bg-gray-100 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] rounded-lg">
                 <AlertCircle className="w-5 h-5 text-gray-700 dark:text-text-secondary flex-shrink-0" />
                 <p className="text-sm text-gray-700 dark:text-text-secondary ">{error}</p>
               </div>
@@ -184,7 +184,7 @@ export const LoginScreen: React.FC = () => {
             <button 
               onClick={handleConnect}
               disabled={isLoading || !token.trim()}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-brand-indigo hover:bg-gray-100 dark:bg-white/[0.04] disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-brand-indigo hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
               {isLoading ? (
                 <>
@@ -215,7 +215,7 @@ export const LoginScreen: React.FC = () => {
                 href="https://github.com/settings/tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-brand-violet hover:text-gray-700 dark:text-text-secondary dark:text-brand-violet dark:hover:text-gray-700 dark:text-text-secondary text-sm font-medium hover:underline"
+                className="text-brand-violet hover:text-gray-700 dark:hover:text-text-secondary text-sm font-medium hover:underline"
               >
                 {t('在GitHub上创建token →', 'Create token on GitHub →')}
               </a>

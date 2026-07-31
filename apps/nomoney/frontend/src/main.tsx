@@ -10,6 +10,7 @@ import { Router } from 'wouter';
 import App from './App';
 import { appBasePath } from './base-path';
 import { I18nProvider } from './i18n';
+import './design-tokens.css';
 import './styles.css';
 
 const savedTheme = localStorage.getItem('moneypulse-theme') ?? 'dark';

@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
 }
 
 .notification-bell-button:hover,
-.notification-bell-button:focus-visible { background: var(--panel-2); color: var(--admin-text); outline: none; }
+.notification-bell-button:focus-visible { background: var(--admin-surface-sunken); color: var(--admin-text); outline: none; }
 
 .notification-badge {
   align-items: center;
@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.notification-preview-item:hover { background: var(--panel-2); }
+.notification-preview-item:hover { background: var(--admin-surface-sunken); }
 .notification-preview-item > i { border-radius: 50%; height: 7px; margin-top: 5px; width: 7px; }
 .notification-preview-item > i.severity-critical { background: var(--admin-status-danger-dot); }
 .notification-preview-item > i.severity-warning { background: var(--admin-status-warn-dot); }
@@ -214,5 +214,5 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.notification-popover-footer:hover { background: var(--panel-2); }
+.notification-popover-footer:hover { background: var(--admin-surface-sunken); }
 </style>

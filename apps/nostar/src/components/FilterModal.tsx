@@ -103,7 +103,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             <button
               onClick={handleAddKeyword}
               disabled={!newKeyword.trim()}
-              className="px-4 py-2 bg-brand-indigo text-white rounded-lg hover:bg-brand-hover dark:bg-brand-indigo/80 dark:hover:bg-brand-indigo disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 transition-colors"
+              className="px-4 py-2 bg-brand-indigo text-white rounded-lg hover:bg-brand-hover dark:hover:bg-brand-indigo disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>{copy('添加', 'Add')}</span>
@@ -125,7 +125,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                     <span>{keyword}</span>
                     <button
                       onClick={() => handleRemoveKeyword(index)}
-                      className="text-gray-500 hover:text-gray-900 dark:text-text-tertiary dark:hover:text-text-primary transition-colors"
+                      className="text-gray-500 hover:text-gray-900 dark:hover:text-text-primary transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -161,7 +161,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           <button
             onClick={handleSave}
             disabled={!name.trim() || keywords.length === 0}
-            className={`px-4 py-2 rounded-lg transition-colors ${(!name.trim() || keywords.length === 0) ? 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed' : 'bg-brand-indigo text-white hover:bg-gray-100 dark:bg-white/[0.04] dark:bg-status-emerald/80 dark:hover:bg-status-emerald dark:bg-status-emerald/80 dark:hover:bg-status-emerald'}`}
+            className={`px-4 py-2 rounded-lg transition-colors ${(!name.trim() || keywords.length === 0) ? 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed' : 'bg-brand-indigo text-white hover:bg-brand-hover'}`}
           >
             {filter ? copy('保存', 'Save') : copy('创建', 'Create')}
           </button>

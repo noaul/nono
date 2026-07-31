@@ -219,7 +219,7 @@ export const BulkRestoreModal: React.FC<BulkRestoreModalProps> = ({
                 }))}
                 className={checkboxClass}
               />
-              <Tag className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <Tag className="w-4 h-4 text-brand-indigo dark:text-brand-indigo" />
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {t('标签', 'Tags')}
               </span>

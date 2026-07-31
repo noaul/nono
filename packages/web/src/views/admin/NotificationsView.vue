@@ -366,9 +366,9 @@ onMounted(load);
 }
 
 .notification-filters button:hover,
-.notification-sources button:hover { background: var(--panel-2); color: var(--admin-text); }
+.notification-sources button:hover { background: var(--admin-surface-sunken); color: var(--admin-text); }
 .notification-filters button.active,
-.notification-sources button.active { background: var(--panel-2); color: var(--admin-text); font-weight: 600; }
+.notification-sources button.active { background: var(--admin-surface-sunken); color: var(--admin-text); font-weight: 600; }
 .notification-sources .source-filter { --source-color: var(--admin-text-muted); }
 .notification-sources .source-filter.active { background: var(--source-soft); color: var(--source-color); }
 .notification-filters button span { margin-left: 3px; }
@@ -376,7 +376,7 @@ onMounted(load);
 
 .notification-row {
   --source-color: var(--admin-text-muted);
-  --source-soft: var(--panel-2);
+  --source-soft: var(--admin-surface-sunken);
   align-items: center;
   border-left: 3px solid var(--source-color);
   display: grid;
@@ -394,7 +394,7 @@ onMounted(load);
 .source-links { --source-color: var(--admin-status-danger); --source-soft: color-mix(in srgb, var(--admin-status-danger) 16%, transparent); }
 .source-nodesk { --source-color: var(--admin-link); --source-soft: color-mix(in srgb, var(--admin-link) 16%, transparent); }
 .source-nomoney { --source-color: var(--admin-status-ok); --source-soft: color-mix(in srgb, var(--admin-status-ok) 16%, transparent); }
-.source-nostar { --source-color: #8b5cf6; --source-soft: color-mix(in srgb, #8b5cf6 16%, transparent); }
+.source-nostar { --source-color: var(--admin-status-alt); --source-soft: color-mix(in srgb, var(--admin-status-alt) 16%, transparent); }
 .source-backup { --source-color: var(--admin-status-warn); --source-soft: color-mix(in srgb, var(--admin-status-warn) 16%, transparent); }
 
 .notification-source-icon {
@@ -437,11 +437,6 @@ onMounted(load);
 
 .notification-empty strong { color: var(--admin-text); font-size: 13px; font-weight: 500; }
 
-:global(:root[data-color-mode='dark']) .source-links { --source-color: #fb7185; --source-soft: #3b1822; }
-:global(:root[data-color-mode='dark']) .source-nodesk { --source-color: #60a5fa; --source-soft: #15294a; }
-:global(:root[data-color-mode='dark']) .source-nomoney { --source-color: #34d399; --source-soft: #12352d; }
-:global(:root[data-color-mode='dark']) .source-nostar { --source-color: #a78bfa; --source-soft: #2d2348; }
-:global(:root[data-color-mode='dark']) .source-backup { --source-color: #fbbf24; --source-soft: #3d2d12; }
 
 @media (max-width: 720px) {
   .notification-toolbar { align-items: stretch; flex-direction: column; }

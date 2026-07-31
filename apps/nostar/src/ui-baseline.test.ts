@@ -9,6 +9,9 @@ describe('NoStar UI baseline', () => {
     const toolbar = fs.readFileSync(path.resolve(process.cwd(), 'src/components/BulkActionToolbar.tsx'), 'utf8');
 
     expect(styles).toContain('scrollbar-gutter: stable');
+    // The shell now carries the accessibility affordances too.
+    expect(styles).toContain('.nostar-shell');
+    expect(styles).toContain('--ui-sidebar-w');
     expect(styles).toContain('touch-action: manipulation');
     expect(styles).toContain(':focus-visible');
     expect(styles).toContain('prefers-reduced-motion: reduce');

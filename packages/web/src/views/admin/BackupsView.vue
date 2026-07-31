@@ -285,7 +285,7 @@ onMounted(loadBackups);
   margin-top: 14px;
 }
 
-.backup-policy-status .is-error { color: var(--admin-danger, #c2413b); }
+.backup-policy-status .is-error { color: var(--admin-danger); }
 
 .backup-count {
   align-items: center;
@@ -346,7 +346,7 @@ onMounted(loadBackups);
 }
 
 .backup-state { align-items: flex-end; display: grid; gap: 5px; justify-items: end; min-width: 78px; }
-.backup-state span { align-items: center; color: var(--admin-success, #16845b); display: inline-flex; font-size: 12px; gap: 4px; }
+.backup-state span { align-items: center; color: var(--admin-success); display: inline-flex; font-size: 12px; gap: 4px; }
 .backup-actions { display: flex; gap: 6px; }
 .backup-empty { margin: 0; padding: 22px 4px 8px; text-align: center; }
 

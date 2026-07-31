@@ -462,8 +462,8 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center">
-          <Search className="w-5 h-5 text-purple-500" />
+        <div className="w-10 h-10 rounded-lg bg-brand-indigo/10 dark:bg-brand-indigo/20 flex items-center justify-center">
+          <Search className="w-5 h-5 text-brand-indigo" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -556,7 +556,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
                 ? 'http://localhost:11434'
                 : 'https://api.example.com/v1/embeddings'
             }
-            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
           />
         </div>
 
@@ -571,7 +571,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
               value={formApiKey}
               onChange={(e) => setFormApiKey(e.target.value)}
               placeholder={formApiType === 'ollama' ? t('可留空', 'Optional') : 'sk-xxx'}
-              className="w-full px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
             />
             <button
               type="button"
@@ -606,7 +606,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
                 ? 'nomic-embed-text'
                 : 'model-name'
             }
-            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
           />
         </div>
 
@@ -620,7 +620,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
               type="number"
               value={formDimensions}
               onChange={(e) => setFormDimensions(parseInt(e.target.value) || 1536)}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
             />
             <button
               onClick={() => {
@@ -696,7 +696,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
             value={formWorkerUrl}
             onChange={(e) => setFormWorkerUrl(e.target.value)}
             placeholder="https://github-stars-vectorize.your-name.workers.dev"
-            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
           />
         </div>
 
@@ -711,7 +711,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
               value={formAuthToken}
               onChange={(e) => setFormAuthToken(e.target.value)}
               placeholder={t('Worker 认证令牌', 'Worker authentication token')}
-              className="w-full px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-indigo focus:border-transparent"
             />
             <button
               type="button"
@@ -1199,7 +1199,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
                 href="https://github.com/AmintaCCCP/GithubStarsManager/blob/main/cloudflare-worker/README.md"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-500 hover:underline"
+                className="text-brand-indigo hover:underline"
               >
                 cloudflare-worker/README.md
               </a>

@@ -273,7 +273,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
       </div>
 
       {/* 折叠侧边栏显示设置 */}
-      <div className="p-4 bg-light-surface dark:bg-white/[0.04] rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04]">
+      <div className="p-4 bg-light-surface dark:bg-white/[0.04] rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <LayoutGrid className="w-5 h-5 text-gray-700 dark:text-text-secondary" />
@@ -359,7 +359,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
             <button
               onClick={handleAddCategory}
               disabled={!newCategoryName.trim()}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${newCategoryName.trim() ? 'bg-brand-indigo text-white hover:bg-gray-100 dark:bg-white/[0.04]' : 'bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-text-tertiary cursor-not-allowed'}`}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${newCategoryName.trim() ? 'bg-brand-indigo text-white hover:bg-brand-hover' : 'bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-text-tertiary cursor-not-allowed'}`}
             >
               <Save className="w-4 h-4" />
               <span>{t('保存', 'Save')}</span>
@@ -371,7 +371,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                 setNewCategoryIcon('📁');
                 setNewCategoryKeywords('');
               }}
-              className="flex items-center space-x-2 px-4 py-2 bg-light-surface hover:bg-gray-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary rounded-lg border border-black/[0.06] dark:border-white/[0.04] transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-light-surface hover:bg-gray-200 dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary rounded-lg border border-black/[0.06] dark:border-white/[0.04] transition-colors"
             >
               <X className="w-4 h-4" />
               <span>{t('取消', 'Cancel')}</span>
@@ -397,7 +397,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                 className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                   isReordering
                     ? 'bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary'
-                    : 'bg-light-surfacetext-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
                 }`}
               >
                 {isReordering ? t('完成', 'Done') : t('调整顺序', 'Reorder')}
@@ -405,7 +405,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
               {categoryOrder.length > 0 && (
                 <button
                   onClick={handleResetOrder}
-                  className="px-3 py-1.5 rounded-lg text-sm bg-light-surfacetext-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="px-3 py-1.5 rounded-lg text-sm bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
                 >
                   {t('重置', 'Reset')}
                 </button>
@@ -414,7 +414,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
           </div>
 
           {isReordering && (
-            <div className="mb-3 p-3 bg-light-surface dark:bg-white/[0.04] rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04]">
+            <div className="mb-3 p-3 bg-light-surface dark:bg-white/[0.04] rounded-lg border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06]">
               <p className="text-sm text-gray-700 dark:text-text-secondary ">
                 {t('提示：拖拽分类可快速调整顺序，或使用按钮进行置顶/置底操作', 'Tip: Drag categories to quickly reorder, or use buttons to move to top/bottom')}
               </p>
@@ -450,7 +450,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                   onDrop={(e) => handleDrop(e, index)}
                   className={`flex flex-col p-3 rounded-lg border transition-all ${
                     category.isCustom
-                      ? 'bg-light-surface dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04]'
+                      ? 'bg-light-surface dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06]'
                       : 'bg-white dark:bg-panel-dark border-black/[0.06] dark:border-white/[0.04]'
                   } ${isEditing ? 'ring-2 ring-blue-400 dark:ring-brand-violet' : ''} ${
                     draggingId === category.id ? 'opacity-50' : ''
@@ -474,7 +474,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                       </div>
                       
                       {isDefault && isModified && originalCategory && (
-                        <div className="mb-2 p-2 bg-light-surface dark:bg-white/[0.04] rounded border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04]">
+                        <div className="mb-2 p-2 bg-light-surface dark:bg-white/[0.04] rounded border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06]">
                           <p className="text-xs text-gray-700 dark:text-text-secondary ">
                             {t(
                               `已修改。原始值：${originalCategory.icon} ${originalCategory.name}`,
@@ -518,14 +518,14 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                           <button
                             onClick={handleSaveEdit}
                             disabled={!hasChanges}
-                            className={`p-1.5 rounded ${hasChanges ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white/[0.08] dark:hover:bg-white/[0.12] dark:text-text-secondary' : 'bg-light-surface text-gray-400 dark:bg-white/[0.04] dark:text-text-tertiary cursor-not-allowed'}`}
+                            className={`p-1.5 rounded ${hasChanges ? 'bg-gray-900 text-white hover:bg-gray-800 dark:hover:bg-white/[0.08] dark:text-text-secondary' : 'bg-light-surface text-gray-400 dark:bg-white/[0.04] dark:text-text-tertiary cursor-not-allowed'}`}
                             title={t('保存', 'Save')}
                           >
                             <Save className="w-4 h-4" />
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="p-1.5 rounded bg-light-surfacetext-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-gray-600"
+                            className="p-1.5 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]"
                             title={t('取消', 'Cancel')}
                           >
                             <X className="w-4 h-4" />
@@ -606,7 +606,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                           <button
                             onClick={() => handleMoveCategory(index, 'up')}
                             disabled={index === 0}
-                            className="p-1.5 rounded bg-light-surfacetext-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            className="p-1.5 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             title={t('上移', 'Move up')}
                           >
                             <ArrowUp className="w-4 h-4" />
@@ -614,7 +614,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                           <button
                             onClick={() => handleMoveCategory(index, 'down')}
                             disabled={index === allVisibleCategories.length - 1}
-                            className="p-1.5 rounded bg-light-surfacetext-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            className="p-1.5 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             title={t('下移', 'Move down')}
                           >
                             <ArrowDown className="w-4 h-4" />
@@ -658,7 +658,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                               </button>
                               <button
                                 onClick={() => hideDefaultCategory(category.id)}
-                                className="p-1.5 rounded bg-light-surfacetext-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-gray-600"
+                                className="p-1.5 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]"
                                 title={t('隐藏', 'Hide')}
                               >
                                 <EyeOff className="w-4 h-4" />
@@ -690,7 +690,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({ t }) => {
                 <button
                   key={category.id}
                   onClick={() => showDefaultCategory(category.id)}
-                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg bg-light-surfacetext-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
                 >
                   <Eye className="w-4 h-4" />
                   <span className="w-5 text-center inline-block">{category.icon}</span>

@@ -63,7 +63,7 @@ export const SearchDemo: React.FC = () => {
 
   if (!showDemo) {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04] p-4 mb-6">
+      <div className="bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-brand-indigo/20 dark:bg-brand-indigo/20 rounded-lg">
@@ -94,7 +94,7 @@ export const SearchDemo: React.FC = () => {
     <div className="bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg">
+          <div className="p-2 bg-brand-indigo rounded-lg">
             <Search className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -108,7 +108,7 @@ export const SearchDemo: React.FC = () => {
         </div>
         <button
           onClick={() => setShowDemo(false)}
-          className="text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-300 transition-colors"
+          className="text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
         >
           ×
         </button>
@@ -131,7 +131,7 @@ export const SearchDemo: React.FC = () => {
                 onClick={() => handleExampleClick(example)}
                 className={`w-full p-3 text-left rounded-lg border transition-all ${
                   selectedExample?.query === example.query
-                    ? 'border-brand-violet bg-gray-100 dark:bg-white/[0.04] dark:bg-brand-indigo/20/20'
+                    ? 'border-brand-violet bg-gray-100 dark:bg-brand-indigo/20'
                     : 'border-black/[0.06] dark:border-white/[0.04] hover:border-black/[0.06] dark:border-white/[0.04] dark:hover:border-black/[0.06] dark:border-white/[0.04]'
                 }`}
               >
@@ -210,7 +210,7 @@ export const SearchDemo: React.FC = () => {
             </ul>
           </div>
 
-          <div className="mt-4 p-3 bg-gray-100 dark:bg-white/[0.04] dark:bg-brand-indigo/20/20 rounded-lg">
+          <div className="mt-4 p-3 bg-gray-100 dark:bg-brand-indigo/20 rounded-lg">
             <p className="text-sm text-gray-700 dark:text-text-secondary ">
               {selectedExample.type === 'realtime' ? (
                 t(

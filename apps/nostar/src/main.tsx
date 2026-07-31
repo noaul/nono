@@ -4,6 +4,7 @@ import './polyfills.ts';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import './design-tokens.css';
 import './index.css';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { DialogProvider } from './hooks/useDialog';
@@ -49,13 +50,14 @@ try {
     document.body.appendChild(el);
     return el;
   })();
+  // Tokens are imported above, so even this last-resort fallback follows the shared contract.
   fallback.innerHTML = `
-    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; font-family: system-ui, -apple-system, sans-serif;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--ui-canvas); color: var(--ui-text); font-family: system-ui, -apple-system, sans-serif;">
       <div style="max-width: 400px; text-align: center;">
         <div style="font-size: 48px; margin-bottom: 16px;">😵</div>
-        <h1 style="font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #333;">${strings.title}</h1>
-        <p style="color: #666; margin-bottom: 16px;">${strings.desc}</p>
-        <button onclick="window.location.reload()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">${strings.button}</button>
+        <h1 style="font-size: 20px; font-weight: 650; letter-spacing: 0; margin-bottom: 8px; color: var(--ui-text);">${strings.title}</h1>
+        <p style="color: var(--ui-text-muted); margin-bottom: 16px;">${strings.desc}</p>
+        <button onclick="window.location.reload()" style="padding: 8px 16px; background: var(--ui-accent); color: var(--ui-accent-ink); border: none; border-radius: var(--ui-radius-sm); cursor: pointer;">${strings.button}</button>
       </div>
     </div>
   `;

@@ -320,7 +320,7 @@ watch(html, () => {
 }
 
 .preview-folder-row {
-  background: var(--panel-2);
+  background: var(--admin-surface-sunken);
 }
 
 .preview-link-row:has(input:disabled) {

@@ -151,7 +151,7 @@ const CodeBlock: React.FC<{
                 ? 'bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]'
                 : copied
                   ? 'bg-status-emerald text-white border border-status-emerald'
-                  : 'bg-white dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-light-bg dark:hover:bg-gray-600 border border-black/[0.06] dark:border-white/[0.04]'
+                  : 'bg-white dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-light-bg dark:hover:bg-white/[0.08] border border-black/[0.06] dark:border-white/[0.04]'
             }`}
             title={copyError || (uiLanguage === 'zh' ? '复制代码' : 'Copy code')}
           >
@@ -177,13 +177,9 @@ const CodeBlock: React.FC<{
         </div>
       )}
       <div className={`overflow-x-auto ${
-        isBashLike
-          ? 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#0d1117] dark:to-[#161b22]'
-          : isPowerShell
-            ? 'bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-[#0d1117] dark:to-[#161b22]'
-            : isCmdLike
-              ? 'bg-gradient-to-br from-cyan-50/40 to-slate-100/20 dark:from-[#0d1117] dark:to-[#161b22]'
-              : 'bg-light-bg dark:bg-[#0d1117]'
+        isBashLike || isPowerShell || isCmdLike
+          ? 'bg-light-surface dark:bg-[#0d1117]'
+          : 'bg-light-bg dark:bg-[#0d1117]'
       }`}>
         <div className={`p-4 overflow-x-auto ${className || ''}`}>
           <pre className={showLineNumbers ? 'flex items-start' : undefined}>
@@ -606,14 +602,14 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
       {isZoomed && createPortal(
         <div
           ref={zoomOverlayRef}
-          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-sm flex items-center justify-center cursor-default select-none"
+          className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center cursor-default select-none"
           onClick={() => {
             if (!isDragging) {
               closeZoom();
             }
           }}
         >
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+          <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-black/60 pointer-events-none">
             <div className="flex items-center gap-2 pointer-events-auto">
               {alt && (
                 <span className="text-white/70 text-sm truncate max-w-[300px]">{alt}</span>
@@ -629,7 +625,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                     e.stopPropagation();
                     window.open(parentLinkHref, '_blank', 'noopener,noreferrer');
                   }}
-                  className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm"
+                  className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors "
                   title={language === 'zh' ? '打开链接' : 'Open link'}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,7 +639,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   handleDownload(e);
                 }}
                 disabled={isDownloading}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors "
                 title={language === 'zh' ? '下载图片' : 'Download image'}
               >
                 <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
@@ -653,7 +649,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   e.stopPropagation();
                   setZoomScale(prev => Math.min(5, prev + 0.5));
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm text-sm font-bold"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-bold"
                 title={language === 'zh' ? '放大' : 'Zoom in'}
               >
                 +
@@ -666,7 +662,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   e.stopPropagation();
                   setZoomScale(prev => Math.max(0.5, prev - 0.5));
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm text-sm font-bold"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-bold"
                 title={language === 'zh' ? '缩小' : 'Zoom out'}
               >
                 −
@@ -677,13 +673,13 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   setZoomScale(1);
                   setZoomPos({ x: 0, y: 0 });
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm text-xs"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-xs"
                 title={language === 'zh' ? '重置' : 'Reset'}
               >
                 1:1
               </button>
               <button
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors backdrop-blur-sm"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors "
                 onClick={(e) => {
                   e.stopPropagation();
                   closeZoom();
@@ -733,7 +729,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
             <img
               src={imageUrl}
               alt={alt || ''}
-              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl transition-transform duration-100"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-md transition-transform duration-100"
               style={{
                 transform: `scale(${zoomScale}) translate(${zoomPos.x / zoomScale}px, ${zoomPos.y / zoomScale}px)`,
                 cursor: zoomScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
@@ -814,25 +810,29 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
   const markdownComponents: Components = useMemo(() => ({
     a: (props) => <MarkdownLink {...props} baseUrl={baseUrl} headingIds={headingIds} />,
     img: (props) => <MarkdownImage {...props} baseUrl={baseUrl} />,
+    // Embedded markdown sits below the page's h1, which the app shell topbar owns, so every
+    // source level is shifted down by one rather than flattened: `#` becomes an h2, `##` an h3,
+    // and so on. h5 and h6 both land on h6 because the scale stops there. Visual classes and
+    // heading IDs are unchanged, so anchors and appearance are unaffected.
     h1: ({ children }) => {
       const id = getHeadingId(children);
-      return <h1 id={id} className="text-lg font-bold text-gray-900 dark:text-text-primary mt-4 mb-2">{children}</h1>;
+      return <h2 id={id} className="text-lg font-bold text-gray-900 dark:text-text-primary mt-4 mb-2">{children}</h2>;
     },
     h2: ({ children }) => {
       const id = getHeadingId(children);
-      return <h2 id={id} className="text-base font-semibold text-gray-900 dark:text-gray-200 mt-3 mb-2">{children}</h2>;
+      return <h3 id={id} className="text-base font-semibold text-gray-900 dark:text-gray-200 mt-3 mb-2">{children}</h3>;
     },
     h3: ({ children }) => {
       const id = getHeadingId(children);
-      return <h3 id={id} className="text-sm font-medium text-gray-900 dark:text-text-secondary mt-2 mb-1">{children}</h3>;
+      return <h4 id={id} className="text-sm font-medium text-gray-900 dark:text-text-secondary mt-2 mb-1">{children}</h4>;
     },
     h4: ({ children }) => {
       const id = getHeadingId(children);
-      return <h4 id={id} className="text-sm font-medium text-gray-900 dark:text-text-secondary mt-2 mb-1">{children}</h4>;
+      return <h5 id={id} className="text-sm font-medium text-gray-900 dark:text-text-secondary mt-2 mb-1">{children}</h5>;
     },
     h5: ({ children }) => {
       const id = getHeadingId(children);
-      return <h5 id={id} className="text-sm font-medium text-gray-500 dark:text-text-tertiary mt-1 mb-1">{children}</h5>;
+      return <h6 id={id} className="text-sm font-medium text-gray-500 dark:text-text-tertiary mt-1 mb-1">{children}</h6>;
     },
     h6: ({ children }) => {
       const id = getHeadingId(children);

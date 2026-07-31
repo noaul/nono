@@ -39,41 +39,49 @@
   --nono-dur-slow: 340ms;
   --nono-focus-ring: 0 0 0 3px rgb(15 118 110 / 18%);
 
-  --admin-sidebar-width: 256px;
-  --admin-topbar-height: 64px;
-  --admin-content-max: 1280px;
-  --admin-control-height: 40px;
-  --admin-control-height-sm: 32px;
-  --admin-icon-button-size: 36px;
-  --admin-radius-card: 8px;
-  --admin-radius-control: 8px;
-  --admin-motion-fast: 160ms;
-  --admin-motion-standard: 200ms;
+  /* The --admin-* names are aliases onto the shared UI contract (design-tokens.css), which is
+     the single source of truth. They exist because view-scoped styles and PrivacyView already
+     reference them; they hold no values of their own, so there is nothing here to drift. */
+  --admin-sidebar-width: var(--ui-sidebar-w);
+  --admin-topbar-height: var(--ui-topbar-h);
+  --admin-content-max: var(--ui-content-max);
+  --admin-control-height: var(--ui-control-h);
+  --admin-control-height-sm: var(--ui-control-h-sm);
+  --admin-icon-button-size: var(--ui-icon-btn);
+  --admin-radius-card: var(--ui-radius-md);
+  --admin-radius-control: var(--ui-radius-sm);
+  --admin-control-radius: var(--ui-radius-sm);
+  /* Retained purely as an alias: FolderIconPicker and three management views still name it. */
+  --admin-surface-radius: var(--ui-radius-md);
+  --admin-motion-fast: var(--ui-dur-fast);
+  --admin-motion-standard: var(--ui-dur-base);
 
-  --admin-canvas: #f6f7f9;
-  --admin-surface: rgba(255, 255, 255, 0.82);
-  --admin-surface-elevated: #ffffff;
-  --admin-border: rgba(15, 23, 42, 0.12);
-  --admin-border-strong: rgba(15, 23, 42, 0.2);
-  --admin-text: #111827;
-  --admin-text-muted: #667085;
-  --admin-accent: var(--nono-accent);
-  --admin-danger: #b4233a;
-  --admin-success: #067647;
-  --admin-warning: #b54708;
+  --admin-canvas: var(--ui-canvas);
+  --admin-surface: var(--ui-surface);
+  --admin-surface-elevated: var(--ui-surface-raised);
+  --admin-surface-sunken: var(--ui-surface-sunken);
+  --admin-control-bg: var(--ui-surface);
+  --admin-border: var(--ui-border);
+  --admin-border-strong: var(--ui-border-strong);
+  --admin-text: var(--ui-text);
+  --admin-text-muted: var(--ui-text-muted);
+  --admin-text-subtle: var(--ui-text-subtle);
+  --admin-accent: var(--ui-accent);
+  --admin-danger: var(--ui-danger);
+  --admin-success: var(--ui-success);
+  --admin-warning: var(--ui-warning);
+  --admin-link: var(--ui-accent);
 
-  /* Status colours for link health, notification severity and similar badges. */
-  --admin-status-ok: #087f5b;
-  --admin-status-ok-dot: #10a37f;
-  --admin-status-warn: #9a6700;
-  --admin-status-warn-dot: #d97706;
-  --admin-status-danger: #b42318;
-  --admin-status-danger-dot: #d92d20;
-  --admin-status-neutral: #6b7280;
-  --admin-status-neutral-dot: #a3a3a3;
-  --admin-status-alt: #7c3aed;
-  --admin-status-alt-dot: #8b5cf6;
-  --admin-link: #4f5ed9;
+  --admin-status-ok: var(--ui-success);
+  --admin-status-ok-dot: var(--ui-success);
+  --admin-status-warn: var(--ui-warning);
+  --admin-status-warn-dot: var(--ui-warning);
+  --admin-status-danger: var(--ui-danger);
+  --admin-status-danger-dot: var(--ui-danger);
+  --admin-status-neutral: var(--ui-text-subtle);
+  --admin-status-neutral-dot: var(--ui-text-subtle);
+  --admin-status-alt: var(--ui-info);
+  --admin-status-alt-dot: var(--ui-info);
 }
 
 :root[data-color-mode='dark'],
@@ -85,26 +93,5 @@
   --line: #30343e;
   --text: #f3f4f6;
   --muted: #a2a8b3;
-  --admin-canvas: #111214;
-  --admin-surface: rgba(28, 29, 32, 0.9);
-  --admin-surface-elevated: #222327;
-  --admin-border: rgba(255, 255, 255, 0.1);
-  --admin-border-strong: rgba(255, 255, 255, 0.18);
-  --admin-text: #f4f4f5;
-  --admin-text-muted: #a1a1aa;
-  --admin-danger: #fb7185;
-  --admin-success: #34d399;
-  --admin-warning: #fbbf24;
 
-  --admin-status-ok: #4ade80;
-  --admin-status-ok-dot: #34d399;
-  --admin-status-warn: #fbbf24;
-  --admin-status-warn-dot: #f59e0b;
-  --admin-status-danger: #fb7185;
-  --admin-status-danger-dot: #f87171;
-  --admin-status-neutral: #a1a1aa;
-  --admin-status-neutral-dot: #71717a;
-  --admin-status-alt: #c4b5fd;
-  --admin-status-alt-dot: #a78bfa;
-  --admin-link: #8b9cff;
 }

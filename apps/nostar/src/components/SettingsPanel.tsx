@@ -138,7 +138,7 @@ const MobileTabNav: React.FC<MobileTabNavProps> = ({ tabs, activeTab, onTabChang
 
   return (
     <div 
-      className="relative w-full border-b border-black/[0.06] dark:border-white/[0.04] bg-light-bg95 dark:bg-panel-dark/95 backdrop-blur-sm"
+      className="relative w-full border-b border-black/[0.06] dark:border-white/[0.04] bg-light-bg/95 dark:bg-panel-dark/95 "
     >
       {/* 滚动容器 */}
       <div
@@ -169,7 +169,7 @@ const MobileTabNav: React.FC<MobileTabNavProps> = ({ tabs, activeTab, onTabChang
               min-h-[36px] touch-manipulation
               ${activeTab === tab.id
                 ? 'text-gray-900 dark:text-text-primary font-medium'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.04]'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.08]'
               }
             `}
             style={{
@@ -192,8 +192,8 @@ const MobileTabNav: React.FC<MobileTabNavProps> = ({ tabs, activeTab, onTabChang
       />
       
       {/* 左右渐变遮罩 */}
-      <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-gray-50 dark:from-gray-800 to-transparent pointer-events-none md:hidden" />
-      <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-gray-50 dark:from-gray-800 to-transparent pointer-events-none md:hidden" />
+      <div className="absolute left-0 top-0 bottom-0 w-4 to-transparent pointer-events-none md:hidden" />
+      <div className="absolute right-0 top-0 bottom-0 w-4 to-transparent pointer-events-none md:hidden" />
     </div>
   );
 };
@@ -414,12 +414,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   if (isModal) {
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 "
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
       >
-        <div className="w-full max-w-5xl h-[85vh] bg-white dark:bg-panel-dark rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="w-full max-w-5xl h-[85vh] bg-white dark:bg-panel-dark rounded-xl shadow-md overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.04] bg-light-bg dark:bg-panel-dark">
             <div className="flex items-center space-x-3">
               <Settings className="w-6 h-6 text-gray-700 dark:text-text-secondary" />
@@ -451,7 +451,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-left ${
                       activeTab === tab.id
                         ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
-                        : 'text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+                        : 'text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:hover:bg-white/[0.08]'
                     }`}
                   >
                     {tab.icon}
@@ -508,7 +508,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-150 text-left ${
                     activeTab === tab.id
                       ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
-                      : 'text-gray-700 dark:text-text-secondary hover:bg-light-surface dark:hover:bg-white/[0.04]'
+                      : 'text-gray-700 dark:text-text-secondary hover:bg-light-surface dark:hover:bg-white/[0.08]'
                   }`}
                 >
                   {tab.icon}

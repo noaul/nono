@@ -1420,7 +1420,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
               />
               <label
                 htmlFor="import-file-input"
-                className="cursor-pointer px-4 py-2 bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-text-secondary rounded-lg transition-colors inline-block"
+                className="cursor-pointer px-4 py-2 bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-secondary rounded-lg transition-colors inline-block"
               >
                 {t('选择文件', 'Select File')}
               </label>
@@ -1604,8 +1604,8 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
 
       {/* Confirmation Modal */}
       {confirmation.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-panel-dark rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ">
+          <div className="w-full max-w-md bg-white dark:bg-panel-dark rounded-xl shadow-md overflow-hidden">
             <div className="px-6 py-4 bg-light-surface dark:bg-white/[0.04] border-b border-black/[0.06] dark:border-white/[0.04]">
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="w-6 h-6 text-gray-700 dark:text-text-secondary " />
@@ -1643,7 +1643,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
                       }))
                     }
                     placeholder={t('输入GitHub用户名', 'Enter GitHub username')}
-                    className="w-full px-4 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-red-500 focus:border-black/[0.06] dark:border-white/[0.04] dark:bg-white/[0.04] dark:text-text-primary"
+                    className="w-full px-4 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-red-500 focus:border-black/[0.06] dark:bg-white/[0.04] dark:text-text-primary"
                   />
                 </div>
               )}
@@ -1652,7 +1652,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
                 <button
                   onClick={closeConfirmation}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2 text-gray-900 dark:text-text-secondary bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-gray-900 dark:text-text-secondary bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-white/[0.08] rounded-lg transition-colors disabled:opacity-50"
                 >
                   {t('取消', 'Cancel')}
                 </button>
@@ -1685,8 +1685,8 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
 
       {/* Import Preview Modal */}
       {importPreview.isOpen && importPreview.data && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white dark:bg-panel-dark rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ">
+          <div className="w-full max-w-lg bg-white dark:bg-panel-dark rounded-xl shadow-md overflow-hidden">
             <div className="px-6 py-4 bg-light-bg dark:bg-panel-dark border-b border-black/[0.06] dark:border-white/[0.04]">
               <div className="flex items-center space-x-3">
                 <Upload className="w-6 h-6 text-gray-700 dark:text-text-secondary" />
@@ -1756,7 +1756,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
                 <button
                   onClick={() => setImportPreview({ data: null, isOpen: false, fileName: '' })}
                   disabled={isImporting}
-                  className="flex-1 px-4 py-2 text-gray-900 dark:text-text-secondary bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-gray-900 dark:text-text-secondary bg-light-surface dark:bg-white/[0.04] hover:bg-gray-200 dark:hover:bg-white/[0.08] rounded-lg transition-colors disabled:opacity-50"
                 >
                   {t('取消', 'Cancel')}
                 </button>

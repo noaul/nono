@@ -3,6 +3,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { initLocale } from './composables/useI18n';
 import { router } from './router';
+import './styles/design-tokens.css';
 import './styles/tokens.css';
 import './styles/base.css';
 

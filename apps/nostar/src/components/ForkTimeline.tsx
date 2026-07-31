@@ -616,7 +616,7 @@ export const ForkTimeline: React.FC = () => {
                   setForkSearchQuery('');
                   setCurrentPage(1);
                 }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-300"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <X className="w-4 h-4" />
               </button>

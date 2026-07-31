@@ -358,8 +358,8 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                       isSelected
                         ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
                         : isDragTarget
-                          ? 'bg-gray-100 dark:bg-white/[0.04] text-status-emerald ring-1 ring-status-emerald dark:bg-status-emerald/10 dark:text-status-emerald dark:ring-status-emerald/30'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.04]'
+                          ? 'bg-gray-100 text-status-emerald ring-1 ring-status-emerald dark:bg-status-emerald/10 dark:text-status-emerald dark:ring-status-emerald/30'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.08]'
                     }`}
                     title={category.id !== 'all' ? category.name + " — " + t('可将仓库卡片拖到这里快速改分类', 'Drag repository cards here to quickly change category') : undefined}
                     aria-pressed={isSelected}
@@ -374,7 +374,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                         isSelected
                           ? 'bg-gray-200 text-gray-900 dark:bg-white/10 dark:text-text-primary'
                           : isDragTarget
-                            ? 'bg-gray-100 dark:bg-white/[0.04] text-status-emerald dark:bg-status-emerald/30 dark:text-status-emerald'
+                            ? 'bg-gray-100 text-status-emerald dark:bg-status-emerald/30 dark:text-status-emerald'
                             : 'bg-gray-100 text-gray-500 dark:bg-white/[0.04] dark:text-text-tertiary'
                       }`}
                     >
@@ -453,8 +453,8 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                               isSelected
                                 ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
                                 : isDragTarget
-                                  ? 'bg-gray-100 dark:bg-white/[0.04] text-status-emerald ring-1 ring-status-emerald dark:bg-status-emerald/10 dark:text-status-emerald dark:ring-status-emerald/30'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.04]'
+                                  ? 'bg-gray-100 text-status-emerald ring-1 ring-status-emerald dark:bg-status-emerald/10 dark:text-status-emerald dark:ring-status-emerald/30'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.08]'
                             }`}
                             title={category.id !== 'all' ? category.name + " — " + t('可将仓库卡片拖到这里快速改分类', 'Drag repository cards here to quickly change category') : category.name}
                             aria-label={category.name}
@@ -548,7 +548,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                               ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
                               : isDragTarget
                                 ? 'bg-green-50 text-status-emerald ring-1 ring-status-emerald dark:bg-status-emerald/10 dark:text-status-emerald dark:ring-status-emerald/30'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.04]'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/[0.08]'
                           } ${showText ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}
                           title={category.id !== 'all' ? category.name + " — " + t('可将仓库卡片拖到这里快速改分类', 'Drag repository cards here to quickly change category') : undefined}
                         >
@@ -597,7 +597,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                                   e.stopPropagation();
                                   void handleDeleteCategory(category);
                                 }}
-                                className="p-1 rounded-md text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-gray-100 dark:bg-white/[0.04]"
+                                className="p-1 rounded-md text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:hover:bg-white/[0.08]"
                                 title={t('删除分类', 'Delete category')}
                                 aria-label={t('删除分类', 'Delete category')}
                               >

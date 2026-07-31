@@ -880,7 +880,7 @@ export const ReleaseTimeline: React.FC = () => {
                   setReleaseSearchQuery('');
                   setCurrentPage(1);
                 }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-300"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1146,7 +1146,7 @@ export const ReleaseTimeline: React.FC = () => {
        {/* Releases List */}
        <div className="space-y-2">
          {paginatedReleases.length === 0 ? (
-           <div className="text-center py-12 bg-light-bg dark:bg-panel-dark/50 rounded-xl border-2 border-dashed border-black/[0.06]-alt dark:border-white/[0.04]">
+           <div className="text-center py-12 bg-light-bg dark:bg-panel-dark/50 rounded-xl border-2 border-dashed border-black/[0.06] dark:border-white/[0.04]">
             <Package className="w-12 h-12 text-gray-400 dark:text-text-secondary mx-auto mb-3" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-text-secondary mb-1">
               {releaseShowMode === 'unread'
@@ -1220,7 +1220,7 @@ export const ReleaseTimeline: React.FC = () => {
                 {/* Repository Header */}
                 <button
                   onClick={() => toggleReleaseExpandedRepository(repository.id)}
-                  className="w-full flex items-center justify-between p-2 hover:bg-light-bg dark:hover:bg-white/10/50 transition-colors"
+                  className="w-full flex items-center justify-between p-2 hover:bg-light-bg dark:hover:bg-white/10 transition-colors"
                 >
                   <div className="flex items-center space-x-2">
                     {hasUnread && (

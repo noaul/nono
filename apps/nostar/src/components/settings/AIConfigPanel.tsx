@@ -610,7 +610,7 @@ Repository information:
                     type="checkbox"
                     checked={form.useCustomPrompt}
                     onChange={(e) => handleUseCustomPromptChange(e.target.checked)}
-                    className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] rounded focus:ring-brand-violet dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+                    className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] rounded focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
                   />
                   <span className="text-sm font-medium text-gray-900 dark:text-text-secondary">
                     {t('使用自定义提示词', 'Use Custom Prompt')}
@@ -634,7 +634,7 @@ Repository information:
                 <button
                   type="button"
                   onClick={handleRestoreDefaultPrompt}
-                  className="text-sm text-gray-500 hover:text-gray-700 dark:text-text-tertiary dark:hover:text-text-secondary"
+                  className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-text-secondary"
                 >
                   {t('恢复默认提示词', 'Restore Default Prompt')}
                 </button>
@@ -705,7 +705,7 @@ Repository information:
             </button>
             <button
               onClick={resetForm}
-              className="flex items-center space-x-2 px-4 py-2 bg-light-surface hover:bg-gray-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary rounded-lg border border-black/[0.06] dark:border-white/[0.04] transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-light-surface hover:bg-gray-200 dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary rounded-lg border border-black/[0.06] dark:border-white/[0.04] transition-colors"
             >
               <X className="w-4 h-4" />
               <span>{t('取消', 'Cancel')}</span>
@@ -731,7 +731,7 @@ Repository information:
                   name="activeAI"
                   checked={config.id === activeAIConfig}
                   onChange={() => setActiveAIConfig(config.id)}
-                  className="w-4 h-4 text-gray-700 dark:text-text-secondary bg-light-surface border-black/[0.06] focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+                  className="w-4 h-4 text-gray-700 dark:text-text-secondary bg-light-surface border-black/[0.06] focus:ring-brand-indigo dark:focus:ring-brand-indigo dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
                 />
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-text-primary flex items-center">

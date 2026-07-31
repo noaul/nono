@@ -1,5 +1,28 @@
 import typography from '@tailwindcss/typography';
 
+/**
+ * Resolves a shared UI contract token as a Tailwind colour.
+ *
+ * Two forms are needed, and picking the wrong one is a real bug rather than a nicety. Several
+ * tokens carry their own alpha in dark mode — `--ui-surface-sunken` is `rgba(255,255,255,0.03)`
+ * and `--ui-border` is `rgba(255,255,255,0.10)` — while their `-rgb` channel triplets are bare
+ * `255 255 255`. Always using the triplet meant an unmodified `bg-light-surface` resolved to
+ * `rgb(255 255 255 / 1)`, i.e. solid white, in dark mode.
+ *
+ * So: with no opacity modifier, return the token itself and keep its built-in alpha. With a
+ * modifier, fall back to the triplet so `bg-brand-indigo/20` still composes.
+ *
+ * Tailwind does not pass `undefined` for an unmodified utility — it passes its own
+ * `var(--tw-bg-opacity, 1)` placeholder — so the modifier is detected by the value being a plain
+ * number instead.
+ */
+const ui = (name) => ({ opacityValue }) => {
+  const hasExplicitModifier = opacityValue !== undefined && !String(opacityValue).startsWith('var(');
+  return hasExplicitModifier
+    ? `rgb(var(--ui-${name}-rgb) / ${opacityValue})`
+    : `var(--ui-${name})`;
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -18,80 +41,57 @@ export default {
         mono: ['Berkeley Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
       colors: {
-        // Linear Base Backgrounds
-        'marketing-black': '#08090a', 
-        'panel-dark': '#0f1011',
-        'surface-3': '#191a1b',
-        'surface-sec': '#28282c',
-        
-        // Linear Text
-        'text-primary': '#f7f8f8',
-        'text-secondary': '#d0d6e0',
-        'text-tertiary': '#8a8f98',
-        'text-quaternary': '#62666d',
-        
-        // Linear Brand & Accent
-      brand: {
-        indigo: '#5e6ad2',
-        violet: '#7170ff',
-        hover: '#828fff',
-      },
-      'security-lavender': '#7a7fad',
-        
-        // Linear Status
-        'status-green': '#27a644',
-        'status-emerald': '#10b981',
-        'status-red': '#ef4444',
-        
-        // Linear Borders (Solid fallbacks, though we mainly use rgba)
-        'border-primary': '#23252a',
-        'border-secondary': '#34343a',
-        'border-tertiary': '#3e3e44',
-        'line-tint': '#141516',
-        'line-tertiary': '#18191a',
-        
-        // Linear Light Mode Neutrals (Fallbacks if needed)
-        'light-bg': '#f7f8f8',
-        'light-surface': '#f3f4f5',
-        'light-border': '#d0d6e0',
-        'light-border-alt': '#e6e6e6',
+        // Every themed colour resolves to the shared UI contract (design-tokens.css).
+        // The old Linear palette — purple brand, marketing-black, Linear text ramp — is gone;
+        // these names survive only so the existing class usage across the app keeps working.
+        'marketing-black': ui('canvas'),
+        'panel-dark': ui('surface'),
+        'surface-3': ui('surface-raised'),
+        'surface-sec': ui('surface-raised'),
 
-        // Keeping existing for gradual migration
+        'text-primary': ui('text'),
+        'text-secondary': ui('text-muted'),
+        'text-tertiary': ui('text-subtle'),
+        'text-quaternary': ui('text-subtle'),
+
+        // One restrained teal. `violet` and `hover` are aliases so no call site breaks.
+        brand: {
+          indigo: ui('accent'),
+          violet: ui('accent'),
+          hover: ui('accent-hover'),
+        },
+        'security-lavender': ui('text-subtle'),
+
+        'status-green': ui('success'),
+        'status-emerald': ui('success'),
+        'status-red': ui('danger'),
+
+        'border-primary': ui('border'),
+        'border-secondary': ui('border-strong'),
+        'border-tertiary': ui('border-strong'),
+        'line-tint': ui('border'),
+        'line-tertiary': ui('border'),
+
+        'light-bg': ui('canvas'),
+        'light-surface': ui('surface-sunken'),
+        'light-border': ui('border'),
+        'light-border-alt': ui('border'),
+
+        // Legacy ramps, collapsed onto the contract rather than kept as a second palette.
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#0066CC',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: ui('accent'), 100: ui('accent'), 200: ui('accent'),
+          300: ui('accent'), 400: ui('accent'), 500: ui('accent'),
+          600: ui('accent'), 700: ui('accent-hover'), 800: ui('accent-hover'), 900: ui('accent-hover'),
         },
         secondary: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
+          50: ui('surface-sunken'), 100: ui('surface-sunken'), 200: ui('border'),
+          300: ui('border-strong'), 400: ui('text-subtle'), 500: ui('text-muted'),
+          600: ui('text-muted'), 700: ui('text'), 800: ui('text'), 900: ui('text'),
         },
         accent: {
-          50: '#fefbf0',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50: ui('warning'), 100: ui('warning'), 200: ui('warning'),
+          300: ui('warning'), 400: ui('warning'), 500: ui('warning'),
+          600: ui('warning'), 700: ui('warning'), 800: ui('warning'), 900: ui('warning'),
         }
       },
       fontWeight: {
@@ -100,16 +100,18 @@ export default {
         'medium': '510',
         'semibold': '590',
       },
+      // The contract sets letter-spacing to 0 everywhere; these names are kept so the existing
+      // `tracking-*` call sites keep resolving, but they no longer tighten anything.
       letterSpacing: {
-        'display-xl': '-1.584px',
-        'display-lg': '-1.408px',
-        'display': '-1.056px',
-        'h1': '-0.704px',
-        'h2': '-0.288px',
-        'h3': '-0.24px',
-        'body-lg': '-0.165px',
-        'caption': '-0.13px',
-        'tiny': '-0.15px',
+        'display-xl': '0',
+        'display-lg': '0',
+        'display': '0',
+        'h1': '0',
+        'h2': '0',
+        'h3': '0',
+        'body-lg': '0',
+        'caption': '0',
+        'tiny': '0',
       },
       boxShadow: {
         'subtle': '0px 1.2px 0px rgba(0,0,0,0.03)',
@@ -159,8 +161,8 @@ export default {
           '75%': { transform: 'translateY(-8px)' },
         },
         selectionExit: {
-          '0%': { transform: 'scale(1)', boxShadow: '0 0 0 2px #3b82f6' },
-          '50%': { transform: 'scale(1.01)', boxShadow: '0 0 0 3px #60a5fa' },
+          '0%': { transform: 'scale(1)', boxShadow: '0 0 0 2px var(--ui-accent-ring)' },
+          '50%': { transform: 'scale(1.01)', boxShadow: '0 0 0 3px var(--ui-accent-ring)' },
           '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 transparent' },
         },
         expandFade: {

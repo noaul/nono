@@ -92,7 +92,7 @@ export const UpdateChecker: React.FC<UpdateCheckerProps> = ({ onUpdateAvailable 
 
       {/* 错误提示 */}
       {error && (
-        <div className="mt-2 p-3 bg-gray-100 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] dark:border-white/[0.04] rounded-lg">
+        <div className="mt-2 p-3 bg-gray-100 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] dark:border-black/[0.06] rounded-lg">
           <p className="text-sm text-gray-700 dark:text-text-secondary ">{error}</p>
         </div>
       )}
@@ -155,7 +155,7 @@ export const UpdateChecker: React.FC<UpdateCheckerProps> = ({ onUpdateAvailable 
                   </button>
                   <button
                     onClick={() => setShowUpdateDialog(false)}
-                    className="px-4 py-2 bg-gray-200 dark:bg-white/[0.04] text-gray-900 dark:text-text-secondary rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 bg-gray-200 dark:bg-white/[0.04] text-gray-900 dark:text-text-secondary rounded-lg hover:bg-gray-300 dark:hover:bg-white/[0.08] transition-colors"
                   >
                     {t('稍后提醒', 'Later')}
                   </button>

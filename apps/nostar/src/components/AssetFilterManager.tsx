@@ -168,7 +168,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center space-x-2 px-3 py-2 bg-light-surface dark:bg-white/[0.04] rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all group"
+          className="flex items-center space-x-2 px-3 py-2 bg-light-surface dark:bg-white/[0.04] rounded-lg hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-all group"
           title={isExpanded ? t('收起过滤器', 'Collapse filters') : t('展开过滤器', 'Expand filters')}
           type="button"
           aria-expanded={isExpanded}
@@ -234,7 +234,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                 </p>
                 <button
                   onClick={handleResetPresets}
-                  className="flex items-center space-x-1 text-xs text-gray-500 dark:text-text-tertiary hover:text-brand-violet dark:hover:text-gray-700 dark:text-text-secondary transition-colors"
+                  className="flex items-center space-x-1 text-xs text-gray-500 dark:text-text-tertiary hover:text-brand-violet dark:hover:text-text-secondary transition-colors"
                   title={t('重置预设筛选器', 'Reset preset filters')}
                   type="button"
                   aria-label={t('重置预设筛选器', 'Reset preset filters')}
@@ -298,7 +298,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                     className={`group flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors ${
                       selectedFilters.includes(filter.id)
                         ? 'bg-gray-900 border-transparent text-white dark:bg-white/[0.12] dark:border-white/[0.2] dark:text-white font-medium'
-                        : 'bg-light-surface border-black/[0.06] text-gray-900 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600'
+                        : 'bg-light-surface border-black/[0.06] text-gray-900 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
                     }`}
                   >
                     <button
@@ -318,7 +318,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                     <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleEditFilter(filter)}
-                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
                         title={t('编辑', 'Edit')}
                         type="button"
                         aria-label={t('编辑', 'Edit')}
@@ -327,7 +327,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                       </button>
                       <button
                         onClick={() => handleDeleteFilter(filter.id)}
-                        className="p-1 rounded hover:bg-gray-100 dark:bg-white/[0.04] hover:text-gray-700 dark:text-text-secondary dark:hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:text-gray-700 dark:text-text-secondary transition-colors"
+                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-text-secondary transition-colors"
                         title={t('删除', 'Delete')}
                         type="button"
                         aria-label={t('删除', 'Delete')}

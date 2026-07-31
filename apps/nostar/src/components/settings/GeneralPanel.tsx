@@ -37,7 +37,7 @@ export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
               value="zh"
               checked={language === 'zh'}
               onChange={(e) => setLanguage(e.target.value as 'zh' | 'en')}
-              className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+              className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
             />
             <div>
               <span className="text-base font-medium text-gray-900 dark:text-text-primary">
@@ -55,7 +55,7 @@ export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
               value="en"
               checked={language === 'en'}
               onChange={(e) => setLanguage(e.target.value as 'zh' | 'en')}
-              className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+              className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
             />
             <div>
               <span className="text-base font-medium text-gray-900 dark:text-text-primary">
@@ -124,7 +124,7 @@ export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
                 newWindow.opener = null;
               }
             }}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-light-surface hover:bg-gray-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary border border-black/[0.06] dark:border-white/[0.04] rounded-lg transition-colors"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-light-surface hover:bg-gray-200 dark:hover:bg-white/[0.08] text-gray-900 dark:text-text-primary border border-black/[0.06] dark:border-white/[0.04] rounded-lg transition-colors"
           >
             <Github className="w-5 h-5" />
             <span>{t('GitHub', 'GitHub')}</span>

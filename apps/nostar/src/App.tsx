@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
-import { Header } from './components/Header';
+import { AppShell } from './components/AppShell';
 import { DebugModeIndicator } from './components/DebugModeIndicator';
 import { BackToTop } from './components/BackToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -150,8 +150,9 @@ function App() {
       case 'forks':
         return <ForkTimeline />;
       case 'subscription':
+        // Nested inside AppShell, whose topbar owns the page h1.
         return (
-          <ErrorBoundary>
+          <ErrorBoundary headingLevel="h2">
             <DiscoveryView />
           </ErrorBoundary>
         );
@@ -196,17 +197,14 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-marketing-black text-gray-900 dark:text-text-primary transition-colors duration-200">
+    <AppShell>
       <UpdateNotificationBanner />
-      <Header />
-      <main className="max-w-[1280px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <React.Suspense fallback={<ViewFallback />}>
-          {currentViewContent}
-        </React.Suspense>
-      </main>
+      <React.Suspense fallback={<ViewFallback />}>
+        {currentViewContent}
+      </React.Suspense>
       <BackToTop />
       <DebugModeIndicator />
-    </div>
+    </AppShell>
   );
 }
 

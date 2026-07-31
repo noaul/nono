@@ -175,9 +175,9 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ entry, language, t, onC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 " onClick={onClose}>
       <div
-        className="w-full max-w-3xl max-h-[80vh] bg-white dark:bg-panel-dark rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-3xl max-h-[80vh] bg-white dark:bg-panel-dark rounded-xl shadow-md overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

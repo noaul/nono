@@ -34,13 +34,14 @@ describe('AdminLayout appearance settings', () => {
 
     expect(mockedApiRequest).toHaveBeenCalledTimes(1);
     expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=5');
-    expect(wrapper.get('.app-workbench').attributes('style')).toBeUndefined();
+    expect(wrapper.get('.admin-shell').attributes('style')).toBeUndefined();
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
     expect(wrapper.get('.admin-nav').text()).toContain('Notab 管理文件夹书签管理');
     expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');
     expect(wrapper.get('.admin-nav').text()).not.toContain('Nodesk');
     expect(wrapper.get('.admin-nav').text()).toContain('导入导出');
     expect(wrapper.get('.admin-nav').text()).toContain('通知中心');
-    expect(wrapper.get('.app-workbench').classes()).toContain('chatgpt-admin-shell');
+    // One shell class only: the admin surface no longer stacks skins.
+    expect(wrapper.get('.admin-shell').classes()).toEqual(['admin-shell']);
   });
 });

@@ -49,29 +49,24 @@ const discoveryChannelIconMap: Record<DiscoveryChannelIcon, React.ReactNode> = {
   search: <Search className="w-4 h-4 text-gray-700 dark:text-text-secondary" />,
 };
 
-const discoveryChannelStyleMap: Record<DiscoveryChannelIcon, { gradient: string; shadow: string; largeIcon: React.ReactNode }> = {
+const discoveryChannelStyleMap: Record<DiscoveryChannelIcon, { shadow: string; largeIcon: React.ReactNode }> = {
   trending: {
-    gradient: 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700',
     shadow: 'shadow-black/[0.08]',
     largeIcon: <TrendingUp className="w-9 h-9 text-gray-700 dark:text-white" />,
   },
   rocket: {
-    gradient: 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700',
     shadow: 'shadow-black/[0.08]',
     largeIcon: <Rocket className="w-9 h-9 text-gray-700 dark:text-white" />,
   },
   star: {
-    gradient: 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700',
     shadow: 'shadow-black/[0.08]',
     largeIcon: <Crown className="w-9 h-9 text-gray-700 dark:text-white" />,
   },
   tag: {
-    gradient: 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700',
     shadow: 'shadow-black/[0.08]',
     largeIcon: <Tag className="w-9 h-9 text-gray-700 dark:text-white" />,
   },
   search: {
-    gradient: 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700',
     shadow: 'shadow-black/[0.08]',
     largeIcon: <Search className="w-9 h-9 text-gray-700 dark:text-white" />,
   },
@@ -168,7 +163,7 @@ const MobileTabNav: React.FC<MobileTabNavProps> = ({
 
   return (
     <div 
-      className="relative w-full border-b border-black/[0.06] dark:border-white/[0.04] bg-light-bg95 dark:bg-panel-dark/95 backdrop-blur-sm lg:hidden"
+      className="relative w-full border-b border-black/[0.06] dark:border-white/[0.04] bg-light-bg/95 dark:bg-panel-dark/95 lg:hidden"
     >
       <div
         ref={scrollContainerRef}
@@ -988,11 +983,11 @@ export const DiscoveryView: React.FC = React.memo(() => {
               isToolbarVisible ? 'translate-y-0' : '-translate-y-full opacity-0 pointer-events-none'
             }`}
           >
-            <div className="bg-white dark:bg-panel-dark/80 backdrop-blur-xl rounded-2xl border border-black/[0.06] dark:border-white/[0.04] p-3.5 sm:p-4 mb-4 shadow-sm shadow-gray-200/50 dark:shadow-gray-900/20">
+            <div className="bg-white dark:bg-panel-dark/80 rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-3.5 sm:p-4 mb-4 shadow-sm shadow-gray-200/50 dark:shadow-gray-900/20">
               {/* 第一行：标题和刷新按钮 */}
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${currentChannelStyle.gradient} flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
+                  <div className={`w-9 h-9 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
                     {currentChannelIconNode}
                   </div>
                   <div className="min-w-0">
@@ -1012,7 +1007,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
                   <button
                     onClick={() => refreshChannel(selectedDiscoveryChannel, 1, false)}
                     disabled={currentIsLoading || isAnalyzing}
-                    className="p-2 rounded-xl bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-brand-indigo/20 dark:hover:bg-gray-100 dark:bg-white/[0.04] hover:text-brand-violet dark:hover:text-gray-700 dark:text-text-secondary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded-xl bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-brand-indigo/20 dark:hover:bg-brand-indigo/20 hover:text-brand-violet dark:hover:text-text-secondary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     title={t('刷新', 'Refresh')}
                   >
                     <RefreshCw className={`w-4 h-4 ${currentIsLoading ? 'animate-spin' : ''}`} />
@@ -1076,7 +1071,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
                       <div className="relative">
                         <div className="px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary flex items-center gap-1.5 overflow-hidden">
                           <div 
-                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-300/70 via-purple-400/70 to-purple-300/70 dark:from-purple-700/70 dark:via-purple-600/70 dark:to-purple-700/70 transition-all duration-400 ease-out"
+                            className="absolute left-0 top-0 h-full bg-brand-indigo/30 dark:bg-brand-indigo/40 transition-all duration-400 ease-out"
                             style={{
                               width: analysisProgress.total > 0
                                 ? `${Math.min((analysisProgress.current / analysisProgress.total) * 100, 100)}%`
@@ -1128,7 +1123,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
             {selectedDiscoveryChannel === 'search' && (
               <div className={isDesktopSafeMode
                 ? 'bg-white dark:bg-panel-dark rounded-lg border border-black/[0.06] dark:border-white/[0.04] p-4 space-y-4'
-                : 'bg-white/80 dark:bg-panel-dark/80 backdrop-blur-xl rounded-2xl border border-black/[0.06] dark:border-white/[0.04] p-5 space-y-4 shadow-sm shadow-gray-200/50 dark:shadow-gray-900/20'}>
+                : 'bg-white/80 dark:bg-panel-dark/80  rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-5 space-y-4 shadow-sm shadow-gray-200/50 dark:shadow-gray-900/20'}>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-text-tertiary" />
@@ -1138,8 +1133,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
                       onChange={(e) => setSearchInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                       placeholder={t('搜索仓库...', 'Search repositories...')}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-black/[0.06] dark:border-white/[0.04] bg-light-bg dark:bg-white/[0.04] text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500
-                   " />
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-black/[0.06] dark:border-white/[0.04] bg-light-bg dark:bg-white/[0.04] text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 " />
                   </div>
                   <button
                     onClick={handleSearch}
@@ -1201,10 +1195,10 @@ export const DiscoveryView: React.FC = React.memo(() => {
             {currentIsLoading && allRepos.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-4">
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
-                    <Loader2 className="w-7 h-7 animate-spin text-brand-violet" />
+                  <div className="w-14 h-14 rounded-xl bg-brand-indigo/10 dark:bg-brand-indigo/20 flex items-center justify-center">
+                    <Loader2 className="w-7 h-7 animate-spin text-brand-indigo" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-status-emerald0 rounded-full animate-ping opacity-75" />
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-status-emerald rounded-full animate-ping opacity-75" />
                 </div>
                 <div className="text-center space-y-1.5">
                   <p className="text-gray-900 dark:text-text-secondary font-medium text-sm">
@@ -1222,11 +1216,11 @@ export const DiscoveryView: React.FC = React.memo(() => {
                 {selectedDiscoveryChannel === 'search' ? (
                   <>
                     {isDesktopSafeMode ? (
-                      <div className="w-16 h-16 rounded-2xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
+                      <div className="w-16 h-16 rounded-xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
                         {currentChannelIconNode}
                       </div>
                     ) : (
-                      <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${currentChannelStyle.gradient} flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
+                      <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
                         {currentChannelStyle.largeIcon}
                       </div>
                     )}
@@ -1242,11 +1236,11 @@ export const DiscoveryView: React.FC = React.memo(() => {
                 ) : (
                   <>
                     {isDesktopSafeMode ? (
-                      <div className="w-16 h-16 rounded-2xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
+                      <div className="w-16 h-16 rounded-xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
                         {currentChannelIconNode}
                       </div>
                     ) : (
-                      <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${currentChannelStyle.gradient} flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
+                      <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
                         {currentChannelStyle.largeIcon}
                       </div>
                     )}
@@ -1262,8 +1256,8 @@ export const DiscoveryView: React.FC = React.memo(() => {
                       onClick={() => refreshChannel(selectedDiscoveryChannel, 1, false)}
                       disabled={currentIsLoading}
                       className={isDesktopSafeMode
-                        ? 'px-6 py-2.5 rounded-lg bg-brand-indigo text-white hover:bg-gray-100 dark:bg-white/[0.04] dark:bg-status-emerald/80 dark:hover:bg-status-emerald transition-colors flex items-center gap-2 text-sm font-medium'
-                        : 'px-6 py-2.5 rounded-xl bg-white dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:shadow-lg transition-all duration-200 flex items-center gap-2 text-sm font-medium'}
+                        ? 'px-6 py-2.5 rounded-lg bg-brand-indigo text-white hover:bg-brand-hover transition-colors flex items-center gap-2 text-sm font-medium'
+                        : 'px-6 py-2.5 rounded-xl bg-brand-indigo text-white hover:bg-brand-hover shadow-sm transition-all duration-200 flex items-center gap-2 text-sm font-medium'}
                     >
                       <RefreshCw className="w-4 h-4" />
                       {t('立即刷新', 'Refresh Now')}
@@ -1315,7 +1309,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
             {!currentIsLoading && allRepos.length > 0 && (
               <div className={isDesktopSafeMode
                 ? 'flex items-center justify-between py-3.5 px-5 bg-light-bg dark:bg-panel-dark rounded-lg border border-black/[0.06] dark:border-white/[0.04] text-sm'
-                : 'flex items-center justify-between py-3.5 px-5 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/60 dark:to-slate-800/40 rounded-xl border border-black/[0.04] dark:border-white/[0.04]/50 text-sm'}>
+                : 'flex items-center justify-between py-3.5 px-5 bg-light-surface dark:bg-white/[0.03] rounded-xl border border-black/[0.04] dark:border-white/[0.04] text-sm'}>
                 <div className="flex items-center gap-2 text-gray-700 dark:text-text-tertiary">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-violet" />
                   <span>

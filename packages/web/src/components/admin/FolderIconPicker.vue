@@ -166,17 +166,19 @@ useModalBehavior({
 </template>
 
 <style scoped>
+/* Positioning, sizing and the responsive grid are unchanged. Every colour now comes from the
+   admin tokens, so the whole dialog follows the colour mode without a second hard-coded block,
+   and the decorative glass blur is gone. */
 .folder-icon-trigger {
   align-items: center;
-  background: rgba(255, 255, 255, 0.56);
-  border: 1px solid var(--admin-control-border, rgba(76, 101, 94, 0.28));
-  border-radius: var(--admin-control-radius, 8px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
-  color: var(--text);
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-control-radius);
+  color: var(--admin-text);
   display: grid;
   gap: 9px;
   grid-template-columns: 32px minmax(0, 1fr) auto;
-  min-height: var(--admin-control-height, 42px);
+  min-height: var(--admin-control-height);
   padding: 4px 11px 4px 5px;
   text-align: left;
   transition: border-color 0.24s ease, background-color 0.24s ease, box-shadow 0.24s ease;
@@ -185,16 +187,16 @@ useModalBehavior({
 
 .folder-icon-trigger:hover,
 .folder-icon-trigger:focus-visible {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  background: var(--admin-surface-sunken);
+  border-color: var(--admin-accent);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .folder-icon-trigger-glyph {
   align-items: center;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 7px;
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--ui-radius-sm);
   display: inline-flex;
   height: 32px;
   justify-content: center;
@@ -211,9 +213,7 @@ useModalBehavior({
 
 .folder-icon-backdrop {
   align-items: center;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  background: rgba(15, 23, 42, 0.3);
+  background: rgba(15, 23, 42, 0.5);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -224,12 +224,10 @@ useModalBehavior({
 }
 
 .folder-icon-dialog {
-  -webkit-backdrop-filter: blur(var(--admin-surface-blur, 20px)) saturate(1.12);
-  backdrop-filter: blur(var(--admin-surface-blur, 20px)) saturate(1.12);
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  border-radius: var(--admin-surface-radius, 8px);
-  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-surface-radius);
+  box-shadow: var(--ui-shadow-md);
   color: var(--admin-text);
   display: grid;
   max-height: min(780px, calc(100vh - 48px));
@@ -247,16 +245,17 @@ useModalBehavior({
 }
 
 .folder-icon-dialog-head h2 {
-  font-size: 22px;
+  font-size: 15px;
+  font-weight: 650;
   letter-spacing: 0;
   margin: 0;
 }
 
 .folder-icon-search-field {
   align-items: center;
-  background: rgba(255, 255, 255, 0.66);
-  border: 1px solid rgba(76, 101, 94, 0.28);
-  border-radius: 8px;
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--ui-radius-sm);
   color: var(--admin-text-muted);
   display: grid;
   gap: 10px;
@@ -266,21 +265,22 @@ useModalBehavior({
 }
 
 .folder-icon-search-field:focus-within {
-  border-color: var(--nono-accent, var(--admin-accent));
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+  border-color: var(--admin-accent);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .folder-icon-search-field input {
   background: transparent;
   border: 0;
   color: var(--admin-text);
-  min-height: 46px;
-  padding: 0;
+  font: inherit;
+  min-height: var(--admin-control-height);
+  outline: none;
   width: 100%;
 }
 
 .folder-icon-tabs {
-  border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+  border-bottom: 1px solid var(--admin-border);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 14px;
@@ -296,9 +296,9 @@ useModalBehavior({
 
 .folder-icon-tabs button:hover,
 .folder-icon-tabs button.active {
-  background: rgba(15, 118, 110, 0.05);
-  border-bottom-color: var(--nono-accent, var(--admin-accent));
-  color: var(--nono-accent, var(--admin-accent));
+  background: var(--ui-accent-soft);
+  border-bottom-color: var(--admin-accent);
+  color: var(--admin-accent);
 }
 
 .folder-icon-dialog-body {
@@ -324,17 +324,17 @@ useModalBehavior({
 .folder-icon-option {
   align-items: center;
   aspect-ratio: 1;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 8px;
-  color: #334155;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--admin-text);
   display: flex;
   flex-direction: column;
   gap: 9px;
   justify-content: center;
   min-height: 96px;
   padding: 10px 6px;
-  transition: background-color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+  transition: background-color 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
 }
 
 .folder-icon-option span {
@@ -345,9 +345,8 @@ useModalBehavior({
 .folder-icon-option:hover,
 .folder-icon-option:focus-visible,
 .folder-icon-option.selected {
-  background: rgba(236, 253, 245, 0.88);
-  border-color: rgba(15, 118, 110, 0.52);
-  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.1);
+  background: var(--ui-accent-soft);
+  border-color: color-mix(in srgb, var(--admin-accent) 52%, transparent);
   color: var(--admin-accent);
   outline: none;
   transform: translateY(-1px);
@@ -362,25 +361,11 @@ useModalBehavior({
 }
 
 .folder-icon-dialog-footer {
-  border-top: 1px solid rgba(100, 116, 139, 0.16);
+  border-top: 1px solid var(--admin-border);
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
   padding-top: 14px;
-}
-
-.folder-icon-dialog .icon-button.secondary,
-.folder-icon-dialog .button.secondary {
-  background: rgba(255, 255, 255, 0.66);
-  border-color: rgba(76, 101, 94, 0.24);
-  color: #334155;
-}
-
-.folder-icon-dialog .icon-button.secondary:hover,
-.folder-icon-dialog .button.secondary:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(15, 118, 110, 0.42);
-  color: var(--admin-accent);
 }
 
 @media (max-width: 880px) {
@@ -407,44 +392,5 @@ useModalBehavior({
   .folder-icon-option {
     min-height: 88px;
   }
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-dialog {
-  background: rgba(29, 32, 39, 0.96);
-  border-color: #363a44;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
-  color: #f3f4f6;
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-search-field,
-:global(:root[data-color-mode='dark']) .folder-icon-option,
-:global(:root[data-color-mode='dark']) .folder-icon-dialog .icon-button.secondary,
-:global(:root[data-color-mode='dark']) .folder-icon-dialog .button.secondary {
-  background: #292c34;
-  border-color: #414650;
-  color: #e5e7eb;
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-search-field input {
-  color: #f3f4f6;
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-tabs,
-:global(:root[data-color-mode='dark']) .folder-icon-dialog-footer {
-  border-color: #363a44;
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-tabs button,
-:global(:root[data-color-mode='dark']) .folder-icon-section-title,
-:global(:root[data-color-mode='dark']) .folder-icon-empty {
-  color: #aeb4bf;
-}
-
-:global(:root[data-color-mode='dark']) .folder-icon-option:hover,
-:global(:root[data-color-mode='dark']) .folder-icon-option:focus-visible,
-:global(:root[data-color-mode='dark']) .folder-icon-option.selected {
-  background: rgba(45, 212, 191, 0.12);
-  border-color: rgba(45, 212, 191, 0.42);
-  color: #5eead4;
 }
 </style>

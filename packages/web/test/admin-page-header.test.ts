@@ -14,7 +14,9 @@ describe('AdminPageHeader', () => {
     });
 
     expect(wrapper.get('header').classes()).toContain('admin-page-header');
-    expect(wrapper.get('h1').text()).toBe('书签管理');
+    // h2, not h1: AdminLayout's topbar owns the page's only h1.
+    expect(wrapper.find('h1').exists()).toBe(false);
+    expect(wrapper.get('h2.admin-page-title').text()).toBe('书签管理');
     expect(wrapper.get('.admin-page-eyebrow').text()).toBe('内容管理');
     expect(wrapper.get('.admin-page-description').text()).toContain('按 Notab');
     expect(wrapper.get('.admin-page-actions button').text()).toBe('新增书签');

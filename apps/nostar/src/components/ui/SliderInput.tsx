@@ -43,7 +43,7 @@ export const SliderInput: React.FC<SliderInputProps> = ({
           step={step}
           value={value}
           onChange={handleChange}
-          className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-indigo"
         />
         <span className="min-w-[2.5rem] text-center text-sm font-medium text-gray-900 dark:text-white tabular-nums">
           {displayValue}

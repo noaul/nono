@@ -43,14 +43,19 @@ describe('shared admin page structure', () => {
     expect(css).toContain('.admin-section');
     expect(css).toContain('.admin-section-head');
     expect(css).toContain('.admin-settings-grid');
-    expect(css).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.admin-settings-grid[\s\S]*?grid-template-columns:\s*1fr/);
+    // The settings grid collapses at the contract's md boundary rather than a bespoke 900px.
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.admin-settings-grid[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
   });
 
-  it('keeps the fixed sidebar vertical at intermediate desktop widths', () => {
+  it('keeps the sidebar a fixed vertical column at every desktop width', () => {
     const css = readAdminCss();
 
-    expect(css).toMatch(/@media \(min-width: 961px\) and \(max-width: 1180px\)[\s\S]*?\.workbench-sidebar[\s\S]*?flex-direction:\s*column/);
-    expect(css).toMatch(/@media \(min-width: 961px\) and \(max-width: 1180px\)[\s\S]*?\.workbench-nav[\s\S]*?display:\s*grid/);
+    // One rule now, not a set of width-banded corrections: the sidebar is a fixed column from
+    // the md breakpoint upward and only becomes a drawer below it.
+    expect(css).toMatch(/\.workbench-sidebar \{[\s\S]*?flex-direction:\s*column/);
+    expect(css).toMatch(/\.workbench-sidebar \{[\s\S]*?position:\s*fixed/);
+    expect(css).toMatch(/\.workbench-sidebar \{[\s\S]*?width:\s*var\(--ui-sidebar-w\)/);
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.workbench-sidebar \{[\s\S]*?transform:\s*translateX\(-100%\)/);
   });
 
   it.each(['FoldersView', 'LinksView', 'NotabsView'])('%s uses the same management page hierarchy', (name) => {

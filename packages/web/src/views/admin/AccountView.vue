@@ -342,7 +342,7 @@ onMounted(() => {
 }
 
 .current-device {
-  background: color-mix(in srgb, var(--admin-accent) 11%, white);
+  background: color-mix(in srgb, var(--admin-accent) 14%, transparent);
   border-radius: 5px;
   color: var(--admin-accent);
   display: inline-block;
@@ -392,8 +392,8 @@ onMounted(() => {
 }
 
 .password-state.configured {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(5, 150, 105, 0.24);
+  background: color-mix(in srgb, var(--admin-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--admin-success) 26%, transparent);
   color: var(--admin-success);
 }
 

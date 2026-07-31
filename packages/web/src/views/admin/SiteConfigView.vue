@@ -293,7 +293,7 @@ function setDefaultSearchEngine(id: string) {
 
 .search-engine-row {
   align-items: end;
-  background: rgba(248, 250, 252, 0.7);
+  background: var(--admin-surface-sunken);
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   display: grid;
@@ -407,10 +407,9 @@ function setDefaultSearchEngine(id: string) {
 
 .portal-preview {
   align-content: center;
-  background: linear-gradient(145deg, rgba(15, 118, 110, 0.18), rgba(54, 95, 143, 0.13)),
-    rgba(248, 250, 252, 0.86);
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  border-radius: 8px;
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
   display: grid;
   gap: 9px;
   justify-items: center;
@@ -436,8 +435,8 @@ function setDefaultSearchEngine(id: string) {
 
 .portal-preview-avatar {
   align-items: center;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-surface-elevated);
   border-radius: 50%;
   color: var(--admin-text-muted);
   display: inline-flex;

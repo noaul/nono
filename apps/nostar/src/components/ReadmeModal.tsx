@@ -636,7 +636,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
           {readmeContent && !loading && (
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-700 z-20 rounded-t-xl overflow-hidden">
               <div
-                className="h-full bg-blue-500 dark:bg-blue-400 transition-[width] duration-150 ease-out"
+                className="h-full bg-brand-indigo dark:bg-brand-hover transition-[width] duration-150 ease-out"
                 style={{ width: `${scrollProgress}%` }}
               />
             </div>
@@ -768,7 +768,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
                   className={`p-2 rounded-lg transition-colors ${
                     showToc
                       ? 'bg-brand-indigo/20 text-brand-violet dark:bg-brand-indigo/10 dark:text-brand-violet'
-                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-900 hover:bg-light-surface dark:hover:bg-white/10'
+                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-text-primary hover:bg-light-surface dark:hover:bg-white/10'
                   }`}
                   title={t('目录', 'Table of Contents')}
                 >
@@ -777,7 +777,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
               )}
               <button
                 onClick={cycleFontSize}
-                className="p-2 rounded-lg text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-900 dark:text-text-primary hover:bg-light-surface dark:hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-text-primary hover:bg-light-surface dark:hover:bg-white/10 transition-colors"
                 title={t(`字体大小: ${FONT_SIZES[fontSizeIndex].label}`, `Font Size: ${FONT_SIZES[fontSizeIndex].labelEn}`)}
               >
                 <Type className="w-4 h-4" />
@@ -794,7 +794,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
               </a>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:text-text-secondary dark:hover:text-gray-900 dark:text-text-primary hover:bg-light-surface dark:hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg text-gray-400 dark:text-text-quaternary hover:text-gray-700 dark:hover:text-text-primary hover:bg-light-surface dark:hover:bg-white/10 transition-colors"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -834,7 +834,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
                 </div>
                 <div
                   onMouseDown={handleResizeMouseDown}
-                  className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-400 dark:hover:bg-blue-500 transition-colors flex-shrink-0 relative group"
+                  className="w-1.5 cursor-col-resize bg-transparent hover:bg-brand-indigo dark:hover:bg-brand-hover transition-colors flex-shrink-0 relative group"
                 >
                   <div className="absolute inset-y-0 -left-1 -right-1" />
                 </div>
@@ -861,7 +861,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
                 </p>
                 <button
                   onClick={fetchReadme}
-                  className="px-4 py-2 bg-brand-violet text-white rounded-lg hover:bg-brand-violet/90 dark:bg-status-red/80 dark:hover:bg-status-red transition-colors"
+                  className="px-4 py-2 bg-brand-violet text-white rounded-lg hover:bg-brand-violet/90 dark:hover:bg-status-red transition-colors"
                 >
                   {language === 'zh' ? '重试' : 'Retry'}
                 </button>

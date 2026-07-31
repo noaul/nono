@@ -75,8 +75,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   };
 
   const buttonClass = type === 'danger'
-    ? 'bg-status-red hover:bg-status-red/90 dark:bg-status-red/80 dark:hover:bg-status-red'
-    : 'bg-brand-indigo hover:bg-brand-hover dark:bg-brand-indigo dark:hover:bg-brand-hover';
+    ? 'bg-status-red hover:bg-status-red/90 dark:hover:bg-status-red'
+    : 'bg-brand-indigo hover:bg-brand-hover dark:hover:bg-brand-hover';
 
   const dialogContent = (
     <div

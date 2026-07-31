@@ -19,7 +19,7 @@ const ReadmeModal = React.lazy(() => import('./ReadmeModal').then((module) => ({
 
 function ModalLoadingFallback() {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" aria-label="Loading dialog">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 " aria-label="Loading dialog">
       <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/40 border-t-white" />
     </div>
   );
@@ -883,7 +883,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
   const cardClassName = useMemo(() => {
     const baseClasses = 'repository-card group bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 hover:border-black/10 dark:hover:border-white/10 flex flex-col h-full cursor-pointer select-none';
     const selectedClasses = isSelected
-      ? 'shadow-[0_0_0_2px_theme(colors.blue.500)] dark:shadow-[0_0_0_2px_theme(colors.brand.violet)] bg-gray-100 dark:bg-white/[0.04] dark:bg-brand-indigo/10'
+      ? 'shadow-[0_0_0_2px_theme(colors.blue.500)] dark:shadow-[0_0_0_2px_theme(colors.brand.violet)] bg-gray-100 dark:bg-brand-indigo/10'
       : '';
     const exitingClasses = isExitingSelection && isSelected ? 'animate-selection-exit' : '';
     return `${baseClasses} ${selectedClasses} ${exitingClasses}`.trim();
@@ -940,14 +940,14 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="flex items-center justify-center w-8 h-8 rounded-lg cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-700 dark:text-text-tertiary dark:hover:text-gray-900 hover:bg-light-surface dark:hover:bg-white/5 transition-all duration-200 touch-manipulation"
+              className="flex items-center justify-center w-8 h-8 rounded-lg cursor-grab active:cursor-grabbing text-gray-300 dark:text-text-tertiary hover:text-gray-700 dark:hover:text-text-primary hover:bg-light-surface dark:hover:bg-white/5 transition-all duration-200 touch-manipulation"
               title={language === 'zh' ? '拖拽我到侧栏以分类' : 'Drag me to sidebar to categorize'}
             >
               <GripVertical className="w-4 h-4" />
             </div>
             {/* 弱气泡提示 */}
             {showDragHint && (
-              <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-800 dark:bg-surface-3 text-white dark:text-text-primary text-xs rounded-lg shadow-dialog dark:border dark:border-white/[0.04] whitespace-nowrap z-50 animate-fade-in">
+              <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-800 dark:bg-surface-3 text-white dark:text-text-primary text-xs rounded-lg shadow-md dark:border dark:border-white/[0.04] whitespace-nowrap z-50 animate-fade-in">
                 {language === 'zh' ? '拖拽我到左侧分类栏' : 'Drag me to left sidebar'}
                 {/* 气泡箭头 */}
                 <div className="absolute bottom-full right-3 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-800 dark:border-b-surface-3"></div>
@@ -1004,7 +1004,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => selectionMode && e.preventDefault()}
-            className={`flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary dark:bg-brand-indigo/20 dark:text-brand-violet hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-brand-indigo/30 transition-colors ${selectionMode ? 'pointer-events-none opacity-50' : ''}`}
+            className={`flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-700 dark:bg-brand-indigo/20 dark:text-brand-violet hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-brand-indigo/30 transition-colors ${selectionMode ? 'pointer-events-none opacity-50' : ''}`}
             title={language === 'zh' ? '在Zread中查看' : 'View on DeepWiki'}
           >
             <BookOpen className="w-4 h-4" />
@@ -1083,7 +1083,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
             </div>
           ) : displayContent.isAnalyzed ? (
             <div 
-              className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gradient-to-r from-brand-indigo/10 to-brand-violet/10 text-brand-violet dark:from-brand-indigo/20 dark:to-brand-violet/20 dark:text-brand-violet border border-brand-violet/20 dark:border-brand-violet/20" 
+              className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-indigo/10 dark:bg-brand-indigo/20 text-brand-indigo border border-brand-indigo/20"
               title={displayContent.analyzedAt ? `${language === 'zh' ? '分析于' : 'Analyzed on'} ${new Date(displayContent.analyzedAt).toLocaleString()}` : ''}
             >
               <Sparkles className="w-3 h-3" />
@@ -1121,7 +1121,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
               return (
                 <div
                   key={index}
-                  className="w-6 h-6 flex items-center justify-center bg-light-surface dark:bg-white/[0.04] rounded text-gray-700 dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/10 dark:hover:text-gray-700 transition-colors cursor-default"
+                  className="w-6 h-6 flex items-center justify-center bg-light-surface dark:bg-white/[0.04] rounded text-gray-700 dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/10 dark:hover:text-text-primary transition-colors cursor-default"
                   title={displayName}
                 >
                   <IconComponent className="w-3 h-3" />

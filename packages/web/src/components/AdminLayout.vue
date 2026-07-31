@@ -117,7 +117,7 @@ function onDocumentKeydown(event: KeyboardEvent) {
 }
 
 function closeMobileNavigationAtDesktop() {
-  if (window.innerWidth > 960) mobileNavOpen.value = false;
+  if (window.innerWidth >= 768) mobileNavOpen.value = false;
 }
 
 onMounted(() => {
@@ -145,21 +145,22 @@ async function logout() {
 </script>
 
 <template>
-  <div class="app-workbench glass-workbench admin-glass-enabled figma-admin-shell chatgpt-admin-shell">
+  <!-- One shell class. The five stacked skins this replaced fought each other by specificity;
+       every primitive now has a single definition in admin.css, driven by the UI contract. -->
+  <div class="admin-shell">
     <aside
       ref="mobileNavRef"
-      class="workbench-sidebar glass-surface"
+      class="workbench-sidebar"
       :class="{ 'is-mobile-open': mobileNavOpen }"
       :role="mobileNavOpen ? 'dialog' : undefined"
       :aria-modal="mobileNavOpen ? 'true' : undefined"
       :aria-label="mobileNavOpen ? t('admin.nav') : undefined"
       :tabindex="mobileNavOpen ? -1 : undefined"
     >
+      <!-- The brand is not a heading: the topbar owns the page's single h1. -->
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
-        <div>
-          <h1>Nono</h1>
-        </div>
+        <span class="brand-name">Nono</span>
       </RouterLink>
       <button ref="mobileNavCloseRef" class="sidebar-mobile-close" type="button" :aria-label="t('admin.closeNav')" @click="mobileNavOpen = false">
         <X :size="18" />
@@ -183,7 +184,7 @@ async function logout() {
         </section>
       </nav>
 
-      <section class="operator-card operator-row glass-surface">
+      <section class="operator-card operator-row">
         <span class="operator-avatar" aria-hidden="true">{{ operatorInitial }}</span>
         <strong>{{ operatorName }}</strong>
         <small class="operator-role-badge">{{ operatorRole }}</small>
@@ -191,7 +192,7 @@ async function logout() {
     </aside>
 
     <div class="workbench-main" :inert="mobileNavOpen ? true : undefined" :aria-hidden="mobileNavOpen ? 'true' : undefined">
-      <header class="workbench-topbar glass-surface">
+      <header class="workbench-topbar">
         <div class="topbar-title-group">
           <button
             class="mobile-nav-toggle"
@@ -225,7 +226,7 @@ async function logout() {
             >
               {{ operatorInitial }}
             </button>
-            <div v-if="userMenuOpen" class="user-menu glass-surface" role="menu">
+            <div v-if="userMenuOpen" class="user-menu" role="menu">
               <div class="user-menu-head">
                 <strong>{{ operatorName }}</strong>
                 <small>{{ operatorRole }} · {{ auth.user?.username || 'admin' }}</small>

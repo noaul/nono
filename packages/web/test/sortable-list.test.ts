@@ -72,6 +72,26 @@ describe('SortableList', () => {
     expect(sortableMocks.destroy).toHaveBeenCalledOnce();
   });
 
+  it('styles every Sortable class it configures', () => {
+    const source = fs.readFileSync('src/components/admin/SortableList.vue', 'utf8');
+    const css = fs.readFileSync('src/styles/admin.css', 'utf8');
+
+    // Whatever class names the component hands to Sortable must have CSS, or a drag gives no
+    // feedback. `sortable-row-ghost` was configured but unstyled after the shell rewrite.
+    const configured = [...source.matchAll(/(?:ghostClass|chosenClass|dragClass):\s*'([^']+)'/g)].map((m) => m[1]);
+    expect(configured.length).toBe(3);
+    for (const name of configured) {
+      expect(css, name).toContain(`.${name}`);
+    }
+  });
+
+  it('gives the drop placeholder a visible token-based state', () => {
+    const css = fs.readFileSync('src/styles/admin.css', 'utf8');
+
+    expect(css).toMatch(/\.sortable-row-ghost \{[\s\S]*?background:\s*var\(--ui-accent-soft\)/);
+    expect(css).toMatch(/\.sortable-row-ghost \{[\s\S]*?outline:\s*1px dashed var\(--ui-accent\)/);
+  });
+
   it('disables expensive row effects while a drag is active', () => {
     const css = fs.readFileSync('src/styles/admin.css', 'utf8');
 

@@ -671,8 +671,8 @@ onMounted(load);
 
 .add-list-row {
   align-items: center;
-  background: rgba(255, 255, 255, 0.35);
-  border: 1px dashed rgba(100, 116, 139, 0.38);
+  background: var(--admin-surface-sunken);
+  border: 1px dashed var(--admin-border-strong);
   border-radius: var(--admin-surface-radius, 8px);
   color: var(--admin-text-muted);
   display: flex;
@@ -682,12 +682,12 @@ onMounted(load);
 }
 
 .add-list-row:hover {
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--admin-surface);
   color: var(--admin-accent);
 }
 
 .inline-create-link-row {
-  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  border-top: 1px solid var(--admin-border);
 }
 
 @media (max-width: 1280px) {
@@ -715,7 +715,7 @@ onMounted(load);
 
 .management-filter-group {
   align-items: flex-start;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid var(--admin-border);
   display: grid;
   gap: 12px;
   grid-template-columns: 54px minmax(0, 1fr);
@@ -746,8 +746,8 @@ onMounted(load);
 
 .inline-link-input,
 .inline-link-select {
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(148, 163, 184, 0.46);
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border-strong);
   border-radius: 7px;
   color: var(--text);
   font: inherit;

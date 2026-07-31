@@ -76,7 +76,7 @@ export const SortAlgorithmTooltip: React.FC<SortAlgorithmTooltipProps> = ({ chan
         onMouseEnter={() => setIsVisible(true)}
         onMouseLeave={() => setIsVisible(false)}
         onClick={() => setIsVisible(!isVisible)}
-        className="p-1 rounded-full text-gray-400 dark:text-text-quaternary hover:text-brand-violet hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-gray-100 dark:bg-white/[0.04] transition-colors"
+        className="p-1 rounded-full text-gray-400 dark:text-text-quaternary hover:text-brand-violet hover:bg-gray-100 dark:hover:bg-white/[0.08] transition-colors"
       >
         <Info className="w-4 h-4" />
       </button>
