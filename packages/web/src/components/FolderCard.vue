@@ -452,7 +452,12 @@ h2 {
   height: 214px;
   max-height: 214px;
   overflow-x: hidden;
-  overflow-y: hidden;
+  /*
+   * Always allow the inner list to scroll. The previous `hidden` relied on the `is-scrollable`
+   * class, which is bound to a link count tuned for the desktop 3-column grid; any layout with
+   * fewer columns silently cut the overflowing links off. `auto` is inert when content fits.
+   */
+  overflow-y: auto;
   padding: 15px 4px 15px 16px;
   scrollbar-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.32) transparent;
   scrollbar-width: thin;
@@ -478,7 +483,6 @@ h2 {
 }
 
 .large-links.is-scrollable {
-  overflow-y: auto;
   overscroll-behavior: contain;
 }
 
@@ -629,7 +633,8 @@ h2 {
   letter-spacing: 0;
   min-width: 0;
   overflow: hidden;
-  text-overflow: clip;
+  /* `clip` cut labels mid-glyph with no cue that anything was missing. */
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -753,9 +758,23 @@ mark {
     height: auto;
   }
 
+  /*
+   * Let the available width pick the column count instead of forcing the desktop 3. At 320px the
+   * card has room for one column; from roughly 360px up it fits two. No device width is hard-coded:
+   * the track floor is a token, so the same rule holds for any narrow viewport.
+   */
   .large-links {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--public-bookmark-min-width, 132px), 1fr));
     height: 214px;
+  }
+
+  /*
+   * The inner list scrolls when it overflows, and the card header keeps its expand affordance, so
+   * links are never dropped. Chaining stays on so reaching the end continues the page scroll
+   * instead of trapping the gesture.
+   */
+  .large-links.is-scrollable {
+    overscroll-behavior: auto;
   }
 
   .large-links.locked {

@@ -195,7 +195,8 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
-    // Fixed card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
+    // Desktop card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
+    // Narrow viewports derive their own column count; see the mobile assertions below.
     expect(source).toContain('grid-template-rows: 38px auto');
     expect(source).toContain('contain-intrinsic-size: 398px 264px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
@@ -204,7 +205,8 @@ describe('visual contracts', () => {
     expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*var\(--public-bookmark-gap-y, 4px\) var\(--public-bookmark-gap-x, 8px\);[\s\S]*?padding:\s*15px 4px 15px 16px;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*var\(--public-bookmark-row-height, 38px\);[\s\S]*?padding:\s*2px 0 2px 5px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*var\(--public-bookmark-text-size, 14px\);/);
-    expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*clip/);
+    // Ellipsis replaced `clip`, which cut labels mid-glyph with no cue that text was missing.
+    expect(source).toMatch(/\.large-link span \{[\s\S]*?text-overflow:\s*ellipsis/);
     expect(source).toContain(':size="16"');
     // Bookmark icons are sized by the setting on the shared `.large-link-icon`, so the favicon
     // rule only has to keep them square and unstretched.
@@ -212,8 +214,12 @@ describe('visual contracts', () => {
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?object-fit:\s*contain;/);
     expect(source).toMatch(/\.large-links \{[\s\S]*?height: 214px;[\s\S]*?max-height: 214px;/);
     expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
-    expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
-    expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/);
+    // The inner list always scrolls when it overflows. It used to be `hidden` unless the link count
+    // cleared a threshold tuned for three columns, which silently dropped links in any narrower
+    // layout; `is-scrollable` now only decides whether scroll chaining is contained.
+    expect(source).toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*auto/);
+    expect(source).not.toMatch(/\.large-links \{[\s\S]*?overflow-y:\s*hidden/);
+    expect(source).toMatch(/\.large-links\.is-scrollable \{[\s\S]*?overscroll-behavior:\s*contain/);
     expect(source).not.toContain('link-overflow-more');
     expect(source).not.toContain('MAX_VISIBLE_LINKS');
     expect(source).not.toContain('visibleLinks');
@@ -231,8 +237,10 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
+    // Narrow viewports pick their own column count from the available width rather than inheriting
+    // the desktop three, which squeezed cells to ~76px at 320px and clipped nearly every label.
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?height: 214px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(var\(--public-bookmark-min-width, 132px\), 1fr\)\);[\s\S]*?height: 214px;/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');

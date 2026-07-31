@@ -105,6 +105,17 @@ const resolvedMode = ref<ResolvedColorMode>(
   typeof document !== 'undefined' && document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
 );
 
+/**
+ * Brings the active notab back into view after a switch. On phones the strip scrolls horizontally
+ * and the selected tab is often off-screen, which left the indicator invisible. `inline: 'nearest'`
+ * is a no-op when the tab is already fully visible, so desktop is untouched.
+ */
+function keepActiveTabVisible(nav: HTMLElement, active: HTMLElement) {
+  if (nav.scrollWidth <= nav.clientWidth + 1) return;
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  active.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', inline: 'nearest', block: 'nearest' });
+}
+
 function updateTabIndicator() {
   const nav = tabsRef.value;
   tabsScrollable.value = Boolean(nav && nav.scrollWidth > nav.clientWidth + 1);
@@ -118,6 +129,7 @@ function updateTabIndicator() {
     transform: `translateX(${(active.parentElement?.classList.contains('notab-shell') ? active.parentElement.offsetLeft : 0) + active.offsetLeft}px)`,
     width: `${active.offsetWidth}px`,
   };
+  keepActiveTabVisible(nav, active);
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1951,6 +1963,11 @@ h1 {
 .folder-tabs.tabs-scrollable {
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  /* Keep a swipe past the last tab from being read as a browser back gesture. */
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Leaves room so a scrolled-into-view tab never sits flush against the edge. */
+  scroll-padding-inline: var(--public-notab-scroll-padding, 12px);
 }
 
 /* Wrapped tabs have nothing to scroll, so the edge fade would just clip the first and last. */
@@ -2269,6 +2286,21 @@ mark {
     border-left: 0;
     border-right: 0;
     top: 0;
+  }
+
+  /*
+   * The 28px edge fade costs a fifth of a 280px strip and renders the first and last tab
+   * unreadable while still leaving them tappable, so a phone shows a target it has hidden.
+   * Native scrolling plus the indicator is enough of a hint at this width.
+   */
+  .folder-tabs.tabs-scrollable {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Long labels stay on one line and stay scrollable rather than being clipped away. */
+  .notab-select {
+    white-space: nowrap;
   }
 
   .organize-toolbar {
