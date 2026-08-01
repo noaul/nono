@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Responsive contracts for the phone homepage. Measured at 320/360/390/430 against the real scoped
- * styles, the pre-fix layout forced the desktop three-column bookmark grid onto a 320px screen
- * (~76px cells, 16 of 18 labels clipped), faded away the first and last notab with a 28px edge
- * mask, and left the inner bookmark list `overflow-y: hidden` unless a folder cleared a link count
- * tuned for three columns. These assertions keep those regressions from coming back.
+ * styles, the pre-fix layout faded away the first and last notab with a 28px edge mask, squared off
+ * the notab strip's corners against the theme's own rounded pill, left the inner bookmark list
+ * `overflow-y: hidden` unless a folder cleared a link count tuned for three columns, and (in an
+ * earlier fix) dropped to one or two bookmark columns instead of the required three. These
+ * assertions keep those regressions from coming back.
  */
 
 const WEB_ROOT = process.cwd();
@@ -77,20 +78,47 @@ describe('mobile notab strip', () => {
     // Service links live in the same scroll container, so they stay reachable by the same swipe.
     expect(navigationSource).toContain('class="tab-service-link"');
   });
+
+  it('keeps the theme\'s rounded pill corners instead of squaring them off', () => {
+    // The base (non-media) rule sets the real radius from the appearance setting.
+    expect(navigationCss).toMatch(/\.folder-tabs \{[\s\S]*?border-radius: var\(--public-search-radius, 28px\);/);
+    // The mobile block still widens the strip past the content padding but must not re-flatten
+    // the corners back to a straight edge.
+    expect(navigationMobile).not.toMatch(/\.folder-tabs[^{]*\{[^}]*border-radius:\s*0/);
+  });
 });
 
 describe('mobile folder cards', () => {
-  it('derives the bookmark column count from available width, not a fixed desktop three', () => {
-    expect(folderCss).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(folderMobile).toMatch(
-      /\.large-links \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(var\(--public-bookmark-min-width, 132px\), 1fr\)\);/,
-    );
-    expect(folderMobile).not.toContain('repeat(3, minmax(0, 1fr))');
+  it('keeps exactly three bookmark columns down to a 320px phone', () => {
+    // The mobile block declares no grid-template-columns of its own, so the unconditional base
+    // rule (three columns at every width) carries through instead of collapsing to one or two.
+    expect(folderCss).toMatch(/\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+    expect(folderMobile).not.toMatch(/\.large-links[^{]*\{[^}]*grid-template-columns/);
   });
 
-  it('uses a token for the column floor rather than a device-specific width', () => {
-    expect(folderMobile).toContain('var(--public-bookmark-min-width, 132px)');
-    // No breakpoint keyed to a particular handset.
+  it('shrinks the bookmark padding, gap, icon and type to keep a three-column cell usable', () => {
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-x: 4px;/);
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-y: 4px;/);
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;/);
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-icon-size: 12px;/);
+    // A tighter cell padding than the desktop `15px 4px 15px 16px` claws room back for the label.
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?padding: 10px 3px 10px 8px;/);
+    // At a ~264px card / 3 columns / these tokens, each cell has roughly 80px, of which about
+    // 63-65px is left for the label after the icon and paddings — enough for ~7-8 full-width CJK
+    // glyphs (~1em advance each) at a 9px font before the ellipsis kicks in.
+    const cardWidth = 264;
+    const linksPadding = 3 + 8;
+    const gaps = 4 * 2;
+    const columnWidth = (cardWidth - linksPadding - gaps) / 3;
+    const linkPadding = 3;
+    const iconSize = 12;
+    const iconGap = 2;
+    const textBudget = columnWidth - linkPadding - iconSize - iconGap;
+    const fontSize = 9;
+    expect(Math.floor(textBudget / fontSize)).toBeGreaterThanOrEqual(7);
+  });
+
+  it('declares no device-specific breakpoint for the bookmark grid', () => {
     expect(folderMobile).not.toMatch(/max-width:\s*(320|360|375|390|414|430)px/);
   });
 

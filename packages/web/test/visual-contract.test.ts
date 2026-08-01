@@ -237,10 +237,11 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
-    // Narrow viewports pick their own column count from the available width rather than inheriting
-    // the desktop three, which squeezed cells to ~76px at 320px and clipped nearly every label.
+    // Narrow viewports keep the required three-column grid (from the unconditional base rule) but
+    // shrink the cell padding, gap, icon and type so a ~80px column stays legible at 320px.
+    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(var\(--public-bookmark-min-width, 132px\), 1fr\)\);[\s\S]*?height: 214px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;[\s\S]*?height: 214px;/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');

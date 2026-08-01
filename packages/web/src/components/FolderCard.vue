@@ -759,13 +759,26 @@ mark {
   }
 
   /*
-   * Let the available width pick the column count instead of forcing the desktop 3. At 320px the
-   * card has room for one column; from roughly 360px up it fits two. No device width is hard-coded:
-   * the track floor is a token, so the same rule holds for any narrow viewport.
+   * Three columns stays the default all the way down to a 320px CSS px phone — the grid keeps the
+   * base `repeat(3, minmax(0, 1fr))` track. At a ~264px card that puts each column around 80px, so
+   * the padding, gap, icon and type shrink to match: full-width CJK glyphs run roughly 1em wide, and
+   * this budget (~80px column minus padding/icon/gap) still fits about 7-8 of them before the label
+   * hits its ellipsis. These are plain overrides of the same tokens the appearance settings drive
+   * (see appearance.ts bookmarkTextSize/bookmarkIconSize/bookmarkGapX/bookmarkGapY), scoped to
+   * `.large-links` so mobile gets a legible 3-column grid regardless of the desktop values chosen.
    */
   .large-links {
-    grid-template-columns: repeat(auto-fill, minmax(var(--public-bookmark-min-width, 132px), 1fr));
+    --public-bookmark-gap-x: 4px;
+    --public-bookmark-gap-y: 4px;
+    --public-bookmark-row-height: 32px;
+    --public-bookmark-text-size: 9px;
+    --public-bookmark-icon-size: 12px;
     height: 214px;
+    padding: 10px 3px 10px 8px;
+  }
+
+  .large-link {
+    padding-left: 3px;
   }
 
   /*

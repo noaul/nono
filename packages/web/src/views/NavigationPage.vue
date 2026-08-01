@@ -2278,9 +2278,14 @@ mark {
     width: 72px;
   }
 
+  /*
+   * The strip still breaks out of the content padding for extra width (it stays well short of the
+   * actual viewport edge), so it keeps the theme's own pill radius from the base rule below instead
+   * of forcing 0 — a straight-cornered strip on phones read as broken against the rounded search
+   * bar and folder cards right above and below it.
+   */
   .folder-tabs {
     margin: 4px -8px;
-    border-radius: 0;
     max-width: calc(100% + 16px);
     width: calc(100% + 16px);
     border-left: 0;
