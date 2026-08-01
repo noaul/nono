@@ -1,9 +1,8 @@
 import type { AppContext } from './types.js';
-import { encryptSecret, isEncryptedSecret } from './secret-crypto.js';
+import { decryptSecret, encryptSecret, isEncryptedSecret } from './secret-crypto.js';
 
 const assetSecrets = [
-  { table: 'vps', columns: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] },
-  { table: 'subscriptions', columns: ['license_key'] }
+  { table: 'vps', columns: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] }
 ] as const;
 const settingSecrets = ['webdavPassword', 'webdavEncryptionKey'] as const;
 
@@ -23,6 +22,18 @@ export function migrateStoredSecrets(context: AppContext): number {
         migrated += 1;
       }
     }
+  }
+
+  const subscriptions = context.db.all<{ id: number; license_key: string | null }>(
+    'SELECT id, license_key FROM subscriptions'
+  );
+  for (const subscription of subscriptions) {
+    if (!subscription.license_key || !isEncryptedSecret(subscription.license_key)) continue;
+    context.db.run('UPDATE subscriptions SET license_key = ? WHERE id = ?', [
+      decryptSecret(subscription.license_key, context.encryptionKey),
+      Number(subscription.id)
+    ]);
+    migrated += 1;
   }
 
   for (const key of settingSecrets) {

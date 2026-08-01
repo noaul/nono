@@ -90,8 +90,7 @@ const sensitiveVpsFields = new Set([
   'probeApiKey'
 ]);
 const sensitiveFieldsByAssetType: Partial<Record<AssetType, Set<string>>> = {
-  vps: sensitiveVpsFields,
-  subscription: new Set(['licenseKey'])
+  vps: sensitiveVpsFields
 };
 
 export interface AssetConfig {
@@ -254,7 +253,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'content', db: 'content' },
       ...commonFields
     ],
-    searchable: ['name', 'provider', 'account', 'category', 'email', 'phone_number', 'content'],
+    searchable: ['name', 'provider', 'account', 'category', 'email', 'phone_number', 'license_key', 'content'],
     displayField: 'name',
     dueFields: ['next_due_date']
   }
@@ -896,6 +895,9 @@ function enrichVpsBody(body: Record<string, unknown>, current?: Record<string, u
 
 function enrichSubscriptionBody(body: Record<string, unknown>, current?: Record<string, unknown>): Record<string, unknown> {
   const next = { ...body };
+  if (Object.prototype.hasOwnProperty.call(next, 'licenseKey') && !stringValue(next.licenseKey)) {
+    next.licenseKey = null;
+  }
   const purchaseType = stringValue(next.purchaseType ?? current?.purchaseType) || 'subscription';
   if (purchaseType === 'buyout') {
     next.billingCycle = 'annual';

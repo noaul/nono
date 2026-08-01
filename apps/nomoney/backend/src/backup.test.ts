@@ -236,8 +236,7 @@ describe('backup APIs', () => {
         purchaseType: 'buyout',
         email: 'owner@example.com',
         phoneNumber: '+16045550123',
-        licenseKey: null,
-        hasLicenseKey: true,
+        licenseKey: 'secret-license',
         deviceLimit: 3,
         content: 'Desktop app'
       })

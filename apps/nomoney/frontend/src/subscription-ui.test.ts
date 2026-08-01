@@ -21,11 +21,15 @@ describe('subscription purchase types', () => {
     expect(form).toContain('form.email');
     expect(form).toContain('form.phoneNumber');
     expect(form).toContain('form.licenseKey');
+    expect(form).toContain('type="text"');
+    expect(form).not.toContain('hasLicenseKey');
     expect(form).toContain('form.deviceLimit');
     expect(form).toContain('form.content');
     expect(source).toContain("if (payload.purchaseType === 'buyout')");
     expect(source).toContain("payload.billingCycle = 'annual';");
     expect(source).toContain('payload.nextDueDate = null;');
     expect(source).toContain('payload.autoRenew = false;');
+    expect(source).not.toContain("result.licenseKey = '';");
+    expect(source).not.toContain("if (!stringValue(payload.licenseKey)) delete payload.licenseKey;");
   });
 });

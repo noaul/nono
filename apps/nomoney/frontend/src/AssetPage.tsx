@@ -1078,7 +1078,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           ) : isPhone ? (
             <PhoneFormSections form={form} updateForm={updateForm} copy={copy} language={language} />
           ) : isSubscription ? (
-            <SubscriptionFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} />
+            <SubscriptionFormSections form={form} updateForm={updateForm} copy={copy} language={language} />
           ) : (
             <>
               <Section title={copy('基础信息', 'Basic information')}>
@@ -1794,18 +1794,15 @@ function SubscriptionFormSections({
   form,
   updateForm,
   copy,
-  language,
-  editing
+  language
 }: {
   form: FormState;
   updateForm: (key: string, value: string | boolean) => void;
   copy: (zh: string, en: string) => string;
   language: 'zh' | 'en';
-  editing: AssetItem | null;
 }) {
   const purchaseType = stringValue(form.purchaseType) === 'buyout' ? 'buyout' : 'subscription';
   const isBuyout = purchaseType === 'buyout';
-  const hasLicenseKey = Boolean(editing?.hasLicenseKey);
 
   return (
     <>
@@ -1827,7 +1824,7 @@ function SubscriptionFormSections({
               <Field label={copy('手机号', 'Phone')}><input className={inputClass} type="tel" value={String(form.phoneNumber ?? '')} onChange={(e) => updateForm('phoneNumber', e.target.value)} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={copy('密钥', 'License key')} hint={hasLicenseKey ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : undefined}><input className={`${inputClass} font-mono`} type="password" value={String(form.licenseKey ?? '')} onChange={(e) => updateForm('licenseKey', e.target.value)} placeholder={hasLicenseKey ? copy('已保存', 'Saved') : ''} /></Field>
+              <Field label={copy('密钥', 'License key')} hint={copy('作为普通记录保存，可直接查看和搜索。', 'Stored as a visible, searchable record.')}><input className={`${inputClass} font-mono`} type="text" spellCheck={false} value={String(form.licenseKey ?? '')} onChange={(e) => updateForm('licenseKey', e.target.value)} /></Field>
               <Field label={copy('设备限制', 'Device limit')}><input className={inputClass} type="number" min="0" value={String(form.deviceLimit ?? '')} onChange={(e) => updateForm('deviceLimit', e.target.value)} /></Field>
             </div>
             <Field label={copy('订阅内容', 'Content')}><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.content ?? '')} onChange={(e) => updateForm('content', e.target.value)} /></Field>
@@ -2609,9 +2606,6 @@ function assetToForm(config: AssetPageConfig, item: AssetItem): FormState {
     result.sshPrivateKeyPassphrase = '';
     result.probeApiKey = '';
   }
-  if (config.endpoint === 'subscriptions') {
-    result.licenseKey = '';
-  }
   return result;
 }
 
@@ -2662,7 +2656,6 @@ function formToPayload(config: AssetPageConfig, form: FormState): Record<string,
   }
   if (config.endpoint === 'subscriptions') {
     payload.category = null;
-    if (!stringValue(payload.licenseKey)) delete payload.licenseKey;
     if (payload.purchaseType === 'buyout') {
       payload.account = null;
       payload.billingCycle = 'annual';

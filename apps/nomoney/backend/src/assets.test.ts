@@ -285,7 +285,7 @@ describe('asset APIs', () => {
     ]);
   });
 
-  test('stores, protects, and filters buyout details', async () => {
+  test('stores, exposes, searches, and updates buyout details', async () => {
     const { agent, context } = await setupAgent();
 
     const created = await agent.post('/api/subscriptions').send({
@@ -311,8 +311,7 @@ describe('asset APIs', () => {
       purchaseType: 'buyout',
       email: 'owner@example.com',
       phoneNumber: '+16045550123',
-      licenseKey: null,
-      hasLicenseKey: true,
+      licenseKey: 'secret-license',
       deviceLimit: 3,
       content: 'Desktop and mobile apps',
       nextDueDate: null,
@@ -320,16 +319,20 @@ describe('asset APIs', () => {
       renewalUrl: null
     });
     const storedLicense = context.db.get<{ license_key: string }>('SELECT license_key FROM subscriptions WHERE id = 1');
-    expect(storedLicense?.license_key).toMatch(/^enc:v1:/);
-    expect(storedLicense?.license_key).not.toContain('secret-license');
+    expect(storedLicense?.license_key).toBe('secret-license');
 
-    const filtered = await agent.get('/api/subscriptions?purchaseType=buyout');
+    const filtered = await agent.get('/api/subscriptions?purchaseType=buyout&q=secret-license');
     expect(filtered.body.items).toHaveLength(1);
-    expect(filtered.body.items[0]).toMatchObject({ name: 'Lifetime Tool', purchaseType: 'buyout' });
+    expect(filtered.body.items[0]).toMatchObject({
+      name: 'Lifetime Tool',
+      purchaseType: 'buyout',
+      licenseKey: 'secret-license'
+    });
 
     await agent.put('/api/subscriptions/1').send({ licenseKey: '', deviceLimit: 5 }).expect(200);
     const updated = await agent.get('/api/subscriptions/1');
-    expect(updated.body.item).toMatchObject({ hasLicenseKey: true, deviceLimit: 5 });
+    expect(updated.body.item).toMatchObject({ licenseKey: null, deviceLimit: 5 });
+    expect(updated.body.item).not.toHaveProperty('hasLicenseKey');
   });
 
   test('migrates the legacy VPS due date without losing it on later edits', async () => {
