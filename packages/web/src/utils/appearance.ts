@@ -520,7 +520,12 @@ export function toAppearanceCssVars(appearance: AppearanceSettings): Record<stri
   // highlight still fades in on its own.
   vars['--public-hover-duration'] = appearance.hoverAnimation ? '200ms' : '0ms';
   vars['--public-hover-scale'] = appearance.hoverAnimation ? (appearance.hoverScale / 100).toFixed(3) : '1';
-  vars['--public-notab-justify'] = appearance.notabAlign === 'left' ? 'flex-start' : 'center';
+  // Plain `center` lets the flex line overflow equally on both sides; since a scrollable LTR
+  // container can never reach a negative scrollLeft, the start-side overflow (the first tab)
+  // becomes permanently unreachable once the strip is wider than the viewport. `safe center`
+  // falls back to start alignment exactly when that overflow would occur, so scrollLeft 0 always
+  // shows the first tab in full while still centering short, non-overflowing tab strips.
+  vars['--public-notab-justify'] = appearance.notabAlign === 'left' ? 'flex-start' : 'safe center';
   vars['--public-notab-wrap'] = appearance.notabOverflow === 'wrap' ? 'wrap' : 'nowrap';
   vars['--public-notab-overflow-x'] = appearance.notabOverflow === 'wrap' ? 'visible' : 'auto';
 

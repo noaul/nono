@@ -96,6 +96,16 @@ describe('appearance settings', () => {
     expect(toAppearanceCssVars(appearanceDefaults)).not.toHaveProperty('--admin-surface-radius');
   });
 
+  it('keeps the default centered notab strip reachable when it overflows on mobile', () => {
+    // A plain `center` (no `safe`) lets the flex line overflow equally on both sides. An
+    // `overflow-x: auto` container can never scroll to a negative scrollLeft in LTR, so the
+    // start-side overflow — the first ("All") tab — became permanently unreachable once the
+    // strip was wider than the viewport. `safe center` falls back to start alignment exactly
+    // when that overflow would occur, keeping the first tab fully visible at scrollLeft 0.
+    expect(toAppearanceCssVars(appearanceDefaults)['--public-notab-justify']).toBe('safe center');
+    expect(toAppearanceCssVars({ ...appearanceDefaults, notabAlign: 'left' })['--public-notab-justify']).toBe('flex-start');
+  });
+
   it('places an explicitly selected Chinese font before the generic fallback', () => {
     const stack = fontStack({
       ...appearanceDefaults,
