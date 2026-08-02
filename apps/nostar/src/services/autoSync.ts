@@ -45,6 +45,10 @@ function quickHash(data: unknown): string {
   return JSON.stringify(data);
 }
 
+function isBootstrapEmptyConfig<T>(backendConfigs: T[], localConfigs: T[], lastHash: string): boolean {
+  return backendConfigs.length === 0 && localConfigs.length > 0 && lastHash === '';
+}
+
 function setRepositorySyncVisualState(isSyncing: boolean): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('gsm:repository-sync-visual-state', { detail: { isSyncing } }));
@@ -179,55 +183,67 @@ export async function syncFromBackend(): Promise<void> {
       // to prevent backend decryption failures from overwriting valid local data.
       const backendConfigs = aiResult.value;
       const localConfigs = state.aiConfigs;
-      const mergedConfigs = backendConfigs.map(bc => {
-        if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
-          const local = localConfigs.find(lc => lc.id === bc.id);
-          if (local && local.apiKey) {
-            logger.warn('sync.decryptFailed', `Backend decrypt_failed for AI config "${bc.name}", preserving local apiKey`);
-            return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
+      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.ai)) {
+        _hasPendingPush = true;
+      } else {
+        const mergedConfigs = backendConfigs.map(bc => {
+          if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
+            const local = localConfigs.find(lc => lc.id === bc.id);
+            if (local && local.apiKey) {
+              logger.warn('sync.decryptFailed', `Backend decrypt_failed for AI config "${bc.name}", preserving local apiKey`);
+              return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
+            }
           }
-        }
-        return bc;
-      });
-      state.setAIConfigs(mergedConfigs);
-      // Store raw backend hash so change detection compares against the same payload.
-      // Using mergedConfigs would cause a mismatch and re-trigger on every poll.
-      _lastHash.ai = hashes.ai;
+          return bc;
+        });
+        state.setAIConfigs(mergedConfigs);
+        // Store raw backend hash so change detection compares against the same payload.
+        // Using mergedConfigs would cause a mismatch and re-trigger on every poll.
+        _lastHash.ai = hashes.ai;
+      }
     }
     if (changed.webdav && webdavResult.status === 'fulfilled') {
       // Filter out configs with decrypt_failed status — preserve local password values
       // to prevent backend decryption failures from overwriting valid local data.
       const backendConfigs = webdavResult.value;
       const localConfigs = state.webdavConfigs;
-      const mergedConfigs = backendConfigs.map(bc => {
-        if (bc.passwordStatus === 'decrypt_failed' || !bc.password) {
-          const local = localConfigs.find(lc => lc.id === bc.id);
-          if (local && local.password) {
-            logger.warn('sync.decryptFailed', `Backend decrypt_failed for WebDAV config "${bc.name}", preserving local password`);
-            return { ...bc, password: local.password, passwordStatus: 'ok' as const };
+      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.webdav)) {
+        _hasPendingPush = true;
+      } else {
+        const mergedConfigs = backendConfigs.map(bc => {
+          if (bc.passwordStatus === 'decrypt_failed' || !bc.password) {
+            const local = localConfigs.find(lc => lc.id === bc.id);
+            if (local && local.password) {
+              logger.warn('sync.decryptFailed', `Backend decrypt_failed for WebDAV config "${bc.name}", preserving local password`);
+              return { ...bc, password: local.password, passwordStatus: 'ok' as const };
+            }
           }
-        }
-        return bc;
-      });
-      state.setWebDAVConfigs(mergedConfigs);
-      // Store raw backend hash for consistent change detection
-      _lastHash.webdav = hashes.webdav;
+          return bc;
+        });
+        state.setWebDAVConfigs(mergedConfigs);
+        // Store raw backend hash for consistent change detection
+        _lastHash.webdav = hashes.webdav;
+      }
     }
     if (changed.embedding && embeddingResult.status === 'fulfilled') {
       const backendConfigs = embeddingResult.value;
       const localConfigs = state.embeddingConfigs;
-      const mergedConfigs = backendConfigs.map(bc => {
-        if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
-          const local = localConfigs.find(lc => lc.id === bc.id);
-          if (local && local.apiKey) {
-            logger.warn('sync.decryptFailed', `Backend decrypt_failed for embedding config "${bc.name}", preserving local apiKey`);
-            return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
+      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.embedding)) {
+        _hasPendingPush = true;
+      } else {
+        const mergedConfigs = backendConfigs.map(bc => {
+          if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
+            const local = localConfigs.find(lc => lc.id === bc.id);
+            if (local && local.apiKey) {
+              logger.warn('sync.decryptFailed', `Backend decrypt_failed for embedding config "${bc.name}", preserving local apiKey`);
+              return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
+            }
           }
-        }
-        return bc;
-      });
-      state.setEmbeddingConfigs(mergedConfigs);
-      _lastHash.embedding = hashes.embedding;
+          return bc;
+        });
+        state.setEmbeddingConfigs(mergedConfigs);
+        _lastHash.embedding = hashes.embedding;
+      }
     }
     if (changed.vectorSearch && vectorSearchResult.status === 'fulfilled') {
       const backendConfig = vectorSearchResult.value;

@@ -316,6 +316,7 @@ export function aiTarget(input: { apiType: string; baseUrl: string; apiKey: stri
 export function aiTestBody(apiType: string, model: string) {
   if (apiType === 'claude') return { model, max_tokens: 8, messages: [{ role: 'user', content: 'Reply OK.' }] };
   if (apiType === 'gemini') return { contents: [{ parts: [{ text: 'Reply OK.' }] }] };
+  if (apiType === 'openai-responses') return { model, max_output_tokens: 8, input: 'Reply OK.' };
   return { model, max_tokens: 8, messages: [{ role: 'user', content: 'Reply OK.' }] };
 }
 
@@ -327,5 +328,9 @@ function normalizeHeaders(headers: RequestInit['headers']): Record<string, strin
 function appendApiPath(baseUrl: string, path: string) {
   const normalized = baseUrl.replace(/\/+$/, '');
   if (normalized.endsWith(`/${path}`)) return normalized;
+  const [version, ...rest] = path.split('/');
+  if (rest.length > 0 && normalized.toLowerCase().endsWith(`/${version.toLowerCase()}`)) {
+    return `${normalized}/${rest.join('/')}`;
+  }
   return `${normalized}/${path}`;
 }
