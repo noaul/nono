@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const readView = (name: string) => fs.readFileSync(path.resolve(process.cwd(), `src/views/admin/${name}.vue`), 'utf8');
 const readAdminCss = () => fs.readFileSync(path.resolve(process.cwd(), 'src/styles/admin.css'), 'utf8');
+const readLayout = () => fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
 describe('shared admin page structure', () => {
   it.each([
@@ -62,9 +63,40 @@ describe('shared admin page structure', () => {
     const source = readView(name);
 
     expect(source).toContain("@/components/admin/AdminPageHeader.vue");
+    expect(source).toContain("@/components/admin/ContentManagementTabs.vue");
     expect(source).toContain('<AdminPageHeader');
+    expect(source).toContain('<ContentManagementTabs');
     expect(source).toContain('admin-page-stack');
     expect(source).not.toContain('class="admin-card"');
+  });
+
+  it('exposes one sidebar entry for the complete bookmark workspace', () => {
+    const source = readLayout();
+
+    expect(source).toContain("labelKey: 'admin.navContentManagement'");
+    expect(source).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links']");
+    expect(source).not.toContain("labelKey: 'admin.navFolders'");
+    expect(source).not.toContain("labelKey: 'admin.navLinks'");
+  });
+
+  it('styles the simulated table DOM as compact desktop grids', () => {
+    const css = readAdminCss();
+
+    expect(css).toMatch(/\.admin-table-head,\s*\n\.admin-table-row \{[\s\S]*?display:\s*grid/);
+    expect(css).toMatch(/\.notab-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
+    expect(css).toMatch(/\.folder-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
+    expect(css).toMatch(/\.bookmark-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
+  });
+
+  it('targets the simulated table rows when stacking mobile cards', () => {
+    const css = readAdminCss();
+    const mobile = css.slice(css.indexOf('@media (max-width: 767px)'));
+
+    expect(mobile).toContain('.mobile-card-table .admin-table-head');
+    expect(mobile).toContain('.mobile-card-table .admin-table-row');
+    expect(mobile).toContain('.mobile-card-table .admin-table-row > [data-label]::before');
+    expect(mobile).not.toContain('.mobile-card-table thead');
+    expect(mobile).not.toContain('.mobile-card-table td');
   });
 
   it.each(['FoldersView', 'LinksView'])('%s uses shared success and error banners', (name) => {

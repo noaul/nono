@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -272,6 +273,7 @@ onMounted(load);
 <template>
   <div class="admin-page-stack">
     <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleNotabs')" />
+    <ContentManagementTabs active="notabs" />
 
     <section class="admin-section compact-admin-section" data-testid="entry-management">
       <div class="admin-section-head">

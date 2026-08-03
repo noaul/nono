@@ -1004,6 +1004,7 @@ export const en: Messages = {
     sectionSystem: 'System',
     navDashboard: 'Overview',
     navSite: 'Site',
+    navContentManagement: 'Bookmark management',
     navNotabs: 'Notabs',
     navFolders: 'Folders',
     navLinks: 'Bookmarks',

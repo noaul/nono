@@ -4,12 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { translate } from '../src/locales';
 
 describe('Notab management entry', () => {
-  it('adds a dedicated Notab management route and sidebar item', () => {
+  it('keeps the Notab route inside the unified bookmark workspace', () => {
     const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
     const viewPath = path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue');
 
-    expect(layoutSource).toContain("to: '/admin/notabs', labelKey: 'admin.navNotabs'");
+    expect(layoutSource).toContain("labelKey: 'admin.navContentManagement'");
+    expect(layoutSource).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links']");
+    expect(translate('zh', 'admin.navContentManagement')).toBe('书签管理');
     expect(translate('zh', 'admin.navNotabs')).toBe('Notab 管理');
     expect(routerSource).toContain("path: '/admin/notabs'");
     expect(fs.existsSync(viewPath)).toBe(true);

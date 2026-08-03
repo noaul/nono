@@ -1006,6 +1006,7 @@ export const zh = {
     sectionSystem: '系统',
     navDashboard: '总览',
     navSite: '站点',
+    navContentManagement: '书签管理',
     navNotabs: 'Notab 管理',
     navFolders: '文件夹',
     navLinks: '书签管理',

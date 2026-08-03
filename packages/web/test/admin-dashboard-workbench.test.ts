@@ -50,9 +50,9 @@ describe('admin dashboard workbench', () => {
     await flushPromises();
 
     const overview = wrapper.findAll('.nav-button').find((link) => link.text().includes('总览'));
-    const notabs = wrapper.findAll('.nav-button').find((link) => link.text().includes('Notab 管理'));
+    const contentManagement = wrapper.findAll('.nav-button').find((link) => link.text().includes('书签管理'));
     expect(overview?.classes()).not.toContain('router-link-active');
-    expect(notabs?.classes()).toContain('router-link-active');
+    expect(contentManagement?.classes()).toContain('router-link-active');
     wrapper.unmount();
   });
 

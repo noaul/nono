@@ -7,11 +7,9 @@ import {
   Bell,
   Bot,
   Compass,
-  Folder,
   Home,
   KeyRound,
   Layers,
-  Link2,
   LogOut,
   Menu,
   Settings,
@@ -50,7 +48,7 @@ const mobileNavCloseRef = ref<HTMLButtonElement | null>(null);
 
 // Nav entries carry catalogue keys; labels/titles resolve per render so switching language
 // updates the sidebar without a reload.
-type NavItem = { to: string; labelKey: MessageKey; titleKey: MessageKey; icon: Component; adminOnly?: boolean };
+type NavItem = { to: string; labelKey: MessageKey; titleKey: MessageKey; icon: Component; matches?: string[]; adminOnly?: boolean };
 type NavSection = { labelKey: MessageKey; items: NavItem[] };
 
 const navSections: NavSection[] = [
@@ -59,9 +57,13 @@ const navSections: NavSection[] = [
     items: [
       { to: '/admin', labelKey: 'admin.navDashboard', titleKey: 'admin.titleDashboard', icon: Home },
       { to: '/admin/site', labelKey: 'admin.navSite', titleKey: 'admin.titleSite', icon: Settings },
-      { to: '/admin/notabs', labelKey: 'admin.navNotabs', titleKey: 'admin.titleNotabs', icon: Layers },
-      { to: '/admin/folders', labelKey: 'admin.navFolders', titleKey: 'admin.titleFolders', icon: Folder },
-      { to: '/admin/links', labelKey: 'admin.navLinks', titleKey: 'admin.titleLinks', icon: Link2 },
+      {
+        to: '/admin/notabs',
+        labelKey: 'admin.navContentManagement',
+        titleKey: 'admin.titleNotabs',
+        icon: Layers,
+        matches: ['/admin/notabs', '/admin/folders', '/admin/links'],
+      },
     ],
   },
   {
@@ -93,7 +95,7 @@ const visibleNavSections = computed(() =>
 const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) => section.items.map((item) => ({ ...item, sectionLabelKey: section.labelKey }))));
 const routeTitleKey = computed(() => (route?.meta?.titleKey as MessageKey | undefined) || 'admin.titleDashboard');
 const pageTitle = computed(() => props.title || t(routeTitleKey.value));
-const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.titleKey === routeTitleKey.value) || flatNavItems.value[0]);
+const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.matches?.includes(route?.path || '') || item.titleKey === routeTitleKey.value) || flatNavItems.value[0]);
 const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
 const operatorRole = computed(() => t(auth.isAdmin ? 'admin.roleAdmin' : 'admin.roleMember'));
 const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
@@ -173,7 +175,7 @@ async function logout() {
             v-for="item in section.items"
             :key="item.to"
             class="nav-button nav-button-plain"
-            :class="{ 'router-link-active': route?.path === item.to }"
+            :class="{ 'router-link-active': route?.path === item.to || item.matches?.includes(route?.path || '') }"
             :to="item.to"
             active-class="nav-route-match"
             exact-active-class="nav-route-exact"

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { CheckSquare, GripVertical, MoveDown, MoveUp, Pencil, Plus, Save, Square, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
@@ -399,6 +400,7 @@ onMounted(load);
 <template>
   <div class="admin-page-stack">
     <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleFolders')" />
+    <ContentManagementTabs active="folders" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
@@ -436,8 +438,8 @@ onMounted(load);
             {{ category.name }}
           </button>
         </nav>
-        <div v-if="!sortMode" class="bulk-action-bar">
-          <strong>{{ selectedFolderCount ? t('folders.selectedCount', { count: selectedFolderCount }) : t('folders.bulkActions') }}</strong>
+        <div v-if="!sortMode && selectedFolderCount" class="bulk-action-bar" data-testid="folder-bulk-actions">
+          <strong>{{ t('folders.selectedCount', { count: selectedFolderCount }) }}</strong>
           <div class="bulk-controls">
             <button class="button secondary" data-testid="select-all-folders" type="button" @click="selectAllFolders"><CheckSquare :size="17" /> {{ t('folders.selectAll') }}</button>
             <button class="button secondary" type="button" :disabled="!selectedFolderCount" @click="clearFolderSelection"><Square :size="17" /> {{ t('folders.clearSelection') }}</button>

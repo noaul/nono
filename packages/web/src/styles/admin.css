@@ -335,6 +335,39 @@
   min-width: 0;
 }
 
+.content-management-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  gap: var(--ui-space-5);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.content-management-tab {
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--ui-text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  gap: var(--ui-space-2);
+  min-height: var(--ui-control-h);
+  padding: 0 var(--ui-space-1);
+  text-decoration: none;
+}
+
+.content-management-tab:hover,
+.content-management-tab:focus-visible {
+  color: var(--ui-text);
+}
+
+.content-management-tab.active {
+  border-bottom-color: var(--ui-accent);
+  color: var(--ui-text);
+}
+
 .admin-page-header {
   align-items: flex-start;
   display: flex;
@@ -649,39 +682,39 @@
 .mobile-card-table {
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
-  border-collapse: separate;
   border-radius: var(--ui-radius-md);
-  border-spacing: 0;
   font-size: 13px;
-  overflow: hidden;
+  overflow-x: auto;
   width: 100%;
 }
 
-.admin-table th,
-.admin-table-head th,
-.folder-table th,
-.bookmark-table th {
+.admin-table-head,
+.admin-table-row {
+  align-items: center;
+  display: grid;
+}
+
+.admin-table-head {
   background: var(--ui-surface-sunken);
   border-bottom: 1px solid var(--ui-border);
   color: var(--ui-text-muted);
   font-size: 11.5px;
   font-weight: 600;
-  padding: var(--ui-space-2) var(--ui-space-3);
-  text-align: left;
   white-space: nowrap;
 }
 
-.admin-table td,
-.folder-table td,
-.bookmark-table td {
-  border-bottom: 1px solid var(--ui-border);
+.admin-table-head > *,
+.admin-table-row > * {
+  box-sizing: border-box;
+  min-width: 0;
   padding: var(--ui-space-2) var(--ui-space-3);
-  vertical-align: middle;
 }
 
-.admin-table tbody tr:last-child td,
-.folder-table tbody tr:last-child td,
-.bookmark-table tbody tr:last-child td {
+.admin-table-row {
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.sortable-list > .admin-table-row:last-child {
   border-bottom: 0;
 }
 
@@ -690,11 +723,23 @@
   background: var(--ui-surface-sunken);
 }
 
-/* Columns stop compressing at a readable floor; the wrapper scrolls instead of the page. */
-.admin-table,
-.folder-table,
-.bookmark-table {
+/* Each management view owns a stable column contract; the container scrolls when necessary. */
+.notab-table .admin-table-head,
+.notab-table .admin-table-row {
+  grid-template-columns: 72px minmax(220px, 1.5fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) 180px;
   min-width: 760px;
+}
+
+.folder-table .admin-table-head,
+.folder-table .admin-table-row {
+  grid-template-columns: 48px 52px minmax(150px, 1fr) minmax(120px, 0.8fr) 110px minmax(180px, 1.2fr) 104px;
+  min-width: 880px;
+}
+
+.bookmark-table .admin-table-head,
+.bookmark-table .admin-table-row {
+  grid-template-columns: 44px 40px minmax(130px, 0.8fr) minmax(220px, 1.5fr) 130px 120px 104px 124px;
+  min-width: 1040px;
 }
 
 .admin-table-wrap,
@@ -1258,49 +1303,57 @@
     padding: var(--ui-space-4);
   }
 
-  /* Wide tables become stacked cards rather than a horizontal scroll trap. */
+  /* Wide simulated tables become stacked cards rather than a horizontal scroll trap. */
   .admin-table,
   .folder-table,
   .bookmark-table,
   .admin-table.mobile-card-table {
-    min-width: 0;
-  }
-
-  .mobile-card-table,
-  .mobile-card-table thead {
+    background: transparent;
     border: 0;
+    min-width: 0;
+    overflow: visible;
   }
 
-  .mobile-card-table thead {
-    clip: rect(0 0 0 0);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    width: 1px;
+  .mobile-card-table .admin-table-head {
+    display: none;
   }
 
-  .mobile-card-table tr {
+  .mobile-card-table .sortable-list {
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .mobile-card-table .admin-table-row {
     background: var(--ui-surface);
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-md);
-    display: block;
-    margin-bottom: var(--ui-space-2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-width: 0;
     padding: var(--ui-space-2);
   }
 
-  .mobile-card-table td {
+  .mobile-card-table .admin-table-row > [data-label] {
     border: 0;
-    display: flex;
+    display: grid;
     gap: var(--ui-space-3);
-    justify-content: space-between;
+    grid-template-columns: minmax(76px, 0.36fr) minmax(0, 1fr);
     padding: var(--ui-space-1) var(--ui-space-2);
   }
 
-  .mobile-card-table td[data-label]::before {
+  .mobile-card-table .admin-table-row > [data-label]::before {
     color: var(--ui-text-subtle);
     content: attr(data-label);
     font-size: 11.5px;
     font-weight: 600;
+  }
+
+  .mobile-card-table .admin-table-row > .row-actions {
+    display: flex;
+  }
+
+  .mobile-card-table .admin-table-row > .row-actions::before {
+    margin-right: auto;
   }
 
   .grid.two,

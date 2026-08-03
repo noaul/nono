@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
@@ -428,6 +429,7 @@ onMounted(load);
 <template>
   <div class="admin-page-stack">
     <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleLinks')" />
+    <ContentManagementTabs active="links" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />

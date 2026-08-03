@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Sliders, Trash2, X } from 'lucide-vue-next';
+import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Trash2, X } from 'lucide-vue-next';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
 import LanguageControl from '@/components/LanguageControl.vue';
@@ -33,14 +33,13 @@ const presetName = ref('');
 const savedSnapshot = ref('');
 let successTimer = 0;
 
-// Three panels instead of one ~1900px scroll: pick a look, fine-tune the glass, set preferences.
-type DrawerTab = 'theme' | 'texture' | 'general';
+// The primary panel contains the choices most people use; detailed tuning stays separate.
+type DrawerTab = 'theme' | 'texture';
 const activeTab = ref<DrawerTab>('theme');
 
 const tabs = computed(() => [
   { id: 'theme' as const, label: t('appearance.theme'), icon: Palette },
   { id: 'texture' as const, label: t('appearance.glass'), icon: Layers },
-  { id: 'general' as const, label: t('appearance.general'), icon: Sliders },
 ]);
 
 type UserAppearancePreset = {
@@ -393,6 +392,43 @@ onBeforeUnmount(() => {
               </label>
             </section>
 
+            <div class="preference-grid">
+              <section class="preference-section">
+                <div class="drawer-section-title">
+                  <h3><Palette :size="16" /> {{ t('colorMode.label') }}</h3>
+                </div>
+                <ColorModeControl variant="segmented" />
+              </section>
+
+              <section class="preference-section">
+                <div class="drawer-section-title">
+                  <h3><Languages :size="16" /> {{ t('language.label') }}</h3>
+                </div>
+                <LanguageControl variant="segmented" />
+                <small class="field-hint">{{ t('language.visitorHint') }}</small>
+              </section>
+
+              <section class="preference-section">
+                <div class="drawer-section-title">
+                  <h3><Languages :size="16" /> {{ t('language.siteDefault') }}</h3>
+                </div>
+                <div class="site-locale-segments" role="group" :aria-label="t('language.siteDefault')">
+                  <button
+                    v-for="option in (['zh', 'en'] as Locale[])"
+                    :key="option"
+                    type="button"
+                    :class="{ active: siteLocale === option }"
+                    :aria-pressed="siteLocale === option"
+                    :data-testid="`site-locale-${option}`"
+                    @click="previewSiteLocale(option)"
+                  >
+                    {{ option === 'zh' ? t('language.zh') : t('language.en') }}
+                  </button>
+                </div>
+                <small class="field-hint">{{ t('language.siteDefaultHint') }}</small>
+              </section>
+            </div>
+
             <section class="user-preset-section">
               <div class="drawer-section-title">
                 <h3><Save :size="16" /> {{ t('appearance.presets') }}</h3>
@@ -444,43 +480,6 @@ onBeforeUnmount(() => {
 
           <div v-show="activeTab === 'texture'" class="drawer-panel" role="tabpanel">
             <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene.kind" />
-          </div>
-
-          <div v-show="activeTab === 'general'" class="drawer-panel" role="tabpanel">
-            <section class="preference-section">
-              <div class="drawer-section-title">
-                <h3><Palette :size="16" /> {{ t('colorMode.label') }}</h3>
-              </div>
-              <ColorModeControl variant="segmented" />
-            </section>
-
-            <section class="preference-section">
-              <div class="drawer-section-title">
-                <h3><Languages :size="16" /> {{ t('language.label') }}</h3>
-              </div>
-              <LanguageControl variant="segmented" />
-              <small class="field-hint">{{ t('language.visitorHint') }}</small>
-            </section>
-
-            <section class="preference-section">
-              <div class="drawer-section-title">
-                <h3><Languages :size="16" /> {{ t('language.siteDefault') }}</h3>
-              </div>
-              <div class="site-locale-segments" role="group" :aria-label="t('language.siteDefault')">
-                <button
-                  v-for="option in (['zh', 'en'] as Locale[])"
-                  :key="option"
-                  type="button"
-                  :class="{ active: siteLocale === option }"
-                  :aria-pressed="siteLocale === option"
-                  :data-testid="`site-locale-${option}`"
-                  @click="previewSiteLocale(option)"
-                >
-                  {{ option === 'zh' ? t('language.zh') : t('language.en') }}
-                </button>
-              </div>
-              <small class="field-hint">{{ t('language.siteDefaultHint') }}</small>
-            </section>
           </div>
         </div>
 
@@ -613,7 +612,7 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--drawer-divider);
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 8px 16px;
 }
 
@@ -645,6 +644,7 @@ onBeforeUnmount(() => {
 }
 
 .drawer-scroll {
+  align-content: start;
   box-sizing: border-box;
   display: grid;
   gap: 14px;
@@ -657,6 +657,7 @@ onBeforeUnmount(() => {
 }
 
 .drawer-panel {
+  align-content: start;
   display: grid;
   gap: 14px;
   min-width: 0;
@@ -679,6 +680,16 @@ onBeforeUnmount(() => {
 .preference-section {
   display: grid;
   gap: 8px;
+}
+
+.preference-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preference-grid .preference-section:last-child {
+  grid-column: 1 / -1;
 }
 
 .drawer-section-title {
@@ -1259,7 +1270,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr 1fr 44px;
   }
 
-  .save-state {
+  .header-actions > .save-state {
     display: none;
   }
 
@@ -1281,8 +1292,13 @@ onBeforeUnmount(() => {
   }
 
   .preset-create,
-  .user-preset-list {
+  .user-preset-list,
+  .preference-grid {
     grid-template-columns: 1fr;
+  }
+
+  .preference-grid .preference-section:last-child {
+    grid-column: auto;
   }
 }
 

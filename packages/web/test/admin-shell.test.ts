@@ -171,7 +171,7 @@ describe('admin shell', () => {
 
     expect(css).toMatch(/\.admin-shell \{[\s\S]*?overflow-x:\s*hidden/);
     // Wide tables become stacked cards on mobile rather than a horizontal scroll trap.
-    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.mobile-card-table tr \{[\s\S]*?display:\s*block/);
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.mobile-card-table \.admin-table-row \{[\s\S]*?display:\s*grid/);
     expect(css).toContain("content: attr(data-label)");
   });
 

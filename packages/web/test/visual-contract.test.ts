@@ -619,7 +619,8 @@ describe('visual contracts', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/admin.css'), 'utf8');
 
     expect(source).toContain('@media (max-width: 767px)');
-    expect(source).toContain('.folder-table th');
+    expect(source).toContain('.folder-table .admin-table-head');
+    expect(source).toContain('.bookmark-table .admin-table-row');
     expect(source).toContain('.admin-table-row:hover');
     expect(source).toContain('min-width: 760px');
   });

@@ -27,6 +27,27 @@ const site = {
 describe('AppearanceSettingsDrawer', () => {
   beforeEach(() => apiRequest.mockReset());
 
+  it('combines theme and general preferences into one compact appearance panel', () => {
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    const tabs = wrapper.findAll('.drawer-tab');
+
+    expect(tabs).toHaveLength(2);
+    expect(wrapper.find('[data-testid="drawer-tab-general"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="drawer-tab-theme"]').attributes('aria-selected')).toBe('true');
+    expect(wrapper.get('[data-testid="theme-winter-glow"]').isVisible()).toBe(true);
+    expect(wrapper.get('[data-testid="site-locale-zh"]').isVisible()).toBe(true);
+    expect(wrapper.getComponent({ name: 'ColorModeControl' }).isVisible()).toBe(true);
+    expect(wrapper.getComponent({ name: 'LanguageControl' }).isVisible()).toBe(true);
+  });
+
+  it('pins grid content to the top instead of stretching cards across the drawer', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
+
+    expect(source).toMatch(/\.drawer-scroll \{[\s\S]*?align-content:\s*start/);
+    expect(source).toMatch(/\.drawer-panel \{[\s\S]*?align-content:\s*start/);
+    expect(source).toMatch(/\.drawer-tabs \{[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+  });
+
   it('applies and saves a complete theme without dropping unrelated settings', async () => {
     apiRequest.mockResolvedValue({ ...site, backgroundColor: '#cfdcee', fontColor: '#3a3029' });
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
@@ -215,6 +236,9 @@ describe('appearance header actions', () => {
     // Title on row one, the three controls on a compact row two.
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.drawer-header \{[\s\S]*?flex-direction:\s*column/);
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.header-actions \{[\s\S]*?grid-template-columns:\s*1fr 1fr 44px/);
+    // `.drawer-header span` is more specific than a bare `.save-state`; the mobile override must
+    // win or this invisible status span consumes the first grid cell and wraps Close to row two.
+    expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.header-actions > \.save-state \{[\s\S]*?display:\s*none/);
     expect(source).toMatch(/min-height:\s*44px/);
   });
 });

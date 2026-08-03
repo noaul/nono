@@ -144,6 +144,22 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.find('[data-testid="folder-row-4"]').exists()).toBe(true);
   });
 
+  it('reveals bulk actions only after a folder is selected', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const wrapper = mountFoldersView();
+    await settle(wrapper);
+
+    expect(wrapper.find('[data-testid="folder-bulk-actions"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="select-folder-2"]').setValue(true);
+    expect(wrapper.find('[data-testid="folder-bulk-actions"]').exists()).toBe(true);
+  });
+
   it('edits a folder inline with category and icon controls', async () => {
     apiRequest
       .mockResolvedValueOnce([
