@@ -1236,6 +1236,7 @@ onUnmounted(() => {
 
 <template>
   <main
+    v-if="payload"
     class="nav-page public-glass-page"
     :class="{ 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
@@ -1320,17 +1321,6 @@ onUnmounted(() => {
         :overflow="homeUrgentOverflow"
         @select="markHomeNotificationRead"
       />
-
-      <div v-if="navigation.loading && !payload" class="public-loading" role="status" aria-live="polite">
-        <span class="public-loading-bar"></span>
-        <span class="public-loading-bar"></span>
-        <span class="public-loading-bar"></span>
-        <span class="sr-only">{{ t('nav.loadingContent') }}</span>
-      </div>
-      <div v-else-if="navigation.error && !payload" class="public-load-error" role="alert">
-        <p>{{ navigation.error }}</p>
-        <button class="button" type="button" @click="load">{{ t('nav.reload') }}</button>
-      </div>
 
       <Transition name="navigation-reveal">
         <section v-if="payload && payload.access?.unlocked !== false" class="navigation-reveal-content" :class="{ 'is-organizing': organizing }">
@@ -1478,6 +1468,17 @@ onUnmounted(() => {
       @saved="onAppearanceSaved"
     />
   </main>
+
+  <main
+    v-else-if="navigation.error"
+    class="nav-page public-glass-page navigation-load-error-page"
+    :data-color-mode="resolvedMode"
+  >
+    <div class="public-load-error" role="alert">
+      <p>{{ navigation.error }}</p>
+      <button class="button" type="button" @click="load">{{ t('nav.reload') }}</button>
+    </div>
+  </main>
 </template>
 
 <style scoped>
@@ -1489,6 +1490,12 @@ onUnmounted(() => {
   min-height: 100dvh;
   padding: 48px 0 80px;
   position: relative;
+}
+
+.navigation-load-error-page {
+  display: grid;
+  padding: 24px;
+  place-items: center;
 }
 
 .bookmark-drag-preview {

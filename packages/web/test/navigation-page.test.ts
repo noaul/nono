@@ -92,6 +92,29 @@ describe('NavigationPage public workflow', () => {
     document.head.querySelectorAll('[data-nono-background-preload]').forEach((node) => node.remove());
   });
 
+  it('waits for navigation data before rendering the homepage', async () => {
+    let resolveNavigation!: (value: ReturnType<typeof navigationPayload>) => void;
+    apiRequest.mockImplementation(() => new Promise((resolve) => {
+      resolveNavigation = resolve;
+    }));
+
+    const wrapper = await mountNavigationPage();
+
+    expect(wrapper.find('.nav-page').exists()).toBe(false);
+    expect(wrapper.find('.nav-header').exists()).toBe(false);
+    expect(wrapper.find('.search-bar').exists()).toBe(false);
+    expect(wrapper.find('.public-loading').exists()).toBe(false);
+
+    const response = navigationPayload();
+    response.site.name = 'My Navigation';
+    resolveNavigation(response);
+
+    await vi.waitFor(() => {
+      expect(wrapper.get('.nav-header h1').text()).toBe('My Navigation');
+    });
+    expect(wrapper.find('.search-bar').exists()).toBe(true);
+  });
+
   it('renders category tabs, sub-folder cards, and local search summary', async () => {
     apiRequest.mockResolvedValue({
       ...navigationPayload(),
