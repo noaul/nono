@@ -238,6 +238,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [autoRefreshVps, setAutoRefreshVps] = useState(true);
   const vpsRefreshesInFlight = useRef(new Set<number>());
   const [copiedSshId, setCopiedSshId] = useState<number | null>(null);
+  const [copiedVpsIpId, setCopiedVpsIpId] = useState<number | null>(null);
   const [vpsActionById, setVpsActionById] = useState<Record<number, VpsActionState>>({});
   const registrarAccountOptions = meta?.registrarAccounts ?? [];
   const isPhoneVisual = isPhone && phoneType === 'visual';
@@ -299,6 +300,20 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       }, 1400);
     } catch {
       setError(copy('复制 SSH 命令失败。', 'Failed to copy SSH command.'));
+    }
+  };
+
+  const copyVpsIpAddress = async (item: AssetItem) => {
+    const address = stringValue(item.ipAddress) || stringValue(item.sshHost);
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedVpsIpId(item.id);
+      window.setTimeout(() => {
+        setCopiedVpsIpId((current) => current === item.id ? null : current);
+      }, 1400);
+    } catch {
+      setError(copy('复制 IP 地址失败。', 'Failed to copy IP address.'));
     }
   };
 
@@ -433,6 +448,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     setPurchaseType(config.endpoint === 'subscriptions' ? 'subscription' : '');
     setMonitorById({});
     setCopiedSshId(null);
+    setCopiedVpsIpId(null);
     setVpsActionById({});
     setDuplicatingPhoneId(null);
     setDuplicatedPhoneId(null);
@@ -1098,7 +1114,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           {items.map((item) => isDomain
             ? <DomainCardView key={item.id} item={item} duplicated={duplicatedDomainId === item.id} duplicating={duplicatingDomainId === item.id} renewing={renewingDomainId === item.id} renewed={renewedDomainId === item.id} onDuplicate={duplicateDomainEntry} onRenew={renewDomainOnce} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps
-              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} renewing={renewingVpsId === item.id} onRenew={renewVpsOnce} onCopySsh={copySshCommand} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onInstall={installVpsProbe} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} copiedIp={copiedVpsIpId === item.id} renewing={renewingVpsId === item.id} onRenew={renewVpsOnce} onCopySsh={copySshCommand} onCopyIp={copyVpsIpAddress} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
               ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedPhoneId === item.id} duplicating={duplicatingPhoneId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicatePhoneEntry} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : <AssetCardView key={item.id} item={item} config={config} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
@@ -1718,12 +1734,13 @@ function VpsNodeCard({
   monitorState,
   actionState,
   copiedSsh,
+  copiedIp,
   renewing,
   onRenew,
   onCopySsh,
+  onCopyIp,
   onRefresh,
   onTest,
-  onInstall,
   onEdit,
   onDelete,
   copy
@@ -1732,12 +1749,13 @@ function VpsNodeCard({
   monitorState?: VpsMonitorState;
   actionState?: VpsActionState;
   copiedSsh: boolean;
+  copiedIp: boolean;
   renewing: boolean;
   onRenew: (item: AssetItem) => void;
   onCopySsh: (item: AssetItem) => void;
+  onCopyIp: (item: AssetItem) => void;
   onRefresh: (item: AssetItem) => void;
   onTest: (item: AssetItem) => void;
-  onInstall: (item: AssetItem) => void;
   onEdit: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
@@ -1752,33 +1770,39 @@ function VpsNodeCard({
   const netOut = getMonitorNumber(item, monitorState, 'monitorNetOutBps', 'netOutBps');
   const totalIn = getMonitorNumber(item, monitorState, 'monitorNetTotalInBytes', 'netTotalInBytes') ?? 0;
   const totalOut = getMonitorNumber(item, monitorState, 'monitorNetTotalOutBytes', 'netTotalOutBytes') ?? 0;
-  const uptime = getMonitorNumber(item, monitorState, 'monitorUptimeSeconds', 'uptimeSeconds');
-  const sshCommand = getSshCommand(item);
-  const sshHref = getSshHref(item);
+  const ipAddress = stringValue(item.ipAddress) || stringValue(item.sshHost) || '-';
   const canRenew = !['cancelled', 'archived'].includes(item.status);
 
   return (
     <div className="motion-card card-hover group relative overflow-hidden">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex max-w-full items-center gap-2">
             <MonitorDot status={statusValue} />
-            <h3 className="truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</h3>
+            <h3 className="min-w-0 truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</h3>
+            <span className="shrink-0 text-sm text-slate-500">{formatVpsType(item.vpsType, copy)}</span>
           </div>
           <p className="mt-1 truncate text-sm text-slate-500">
-            {formatVpsType(item.vpsType, copy)} · {stringValue(item.provider) || '-'} · {stringValue(item.location) || stringValue(item.os) || '-'}
+            {stringValue(item.provider) || '-'} · {stringValue(item.location) || stringValue(item.os) || '-'}
           </p>
         </div>
-        <span className={`rounded-lg border px-2 py-0.5 text-[11px] font-medium ${monitorBadgeClass(statusValue)}`}>{formatMonitorStatus(statusValue, copy)}</span>
+        <span className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[11px] font-medium leading-5 ${monitorBadgeClass(statusValue)}`}>{formatMonitorStatus(statusValue, copy)}</span>
       </div>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
-          <Server size={13} />
-          <span className="truncate font-mono">{stringValue(item.ipAddress) || stringValue(item.sshHost) || '-'}</span>
-        </div>
-        {sshCommand && <p className="mt-1 truncate font-mono text-[11px] text-slate-400">{sshCommand}</p>}
-      </div>
+      <button
+        type="button"
+        onClick={() => onCopyIp(item)}
+        disabled={ipAddress === '-'}
+        className="mt-4 flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-500 transition-colors hover:border-brand-500/25 hover:bg-brand-500/[0.04] disabled:cursor-default dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+        title={copy('复制 IP 地址', 'Copy IP address')}
+        aria-label={copy('复制 IP 地址', 'Copy IP address')}
+      >
+        <Server size={13} />
+        <span className="min-w-0 flex-1 truncate font-mono">{ipAddress}</span>
+        <span className={copiedIp ? 'text-success-500' : 'text-slate-400'}>
+          {copiedIp ? <Check size={13} /> : <Copy size={13} />}
+        </span>
+      </button>
 
       <div className="mt-4 space-y-3">
         <VpsMetricLine icon={<Cpu size={14} />} label="CPU" total={formatVpsCapacity(item.cpu, 'cpu')} value={cpu} />
@@ -1787,21 +1811,31 @@ function VpsNodeCard({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="muted-panel p-3">
-          <p className="flex items-center gap-1 text-xs text-slate-500"><Download size={13} />{copy('下行', 'Down')}</p>
-          <p className="mt-1 font-mono text-sm font-semibold text-success-600 dark:text-success-400">{formatBps(netIn)}</p>
-          <p className="mt-1 font-mono text-[11px] text-slate-400">{formatBytes(totalIn)}</p>
+        <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
+          <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Download size={13} />{copy('下行', 'Down')}</p>
+          <div className="min-w-0 text-right">
+            <p className="truncate font-mono text-xs font-semibold text-success-600 dark:text-success-400">{formatBps(netIn)}</p>
+            <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalIn)}</p>
+          </div>
         </div>
-        <div className="muted-panel p-3">
-          <p className="flex items-center gap-1 text-xs text-slate-500"><Upload size={13} />{copy('上行', 'Up')}</p>
-          <p className="mt-1 font-mono text-sm font-semibold text-brand-600 dark:text-brand-400">{formatBps(netOut)}</p>
-          <p className="mt-1 font-mono text-[11px] text-slate-400">{formatBytes(totalOut)}</p>
+        <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
+          <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Upload size={13} />{copy('上行', 'Up')}</p>
+          <div className="min-w-0 text-right">
+            <p className="truncate font-mono text-xs font-semibold text-brand-600 dark:text-brand-400">{formatBps(netOut)}</p>
+            <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalOut)}</p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`font-mono font-semibold ${dueTone(left)}`}>{copy('续费 ', 'Renewal ')}{left === null ? '-' : `${left}d`}</span>
+      {(monitorState?.error || actionState?.error || actionState?.message) && (
+        <p className={`mt-3 rounded-lg border px-2 py-1 text-xs ${actionState?.message ? 'border-success-500/20 bg-success-500/10 text-success-700 dark:text-success-300' : 'border-warning-500/20 bg-warning-500/10 text-warning-700 dark:text-warning-300'}`}>
+          {actionState?.message || actionState?.error || monitorState?.error}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+        <div className="flex min-w-0 items-center gap-2 text-xs">
+          <span className={`shrink-0 font-mono font-semibold ${dueTone(left)}`}>{copy('续费 ', 'Renewal ')}{left === null ? '-' : `${left}d`}</span>
           {canRenew && (
             <button
               type="button"
@@ -1814,34 +1848,16 @@ function VpsNodeCard({
             </button>
           )}
         </div>
-        <span className="truncate">{copy('运行 ', 'Uptime ')}{formatUptime(uptime)}</span>
-      </div>
-      {(monitorState?.error || actionState?.error || actionState?.message) && (
-        <p className={`mt-3 rounded-lg border px-2 py-1 text-xs ${actionState?.message ? 'border-success-500/20 bg-success-500/10 text-success-700 dark:text-success-300' : 'border-warning-500/20 bg-warning-500/10 text-warning-700 dark:text-warning-300'}`}>
-          {actionState?.message || actionState?.error || monitorState?.error}
-        </p>
-      )}
-
-      <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
-        <p className="truncate text-[11px] text-slate-400">{copy('更新 ', 'Updated ')}{formatMonitorUpdatedAt(stringValue(item.monitorUpdatedAt) || monitorState?.monitor?.updatedAt || '')}</p>
         <div className="flex shrink-0 justify-end gap-1">
           <button onClick={() => onTest(item)} disabled={actionState?.testing} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('测试 SSH 连接', 'Test SSH connection')}>
             <Terminal className={actionState?.testing ? 'animate-pulse' : ''} size={14} />
-          </button>
-          <button onClick={() => onInstall(item)} disabled={actionState?.installing} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-brand-600 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('安装探针', 'Install probe')}>
-            <Download className={actionState?.installing ? 'animate-pulse' : ''} size={14} />
           </button>
           <button onClick={() => onRefresh(item)} disabled={!stringValue(item.probeUrl) || monitorState?.loading} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('刷新监控', 'Refresh monitor')}>
             <RefreshCw className={monitorState?.loading ? 'animate-spin' : ''} size={14} />
           </button>
           <button onClick={() => onCopySsh(item)} className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSsh ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} title={copy('复制 SSH 命令', 'Copy SSH command')}>
-            {copiedSsh ? <Check size={14} /> : <Terminal size={14} />}
+            {copiedSsh ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          {sshHref && (
-            <a href={sshHref} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开 SSH 链接', 'Open SSH link')}>
-              <ExternalLink size={14} />
-            </a>
-          )}
           <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
             <Pencil size={14} />
           </button>
@@ -2946,19 +2962,6 @@ function formatBytes(value: number | null): string {
   return `${Math.round(value)} B`;
 }
 
-function formatUptime(value: number | null): string {
-  if (value === null) return '-';
-  const days = Math.floor(value / 86_400);
-  const hours = Math.floor((value % 86_400) / 3600);
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h`;
-}
-
-function formatMonitorUpdatedAt(value: string): string {
-  if (!value) return '-';
-  return value.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 16);
-}
-
 function formatMonitorStatus(status: string, copy: (zh: string, en: string) => string): string {
   if (status === 'online') return copy('在线', 'Online');
   if (status === 'offline') return copy('离线', 'Offline');
@@ -3055,10 +3058,6 @@ function updatePhoneCostFields(next: FormState, key: string): void {
   const discount = numberValue(next.discountMinorUnits) ?? 0;
   const cashback = numberValue(next.cashbackMinorUnits) ?? 0;
   next.amount = String(Math.max(rent + attachedServices - discount - cashback, 0));
-}
-
-function getSshHref(item: Record<string, unknown>): string {
-  return getSshHrefFromValues(item.sshHost || item.ipAddress, item.sshUser, item.sshPort);
 }
 
 function getSshHrefFromValues(hostValue: unknown, userValue: unknown, portValue: unknown): string {
