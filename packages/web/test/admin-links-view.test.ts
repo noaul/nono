@@ -115,6 +115,169 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.get('.admin-section-head').find('.toolbar').exists()).toBe(false);
   });
 
+  it('edits the active folder above bookmark operations', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, icon: 'folder', description: '旧提示', passwordHint: '旧说明', sortOrder: 90 },
+        { id: 3, userId: 1, name: '生活', parentId: null, sortOrder: 80 },
+      ])
+      .mockResolvedValueOnce([{ id: 10, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 }])
+      .mockResolvedValueOnce({ id: 2, userId: 1, name: '工程', parentId: 3, icon: 'rocket', description: '工程资料', passwordHint: '仅限工作', sortOrder: 90 });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    const folderManager = wrapper.get('[data-testid="folder-management"]');
+    const bookmarkTools = wrapper.get('#bookmark-tools');
+    expect(folderManager.element.compareDocumentPosition(bookmarkTools.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(folderManager.get('[data-testid="active-folder-name"]').classes()).toContain('folder-summary-name');
+
+    await folderManager.get('[data-testid="edit-active-folder"]').trigger('click');
+    await folderManager.get('[data-testid="folder-editor-name"]').setValue('工程');
+    await folderManager.get('[data-testid="folder-editor-category"]').setValue('3');
+    await folderManager.get('[data-testid="folder-editor-hint"]').setValue('仅限工作');
+    await folderManager.get('[data-testid="folder-editor-description"]').setValue('工程资料');
+    await folderManager.get('[data-testid="save-folder-editor"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/2', {
+      method: 'PUT',
+      body: JSON.stringify({
+        parentId: 3,
+        name: '工程',
+        icon: 'folder',
+        description: '工程资料',
+        passwordHint: '仅限工作',
+      }),
+    });
+    expect(wrapper.get('[data-testid="link-category-3"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[data-testid="active-folder-name"]').text()).toBe('工程');
+  });
+
+  it('creates and deletes folders without leaving bookmark management', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([{ id: 10, folderId: 2, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 }])
+      .mockResolvedValueOnce({ id: 3, userId: 1, name: '资料', parentId: 1, icon: '', description: '', passwordHint: '', sortOrder: 80 })
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.findAll('.content-management-tab').map((tab) => tab.text())).toEqual(['Notab 管理', '文件夹及书签管理']);
+    await wrapper.get('[data-testid="create-folder"]').trigger('click');
+    await wrapper.get('[data-testid="folder-editor-name"]').setValue('资料');
+    await wrapper.get('[data-testid="save-folder-editor"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders', {
+      method: 'POST',
+      body: JSON.stringify({
+        parentId: 1,
+        name: '资料',
+        icon: '',
+        description: '',
+        passwordHint: '',
+      }),
+    });
+    expect(wrapper.get('[data-testid="active-folder-name"]').text()).toBe('资料');
+
+    await wrapper.get('[data-testid="delete-active-folder"]').trigger('click');
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/3', { method: 'DELETE' });
+    expect(wrapper.find('[data-testid="sortable-folder-pill-3"]').exists()).toBe(false);
+  });
+
+  it('saves folder order by dragging the pills in the folder row', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '设计', parentId: 1, sortOrder: 80 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    const sorter = wrapper.getComponent({ name: 'SortableFolderPills' });
+    expect(wrapper.findAll('[data-testid^="sortable-folder-pill-"]').map((pill) => pill.attributes('data-testid'))).toEqual([
+      'sortable-folder-pill-2',
+      'sortable-folder-pill-3',
+    ]);
+
+    sorter.vm.$emit('reorder', [3, 2]);
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [3, 2] }),
+    });
+    expect(wrapper.findAll('[data-testid^="sortable-folder-pill-"]').map((pill) => pill.attributes('data-testid'))).toEqual([
+      'sortable-folder-pill-3',
+      'sortable-folder-pill-2',
+    ]);
+  });
+
+  it('sorts only direct child folders while keeping nested folders selectable', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '前端', parentId: 2, sortOrder: 80 },
+        { id: 4, userId: 1, name: '设计', parentId: 1, sortOrder: 70 },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.findAll('[data-testid^="sortable-folder-pill-"]').map((pill) => pill.attributes('data-testid'))).toEqual([
+      'sortable-folder-pill-2',
+      'sortable-folder-pill-4',
+    ]);
+    expect(wrapper.get('[data-testid="nested-folder-pill-3"]').text()).toContain('前端');
+
+    await wrapper.get('[data-testid="nested-folder-pill-3"]').trigger('click');
+    expect(wrapper.get('[data-testid="nested-folder-pill-3"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[data-testid="active-folder-name"]').text()).toBe('前端');
+  });
+
+  it('supports keyboard folder reordering and exposes the root selection state', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+        { id: 3, userId: 1, name: '设计', parentId: 1, sortOrder: 80 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ ok: true });
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    const rootPill = wrapper.get('[data-testid="root-folder-pill"]');
+    expect(rootPill.attributes('aria-pressed')).toBe('false');
+    expect(wrapper.get('[data-testid="sortable-folder-pill-2"]').attributes('aria-keyshortcuts')).toBe('Alt+ArrowLeft Alt+ArrowRight');
+
+    await wrapper.get('[data-testid="sortable-folder-pill-2"]').trigger('keydown', { altKey: true, key: 'ArrowRight' });
+    await settle(wrapper);
+
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ ids: [3, 2] }),
+    });
+
+    await rootPill.trigger('click');
+    expect(wrapper.get('[data-testid="root-folder-pill"]').attributes('aria-pressed')).toBe('true');
+  });
+
   it('filters bookmarks by category then folder and saves inline changes', async () => {
     apiRequest
       .mockResolvedValueOnce([

@@ -93,7 +93,7 @@ describe('admin dashboard workbench', () => {
       '/admin/links#new-bookmark',
       '/admin/automation',
       '/admin/notabs',
-      '/admin/folders',
+      '/admin/links#folder-management',
       '/admin/links#bookmark-tools',
       '/admin/llm',
       '/admin/tokens',

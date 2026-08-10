@@ -6,7 +6,9 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
+import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
+import SortableFolderPills from '@/components/admin/SortableFolderPills.vue';
 import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult, LinkHealthSummary } from '@/api/types';
@@ -40,6 +42,19 @@ const isLoadingDuplicates = ref(false);
 const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
+const folderEditorOpen = ref(false);
+const isCreatingFolder = ref(false);
+const isSavingFolder = ref(false);
+const isDeletingFolder = ref(false);
+const isSavingFolderSort = ref(false);
+const folderEditor = reactive({
+  parentId: 0,
+  name: '',
+  icon: '',
+  description: '',
+  password: '',
+  passwordHint: '',
+});
 
 function healthStatusLabel(status: Link['healthStatus']) {
   if (status === 'ok') return t('health.ok');
@@ -72,8 +87,14 @@ const formCategoryFolders = computed(() => foldersForCategory(formCategoryId.val
 const selectedCategoryFolders = computed(() => {
   return categoryFolderGroups.value.find((item) => item.category.id === selectedCategoryId.value)?.folders || [];
 });
+const selectedCategoryFolder = computed(() => folderById.value.get(selectedCategoryId.value));
+const sortableCategoryFolders = computed(() => selectedCategoryFolders.value.filter((folder) => folder.parentId === selectedCategoryId.value));
+const nestedCategoryFolders = computed(() => selectedCategoryFolders.value.filter((folder) => (
+  folder.id !== selectedCategoryId.value && folder.parentId !== selectedCategoryId.value
+)));
 const activeFolder = computed(() => selectedCategoryFolders.value.find((folder) => folder.id === selectedFolderId.value));
 const activeFolderLinks = computed(() => links.value.filter((link) => link.folderId === activeFolder.value?.id).sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id));
+const activeFolderLinkCount = computed(() => activeFolderLinks.value.length);
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
 const allFilteredSelected = computed(() => filteredLinks.value.length > 0 && filteredLinks.value.every((link) => selectedLinkIds.value.has(link.id)));
@@ -151,12 +172,149 @@ async function load() {
 function selectCategory(category: Folder) {
   selectedCategoryId.value = category.id;
   selectedFolderId.value = preferredFolderId(category.id);
+  closeFolderEditor();
   clearManagementState();
 }
 
 function selectFolder(folder: Folder) {
   selectedFolderId.value = folder.id;
+  closeFolderEditor();
   clearManagementState();
+}
+
+function startFolderEdit() {
+  const folder = activeFolder.value;
+  if (!folder?.parentId || isSavingFolderSort.value) return;
+  Object.assign(folderEditor, {
+    parentId: folder.parentId,
+    name: folder.name,
+    icon: folder.icon || '',
+    description: folder.description || '',
+    password: '',
+    passwordHint: folder.passwordHint || '',
+  });
+  isCreatingFolder.value = false;
+  folderEditorOpen.value = true;
+  cancelInlineEdit();
+  stopSorting();
+}
+
+function startFolderCreate() {
+  if (isSavingFolderSort.value) return;
+  Object.assign(folderEditor, {
+    parentId: selectedCategoryId.value,
+    name: '',
+    icon: '',
+    description: '',
+    password: '',
+    passwordHint: '',
+  });
+  isCreatingFolder.value = true;
+  folderEditorOpen.value = true;
+  cancelInlineEdit();
+  stopSorting();
+}
+
+function closeFolderEditor() {
+  folderEditorOpen.value = false;
+  isCreatingFolder.value = false;
+}
+
+async function saveFolderEditor() {
+  if (!folderEditor.name.trim() || !folderEditor.parentId || isSavingFolder.value || isSavingFolderSort.value) return;
+  const current = activeFolder.value;
+  if (!isCreatingFolder.value && !current?.parentId) return;
+  const creating = isCreatingFolder.value;
+
+  isSavingFolder.value = true;
+  try {
+    const payload = {
+      parentId: folderEditor.parentId,
+      name: folderEditor.name.trim(),
+      icon: folderEditor.icon,
+      description: folderEditor.description,
+      passwordHint: folderEditor.passwordHint.trim(),
+      ...(creating && folderEditor.password ? { password: folderEditor.password } : {}),
+    };
+    const saved = creating
+      ? await apiRequest<Folder>('/api/admin/folders', { method: 'POST', body: jsonBody(payload) })
+      : await apiRequest<Folder>(`/api/admin/folders/${current!.id}`, { method: 'PUT', body: jsonBody(payload) });
+    folders.value = creating
+      ? [...folders.value, saved]
+      : folders.value.map((folder) => (folder.id === saved.id ? { ...folder, ...saved } : folder));
+    selectedCategoryId.value = saved.parentId || saved.id;
+    selectedFolderId.value = saved.id;
+    closeFolderEditor();
+    notifySuccess(t(creating ? 'folders.created' : 'folders.updated'));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t(creating ? 'common.saveFailed' : 'folders.updateFailed'));
+  } finally {
+    isSavingFolder.value = false;
+  }
+}
+
+function folderTreeIds(rootId: number) {
+  const ids = new Set<number>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders.value) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
+}
+
+async function removeActiveFolder() {
+  const folder = activeFolder.value;
+  if (!folder?.parentId || isDeletingFolder.value || isSavingFolderSort.value) return;
+  const affectedIds = folderTreeIds(folder.id);
+  const linkCount = links.value.filter((link) => affectedIds.has(link.folderId)).length;
+  const confirmed = await confirmApi.confirm({
+    title: t('folders.deleteTitle'),
+    message: t('folders.deleteConfirm', { name: folder.name, links: linkCount }),
+    confirmText: t('common.delete'),
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  isDeletingFolder.value = true;
+  try {
+    await apiRequest(`/api/admin/folders/${folder.id}`, { method: 'DELETE' });
+    folders.value = folders.value.filter((item) => !affectedIds.has(item.id));
+    links.value = links.value.filter((link) => !affectedIds.has(link.folderId));
+    selectedFolderId.value = preferredFolderId(selectedCategoryId.value);
+    closeFolderEditor();
+    notifySuccess(t('folders.deleted'));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t('folders.deleteFailed'));
+  } finally {
+    isDeletingFolder.value = false;
+  }
+}
+
+async function saveFolderPillOrder(ids: number[]) {
+  if (ids.length < 2 || isSavingFolderSort.value || folderEditorOpen.value || isSavingFolder.value || isDeletingFolder.value) return;
+  const previousSortOrders = new Map(
+    ids.map((id) => [id, folderById.value.get(id)?.sortOrder]).filter((entry): entry is [number, number] => entry[1] !== undefined),
+  );
+  const orderMap = new Map(ids.map((id, index) => [id, (ids.length - index) * 10]));
+  folders.value = folders.value.map((folder) => (orderMap.has(folder.id) ? { ...folder, sortOrder: orderMap.get(folder.id)! } : folder));
+  isSavingFolderSort.value = true;
+  try {
+    await apiRequest('/api/admin/folders/reorder', { method: 'PUT', body: jsonBody({ ids }) });
+    notifySuccess(t('folders.sortSaved'));
+  } catch (event) {
+    folders.value = folders.value.map((folder) => (
+      previousSortOrders.has(folder.id) ? { ...folder, sortOrder: previousSortOrders.get(folder.id)! } : folder
+    ));
+    notifyError(event instanceof Error ? event.message : t('folders.sortSaveFailed'));
+  } finally {
+    isSavingFolderSort.value = false;
+  }
 }
 
 function clearManagementState() {
@@ -459,12 +617,124 @@ onMounted(load);
         </div>
         <div class="management-filter-group">
           <div class="management-filter-label">{{ t('links.folder') }}</div>
-          <div class="folder-pills">
-            <button v-for="folder in selectedCategoryFolders" :key="folder.id" class="folder-pill" :class="{ active: folder.id === activeFolder?.id }" type="button" @click="selectFolder(folder)">
+          <div class="folder-pills folder-pill-sort-area">
+            <button
+              v-if="selectedCategoryFolder"
+              class="folder-pill"
+              :class="{ active: selectedCategoryId === activeFolder?.id }"
+              :aria-pressed="selectedCategoryId === activeFolder?.id"
+              data-testid="root-folder-pill"
+              type="button"
+              @click="selectFolder(selectedCategoryFolder)"
+            >
+              <FolderGlyph :icon="selectedCategoryFolder.icon" :size="15" />{{ selectedCategoryFolder.name }}
+            </button>
+            <SortableFolderPills
+              :disabled="isSavingFolderSort || folderEditorOpen || isSavingFolder || isDeletingFolder || sortableCategoryFolders.length < 2"
+              :aria-label="t('folders.sortAria')"
+              @reorder="saveFolderPillOrder"
+            >
+              <button
+                v-for="folder in sortableCategoryFolders"
+                :key="folder.id"
+                class="folder-pill sortable-folder-pill"
+                :class="{ active: folder.id === activeFolder?.id }"
+                :aria-pressed="folder.id === activeFolder?.id"
+                aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
+                :data-id="folder.id"
+                :data-testid="`sortable-folder-pill-${folder.id}`"
+                type="button"
+                @click="selectFolder(folder)"
+              >
+                <GripVertical class="folder-pill-grip" :size="13" aria-hidden="true" />
+                <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
+              </button>
+            </SortableFolderPills>
+            <button
+              v-for="folder in nestedCategoryFolders"
+              :key="folder.id"
+              class="folder-pill nested-folder-pill"
+              :class="{ active: folder.id === activeFolder?.id }"
+              :aria-pressed="folder.id === activeFolder?.id"
+              :data-testid="`nested-folder-pill-${folder.id}`"
+              type="button"
+              @click="selectFolder(folder)"
+            >
               <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
             </button>
           </div>
         </div>
+
+        <section id="folder-management" class="folder-management-panel" data-testid="folder-management" aria-labelledby="folder-management-title">
+          <div class="folder-management-head">
+            <div>
+              <span id="folder-management-title">{{ t('folders.management') }}</span>
+              <strong>{{ activeFolder?.name || t('links.noFolderSelected') }}</strong>
+            </div>
+            <button class="button secondary" data-testid="create-folder" type="button" :disabled="!selectedCategoryId || folderEditorOpen || isSavingFolderSort" @click="startFolderCreate">
+              <Plus :size="16" /> {{ t('folders.createFolder') }}
+            </button>
+          </div>
+
+          <form v-if="folderEditorOpen" class="folder-editor-form" data-testid="folder-editor" @submit.prevent="saveFolderEditor">
+            <div class="folder-editor-field folder-editor-icon">
+              <span>{{ t('folders.icon') }}</span>
+              <FolderIconPicker v-model="folderEditor.icon" test-id="folder-editor-icon-picker" />
+            </div>
+            <label class="folder-editor-field folder-editor-name">
+              <span>{{ t('folders.name') }}</span>
+              <input v-model="folderEditor.name" data-testid="folder-editor-name" maxlength="16" required />
+            </label>
+            <label class="folder-editor-field">
+              <span>{{ t('folders.parentNotab') }}</span>
+              <select v-model.number="folderEditor.parentId" data-testid="folder-editor-category" required>
+                <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
+              </select>
+            </label>
+            <label v-if="isCreatingFolder" class="folder-editor-field">
+              <span>{{ t('folders.password') }}</span>
+              <input v-model="folderEditor.password" data-testid="folder-editor-password" type="password" />
+            </label>
+            <label class="folder-editor-field">
+              <span>{{ t('folders.tagline') }}</span>
+              <input v-model="folderEditor.passwordHint" data-testid="folder-editor-hint" maxlength="30" />
+            </label>
+            <label class="folder-editor-field folder-editor-description">
+              <span>{{ t('folders.aiPrompt') }}</span>
+              <textarea v-model="folderEditor.description" data-testid="folder-editor-description" maxlength="400" :placeholder="t('folders.aiPromptPlaceholder')" />
+            </label>
+            <div class="folder-editor-actions">
+              <button class="button secondary" type="button" :disabled="isSavingFolder" @click="closeFolderEditor"><X :size="16" /> {{ t('common.cancel') }}</button>
+              <button class="button" data-testid="save-folder-editor" type="button" :disabled="isSavingFolder || !folderEditor.name.trim()" @click="saveFolderEditor"><Save :size="16" /> {{ isSavingFolder ? t('common.saving') : t('folders.saveEdit') }}</button>
+            </div>
+          </form>
+
+          <div v-else-if="activeFolder" class="folder-summary-table" role="table" :aria-label="t('folders.management')">
+            <div class="folder-summary-head" role="row">
+              <span role="columnheader">{{ t('folders.icon') }}</span>
+              <span class="folder-summary-name" role="columnheader">{{ t('folders.name') }}</span>
+              <span role="columnheader">notab</span>
+              <span role="columnheader">{{ t('folders.linkCountHeader') }}</span>
+              <span role="columnheader">{{ t('folders.aiHint') }}</span>
+              <span role="columnheader">{{ t('folders.actions') }}</span>
+            </div>
+            <div class="folder-summary-row" role="row">
+              <span role="cell"><FolderGlyph :icon="activeFolder.icon" :size="18" /></span>
+              <strong class="folder-summary-name" data-testid="active-folder-name" role="cell">{{ activeFolder.name }}</strong>
+              <span role="cell">{{ activeFolder.parentId ? categoryName(activeFolder.id) : 'notab' }}</span>
+              <span role="cell">{{ t('folders.linkCount', { count: activeFolderLinkCount }) }}</span>
+              <span class="folder-summary-description" role="cell">{{ activeFolder.description || '-' }}</span>
+              <span class="row-actions" role="cell">
+                <template v-if="activeFolder.parentId">
+                  <button class="icon-button secondary" data-testid="edit-active-folder" type="button" :title="t('folders.renameAndIcon')" :disabled="isSavingFolderSort" @click="startFolderEdit"><Pencil :size="16" /></button>
+                  <button class="icon-button danger" data-testid="delete-active-folder" type="button" :title="t('common.delete')" :disabled="isDeletingFolder || isSavingFolderSort" @click="removeActiveFolder"><Trash2 :size="16" /></button>
+                </template>
+                <a v-else class="button secondary folder-notab-link" href="/admin/notabs">{{ t('admin.navNotabs') }}</a>
+              </span>
+            </div>
+          </div>
+        </section>
+
         <div id="bookmark-tools" class="bulk-action-bar">
           <strong>{{ sortMode ? t('links.sortingTitle') : selectedCount ? t('links.selectedCount', { count: selectedCount }) : t('links.bulkActions') }}</strong>
           <div class="bulk-list-tools">
@@ -617,6 +887,188 @@ onMounted(load);
 </template>
 
 <style scoped>
+.folder-pill-sort-area {
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.sortable-folder-pills {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--ui-space-1);
+}
+
+.sortable-folder-pill {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  user-select: none;
+}
+
+.nested-folder-pill {
+  opacity: 0.84;
+}
+
+.folder-pill-grip {
+  margin-left: -5px;
+  opacity: 0.42;
+}
+
+.sortable-folder-pill:hover .folder-pill-grip,
+.sortable-folder-pill:focus-visible .folder-pill-grip,
+.sortable-folder-pill.active .folder-pill-grip {
+  opacity: 0.8;
+}
+
+.sortable-folder-pill-ghost {
+  opacity: 0.35;
+}
+
+.folder-management-panel {
+  border-block: 1px solid var(--admin-border);
+  display: grid;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.folder-management-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.folder-management-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.folder-management-head span {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.folder-management-head strong {
+  font-size: 14px;
+}
+
+.folder-summary-table {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-surface-radius, 8px);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.folder-summary-head,
+.folder-summary-row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 58px minmax(180px, 1fr) minmax(100px, 0.6fr) 120px minmax(220px, 1.4fr) 104px;
+  min-width: 820px;
+}
+
+.folder-summary-head {
+  background: var(--admin-surface-sunken);
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.folder-summary-head > *,
+.folder-summary-row > * {
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.folder-summary-name {
+  padding-left: 18px;
+  text-align: left;
+}
+
+.folder-summary-row {
+  min-height: 52px;
+}
+
+.folder-summary-row > span,
+.folder-summary-row > strong {
+  font-size: 13px;
+}
+
+.folder-summary-description {
+  color: var(--admin-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-notab-link {
+  min-height: var(--ui-control-h-sm);
+  padding-inline: 9px;
+}
+
+.folder-editor-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(180px, 1.2fr) minmax(150px, 0.9fr) minmax(160px, 1fr);
+  min-width: 0;
+}
+
+.folder-editor-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.folder-editor-field > span {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.folder-editor-field input,
+.folder-editor-field select,
+.folder-editor-field textarea {
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 38px;
+  min-width: 0;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.folder-editor-field input:focus,
+.folder-editor-field select:focus,
+.folder-editor-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+}
+
+.folder-editor-description {
+  grid-column: 1 / -1;
+}
+
+.folder-editor-description textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.folder-editor-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
 .bulk-action-bar {
   display: grid;
   gap: 12px;
@@ -705,6 +1157,10 @@ onMounted(load);
   .bulk-list-tools .admin-search-input {
     max-width: none;
   }
+
+  .folder-editor-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -712,6 +1168,66 @@ onMounted(load);
   .bulk-list-tools .button,
   .bulk-list-tools .admin-search-input {
     width: 100%;
+  }
+
+  .folder-management-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .folder-management-head .button {
+    width: 100%;
+  }
+
+  .folder-summary-table {
+    border: 0;
+    overflow: visible;
+  }
+
+  .folder-summary-head {
+    display: none;
+  }
+
+  .folder-summary-row {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-surface-radius, 8px);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .folder-summary-row > * {
+    padding: 6px 8px;
+  }
+
+  .folder-summary-row > :nth-child(3),
+  .folder-summary-row > :nth-child(4),
+  .folder-summary-row > :nth-child(5) {
+    grid-column: 2 / -1;
+  }
+
+  .folder-summary-row > .row-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .folder-summary-name {
+    padding-left: 8px;
+  }
+
+  .folder-editor-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .folder-editor-description,
+  .folder-editor-actions {
+    grid-column: auto;
+  }
+
+  .folder-editor-actions .button {
+    flex: 1 1 0;
   }
 }
 

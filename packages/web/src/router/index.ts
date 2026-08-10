@@ -12,7 +12,6 @@ const AdminLayout = () => import('@/components/AdminLayout.vue');
 const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const NotabsView = () => import('@/views/admin/NotabsView.vue');
-const FoldersView = () => import('@/views/admin/FoldersView.vue');
 const LinksView = () => import('@/views/admin/LinksView.vue');
 const AutomationView = () => import('@/views/admin/AutomationView.vue');
 const UsersView = () => import('@/views/admin/UsersView.vue');
@@ -26,6 +25,10 @@ const TrashView = () => import('@/views/admin/TrashView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(to) {
+    if (to.hash) return { el: to.hash, top: 16 };
+    return { top: 0 };
+  },
   routes: [
     { path: '/', component: NavigationPage },
     { path: '/login', component: LoginView },
@@ -40,7 +43,7 @@ export const router = createRouter({
         { path: '', component: AdminDashboard, meta: { titleKey: 'admin.titleDashboard' } },
         { path: '/admin/site', component: SiteConfigView, meta: { titleKey: 'admin.titleSite' } },
         { path: '/admin/notabs', component: NotabsView, meta: { titleKey: 'admin.titleNotabs' } },
-        { path: '/admin/folders', component: FoldersView, meta: { titleKey: 'admin.titleFolders' } },
+        { path: '/admin/folders', redirect: '/admin/links#folder-management' },
         { path: '/admin/add-bookmark', redirect: '/admin/links' },
         { path: '/admin/links', component: LinksView, meta: { titleKey: 'admin.titleLinks' } },
         { path: '/admin/bookmarks', redirect: '/admin/links' },

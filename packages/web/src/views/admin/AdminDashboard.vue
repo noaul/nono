@@ -42,7 +42,7 @@ const shortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aNewBookmark', detailKey: 'dashboard.aNewBookmarkHint', to: '/admin/links#new-bookmark', icon: Plus },
   { labelKey: 'dashboard.aImport', detailKey: 'dashboard.aImportHint', to: '/admin/automation', icon: Upload },
   { labelKey: 'dashboard.aNotabs', detailKey: 'dashboard.aNotabsHint', to: '/admin/notabs', icon: Layers },
-  { labelKey: 'dashboard.aFolders', detailKey: 'dashboard.aFoldersHint', to: '/admin/folders', icon: FolderIcon },
+  { labelKey: 'dashboard.aFolders', detailKey: 'dashboard.aFoldersHint', to: '/admin/links#folder-management', icon: FolderIcon },
   { labelKey: 'dashboard.aDuplicates', detailKey: 'dashboard.aDuplicatesHint', to: '/admin/links#bookmark-tools', icon: ListChecks },
   { labelKey: 'dashboard.aHealth', detailKey: 'dashboard.aHealthHint', to: '/admin/links#bookmark-tools', icon: Activity },
   { labelKey: 'dashboard.aLlm', detailKey: 'dashboard.aLlmHint', to: '/admin/llm', icon: Bot },
@@ -80,7 +80,7 @@ onMounted(async () => {
         <ArrowRight :size="16" />
       </RouterLink>
 
-      <RouterLink to="/admin/folders" class="ops-metric-card tone-blue">
+      <RouterLink to="/admin/links#folder-management" class="ops-metric-card tone-blue">
         <FolderIcon :size="20" />
         <div>
           <span>{{ t('dashboard.folders') }}</span>
@@ -100,7 +100,7 @@ onMounted(async () => {
         <ArrowRight :size="16" />
       </RouterLink>
 
-      <RouterLink to="/admin/folders" class="ops-metric-card tone-rose">
+      <RouterLink to="/admin/links#folder-management" class="ops-metric-card tone-rose">
         <Lock :size="20" />
         <div>
           <span>{{ t('dashboard.lockedFolders') }}</span>

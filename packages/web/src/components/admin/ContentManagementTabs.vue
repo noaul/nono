@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Folder, Layers, Link2 } from 'lucide-vue-next';
+import { Layers, Link2 } from 'lucide-vue-next';
 import { inject } from 'vue';
 import { routerKey } from 'vue-router';
 import { useI18n } from '@/composables/useI18n';
@@ -11,7 +11,6 @@ const router = inject(routerKey, null);
 
 const items = [
   { id: 'notabs' as const, to: '/admin/notabs', labelKey: 'admin.navNotabs' as const, icon: Layers },
-  { id: 'folders' as const, to: '/admin/folders', labelKey: 'admin.navFolders' as const, icon: Folder },
   { id: 'links' as const, to: '/admin/links', labelKey: 'admin.navLinks' as const, icon: Link2 },
 ];
 
