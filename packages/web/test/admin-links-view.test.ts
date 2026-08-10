@@ -131,6 +131,8 @@ describe('LinksView admin workflow', () => {
     const folderManager = wrapper.get('[data-testid="folder-management"]');
     const bookmarkTools = wrapper.get('#bookmark-tools');
     expect(folderManager.element.compareDocumentPosition(bookmarkTools.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(wrapper.find('.folder-management-head').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="create-folder"]').element.compareDocumentPosition(folderManager.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(folderManager.get('[data-testid="active-folder-name"]').classes()).toContain('folder-summary-name');
 
     await folderManager.get('[data-testid="edit-active-folder"]').trigger('click');
@@ -168,7 +170,7 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.findAll('.content-management-tab').map((tab) => tab.text())).toEqual(['Notab 管理', '文件夹及书签管理']);
+    expect(wrapper.findAll('.content-management-tab').map((tab) => tab.text())).toEqual(['NoTab 管理', '文件夹及书签管理']);
     await wrapper.get('[data-testid="create-folder"]').trigger('click');
     await wrapper.get('[data-testid="folder-editor-name"]').setValue('资料');
     await wrapper.get('[data-testid="save-folder-editor"]').trigger('click');
@@ -338,7 +340,7 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹notab状态');
+    expect(wrapper.get('.bookmark-table .admin-table-head').text()).toContain('文件夹NoTab状态');
     expect(wrapper.find('[data-testid="link-folder-10"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="link-notab-10"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="link-name-10"]').element.tagName).toBe('SPAN');
@@ -347,7 +349,7 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.get('[data-testid="inline-link-category-10"]').element).toBeInstanceOf(HTMLSelectElement);
   });
 
-  it('creates a bookmark from the add row after choosing Notab and folder', async () => {
+  it('creates a bookmark from the add row after choosing NoTab and folder', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },

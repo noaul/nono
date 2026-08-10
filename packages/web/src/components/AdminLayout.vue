@@ -96,7 +96,7 @@ const flatNavItems = computed(() => visibleNavSections.value.flatMap((section) =
 const routeTitleKey = computed(() => (route?.meta?.titleKey as MessageKey | undefined) || 'admin.titleDashboard');
 const pageTitle = computed(() => props.title || t(routeTitleKey.value));
 const activeNavItem = computed(() => flatNavItems.value.find((item) => item.to === route?.path || item.matches?.includes(route?.path || '') || item.titleKey === routeTitleKey.value) || flatNavItems.value[0]);
-const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'Nono Admin');
+const operatorName = computed(() => auth.user?.displayName || auth.user?.username || 'NoNo Admin');
 const operatorRole = computed(() => t(auth.isAdmin ? 'admin.roleAdmin' : 'admin.roleMember'));
 const operatorInitial = computed(() => operatorName.value.trim().charAt(0).toUpperCase() || 'N');
 
@@ -162,7 +162,7 @@ async function logout() {
       <!-- The brand is not a heading: the topbar owns the page's single h1. -->
       <RouterLink class="sidebar-brand" to="/">
         <div class="brand-logo">N</div>
-        <span class="brand-name">Nono</span>
+        <span class="brand-name">NoNo</span>
       </RouterLink>
       <button ref="mobileNavCloseRef" class="sidebar-mobile-close" type="button" :aria-label="t('admin.closeNav')" @click="mobileNavOpen = false">
         <X :size="18" />

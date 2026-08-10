@@ -107,7 +107,7 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
       if (!config.host || !config.port) return { success: false, error: 'Host and port are required' };
       const response = await externalRequest('https://api.github.com/rate_limit', {
         method: 'GET',
-        headers: { accept: 'application/vnd.github+json', 'user-agent': 'NoStar-Nono' },
+        headers: { accept: 'application/vnd.github+json', 'user-agent': 'NoStar-NoNo' },
         timeout: 10000,
       }, config);
       return { success: response.status >= 200 && response.status < 500, status: response.status };

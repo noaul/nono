@@ -53,7 +53,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
     setRpcForm(rpcDownloadConfig);
   }, [rpcDownloadConfig]);
 
-  // Load user-scoped network settings from Nono on mount.
+  // Load user-scoped network settings from NoNo on mount.
   useEffect(() => {
     const loadNetworkConfig = async () => {
       try {

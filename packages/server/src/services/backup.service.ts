@@ -329,7 +329,7 @@ async function copyVerifiedSqlite(nomoneyDataDir: string, destination: string, r
 
 function validateSourcePaths(options: BackupServiceOptions) {
   if (!options.databaseUrl) throw httpError(503, 'DATABASE_URL is not configured');
-  if (!fs.existsSync(options.nodeskContentDir)) throw httpError(503, 'Nodesk content directory is unavailable');
+  if (!fs.existsSync(options.nodeskContentDir)) throw httpError(503, 'NoDesk content directory is unavailable');
   if (!fs.existsSync(path.join(options.nomoneyDataDir, 'app.db'))) throw httpError(503, 'NoMoney database is unavailable');
 }
 

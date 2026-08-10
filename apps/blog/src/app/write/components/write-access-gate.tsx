@@ -25,7 +25,7 @@ export function WriteAccessGate({ children }: { children: ReactNode }) {
 					<LockKeyhole className='size-5' />
 				</div>
 				<h1 className='mt-4 text-lg font-semibold'>{copy('需要管理员登录', 'Admin sign-in required')}</h1>
-				<p className='text-secondary mt-2 text-sm leading-6'>{copy('请先回到主页登录 Nono，再进行写作或内容编辑。', 'Go back to the home page and sign in to Nono before writing or editing.')}</p>
+				<p className='text-secondary mt-2 text-sm leading-6'>{copy('请先回到主页登录 NoNo，再进行写作或内容编辑。', 'Go back to the home page and sign in to NoNo before writing or editing.')}</p>
 				<Link href='/' className='brand-btn mt-5 inline-flex'>
 					{copy('返回主页', 'Back to home')}
 				</Link>

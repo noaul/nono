@@ -10,15 +10,23 @@ describe('shared admin page structure', () => {
   it.each([
     'AdminDashboard',
     'SiteConfigView',
+    'NotabsView',
+    'FoldersView',
+    'LinksView',
+    'AutomationView',
     'LlmView',
     'AccountView',
     'TokensView',
+    'NotificationsView',
+    'TrashView',
+    'BackupsView',
+    'AuditLogsView',
     'UsersView',
-  ])('%s uses the shared page header', (name) => {
+  ])('%s relies on the shell title without rendering a duplicate page header', (name) => {
     const source = readView(name);
 
-    expect(source).toContain("@/components/admin/AdminPageHeader.vue");
-    expect(source).toContain('<AdminPageHeader');
+    expect(source).not.toContain("@/components/admin/AdminPageHeader.vue");
+    expect(source).not.toContain('<AdminPageHeader');
   });
 
   it.each(['SiteConfigView', 'LlmView', 'AccountView', 'UsersView'])('%s uses accessible shared feedback banners', (name) => {
@@ -62,9 +70,8 @@ describe('shared admin page structure', () => {
   it.each(['FoldersView', 'LinksView', 'NotabsView'])('%s uses the same management page hierarchy', (name) => {
     const source = readView(name);
 
-    expect(source).toContain("@/components/admin/AdminPageHeader.vue");
     expect(source).toContain("@/components/admin/ContentManagementTabs.vue");
-    expect(source).toContain('<AdminPageHeader');
+    expect(source).not.toContain('<AdminPageHeader');
     expect(source).toContain('<ContentManagementTabs');
     expect(source).toContain('admin-page-stack');
     expect(source).not.toContain('class="admin-card"');

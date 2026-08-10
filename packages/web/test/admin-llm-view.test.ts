@@ -77,7 +77,7 @@ describe('LlmView', () => {
     expect(wrapper.text()).toContain('连接成功');
   });
 
-  it('adds and saves a NoStar AI profile from the Nono admin page', async () => {
+  it('adds and saves a NoStar AI profile from the NoNo admin page', async () => {
     apiRequest
       .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-4o-mini', hasLlmApiKey: false })
       .mockResolvedValueOnce([])

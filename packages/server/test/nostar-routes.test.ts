@@ -120,7 +120,7 @@ describe('NoStar routes', () => {
     return String(response.headers['set-cookie']);
   }
 
-  it('requires a Nono session', async () => {
+  it('requires a NoNo session', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/nostar/repositories' });
     expect(response.statusCode).toBe(401);
     expect(repositoryQueries).toHaveLength(0);

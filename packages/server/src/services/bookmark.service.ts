@@ -45,7 +45,7 @@ export function parseBookmarksHtml(html: string) {
 }
 
 export function exportBookmarksHtml(folders: FolderRecord[], links: LinkRecord[]) {
-  const lines = ['<!DOCTYPE NETSCAPE-Bookmark-file-1>', '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">', '<TITLE>Nono Bookmarks</TITLE>', '<H1>Nono Bookmarks</H1>', '<DL><p>'];
+  const lines = ['<!DOCTYPE NETSCAPE-Bookmark-file-1>', '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">', '<TITLE>NoNo Bookmarks</TITLE>', '<H1>NoNo Bookmarks</H1>', '<DL><p>'];
   appendFolderLevel(lines, folders, links, null, 1);
   lines.push('</DL><p>');
   return `${lines.join('\n')}\n`;

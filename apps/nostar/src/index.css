@@ -1031,7 +1031,7 @@ textarea::-webkit-resizer {
 }
 
 /* ==========================================================================
-   Application shell — mirrors the Nono admin and NoMoney frame.
+   Application shell — mirrors the NoNo admin and NoMoney frame.
    Geometry and colour come from design-tokens.css; nothing here is NoStar-specific
    beyond the icon. See docs/design/ui-contract.md.
    ========================================================================== */

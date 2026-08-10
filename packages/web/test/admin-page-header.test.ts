@@ -8,7 +8,7 @@ describe('AdminPageHeader', () => {
       props: {
         eyebrow: '内容管理',
         title: '书签管理',
-        description: '按 Notab 和文件夹整理书签。',
+        description: '按 NoTab 和文件夹整理书签。',
       },
       slots: { actions: '<button type="button">新增书签</button>' },
     });
@@ -18,7 +18,7 @@ describe('AdminPageHeader', () => {
     expect(wrapper.find('h1').exists()).toBe(false);
     expect(wrapper.get('h2.admin-page-title').text()).toBe('书签管理');
     expect(wrapper.get('.admin-page-eyebrow').text()).toBe('内容管理');
-    expect(wrapper.get('.admin-page-description').text()).toContain('按 Notab');
+    expect(wrapper.get('.admin-page-description').text()).toContain('按 NoTab');
     expect(wrapper.get('.admin-page-actions button').text()).toBe('新增书签');
     expect(wrapper.find('.admin-card').exists()).toBe(false);
   });

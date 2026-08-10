@@ -96,7 +96,7 @@ export class GitHubApiService {
 
   /**
    * 设置后端代理地址。设置后所有请求（makeRequest / getGistFileRaw）将
-   * 通过 Nono 的 /api/nostar/proxy/github/* 路由转发，并使用当前用户的代理配置。
+   * 通过 NoNo 的 /api/nostar/proxy/github/* 路由转发，并使用当前用户的代理配置。
    * 传 null 恢复直连模式。
    */
   setBackendUrl(url: string | null): void {

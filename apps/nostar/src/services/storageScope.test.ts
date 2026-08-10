@@ -4,7 +4,7 @@ import { getStorageScope, scopedStorageKey, setStorageScope, STORAGE_SCOPE_KEY }
 describe('NoStar storage scope', () => {
   beforeEach(() => localStorage.clear());
 
-  it('keeps persisted state separate for each Nono user', () => {
+  it('keeps persisted state separate for each NoNo user', () => {
     expect(scopedStorageKey('nostar-state')).toBe('nostar-state');
     expect(setStorageScope(12)).toBe(true);
     expect(getStorageScope()).toBe('12');

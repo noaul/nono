@@ -1,7 +1,7 @@
 {
-  "extName": { "message": "Nono 智能收藏" },
-  "extDescription": { "message": "快速把当前网页收藏到 Nono。" },
-  "actionTitle": { "message": "NONO 快速收藏" },
-  "commandOpenPopup": { "message": "打开 Nono 快速收藏" },
+  "extName": { "message": "NoNo 智能收藏" },
+  "extDescription": { "message": "快速把当前网页收藏到 NoNo。" },
+  "actionTitle": { "message": "NoNo 快速收藏" },
+  "commandOpenPopup": { "message": "打开 NoNo 快速收藏" },
   "commandQuickSave": { "message": "保存到上次使用的文件夹" }
 }

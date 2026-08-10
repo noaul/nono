@@ -43,7 +43,7 @@ export function githubHeaders(token: string, extra: AnyRecord = {}) {
   return {
     accept: 'application/vnd.github+json',
     authorization: `Bearer ${token}`,
-    'user-agent': 'NoStar-Nono',
+    'user-agent': 'NoStar-NoNo',
     'x-github-api-version': '2022-11-28',
     ...extra,
   } as Record<string, string>;

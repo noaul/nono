@@ -56,7 +56,7 @@ async function setupUser(adminCookie: string, username = 'reader') {
   };
 }
 
-describe('Nono Fastify app', () => {
+describe('NoNo Fastify app', () => {
   beforeEach(async () => {
     repo = new MemoryRepository(false);
     app = await buildApp({ repo, sessionSecret, encryptionKey });
@@ -229,7 +229,7 @@ describe('Nono Fastify app', () => {
       payload: {
         username: 'nono',
         email: 'nono@nono.test',
-        displayName: 'Nono',
+        displayName: 'NoNo',
         password: adminPassword,
       },
     });

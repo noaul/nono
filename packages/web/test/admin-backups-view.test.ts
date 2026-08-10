@@ -74,7 +74,7 @@ describe('BackupsView', () => {
 
     expect(apiRequest).toHaveBeenCalledWith('/api/admin/backups');
     expect(wrapper.text()).toContain('PostgreSQL');
-    expect(wrapper.text()).toContain('Nodesk');
+    expect(wrapper.text()).toContain('NoDesk');
     expect(wrapper.text()).toContain('NoMoney');
     expect(wrapper.text()).toContain('1.5 KB');
     expect(wrapper.get(`[data-testid="download-backup-${firstBackup.id}"]`).attributes('href')).toBe(`/api/admin/backups/${firstBackup.id}/download`);

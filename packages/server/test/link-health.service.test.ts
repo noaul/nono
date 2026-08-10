@@ -66,7 +66,7 @@ describe('link health checks', () => {
         method: 'HEAD',
         timeoutMs: 5000,
         discardBody: true,
-        headers: expect.objectContaining({ 'user-agent': expect.stringContaining('Nono-Link-Health') }),
+        headers: expect.objectContaining({ 'user-agent': expect.stringContaining('NoNo-Link-Health') }),
       }),
     );
     expect(result).toMatchObject({

@@ -71,7 +71,7 @@ describe('operation audit logs', () => {
       method: 'POST',
       url: '/api/admin/folders',
       remoteAddress: '127.0.0.1',
-      headers: { cookie: adminCookie, 'x-forwarded-for': '203.0.113.9', 'user-agent': 'Nono audit test' },
+      headers: { cookie: adminCookie, 'x-forwarded-for': '203.0.113.9', 'user-agent': 'NoNo audit test' },
       payload: { name: '工作台', parentId: null, password: 'FolderSecret2026!' },
     });
     expect(created.statusCode).toBe(200);
@@ -199,7 +199,7 @@ describe('operation audit logs', () => {
       method: 'PUT',
       url: '/api/admin/site',
       headers: { cookie: adminCookie },
-      payload: { name: 'NONO 工作台' },
+      payload: { name: 'NoNo 工作台' },
     });
     const users = await app.inject({ method: 'GET', url: '/api/admin/users', headers: { cookie: adminCookie } });
     const memberId = users.json().data.find((user: any) => user.username === 'member').id as number;
@@ -227,8 +227,8 @@ describe('operation audit logs', () => {
       details: { before: { name: '旧名称' }, after: { name: '文档库' } },
     });
     expect(items.find((item) => item.resourceType === 'site')).toMatchObject({
-      resourceLabel: 'NONO 工作台',
-      details: { before: { name: 'Nono' }, after: { name: 'NONO 工作台' } },
+      resourceLabel: 'NoNo 工作台',
+      details: { before: { name: 'NoNo' }, after: { name: 'NoNo 工作台' } },
     });
     expect(items.find((item) => item.resourceType === 'user')).toMatchObject({
       resourceLabel: 'member',

@@ -14,7 +14,7 @@ describe('GitHubApiService backend integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('automatically uses the authenticated Nono proxy when the backend is available', async () => {
+  it('automatically uses the authenticated NoNo proxy when the backend is available', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });

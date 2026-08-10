@@ -10,7 +10,7 @@ import { hashPassword } from '../src/utils/crypto.js';
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-describe('Nodesk local content API', () => {
+describe('NoDesk local content API', () => {
   let app: FastifyInstance;
   let contentDir: string;
   let cookie: string;
@@ -53,7 +53,7 @@ describe('Nodesk local content API', () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it('requires an administrator for every Nodesk management endpoint', async () => {
+  it('requires an administrator for every NoDesk management endpoint', async () => {
     await repo.createUser({
       username: 'reader',
       email: 'reader@nono.test',
@@ -123,7 +123,7 @@ describe('Nodesk local content API', () => {
     await expect(fs.stat(path.join(contentDir, 'src/app/projects/list.json'))).rejects.toThrow();
   });
 
-  it('rejects paths outside the Nodesk content allowlist', async () => {
+  it('rejects paths outside the NoDesk content allowlist', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/admin/nodesk/files/batch',

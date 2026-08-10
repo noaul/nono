@@ -3,7 +3,7 @@ import type { PortalSettings } from '@/api/types';
 export const portalDefaults: PortalSettings = {
   enabled: true,
   url: '/nodesk',
-  label: '前往 Nodesk',
+  label: '前往 NoDesk',
   imageUrl: '',
   openInNewTab: false,
 };

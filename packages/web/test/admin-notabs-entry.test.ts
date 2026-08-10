@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { translate } from '../src/locales';
 import { router } from '../src/router';
 
-describe('Notab management entry', () => {
-  it('keeps the Notab route inside the unified bookmark workspace', () => {
+describe('NoTab management entry', () => {
+  it('keeps the NoTab route inside the unified bookmark workspace', () => {
     const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
     const layoutSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
     const viewPath = path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue');
@@ -13,7 +13,7 @@ describe('Notab management entry', () => {
     expect(layoutSource).toContain("labelKey: 'admin.navContentManagement'");
     expect(layoutSource).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links']");
     expect(translate('zh', 'admin.navContentManagement')).toBe('文件夹及书签管理');
-    expect(translate('zh', 'admin.navNotabs')).toBe('Notab 管理');
+    expect(translate('zh', 'admin.navNotabs')).toBe('NoTab 管理');
     expect(routerSource).toContain("path: '/admin/notabs'");
     expect(fs.existsSync(viewPath)).toBe(true);
   });

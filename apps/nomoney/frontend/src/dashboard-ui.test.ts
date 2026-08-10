@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-describe('Nomoney dashboard cost coverage', () => {
+describe('NoMoney dashboard cost coverage', () => {
   it('renders a complete cost card for every asset category', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Dashboard.tsx'), 'utf8');
 

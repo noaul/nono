@@ -43,7 +43,7 @@ export interface AppearanceSettings {
   hoverHighlight: number;
   hoverAnimation: boolean;
 
-  // -- Search bar and Notab tabs -------------------------------------------------------------
+  // -- Search bar and NoTab tabs -------------------------------------------------------------
   searchColor: string;
   searchRadius: number;
   searchOpacity: number;
@@ -216,7 +216,7 @@ export const APPEARANCE_FIELDS: { [K in AppearanceKey]: FieldFor<AppearanceSetti
   hoverHighlight: { kind: 'number', group: 'folders', default: 40, min: 0, max: 100, advanced: true, format: 'ratio', cssVar: '--public-hover-highlight' },
   hoverAnimation: { kind: 'toggle', group: 'folders', default: true, advanced: true, cssVar: '--public-hover-animation' },
 
-  // -- Search bar and Notab tabs -------------------------------------------------------------
+  // -- Search bar and NoTab tabs -------------------------------------------------------------
   searchColor: { kind: 'color', group: 'search', default: '#f7f8fb', cssVar: '--public-search-color' },
   searchRadius: { kind: 'number', group: 'search', default: 28, min: 8, max: 40, format: 'px', cssVar: '--public-search-radius' },
   searchOpacity: { kind: 'number', group: 'search', default: 34, min: 12, max: 90, format: 'ratio', cssVar: '--public-search-opacity' },
@@ -458,7 +458,7 @@ export function getAppearanceSettings(settings?: Record<string, unknown> | null)
   }
 
   const typed = result as unknown as AppearanceSettings;
-  // Older payloads only carried `categoryTextColor`; treat it as the folder and Notab colour
+  // Older payloads only carried `categoryTextColor`; treat it as the folder and NoTab colour
   // when the newer keys are absent, then re-establish the mirrors.
   typed.notabTextColor = normalizedHex(saved.notabTextColor, typed.categoryTextColor);
   typed.folderTextColor = normalizedHex(saved.folderTextColor, typed.categoryTextColor);

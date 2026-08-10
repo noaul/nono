@@ -19,7 +19,6 @@ import {
   Settings,
   Upload,
 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
@@ -62,18 +61,16 @@ onMounted(async () => {
 
 <template>
   <div class="admin-page-stack dashboard-workbench">
-    <AdminPageHeader :eyebrow="t('admin.sectionOperations')" :title="t('admin.titleDashboard')">
-      <template #actions>
-        <a class="button secondary" href="/" target="_blank" rel="noreferrer"><ExternalLink :size="17" /> {{ t('dashboard.openHome') }}</a>
-        <RouterLink class="button" to="/admin/site"><Settings :size="17" /> {{ t('dashboard.siteSettings') }}</RouterLink>
-      </template>
-    </AdminPageHeader>
+    <div class="admin-page-toolbar">
+      <a class="button secondary" href="/" target="_blank" rel="noreferrer"><ExternalLink :size="17" /> {{ t('dashboard.openHome') }}</a>
+      <RouterLink class="button" to="/admin/site"><Settings :size="17" /> {{ t('dashboard.siteSettings') }}</RouterLink>
+    </div>
 
     <div class="ops-metric-grid" :aria-label="t('dashboard.contentOverview')">
       <RouterLink to="/admin/notabs" class="ops-metric-card tone-green">
         <Layers :size="20" />
         <div>
-          <span>Notab</span>
+          <span>NoTab</span>
           <strong>{{ notabCount }}</strong>
           <small>{{ t('dashboard.notabCount', { count: notabCount }) }}</small>
         </div>

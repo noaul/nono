@@ -14,7 +14,7 @@ for (const oldUser of raw.users || []) {
   await repo.createUser({
     username: oldUser.username || oldUser.name || 'admin',
     email: oldUser.email || `${oldUser.username || oldUser.name || 'admin'}@nono.local`,
-    displayName: oldUser.displayName || oldUser.name || oldUser.username || 'Nono User',
+    displayName: oldUser.displayName || oldUser.name || oldUser.username || 'NoNo User',
     passwordHash: await hashPassword(password),
     role: oldUser.level >= 2 ? 'admin' : 'user',
     llmProvider: null,
@@ -28,7 +28,7 @@ if (!admin) throw new Error('No migrated user was created');
 
 if (raw.site) {
   await repo.updateSite(admin.id, {
-    name: raw.site.name || 'Nono',
+    name: raw.site.name || 'NoNo',
     description: raw.site.description || raw.site.info || '',
     slug: raw.site.slug || admin.username,
     backgroundImage: raw.site.backgroundImage || raw.site.bg || null,

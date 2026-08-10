@@ -25,7 +25,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
   const apiKey = decryptSecret(account.llmApiKey, services.encryptionKey);
   if (!apiKey) throw Object.assign(new Error('LLM API key is not configured'), { statusCode: 400 });
   const prompt = [
-    'You classify browser bookmarks for Nono. Return JSON only.',
+    'You classify browser bookmarks for NoNo. Return JSON only.',
     'Choose suggestedFolderId only from the listed folder IDs. A folder prompt is a routing rule; a child folder inherits its category prompt and its own prompt has priority.',
     `Folders:\n${formatFoldersForPrompt(folders)}`,
     `URL: ${input.url}`,

@@ -68,7 +68,7 @@ function App() {
         setNonoSession('redirecting');
         window.location.replace(`/login?next=${encodeURIComponent('/nostar/')}`);
       } catch (error) {
-        logger.error('app', 'Failed to load Nono session', error);
+        logger.error('app', 'Failed to load NoNo session', error);
         if (!cancelled) setNonoSession('error');
       }
     };
@@ -177,7 +177,7 @@ function App() {
     );
   }
 
-  // Wait for both the Nono session and the local NoStar store before rendering private data.
+  // Wait for both the NoNo session and the local NoStar store before rendering private data.
   if (nonoSession !== 'authenticated' || !hasHydrated) {
     return (
       <div className="min-h-screen bg-light-bg dark:bg-marketing-black flex items-center justify-center">

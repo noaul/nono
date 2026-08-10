@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { CheckSquare, GripVertical, MoveDown, MoveUp, Pencil, Plus, Save, Square, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
@@ -399,7 +398,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleFolders')" />
     <ContentManagementTabs active="folders" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
@@ -453,7 +451,7 @@ onMounted(load);
           <span>{{ t('folders.select') }}</span>
           <span>{{ sortMode ? t('folders.sort') : t('folders.icon') }}</span>
           <span>{{ t('folders.name') }}</span>
-          <span>notab</span>
+          <span>NoTab</span>
           <span>{{ t('folders.linkCountHeader') }}</span>
           <span>{{ t('folders.aiHint') }}</span>
           <span>{{ t('folders.actions') }}</span>
@@ -514,7 +512,7 @@ onMounted(load);
               <div class="folder-name-location" :data-label="t('folders.name')">
                 <button class="text-button" type="button" :disabled="sortMode" @click="startInlineEdit(folder)">{{ folder.name }}</button>
               </div>
-              <span class="folder-notab-cell" data-label="notab">
+              <span class="folder-notab-cell" data-label="NoTab">
                 <select
                   v-if="folder.parentId"
                   :value="folder.parentId"
@@ -525,7 +523,7 @@ onMounted(load);
                 >
                   <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
                 </select>
-                <small v-else>notab</small>
+                <small v-else>NoTab</small>
               </span>
               <span :data-label="t('folders.linkCountHeader')">{{ t('folders.linkCount', { count: folderLinkCount(folder.id) }) }}</span>
               <span :data-label="t('folders.aiHint')">{{ folder.description || '-' }}</span>

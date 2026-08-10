@@ -34,7 +34,7 @@ describe('SiteConfigView site controls', () => {
       .mockResolvedValueOnce({
         id: 1,
         userId: 1,
-        name: 'Nono',
+        name: 'NoNo',
         description: '导航',
         slug: 'admin',
         backgroundColor: '#090a0f',
@@ -72,7 +72,7 @@ describe('SiteConfigView site controls', () => {
       .mockResolvedValueOnce({
         id: 1,
         userId: 1,
-        name: 'Nono',
+        name: 'NoNo',
         settings: { appearance: { cardRadius: 16 } },
       });
 
@@ -112,7 +112,7 @@ describe('SiteConfigView site controls', () => {
       .mockResolvedValueOnce({
         id: 1,
         userId: 1,
-        name: 'Nono',
+        name: 'NoNo',
         description: '导航',
         slug: 'admin',
         backgroundColor: '#090a0f',
@@ -129,7 +129,7 @@ describe('SiteConfigView site controls', () => {
           },
         },
       })
-      .mockResolvedValueOnce({ id: 1, userId: 1, name: 'Nono', settings: {} });
+      .mockResolvedValueOnce({ id: 1, userId: 1, name: 'NoNo', settings: {} });
 
     const wrapper = mountView();
     await settle(wrapper);

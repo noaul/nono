@@ -14,7 +14,7 @@ vi.mock('@/api/client', () => ({
 const site = {
   id: 1,
   userId: 1,
-  name: 'Nono',
+  name: 'NoNo',
   description: '导航',
   slug: 'admin',
   backgroundColor: '#090a0f',

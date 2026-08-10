@@ -633,7 +633,7 @@ export class MemoryRepository implements Repository {
       const links = reviveLinkRecords((item.payload as { links?: unknown }).links);
       const root = folders.find((folder) => folder.id === item.entityId);
       if (!root) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
-      if (root.parentId && !await this.getFolder(userId, root.parentId)) throw Object.assign(new Error('Restore the parent Notab first'), { statusCode: 409 });
+      if (root.parentId && !await this.getFolder(userId, root.parentId)) throw Object.assign(new Error('Restore the parent NoTab first'), { statusCode: 409 });
       if (folders.some((folder) => this.folders.some((entry) => entry.id === folder.id))) throw Object.assign(new Error('Folder already exists'), { statusCode: 409 });
       if (links.some((link) => this.links.some((entry) => entry.id === link.id))) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
       this.folders.push(...folders);
@@ -776,7 +776,7 @@ export class MemoryRepository implements Repository {
       id: 1,
       username: 'admin',
       email: 'admin@nono.local',
-      displayName: 'Nono Admin',
+      displayName: 'NoNo Admin',
       passwordHash: '',
       role: 'admin',
       createdAt: now,
@@ -829,7 +829,7 @@ export function defaultSite(userId: number, slug: string): SiteRecord {
   return {
     id: userId,
     userId,
-    name: 'Nono',
+    name: 'NoNo',
     description: '一个可自托管的网址导航主页',
     slug,
     backgroundImage: 'https://api.dujin.org/bing/1920.php',

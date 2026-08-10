@@ -44,13 +44,13 @@ describe('NotabsView admin workflow', () => {
     confirm.mockResolvedValue(true);
   });
 
-  it('uses one column per Notab card on narrow screens', () => {
+  it('uses one column per NoTab card on narrow screens', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue'), 'utf8');
     expect(source).toContain('@media (max-width: 720px)');
     expect(source).toContain('grid-template-columns: 1fr !important');
   });
 
-  it('shows only top-level Notabs with folder and bookmark impact counts', async () => {
+  it('shows only top-level NoTabs with folder and bookmark impact counts', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -73,7 +73,7 @@ describe('NotabsView admin workflow', () => {
     expect(wrapper.get('[data-testid="notab-row-1"]').text()).toContain('2 个书签');
   });
 
-  it('creates a Notab from the add row at the end of the list', async () => {
+  it('creates a NoTab from the add row at the end of the list', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -98,14 +98,14 @@ describe('NotabsView admin workflow', () => {
     expect(wrapper.get('[data-testid="notab-row-2"]').text()).toContain('生活');
   });
 
-  it('shows Nodesk and NoMoney entry management above the Notab list and saves custom entries', async () => {
+  it('shows NoDesk and NoMoney entry management above the NoTab list and saves custom entries', async () => {
     apiRequest
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({
         id: 1,
         userId: 1,
-        name: 'Nono',
+        name: 'NoNo',
         description: '',
         slug: 'admin',
         backgroundColor: '#000000',
@@ -113,7 +113,7 @@ describe('NotabsView admin workflow', () => {
         searchUrlTemplate: 'https://google.com/search?q={query}',
         localSearchFirst: true,
         settings: {
-          portal: { enabled: true, label: 'Nodesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
+          portal: { enabled: true, label: 'NoDesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
           navigationEntries: [{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false }],
         },
       })
@@ -123,7 +123,7 @@ describe('NotabsView admin workflow', () => {
     await settle(wrapper);
 
     const entrySection = wrapper.get('[data-testid="entry-management"]');
-    expect(entrySection.text()).toContain('Nodesk');
+    expect(entrySection.text()).toContain('NoDesk');
     expect((entrySection.findAll('input')[3].element as HTMLInputElement).value).toBe('NoMoney');
     expect(entrySection.element.compareDocumentPosition(wrapper.get('[data-testid="notab-management"]').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
@@ -145,7 +145,7 @@ describe('NotabsView admin workflow', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce({
         settings: {
-          portal: { enabled: true, label: 'Nodesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
+          portal: { enabled: true, label: 'NoDesk', url: '/nodesk', imageUrl: '', openInNewTab: false },
           navigationEntries: [{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false }],
         },
       });
@@ -159,7 +159,7 @@ describe('NotabsView admin workflow', () => {
     expect(rows[1].classes()).toEqual(rows[2].classes());
   });
 
-  it('renames a Notab inline and saves explicitly', async () => {
+  it('renames a NoTab inline and saves explicitly', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -213,7 +213,7 @@ describe('NotabsView admin workflow', () => {
     });
   });
 
-  it('confirms recursive impact before deleting a Notab', async () => {
+  it('confirms recursive impact before deleting a NoTab', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -235,7 +235,7 @@ describe('NotabsView admin workflow', () => {
     await settle(wrapper);
 
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: '删除 Notab',
+      title: '删除 NoTab',
       message: expect.stringContaining('2 个文件夹和 3 个书签'),
     }));
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/folders/1', { method: 'DELETE' });

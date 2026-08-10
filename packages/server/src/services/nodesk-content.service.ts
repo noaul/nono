@@ -49,12 +49,12 @@ export class NodeskContentStore {
 
   async readPublicJson(resource: string) {
     const logicalPath = this.publicPath(resource);
-    if (!logicalPath) throw httpError(404, 'Nodesk content resource not found');
+    if (!logicalPath) throw httpError(404, 'NoDesk content resource not found');
     const content = await this.read(logicalPath);
     try {
       return JSON.parse(content.toString('utf8'));
     } catch {
-      throw httpError(500, 'Nodesk content is not valid JSON');
+      throw httpError(500, 'NoDesk content is not valid JSON');
     }
   }
 
@@ -64,7 +64,7 @@ export class NodeskContentStore {
     try {
       return await fs.readFile(target);
     } catch (error) {
-      if (hasCode(error, 'ENOENT')) throw httpError(404, 'Nodesk content file not found');
+      if (hasCode(error, 'ENOENT')) throw httpError(404, 'NoDesk content file not found');
       throw error;
     }
   }
@@ -72,7 +72,7 @@ export class NodeskContentStore {
   async list(logicalPath: string) {
     const normalized = normalizeLogicalPath(logicalPath);
     if (!LIST_DIRECTORIES.some(pattern => pattern.test(normalized))) {
-      throw httpError(400, 'Nodesk content directory is not allowed');
+      throw httpError(400, 'NoDesk content directory is not allowed');
     }
 
     const target = resolveWithin(this.root, normalized);
@@ -83,15 +83,15 @@ export class NodeskContentStore {
   }
 
   async batch(files: unknown) {
-    if (!Array.isArray(files) || files.length === 0) throw httpError(400, 'At least one Nodesk content file is required');
+    if (!Array.isArray(files) || files.length === 0) throw httpError(400, 'At least one NoDesk content file is required');
 
     const entries = files.map((input: unknown) => {
       const file = input as Partial<NodeskBatchFile> | null;
       if (!file || typeof file.path !== 'string' || (typeof file.contentBase64 !== 'string' && file.contentBase64 !== null)) {
-        throw httpError(400, 'Invalid Nodesk content file');
+        throw httpError(400, 'Invalid NoDesk content file');
       }
       const normalized = normalizeLogicalPath(file.path);
-      if (!isAllowedFile(normalized)) throw httpError(400, 'Nodesk content path is not allowed');
+      if (!isAllowedFile(normalized)) throw httpError(400, 'NoDesk content path is not allowed');
       return {
         logicalPath: normalized,
         target: resolveWithin(this.root, normalized),
@@ -100,7 +100,7 @@ export class NodeskContentStore {
     });
 
     if (new Set(entries.map(entry => entry.logicalPath)).size !== entries.length) {
-      throw httpError(400, 'Duplicate Nodesk content path');
+      throw httpError(400, 'Duplicate NoDesk content path');
     }
 
     const staged: Array<{ target: string; temp: string }> = [];
@@ -121,7 +121,7 @@ export class NodeskContentStore {
           continue;
         }
         const stagedFile = staged.find(item => item.target === entry.target);
-        if (!stagedFile) throw new Error('Nodesk content staging failed');
+        if (!stagedFile) throw new Error('NoDesk content staging failed');
         await fs.rename(stagedFile.temp, entry.target);
       }
     } finally {
@@ -133,7 +133,7 @@ export class NodeskContentStore {
 
   private resolveFile(logicalPath: string) {
     const normalized = normalizeLogicalPath(logicalPath);
-    if (!isAllowedFile(normalized)) throw httpError(400, 'Nodesk content path is not allowed');
+    if (!isAllowedFile(normalized)) throw httpError(400, 'NoDesk content path is not allowed');
     return resolveWithin(this.root, normalized);
   }
 
@@ -147,7 +147,7 @@ export class NodeskContentStore {
     }
 
     for (const entry of entries) {
-      if (entry.isSymbolicLink()) throw httpError(400, 'Symbolic links are not allowed in Nodesk content');
+      if (entry.isSymbolicLink()) throw httpError(400, 'Symbolic links are not allowed in NoDesk content');
       const logicalPath = `${logicalDirectory}/${entry.name}`;
       const target = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -165,7 +165,7 @@ export class NodeskContentStore {
       current = path.join(current, segment);
       try {
         const stats = await fs.lstat(current);
-        if (stats.isSymbolicLink()) throw httpError(400, 'Symbolic links are not allowed in Nodesk content');
+        if (stats.isSymbolicLink()) throw httpError(400, 'Symbolic links are not allowed in NoDesk content');
       } catch (error) {
         if (hasCode(error, 'ENOENT')) return;
         throw error;
@@ -181,18 +181,18 @@ function isAllowedFile(logicalPath: string) {
 function normalizeLogicalPath(input: string) {
   const value = input.trim();
   if (!value || value.includes('\\') || value.includes('\0') || path.posix.isAbsolute(value) || /^[A-Za-z]:/.test(value)) {
-    throw httpError(400, 'Invalid Nodesk content path');
+    throw httpError(400, 'Invalid NoDesk content path');
   }
   const segments = value.split('/');
   if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
-    throw httpError(400, 'Invalid Nodesk content path');
+    throw httpError(400, 'Invalid NoDesk content path');
   }
   return segments.join('/');
 }
 
 function resolveWithin(root: string, logicalPath: string) {
   const target = path.resolve(root, ...logicalPath.split('/'));
-  if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw httpError(400, 'Invalid Nodesk content path');
+  if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw httpError(400, 'Invalid NoDesk content path');
   return target;
 }
 

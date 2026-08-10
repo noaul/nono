@@ -62,12 +62,12 @@ export async function hasAuth(): Promise<boolean> {
 
 /**
  * Compatibility entry point for the existing Blog write services.
- * Authorization is provided by the same-origin Nono session cookie; this
+ * Authorization is provided by the same-origin NoNo session cookie; this
  * return value is intentionally not a credential and is ignored by the API client.
  */
 export async function getAuthToken(): Promise<string> {
 	if (!isAdminSession(await readSession(true))) {
-		throw new Error(copy('需要先登录 Nono 管理员账户', 'Sign in to a Nono admin account first'))
+		throw new Error(copy('需要先登录 NoNo 管理员账户', 'Sign in to a NoNo admin account first'))
 	}
 	return 'nono-session'
 }

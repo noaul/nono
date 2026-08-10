@@ -338,7 +338,7 @@ describe('visual contracts', () => {
     expect(source).not.toContain('data-testid="bulk-move"');
   });
 
-  it('keeps bookmark creation in the admin shell without embedding Nodesk', async () => {
+  it('keeps bookmark creation in the admin shell without embedding NoDesk', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const routerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
@@ -672,7 +672,7 @@ describe('visual contracts', () => {
     }
   });
 
-  it('shares an adaptive color mode across public, admin, and Nodesk surfaces', async () => {
+  it('shares an adaptive color mode across public, admin, and NoDesk surfaces', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const root = path.resolve(process.cwd(), '../..');

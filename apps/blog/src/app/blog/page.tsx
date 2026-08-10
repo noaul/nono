@@ -280,7 +280,7 @@ export default function BlogPage() {
 
 	const handleSaveClick = useCallback(() => {
 		if (!isAuth) {
-			toast.error(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
+			toast.error(copy('请先登录 NoNo 后台', 'Sign in to the NoNo admin first'))
 			return
 		}
 		void handleSave()

@@ -25,7 +25,7 @@ function navigationPayload(backgroundImage?: string, settings?: Record<string, u
     site: {
       id: 1,
       userId: 1,
-      name: 'Nono',
+      name: 'NoNo',
       description: 'Navigation',
       slug: 'admin',
       backgroundImage,
@@ -153,7 +153,7 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
-  it('places NoMoney and NoStar after the Notab buttons', async () => {
+  it('places NoMoney and NoStar after the NoTab buttons', async () => {
     const wrapper = await mountNavigationPage();
     const tabs = wrapper.get('.folder-tabs');
     const noMoney = tabs.get('[data-testid="navigation-entry-nomoney"]');
@@ -589,7 +589,7 @@ describe('NavigationPage public workflow', () => {
     expect(contextMenu.defaultPrevented).toBe(true);
   });
 
-  it('reorders Notabs directly while organize mode is active', async () => {
+  it('reorders NoTabs directly while organize mode is active', async () => {
     vi.useFakeTimers();
     apiRequest.mockResolvedValue({
       ...navigationPayload(),

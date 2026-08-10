@@ -8,7 +8,7 @@ const { t } = useI18n();
 
 const auth = useAuthStore();
 const router = useRouter();
-const form = reactive({ username: 'admin', email: 'admin@nono.local', displayName: 'Nono Admin', password: '' });
+const form = reactive({ username: 'admin', email: 'admin@nono.local', displayName: 'NoNo Admin', password: '' });
 const error = ref('');
 
 async function submit() {

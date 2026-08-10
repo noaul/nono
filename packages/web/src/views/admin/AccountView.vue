@@ -2,7 +2,6 @@
 import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
 import { Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -170,12 +169,6 @@ onMounted(() => {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleAccount')">
-      <template #actions>
-        <button class="button" form="account-password-form" type="submit"><Save :size="17" /> {{ t('account.changePassword') }}</button>
-      </template>
-    </AdminPageHeader>
-
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
@@ -231,6 +224,7 @@ onMounted(() => {
     <form id="account-password-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
         <h2><KeyRound :size="18" /> {{ t('account.loginPassword') }}</h2>
+        <button class="button" type="submit"><Save :size="17" /> {{ t('account.changePassword') }}</button>
       </header>
       <div class="admin-settings-grid">
         <div class="field"><label>{{ t('account.currentPassword') }}</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>

@@ -24,7 +24,7 @@ function getAuthHeaders(apiSecret?: string): Record<string, string> {
 
 /**
  * Resolve API base URL.
- *  - Backend mode: use backend.backendUrl (proxied through Nono Fastify)
+ *  - Backend mode: use backend.backendUrl (proxied through NoNo Fastify)
  *  - Client-only mode: call aria2 directly at http://host:port
  */
 async function getBaseUrl(config?: RpcDownloadConfig): Promise<string> {
@@ -84,7 +84,7 @@ export async function testRpcDownload(
       return { success: true, version: result?.version as string | undefined };
     }
 
-    // Backend mode: proxy through Nono.
+    // Backend mode: proxy through NoNo.
     const base = await getBaseUrl();
     const resp = await fetch(`${base}/settings/rpc-download/test`, {
       method: 'POST',
@@ -131,7 +131,7 @@ export async function sendToRpcDownload(
       return { success: true, gid: data.result as string };
     }
 
-    // Backend mode: proxy through Nono.
+    // Backend mode: proxy through NoNo.
     const base = await getBaseUrl();
     const resp = await fetch(`${base}/download/rpc`, {
       method: 'POST',

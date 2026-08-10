@@ -10,7 +10,7 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
   app.get('/images/:filename', async (request, reply) => {
     const filename = String((request.params as { filename?: string }).filename || '');
     if (!/^avatar-[a-f0-9]{64}\.webp$/i.test(filename)) {
-      return sendError(reply, 404, 'Nodesk asset not found');
+      return sendError(reply, 404, 'NoDesk asset not found');
     }
     const content = await store.read(`public/images/${filename}`);
     return reply

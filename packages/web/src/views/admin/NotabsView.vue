@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableList from '@/components/admin/SortableList.vue';
@@ -31,7 +30,7 @@ const isSavingSort = ref(false);
 const isCreatingNotab = ref(false);
 const isSavingNotab = ref(false);
 const newNotab = reactive({ name: '', icon: '', description: '' });
-const portal = reactive({ ...portalDefaults, label: 'Nodesk', url: '/nodesk' });
+const portal = reactive({ ...portalDefaults, label: 'NoDesk', url: '/nodesk' });
 const navigationEntries = ref<NavigationEntry[]>(defaultNavigationEntries.map((entry) => ({ ...entry })));
 const isSavingEntries = ref(false);
 
@@ -272,7 +271,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleNotabs')" />
     <ContentManagementTabs active="notabs" />
 
     <section class="admin-section compact-admin-section" data-testid="entry-management">
@@ -288,7 +286,7 @@ onMounted(load);
           <input v-model="portal.label" :aria-label="t('notabs.nodeskName')" maxlength="60" />
           <input v-model="portal.url" :aria-label="t('notabs.nodeskUrl')" maxlength="2048" />
           <label class="compact-toggle"><input v-model="portal.enabled" type="checkbox" /> {{ t('notabs.enabled') }}</label>
-          <span class="entry-kind">Nodesk</span>
+          <span class="entry-kind">NoDesk</span>
         </div>
         <div v-for="(entry, index) in navigationEntries" :key="entry.id" class="entry-editor-row">
           <span class="entry-icon"><Link2 :size="17" /></span>

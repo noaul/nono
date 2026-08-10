@@ -17,7 +17,7 @@ async function main() {
     create: {
       username: 'admin',
       email: 'admin@nono.local',
-      displayName: 'Nono Admin',
+      displayName: 'NoNo Admin',
       passwordHash,
       role: 'admin',
     },
@@ -28,7 +28,7 @@ async function main() {
     update: {},
     create: {
       userId: admin.id,
-      name: 'Nono',
+      name: 'NoNo',
       description: '一个可自托管的网址导航主页',
       slug: 'admin',
       backgroundImage: 'https://api.dujin.org/bing/1920.php',

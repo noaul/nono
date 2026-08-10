@@ -55,7 +55,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 	})
 
 	if (!response.ok) {
-		let message = `Nodesk content request failed: ${response.status}`
+		let message = `NoDesk content request failed: ${response.status}`
 		try {
 			const payload = (await response.json()) as ApiEnvelope<unknown>
 			if (payload.message) message = payload.message

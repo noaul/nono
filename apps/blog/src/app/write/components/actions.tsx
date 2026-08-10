@@ -20,7 +20,7 @@ export function WriteActions() {
 
 	const handleImportOrPublish = () => {
 		if (!isAuth) {
-			toast.error(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
+			toast.error(copy('请先登录 NoNo 后台', 'Sign in to the NoNo admin first'))
 			return
 		}
 		void onPublish()
@@ -41,7 +41,7 @@ export function WriteActions() {
 
 	const handleDelete = () => {
 		if (!isAuth) {
-			toast.info(copy('请先登录 Nono 后台', 'Sign in to the Nono admin first'))
+			toast.info(copy('请先登录 NoNo 后台', 'Sign in to the NoNo admin first'))
 			return
 		}
 		const confirmMsg = form?.title

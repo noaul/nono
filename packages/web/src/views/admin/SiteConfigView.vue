@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
@@ -116,11 +115,6 @@ function setDefaultSearchEngine(id: string) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('admin.sectionOperations')" :title="t('admin.titleSite')">
-      <template #actions>
-        <button class="button" form="site-config-form" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? t('common.saving') : t('site.saveSettings') }}</button>
-      </template>
-    </AdminPageHeader>
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
@@ -129,6 +123,7 @@ function setDefaultSearchEngine(id: string) {
       <section class="admin-card site-basics">
         <header class="admin-card-head">
           <h2><Palette :size="18" /> {{ t('site.basics') }}</h2>
+          <button class="button" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? t('common.saving') : t('site.saveSettings') }}</button>
         </header>
         <div class="config-fields">
           <div class="field"><label>{{ t('site.name') }}</label><input v-model="form.name" /></div>
@@ -245,7 +240,7 @@ function setDefaultSearchEngine(id: string) {
               <img v-if="portal.imageUrl" :src="portal.imageUrl" alt="" />
               <Image v-else :size="28" />
             </div>
-            <strong>{{ form.name || 'Nono' }}</strong>
+            <strong>{{ form.name || 'NoNo' }}</strong>
             <small>{{ portal.url || t('site.portalUrlHint') }}</small>
           </div>
         </div>

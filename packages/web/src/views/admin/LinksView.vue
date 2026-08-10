@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import FolderGlyph from '@/components/FolderGlyph.vue';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
@@ -586,7 +585,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('notabs.eyebrow')" :title="t('admin.titleLinks')" />
     <ContentManagementTabs active="links" />
 
     <AdminStateBanner v-if="message" :message="message" tone="success" />
@@ -599,7 +597,7 @@ onMounted(load);
       <LoadingOverlay v-if="isInitialLoading" :label="t('links.loading')" />
       <template v-else>
         <div class="management-filter-group">
-          <div class="management-filter-label">notab</div>
+          <div class="management-filter-label">NoTab</div>
           <nav class="folder-pills" :aria-label="t('links.notabNav')">
             <button
               v-for="category in categoryFolders"
@@ -662,20 +660,13 @@ onMounted(load);
             >
               <FolderGlyph :icon="folder.icon" :size="15" />{{ folder.name }}
             </button>
-          </div>
-        </div>
-
-        <section id="folder-management" class="folder-management-panel" data-testid="folder-management" aria-labelledby="folder-management-title">
-          <div class="folder-management-head">
-            <div>
-              <span id="folder-management-title">{{ t('folders.management') }}</span>
-              <strong>{{ activeFolder?.name || t('links.noFolderSelected') }}</strong>
-            </div>
-            <button class="button secondary" data-testid="create-folder" type="button" :disabled="!selectedCategoryId || folderEditorOpen || isSavingFolderSort" @click="startFolderCreate">
+            <button class="button secondary create-folder-button" data-testid="create-folder" type="button" :disabled="!selectedCategoryId || folderEditorOpen || isSavingFolderSort" @click="startFolderCreate">
               <Plus :size="16" /> {{ t('folders.createFolder') }}
             </button>
           </div>
+        </div>
 
+        <section id="folder-management" class="folder-management-panel" data-testid="folder-management" :aria-label="t('folders.management')">
           <form v-if="folderEditorOpen" class="folder-editor-form" data-testid="folder-editor" @submit.prevent="saveFolderEditor">
             <div class="folder-editor-field folder-editor-icon">
               <span>{{ t('folders.icon') }}</span>
@@ -713,7 +704,7 @@ onMounted(load);
             <div class="folder-summary-head" role="row">
               <span role="columnheader">{{ t('folders.icon') }}</span>
               <span class="folder-summary-name" role="columnheader">{{ t('folders.name') }}</span>
-              <span role="columnheader">notab</span>
+              <span role="columnheader">NoTab</span>
               <span role="columnheader">{{ t('folders.linkCountHeader') }}</span>
               <span role="columnheader">{{ t('folders.aiHint') }}</span>
               <span role="columnheader">{{ t('folders.actions') }}</span>
@@ -721,7 +712,7 @@ onMounted(load);
             <div class="folder-summary-row" role="row">
               <span role="cell"><FolderGlyph :icon="activeFolder.icon" :size="18" /></span>
               <strong class="folder-summary-name" data-testid="active-folder-name" role="cell">{{ activeFolder.name }}</strong>
-              <span role="cell">{{ activeFolder.parentId ? categoryName(activeFolder.id) : 'notab' }}</span>
+              <span role="cell">{{ activeFolder.parentId ? categoryName(activeFolder.id) : 'NoTab' }}</span>
               <span role="cell">{{ t('folders.linkCount', { count: activeFolderLinkCount }) }}</span>
               <span class="folder-summary-description" role="cell">{{ activeFolder.description || '-' }}</span>
               <span class="row-actions" role="cell">
@@ -765,7 +756,7 @@ onMounted(load);
             <span>{{ t('links.name') }}</span>
             <span>{{ t('links.url') }}</span>
             <span>{{ t('links.folder') }}</span>
-            <span>notab</span>
+            <span>NoTab</span>
             <span>{{ t('links.status') }}</span>
             <span>{{ t('links.actions') }}</span>
           </div>
@@ -810,7 +801,7 @@ onMounted(load);
                 </select>
                 <template v-else>{{ folderName(link.folderId) }}</template>
               </span>
-              <span data-label="notab">
+              <span data-label="NoTab">
                 <select
                   v-if="editingLinkId === link.id"
                   v-model.number="inlineForm.categoryId"
@@ -861,7 +852,7 @@ onMounted(load);
                 <option v-for="folder in formCategoryFolders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
               </select>
             </span>
-            <span data-label="notab">
+            <span data-label="NoTab">
               <select v-model.number="formCategoryId" class="inline-link-select" data-testid="new-link-category" :aria-label="t('links.newNotab')">
                 <option v-for="category in categoryFolders" :key="category.id" :value="category.id">{{ category.name }}</option>
               </select>
@@ -892,6 +883,13 @@ onMounted(load);
   flex-wrap: nowrap;
   overflow-x: auto;
   padding-bottom: 2px;
+}
+
+.create-folder-button {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  min-height: var(--ui-control-h-sm);
+  white-space: nowrap;
 }
 
 .sortable-folder-pills {
@@ -932,28 +930,6 @@ onMounted(load);
   display: grid;
   gap: 12px;
   padding: 14px 0;
-}
-
-.folder-management-head {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.folder-management-head > div {
-  display: grid;
-  gap: 2px;
-}
-
-.folder-management-head span {
-  color: var(--admin-text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.folder-management-head strong {
-  font-size: 14px;
 }
 
 .folder-summary-table {
@@ -1170,15 +1146,6 @@ onMounted(load);
     width: 100%;
   }
 
-  .folder-management-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .folder-management-head .button {
-    width: 100%;
-  }
-
   .folder-summary-table {
     border: 0;
     overflow: visible;
@@ -1259,6 +1226,16 @@ onMounted(load);
 }
 
 .management-filter-group .folder-pill {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
+  justify-content: center;
+  line-height: 1;
+}
+
+.management-filter-group .folder-pill :deep(svg),
+.create-folder-button :deep(svg) {
   flex: 0 0 auto;
 }
 

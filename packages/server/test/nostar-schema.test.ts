@@ -22,7 +22,7 @@ describe('NoStar Prisma schema', () => {
     }
   });
 
-  it('binds repositories and releases to a Nono user', () => {
+  it('binds repositories and releases to a NoNo user', () => {
     expect(schema).toMatch(/model NoStarRepository \{[\s\S]*?userId\s+Int[\s\S]*?@@unique\(\[userId, githubId\]\)/);
     expect(schema).toMatch(/model NoStarRelease \{[\s\S]*?userId\s+Int[\s\S]*?@@unique\(\[userId, githubId\]\)/);
     expect(schema).toMatch(/model User \{[\s\S]*?noStarRepositories\s+NoStarRepository\[\]/);

@@ -9,8 +9,8 @@ const updatedAt = '2026-07-16';
   <main class="privacy-page">
     <article class="privacy-content">
       <header class="privacy-header">
-        <a class="privacy-brand" href="/" :aria-label="t('privacy.backHome')">NONO</a>
-        <p class="privacy-kicker">Nono Smart Bookmark</p>
+        <a class="privacy-brand" href="/" :aria-label="t('privacy.backHome')">NoNo</a>
+        <p class="privacy-kicker">NoNo Smart Bookmark</p>
         <h1>{{ t('privacy.title') }}</h1>
         <p class="privacy-updated">{{ t('privacy.updated', { date: updatedAt }) }}</p>
       </header>

@@ -1,4 +1,4 @@
-/* Nono admin — one shell layer, driven by the shared UI contract.
+/* NoNo admin — one shell layer, driven by the shared UI contract.
  *
  * This file replaced eight accumulated skins (legacy, workbench, redesigned-operations,
  * glassmorphism, figma, unified-compact, chatgpt-neutral and an adaptive dark-mode patch) that
@@ -406,6 +406,7 @@
 }
 
 .admin-page-actions,
+.admin-page-toolbar,
 .admin-section-actions {
   align-items: center;
   display: flex;
@@ -686,6 +687,10 @@
   font-size: 13px;
   overflow-x: auto;
   width: 100%;
+}
+
+.admin-page-toolbar {
+  justify-content: flex-end;
 }
 
 .admin-table-head,

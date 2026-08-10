@@ -64,7 +64,7 @@ describe('admin dashboard workbench', () => {
         { id: 3, userId: 1, parentId: 1, name: '私密', sortOrder: 2, locked: true },
       ])
       .mockResolvedValueOnce([
-        { id: 1, folderId: 2, name: 'Nono', url: 'https://noaul.com', sortOrder: 1 },
+        { id: 1, folderId: 2, name: 'NoNo', url: 'https://noaul.com', sortOrder: 1 },
       ]);
 
     const wrapper = mount(AdminDashboard, {
@@ -83,7 +83,7 @@ describe('admin dashboard workbench', () => {
     expect(wrapper.text()).not.toContain('运营中枢');
     expect(wrapper.findAll('.ops-metric-card')).toHaveLength(4);
     expect(wrapper.findAll('.dashboard-shortcut')).toHaveLength(11);
-    expect(wrapper.text()).toContain('1 个 Notab');
+    expect(wrapper.text()).toContain('1 个 NoTab');
     expect(wrapper.text()).toContain('2 个文件夹');
     expect(wrapper.text()).toContain('1 个书签');
     expect(wrapper.text()).toContain('1 个加密');

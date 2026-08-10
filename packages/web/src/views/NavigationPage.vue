@@ -1301,7 +1301,7 @@ onUnmounted(() => {
             <img :src="portal.imageUrl" :alt="portal.label" />
             <ArrowUpRight class="portal-center-arrow" :size="17" />
           </span>
-          <h1>{{ payload?.site.name || 'Nono' }}</h1>
+          <h1>{{ payload?.site.name || 'NoNo' }}</h1>
           <p>{{ payload?.site.description || t('nav.tagline') }}</p>
         </component>
       </header>
@@ -1336,7 +1336,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing, 'notab-wraps': appearance.notabOverflow === 'wrap' }" aria-label="notab">
+          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing, 'notab-wraps': appearance.notabOverflow === 'wrap' }" aria-label="NoTab">
             <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
             <span
               v-for="tab in categoryTabs"

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getPortalSettings, safeHttpUrl, safeImageUrl } from '../src/utils/portal';
 
 describe('portal settings', () => {
-  it('uses the same-origin Nodesk path by default', () => {
+  it('uses the same-origin NoDesk path by default', () => {
     expect(getPortalSettings({}).url).toBe('/nodesk');
   });
 
@@ -10,7 +10,7 @@ describe('portal settings', () => {
     expect(getPortalSettings({}, 'https://blog.example.com')).toMatchObject({
       enabled: true,
       url: 'https://blog.example.com/',
-      label: '前往 Nodesk',
+      label: '前往 NoDesk',
       imageUrl: '',
       openInNewTab: false,
     });

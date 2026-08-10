@@ -16,7 +16,7 @@ const feed = {
       key: 'links:abc',
       source: 'links',
       severity: 'critical',
-      title: 'Nono 访问异常',
+      title: 'NoNo 访问异常',
       description: 'HTTP 503',
       href: '/admin/links',
       occurredAt: '2026-07-18T07:00:00.000Z',
@@ -49,7 +49,7 @@ describe('NotificationsView', () => {
 
     expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=100');
     expect(wrapper.findAll('.notification-row')).toHaveLength(2);
-    expect(wrapper.text()).toContain('Nono 访问异常');
+    expect(wrapper.text()).toContain('NoNo 访问异常');
     expect(wrapper.text()).toContain('发布周报');
     expect(wrapper.get('[data-testid="notification-filter-unread"]').attributes('aria-pressed')).toBe('false');
 
@@ -84,6 +84,6 @@ describe('NotificationsView', () => {
 
     expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/notifications/links%3Aabc', { method: 'DELETE' });
     expect(wrapper.findAll('.notification-row')).toHaveLength(1);
-    expect(wrapper.text()).not.toContain('Nono 访问异常');
+    expect(wrapper.text()).not.toContain('NoNo 访问异常');
   });
 });

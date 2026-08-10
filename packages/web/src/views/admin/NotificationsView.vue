@@ -14,7 +14,6 @@ import {
   WalletCards,
   X,
 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed, AdminNotificationSource } from '@/api/types';
@@ -210,20 +209,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack notifications-page">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleNotifications')">
-      <template #actions>
-        <button
-          class="button secondary"
-          data-testid="mark-all-notifications-read"
-          type="button"
-          :disabled="isMarkingAll || !feed.unreadCount"
-          @click="markAllRead"
-        >
-          <CheckCheck :size="16" /> {{ isMarkingAll ? t('notifications.markingAll') : t('notifications.markAllRead') }}
-        </button>
-      </template>
-    </AdminPageHeader>
-
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <section class="notification-center" :aria-label="t('notifications.center')">
@@ -250,6 +235,15 @@ onMounted(load);
             {{ t(option.labelKey) }} {{ option.count }}
           </button>
         </div>
+        <button
+          class="button secondary"
+          data-testid="mark-all-notifications-read"
+          type="button"
+          :disabled="isMarkingAll || !feed.unreadCount"
+          @click="markAllRead"
+        >
+          <CheckCheck :size="16" /> {{ isMarkingAll ? t('notifications.markingAll') : t('notifications.markAllRead') }}
+        </button>
       </header>
 
       <div v-if="isLoading" class="notification-empty">{{ t('notifications.loading') }}</div>

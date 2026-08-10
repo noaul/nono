@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { Archive, CalendarClock, CheckCircle2, Database, Download, Plus, Save, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
 import { useConfirm } from '@/composables/useConfirm';
@@ -48,7 +47,7 @@ const deletingIds = ref(new Set<string>());
 const message = ref('');
 const error = ref('');
 const confirmApi = useConfirm();
-const componentNames = { postgres: 'PostgreSQL', nodesk: 'Nodesk', nomoney: 'NoMoney' } as const;
+const componentNames = { postgres: 'PostgreSQL', nodesk: 'NoDesk', nomoney: 'NoMoney' } as const;
 
 async function loadBackups() {
   isLoading.value = true;
@@ -140,14 +139,6 @@ onMounted(loadBackups);
 
 <template>
   <div class="admin-page-stack backups-page">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleBackups')">
-      <template #actions>
-        <button class="button" data-testid="create-backup" type="button" :disabled="isCreating" @click="createBackup">
-          <Plus :size="17" /> {{ isCreating ? t('backups.creating') : t('backups.create') }}
-        </button>
-      </template>
-    </AdminPageHeader>
-
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
@@ -207,7 +198,12 @@ onMounted(loadBackups);
     <section class="admin-section backup-section">
       <header class="admin-section-head">
         <h2><Archive :size="18" /> {{ t('backups.fullBackup') }}</h2>
-        <span class="backup-count">{{ backups.length }}</span>
+        <div class="admin-section-actions">
+          <span class="backup-count">{{ backups.length }}</span>
+          <button class="button" data-testid="create-backup" type="button" :disabled="isCreating" @click="createBackup">
+            <Plus :size="17" /> {{ isCreating ? t('backups.creating') : t('backups.create') }}
+          </button>
+        </div>
       </header>
 
       <p v-if="isLoading" class="backup-empty">{{ t('backups.loading') }}</p>

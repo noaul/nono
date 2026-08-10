@@ -71,7 +71,7 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.text()).toContain('生活');
   });
 
-  it('indents child folders without exposing top-level Notab creation', async () => {
+  it('indents child folders without exposing top-level NoTab creation', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: 'Parent', parentId: null, sortOrder: 100 },
@@ -86,7 +86,7 @@ describe('FoldersView admin workflow', () => {
     expect(wrapper.get('[data-testid="folder-row-2"]').attributes('style')).toContain('--folder-depth: 1');
   });
 
-  it('creates a folder from the add row and always assigns the active Notab', async () => {
+  it('creates a folder from the add row and always assigns the active NoTab', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
@@ -227,7 +227,7 @@ describe('FoldersView admin workflow', () => {
     await settle(wrapper);
     const row = wrapper.get('[data-testid="folder-row-2"]');
     expect(row.get('[data-label="名称"]').find('select').exists()).toBe(false);
-    expect(row.get('[data-label="notab"]').get('[data-testid="move-folder-2"]').element).toBeInstanceOf(HTMLSelectElement);
+    expect(row.get('[data-label="NoTab"]').get('[data-testid="move-folder-2"]').element).toBeInstanceOf(HTMLSelectElement);
     await wrapper.get('[data-testid="move-folder-2"]').setValue('3');
     await settle(wrapper);
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { Bot, FlaskConical, Plus, Save, Star, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
@@ -145,13 +144,6 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('admin.sectionAutomation')" :title="t('admin.titleLlm')">
-      <template #actions>
-        <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
-        <button class="button" form="llm-settings-form" type="submit"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>
-      </template>
-    </AdminPageHeader>
-
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
     <AdminStateBanner :message="t('llm.keyNotice', { state: hasKey ? t('llm.keyConfigured') : t('llm.keyMissing') })" tone="info" />
@@ -159,6 +151,10 @@ async function testNoStarProfile(profile: NoStarAiProfile) {
     <form id="llm-settings-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
         <h2><Bot :size="18" /> {{ t('llm.connection') }}</h2>
+        <div class="admin-section-actions">
+          <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
+          <button class="button" type="submit"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>
+        </div>
       </header>
       <div class="admin-settings-grid">
         <div class="field"><label>Provider</label><select v-model="form.provider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select></div>

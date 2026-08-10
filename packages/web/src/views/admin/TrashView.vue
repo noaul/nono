@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, type Component } from 'vue';
 import type { MessageKey } from '@/locales';
 import { Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
 import type { TrashItem, TrashItemKind } from '@/api/types';
@@ -119,14 +118,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack trash-page">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleTrash')" :description="t('trash.description')">
-      <template #actions>
-        <button class="button danger" type="button" :disabled="!items.length || emptying" @click="emptyTrash">
-          <Trash2 :size="17" /> {{ emptying ? t('trash.emptying') : t('trash.emptyTrash') }}
-        </button>
-      </template>
-    </AdminPageHeader>
-
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <section class="admin-section trash-section">
@@ -141,7 +132,12 @@ onMounted(load);
             @click="filter = entry.id"
           >{{ t(entry.labelKey) }}</button>
         </div>
-        <span class="trash-count">{{ t('trash.itemCount', { count: filteredItems.length }) }}</span>
+        <div class="trash-toolbar-actions">
+          <span class="trash-count">{{ t('trash.itemCount', { count: filteredItems.length }) }}</span>
+          <button class="button danger" type="button" :disabled="!items.length || emptying" @click="emptyTrash">
+            <Trash2 :size="17" /> {{ emptying ? t('trash.emptying') : t('trash.emptyTrash') }}
+          </button>
+        </div>
       </header>
 
       <p v-if="loading" class="trash-empty">{{ t('trash.loading') }}</p>
@@ -185,6 +181,7 @@ onMounted(load);
 .trash-filters button { border-radius: 6px; color: var(--admin-text-muted); font-size: 13px; min-height: 32px; padding: 0 12px; }
 .trash-filters button.active { background: var(--admin-surface-elevated); color: var(--admin-text); }
 .trash-count { color: var(--admin-text-muted); font-size: 12px; }
+.trash-toolbar-actions { align-items: center; display: flex; gap: 10px; }
 .trash-list { border: 1px solid var(--admin-border); border-radius: var(--admin-radius-control); overflow: hidden; }
 .trash-row { align-items: center; background: var(--admin-surface-elevated); display: grid; gap: 12px; grid-template-columns: 38px minmax(0, 1fr) auto; min-height: 70px; padding: 10px 12px; }
 .trash-row + .trash-row { border-top: 1px solid var(--admin-border); }
@@ -199,6 +196,7 @@ onMounted(load);
   .trash-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
   .trash-filters button { padding: 0 4px; }
   .trash-count { align-self: flex-end; }
+  .trash-toolbar-actions { justify-content: space-between; width: 100%; }
   .trash-row { grid-template-columns: 36px minmax(0, 1fr); }
   .trash-actions { grid-column: 2; }
 }

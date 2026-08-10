@@ -6,7 +6,7 @@ import { HeaderMenuId, AppState } from '../types';
 
 /**
  * The application frame: a fixed 256px sidebar and a 64px sticky topbar on desktop, the same
- * sidebar as a drawer on mobile. This replaced the header-centric layout so NoStar, the Nono
+ * sidebar as a drawer on mobile. This replaced the header-centric layout so NoStar, the NoNo
  * admin and NoMoney all read as one product. Geometry and colour come from the shared UI
  * contract (see docs/design/ui-contract.md); nothing here carries a NoStar-specific palette.
  */
@@ -190,7 +190,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       )}
 
       {/* While the drawer is open the rest of the app is inert and hidden from assistive tech,
-          matching the Nono admin shell. React 18 does not type `inert`, so it is spread in. */}
+          matching the NoNo admin shell. React 18 does not type `inert`, so it is spread in. */}
       <div
         className="nostar-main"
         data-testid="nostar-main"

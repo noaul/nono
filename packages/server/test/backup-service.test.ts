@@ -20,7 +20,7 @@ describe('backup service', () => {
     nomoneyDataDir = path.join(root, 'nomoney');
     fs.mkdirSync(nodeskContentDir, { recursive: true });
     fs.mkdirSync(nomoneyDataDir, { recursive: true });
-    fs.writeFileSync(path.join(nodeskContentDir, 'content.md'), '# Nodesk');
+    fs.writeFileSync(path.join(nodeskContentDir, 'content.md'), '# NoDesk');
     fs.writeFileSync(path.join(nomoneyDataDir, 'app.db'), 'sqlite-database');
     calls = [];
     run = vi.fn(async (command: string, args: string[], options: { env?: NodeJS.ProcessEnv } = {}) => {

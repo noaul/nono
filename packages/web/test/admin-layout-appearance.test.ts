@@ -37,10 +37,10 @@ describe('AdminLayout appearance settings', () => {
     expect(wrapper.get('.admin-shell').attributes('style')).toBeUndefined();
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
     expect(wrapper.get('.admin-nav').text()).toContain('书签管理');
-    expect(wrapper.get('.admin-nav').text()).not.toContain('Notab 管理');
+    expect(wrapper.get('.admin-nav').text()).not.toContain('NoTab 管理');
     expect(wrapper.get('.admin-nav').findAll('.nav-button').filter((item) => item.text() === '文件夹及书签管理')).toHaveLength(1);
     expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');
-    expect(wrapper.get('.admin-nav').text()).not.toContain('Nodesk');
+    expect(wrapper.get('.admin-nav').text()).not.toContain('NoDesk');
     expect(wrapper.get('.admin-nav').text()).toContain('导入导出');
     expect(wrapper.get('.admin-nav').text()).toContain('通知中心');
     // One shell class only: the admin surface no longer stacks skins.

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { Save, Trash2, Users } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -38,7 +37,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleUsers')" />
     <AdminStateBanner v-if="message" :message="message" tone="success" />
 
     <section class="admin-section">

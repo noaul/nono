@@ -72,7 +72,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     safeRequester,
     privateOutboundHosts: overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS),
     webAuthn: overrides.webAuthn || defaultWebAuthnService,
-    webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'Nono',
+    webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'NoNo',
     webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
     backupService,

@@ -310,7 +310,7 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
           if (!root) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
           if (root.parentId) {
             const parent = await transaction.folder.findFirst({ where: { id: root.parentId, userId } });
-            if (!parent) throw Object.assign(new Error('Restore the parent Notab first'), { statusCode: 409 });
+            if (!parent) throw Object.assign(new Error('Restore the parent NoTab first'), { statusCode: 409 });
           }
           const [folderConflicts, linkConflicts] = await Promise.all([
             transaction.folder.count({ where: { id: { in: folders.map((folder) => folder.id) } } }),

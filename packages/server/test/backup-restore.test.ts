@@ -109,7 +109,7 @@ describe('backup restoration', () => {
     await expect(service.verify(backupId)).rejects.toThrow('nomoney component checksum mismatch');
   });
 
-  it('restores PostgreSQL, Nodesk and NoMoney only after verification', async () => {
+  it('restores PostgreSQL, NoDesk and NoMoney only after verification', async () => {
     const service = makeService();
 
     await expect(service.restore(backupId)).resolves.toMatchObject({ id: backupId });

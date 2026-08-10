@@ -11,7 +11,6 @@ import {
   Save,
   Search,
 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AuditLogEntry, AuditLogPage, AuditSettings } from '@/api/types';
@@ -181,9 +180,11 @@ onMounted(() => {
 
 <template>
   <div class="admin-page-stack audit-page">
-    <AdminPageHeader :eyebrow="t('admin.sectionSystem')" :title="t('admin.titleAudit')">
-      <template #actions>
-        <div class="audit-header-actions">
+    <AdminStateBanner v-if="error" :message="error" tone="error" />
+    <AdminStateBanner v-else-if="feedback" :message="feedback" tone="success" />
+
+    <section class="audit-workspace" :aria-label="t('audit.workspace')">
+      <div class="audit-header-actions audit-workspace-actions">
           <div class="audit-retention-control">
             <span class="audit-retention-label">{{ t('audit.retain') }}</span>
             <input
@@ -208,14 +209,7 @@ onMounted(() => {
           <button class="icon-button secondary" type="button" :title="t('audit.refresh')" :aria-label="t('audit.refresh')" :disabled="isLoading" @click="loadLogs">
             <RefreshCw :size="16" :class="{ spinning: isLoading }" />
           </button>
-        </div>
-      </template>
-    </AdminPageHeader>
-
-    <AdminStateBanner v-if="error" :message="error" tone="error" />
-    <AdminStateBanner v-else-if="feedback" :message="feedback" tone="success" />
-
-    <section class="audit-workspace" :aria-label="t('audit.workspace')">
+      </div>
       <form data-testid="audit-filter-form" class="audit-filter-bar" @submit.prevent="applyFilters">
         <label class="audit-search-field">
           <Search :size="16" aria-hidden="true" />
@@ -322,6 +316,7 @@ onMounted(() => {
 }
 
 .audit-header-actions { align-items: center; display: flex; flex-wrap: nowrap; gap: 8px; }
+.audit-workspace-actions { border-bottom: 1px solid var(--admin-border); justify-content: flex-end; min-height: 50px; padding: 8px 12px; }
 
 .audit-retention-control input {
   height: 34px;
@@ -332,7 +327,7 @@ onMounted(() => {
 }
 
 .audit-retention-control .icon-button,
-.admin-page-actions > .icon-button { height: 34px; min-height: 34px; width: 34px; }
+.audit-header-actions > .icon-button { height: 34px; min-height: 34px; width: 34px; }
 
 .audit-workspace {
   background: var(--admin-surface-elevated);

@@ -33,7 +33,7 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 						<Compass className='text-brand size-4' />
 						{copy('网址导航联动', 'Link home integration')}
 					</h3>
-					<p className='text-secondary mt-1 text-xs'>{copy('控制中心头像和右上角返回 Nono 的入口', 'Controls the centre avatar and the “back to Nono” entry')}</p>
+					<p className='text-secondary mt-1 text-xs'>{copy('控制中心头像和右上角返回 NoNo 的入口', 'Controls the centre avatar and the “back to NoNo” entry')}</p>
 				</div>
 				<label className='flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium'>
 					<input
@@ -58,7 +58,7 @@ export function PortalSection({ formData, setFormData }: PortalSectionProps) {
 					/>
 				</label>
 				<label className='space-y-2'>
-					<span className='block text-xs font-medium'>{copy('Nono 地址', 'Nono URL')}</span>
+					<span className='block text-xs font-medium'>{copy('NoNo 地址', 'NoNo URL')}</span>
 					<input
 						type='text'
 						value={formData.portal.url}

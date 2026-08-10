@@ -48,7 +48,7 @@ export async function migrateNoStarSqlite(args: MigrationArgs, prisma = new Pris
   if (!/^[0-9a-fA-F]{64}$/.test(targetKey)) throw new Error('ENCRYPTION_KEY must be configured with 64 hexadecimal characters');
   const sourceKey = resolveSourceKey(args);
   const user = await prisma.user.findUnique({ where: { username: args.username } });
-  if (!user) throw new Error(`Nono user not found: ${args.username}`);
+  if (!user) throw new Error(`NoNo user not found: ${args.username}`);
 
   const db = new DatabaseSync(args.sqlitePath, { readOnly: true });
   try {

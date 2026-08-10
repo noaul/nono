@@ -130,7 +130,7 @@ function requestLink(requester: SafeRequester, url: URL, method: 'HEAD' | 'GET',
     method,
     headers: {
       accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
-      'user-agent': 'Nono-Link-Health/0.2 (+https://github.com/noaul/nono)',
+      'user-agent': 'NoNo-Link-Health/0.2 (+https://github.com/noaul/nono)',
     },
     timeoutMs: 5000,
     maxRedirects: 5,

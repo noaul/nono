@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { KeyRound, Plus, Trash2 } from 'lucide-vue-next';
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
@@ -54,8 +53,6 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack">
-    <AdminPageHeader :eyebrow="t('admin.sectionAutomation')" :title="t('admin.titleTokens')" />
-
     <div class="token-summary-grid">
       <section>
         <span>{{ t('tokens.total') }}</span>

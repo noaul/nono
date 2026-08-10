@@ -69,7 +69,7 @@ describe('admin shell', () => {
         mocks: { $route: { path: '/admin/links' } },
       },
       slots: {
-        default: h(AdminPageHeader, { eyebrow: '内容管理', title: '书签管理', description: '按 Notab 整理书签。' }),
+        default: h(AdminPageHeader, { eyebrow: '内容管理', title: '书签管理', description: '按 NoTab 整理书签。' }),
       },
     });
 
@@ -79,7 +79,7 @@ describe('admin shell', () => {
     expect(wrapper.findAll('h2.admin-page-title')).toHaveLength(1);
     expect(wrapper.get('h2.admin-page-title').text()).toBe('书签管理');
     // Descriptions and actions survive the demotion.
-    expect(wrapper.get('.admin-page-description').text()).toContain('按 Notab');
+    expect(wrapper.get('.admin-page-description').text()).toContain('按 NoTab');
     expect(wrapper.get('.admin-page-eyebrow').text()).toBe('内容管理');
   });
 

@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
             <RouterLink class="home-notification-copy" :to="item.href" @click="select(item)">
               <strong>{{ item.title }}</strong>
               <span>{{ item.description }}</span>
-              <small>{{ item.source === 'nodesk' ? 'Nodesk' : 'NoMoney' }} · {{ formatTime(item) }}</small>
+              <small>{{ item.source === 'nodesk' ? 'NoDesk' : 'NoMoney' }} · {{ formatTime(item) }}</small>
             </RouterLink>
             <div class="home-notification-actions">
               <button
