@@ -56,7 +56,7 @@ describe('admin dashboard workbench', () => {
     wrapper.unmount();
   });
 
-  it('renders the selected quick-workbench dashboard without the operations hero', async () => {
+  it('renders a compact dashboard with prioritised actions and grouped tools', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, parentId: null, name: '常用', sortOrder: 1, locked: false },
@@ -81,14 +81,15 @@ describe('admin dashboard workbench', () => {
 
     expect(wrapper.find('.dashboard-hero').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('运营中枢');
+    expect(wrapper.find('.dashboard-overview-header').exists()).toBe(true);
     expect(wrapper.findAll('.ops-metric-card')).toHaveLength(4);
-    expect(wrapper.findAll('.dashboard-shortcut')).toHaveLength(11);
-    expect(wrapper.text()).toContain('1 个 NoTab');
-    expect(wrapper.text()).toContain('2 个文件夹');
-    expect(wrapper.text()).toContain('1 个书签');
-    expect(wrapper.text()).toContain('1 个加密');
+    expect(wrapper.findAll('.ops-metric-card strong').map((metric) => metric.text())).toEqual(['1', '2', '1', '1']);
+    expect(wrapper.findAll('.dashboard-primary-action')).toHaveLength(4);
+    expect(wrapper.findAll('.dashboard-tool-link')).toHaveLength(7);
+    expect(wrapper.find('.dashboard-shortcuts-panel').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-shortcut-grid').exists()).toBe(false);
 
-    const destinations = wrapper.findAll('.dashboard-shortcut').map((link) => link.attributes('href'));
+    const destinations = wrapper.findAll('.dashboard-primary-action, .dashboard-tool-link').map((link) => link.attributes('href'));
     expect(destinations).toEqual(expect.arrayContaining([
       '/admin/links#new-bookmark',
       '/admin/automation',

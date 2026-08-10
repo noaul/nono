@@ -35,20 +35,26 @@ const averageLinksPerFolder = computed(() => (
   contentFolders.value.length ? Math.round((links.value.length / contentFolders.value.length) * 10) / 10 : 0
 ));
 
-type Shortcut = { labelKey: MessageKey; detailKey: MessageKey; to: string; icon: Component; external?: boolean };
+type Shortcut = { labelKey: MessageKey; detailKey: MessageKey; to: string; icon: Component };
 
-const shortcuts: Shortcut[] = [
+const primaryShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aNewBookmark', detailKey: 'dashboard.aNewBookmarkHint', to: '/admin/links#new-bookmark', icon: Plus },
   { labelKey: 'dashboard.aImport', detailKey: 'dashboard.aImportHint', to: '/admin/automation', icon: Upload },
   { labelKey: 'dashboard.aNotabs', detailKey: 'dashboard.aNotabsHint', to: '/admin/notabs', icon: Layers },
   { labelKey: 'dashboard.aFolders', detailKey: 'dashboard.aFoldersHint', to: '/admin/links#folder-management', icon: FolderIcon },
+];
+
+const toolShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aDuplicates', detailKey: 'dashboard.aDuplicatesHint', to: '/admin/links#bookmark-tools', icon: ListChecks },
   { labelKey: 'dashboard.aHealth', detailKey: 'dashboard.aHealthHint', to: '/admin/links#bookmark-tools', icon: Activity },
   { labelKey: 'dashboard.aLlm', detailKey: 'dashboard.aLlmHint', to: '/admin/llm', icon: Bot },
   { labelKey: 'dashboard.aTokens', detailKey: 'dashboard.aTokensHint', to: '/admin/tokens', icon: KeyRound },
   { labelKey: 'dashboard.aNotifications', detailKey: 'dashboard.aNotificationsHint', to: '/admin/notifications', icon: Bell },
-  { labelKey: 'dashboard.aNodesk', detailKey: 'dashboard.aNodeskHint', to: '/nodesk', icon: BookOpen, external: true },
-  { labelKey: 'dashboard.aNoMoney', detailKey: 'dashboard.aNoMoneyHint', to: '/nomoney', icon: CircleDollarSign, external: true },
+];
+
+const appShortcuts: Shortcut[] = [
+  { labelKey: 'dashboard.aNodesk', detailKey: 'dashboard.aNodeskHint', to: '/nodesk', icon: BookOpen },
+  { labelKey: 'dashboard.aNoMoney', detailKey: 'dashboard.aNoMoneyHint', to: '/nomoney', icon: CircleDollarSign },
 ];
 
 onMounted(async () => {
@@ -61,95 +67,126 @@ onMounted(async () => {
 
 <template>
   <div class="admin-page-stack dashboard-workbench">
-    <div class="admin-page-toolbar">
-      <a class="button secondary" href="/" target="_blank" rel="noreferrer"><ExternalLink :size="17" /> {{ t('dashboard.openHome') }}</a>
-      <RouterLink class="button" to="/admin/site"><Settings :size="17" /> {{ t('dashboard.siteSettings') }}</RouterLink>
-    </div>
+    <header class="dashboard-overview-header">
+      <h2>{{ t('dashboard.contentOverview') }}</h2>
+      <div class="dashboard-header-actions">
+        <a class="button secondary" href="/" target="_blank" rel="noreferrer"><ExternalLink :size="17" /> {{ t('dashboard.openHome') }}</a>
+        <RouterLink class="button" to="/admin/site"><Settings :size="17" /> {{ t('dashboard.siteSettings') }}</RouterLink>
+      </div>
+    </header>
 
     <div class="ops-metric-grid" :aria-label="t('dashboard.contentOverview')">
-      <RouterLink to="/admin/notabs" class="ops-metric-card tone-green">
-        <Layers :size="20" />
-        <div>
+      <RouterLink :aria-label="t('dashboard.notabCount', { count: notabCount })" to="/admin/notabs" class="ops-metric-card metric-tone-green">
+        <span class="ops-metric-icon"><Layers :size="18" /></span>
+        <span class="ops-metric-copy">
           <span>NoTab</span>
-          <strong>{{ notabCount }}</strong>
-          <small>{{ t('dashboard.notabCount', { count: notabCount }) }}</small>
-        </div>
+          <small>{{ t('dashboard.notabScope') }}</small>
+        </span>
+        <strong>{{ notabCount }}</strong>
         <ArrowRight :size="16" />
       </RouterLink>
 
-      <RouterLink to="/admin/links#folder-management" class="ops-metric-card tone-blue">
-        <FolderIcon :size="20" />
-        <div>
+      <RouterLink :aria-label="t('dashboard.folderCount', { count: contentFolders.length })" to="/admin/links#folder-management" class="ops-metric-card metric-tone-blue">
+        <span class="ops-metric-icon"><FolderIcon :size="20" /></span>
+        <span class="ops-metric-copy">
           <span>{{ t('dashboard.folders') }}</span>
-          <strong>{{ contentFolders.length }}</strong>
-          <small>{{ t('dashboard.folderCount', { count: contentFolders.length }) }}</small>
-        </div>
+          <small>{{ t('dashboard.folderScope') }}</small>
+        </span>
+        <strong>{{ contentFolders.length }}</strong>
         <ArrowRight :size="16" />
       </RouterLink>
 
-      <RouterLink to="/admin/links" class="ops-metric-card tone-amber">
-        <Link2 :size="20" />
-        <div>
+      <RouterLink :aria-label="t('dashboard.bookmarkCount', { count: links.length, average: averageLinksPerFolder })" to="/admin/links" class="ops-metric-card metric-tone-amber">
+        <span class="ops-metric-icon"><Link2 :size="18" /></span>
+        <span class="ops-metric-copy">
           <span>{{ t('dashboard.bookmarks') }}</span>
-          <strong>{{ links.length }}</strong>
-          <small>{{ t('dashboard.bookmarkCount', { count: links.length, average: averageLinksPerFolder }) }}</small>
-        </div>
+          <small>{{ t('dashboard.bookmarkAverage', { average: averageLinksPerFolder }) }}</small>
+        </span>
+        <strong>{{ links.length }}</strong>
         <ArrowRight :size="16" />
       </RouterLink>
 
-      <RouterLink to="/admin/links#folder-management" class="ops-metric-card tone-rose">
-        <Lock :size="20" />
-        <div>
+      <RouterLink :aria-label="t('dashboard.lockedCount', { count: lockedCount })" to="/admin/links#folder-management" class="ops-metric-card metric-tone-rose">
+        <span class="ops-metric-icon"><Lock :size="18" /></span>
+        <span class="ops-metric-copy">
           <span>{{ t('dashboard.lockedFolders') }}</span>
-          <strong>{{ lockedCount }}</strong>
-          <small>{{ t('dashboard.lockedCount', { count: lockedCount }) }}</small>
-        </div>
+          <small>{{ t('dashboard.lockedScope') }}</small>
+        </span>
+        <strong>{{ lockedCount }}</strong>
         <ArrowRight :size="16" />
       </RouterLink>
     </div>
 
-    <section class="dashboard-shortcuts-panel">
-      <header class="dashboard-section-head">
-        <h2>{{ t('dashboard.quickActions') }}</h2>
-      </header>
-      <div class="dashboard-shortcut-grid">
-        <template v-for="shortcut in shortcuts" :key="shortcut.to">
-          <a v-if="shortcut.external" class="dashboard-shortcut" :href="shortcut.to">
-            <span class="dashboard-shortcut-icon"><component :is="shortcut.icon" :size="19" /></span>
-            <span class="dashboard-shortcut-copy">
-              <strong>{{ t(shortcut.labelKey) }}</strong>
-              <small>{{ t(shortcut.detailKey) }}</small>
-            </span>
-            <ArrowRight :size="15" />
-          </a>
-          <RouterLink v-else class="dashboard-shortcut" :to="shortcut.to">
-            <span class="dashboard-shortcut-icon"><component :is="shortcut.icon" :size="19" /></span>
-            <span class="dashboard-shortcut-copy">
+    <div class="dashboard-action-layout">
+      <section class="dashboard-primary-section">
+        <header class="dashboard-section-head">
+          <h2>{{ t('dashboard.quickActions') }}</h2>
+        </header>
+        <div class="dashboard-primary-grid">
+          <RouterLink v-for="shortcut in primaryShortcuts" :key="shortcut.to" class="dashboard-primary-action" :to="shortcut.to">
+            <span class="dashboard-primary-icon"><component :is="shortcut.icon" :size="19" /></span>
+            <span class="dashboard-action-copy">
               <strong>{{ t(shortcut.labelKey) }}</strong>
               <small>{{ t(shortcut.detailKey) }}</small>
             </span>
             <ArrowRight :size="15" />
           </RouterLink>
-        </template>
-      </div>
-    </section>
+        </div>
+      </section>
+
+      <aside class="dashboard-tools-column">
+        <section class="dashboard-tool-section">
+          <header class="dashboard-section-head">
+            <h2>{{ t('dashboard.managementTools') }}</h2>
+          </header>
+          <div class="dashboard-tool-list">
+            <RouterLink v-for="shortcut in toolShortcuts" :key="shortcut.to + shortcut.labelKey" class="dashboard-tool-link" :to="shortcut.to">
+              <span class="dashboard-tool-icon"><component :is="shortcut.icon" :size="17" /></span>
+              <span class="dashboard-action-copy">
+                <strong>{{ t(shortcut.labelKey) }}</strong>
+                <small>{{ t(shortcut.detailKey) }}</small>
+              </span>
+              <ArrowRight :size="15" />
+            </RouterLink>
+          </div>
+        </section>
+
+        <section class="dashboard-tool-section">
+          <header class="dashboard-section-head">
+            <h2>{{ t('dashboard.connectedApps') }}</h2>
+          </header>
+          <div class="dashboard-tool-list">
+            <a v-for="shortcut in appShortcuts" :key="shortcut.to" class="dashboard-tool-link" :href="shortcut.to">
+              <span class="dashboard-tool-icon"><component :is="shortcut.icon" :size="17" /></span>
+              <span class="dashboard-action-copy">
+                <strong>{{ t(shortcut.labelKey) }}</strong>
+                <small>{{ t(shortcut.detailKey) }}</small>
+              </span>
+              <ExternalLink :size="15" />
+            </a>
+          </div>
+        </section>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .ops-metric-card strong,
-.dashboard-shortcut strong,
+.dashboard-primary-action strong,
+.dashboard-tool-link strong,
 .dashboard-section-head h2 {
   letter-spacing: 0;
 }
 
-.dashboard-shortcut,
-.dashboard-shortcut-copy {
+.dashboard-primary-action,
+.dashboard-tool-link,
+.dashboard-action-copy {
   min-width: 0;
 }
 
-.dashboard-shortcut strong,
-.dashboard-shortcut small {
+.dashboard-action-copy strong,
+.dashboard-action-copy small {
   overflow-wrap: anywhere;
 }
 </style>

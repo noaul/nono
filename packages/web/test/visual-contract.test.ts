@@ -421,12 +421,14 @@ describe('visual contracts', () => {
     expect(css).toContain('.workbench-sidebar');
     expect(css).toContain('.workbench-topbar');
     expect(css).toContain('.user-menu');
-    expect(css).toContain('.dashboard-shortcut-grid');
+    expect(css).toContain('.dashboard-action-layout');
     expect(css).toContain('.ops-metric-card');
-    expect(css).toContain('.dashboard-shortcut');
+    expect(css).toContain('.dashboard-primary-action');
+    expect(css).toContain('.dashboard-tool-link');
     expect(dashboardSource).not.toContain('dashboard-hero');
     expect(dashboardSource).toContain('ops-metric-card');
-    expect(dashboardSource).toContain('dashboard-shortcut-grid');
+    expect(dashboardSource).toContain('dashboard-action-layout');
+    expect(dashboardSource).not.toContain('dashboard-shortcuts-panel');
   });
 
   it('defines shared admin feedback, empty, loading, and responsive table classes', async () => {
