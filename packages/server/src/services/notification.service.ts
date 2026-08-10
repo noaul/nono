@@ -22,9 +22,11 @@ export interface NotificationItem {
   occurredAt: string;
   dueAt: string | null;
   entityId?: number | null;
+  entityType?: 'domain' | 'vps' | 'subscription' | null;
   targetUrl?: string | null;
   /** The bare entity name, so clients never have to parse it back out of `title`. */
   entityLabel?: string | null;
+  renewalDate?: string | null;
   read: boolean;
 }
 
@@ -308,6 +310,10 @@ async function collectNoMoneyNotifications(reader: () => Promise<NoMoneyDueItem[
         href: hrefs[item.assetType],
         occurredAt: `${item.dueDate}T23:59:00`,
         dueAt: `${item.dueDate}T23:59:00`,
+        entityId: item.id,
+        entityType: item.assetType,
+        entityLabel: item.name,
+        renewalDate: item.dueDate,
       };
     });
 }

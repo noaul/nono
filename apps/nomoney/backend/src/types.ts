@@ -56,6 +56,7 @@ export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
 export interface AppContext {
   db: DbClient;
   jwtSecret: string;
+  internalToken?: string;
   encryptionKey: string;
   cookieSecure: boolean;
   cookiePath: string;

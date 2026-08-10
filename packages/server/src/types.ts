@@ -6,6 +6,7 @@ import type { BackupService } from './services/backup.service.js';
 import type { NotificationService } from './services/notification.service.js';
 import type { BackupAutomationService } from './services/backup-automation.service.js';
 import type { AuditLogService } from './services/audit.service.js';
+import type { NoMoneyClient } from './services/nomoney-client.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
@@ -39,6 +40,7 @@ export interface AppServices {
   backupAutomationService: BackupAutomationService;
   auditLogService: AuditLogService;
   notificationService: NotificationService;
+  noMoneyClient: NoMoneyClient;
   readinessCheck: () => Promise<ReadinessChecks>;
 }
 

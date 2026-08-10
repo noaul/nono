@@ -9,6 +9,7 @@ export async function createTestContext(): Promise<AppContext> {
   return {
     db,
     jwtSecret: 'test-secret',
+    internalToken: 'test-internal-token',
     encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     cookieSecure: false,
     cookiePath: '/',

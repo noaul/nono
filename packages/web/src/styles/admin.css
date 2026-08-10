@@ -1126,6 +1126,34 @@
   padding: 0;
 }
 
+.toast-action {
+  background: transparent;
+  border: 0;
+  color: currentColor;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  padding: 4px 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.toast-actions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.admin-toast-success,
+.admin-toast.success {
+  border-left: 3px solid var(--ui-success);
+}
+
+.admin-toast-error,
+.admin-toast.error {
+  border-left: 3px solid var(--ui-danger);
+}
+
 /* ==========================================================================
    Empty, loading and error states
    ========================================================================== */

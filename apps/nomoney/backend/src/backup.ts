@@ -94,6 +94,14 @@ const backupTables: BackupTable[] = [
     ]
   },
   {
+    key: 'renewalEvents',
+    table: 'renewal_events',
+    columns: [
+      'id', 'request_id', 'asset_type', 'asset_id', 'previous_expire_date', 'previous_next_due_date',
+      'renewed_expire_date', 'expense_id', 'amount_minor_units', 'currency', 'status', 'created_at', 'undone_at'
+    ]
+  },
+  {
     key: 'settings',
     table: 'settings',
     columns: ['key', 'value']
@@ -155,6 +163,7 @@ export function buildBackupPayload(context: AppContext): Record<string, unknown>
     subscriptions: selectTable(context, 'subscriptions'),
     accounts: selectTable(context, 'accounts'),
     expenses: selectTable(context, 'expenses'),
+    renewalEvents: selectTable(context, 'renewal_events'),
     settings: selectTable(context, 'settings', 'key'),
     reminderLogs: selectTable(context, 'reminder_logs')
   };
@@ -171,6 +180,7 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
     for (const table of backupTables) {
       const rows = getBackupRows(payload, table.key);
       if (!rows) {
+        if (table.key === 'renewalEvents') context.db.run('DELETE FROM renewal_events');
         continue;
       }
       context.db.run(`DELETE FROM ${table.table}`);

@@ -346,6 +346,25 @@ function migrate(db: DbClient): void {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS renewal_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_id TEXT NOT NULL UNIQUE,
+      asset_type TEXT NOT NULL,
+      asset_id INTEGER NOT NULL,
+      previous_expire_date TEXT NOT NULL,
+      previous_next_due_date TEXT,
+      renewed_expire_date TEXT NOT NULL,
+      expense_id INTEGER,
+      amount_minor_units INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      undone_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_renewal_events_asset
+      ON renewal_events(asset_type, asset_id, status);
+
     CREATE TABLE IF NOT EXISTS reminder_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       run_id TEXT NOT NULL,

@@ -21,6 +21,11 @@ describe('notification routes', () => {
     markAllRead: ReturnType<typeof vi.fn>;
     dismiss: ReturnType<typeof vi.fn>;
   };
+  let noMoneyClient: {
+    renewVps: ReturnType<typeof vi.fn>;
+    undoVpsRenewal: ReturnType<typeof vi.fn>;
+    updateVpsRenewalExpense: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
     notificationService = {
@@ -29,8 +34,17 @@ describe('notification routes', () => {
       markAllRead: vi.fn(async () => 2),
       dismiss: vi.fn(async () => undefined),
     };
+    noMoneyClient = {
+      renewVps: vi.fn(async () => ({
+        idempotent: false,
+        item: { id: 10, expireDate: '2027-08-10' },
+        renewal: { id: 41, renewedExpireDate: '2027-08-10', amountMinorUnits: 1200, currency: 'USD' },
+      })),
+      undoVpsRenewal: vi.fn(async () => ({ item: { id: 10, expireDate: '2026-08-10' } })),
+      updateVpsRenewalExpense: vi.fn(async () => ({ renewal: { id: 41, amountMinorUnits: 1400, currency: 'USD' } })),
+    };
     const repo = new MemoryRepository(false);
-    app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService } as any);
+    app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService, noMoneyClient } as any);
     const setup = await app.inject({
       method: 'POST',
       url: '/api/auth/setup',
@@ -115,5 +129,35 @@ describe('notification routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(notificationService.dismiss).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 'links:abc');
+  });
+
+  it('proxies authenticated VPS renewal, undo, and expense correction to NoMoney', async () => {
+    const renew = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nomoney/vps/10/renew',
+      headers: { cookie },
+      payload: { requestId: 'nono-renew-2026', expectedExpireDate: '2026-08-10' },
+    });
+    const undo = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nomoney/vps/10/renewals/41/undo',
+      headers: { cookie },
+    });
+    const amount = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/nomoney/vps/10/renewals/41/expense',
+      headers: { cookie },
+      payload: { amountMinorUnits: 1400 },
+    });
+
+    expect(renew.statusCode).toBe(200);
+    expect(undo.statusCode).toBe(200);
+    expect(amount.statusCode).toBe(200);
+    expect(noMoneyClient.renewVps).toHaveBeenCalledWith(10, {
+      requestId: 'nono-renew-2026',
+      expectedExpireDate: '2026-08-10',
+    });
+    expect(noMoneyClient.undoVpsRenewal).toHaveBeenCalledWith(10, 41);
+    expect(noMoneyClient.updateVpsRenewalExpense).toHaveBeenCalledWith(10, 41, 1400);
   });
 });

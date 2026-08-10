@@ -40,6 +40,7 @@ import { registerLinkHealthScheduler } from './services/link-health.scheduler.js
 import { createNoMoneyDueReader, createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
+import { createNoMoneyClient } from './services/nomoney-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -79,6 +80,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupAutomationService,
     auditLogService,
     notificationService,
+    noMoneyClient: overrides.noMoneyClient || createNoMoneyClient(),
     readinessCheck: overrides.readinessCheck || createReadinessCheck(prisma, nodeskStore),
   };
 

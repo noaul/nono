@@ -9,6 +9,7 @@ import {
   DatabaseBackup,
   ExternalLink,
   Github,
+  RefreshCw,
   ShieldOff,
   Trash2,
   WalletCards,
@@ -32,6 +33,14 @@ const activeFilter = ref<'all' | 'unread'>('all');
 const activeSource = ref<'all' | AdminNotificationSource>('all');
 const error = ref('');
 const workingActions = ref(new Set<string>());
+const renewalAmountEdit = ref<{
+  itemId: number;
+  renewalId: number;
+  amountMinorUnits: number;
+  currency: string;
+} | null>(null);
+const renewalAmount = ref('');
+const renewalAmountWorking = ref(false);
 
 const sourceMeta = {
   links: { labelKey: 'notifications.sourceLinks', icon: Activity },
@@ -159,6 +168,86 @@ async function deleteBookmark(item: AdminNotification) {
   }
 }
 
+async function renewVps(item: AdminNotification) {
+  if (item.entityType !== 'vps' || !item.entityId || !item.renewalDate || isWorking(item, 'renew')) return;
+  setWorking(item, 'renew', true);
+  error.value = '';
+  try {
+    const result = await apiRequest<{
+      renewal: { id: number; renewedExpireDate: string };
+    }>(`/api/admin/nomoney/vps/${item.entityId}/renew`, {
+      method: 'POST',
+      body: jsonBody({
+        requestId: globalThis.crypto?.randomUUID?.() ?? `renew-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        expectedExpireDate: item.renewalDate,
+      }),
+    });
+    removeItem(item);
+    announceChange();
+    notifySuccess(t('notifications.renewedUntil', { date: result.renewal.renewedExpireDate }), {
+      duration: 8_000,
+      actions: [
+        {
+          label: t('notifications.editRenewalAmount'),
+          action: () => openRenewalAmountEditor(item.entityId!, result.renewal),
+        },
+        {
+          label: t('notifications.undoRenewal'),
+          action: async () => {
+            try {
+              await apiRequest(`/api/admin/nomoney/vps/${item.entityId}/renewals/${result.renewal.id}/undo`, { method: 'POST' });
+              notifySuccess(t('notifications.renewalUndone'));
+              await load();
+              announceChange();
+            } catch (event) {
+              notifyError(event instanceof Error ? event.message : t('notifications.renewalUndoFailed'));
+            }
+          },
+        },
+      ],
+    });
+  } catch (event) {
+    const message = event instanceof Error ? event.message : t('notifications.renewFailed');
+    error.value = message;
+    notifyError(message);
+  } finally {
+    setWorking(item, 'renew', false);
+  }
+}
+
+function openRenewalAmountEditor(
+  itemId: number,
+  renewal: { id: number; amountMinorUnits?: number; currency?: string },
+) {
+  const amountMinorUnits = Number(renewal.amountMinorUnits ?? 0);
+  renewalAmountEdit.value = {
+    itemId,
+    renewalId: renewal.id,
+    amountMinorUnits,
+    currency: renewal.currency || '',
+  };
+  renewalAmount.value = (amountMinorUnits / 100).toFixed(2);
+}
+
+async function saveRenewalAmount() {
+  const edit = renewalAmountEdit.value;
+  const amountMinorUnits = Math.round(Number(renewalAmount.value) * 100);
+  if (!edit || !Number.isFinite(amountMinorUnits) || amountMinorUnits < 0 || renewalAmountWorking.value) return;
+  renewalAmountWorking.value = true;
+  try {
+    await apiRequest(`/api/admin/nomoney/vps/${edit.itemId}/renewals/${edit.renewalId}/expense`, {
+      method: 'PUT',
+      body: jsonBody({ amountMinorUnits }),
+    });
+    renewalAmountEdit.value = null;
+    notifySuccess(t('notifications.renewalAmountUpdated'));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t('notifications.renewalAmountUpdateFailed'));
+  } finally {
+    renewalAmountWorking.value = false;
+  }
+}
+
 function removeItem(item: AdminNotification) {
   const index = feed.value.items.findIndex((entry) => entry.key === item.key);
   if (index >= 0) feed.value.items.splice(index, 1);
@@ -269,6 +358,16 @@ onMounted(load);
           </div>
           <span class="notification-severity" :title="item.severity"></span>
           <div class="notification-actions">
+            <button
+              v-if="item.source === 'nomoney' && item.entityType === 'vps' && item.entityId && item.renewalDate"
+              class="icon-button secondary renewal-action"
+              :data-testid="`mark-vps-renewed-${item.entityId}`"
+              type="button"
+              :title="t('notifications.markRenewed')"
+              :aria-label="t('notifications.markRenewed')"
+              :disabled="isWorking(item, 'renew')"
+              @click="renewVps(item)"
+            ><RefreshCw :class="{ spinning: isWorking(item, 'renew') }" :size="15" /></button>
             <a
               v-if="item.source === 'links' && item.entityId && item.targetUrl"
               class="icon-button secondary"
@@ -319,6 +418,26 @@ onMounted(load);
         </article>
       </div>
     </section>
+
+    <div v-if="renewalAmountEdit" class="renewal-amount-overlay" @click.self="renewalAmountEdit = null">
+      <section class="renewal-amount-dialog" role="dialog" aria-modal="true" :aria-label="t('notifications.editRenewalAmount')" data-testid="renewal-amount-editor">
+        <header>
+          <div>
+            <strong>{{ t('notifications.editRenewalAmount') }}</strong>
+            <p>{{ renewalAmountEdit.currency }}</p>
+          </div>
+          <button class="icon-button secondary" type="button" :aria-label="t('common.cancel')" @click="renewalAmountEdit = null"><X :size="15" /></button>
+        </header>
+        <label>
+          <span>{{ t('notifications.renewalAmount') }}</span>
+          <input v-model="renewalAmount" class="input" type="number" min="0" step="0.01" autofocus @keydown.enter.prevent="saveRenewalAmount" />
+        </label>
+        <footer>
+          <button class="button secondary" type="button" @click="renewalAmountEdit = null">{{ t('common.cancel') }}</button>
+          <button class="button primary" type="button" :disabled="renewalAmountWorking" @click="saveRenewalAmount">{{ t('common.save') }}</button>
+        </footer>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -417,6 +536,39 @@ onMounted(load);
 .notification-actions .icon-button { height: 30px; min-height: 30px; width: 30px; }
 .notification-actions a.icon-button { align-items: center; display: inline-flex; justify-content: center; }
 .notification-actions .danger-action:hover { border-color: var(--admin-danger); color: var(--admin-danger); }
+.notification-actions .renewal-action { color: var(--admin-status-ok); }
+.notification-actions .renewal-action:hover { border-color: var(--admin-status-ok); }
+.notification-actions .spinning { animation: spin 0.8s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.renewal-amount-overlay {
+  align-items: center;
+  background: color-mix(in srgb, #0f172a 38%, transparent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 110;
+}
+.renewal-amount-dialog {
+  background: var(--admin-surface-elevated);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  box-shadow: 0 20px 55px rgb(15 23 42 / 22%);
+  display: grid;
+  gap: 16px;
+  max-width: 100%;
+  padding: 18px;
+  width: 360px;
+}
+.renewal-amount-dialog header,
+.renewal-amount-dialog footer { align-items: center; display: flex; justify-content: space-between; }
+.renewal-amount-dialog header strong { color: var(--admin-text); font-size: 15px; }
+.renewal-amount-dialog header p { color: var(--admin-text-muted); font-size: 12px; margin: 3px 0 0; }
+.renewal-amount-dialog label { color: var(--admin-text-muted); display: grid; font-size: 12px; gap: 6px; }
+.renewal-amount-dialog footer { gap: 8px; justify-content: flex-end; }
 
 .notification-empty {
   align-items: center;

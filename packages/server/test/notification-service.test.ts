@@ -201,6 +201,28 @@ describe('notification service', () => {
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
   });
 
+  it('exposes VPS identity and due date for the quick renewal action', async () => {
+    const { prisma } = createPrisma();
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
+      noMoneyReader: vi.fn(async () => [
+        { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' },
+      ]),
+      backupService: { list: vi.fn(async () => []) } as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any);
+
+    expect(feed.items.find((item) => item.source === 'nomoney')).toMatchObject({
+      entityId: 10,
+      entityType: 'vps',
+      entityLabel: 'nc48',
+      renewalDate: '2026-08-10',
+    });
+  });
+
   it('filters the feed and mark-all operation to requested sources', async () => {
     const { prisma, queries } = createPrisma({
       links: [{

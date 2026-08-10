@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../../plugins/auth.js';
+import { requireAdmin, requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { resolveRequestLocale } from '../../utils/i18n.js';
@@ -22,6 +22,15 @@ const markAllQuerySchema = z.object({
 
 const readBodySchema = z.object({
   read: z.boolean(),
+});
+
+const vpsRenewalBodySchema = z.object({
+  requestId: z.string().trim().min(8).max(128),
+  expectedExpireDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const renewalExpenseBodySchema = z.object({
+  amountMinorUnits: z.number().int().nonnegative(),
 });
 
 export async function notificationRoutes(app: FastifyInstance, services: AppServices) {
@@ -61,5 +70,33 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
     const key = String((request.params as { key?: string }).key || '');
     await services.notificationService.dismiss(user, key);
     return sendOk(reply, { ok: true });
+  });
+
+  app.post('/api/admin/nomoney/vps/:id/renew', async (request, reply) => {
+    const user = await requireAdmin(request, reply, services);
+    if (!user) return;
+    const id = z.coerce.number().int().positive().parse((request.params as { id?: string }).id);
+    return sendOk(reply, await services.noMoneyClient.renewVps(id, vpsRenewalBodySchema.parse(request.body)));
+  });
+
+  app.post('/api/admin/nomoney/vps/:id/renewals/:renewalId/undo', async (request, reply) => {
+    const user = await requireAdmin(request, reply, services);
+    if (!user) return;
+    const params = z.object({
+      id: z.coerce.number().int().positive(),
+      renewalId: z.coerce.number().int().positive(),
+    }).parse(request.params);
+    return sendOk(reply, await services.noMoneyClient.undoVpsRenewal(params.id, params.renewalId));
+  });
+
+  app.put('/api/admin/nomoney/vps/:id/renewals/:renewalId/expense', async (request, reply) => {
+    const user = await requireAdmin(request, reply, services);
+    if (!user) return;
+    const params = z.object({
+      id: z.coerce.number().int().positive(),
+      renewalId: z.coerce.number().int().positive(),
+    }).parse(request.params);
+    const body = renewalExpenseBodySchema.parse(request.body);
+    return sendOk(reply, await services.noMoneyClient.updateVpsRenewalExpense(params.id, params.renewalId, body.amountMinorUnits));
   });
 }

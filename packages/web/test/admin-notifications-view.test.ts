@@ -1,10 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import NotificationsView from '../src/views/admin/NotificationsView.vue';
+import ToastHost from '../src/components/admin/ToastHost.vue';
 import { apiRequest } from '../src/api/client';
+import { clearToasts } from '../src/composables/useToasts';
 
 vi.mock('../src/api/client', () => ({
   apiRequest: vi.fn(),
+  jsonBody: (value: unknown) => JSON.stringify(value),
 }));
 
 const mockedApiRequest = vi.mocked(apiRequest);
@@ -39,6 +42,7 @@ const feed = {
 
 describe('NotificationsView', () => {
   beforeEach(() => {
+    clearToasts();
     mockedApiRequest.mockReset();
     mockedApiRequest.mockResolvedValue(structuredClone(feed) as any);
   });
@@ -85,5 +89,52 @@ describe('NotificationsView', () => {
     expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/notifications/links%3Aabc', { method: 'DELETE' });
     expect(wrapper.findAll('.notification-row')).toHaveLength(1);
     expect(wrapper.text()).not.toContain('NoNo 访问异常');
+  });
+
+  it('marks a NoMoney VPS as renewed directly from its notification', async () => {
+    const vpsFeed = {
+      generatedAt: '2026-07-18T08:00:00.000Z',
+      unreadCount: 1,
+      items: [{
+        key: 'nomoney:vps',
+        source: 'nomoney',
+        severity: 'warning',
+        title: 'VPS nc48 即将到期',
+        description: '到期日 2026-08-10',
+        href: '/nomoney/vps',
+        occurredAt: '2026-08-10T23:59:00',
+        dueAt: '2026-08-10T23:59:00',
+        entityId: 10,
+        entityType: 'vps',
+        entityLabel: 'nc48',
+        renewalDate: '2026-08-10',
+        read: false,
+      }],
+    };
+    mockedApiRequest
+      .mockResolvedValueOnce(structuredClone(vpsFeed) as any)
+      .mockResolvedValueOnce({
+        idempotent: false,
+        item: { id: 10, expireDate: '2027-08-10' },
+        renewal: { id: 41, renewedExpireDate: '2027-08-10', amountMinorUnits: 1200, currency: 'USD' },
+      } as any);
+    const wrapper = mount(NotificationsView);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="mark-vps-renewed-10"]').trigger('click');
+    await flushPromises();
+
+    expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/nomoney/vps/10/renew', expect.objectContaining({
+      method: 'POST',
+    }));
+    expect(wrapper.findAll('.notification-row')).toHaveLength(0);
+
+    const toastHost = mount(ToastHost);
+    expect(toastHost.text()).toContain('撤销');
+    expect(toastHost.text()).toContain('修改金额');
+
+    await toastHost.findAll('.toast-action').find((button) => button.text() === '修改金额')!.trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="renewal-amount-editor"]').exists()).toBe(true);
   });
 });

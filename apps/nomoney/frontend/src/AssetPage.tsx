@@ -1,5 +1,5 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi } from 'lucide-react';
+import { Activity, ArrowDownAZ, ArrowUpAZ, BarChart3, CalendarClock, Check, Copy, Cpu, Database, Download, ExternalLink, Globe2, Grid3X3, HardDrive, Link2, List, Pencil, Phone, Plus, RefreshCw, Search, Server, ShieldCheck, Signal, Sparkles, Terminal, Trash2, Upload, UserRound, Wifi, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AssetPageConfig } from './assetConfig';
 import { useLayoutActions } from './Layout';
@@ -33,6 +33,17 @@ type VpsMonitorResponse = { monitor: VpsMonitorSnapshot; item: AssetItem };
 type VpsActionResponse = { ok: boolean; item: AssetItem; message?: string; probeUrl?: string; testedAt?: string; installedAt?: string };
 type VpsMonitorState = { loading?: boolean; error?: string; monitor?: VpsMonitorSnapshot };
 type VpsActionState = { testing?: boolean; installing?: boolean; message?: string; error?: string };
+type VpsRenewal = {
+  id: number;
+  previousExpireDate: string;
+  renewedExpireDate: string;
+  expenseId: number;
+  amountMinorUnits: number;
+  currency: Currency;
+  status: 'active' | 'undone';
+};
+type VpsRenewalResponse = { idempotent: boolean; item: AssetItem; renewal: VpsRenewal };
+type VpsRenewalToastState = { itemId: number; renewal: VpsRenewal };
 type VpsStats = {
   online: number;
   offline: number;
@@ -220,6 +231,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [copiedPhoneNumberId, setCopiedPhoneNumberId] = useState<number | null>(null);
   const [renewingDomainId, setRenewingDomainId] = useState<number | null>(null);
   const [renewedDomainId, setRenewedDomainId] = useState<number | null>(null);
+  const [renewingVpsId, setRenewingVpsId] = useState<number | null>(null);
+  const [vpsRenewalToast, setVpsRenewalToast] = useState<VpsRenewalToastState | null>(null);
   const [monitorById, setMonitorById] = useState<Record<number, VpsMonitorState>>({});
   const [refreshingVps, setRefreshingVps] = useState(false);
   const [autoRefreshVps, setAutoRefreshVps] = useState(true);
@@ -663,6 +676,55 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
+  const renewVpsOnce = async (item: AssetItem) => {
+    if (!isVps || renewingVpsId !== null) return;
+    const dueDate = String(item.expireDate ?? item.nextDueDate ?? '');
+    if (!dueDate || !item.billingCycle) {
+      setError(copy('请先设置到期日和计费周期。', 'Set an expiry date and billing cycle first.'));
+      openEdit(item);
+      return;
+    }
+    setError('');
+    setRenewingVpsId(item.id);
+    try {
+      const response = await api.post<VpsRenewalResponse>(`/api/vps/${item.id}/renew`, {
+        requestId: crypto.randomUUID(),
+        expectedExpireDate: dueDate
+      });
+      setVpsRenewalToast({ itemId: item.id, renewal: response.renewal });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('标记续费失败', 'Failed to mark renewal'));
+    } finally {
+      setRenewingVpsId(null);
+    }
+  };
+
+  const undoVpsRenewal = async (toast: VpsRenewalToastState) => {
+    setError('');
+    try {
+      await api.post(`/api/vps/${toast.itemId}/renewals/${toast.renewal.id}/undo`);
+      setVpsRenewalToast(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('撤销续费失败', 'Failed to undo renewal'));
+    }
+  };
+
+  const updateVpsRenewalAmount = async (toast: VpsRenewalToastState, amountMinorUnits: number) => {
+    setError('');
+    try {
+      const response = await api.put<{ renewal: VpsRenewal }>(
+        `/api/vps/${toast.itemId}/renewals/${toast.renewal.id}/expense`,
+        { amountMinorUnits }
+      );
+      setVpsRenewalToast({ ...toast, renewal: response.renewal });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('修改续费金额失败', 'Failed to update renewal amount'));
+      throw err;
+    }
+  };
+
   const isForeignPhoneView = phoneType === 'foreign';
   const phoneColumns: DataTableColumn<AssetItem>[] = [
     { key: 'number', header: copy('号码', 'Number'), render: (item) => (
@@ -1036,7 +1098,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           {items.map((item) => isDomain
             ? <DomainCardView key={item.id} item={item} duplicated={duplicatedDomainId === item.id} duplicating={duplicatingDomainId === item.id} renewing={renewingDomainId === item.id} renewed={renewedDomainId === item.id} onDuplicate={duplicateDomainEntry} onRenew={renewDomainOnce} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps
-              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} onCopySsh={copySshCommand} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onInstall={installVpsProbe} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} renewing={renewingVpsId === item.id} onRenew={renewVpsOnce} onCopySsh={copySshCommand} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onInstall={installVpsProbe} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
               ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedPhoneId === item.id} duplicating={duplicatingPhoneId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicatePhoneEntry} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : <AssetCardView key={item.id} item={item} config={config} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
@@ -1062,6 +1124,16 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <Button variant="secondary" size="sm" disabled={offset + pageSize >= meta.total} onClick={() => setOffset(offset + pageSize)}>{copy('下一页', 'Next')}</Button>
           </div>
         </div>
+      )}
+
+      {vpsRenewalToast && (
+        <VpsRenewalToast
+          toast={vpsRenewalToast}
+          onUndo={undoVpsRenewal}
+          onUpdateAmount={updateVpsRenewalAmount}
+          onClose={() => setVpsRenewalToast(null)}
+          copy={copy}
+        />
       )}
 
       <Drawer
@@ -1646,6 +1718,8 @@ function VpsNodeCard({
   monitorState,
   actionState,
   copiedSsh,
+  renewing,
+  onRenew,
   onCopySsh,
   onRefresh,
   onTest,
@@ -1658,6 +1732,8 @@ function VpsNodeCard({
   monitorState?: VpsMonitorState;
   actionState?: VpsActionState;
   copiedSsh: boolean;
+  renewing: boolean;
+  onRenew: (item: AssetItem) => void;
   onCopySsh: (item: AssetItem) => void;
   onRefresh: (item: AssetItem) => void;
   onTest: (item: AssetItem) => void;
@@ -1679,6 +1755,7 @@ function VpsNodeCard({
   const uptime = getMonitorNumber(item, monitorState, 'monitorUptimeSeconds', 'uptimeSeconds');
   const sshCommand = getSshCommand(item);
   const sshHref = getSshHref(item);
+  const canRenew = !['cancelled', 'archived'].includes(item.status);
 
   return (
     <div className="motion-card card-hover group relative overflow-hidden">
@@ -1723,7 +1800,20 @@ function VpsNodeCard({
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
-        <span className={`font-mono font-semibold ${dueTone(left)}`}>{copy('续费 ', 'Renewal ')}{left === null ? '-' : `${left}d`}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`font-mono font-semibold ${dueTone(left)}`}>{copy('续费 ', 'Renewal ')}{left === null ? '-' : `${left}d`}</span>
+          {canRenew && (
+            <button
+              type="button"
+              onClick={() => onRenew(item)}
+              disabled={renewing}
+              className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-success-500/25 bg-success-500/10 px-2 text-[11px] font-medium text-success-700 transition-colors hover:bg-success-500/15 disabled:cursor-wait disabled:opacity-60 dark:text-success-300"
+            >
+              <RefreshCw className={renewing ? 'animate-spin' : ''} size={12} />
+              {copy('标记已续费', 'Mark renewed')}
+            </button>
+          )}
+        </div>
         <span className="truncate">{copy('运行 ', 'Uptime ')}{formatUptime(uptime)}</span>
       </div>
       {(monitorState?.error || actionState?.error || actionState?.message) && (
@@ -1761,6 +1851,71 @@ function VpsNodeCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function VpsRenewalToast({
+  toast,
+  onUndo,
+  onUpdateAmount,
+  onClose,
+  copy
+}: {
+  toast: VpsRenewalToastState;
+  onUndo: (toast: VpsRenewalToastState) => Promise<void>;
+  onUpdateAmount: (toast: VpsRenewalToastState, amountMinorUnits: number) => Promise<void>;
+  onClose: () => void;
+  copy: (zh: string, en: string) => string;
+}) {
+  const [editingAmount, setEditingAmount] = useState(false);
+  const [amount, setAmount] = useState((toast.renewal.amountMinorUnits / 100).toFixed(2));
+  const [working, setWorking] = useState<'undo' | 'amount' | null>(null);
+
+  const saveAmount = async () => {
+    const amountMinorUnits = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amountMinorUnits) || amountMinorUnits < 0) return;
+    setWorking('amount');
+    try {
+      await onUpdateAmount(toast, amountMinorUnits);
+      setEditingAmount(false);
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const undo = async () => {
+    setWorking('undo');
+    try {
+      await onUndo(toast);
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  return (
+    <aside className="fixed bottom-5 right-5 z-50 w-[min(420px,calc(100vw-2rem))] rounded-xl border border-success-500/25 bg-white p-3 shadow-2xl shadow-slate-950/15 dark:bg-ink-900" role="status" aria-live="polite">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success-500/10 text-success-600 dark:text-success-400"><Check size={15} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-950 dark:text-white">
+            {copy(`已续费至 ${toast.renewal.renewedExpireDate}`, `Renewed until ${toast.renewal.renewedExpireDate}`)}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">{formatMoney(toast.renewal.amountMinorUnits, toast.renewal.currency)}</p>
+          {editingAmount ? (
+            <div className="mt-2 flex items-center gap-2">
+              <input className={`${inputClass} h-8 min-w-0 flex-1 font-mono text-xs`} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} autoFocus />
+              <Button size="sm" onClick={saveAmount} disabled={working === 'amount'}>{copy('保存', 'Save')}</Button>
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button type="button" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400" onClick={() => setEditingAmount(true)}>{copy('修改金额', 'Edit amount')}</button>
+              <button type="button" className="text-xs font-medium text-slate-600 hover:underline disabled:opacity-50 dark:text-slate-300" onClick={undo} disabled={working !== null}>{copy('撤销', 'Undo')}</button>
+            </div>
+          )}
+        </div>
+        <button type="button" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={onClose} aria-label={copy('关闭', 'Close')}><X size={14} /></button>
+      </div>
+    </aside>
   );
 }
 

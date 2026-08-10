@@ -38,6 +38,7 @@ const db = await createDatabase({
 const context = {
   db,
   jwtSecret: jwtSecret ?? 'development-only-secret',
+  internalToken: process.env.NOMONEY_INTERNAL_TOKEN,
   encryptionKey,
   privateOutboundHosts,
   cookieSecure: process.env.COOKIE_SECURE === 'true',

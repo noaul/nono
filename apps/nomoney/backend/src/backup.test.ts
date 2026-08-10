@@ -1,4 +1,5 @@
 import { describe, expect, setupAgent, test } from './test-utils.js';
+import { buildBackupPayload, restoreBackupPayload } from './backup.js';
 
 describe('backup APIs', () => {
   test('backs up to WebDAV and restores data from the WebDAV backup', async () => {
@@ -265,5 +266,21 @@ describe('backup APIs', () => {
       webdavEncryptionKey: '',
       webdavEncryptionKeySet: true
     });
+  });
+
+  test('restoring a legacy backup clears renewal events that the old payload cannot contain', async () => {
+    const { context } = await setupAgent();
+    context.db.run(
+      `INSERT INTO renewal_events (
+         request_id, asset_type, asset_id, previous_expire_date, renewed_expire_date,
+         amount_minor_units, currency, status, created_at
+       ) VALUES ('legacy-stale', 'vps', 1, '2026-01-01', '2027-01-01', 1000, 'USD', 'active', '2026-01-01T00:00:00.000Z')`
+    );
+    const legacyPayload = buildBackupPayload(context);
+    delete legacyPayload.renewalEvents;
+
+    restoreBackupPayload(context, legacyPayload);
+
+    expect(context.db.all('SELECT id FROM renewal_events')).toEqual([]);
   });
 });

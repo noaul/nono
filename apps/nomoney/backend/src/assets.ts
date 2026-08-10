@@ -614,6 +614,7 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
           throw new HttpError(409, 'ASSET_NOT_ARCHIVED', 'Only archived assets can be permanently deleted');
         }
         context.db.run('DELETE FROM expenses WHERE asset_type = ? AND asset_id = ?', [config.type, id]);
+        context.db.run('DELETE FROM renewal_events WHERE asset_type = ? AND asset_id = ?', [config.type, id]);
         context.db.run('DELETE FROM reminder_logs WHERE asset_type = ? AND asset_id = ?', [config.type, id]);
         context.db.run(`DELETE FROM ${config.table} WHERE id = ?`, [id]);
         res.status(204).end();
