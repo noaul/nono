@@ -77,6 +77,7 @@ test('formats clock and date against Shanghai instead of the browser timezone', 
 		day: '13',
 		hour: '00',
 		minute: '30',
+		second: '00',
 		hourNumber: 0
 	})
 	assert.equal(shanghaiDateKey(date), '2026-08-13')
@@ -137,4 +138,19 @@ test('syncs the ambient workbench with Shanghai time and Nono home data', async 
 	assert.match(workbench, /clickCount/)
 	assert.match(styles, /ambient-time-zone/)
 	assert.match(styles, /ambient-dock-badge/)
+})
+
+test('uses a seconds clock with flip motion and dismisses dock panels from outside', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /shanghaiClock\.second/)
+	assert.match(workbench, /function FlipClockUnit/)
+	assert.match(workbench, /window\.setInterval\(tick, 1_000\)/)
+	assert.match(workbench, /document\.addEventListener\('pointerdown', closePanelFromOutside\)/)
+	assert.match(workbench, /panelRef\.current\?\.contains\(target\)/)
+	assert.match(workbench, /dockRef\.current\?\.contains\(target\)/)
+	assert.match(workbench, /rotateX/)
+	assert.match(styles, /\.ambient-time-unit/)
+	assert.match(styles, /\.ambient-dock-status[\s\S]*top: calc\(100% \+ 8px\)/)
 })

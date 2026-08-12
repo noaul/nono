@@ -34,6 +34,7 @@ export type ShanghaiClockParts = {
 	day: string
 	hour: string
 	minute: string
+	second: string
 	hourNumber: number
 }
 
@@ -47,6 +48,7 @@ const SHANGHAI_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-GB', {
 	day: '2-digit',
 	hour: '2-digit',
 	minute: '2-digit',
+	second: '2-digit',
 	hourCycle: 'h23'
 })
 
@@ -117,6 +119,7 @@ export function getShanghaiClockParts(date = new Date()): ShanghaiClockParts {
 		day: values.day || '00',
 		hour,
 		minute: values.minute || '00',
+		second: values.second || '00',
 		hourNumber: Number(hour) || 0
 	}
 }

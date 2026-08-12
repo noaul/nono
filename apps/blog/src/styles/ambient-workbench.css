@@ -230,7 +230,7 @@
 	display: flex;
 	flex-direction: column;
 	pointer-events: auto;
-	width: min(92vw, 560px);
+	width: min(94vw, 680px);
 }
 
 .ambient-time-zone {
@@ -263,16 +263,48 @@
 	text-shadow: 0 2px 24px rgba(255, 255, 255, 0.2);
 }
 
-.ambient-time > span {
+.ambient-time-unit {
 	backdrop-filter: blur(26px) saturate(1.1);
 	background: color-mix(in srgb, var(--ambient-glass) 72%, transparent);
 	border: 1px solid color-mix(in srgb, var(--ambient-line) 88%, transparent);
 	border-radius: 22px;
 	box-shadow: 0 18px 54px rgba(45, 78, 107, 0.13), inset 0 1px rgba(255, 255, 255, 0.72);
-	display: grid;
+	display: flex;
 	height: 1.22em;
-	place-items: center;
+	justify-content: center;
+	overflow: hidden;
+	perspective: 600px;
+	position: relative;
 	width: 1.58em;
+}
+
+.ambient-time-unit::after {
+	background: color-mix(in srgb, var(--ambient-ink) 12%, transparent);
+	content: '';
+	height: 1px;
+	left: 8%;
+	pointer-events: none;
+	position: absolute;
+	right: 8%;
+	top: 50%;
+	z-index: 2;
+}
+
+.ambient-flip-digit {
+	display: block;
+	height: 1em;
+	position: relative;
+	transform-style: preserve-3d;
+	width: 0.56em;
+}
+
+.ambient-flip-digit-value {
+	backface-visibility: hidden;
+	display: grid;
+	inset: 0;
+	place-items: center;
+	position: absolute;
+	transform-origin: 50% 50%;
 }
 
 .ambient-time > i {
@@ -360,7 +392,7 @@
 }
 
 .ambient-dock-wrap {
-	bottom: max(24px, env(safe-area-inset-bottom));
+	bottom: max(54px, calc(env(safe-area-inset-bottom) + 38px));
 	left: 50%;
 	position: absolute;
 	transform: translateX(-50%);
@@ -380,7 +412,7 @@
 	left: 50%;
 	padding: 6px 12px;
 	position: absolute;
-	top: -37px;
+	top: calc(100% + 8px);
 	transform: translateX(-50%);
 	white-space: nowrap;
 }
@@ -485,7 +517,7 @@
 	background: var(--ambient-glass-strong);
 	border: 1px solid var(--ambient-line);
 	border-radius: 24px;
-	bottom: max(138px, calc(env(safe-area-inset-bottom) + 122px));
+	bottom: max(168px, calc(env(safe-area-inset-bottom) + 152px));
 	box-shadow: var(--ambient-shadow);
 	left: 50%;
 	max-height: min(48vh, 480px);
@@ -1021,11 +1053,11 @@
 	}
 
 	.ambient-time {
-		font-size: clamp(54px, 17vw, 76px);
+		font-size: clamp(40px, 11vw, 56px);
 		gap: 7px;
 	}
 
-	.ambient-time > span {
+	.ambient-time-unit {
 		border-radius: 17px;
 		width: 1.5em;
 	}

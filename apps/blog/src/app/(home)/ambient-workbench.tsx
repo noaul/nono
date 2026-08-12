@@ -170,6 +170,8 @@ export default function AmbientWorkbench() {
 	const wallpaperX = useSpring(pointerX, { stiffness: 38, damping: 24, mass: 0.8 })
 	const wallpaperY = useSpring(pointerY, { stiffness: 38, damping: 24, mass: 0.8 })
 	const searchInputRef = useRef<HTMLInputElement>(null)
+	const panelRef = useRef<HTMLElement>(null)
+	const dockRef = useRef<HTMLDivElement>(null)
 
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
@@ -337,16 +339,24 @@ export default function AmbientWorkbench() {
 
 	useEffect(() => {
 		const tick = () => setNow(new Date())
-		let interval = 0
-		const timeout = window.setTimeout(() => {
-			tick()
-			interval = window.setInterval(tick, 60_000)
-		}, (60 - new Date().getSeconds()) * 1000)
+		tick()
+		const interval = window.setInterval(tick, 1_000)
 		return () => {
-			window.clearTimeout(timeout)
 			window.clearInterval(interval)
 		}
 	}, [])
+
+	useEffect(() => {
+		if (!activePanel) return
+		const closePanelFromOutside = (event: PointerEvent) => {
+			const target = event.target
+			if (!(target instanceof Node)) return
+			if (panelRef.current?.contains(target) || dockRef.current?.contains(target)) return
+			setActivePanel(null)
+		}
+		document.addEventListener('pointerdown', closePanelFromOutside)
+		return () => document.removeEventListener('pointerdown', closePanelFromOutside)
+	}, [activePanel])
 
 	useEffect(() => {
 		if (!focusRunning) return
@@ -562,8 +572,12 @@ export default function AmbientWorkbench() {
 			<main className='ambient-center-stage'>
 				<motion.div className='ambient-clock-stack' initial={reducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
 					<div className='ambient-time-zone'><span aria-hidden='true' />上海时间 · UTC+8</div>
-					<time className='ambient-time' suppressHydrationWarning dateTime={`${shanghaiClock.hour}:${shanghaiClock.minute}`}>
-						<span>{shanghaiClock.hour}</span><i aria-hidden='true'>:</i><span>{shanghaiClock.minute}</span>
+					<time className='ambient-time' suppressHydrationWarning dateTime={`${shanghaiClock.hour}:${shanghaiClock.minute}:${shanghaiClock.second}`} aria-label={`上海时间 ${shanghaiClock.hour} 时 ${shanghaiClock.minute} 分 ${shanghaiClock.second} 秒`}>
+						<FlipClockUnit value={shanghaiClock.hour} reducedMotion={reducedMotion} />
+						<i aria-hidden='true'>:</i>
+						<FlipClockUnit value={shanghaiClock.minute} reducedMotion={reducedMotion} />
+						<i aria-hidden='true'>:</i>
+						<FlipClockUnit value={shanghaiClock.second} reducedMotion={reducedMotion} />
 					</time>
 					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
 					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(shanghaiClock.hourNumber)}</p>
@@ -584,6 +598,7 @@ export default function AmbientWorkbench() {
 				{activePanel && (
 					<motion.section
 						key={activePanel}
+						ref={panelRef}
 						className='ambient-panel ambient-wakeable'
 						initial={reducedMotion ? { x: '-50%' } : { opacity: 0, x: '-50%', y: 18, scale: 0.98 }}
 						animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
@@ -695,11 +710,7 @@ export default function AmbientWorkbench() {
 				)}
 			</AnimatePresence>
 
-			<div className='ambient-dock-wrap ambient-wakeable'>
-				<div className='ambient-dock-status' aria-live='polite'>
-					<span className='ambient-status-dot' aria-hidden='true' />
-					<span>{focusRunning ? `专注 ${formatFocusDuration(focusRemaining)}` : `${incompleteTasks.length} 项任务 · ${upcomingEvents.length} 项日程`}</span>
-				</div>
+			<div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
@@ -710,6 +721,10 @@ export default function AmbientWorkbench() {
 						</button>
 					})}
 				</nav>
+				<div className='ambient-dock-status' aria-live='polite'>
+					<span className='ambient-status-dot' aria-hidden='true' />
+					<span>{focusRunning ? `专注 ${formatFocusDuration(focusRemaining)}` : `${incompleteTasks.length} 项任务 · ${upcomingEvents.length} 项日程`}</span>
+				</div>
 			</div>
 
 			<AnimatePresence>
@@ -731,6 +746,27 @@ export default function AmbientWorkbench() {
 			</AnimatePresence>
 		</section>
 	)
+}
+
+function FlipClockUnit({ value, reducedMotion }: { value: string; reducedMotion: boolean | null }) {
+	return <span className='ambient-time-unit' aria-hidden='true'>
+		{value.split('').map((digit, index) => (
+			<span className='ambient-flip-digit' key={index}>
+				<AnimatePresence initial={false}>
+					<motion.span
+						key={digit}
+						className='ambient-flip-digit-value'
+						suppressHydrationWarning
+						initial={reducedMotion ? false : { opacity: 0, rotateX: -82, y: '-18%' }}
+						animate={{ opacity: 1, rotateX: 0, y: '0%' }}
+						exit={reducedMotion ? { opacity: 0 } : { opacity: 0, rotateX: 82, y: '18%' }}
+						transition={{ duration: reducedMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}>
+						{digit}
+					</motion.span>
+				</AnimatePresence>
+			</span>
+		))}
+	</span>
 }
 
 function IntegrationList({ state, empty, unavailable, children }: { state: LoadState; empty: string; unavailable: string; children: React.ReactNode }) {
