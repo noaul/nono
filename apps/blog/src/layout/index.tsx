@@ -12,22 +12,44 @@ import { ScrollTopButton } from '@/components/scroll-top-button'
 import MusicCard from '@/components/music-card'
 import { LanguageControl } from '@/components/language-control'
 import { ColorModeControl } from '@/components/color-mode-control'
+import { usePathname } from 'next/navigation'
 
 export default function Layout({ children }: PropsWithChildren) {
+	const pathname = usePathname()
+	const isAmbientHome = pathname === '/'
 	useCenterInit()
 	useSizeInit()
 	const { cardStyles, siteContent, regenerateKey, hydrateRuntimeConfig } = useConfigStore()
 	const { maxSM, init } = useSize()
 
 	useEffect(() => {
-		void hydrateRuntimeConfig()
-	}, [hydrateRuntimeConfig])
+		if (!isAmbientHome) void hydrateRuntimeConfig()
+	}, [hydrateRuntimeConfig, isAmbientHome])
 
 	const backgroundImages = (siteContent.backgroundImages ?? []) as Array<{ id: string; url: string }>
 	const currentBackgroundImageId = siteContent.currentBackgroundImageId
 	const currentBackgroundImage =
 		currentBackgroundImageId && currentBackgroundImageId.trim() ? backgroundImages.find(item => item.id === currentBackgroundImageId) : null
 	const useBingDailyBackground = currentBackgroundImage?.id === 'bing-daily'
+
+	if (isAmbientHome) {
+		return (
+			<>
+				<Toaster
+					position='bottom-right'
+					richColors
+					icons={{
+						success: <CircleCheckIcon className='size-4' />,
+						info: <InfoIcon className='size-4' />,
+						warning: <TriangleAlertIcon className='size-4' />,
+						error: <OctagonXIcon className='size-4' />,
+						loading: <Loader2Icon className='size-4 animate-spin' />
+					}}
+				/>
+				<main className='h-full'>{children}</main>
+			</>
+		)
+	}
 
 	return (
 		<>
