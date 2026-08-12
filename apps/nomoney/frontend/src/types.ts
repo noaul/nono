@@ -34,6 +34,14 @@ export interface StatusOverview {
     uptimePercent: number | null;
     history: StatusDay[];
   }>;
+  domainStats: {
+    total: number;
+    active: number;
+    expiringWithin30Days: number;
+    autoRenew: number;
+    registrars: number;
+    topSuffix: string | null;
+  };
 }
 
 export interface CommunicationAccount {
@@ -91,7 +99,7 @@ export interface DashboardSummary {
   predictedYearly: Partial<Record<Currency, number>>;
   actualYearly: Partial<Record<Currency, number>>;
   assetCounts: Record<string, number>;
-  categoryCosts: Record<AssetType, DashboardCategoryCost>;
+  categoryCosts: Partial<Record<AssetType, DashboardCategoryCost>>;
   expiringCount: number;
   dueBuckets?: {
     overdue: number;
@@ -175,6 +183,13 @@ export interface ListMeta {
   total: number;
   limit: number;
   offset: number;
+  summary?: {
+    totalsByCurrency: Partial<Record<Currency, number>>;
+    assetTypeCounts: Partial<Record<AssetType, number>>;
+    categoryCounts: Partial<Record<'renewal' | 'monthly' | 'setup' | 'other', number>>;
+    earliestPaidAt: string | null;
+    latestPaidAt: string | null;
+  };
   registrarAccounts?: Array<{
     registrar: string;
     account: string;

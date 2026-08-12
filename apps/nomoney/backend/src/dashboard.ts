@@ -132,12 +132,13 @@ export function getDashboardSummary(context: AppContext, year: number, allowedTy
   }
 
   const actualYearly: Partial<Record<Currency, number>> = {};
+  const expenseTypePlaceholders = allowedTypes.map(() => '?').join(', ');
   const expenses = context.db.all<{ asset_type: string; currency: Currency; total: number }>(
     `SELECT asset_type, currency, SUM(amount_minor_units) as total
      FROM expenses
-     WHERE paid_at >= ? AND paid_at <= ?
+     WHERE paid_at >= ? AND paid_at <= ? AND asset_type IN (${expenseTypePlaceholders})
      GROUP BY asset_type, currency`,
-    [`${year}-01-01`, `${year}-12-31`]
+    [`${year}-01-01`, `${year}-12-31`, ...allowedTypes]
   );
   for (const row of expenses) {
     const currency = normalizeCurrency(row.currency);

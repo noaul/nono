@@ -46,4 +46,24 @@ describe('Yumi availability history', () => {
     expect(overview.items[0].currentState).toBe('no_data');
     expect(overview.overallStatus).toBe('no_data');
   });
+
+  test('includes non-financial domain statistics in the Yumi overview', async () => {
+    const context = await createTestContext('yumi');
+    context.now = () => new Date('2026-08-11T12:00:00.000Z');
+    context.db.run("INSERT INTO domains (id, domain_name, registrar, domain_extension, expire_date, auto_renew, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (1, 'alpha.com', 'Cloudflare', '.com', '2026-08-20', 1, 1000, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO domains (id, domain_name, registrar, domain_extension, expire_date, auto_renew, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (2, 'beta.ca', 'Porkbun', '.ca', '2027-01-01', 0, 2000, 'CAD', 'annual', 'paused', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO domains (id, domain_name, registrar, domain_extension, expire_date, auto_renew, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at, archived_at) VALUES (3, 'deleted.net', 'Cloudflare', '.net', '2026-08-15', 1, 3000, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01', '2026-08-01')");
+
+    const overview = buildStatusOverview(context, 90);
+
+    expect(overview.domainStats).toEqual({
+      total: 2,
+      active: 1,
+      expiringWithin30Days: 1,
+      autoRenew: 1,
+      registrars: 2,
+      topSuffix: '.ca'
+    });
+    expect(JSON.stringify(overview.domainStats)).not.toMatch(/amount|currency|cost|fee/i);
+  });
 });

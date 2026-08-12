@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { CalendarRange, Pencil, Plus, ReceiptText, Server, Trash2, WalletCards } from 'lucide-react';
 import type { AssetLookupItem, AssetType, Currency, ExpenseItem, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
 import { compactDate, formatMoney } from './format';
-import { Button, DataTable, Drawer, EmptyState, Field, PageHeader, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
+import { Button, DataTable, Drawer, EmptyState, Field, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
+import { useLayoutActions } from './Layout';
 
 type ExpenseCategory = 'renewal' | 'monthly' | 'setup' | 'other';
 type ExpenseForm = {
@@ -35,6 +36,7 @@ const initialForm: ExpenseForm = {
 
 export function Expenses() {
   const { copy } = useI18n();
+  const { setTopbarActions } = useLayoutActions();
   const [items, setItems] = useState<ExpenseItem[]>([]);
   const [assetOptions, setAssetOptions] = useState<AssetLookupItem[]>([]);
   const [meta, setMeta] = useState<ListMeta | null>(null);
@@ -73,17 +75,19 @@ export function Expenses() {
     });
   }, [year, currency, assetType, category]);
 
-  const totals = useMemo(() => {
-    const grouped: Partial<Record<Currency, number>> = {};
-    for (const item of items) grouped[item.currency] = (grouped[item.currency] ?? 0) + item.amountMinorUnits;
-    return grouped;
-  }, [items]);
+  const summary = meta?.summary;
+  const totals = summary?.totalsByCurrency ?? {};
 
   const openCreate = () => {
     setEditing(null);
     setForm({ ...initialForm, assetKey: assetOptions[0] ? toAssetKey(assetOptions[0].assetType, assetOptions[0].assetId) : '' });
     setDrawerOpen(true);
   };
+
+  useEffect(() => {
+    setTopbarActions(<Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>);
+    return () => setTopbarActions(null);
+  }, [assetOptions, copy, setTopbarActions]);
 
   const openEdit = (item: ExpenseItem) => {
     setEditing(item);
@@ -155,13 +159,22 @@ export function Expenses() {
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={copy('费用流水', 'Expenses')}
-        eyebrow="Ledger"
-        description={copy(`当前筛选 ${meta?.total ?? items.length} 条，合计 ${formatTotals(totals)}。`, `${meta?.total ?? items.length} entries in this filter, totalling ${formatTotals(totals)}.`)}
-        actions={<Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>}
-      />
+    <div className="space-y-4">
+      <section className="expense-summary-grid" aria-label={copy('费用统计', 'Expense summary')}>
+        <ExpenseSummaryItem icon={<WalletCards size={17} />} label={copy('费用合计', 'Total expenses')} value={formatTotals(totals)} accent />
+        <ExpenseSummaryItem icon={<ReceiptText size={17} />} label={copy('流水数量', 'Entries')} value={meta?.total ?? items.length} />
+        <ExpenseSummaryItem
+          icon={<Server size={17} />}
+          label={copy('资产构成', 'Asset mix')}
+          value={copy(`${summary?.assetTypeCounts.vps ?? 0} VPS / ${summary?.assetTypeCounts.domain ?? 0} 域名`, `${summary?.assetTypeCounts.vps ?? 0} VPS / ${summary?.assetTypeCounts.domain ?? 0} domains`)}
+        />
+        <ExpenseSummaryItem
+          icon={<CalendarRange size={17} />}
+          label={copy('统计期间', 'Date range')}
+          value={summary?.earliestPaidAt && summary.latestPaidAt ? `${summary.earliestPaidAt} - ${summary.latestPaidAt}` : '--'}
+          compact
+        />
+      </section>
 
       <section className="card">
         <div className="grid gap-3 md:grid-cols-4">
@@ -174,13 +187,22 @@ export function Expenses() {
 
       {error && <StateBanner tone="danger">{error}</StateBanner>}
 
-      {loading ? (
-        <Skeleton className="h-64" />
-      ) : items.length === 0 ? (
-        <EmptyState title={copy('暂无费用流水', 'No expenses yet')} description={copy('记录实际付款后，Dashboard 的年度实际支出会同步更新。', 'Record a payment and the dashboard yearly actual updates with it.')} action={<Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>} />
-      ) : (
-        <DataTable columns={columns} data={items} />
-      )}
+      <section className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('费用流水', 'Expense ledger')}</h2>
+            <p className="mt-1 text-xs text-slate-500">{copy(`当前筛选 ${meta?.total ?? items.length} 条记录`, `${meta?.total ?? items.length} records in the current filter`)}</p>
+          </div>
+          <span className="font-mono text-xs text-slate-400">{formatTotals(totals)}</span>
+        </div>
+        {loading ? (
+          <Skeleton className="h-64" />
+        ) : items.length === 0 ? (
+          <EmptyState title={copy('暂无费用流水', 'No expenses yet')} description={copy('记录实际付款后，这里会形成可筛选的费用流水。', 'Record a payment to build a filterable expense ledger.')} action={<Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>} />
+        ) : (
+          <DataTable columns={columns} data={items} />
+        )}
+      </section>
 
       <Drawer
         open={drawerOpen}
@@ -212,6 +234,18 @@ export function Expenses() {
           <Field label={copy('备注', 'Notes')}><textarea className={`${inputClass} h-24 py-2.5`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
         </form>
       </Drawer>
+    </div>
+  );
+}
+
+function ExpenseSummaryItem({ icon, label, value, accent = false, compact = false }: { icon: React.ReactNode; label: string; value: React.ReactNode; accent?: boolean; compact?: boolean }) {
+  return (
+    <div className={`expense-summary-item ${accent ? 'is-accent' : ''}`}>
+      <span>{icon}</span>
+      <div className="min-w-0">
+        <p>{label}</p>
+        <strong className={compact ? 'is-compact' : undefined}>{value}</strong>
+      </div>
     </div>
   );
 }

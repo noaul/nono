@@ -142,8 +142,49 @@ export function buildStatusOverview(context: AppContext, days: number) {
   return {
     overallStatus: classifyOverallStatus(items.filter((item) => item.configured).map((item) => item.currentState)),
     range: { start, end, days },
-    items
+    items,
+    domainStats: buildDomainStats(context)
   };
+}
+
+function buildDomainStats(context: AppContext) {
+  const today = context.now().toISOString().slice(0, 10);
+  const cutoff = addDays(today, 30);
+  const rows = context.db.all<{
+    status: string;
+    expire_date: string | null;
+    auto_renew: number;
+    registrar: string | null;
+    domain_extension: string | null;
+    domain_name: string;
+  }>(
+    `SELECT status, expire_date, auto_renew, registrar, domain_extension, domain_name
+     FROM domains WHERE archived_at IS NULL AND status != 'cancelled'`
+  );
+  const registrars = new Set<string>();
+  const suffixCounts = new Map<string, number>();
+  let active = 0;
+  let expiringWithin30Days = 0;
+  let autoRenew = 0;
+  for (const row of rows) {
+    if (row.status === 'active') active += 1;
+    if (row.auto_renew) autoRenew += 1;
+    if (row.expire_date && row.expire_date >= today && row.expire_date <= cutoff) expiringWithin30Days += 1;
+    const registrar = row.registrar?.trim();
+    if (registrar) registrars.add(registrar.toLocaleLowerCase());
+    const suffix = normalizeDomainSuffix(row.domain_extension, row.domain_name);
+    if (suffix) suffixCounts.set(suffix, (suffixCounts.get(suffix) ?? 0) + 1);
+  }
+  const topSuffix = [...suffixCounts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? null;
+  return { total: rows.length, active, expiringWithin30Days, autoRenew, registrars: registrars.size, topSuffix };
+}
+
+function normalizeDomainSuffix(value: string | null, domainName: string): string | null {
+  const stored = value?.trim().toLocaleLowerCase();
+  if (stored) return stored.startsWith('.') ? stored : `.${stored}`;
+  const segments = domainName.trim().toLocaleLowerCase().split('.');
+  return segments.length > 1 && segments.at(-1) ? `.${segments.at(-1)}` : null;
 }
 
 function currentStateFor(row: Record<string, unknown>, now: Date, context: AppContext): DailyStatusState {

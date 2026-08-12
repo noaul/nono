@@ -54,13 +54,14 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
         `SELECT COUNT(*) as count FROM expenses ${whereSql}`,
         params
       );
+      const summary = getExpenseSummary(context, whereSql, params);
       const rows = context.db.all<Record<string, unknown>>(
         `SELECT * FROM expenses ${whereSql} ORDER BY paid_at DESC, id DESC LIMIT ? OFFSET ?`,
         [...params, query.limit, query.offset]
       );
       res.json({
         items: rows.map((row) => mapExpense(context, row)),
-        meta: { total: Number(total?.count ?? 0), limit: query.limit, offset: query.offset }
+        meta: { total: Number(total?.count ?? 0), limit: query.limit, offset: query.offset, summary }
       });
     })
   );
@@ -100,10 +101,13 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
   router.put(
     '/expenses/:id',
     asyncHandler(async (req, res) => {
-      getExpenseOrThrow(context, Number(req.params.id));
+      getExpenseOrThrow(context, Number(req.params.id), allowedTypes);
       const body = parseBody(expenseSchema.partial(), req.body);
+      if (body.assetType && allowedTypes && !allowedTypes.includes(body.assetType)) {
+        throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      }
       if (body.assetType !== undefined || body.assetId !== undefined) {
-        const current = getExpenseOrThrow(context, Number(req.params.id));
+        const current = getExpenseOrThrow(context, Number(req.params.id), allowedTypes);
         assertAssetExists(
           context,
           (body.assetType ?? current.assetType) as AssetType,
@@ -133,23 +137,57 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
         values.push(toIsoDateTime(context.now()), Number(req.params.id));
         context.db.run(`UPDATE expenses SET ${assignments.join(', ')} WHERE id = ?`, values);
       }
-      res.json({ item: getExpenseOrThrow(context, Number(req.params.id)) });
+      res.json({ item: getExpenseOrThrow(context, Number(req.params.id), allowedTypes) });
     })
   );
 
   router.delete(
     '/expenses/:id',
     asyncHandler(async (req, res) => {
-      getExpenseOrThrow(context, Number(req.params.id));
+      getExpenseOrThrow(context, Number(req.params.id), allowedTypes);
       context.db.run('DELETE FROM expenses WHERE id = ?', [Number(req.params.id)]);
       res.status(204).end();
     })
   );
 }
 
-function getExpenseOrThrow(context: AppContext, id: number) {
+function getExpenseSummary(context: AppContext, whereSql: string, params: DbValue[]) {
+  const totalsByCurrency = Object.fromEntries(
+    context.db.all<{ currency: string; total: number }>(
+      `SELECT currency, SUM(amount_minor_units) AS total FROM expenses ${whereSql} GROUP BY currency ORDER BY currency`,
+      params
+    ).map((row) => [String(row.currency), Number(row.total ?? 0)])
+  );
+  const assetTypeCounts = Object.fromEntries(
+    context.db.all<{ asset_type: string; count: number }>(
+      `SELECT asset_type, COUNT(*) AS count FROM expenses ${whereSql} GROUP BY asset_type ORDER BY asset_type`,
+      params
+    ).map((row) => [String(row.asset_type), Number(row.count ?? 0)])
+  );
+  const categoryCounts = Object.fromEntries(
+    context.db.all<{ category: string; count: number }>(
+      `SELECT category, COUNT(*) AS count FROM expenses ${whereSql} GROUP BY category ORDER BY category`,
+      params
+    ).map((row) => [String(row.category), Number(row.count ?? 0)])
+  );
+  const range = context.db.get<{ earliest: string | null; latest: string | null }>(
+    `SELECT MIN(paid_at) AS earliest, MAX(paid_at) AS latest FROM expenses ${whereSql}`,
+    params
+  );
+  return {
+    totalsByCurrency,
+    assetTypeCounts,
+    categoryCounts,
+    earliestPaidAt: range?.earliest ?? null,
+    latestPaidAt: range?.latest ?? null
+  };
+}
+
+function getExpenseOrThrow(context: AppContext, id: number, allowedTypes?: AssetType[]) {
   const row = context.db.get<Record<string, unknown>>('SELECT * FROM expenses WHERE id = ?', [id]);
-  if (!row) throw new HttpError(404, 'EXPENSE_NOT_FOUND', 'Expense not found');
+  if (!row || (allowedTypes && !allowedTypes.includes(String(row.asset_type) as AssetType))) {
+    throw new HttpError(404, 'EXPENSE_NOT_FOUND', 'Expense not found');
+  }
   return mapExpense(context, row);
 }
 

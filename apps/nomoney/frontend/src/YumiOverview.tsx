@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, CircleHelp, RefreshCw, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CalendarClock, Check, CircleHelp, Globe2, RefreshCw, RotateCw, ShieldCheck, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from './api';
 import { useI18n } from './i18n';
+import { useLayoutActions } from './Layout';
 import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview } from './types';
-import { Button, EmptyState, PageHeader, Skeleton, StateBanner } from './ui';
+import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 
 const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: string; detailEn: string }> = {
   operational: { zh: '所有服务运行正常', en: 'All systems operational', detailZh: '当前没有发现影响服务器可用性的问题。', detailEn: 'No availability issues are currently affecting your servers.' },
@@ -16,13 +17,14 @@ const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: str
 
 export function YumiOverview() {
   const { copy, language } = useI18n();
+  const { setTopbarActions } = useLayoutActions();
   const [data, setData] = useState<StatusOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<{ name: string; day: StatusDay } | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setError('');
     try {
       setData(await api.get<StatusOverview>('/api/status/overview?days=90'));
@@ -31,11 +33,11 @@ export function YumiOverview() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [copy]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await api.post('/api/status/refresh');
@@ -45,7 +47,17 @@ export function YumiOverview() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [copy, load]);
+
+  useEffect(() => {
+    setTopbarActions(
+      <Button variant="secondary" size="sm" onClick={refresh} disabled={refreshing}>
+        <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+        {copy('立即检查', 'Check now')}
+      </Button>
+    );
+    return () => setTopbarActions(null);
+  }, [copy, refresh, refreshing, setTopbarActions]);
 
   const rangeLabel = useMemo(() => {
     if (!data) return '';
@@ -55,15 +67,10 @@ export function YumiOverview() {
 
   const overallStatus = data?.overallStatus ?? 'no_data';
   const overall = overallCopy[overallStatus];
+  const domainStats = data?.domainStats;
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={copy('总览', 'Overview')}
-        description={copy('服务器可用性与最近 90 天状态记录', 'Server availability and the latest 90 days of status history')}
-        actions={<Button variant="secondary" size="sm" onClick={refresh} disabled={refreshing}><RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />{copy('立即检查', 'Check now')}</Button>}
-      />
-
       {error && <StateBanner tone="danger">{error}</StateBanner>}
       {loading ? <OverviewSkeleton /> : (
         <>
@@ -91,7 +98,7 @@ export function YumiOverview() {
 
             {!data?.items.length ? (
               <div className="p-4"><EmptyState title={copy('还没有 VPS', 'No VPS yet')} description={copy('在 VPS 页面添加服务器并配置探针后，此处会显示可用性历史。', 'Add a server and configure its probe to begin availability tracking.')} /></div>
-            ) : data.items.map((item) => (
+            ) : <div className="yumi-status-grid">{data.items.map((item) => (
               <article className="yumi-status-row" key={item.id}>
                 <div className="yumi-status-row-heading">
                   <div className="min-w-0">
@@ -122,8 +129,26 @@ export function YumiOverview() {
                 </div>
                 <div className="yumi-history-axis"><span>{copy('90 天前', '90 days ago')}</span><span>{copy('今天', 'Today')}</span></div>
               </article>
-            ))}
+            ))}</div>}
           </section>
+
+          {domainStats && <section className="yumi-domain-panel" aria-labelledby="yumi-domain-stats-title">
+            <header>
+              <div>
+                <h2 id="yumi-domain-stats-title">{copy('域名概况', 'Domain overview')}</h2>
+                <p>{copy('仅统计域名状态与结构，不包含任何费用信息。', 'Status and portfolio structure only; no cost data.')}</p>
+              </div>
+              <Globe2 size={18} aria-hidden="true" />
+            </header>
+            <div className="yumi-domain-stats">
+              <DomainStat icon={<Globe2 size={16} />} label={copy('域名总数', 'Total domains')} value={domainStats.total} />
+              <DomainStat icon={<ShieldCheck size={16} />} label={copy('正常使用', 'Active')} value={domainStats.active} />
+              <DomainStat icon={<CalendarClock size={16} />} label={copy('30 天内到期', 'Due in 30 days')} value={domainStats.expiringWithin30Days} tone={domainStats.expiringWithin30Days ? 'warning' : 'default'} />
+              <DomainStat icon={<RotateCw size={16} />} label={copy('自动续期', 'Auto renew')} value={domainStats.autoRenew} />
+              <DomainStat icon={<ShieldCheck size={16} />} label={copy('注册商', 'Registrars')} value={domainStats.registrars} />
+              <DomainStat icon={<Globe2 size={16} />} label={copy('主要后缀', 'Top suffix')} value={domainStats.topSuffix ?? '--'} mono />
+            </div>
+          </section>}
         </>
       )}
 
@@ -137,6 +162,18 @@ export function YumiOverview() {
           <button type="button" onClick={() => setSelected(null)} aria-label={copy('关闭详情', 'Close detail')}>×</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function DomainStat({ icon, label, value, tone = 'default', mono = false }: { icon: React.ReactNode; label: string; value: string | number; tone?: 'default' | 'warning'; mono?: boolean }) {
+  return (
+    <div className={clsx('yumi-domain-stat', tone === 'warning' && 'is-warning')}>
+      <span>{icon}</span>
+      <div>
+        <p>{label}</p>
+        <strong className={mono ? 'font-mono' : undefined}>{value}</strong>
+      </div>
     </div>
   );
 }

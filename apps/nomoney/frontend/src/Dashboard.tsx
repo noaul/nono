@@ -8,11 +8,9 @@ import {
   CalendarClock,
   CircleDollarSign,
   Database,
-  Globe2,
   Layers3,
   Phone,
   Repeat2,
-  Server,
   TrendingUp
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -52,8 +50,6 @@ function subcategoryLabel(key: string, fallback: string, copy: Copy): string {
 
 const buildCategoryDefinitions = (copy: Copy): CategoryDefinition[] => [
   { assetType: 'phone', name: copy('电话卡', 'SIM cards'), description: copy('国内与国外号码', 'Domestic and overseas numbers'), path: '/phones', icon: <Phone size={18} />, color: '#3b82f6', tone: 'brand' },
-  { assetType: 'vps', name: 'VPS', description: copy('建站、线路与家宽', 'Hosting, routing, and residential'), path: '/vps', icon: <Server size={18} />, color: '#10b981', tone: 'success' },
-  { assetType: 'domain', name: copy('域名', 'Domains'), description: copy('按注册商归集', 'Grouped by registrar'), path: '/domains', icon: <Globe2 size={18} />, color: '#f59e0b', tone: 'warning' },
   { assetType: 'subscription', name: copy('订阅', 'Subscriptions'), description: copy('订阅制与买断制', 'Recurring and one-off'), path: '/subscriptions', icon: <Repeat2 size={18} />, color: '#f43f5e', tone: 'danger' }
 ];
 
@@ -110,7 +106,7 @@ export function Dashboard() {
     if (!summary) return [];
     return categoryDefinitions.map((definition) => ({
       name: definition.name,
-      value: summary.categoryCosts[definition.assetType].assetCount,
+      value: summary.categoryCosts[definition.assetType]?.assetCount ?? 0,
       color: definition.color
     }));
   }, [summary]);
@@ -140,7 +136,7 @@ export function Dashboard() {
       <PageHeader
         title={copy('资产成本控制台', 'Asset cost console')}
         eyebrow="Overview"
-        description={copy('四类资产的循环成本、实际支出、买断投入和近期到期风险集中展示。', 'Recurring costs, real spend, one-off outlay, and upcoming renewal risk for all four asset types.')}
+        description={copy('电话卡与订阅的循环成本、实际支出、买断投入和近期到期风险集中展示。', 'Recurring costs, real spend, one-off outlay, and upcoming renewal risk for SIM cards and subscriptions.')}
       />
 
       <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -161,7 +157,7 @@ export function Dashboard() {
         <div className="motion-list grid items-stretch gap-4 lg:grid-cols-2">
           {categoryDefinitions.map((definition) => {
             const cost = summary.categoryCosts[definition.assetType];
-            return <CostCategoryCard key={definition.assetType} definition={definition} cost={cost} />;
+            return cost ? <CostCategoryCard key={definition.assetType} definition={definition} cost={cost} /> : null;
           })}
         </div>
       </section>

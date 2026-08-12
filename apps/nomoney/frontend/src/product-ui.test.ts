@@ -13,11 +13,24 @@ describe('NoMoney and Yumi product surfaces', () => {
   it('uses a status-first Yumi overview with no cost components', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
     expect(source).toContain('status-history-strip');
+    expect(source).toContain('useLayoutActions');
+    expect(source).toContain('yumi-status-grid');
+    expect(source).toContain('domainStats');
+    expect(source).not.toContain('<PageHeader');
     expect(source).toContain('overallStatus');
     expect(source).toContain('uptimePercent');
     expect(source).not.toContain('MoneyList');
     expect(source).not.toContain('predictedYearly');
     expect(source).not.toContain('actualYearly');
+  });
+
+  it('moves the expense action into the shared top bar and shows summary before the ledger', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Expenses.tsx'), 'utf8');
+    expect(source).toContain('useLayoutActions');
+    expect(source).toContain('expense-summary-grid');
+    expect(source).toContain('meta?.summary');
+    expect(source).not.toContain('<PageHeader');
+    expect(source.indexOf('expense-summary-grid')).toBeLessThan(source.indexOf('<DataTable'));
   });
 
   it('scopes trash and expense asset options to the active product', () => {

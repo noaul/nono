@@ -201,9 +201,15 @@ button { @apply active:translate-y-px; }
 .is-outage { --status-color: var(--ui-danger); }
 .is-no_data { --status-color: var(--ui-border-strong); }
 .yumi-status-legend i { background: var(--status-color); }
-.yumi-status-row { padding: 18px 20px 16px; border-bottom: 1px solid var(--ui-border); }
-.yumi-status-row:last-child { border-bottom: 0; }
-.yumi-status-row-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.yumi-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--ui-surface); }
+.yumi-status-row { min-width: 0; padding: 14px 16px 12px; border-right: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); }
+.yumi-status-row:nth-child(3n) { border-right: 0; }
+.yumi-status-grid:has(> .yumi-status-row:nth-child(3n):last-child) > .yumi-status-row:nth-last-child(-n + 3),
+.yumi-status-grid:has(> .yumi-status-row:nth-child(3n + 1):last-child) > .yumi-status-row:last-child,
+.yumi-status-grid:has(> .yumi-status-row:nth-child(3n + 2):last-child) > .yumi-status-row:nth-last-child(-n + 2) { border-bottom: 0; }
+.yumi-status-grid:has(> .yumi-status-row:nth-child(3n + 1):last-child) > .yumi-status-row:last-child,
+.yumi-status-grid:has(> .yumi-status-row:nth-child(3n + 2):last-child) > .yumi-status-row:last-child { border-right: 0; }
+.yumi-status-row-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
 .yumi-status-row-heading h3 { color: var(--ui-text); font-size: 15px; font-weight: 600; }
 .yumi-status-row-heading p { margin: 3px 0 0 26px; color: var(--ui-text-subtle); font-size: 11px; }
 .yumi-status-dot { display: inline-flex; width: 18px; height: 18px; flex: none; align-items: center; justify-content: center; border-radius: 50%; color: white; background: var(--status-color); }
@@ -211,21 +217,63 @@ button { @apply active:translate-y-px; }
 .yumi-uptime strong { color: var(--ui-text); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
 .yumi-uptime span { display: block; margin-top: 3px; color: var(--ui-text-subtle); font-size: 10px; }
 .status-history-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
-.status-history-strip { display: grid; grid-template-columns: repeat(90, minmax(4px, 1fr)); min-width: 660px; height: 28px; gap: 3px; }
-.status-history-day { min-width: 0; height: 28px; border: 0; border-radius: 2px; background: var(--status-color); outline: none; transition: transform 120ms ease, filter 120ms ease; }
+.status-history-strip { display: grid; grid-template-columns: repeat(90, minmax(2px, 1fr)); min-width: 360px; height: 18px; gap: 2px; }
+.status-history-day { min-width: 0; height: 18px; border: 0; border-radius: 1px; background: var(--status-color); outline: none; transition: transform 120ms ease, filter 120ms ease; }
 .status-history-day:hover, .status-history-day:focus-visible { z-index: 1; transform: scaleY(1.18); filter: brightness(.92); }
 .yumi-history-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--ui-text-subtle); font-size: 10px; }
 .yumi-day-detail { position: fixed; z-index: 45; right: 20px; bottom: 20px; display: flex; width: min(420px, calc(100vw - 32px)); align-items: flex-start; gap: 10px; padding: 13px 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface-raised); box-shadow: 0 18px 42px rgb(15 23 42 / .18); }
 .yumi-day-detail strong { display: block; color: var(--ui-text); font-size: 12px; }
 .yumi-day-detail p { margin-top: 2px; color: var(--ui-text-muted); font-size: 11px; }
 .yumi-day-detail > button { width: 24px; height: 24px; color: var(--ui-text-subtle); font-size: 20px; line-height: 20px; }
+.yumi-domain-panel { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
+.yumi-domain-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border); }
+.yumi-domain-panel > header h2 { color: var(--ui-text); font-size: 15px; font-weight: 600; }
+.yumi-domain-panel > header p { margin-top: 2px; color: var(--ui-text-subtle); font-size: 11px; }
+.yumi-domain-panel > header > svg { color: var(--ui-accent); }
+.yumi-domain-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.yumi-domain-stat { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 14px 16px; border-right: 1px solid var(--ui-border); }
+.yumi-domain-stat:last-child { border-right: 0; }
+.yumi-domain-stat > span { display: inline-flex; width: 30px; height: 30px; flex: none; align-items: center; justify-content: center; border-radius: var(--ui-radius-sm); color: var(--ui-accent); background: var(--ui-accent-soft); }
+.yumi-domain-stat.is-warning > span { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.yumi-domain-stat p { overflow: hidden; color: var(--ui-text-subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.yumi-domain-stat strong { display: block; margin-top: 2px; overflow: hidden; color: var(--ui-text); font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.expense-summary-grid { display: grid; overflow: hidden; grid-template-columns: 1.2fr .65fr 1fr 1.1fr; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
+.expense-summary-item { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 14px 16px; border-right: 1px solid var(--ui-border); }
+.expense-summary-item:last-child { border-right: 0; }
+.expense-summary-item > span { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: var(--ui-radius-sm); color: var(--ui-text-muted); background: var(--ui-surface-sunken); }
+.expense-summary-item.is-accent > span { color: var(--ui-accent); background: var(--ui-accent-soft); }
+.expense-summary-item p { color: var(--ui-text-subtle); font-size: 10px; }
+.expense-summary-item strong { display: block; margin-top: 3px; overflow: hidden; color: var(--ui-text); font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.expense-summary-item strong.is-compact { font-size: 11px; font-weight: 500; }
+
+@media (max-width: 1099px) {
+  .yumi-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .yumi-status-row, .yumi-status-row:nth-child(3n) { border-right: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); }
+  .yumi-status-row:nth-child(2n) { border-right: 0; }
+  .yumi-status-grid:has(> .yumi-status-row:nth-child(2n):last-child) > .yumi-status-row:nth-last-child(-n + 2),
+  .yumi-status-grid:has(> .yumi-status-row:nth-child(2n + 1):last-child) > .yumi-status-row:last-child { border-bottom: 0; }
+  .yumi-status-grid:has(> .yumi-status-row:nth-child(2n + 1):last-child) > .yumi-status-row:last-child { border-right: 0; }
+  .yumi-domain-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .yumi-domain-stat:nth-child(3n) { border-right: 0; }
+  .yumi-domain-stat:nth-child(-n + 3) { border-bottom: 1px solid var(--ui-border); }
+  .expense-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .expense-summary-item:nth-child(2n) { border-right: 0; }
+  .expense-summary-item:nth-child(-n + 2) { border-bottom: 1px solid var(--ui-border); }
+}
 
 @media (max-width: 639px) {
   .yumi-overall-title { padding: 16px; }
   .yumi-overall-banner > p { padding: 14px 16px; }
   .yumi-status-panel-header { align-items: flex-start; flex-direction: column; padding: 15px 16px; }
   .yumi-status-legend { justify-content: flex-start; }
-  .yumi-status-row { padding: 15px 16px 13px; }
+  .yumi-status-grid { grid-template-columns: 1fr; }
+  .yumi-status-row, .yumi-status-row:nth-child(2n), .yumi-status-row:nth-child(3n) { padding: 13px 14px 11px; border-right: 0; border-bottom: 1px solid var(--ui-border); }
+  .yumi-status-row:last-child { border-bottom: 0; }
   .status-history-scroll { margin-right: -16px; width: calc(100% + 16px); padding-right: 16px; }
   .yumi-day-detail { right: 16px; bottom: 16px; }
+  .yumi-domain-stats, .expense-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .yumi-domain-stat, .yumi-domain-stat:nth-child(3n), .expense-summary-item { padding: 12px; border-right: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); }
+  .yumi-domain-stat:nth-child(2n), .expense-summary-item:nth-child(2n) { border-right: 0; }
+  .yumi-domain-stat:nth-last-child(-n + 2), .expense-summary-item:nth-last-child(-n + 2) { border-bottom: 0; }
 }
