@@ -24,6 +24,15 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(source).not.toContain('actualYearly');
   });
 
+  it('connects the tested refresh lifecycle and ignores requests after unmount', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
+
+    expect(source).toContain('startVisibleStatusRefresh');
+    expect(source).toContain('mountedRef.current = false');
+    expect(source).toContain('copyRef.current = copy');
+    expect(source).toContain('const error = refreshError || loadError;');
+  });
+
   it('moves the expense action into the shared top bar and shows summary before the ledger', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Expenses.tsx'), 'utf8');
     expect(source).toContain('useLayoutActions');

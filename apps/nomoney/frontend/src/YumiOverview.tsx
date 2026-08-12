@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CalendarClock, Check, CircleHelp, Globe2, RefreshCw, RotateCw, ShieldCheck, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from './api';
@@ -6,6 +6,7 @@ import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
 import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview } from './types';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
+import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
 
 const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: string; detailEn: string }> = {
   operational: { zh: '所有服务运行正常', en: 'All systems operational', detailZh: '当前没有发现影响服务器可用性的问题。', detailEn: 'No availability issues are currently affecting your servers.' },
@@ -15,39 +16,71 @@ const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: str
   no_data: { zh: '暂无状态数据', en: 'No status data', detailZh: '为 VPS 配置探针后，这里会开始记录可用性。', detailEn: 'Configure a probe on a VPS to start recording availability.' }
 };
 
+const statusOverviewRefreshIntervalMs = 5 * 60_000;
+
 export function YumiOverview() {
   const { copy, language } = useI18n();
   const { setTopbarActions } = useLayoutActions();
   const [data, setData] = useState<StatusOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [refreshError, setRefreshError] = useState('');
   const [selected, setSelected] = useState<{ name: string; day: StatusDay } | null>(null);
+  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  const mountedRef = useRef(false);
+  const copyRef = useRef(copy);
+  copyRef.current = copy;
 
-  const load = useCallback(async () => {
-    setError('');
-    try {
-      setData(await api.get<StatusOverview>('/api/status/overview?days=90'));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : copy('状态加载失败', 'Unable to load status'));
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const load = useCallback(async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
+    if (loadPromiseRef.current) {
+      if (!force) return loadPromiseRef.current;
+      await loadPromiseRef.current;
     }
-  }, [copy]);
+    const request = (async () => {
+      try {
+        const overview = await api.get<StatusOverview>('/api/status/overview?days=90');
+        if (!mountedRef.current) return;
+        setData(overview);
+        setLoadError('');
+      } catch (cause) {
+        if (mountedRef.current && !silent) {
+          setLoadError(cause instanceof Error ? cause.message : copyRef.current('状态加载失败', 'Unable to load status'));
+        }
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    })();
+    loadPromiseRef.current = request;
+    try {
+      await request;
+    } finally {
+      if (loadPromiseRef.current === request) loadPromiseRef.current = null;
+    }
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return startVisibleStatusRefresh(() => { void load({ silent: true }); }, statusOverviewRefreshIntervalMs);
+  }, [load]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await api.post('/api/status/refresh');
-      await load();
+      await load({ force: true });
+      if (mountedRef.current) setRefreshError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : copy('刷新失败', 'Refresh failed'));
+      if (mountedRef.current) setRefreshError(cause instanceof Error ? cause.message : copyRef.current('刷新失败', 'Refresh failed'));
     } finally {
-      setRefreshing(false);
+      if (mountedRef.current) setRefreshing(false);
     }
-  }, [copy, load]);
+  }, [load]);
 
   useEffect(() => {
     setTopbarActions(
@@ -61,13 +94,13 @@ export function YumiOverview() {
 
   const rangeLabel = useMemo(() => {
     if (!data) return '';
-    const format = new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${format.format(new Date(`${data.range.start}T00:00:00Z`))} - ${format.format(new Date(`${data.range.end}T00:00:00Z`))}`;
+    return `${formatStatusDay(data.range.start, language)} - ${formatStatusDay(data.range.end, language)}`;
   }, [data, language]);
 
   const overallStatus = data?.overallStatus ?? 'no_data';
   const overall = overallCopy[overallStatus];
   const domainStats = data?.domainStats;
+  const error = refreshError || loadError;
 
   return (
     <div className="space-y-4">
@@ -198,7 +231,7 @@ function OverviewSkeleton() {
 }
 
 function formatDay(day: string, language: string) {
-  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(`${day}T00:00:00Z`));
+  return formatStatusDay(day, language);
 }
 
 function dayTitle(day: StatusDay, language: string) {
