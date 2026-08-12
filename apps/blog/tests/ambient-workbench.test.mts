@@ -88,3 +88,12 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 	assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)
 	assert.match(layout, /isAmbientHome/)
 })
+
+test('keeps browser-local time copy from causing hydration mismatches', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+
+	assert.match(workbench, /className='ambient-compact-date' suppressHydrationWarning/)
+	assert.match(workbench, /className='ambient-time' suppressHydrationWarning/)
+	assert.match(workbench, /className='ambient-date' suppressHydrationWarning/)
+	assert.match(workbench, /className='ambient-greeting' suppressHydrationWarning/)
+})

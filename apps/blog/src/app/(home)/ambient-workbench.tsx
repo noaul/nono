@@ -465,7 +465,7 @@ export default function AmbientWorkbench() {
 				</button>
 
 				<div className='ambient-top-actions'>
-					<span className='ambient-compact-date'>{new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
+					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
 					<button type='button' className='ambient-icon-button' onClick={toggleDim} title={dimmed ? '调亮画面' : '柔和画面'} aria-label={dimmed ? '调亮画面' : '柔和画面'}>
 						{dimmed ? <SunMedium size={20} /> : <Moon size={20} />}
 					</button>
@@ -479,7 +479,7 @@ export default function AmbientWorkbench() {
 				<motion.div className='ambient-clock-stack' initial={reducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
 					<time className='ambient-time' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}</time>
 					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
-					<p className='ambient-greeting'>{greetingForHour(now.getHours())}</p>
+					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(now.getHours())}</p>
 
 					<button type='button' className='ambient-now' onClick={() => togglePanel(currentItem.panel)} aria-label={`${currentItem.label}：${currentItem.title}`}>
 						<span className='ambient-now-label'>{currentItem.label}</span>
