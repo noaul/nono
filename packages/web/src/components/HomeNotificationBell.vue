@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Bell, CalendarDays, Check, CheckCheck, WalletCards, X } from 'lucide-vue-next';
+import { Bell, CalendarDays, Check, CheckCheck, ServerCog, WalletCards, X } from 'lucide-vue-next';
 import type { AdminNotification } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 
@@ -188,12 +188,13 @@ onBeforeUnmount(() => {
           >
             <span class="home-notification-source" aria-hidden="true">
               <CalendarDays v-if="item.source === 'nodesk'" :size="17" />
+              <ServerCog v-else-if="item.source === 'yumi'" :size="17" />
               <WalletCards v-else :size="17" />
             </span>
             <RouterLink class="home-notification-copy" :to="item.href" @click="select(item)">
               <strong>{{ item.title }}</strong>
               <span>{{ item.description }}</span>
-              <small>{{ item.source === 'nodesk' ? 'NoDesk' : 'NoMoney' }} · {{ formatTime(item) }}</small>
+              <small>{{ item.source === 'nodesk' ? 'NoDesk' : item.source === 'yumi' ? 'Yumi' : 'NoMoney' }} · {{ formatTime(item) }}</small>
             </RouterLink>
             <div class="home-notification-actions">
               <button

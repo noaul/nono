@@ -44,7 +44,7 @@ test('drops root privileges before migrations and application services start', (
   const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
 
   assert.match(dockerfile, /adduser[^\n]*nono/);
-  assert.match(dockerfile, /chown -R nono:nono \/app\/nodesk-content \/app\/nomoney-data \/app\/backups/);
+  assert.match(dockerfile, /chown -R nono:nono \/app\/nodesk-content \/app\/nomoney-data \/app\/yumi-data \/app\/backups/);
   assert.match(dockerfile, /su-exec nono:nono \.\/nono\/node_modules\/\.bin\/prisma migrate deploy/);
   assert.match(dockerfile, /exec su-exec nono:nono node \.\/gateway\.mjs/);
 });

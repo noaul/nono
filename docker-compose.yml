@@ -56,6 +56,7 @@ services:
       NODESK_CONTENT_DIR: /app/nodesk-content
       NODESK_SEED_DIR: /app/nodesk-seed
       NOMONEY_INTERNAL_PORT: 2030
+      YUMI_INTERNAL_PORT: 2040
       NOMONEY_DATA_DIR: /app/nomoney-data
       NOMONEY_JWT_SECRET: ${NOMONEY_JWT_SECRET:?NOMONEY_JWT_SECRET is required}
       NOMONEY_INTERNAL_TOKEN: ${NOMONEY_INTERNAL_TOKEN:?NOMONEY_INTERNAL_TOKEN is required}
@@ -67,9 +68,14 @@ services:
       NOMONEY_SMTP_PASS: ${NOMONEY_SMTP_PASS:-}
       NOMONEY_SMTP_FROM: ${NOMONEY_SMTP_FROM:-}
       NOMONEY_SMTP_TO: ${NOMONEY_SMTP_TO:-}
+      YUMI_DATA_DIR: /app/yumi-data
+      YUMI_JWT_SECRET: ${YUMI_JWT_SECRET:?YUMI_JWT_SECRET is required}
+      YUMI_ENCRYPTION_KEY: ${YUMI_ENCRYPTION_KEY:?YUMI_ENCRYPTION_KEY is required}
+      YUMI_COOKIE_SECURE: ${YUMI_COOKIE_SECURE:-true}
     volumes:
       - nodesk_content:/app/nodesk-content
       - nomoney_data:/app/nomoney-data
+      - yumi_data:/app/yumi-data
       - nono_backups:/app/backups
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/readyz >/dev/null"]
@@ -82,4 +88,5 @@ volumes:
   nono_pg_data:
   nodesk_content:
   nomoney_data:
+  yumi_data:
   nono_backups:

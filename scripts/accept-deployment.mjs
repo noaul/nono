@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/nostar/'];
+const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/'];
 const REQUIRED_NOSTAR_CHUNKS = ['RepositoriesView-', 'ReadmeModal-', 'RepositoryEditModal-'];
 
 export async function acceptDeployment({

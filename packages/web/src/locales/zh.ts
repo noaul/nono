@@ -574,6 +574,7 @@ export const zh = {
     sourceBackup: '备份',
     sourceNodesk: 'NoDesk',
     sourceNomoney: 'NoMoney',
+    sourceYumi: 'Yumi',
     sourceNostar: 'NoStar',
     loadFailed: '通知加载失败',
     updateFailed: '通知状态更新失败',

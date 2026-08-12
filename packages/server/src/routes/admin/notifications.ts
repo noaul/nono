@@ -5,10 +5,10 @@ import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { resolveRequestLocale } from '../../utils/i18n.js';
 
-const notificationSourceSchema = z.enum(['nodesk', 'nomoney', 'nostar', 'links', 'backup']);
+const notificationSourceSchema = z.enum(['nodesk', 'nomoney', 'yumi', 'nostar', 'links', 'backup']);
 const sourceFilterSchema = z.preprocess(
   (value) => typeof value === 'string' ? value.split(',').map((source) => source.trim()).filter(Boolean) : value,
-  z.array(notificationSourceSchema).min(1).max(5).optional(),
+  z.array(notificationSourceSchema).min(1).max(6).optional(),
 ).transform((sources) => sources ? [...new Set(sources)] : undefined);
 
 const listQuerySchema = z.object({
@@ -72,14 +72,14 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
     return sendOk(reply, { ok: true });
   });
 
-  app.post('/api/admin/nomoney/vps/:id/renew', async (request, reply) => {
+  app.post('/api/admin/yumi/vps/:id/renew', async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
     const id = z.coerce.number().int().positive().parse((request.params as { id?: string }).id);
     return sendOk(reply, await services.noMoneyClient.renewVps(id, vpsRenewalBodySchema.parse(request.body)));
   });
 
-  app.post('/api/admin/nomoney/vps/:id/renewals/:renewalId/undo', async (request, reply) => {
+  app.post('/api/admin/yumi/vps/:id/renewals/:renewalId/undo', async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
     const params = z.object({
@@ -89,7 +89,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
     return sendOk(reply, await services.noMoneyClient.undoVpsRenewal(params.id, params.renewalId));
   });
 
-  app.put('/api/admin/nomoney/vps/:id/renewals/:renewalId/expense', async (request, reply) => {
+  app.put('/api/admin/yumi/vps/:id/renewals/:renewalId/expense', async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
     const params = z.object({

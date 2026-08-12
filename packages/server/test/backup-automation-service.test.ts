@@ -11,7 +11,7 @@ function backup(id: string, createdAt: string) {
     size: 100,
     sha256: 'a'.repeat(64),
     status: 'verified' as const,
-    components: ['postgres', 'nodesk', 'nomoney'] as const,
+    components: ['postgres', 'nodesk', 'nomoney', 'yumi'] as const,
     componentRecords: {} as any,
   };
 }

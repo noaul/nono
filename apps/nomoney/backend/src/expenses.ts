@@ -16,13 +16,21 @@ const expenseListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0)
 });
 
-export function registerExpenseRoutes(router: Router, context: AppContext): void {
+export function registerExpenseRoutes(router: Router, context: AppContext, allowedTypes?: AssetType[]): void {
   router.get(
     '/expenses',
     asyncHandler(async (req, res) => {
       const query = expenseListQuerySchema.parse(req.query);
+      if (query.assetType && allowedTypes && !allowedTypes.includes(query.assetType)) {
+        throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      }
       const where: string[] = [];
       const params: DbValue[] = [];
+
+      if (allowedTypes) {
+        where.push(`asset_type IN (${allowedTypes.map(() => '?').join(', ')})`);
+        params.push(...allowedTypes);
+      }
 
       if (query.year) {
         where.push('paid_at >= ? AND paid_at <= ?');
@@ -61,6 +69,9 @@ export function registerExpenseRoutes(router: Router, context: AppContext): void
     '/expenses',
     asyncHandler(async (req, res) => {
       const body = parseBody(expenseSchema, req.body);
+      if (allowedTypes && !allowedTypes.includes(body.assetType)) {
+        throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      }
       assertAssetExists(context, body.assetType, body.assetId);
       const now = toIsoDateTime(context.now());
       const id = context.db.insert(

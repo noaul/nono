@@ -6,18 +6,24 @@ import type { User } from './types';
 import { api } from './api';
 import { IconButton } from './ui';
 import { useI18n } from './i18n';
+import { product, productMeta } from './product';
 
 const navItems = [
-  { to: '/dashboard', labelZh: '控制台', labelEn: 'Dashboard', icon: LayoutDashboard, hint: 'Overview' },
+  { to: '/dashboard', labelZh: product === 'yumi' ? '总览' : '控制台', labelEn: product === 'yumi' ? 'Overview' : 'Dashboard', icon: LayoutDashboard, hint: 'Overview' },
   { to: '/phones', labelZh: '电话卡', labelEn: 'SIM cards', icon: Smartphone, hint: 'SIM' },
   { to: '/vps', labelZh: 'VPS', labelEn: 'VPS', icon: Server, hint: 'Compute' },
   { to: '/domains', labelZh: '域名', labelEn: 'Domains', icon: Globe2, hint: 'DNS' },
   { to: '/subscriptions', labelZh: '订阅', labelEn: 'Subscriptions', icon: Repeat2, hint: 'SaaS' },
   { to: '/accounts', labelZh: '账号', labelEn: 'Accounts', icon: ContactRound, hint: 'Apps' },
-  { to: '/expenses', labelZh: '费用流水', labelEn: 'Expenses', icon: ReceiptText, hint: 'Ledger' },
+  { to: '/expenses', labelZh: '费用', labelEn: 'Expenses', icon: ReceiptText, hint: 'Ledger' },
   { to: '/trash', labelZh: '回收站', labelEn: 'Recycle bin', icon: Trash2, hint: 'Deleted' },
   { to: '/settings', labelZh: '设置', labelEn: 'Settings', icon: Settings, hint: 'System' }
 ];
+
+const yumiNavOrder = ['/dashboard', '/expenses', '/vps', '/domains', '/trash', '/settings'];
+const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/accounts', '/trash', '/settings'];
+const activeNavOrder = product === 'yumi' ? yumiNavOrder : noMoneyNavOrder;
+const productNavItems = activeNavOrder.map((path) => navItems.find((item) => item.to === path)!);
 
 export type LayoutOutletContext = {
   setTopbarActions: (actions: ReactNode | null) => void;
@@ -39,7 +45,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
   const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [theme, setTheme] = useState(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
-  const current = useMemo(() => navItems.find((item) => location.startsWith(item.to)), [location]);
+  const current = useMemo(() => productNavItems.find((item) => location.startsWith(item.to)), [location]);
   const outletContext = useMemo<LayoutOutletContext>(() => ({ setTopbarActions }), []);
 
   useEffect(() => {
@@ -97,7 +103,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.classList.toggle('dark', next === 'dark');
-    localStorage.setItem('moneypulse-theme', next);
+    localStorage.setItem(`${product}-theme`, next);
     setTheme(next);
   };
 
@@ -108,7 +114,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
 
   const navContent = (
     <nav className="space-y-1 px-3 py-3">
-      {navItems.map((item) => {
+      {productNavItems.map((item) => {
         const Icon = item.icon;
         return (
           <Link
@@ -136,11 +142,11 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white dark:border-white/10 dark:bg-ink-900 md:block">
         <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5 dark:border-white/10">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-xs font-semibold text-white dark:border-white/10 dark:bg-white dark:text-slate-950">
-            NM
+            {productMeta.initials}
           </div>
           <div>
-            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">NoMoney</div>
-            <div className="font-mono text-[11px] text-slate-400">{copy('单用户资产账本', 'single-user ledger')}</div>
+            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">{productMeta.name}</div>
+            <div className="font-mono text-[11px] text-slate-400">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</div>
           </div>
         </div>
         {navContent}
@@ -160,9 +166,9 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
             <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
-                  NM
+                  {productMeta.initials}
                 </div>
-                <span className="text-sm font-semibold">NoMoney</span>
+                <span className="text-sm font-semibold">{productMeta.name}</span>
               </div>
               <IconButton onClick={() => setMobileOpen(false)} title={copy('关闭', 'Close')}>
                 <X size={16} />
@@ -180,8 +186,8 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
               <Menu size={20} />
             </button>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : 'NoMoney'}</h1>
-              <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy('个人资产费用工作台', 'Personal finance operations workspace')}</p>
+              <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : productMeta.name}</h1>
+              <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</p>
             </div>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-2">

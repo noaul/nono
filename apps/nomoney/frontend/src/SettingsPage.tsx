@@ -5,6 +5,9 @@ import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
 import { Button, DataTable, Field, PageHeader, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
+import { product } from './product';
+
+const productBackupName = product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
 
 const defaultSettings: SettingsValue = {
   reminderDays: [30, 14, 7, 3, 1, 0],
@@ -20,7 +23,7 @@ const defaultSettings: SettingsValue = {
   webdavUrl: '',
   webdavUsername: '',
   webdavPassword: '',
-  webdavPath: 'moneypulse-backup.json',
+  webdavPath: productBackupName,
   webdavFolderPath: '',
   webdavBackupFilename: '',
   webdavEncryptionKey: ''

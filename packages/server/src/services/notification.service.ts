@@ -9,7 +9,7 @@ import { runBackupCommand } from './backup.service.js';
 import type { BackupAutomationService, BackupAutomationSnapshot } from './backup-automation.service.js';
 import { shouldSkipLinkHealthCheck } from './link-health.service.js';
 
-export type NotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
+export type NotificationSource = 'nodesk' | 'nomoney' | 'yumi' | 'nostar' | 'links' | 'backup';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
 
 export interface NotificationItem {
@@ -37,8 +37,8 @@ export interface NotificationFeed {
   generatedAt: string;
 }
 
-export interface NoMoneyDueItem {
-  assetType: 'domain' | 'vps' | 'subscription';
+export interface ProductDueItem {
+  assetType: 'phone' | 'domain' | 'vps' | 'subscription';
   id: number;
   name: string;
   dueDate: string;
@@ -55,7 +55,8 @@ export interface NotificationService {
 export interface NotificationServiceOptions {
   prisma: PrismaClient;
   nodeskReader: () => Promise<unknown>;
-  noMoneyReader: () => Promise<NoMoneyDueItem[]>;
+  noMoneyReader: () => Promise<ProductDueItem[]>;
+  yumiReader?: () => Promise<ProductDueItem[]>;
   backupService: Pick<BackupService, 'list'>;
   backupAutomationService?: Pick<BackupAutomationService, 'get'>;
   now?: () => Date;
@@ -81,6 +82,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
     if (user.role === 'admin') {
       if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(options.nodeskReader, now(), timeZone));
       if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone, locale));
+      if (includes('yumi')) globalCollectors.push(collectYumiNotifications(options.yumiReader ?? (async () => []), now(), timeZone, locale));
       if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours, locale));
     }
     const global = (await Promise.all(globalCollectors)).flat();
@@ -159,7 +161,7 @@ function filterNotificationSources(items: RawNotification[], sources?: Notificat
 export function createNoMoneyDueReader(
   nomoneyDataDir: string,
   run: BackupCommandRunner = runBackupCommand,
-): () => Promise<NoMoneyDueItem[]> {
+): () => Promise<ProductDueItem[]> {
   const databasePath = path.join(nomoneyDataDir, 'app.db');
   return async () => {
     if (!fs.existsSync(databasePath)) return [];
@@ -172,13 +174,47 @@ export function createNoMoneyDueReader(
       const id = Number(row.id);
       const name = String(row.name || '').trim();
       const dueDate = String(row.due_date || '');
-      if (!['domain', 'vps', 'subscription'].includes(assetType) || !Number.isSafeInteger(id) || !name || !isDateKey(dueDate)) return [];
-      return [{ assetType: assetType as NoMoneyDueItem['assetType'], id, name, dueDate, status: String(row.status || '') }];
+      if (!['phone', 'subscription'].includes(assetType) || !Number.isSafeInteger(id) || !name || !isDateKey(dueDate)) return [];
+      return [{ assetType: assetType as ProductDueItem['assetType'], id, name, dueDate, status: String(row.status || '') }];
     });
   };
 }
 
 const NO_MONEY_DUE_QUERY = `
+SELECT 'phone' AS asset_type, id, card_number AS name,
+       COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
+FROM phones
+WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived')
+UNION ALL
+SELECT 'subscription' AS asset_type, id, name, NULLIF(next_due_date, '') AS due_date, status
+FROM subscriptions
+WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived');
+`;
+
+export function createYumiDueReader(yumiDataDir: string, run: BackupCommandRunner = runBackupCommand) {
+  return createDueReader(yumiDataDir, YUMI_DUE_QUERY, ['domain', 'vps'], run);
+}
+
+function createDueReader(dataDir: string, query: string, types: ProductDueItem['assetType'][], run: BackupCommandRunner) {
+  const databasePath = path.join(dataDir, 'app.db');
+  return async (): Promise<ProductDueItem[]> => {
+    if (!fs.existsSync(databasePath)) return [];
+    const result = await run('sqlite3', ['-readonly', '-json', databasePath, query]);
+    if (!result.stdout.trim()) return [];
+    const rows = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    if (!Array.isArray(rows)) return [];
+    return rows.flatMap((row) => {
+      const assetType = String(row.asset_type || '') as ProductDueItem['assetType'];
+      const id = Number(row.id);
+      const name = String(row.name || '').trim();
+      const dueDate = String(row.due_date || '');
+      if (!types.includes(assetType) || !Number.isSafeInteger(id) || !name || !isDateKey(dueDate)) return [];
+      return [{ assetType, id, name, dueDate, status: String(row.status || '') }];
+    });
+  };
+}
+
+const YUMI_DUE_QUERY = `
 SELECT 'domain' AS asset_type, id, domain_name AS name,
        COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
 FROM domains
@@ -187,10 +223,6 @@ UNION ALL
 SELECT 'vps' AS asset_type, id, name,
        COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
 FROM vps
-WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived')
-UNION ALL
-SELECT 'subscription' AS asset_type, id, name, NULLIF(next_due_date, '') AS due_date, status
-FROM subscriptions
 WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived');
 `;
 
@@ -289,21 +321,29 @@ async function collectNodeskNotifications(reader: () => Promise<unknown>, curren
   });
 }
 
-async function collectNoMoneyNotifications(reader: () => Promise<NoMoneyDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
+async function collectNoMoneyNotifications(reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
+  return collectProductNotifications('nomoney', reader, current, timeZone, locale);
+}
+
+async function collectYumiNotifications(reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
+  return collectProductNotifications('yumi', reader, current, timeZone, locale);
+}
+
+async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
   const items = await reader().catch(() => []);
   const today = dateKeyInTimeZone(current, timeZone);
   const firstDay = addDateDays(today, -30);
   const lastDay = addDateDays(today, 30);
-  const sourceNames = { domain: t(locale, 'sourceDomain'), vps: t(locale, 'sourceVps'), subscription: t(locale, 'sourceSubscription') } as const;
-  const hrefs = { domain: '/nomoney/domains', vps: '/nomoney/vps', subscription: '/nomoney/subscriptions' } as const;
+  const sourceNames = { phone: locale === 'zh' ? '电话卡' : 'SIM card', domain: t(locale, 'sourceDomain'), vps: t(locale, 'sourceVps'), subscription: t(locale, 'sourceSubscription') } as const;
+  const hrefs = { phone: '/nomoney/phones', domain: '/yumi/domains', vps: '/yumi/vps', subscription: '/nomoney/subscriptions' } as const;
   return items
     .filter((item) => isDateKey(item.dueDate) && item.dueDate >= firstDay && item.dueDate <= lastDay)
     .map((item) => {
       const daysLeft = daysBetween(today, item.dueDate);
       const timing = daysLeft < 0 ? t(locale, 'overdueDays', { days: Math.abs(daysLeft) }) : daysLeft === 0 ? t(locale, 'dueToday') : t(locale, 'dueInDays', { days: daysLeft });
       return {
-        key: stableKey('nomoney', `${item.assetType}:${item.id}:${item.dueDate}`),
-        source: 'nomoney' as const,
+        key: stableKey(source, `${item.assetType}:${item.id}:${item.dueDate}`),
+        source,
         severity: daysLeft < 0 ? 'critical' as const : daysLeft <= 7 ? 'warning' as const : 'info' as const,
         title: `${sourceNames[item.assetType]} ${item.name} ${timing}`,
         description: t(locale, 'dueDate', { date: item.dueDate }),
@@ -386,7 +426,7 @@ function stableKey(source: NotificationSource, identity: string) {
 }
 
 function assertNotificationKey(key: string) {
-  if (!/^(nodesk|nomoney|nostar|links|backup):[a-f0-9]{24}$/.test(key)) throw httpError(404, 'Notification not found');
+  if (!/^(nodesk|nomoney|yumi|nostar|links|backup):[a-f0-9]{24}$/.test(key)) throw httpError(404, 'Notification not found');
 }
 
 function compareNotifications(left: RawNotification, right: RawNotification) {

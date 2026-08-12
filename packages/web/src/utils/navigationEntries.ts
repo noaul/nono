@@ -10,6 +10,14 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     openInNewTab: true,
   },
   {
+    id: 'yumi',
+    label: 'Yumi',
+    url: '/yumi',
+    icon: 'server-cog',
+    enabled: true,
+    openInNewTab: true,
+  },
+  {
     id: 'nostar',
     label: 'NoStar',
     url: '/nostar',
@@ -19,7 +27,7 @@ export const defaultNavigationEntries: NavigationEntry[] = [
   },
 ];
 
-export const navigationEntriesVersion = 2;
+export const navigationEntriesVersion = 3;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -72,7 +80,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
       url,
       icon: typeof value.icon === 'string' ? value.icon.trim().slice(0, 40) : 'link',
       enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
-      openInNewTab: id === 'nomoney' || id === 'nostar'
+      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar'
         ? true
         : typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
     }];

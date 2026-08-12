@@ -9,7 +9,7 @@ const modulePath = path.resolve('docker/gateway-routing.mjs');
 test('routes NoMoney requests and strips the public mount path', async () => {
   assert.equal(fs.existsSync(modulePath), true);
   const { targetFor } = await import(pathToFileURL(modulePath));
-  const ports = { nono: 3001, blog: 2025, nomoney: 2030 };
+  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
 
   assert.deepEqual(targetFor('/nomoney', ports), { name: 'nomoney', port: 2030, path: '/' });
   assert.deepEqual(targetFor('/nomoney/dashboard', ports), { name: 'nomoney', port: 2030, path: '/dashboard' });
@@ -20,10 +20,19 @@ test('routes NoMoney requests and strips the public mount path', async () => {
   });
 });
 
+test('routes Yumi requests to its isolated service', async () => {
+  const { targetFor } = await import(pathToFileURL(modulePath));
+  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
+  assert.deepEqual(targetFor('/yumi', ports), { name: 'yumi', port: 2040, path: '/' });
+  assert.deepEqual(targetFor('/yumi/api/status/overview?days=90', ports), {
+    name: 'yumi', port: 2040, path: '/api/status/overview?days=90',
+  });
+});
+
 test('keeps Nodesk and Nono routing behavior intact', async () => {
   assert.equal(fs.existsSync(modulePath), true);
   const { targetFor } = await import(pathToFileURL(modulePath));
-  const ports = { nono: 3001, blog: 2025, nomoney: 2030 };
+  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
 
   assert.deepEqual(targetFor('/nodesk', ports), { name: 'blog', port: 2025, path: '/nodesk' });
   assert.deepEqual(targetFor('/images/avatar.png', ports), {

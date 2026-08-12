@@ -102,12 +102,13 @@ test('pins patched transitive build dependencies', async () => {
 		'"@babel/core@>=7.0.0 <7.29.1": 7.29.7',
 		'"@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4',
 		'"body-parser@>=2.0.0 <2.3.0": 2.3.0',
-		'"brace-expansion@<=5.0.7": 5.0.8',
-		'"js-yaml@>=4.0.0 <4.1.2": 4.3.0',
+		'"brace-expansion@<=5.0.8": 5.0.9',
+		'"js-yaml@>=4.0.0 <=4.3.0": 4.3.1',
 		'"picomatch@<2.3.2": 2.3.2',
-		'"postcss@<=8.5.17": 8.5.18',
+		'"postcss@<=8.5.22": 8.5.26',
 		'"sharp@<0.35.0": 0.35.0',
-		'"svgo@>=3.0.0 <3.3.4": 3.3.4'
+		'"svgo@>=3.0.0 <3.3.4": 3.3.4',
+		'"undici@>=7.0.0 <7.29.0": 7.29.0'
 	]) {
 		assert.match(workspace, new RegExp(override.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 	}

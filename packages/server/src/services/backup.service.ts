@@ -4,7 +4,8 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const BACKUP_KIND = 'nono.full-backup';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
+type BackupComponent = 'postgres' | 'nodesk' | 'nomoney' | 'yumi';
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 
 export interface BackupComponentRecord {
@@ -15,7 +16,7 @@ export interface BackupComponentRecord {
 
 export interface BackupRecord {
   kind: typeof BACKUP_KIND;
-  version: typeof BACKUP_VERSION;
+  version: 1 | typeof BACKUP_VERSION;
   id: string;
   filename: string;
   createdAt: string;
@@ -23,8 +24,8 @@ export interface BackupRecord {
   size: number;
   sha256: string;
   status: 'verified';
-  components: Array<'postgres' | 'nodesk' | 'nomoney'>;
-  componentRecords: Record<'postgres' | 'nodesk' | 'nomoney', BackupComponentRecord>;
+  components: BackupComponent[];
+  componentRecords: Partial<Record<BackupComponent, BackupComponentRecord>>;
 }
 
 export interface BackupDownload {
@@ -53,6 +54,7 @@ export interface BackupServiceOptions {
   backupDir: string;
   nodeskContentDir: string;
   nomoneyDataDir: string;
+  yumiDataDir: string;
   databaseUrl: string;
   sourceCommit?: string;
   now?: () => Date;
@@ -73,6 +75,7 @@ export function createBackupServiceFromEnv(nodeskContentDir: string) {
     backupDir: process.env.BACKUP_DIR || path.resolve(process.cwd(), 'backups'),
     nodeskContentDir,
     nomoneyDataDir: process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data'),
+    yumiDataDir: process.env.YUMI_DATA_DIR || path.resolve(process.cwd(), '../yumi-data'),
     databaseUrl: process.env.DATABASE_URL || '',
     sourceCommit: process.env.NONO_BUILD_COMMIT || 'unknown',
   });
@@ -81,7 +84,7 @@ export function createBackupServiceFromEnv(nodeskContentDir: string) {
 class FileBackupService implements BackupService {
   private creating = false;
 
-  constructor(private readonly options: Required<Pick<BackupServiceOptions, 'backupDir' | 'nodeskContentDir' | 'nomoneyDataDir' | 'databaseUrl' | 'sourceCommit' | 'now' | 'run'>>) {}
+  constructor(private readonly options: Required<Pick<BackupServiceOptions, 'backupDir' | 'nodeskContentDir' | 'nomoneyDataDir' | 'yumiDataDir' | 'databaseUrl' | 'sourceCommit' | 'now' | 'run'>>) {}
 
   async list() {
     await fs.promises.mkdir(this.options.backupDir, { recursive: true });
@@ -119,6 +122,7 @@ class FileBackupService implements BackupService {
       const postgresPath = path.join(workspace, 'postgres.dump');
       const nodeskPath = path.join(workspace, 'nodesk.tar.gz');
       const nomoneyPath = path.join(workspace, 'nomoney.db');
+      const yumiPath = path.join(workspace, 'yumi.db');
 
       await this.options.run('pg_dump', [
         '--format=custom',
@@ -128,12 +132,14 @@ class FileBackupService implements BackupService {
       ], { env: { ...process.env, ...postgresEnv } });
       await this.options.run('pg_restore', ['--list', postgresPath], { env: { ...process.env, ...postgresEnv } });
       await this.options.run('tar', ['-czf', nodeskPath, '-C', this.options.nodeskContentDir, '.']);
-      await copyVerifiedSqlite(this.options.nomoneyDataDir, nomoneyPath, this.options.run);
+      await copyVerifiedSqlite(this.options.nomoneyDataDir, nomoneyPath, this.options.run, 'NoMoney');
+      await copyVerifiedSqlite(this.options.yumiDataDir, yumiPath, this.options.run, 'Yumi');
 
       const componentRecords = {
         postgres: await componentRecord(postgresPath),
         nodesk: await componentRecord(nodeskPath),
         nomoney: await componentRecord(nomoneyPath),
+        yumi: await componentRecord(yumiPath),
       };
       const innerManifest = {
         kind: BACKUP_KIND,
@@ -157,7 +163,7 @@ class FileBackupService implements BackupService {
         size: artifact.size,
         sha256: artifact.sha256,
         status: 'verified',
-        components: ['postgres', 'nodesk', 'nomoney'],
+        components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
         componentRecords,
       };
       await writeJsonAtomic(this.recordPath(id), record);
@@ -238,7 +244,11 @@ class FileBackupService implements BackupService {
       await this.options.run('tar', ['-xzf', nodeskArchive, '-C', this.options.nodeskContentDir]);
 
       await fs.promises.mkdir(this.options.nomoneyDataDir, { recursive: true });
+      await fs.promises.mkdir(this.options.yumiDataDir, { recursive: true });
       await replaceFile(path.join(workspace, 'nomoney.db'), path.join(this.options.nomoneyDataDir, 'app.db'));
+      if (record.components.includes('yumi')) {
+        await replaceFile(path.join(workspace, 'yumi.db'), path.join(this.options.yumiDataDir, 'app.db'));
+      }
       return record;
     });
   }
@@ -277,14 +287,16 @@ class FileBackupService implements BackupService {
     await fs.promises.mkdir(workspace, { recursive: true });
     try {
       const listing = await this.options.run('tar', ['-tzf', download.path]);
-      validateTarEntries(listing.stdout, new Set(['manifest.json', 'postgres.dump', 'nodesk.tar.gz', 'nomoney.db']));
+      const allowedFiles = new Set(['manifest.json', 'postgres.dump', 'nodesk.tar.gz', 'nomoney.db']);
+      if (record.components.includes('yumi')) allowedFiles.add('yumi.db');
+      validateTarEntries(listing.stdout, allowedFiles);
       await this.options.run('tar', ['-xzf', download.path, '-C', workspace]);
       const manifest = await readInnerManifest(path.join(workspace, 'manifest.json'), id);
-      const componentNames = ['postgres', 'nodesk', 'nomoney'] as const;
+      const componentNames = record.components;
       for (const name of componentNames) {
         const component = manifest.components[name];
-        const expectedFilename = name === 'postgres' ? 'postgres.dump' : name === 'nodesk' ? 'nodesk.tar.gz' : 'nomoney.db';
-        if (component.filename !== expectedFilename || record.componentRecords[name]?.sha256 !== component.sha256) {
+        const expectedFilename = componentFilename(name);
+        if (!component || component.filename !== expectedFilename || record.componentRecords[name]?.sha256 !== component.sha256) {
           throw httpError(409, `${name} component manifest mismatch`);
         }
         const actual = await fileFingerprint(path.join(workspace, expectedFilename)).catch(() => null);
@@ -297,6 +309,10 @@ class FileBackupService implements BackupService {
       await this.options.run('pg_restore', ['--list', path.join(workspace, 'postgres.dump')], { env: { ...process.env, ...postgresEnv } });
       const sqlite = await this.options.run('sqlite3', [path.join(workspace, 'nomoney.db'), 'PRAGMA integrity_check;']);
       if (sqlite.stdout.trim() !== 'ok') throw httpError(409, 'NoMoney SQLite integrity check failed');
+      if (record.components.includes('yumi')) {
+        const yumiSqlite = await this.options.run('sqlite3', [path.join(workspace, 'yumi.db'), 'PRAGMA integrity_check;']);
+        if (yumiSqlite.stdout.trim() !== 'ok') throw httpError(409, 'Yumi SQLite integrity check failed');
+      }
       return await action(record, workspace);
     } finally {
       await removeBackupDirectory(workspace);
@@ -311,26 +327,27 @@ export async function removeBackupDirectory(
   await remove(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
 
-async function copyVerifiedSqlite(nomoneyDataDir: string, destination: string, run: BackupCommandRunner) {
-  const source = path.join(nomoneyDataDir, 'app.db');
+async function copyVerifiedSqlite(dataDir: string, destination: string, run: BackupCommandRunner, label: 'NoMoney' | 'Yumi') {
+  const source = path.join(dataDir, 'app.db');
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       await fs.promises.copyFile(source, destination);
       const result = await run('sqlite3', [destination, 'PRAGMA integrity_check;']);
-      if (result.stdout.trim() !== 'ok') throw new Error('NoMoney SQLite integrity check failed');
+      if (result.stdout.trim() !== 'ok') throw new Error(`${label} SQLite integrity check failed`);
       return;
     } catch (error) {
       lastError = error;
     }
   }
-  throw lastError || new Error('Unable to create a consistent NoMoney snapshot');
+  throw lastError || new Error(`Unable to create a consistent ${label} snapshot`);
 }
 
 function validateSourcePaths(options: BackupServiceOptions) {
   if (!options.databaseUrl) throw httpError(503, 'DATABASE_URL is not configured');
   if (!fs.existsSync(options.nodeskContentDir)) throw httpError(503, 'NoDesk content directory is unavailable');
   if (!fs.existsSync(path.join(options.nomoneyDataDir, 'app.db'))) throw httpError(503, 'NoMoney database is unavailable');
+  if (!fs.existsSync(path.join(options.yumiDataDir, 'app.db'))) throw httpError(503, 'Yumi database is unavailable');
 }
 
 function postgresEnvironment(databaseUrl: string) {
@@ -367,7 +384,7 @@ async function fileFingerprint(filePath: string) {
 
 async function readRecord(filePath: string): Promise<BackupRecord> {
   const parsed = JSON.parse(await fs.promises.readFile(filePath, 'utf8')) as BackupRecord;
-  if (parsed.kind !== BACKUP_KIND || parsed.version !== BACKUP_VERSION) throw new Error('Unsupported backup manifest');
+  if (parsed.kind !== BACKUP_KIND || ![1, BACKUP_VERSION].includes(parsed.version)) throw new Error('Unsupported backup manifest');
   assertBackupId(parsed.id);
   if (parsed.filename !== `nono-backup-${parsed.id}.tar.gz`) throw new Error('Invalid backup filename');
   if (!/^[a-f0-9]{64}$/.test(parsed.sha256) || !Number.isSafeInteger(parsed.size) || parsed.size < 1) throw new Error('Invalid backup fingerprint');
@@ -379,20 +396,26 @@ async function readInnerManifest(filePath: string, expectedId: string) {
     kind?: string;
     version?: number;
     id?: string;
-    components?: Partial<Record<'postgres' | 'nodesk' | 'nomoney', BackupComponentRecord>>;
+    components?: Partial<Record<BackupComponent, BackupComponentRecord>>;
   };
-  if (parsed.kind !== BACKUP_KIND || parsed.version !== BACKUP_VERSION || parsed.id !== expectedId) {
+  if (parsed.kind !== BACKUP_KIND || ![1, BACKUP_VERSION].includes(Number(parsed.version)) || parsed.id !== expectedId) {
     throw httpError(409, 'Backup manifest mismatch');
   }
-  if (!parsed.components?.postgres || !parsed.components.nodesk || !parsed.components.nomoney) {
+  if (!parsed.components?.postgres || !parsed.components.nodesk || !parsed.components.nomoney || (parsed.version === BACKUP_VERSION && !parsed.components.yumi)) {
     throw httpError(409, 'Backup component manifest is incomplete');
   }
   return parsed as {
     kind: typeof BACKUP_KIND;
-    version: typeof BACKUP_VERSION;
+    version: 1 | typeof BACKUP_VERSION;
     id: string;
-    components: Record<'postgres' | 'nodesk' | 'nomoney', BackupComponentRecord>;
+    components: Partial<Record<BackupComponent, BackupComponentRecord>> & Record<'postgres' | 'nodesk' | 'nomoney', BackupComponentRecord>;
   };
+}
+
+function componentFilename(name: BackupComponent) {
+  if (name === 'postgres') return 'postgres.dump';
+  if (name === 'nodesk') return 'nodesk.tar.gz';
+  return `${name}.db`;
 }
 
 function validateTarEntries(output: string, allowed?: Set<string>) {

@@ -79,12 +79,12 @@ describe('notification routes', () => {
   it('passes validated source filters to list and mark-all operations', async () => {
     const list = await app.inject({
       method: 'GET',
-      url: '/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney',
+      url: '/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cyumi',
       headers: { cookie },
     });
     const markAll = await app.inject({
       method: 'POST',
-      url: '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney',
+      url: '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney%2Cyumi',
       headers: { cookie },
     });
 
@@ -93,10 +93,10 @@ describe('notification routes', () => {
     expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
       limit: 100,
       locale: 'zh',
-      sources: ['nodesk', 'nomoney'],
+      sources: ['nodesk', 'nomoney', 'yumi'],
     });
     expect(notificationService.markAllRead).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
-      sources: ['nodesk', 'nomoney'],
+      sources: ['nodesk', 'nomoney', 'yumi'],
     });
   });
 
@@ -131,21 +131,21 @@ describe('notification routes', () => {
     expect(notificationService.dismiss).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 'links:abc');
   });
 
-  it('proxies authenticated VPS renewal, undo, and expense correction to NoMoney', async () => {
+  it('proxies authenticated VPS renewal, undo, and expense correction to Yumi', async () => {
     const renew = await app.inject({
       method: 'POST',
-      url: '/api/admin/nomoney/vps/10/renew',
+      url: '/api/admin/yumi/vps/10/renew',
       headers: { cookie },
       payload: { requestId: 'nono-renew-2026', expectedExpireDate: '2026-08-10' },
     });
     const undo = await app.inject({
       method: 'POST',
-      url: '/api/admin/nomoney/vps/10/renewals/41/undo',
+      url: '/api/admin/yumi/vps/10/renewals/41/undo',
       headers: { cookie },
     });
     const amount = await app.inject({
       method: 'PUT',
-      url: '/api/admin/nomoney/vps/10/renewals/41/expense',
+      url: '/api/admin/yumi/vps/10/renewals/41/expense',
       headers: { cookie },
       payload: { amountMinorUnits: 1400 },
     });

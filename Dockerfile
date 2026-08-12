@@ -73,6 +73,7 @@ ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001
 ENV BLOG_INTERNAL_PORT=2025
 ENV NOMONEY_INTERNAL_PORT=2030
+ENV YUMI_INTERNAL_PORT=2040
 ENV HOSTNAME=0.0.0.0
 COPY --from=nono-build /app/nono/package.json ./nono/package.json
 COPY --from=nono-build /app/nono/node_modules ./nono/node_modules
@@ -91,8 +92,9 @@ COPY --from=nomoney-build /app/nomoney/backend/package.json ./nomoney/backend/pa
 COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_modules
 COPY --from=nomoney-build /app/nomoney/backend/dist ./nomoney/backend/dist
 COPY --from=nomoney-build /app/nomoney/backend/public ./nomoney/backend/public
+COPY --from=nomoney-build /app/nomoney/backend/public-yumi ./nomoney/backend/public-yumi
 COPY docker/gateway.mjs ./gateway.mjs
 COPY docker/gateway-headers.mjs ./gateway-headers.mjs
 COPY docker/gateway-routing.mjs ./gateway-routing.mjs
 EXPOSE 3000
-CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]
+CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]

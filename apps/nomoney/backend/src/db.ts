@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import initSqlJs from 'sql.js';
-import type { DbClient, DbValue } from './types.js';
+import type { DbClient, DbValue, ProductMode } from './types.js';
 import { calculateDomainRarity, inferDomainExtension } from './domainProviders.js';
 
 type SqlStatement = {
@@ -22,6 +22,7 @@ type SqlDatabase = {
 export interface DatabaseOptions {
   filePath?: string;
   persist: boolean;
+  product?: ProductMode;
 }
 
 export async function createDatabase(options: DatabaseOptions): Promise<DbClient> {
@@ -34,7 +35,7 @@ export async function createDatabase(options: DatabaseOptions): Promise<DbClient
       : undefined;
   const sql = initialData ? new SQL.Database(initialData) : new SQL.Database();
   const client = new SqlJsClient(sql as SqlDatabase, options.filePath, options.persist);
-  migrate(client);
+  migrate(client, options.product ?? 'nomoney');
   return client;
 }
 
@@ -136,7 +137,7 @@ class SqlJsClient implements DbClient {
   }
 }
 
-function migrate(db: DbClient): void {
+function migrate(db: DbClient, product: ProductMode): void {
   db.exec(`
     PRAGMA foreign_keys = ON;
 
@@ -377,6 +378,32 @@ function migrate(db: DbClient): void {
       error_message TEXT,
       UNIQUE(asset_type, asset_id, due_date, days_before, status)
     );
+
+    CREATE TABLE IF NOT EXISTS vps_status_samples (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vps_id INTEGER NOT NULL,
+      sampled_at TEXT NOT NULL,
+      state TEXT NOT NULL,
+      latency_ms INTEGER,
+      detail TEXT,
+      UNIQUE(vps_id, sampled_at)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_vps_status_samples_vps_time
+      ON vps_status_samples(vps_id, sampled_at);
+
+    CREATE TABLE IF NOT EXISTS vps_status_daily (
+      vps_id INTEGER NOT NULL,
+      day TEXT NOT NULL,
+      state TEXT NOT NULL,
+      uptime_percent REAL,
+      sample_count INTEGER NOT NULL,
+      up_count INTEGER NOT NULL,
+      degraded_count INTEGER NOT NULL,
+      down_count INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(vps_id, day)
+    );
   `);
 
   seedSetting(db, 'reminderDays', [30, 14, 7, 3, 1, 0]);
@@ -392,10 +419,13 @@ function migrate(db: DbClient): void {
   seedSetting(db, 'webdavUrl', '');
   seedSetting(db, 'webdavUsername', '');
   seedSetting(db, 'webdavPassword', '');
-  seedSetting(db, 'webdavPath', 'moneypulse-backup.json');
+  seedSetting(db, 'webdavPath', product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc');
   seedSetting(db, 'webdavFolderPath', '');
   seedSetting(db, 'webdavBackupFilename', '');
   seedSetting(db, 'webdavEncryptionKey', '');
+  seedSetting(db, 'productMode', product);
+  seedSetting(db, 'statusSampleMinutes', 5);
+  seedSetting(db, 'statusRetentionDays', 365);
   ensureColumn(db, 'users', 'session_version', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn(db, 'accounts', 'login_device', 'TEXT');
   ensureColumn(db, 'accounts', 'archived_at', 'TEXT');

@@ -4,6 +4,7 @@ import { api, ApiError } from './api';
 import { Button, Field, StateBanner, inputClass } from './ui';
 import type { User } from './types';
 import { useI18n } from './i18n';
+import { product, productMeta } from './product';
 
 export function LoginPage({ onAuthenticated }: { onAuthenticated: (user: User) => void }) {
   const { copy } = useI18n();
@@ -27,7 +28,7 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: (user: User) =
   };
 
   return (
-    <AuthFrame title={copy('登录 NoMoney', 'Sign in to NoMoney')} subtitle={copy('进入你的个人资产与费用工作台。', 'Open your personal asset and expense workspace.')}>
+    <AuthFrame title={copy(`登录 ${productMeta.name}`, `Sign in to ${productMeta.name}`)} subtitle={product === 'yumi' ? copy('进入服务器与域名工作台。', 'Open your infrastructure workspace.') : copy('进入你的个人资产与费用工作台。', 'Open your personal asset and expense workspace.')}>
       <form onSubmit={submit} className="space-y-4">
         <Field label={copy('用户名', 'Username')}>
           <input className={inputClass} value={username} autoComplete="username" onChange={(e) => setUsername(e.target.value)} />
@@ -92,23 +93,23 @@ function AuthFrame({ title, subtitle, children }: { title: string; subtitle: str
       <section className="hidden border-r border-slate-200 bg-white px-10 py-8 dark:border-white/10 dark:bg-ink-900 lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
-             NM
+             {productMeta.initials}
           </div>
           <div>
-             <div className="text-sm font-semibold">NoMoney</div>
-            <div className="font-mono text-[11px] text-slate-400">asset cost control</div>
+             <div className="text-sm font-semibold">{productMeta.name}</div>
+            <div className="font-mono text-[11px] text-slate-400">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</div>
           </div>
         </div>
         <div className="max-w-md">
           <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-brand-500/20 bg-brand-500/10 text-brand-500">
             <ShieldCheck size={20} />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight">{copy('资产、续费和真实支出，放在一个干净的工作台里。', 'Assets, renewals, and real spend in one clean workspace.')}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{product === 'yumi' ? copy('服务器、域名和可用性，放在一个清晰的工作台里。', 'Servers, domains, and availability in one clear workspace.') : copy('资产、续费和真实支出，放在一个干净的工作台里。', 'Assets, renewals, and real spend in one clean workspace.')}</h1>
           <p className="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {copy('单用户部署、HttpOnly 会话、多币种成本、到期提醒与费用流水，适合个人服务器、域名和订阅的长期维护。', 'Single-user deployment, HttpOnly sessions, multi-currency costs, renewal reminders, and expense tracking — built for looking after your own servers, domains, and subscriptions.')}
+            {product === 'yumi' ? copy('独立数据存储、可用性历史、续费记录和资源管理，专门用于维护你的 VPS 与域名。', 'Independent storage, availability history, renewal records, and resource management for your VPS and domains.') : copy('单用户部署、HttpOnly 会话、多币种成本、到期提醒与费用流水，适合个人电话卡、订阅与账号的长期维护。', 'Single-user deployment, HttpOnly sessions, multi-currency costs, renewal reminders, and expense tracking for SIM cards, subscriptions, and accounts.')}
           </p>
         </div>
-        <div className="font-mono text-xs text-slate-400">Dark-first private finance workspace</div>
+        <div className="font-mono text-xs text-slate-400">{product === 'yumi' ? 'Private infrastructure workspace' : 'Private finance workspace'}</div>
       </section>
       <section className="flex min-h-screen items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">

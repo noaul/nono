@@ -1,6 +1,29 @@
 import { describe, expect, setupAgent, test } from './test-utils.js';
+import { createTestContext } from './test-utils.js';
+import { getSettings } from './settings.js';
 
 describe('settings APIs', () => {
+  test('uses product-specific WebDAV backup filenames by default', async () => {
+    const noMoney = await createTestContext('nomoney');
+    const yumi = await createTestContext('yumi');
+
+    expect(getSettings(noMoney).webdavPath).toBe('nomoney-backup.json.enc');
+    expect(getSettings(yumi).webdavPath).toBe('yumi-backup.json.enc');
+  });
+
+  test('brands test email with the active product', async () => {
+    const { agent, context } = await setupAgent('yumi');
+
+    await agent.post('/api/settings/test-email').expect(204);
+
+    expect(context.mailer.sent).toEqual([
+      expect.objectContaining({
+        subject: 'Yumi test email',
+        text: 'Yumi email delivery is configured.'
+      })
+    ]);
+  });
+
   test('redacts stored WebDAV secrets and preserves them when secret fields are blank', async () => {
     const { agent, context } = await setupAgent();
 

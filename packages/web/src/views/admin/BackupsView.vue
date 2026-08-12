@@ -16,7 +16,7 @@ interface BackupRecord {
   size: number;
   sha256: string;
   status: 'verified';
-  components: Array<'postgres' | 'nodesk' | 'nomoney'>;
+  components: Array<'postgres' | 'nodesk' | 'nomoney' | 'yumi'>;
 }
 
 interface BackupAutomationSnapshot {
@@ -47,7 +47,7 @@ const deletingIds = ref(new Set<string>());
 const message = ref('');
 const error = ref('');
 const confirmApi = useConfirm();
-const componentNames = { postgres: 'PostgreSQL', nodesk: 'NoDesk', nomoney: 'NoMoney' } as const;
+const componentNames = { postgres: 'PostgreSQL', nodesk: 'NoDesk', nomoney: 'NoMoney', yumi: 'Yumi' } as const;
 
 async function loadBackups() {
   isLoading.value = true;

@@ -72,7 +72,7 @@ describe('home notifications', () => {
     await nextTick();
     await flushPromises();
 
-    expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney');
+    expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cyumi');
     expect(wrapper.findAll('.home-item')).toHaveLength(4);
     expect(wrapper.vm.unreadCount).toBe(8);
     expect(wrapper.findAll('.urgent-item').map((item) => item.text())).toEqual([
@@ -204,7 +204,7 @@ describe('home notifications', () => {
     await wrapper.vm.markAllRead();
 
     expect(mockedApiRequest).toHaveBeenCalledWith(
-      '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney',
+      '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney%2Cyumi',
       { method: 'POST' },
     );
     expect(wrapper.vm.unreadCount).toBe(0);

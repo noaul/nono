@@ -1,6 +1,6 @@
 # Nono
 
-Nono 是一个可自托管的个人数字工作台。它把网址导航与智能收藏、Nodesk 内容站、NoMoney 资产管理和 NoStar GitHub Stars 管理放在同一套代码库与部署链路中。
+Nono 是一个可自托管的个人数字工作台。它把网址导航与智能收藏、NoDesk 内容站、NoMoney 日常资产、Yumi 基础设施和 NoStar GitHub Stars 管理放在同一套代码库与部署链路中。
 
 ## 项目组成
 
@@ -10,17 +10,18 @@ Nono 是一个可自托管的个人数字工作台。它把网址导航与智能
 | `packages/web` | Vue 3、Vite、Pinia | 公开导航、登录、管理后台 | Nono Session |
 | `packages/extension` | Chrome Manifest V3 | 网页提取、一键收藏、AI 整理 | 专用 Bearer API Token |
 | `apps/blog` | Next.js 16、React 19 | Nodesk 文章、图片和日程 | Nono 后台写入内容卷 |
-| `apps/nomoney` | Express、React、SQLite | 资产、账单、费用和提醒 | 独立 HttpOnly Cookie 会话 |
+| `apps/nomoney` | Express、React、SQLite | NoMoney 电话卡/订阅/账号；Yumi VPS/域名/Status | 两套独立 SQLite、密钥和 HttpOnly Cookie 会话 |
 | `apps/nostar` | React、Vite | GitHub Stars、Release 和 AI 分析 | Nono Session；PostgreSQL |
 | `docker/gateway.mjs` | Node HTTP proxy | 单端口路由和子进程生命周期 | 仅转发受信的代理头 |
 
-生产 Compose 运行两个容器：业务容器包含 Nono、Nodesk、NoMoney 和 NoStar，另一个容器运行 PostgreSQL 16。任一业务子进程退出时，网关会终止业务容器并交由 Compose 重启。
+生产 Compose 运行两个容器：业务容器包含 Nono、NoDesk、NoMoney、Yumi 和 NoStar，另一个容器运行 PostgreSQL 16。任一业务子进程退出时，网关会终止业务容器并交由 Compose 重启。
 
 | 路径 | 服务 |
 | --- | --- |
 | `/`、`/:username`、`/admin/*`、`/api/*` | Nono |
 | `/nodesk/*` | Nodesk |
 | `/nomoney/*` | NoMoney |
+| `/yumi/*` | Yumi |
 | `/nostar/*`、`/api/nostar/*` | NoStar |
 | `/blog/*` | 308 重定向到 `/nodesk/*` |
 
@@ -31,8 +32,8 @@ Nono 是一个可自托管的个人数字工作台。它把网址导航与智能
 - 书签导入导出、重复识别、定时健康检查和重定向地址修复。
 - OpenAI / Claude 兼容接口的网页分析和收藏建议。
 - Nodesk 文章、图片、站点配置与日程的可视化编辑。
-- NoMoney 资产与到期提醒，以及 NoStar GitHub 数据整理。
-- PostgreSQL、Nodesk 和 NoMoney 的统一备份、校验、恢复演练与回滚。
+- NoMoney 电话卡、订阅、账号与费用；Yumi VPS、域名、续费、费用和 90 天 Status。
+- PostgreSQL、NoDesk、NoMoney 和 Yumi 的统一备份、校验、恢复演练与回滚。
 - Chrome 扩展弹窗、右键菜单和快捷键收藏。
 
 ## 环境要求
@@ -56,7 +57,7 @@ npm run prisma:migrate
 npm run dev
 ```
 
-Nono 前端、Nodesk、NoMoney 和 NoStar 可分别启动：
+Nono 前端、NoDesk、NoMoney/Yumi 和 NoStar 可分别启动。NoMoney 与 Yumi 共用源码和开发命令，生产构建会生成 `/nomoney/`、`/yumi/` 两套前端并启动两个隔离进程：
 
 ```bash
 npm run dev:web
@@ -65,7 +66,7 @@ npm run dev:nomoney
 npm run dev:nostar
 ```
 
-默认 API 地址为 `http://127.0.0.1:3000`。首次打开站点时创建管理员；Nono 使用 PostgreSQL 事务锁保证并发部署中只能完成一次初始化，NoMoney 在其单进程 SQLite 部署内串行初始化。`npm run seed` 只用于显式填充演示数据，不属于正常初始化流程。
+默认 API 地址为 `http://127.0.0.1:3000`。首次打开站点时创建管理员；Nono 使用 PostgreSQL 事务锁保证并发部署中只能完成一次初始化，NoMoney 与 Yumi 分别使用单进程 SQLite。Yumi 首次启动会从 NoMoney 迁移 VPS、域名及关联流水，并等待 NoMoney 数据库完成初始化。`npm run seed` 只用于显式填充演示数据，不属于正常初始化流程。
 
 ## 验证与构建
 
@@ -87,7 +88,7 @@ npm run build:all
 npm run audit:all
 ```
 
-GitHub Actions 对 `main` 推送和 Pull Request 执行同等级门禁，包括 Playwright Chromium smoke 流程。依赖锁文件变更必须同时通过对应的高危漏洞审计。
+GitHub Actions 只是可选的远端质量门禁，不参与也不要求生产部署。nc48 的发布由服务器本地 Compose 脚本完成；依赖锁文件变更仍必须通过对应的高危漏洞审计。
 
 ## 配置
 
@@ -101,7 +102,9 @@ GitHub Actions 对 `main` 推送和 Pull Request 执行同等级门禁，包括 
 | `SESSION_SECRET` | Nono Session 随机长密钥 |
 | `ENCRYPTION_KEY` | 64 位十六进制密钥，用于加密集成凭据 |
 | `NOMONEY_JWT_SECRET` | NoMoney 独立随机长密钥 |
-| `NOMONEY_ENCRYPTION_KEY` | 可选的 NoMoney 独立 64 位十六进制加密密钥；为空时复用 `ENCRYPTION_KEY` |
+| `NOMONEY_ENCRYPTION_KEY` | NoMoney 独立 64 位十六进制加密密钥 |
+| `YUMI_JWT_SECRET` | Yumi 独立随机长密钥，不得与 NoMoney 复用 |
+| `YUMI_ENCRYPTION_KEY` | Yumi 独立 64 位十六进制加密密钥，不得与 NoMoney 复用 |
 | `NONO_PUBLIC_URL` | 浏览器实际访问的 HTTPS 根地址 |
 | `BLOG_PUBLIC_URL` | Nodesk 的完整 HTTPS 地址，通常为 `<root>/nodesk` |
 
@@ -139,7 +142,7 @@ Compose 会要求数据库密码和应用密钥非空；Nono 还会拒绝默认 
 - `PRIVATE_OUTBOUND_HOSTS` 会放宽指定主机的 SSRF 边界，只应使用精确、受控的主机名或 IP。
 - 备份卷与生产卷在同一主机时不能覆盖整机故障；应将备份加密后同步到异机或对象存储，并定期恢复演练。
 - 一体化业务容器是单一故障域；高可用场景需要拆分服务、集中 Session/任务锁并重新设计卷访问。
-- NoMoney 使用单进程 SQLite 文件存储，不支持多个进程或多个容器共享同一个数据卷。
+- NoMoney 与 Yumi 各自使用单进程 SQLite 文件存储，不支持多个进程或多个容器共享同一个数据卷。
 - Chrome 扩展需要广泛网页读取权限来提取当前页面；应使用专用、短有效期 Token，并在设备丢失或停用插件时立即撤销。
 
 发现安全问题时请不要在公开 Issue 中粘贴凭据、用户数据或可直接利用的攻击细节。先撤销相关 Token/Session、保存脱敏日志，再通过仓库维护者的私有渠道报告。
@@ -154,13 +157,14 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/healthz
 ```
 
-Compose 使用四个命名卷：
+Compose 使用五个命名卷：
 
 | 卷 | 内容 |
 | --- | --- |
 | `nono_pg_data` | Nono 与 NoStar PostgreSQL 数据 |
 | `nodesk_content` | Nodesk 文章、图片、配置和日程 |
 | `nomoney_data` | NoMoney SQLite 数据 |
+| `yumi_data` | Yumi SQLite、VPS Status 历史和基础设施数据 |
 | `nono_backups` | 全站备份归档 |
 
 更新部署应使用提交号镜像并执行自动验收和失败回滚，详见 [Compose 验收与回滚](docs/deployment/compose-verified-deploy.md)。不要在普通升级中删除命名卷。
@@ -181,7 +185,7 @@ npm run backup:drill -- --id <backup-id>
 npm run backup:restore -- --id <backup-id> --confirm <backup-id>
 ```
 
-恢复命令会修改生产数据，必须先阅读 [全站备份与恢复手册](docs/deployment/full-backup-restore.md)。NoMoney 旧数据切换见 [NoMoney 生产迁移](docs/deployment/nomoney-production-migration.md)，审计字段与保留策略见 [操作审计日志](docs/deployment/audit-logs.md)。
+恢复命令会修改生产数据，必须先阅读 [全站备份与恢复手册](docs/deployment/full-backup-restore.md)。NoMoney 旧数据切换见 [NoMoney 生产迁移](docs/deployment/nomoney-production-migration.md)，NoMoney/Yumi 拆分见 [Yumi 数据拆分](docs/deployment/yumi-split-migration.md)，审计字段与保留策略见 [操作审计日志](docs/deployment/audit-logs.md)。
 
 ## Passkey
 
@@ -244,6 +248,7 @@ npm run migrate:nostar -- --sqlite /path/to/data.db --username admin
 - [Compose 验收与回滚](docs/deployment/compose-verified-deploy.md)
 - [全站备份与恢复](docs/deployment/full-backup-restore.md)
 - [NoMoney 生产迁移](docs/deployment/nomoney-production-migration.md)
+- [Yumi 数据拆分](docs/deployment/yumi-split-migration.md)
 - [操作审计日志](docs/deployment/audit-logs.md)
 - [UI 性能基线](docs/quality/ui-performance-baseline.md)
 - [主题资源说明](docs/design/theme-assets.md)

@@ -3,8 +3,8 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed } from '@/api/types';
 import { tNow } from '@/composables/useI18n';
 
-const HOME_NOTIFICATION_SOURCES = new Set(['nodesk', 'nomoney']);
-const HOME_NOTIFICATION_SOURCE_QUERY = encodeURIComponent('nodesk,nomoney');
+const HOME_NOTIFICATION_SOURCES = new Set(['nodesk', 'nomoney', 'yumi']);
+const HOME_NOTIFICATION_SOURCE_QUERY = encodeURIComponent('nodesk,nomoney,yumi');
 const HOME_NOTIFICATION_FEED_URL = `/api/admin/notifications?limit=100&sources=${HOME_NOTIFICATION_SOURCE_QUERY}`;
 const HOME_NOTIFICATION_MARK_ALL_URL = `/api/admin/notifications/mark-all-read?sources=${HOME_NOTIFICATION_SOURCE_QUERY}`;
 const POLL_INTERVAL_MS = 5 * 60 * 1000;

@@ -153,19 +153,23 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
-  it('places NoMoney and NoStar after the NoTab buttons', async () => {
+  it('places NoMoney, Yumi and NoStar after the NoTab buttons', async () => {
     const wrapper = await mountNavigationPage();
     const tabs = wrapper.get('.folder-tabs');
     const noMoney = tabs.get('[data-testid="navigation-entry-nomoney"]');
     const noStar = tabs.get('[data-testid="navigation-entry-nostar"]');
+    const yumi = tabs.get('[data-testid="navigation-entry-yumi"]');
 
     expect(noMoney.attributes('href')).toBe('/nomoney');
     expect(noStar.attributes('href')).toBe('/nostar');
+    expect(yumi.attributes('href')).toBe('/yumi');
     expect(noMoney.attributes('target')).toBe('_blank');
     expect(noStar.attributes('target')).toBe('_blank');
     expect(noMoney.attributes('rel')).toBe('noreferrer');
     expect(noStar.attributes('rel')).toBe('noreferrer');
     expect(noMoney.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
+    expect(noMoney.element.nextElementSibling).toBe(yumi.element);
+    expect(yumi.element.nextElementSibling).toBe(noStar.element);
     expect(tabs.element.lastElementChild).toBe(noStar.element);
     expect(tabs.findAll('button.active')).toHaveLength(1);
   });
@@ -196,14 +200,14 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage();
     const entries = wrapper.findAll('[data-testid^="navigation-entry-"]');
 
-    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status', 'NoStar']);
+    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status', 'Yumi', 'NoStar']);
     expect(wrapper.get('[data-testid="navigation-entry-status"]').attributes('href')).toBe('/status');
     expect(wrapper.find('[data-testid="navigation-entry-hidden"]').exists()).toBe(false);
   });
 
   it('respects an explicitly saved versioned entry list', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      navigationEntriesVersion: 2,
+      navigationEntriesVersion: 3,
       navigationEntries: [
         { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
       ],

@@ -12,8 +12,15 @@ import { buildEncryptedBackupEnvelope, registerBackupRoutes } from './backup.js'
 import { registerAccountRoutes } from './accounts.js';
 import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
+import { registerStatusRoutes } from './status.js';
 
 export function createApp(context: AppContext) {
+  const product = context.product;
+  const allowedTypes = product === 'yumi'
+    ? ['vps', 'domain'] as const
+    : product === 'nomoney'
+      ? ['phone', 'subscription'] as const
+      : ['phone', 'vps', 'domain', 'subscription'] as const;
   const app = express();
   app.set('trust proxy', 1);
   app.use(
@@ -46,19 +53,20 @@ export function createApp(context: AppContext) {
     }
   });
   registerAuthRoutes(api, context);
-  registerInternalRenewalRoutes(api, context);
+  if (product !== 'nomoney') registerInternalRenewalRoutes(api, context);
 
   api.use(requireAuth(context));
-  registerAssetRoutes(api, context);
-  registerRenewalRoutes(api, context);
-  registerAccountRoutes(api, context);
-  registerExpenseRoutes(api, context);
-  registerDashboardRoutes(api, context);
+  registerAssetRoutes(api, context, [...allowedTypes]);
+  if (product !== 'nomoney') registerRenewalRoutes(api, context);
+  if (product !== 'yumi') registerAccountRoutes(api, context);
+  registerExpenseRoutes(api, context, [...allowedTypes]);
+  if (product !== 'yumi') registerDashboardRoutes(api, context, [...allowedTypes]);
+  if (product === 'yumi') registerStatusRoutes(api, context);
   registerSettingsRoutes(api, context);
-  registerReminderRoutes(api, context);
+  registerReminderRoutes(api, context, [...allowedTypes]);
   registerBackupRoutes(api, context);
   api.get('/export/json', (_req, res) => {
-    res.setHeader('Content-Disposition', 'attachment; filename="moneypulse-backup.json.enc"');
+    res.setHeader('Content-Disposition', `attachment; filename="${product ?? 'nomoney'}-backup.json.enc"`);
     res.json(buildEncryptedBackupEnvelope(context));
   });
 

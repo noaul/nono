@@ -3,6 +3,7 @@ import { Redirect, Route, Switch, useLocation } from 'wouter';
 import type { User } from './types';
 import { api, ApiError } from './api';
 import { assetPageConfigs } from './assetConfig';
+import { product, productMeta } from './product';
 
 const LoginPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.LoginPage })));
 const SetupPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.SetupPage })));
@@ -13,6 +14,7 @@ const AccountPage = lazy(() => import('./AccountPage').then((module) => ({ defau
 const TrashPage = lazy(() => import('./TrashPage'));
 const Expenses = lazy(() => import('./Expenses').then((module) => ({ default: module.Expenses })));
 const SettingsPage = lazy(() => import('./SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const YumiOverview = lazy(() => import('./YumiOverview').then((module) => ({ default: module.YumiOverview })));
 
 type AuthState =
   | { status: 'loading'; user: null }
@@ -45,7 +47,7 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950 dark:bg-ink-950 dark:text-white">
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-500 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-          NoMoney loading
+          {productMeta.name} loading
         </div>
       </div>
     );
@@ -72,13 +74,13 @@ export default function App() {
       <Layout user={auth.user} onLogout={() => { setAuth({ status: 'anonymous', user: null }); navigate('/login'); }}>
         <Switch>
           <Route path="/"><Redirect to="/dashboard" replace /></Route>
-          <Route path="/dashboard"><Dashboard /></Route>
-          {assetPageConfigs.map((config) => (
+          <Route path="/dashboard">{product === 'yumi' ? <YumiOverview /> : <Dashboard />}</Route>
+          {assetPageConfigs.filter((config) => product === 'yumi' ? ['vps', 'domains'].includes(config.endpoint) : ['phones', 'subscriptions'].includes(config.endpoint)).map((config) => (
             <Route key={config.endpoint} path={`/${config.endpoint}`}><AssetPage config={config} /></Route>
           ))}
-          <Route path="/accounts"><AccountPage /></Route>
+          {product === 'nomoney' && <Route path="/accounts"><AccountPage /></Route>}
           <Route path="/trash"><TrashPage /></Route>
-          <Route path="/expenses"><Expenses /></Route>
+          {product === 'yumi' && <Route path="/expenses"><Expenses /></Route>}
           <Route path="/settings"><SettingsPage /></Route>
           <Route><Redirect to="/dashboard" replace /></Route>
         </Switch>

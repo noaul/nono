@@ -19,7 +19,7 @@ type ExpenseForm = {
 };
 
 const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
-const assetTypes: AssetType[] = ['phone', 'vps', 'domain', 'subscription'];
+const assetTypes: AssetType[] = ['vps', 'domain'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
 const currentYear = new Date().getFullYear();
 const initialForm: ExpenseForm = {

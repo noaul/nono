@@ -10,6 +10,32 @@ export interface User {
   email: string;
 }
 
+export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
+export type OverallStatus = 'operational' | 'degraded' | 'partial_outage' | 'major_outage' | 'no_data';
+
+export interface StatusDay {
+  day: string;
+  state: DailyStatusState;
+  uptimePercent: number | null;
+  sampleCount: number;
+  incidents: number;
+}
+
+export interface StatusOverview {
+  overallStatus: OverallStatus;
+  range: { start: string; end: string; days: number };
+  items: Array<{
+    id: number;
+    name: string;
+    provider: string | null;
+    location: string | null;
+    configured: boolean;
+    currentState: DailyStatusState;
+    uptimePercent: number | null;
+    history: StatusDay[];
+  }>;
+}
+
 export interface CommunicationAccount {
   id: number;
   accountType: AccountType;

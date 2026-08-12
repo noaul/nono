@@ -6,7 +6,9 @@ import type { AppContext } from './types.js';
 import { asyncHandler, HttpError, parseBody } from './http.js';
 import { toIsoDateTime } from './utils.js';
 
-const cookieName = 'moneypulse_session';
+function cookieName(context: AppContext): string {
+  return context.product === 'yumi' ? 'yumi_session' : 'moneypulse_session';
+}
 const authWindowMs = 15 * 60 * 1000;
 const maxAuthAttempts = 8;
 const authAttempts = new WeakMap<AppContext, Map<string, { count: number; resetAt: number }>>();
@@ -87,7 +89,7 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
   );
 
   router.post('/auth/logout', (_req, res) => {
-    res.clearCookie(cookieName, cookieOptions(context));
+    res.clearCookie(cookieName(context), cookieOptions(context));
     res.status(204).end();
   });
 
@@ -136,7 +138,7 @@ async function withSetupLock(context: AppContext, operation: () => Promise<void>
 
 export function requireAuth(context: AppContext) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies?.[cookieName];
+    const token = req.cookies?.[cookieName(context)];
     if (!token) {
       res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
       return;
@@ -181,7 +183,7 @@ function getPublicUser(context: AppContext, id: number) {
 function setSessionCookie(res: Response, context: AppContext, userId: number): void {
   const sessionVersion = getSessionVersion(context, userId);
   const token = jwt.sign({ sub: String(userId), sv: sessionVersion }, context.jwtSecret, { expiresIn: '30d' });
-  res.cookie(cookieName, token, {
+  res.cookie(cookieName(context), token, {
     ...cookieOptions(context),
     maxAge: 30 * 24 * 60 * 60 * 1000
   });

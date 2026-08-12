@@ -3,6 +3,11 @@ const blogPublicFiles = new Set(['/favicon.png', '/manifest.json']);
 const versionedAvatarPath = /^\/images\/avatar-[a-f0-9]{64}\.webp$/i;
 
 export function targetFor(url = '/', ports) {
+  const yumiPath = stripMountPath(url, '/yumi');
+  if (yumiPath !== null) {
+    return { name: 'yumi', port: ports.yumi, path: yumiPath };
+  }
+
   const nomoneyPath = stripMountPath(url, '/nomoney');
   if (nomoneyPath !== null) {
     return { name: 'nomoney', port: ports.nomoney, path: nomoneyPath };

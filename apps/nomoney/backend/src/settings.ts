@@ -80,8 +80,8 @@ export function registerSettingsRoutes(router: Router, context: AppContext): voi
       await context.mailer.send({
         to: settings.smtpTo,
         from: settings.smtpFrom,
-        subject: 'NoMoney test email',
-        text: 'NoMoney email delivery is configured.'
+        subject: `${context.product === 'yumi' ? 'Yumi' : 'NoMoney'} test email`,
+        text: `${context.product === 'yumi' ? 'Yumi' : 'NoMoney'} email delivery is configured.`
       });
       res.status(204).end();
     })
@@ -106,6 +106,7 @@ export function getSettings(context: AppContext): Settings {
     }
   }
 
+  const defaultBackupPath = context.product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
   return {
     reminderDays: settings.reminderDays ?? [30, 14, 7, 3, 1, 0],
     reminderEnabled: settings.reminderEnabled ?? true,
@@ -120,7 +121,7 @@ export function getSettings(context: AppContext): Settings {
     webdavUrl: settings.webdavUrl ?? '',
     webdavUsername: settings.webdavUsername ?? '',
     webdavPassword: settings.webdavPassword ?? '',
-    webdavPath: settings.webdavPath ?? 'moneypulse-backup.json',
+    webdavPath: !settings.webdavPath || settings.webdavPath === 'moneypulse-backup.json' ? defaultBackupPath : settings.webdavPath,
     webdavFolderPath: settings.webdavFolderPath ?? '',
     webdavBackupFilename: settings.webdavBackupFilename ?? '',
     webdavEncryptionKey: settings.webdavEncryptionKey ?? ''

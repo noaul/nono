@@ -4,6 +4,7 @@ export type Currency = 'CNY' | 'USD' | 'GBP' | 'EUR' | 'CAD';
 export type BillingCycle = 'monthly' | 'quarterly' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
 export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
+export type ProductMode = 'nomoney' | 'yumi';
 
 export type DbValue = string | number | null;
 
@@ -55,6 +56,7 @@ export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
 
 export interface AppContext {
   db: DbClient;
+  product?: ProductMode;
   jwtSecret: string;
   internalToken?: string;
   encryptionKey: string;

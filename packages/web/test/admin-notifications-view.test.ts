@@ -96,12 +96,12 @@ describe('NotificationsView', () => {
       generatedAt: '2026-07-18T08:00:00.000Z',
       unreadCount: 1,
       items: [{
-        key: 'nomoney:vps',
-        source: 'nomoney',
+        key: 'yumi:vps',
+        source: 'yumi',
         severity: 'warning',
         title: 'VPS nc48 即将到期',
         description: '到期日 2026-08-10',
-        href: '/nomoney/vps',
+        href: '/yumi/vps',
         occurredAt: '2026-08-10T23:59:00',
         dueAt: '2026-08-10T23:59:00',
         entityId: 10,
@@ -124,7 +124,7 @@ describe('NotificationsView', () => {
     await wrapper.get('[data-testid="mark-vps-renewed-10"]').trigger('click');
     await flushPromises();
 
-    expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/nomoney/vps/10/renew', expect.objectContaining({
+    expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/yumi/vps/10/renew', expect.objectContaining({
       method: 'POST',
     }));
     expect(wrapper.findAll('.notification-row')).toHaveLength(0);

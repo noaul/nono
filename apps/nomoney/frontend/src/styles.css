@@ -151,3 +151,81 @@ button { @apply active:translate-y-px; }
   scrollbar-width: thin;
   scrollbar-color: rgb(71 85 105 / 0.8) transparent;
 }
+/* Yumi availability overview */
+.yumi-overall-banner {
+  overflow: hidden;
+  border: 1px solid rgb(var(--ui-border-rgb));
+  border-radius: var(--ui-radius-lg);
+  background: rgb(var(--ui-surface-rgb));
+}
+
+.yumi-overall-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  color: var(--ui-info);
+  background: var(--ui-info-soft);
+}
+
+.yumi-overall-title > svg {
+  flex: none;
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 50%;
+  color: white;
+  background: currentColor;
+  stroke: var(--ui-surface);
+}
+
+.yumi-overall-title h2 { font-size: 18px; font-weight: 600; }
+.yumi-overall-banner > p { padding: 18px 24px; color: var(--ui-text-muted); font-size: 14px; }
+.yumi-overall-banner.is-operational { border-color: rgb(var(--ui-success-rgb) / .55); }
+.yumi-overall-banner.is-operational .yumi-overall-title { color: var(--ui-success); background: var(--ui-success-soft); }
+.yumi-overall-banner.is-degraded { border-color: rgb(var(--ui-warning-rgb) / .55); }
+.yumi-overall-banner.is-degraded .yumi-overall-title { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.yumi-overall-banner.is-partial_outage,
+.yumi-overall-banner.is-major_outage { border-color: rgb(var(--ui-danger-rgb) / .55); }
+.yumi-overall-banner.is-partial_outage .yumi-overall-title,
+.yumi-overall-banner.is-major_outage .yumi-overall-title { color: var(--ui-danger); background: var(--ui-danger-soft); }
+
+.yumi-status-panel { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
+.yumi-status-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--ui-border); }
+.yumi-status-panel-header h2 { color: var(--ui-text); font-size: 17px; font-weight: 600; }
+.yumi-status-panel-header p { margin-top: 2px; color: var(--ui-text-subtle); font-size: 12px; }
+.yumi-status-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; color: var(--ui-text-subtle); font-size: 11px; }
+.yumi-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.yumi-status-legend i { width: 8px; height: 8px; border-radius: 2px; }
+.is-operational { --status-color: var(--ui-success); }
+.is-degraded { --status-color: var(--ui-warning); }
+.is-outage { --status-color: var(--ui-danger); }
+.is-no_data { --status-color: var(--ui-border-strong); }
+.yumi-status-legend i { background: var(--status-color); }
+.yumi-status-row { padding: 18px 20px 16px; border-bottom: 1px solid var(--ui-border); }
+.yumi-status-row:last-child { border-bottom: 0; }
+.yumi-status-row-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.yumi-status-row-heading h3 { color: var(--ui-text); font-size: 15px; font-weight: 600; }
+.yumi-status-row-heading p { margin: 3px 0 0 26px; color: var(--ui-text-subtle); font-size: 11px; }
+.yumi-status-dot { display: inline-flex; width: 18px; height: 18px; flex: none; align-items: center; justify-content: center; border-radius: 50%; color: white; background: var(--status-color); }
+.yumi-uptime { flex: none; text-align: right; line-height: 1.1; }
+.yumi-uptime strong { color: var(--ui-text); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
+.yumi-uptime span { display: block; margin-top: 3px; color: var(--ui-text-subtle); font-size: 10px; }
+.status-history-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
+.status-history-strip { display: grid; grid-template-columns: repeat(90, minmax(4px, 1fr)); min-width: 660px; height: 28px; gap: 3px; }
+.status-history-day { min-width: 0; height: 28px; border: 0; border-radius: 2px; background: var(--status-color); outline: none; transition: transform 120ms ease, filter 120ms ease; }
+.status-history-day:hover, .status-history-day:focus-visible { z-index: 1; transform: scaleY(1.18); filter: brightness(.92); }
+.yumi-history-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--ui-text-subtle); font-size: 10px; }
+.yumi-day-detail { position: fixed; z-index: 45; right: 20px; bottom: 20px; display: flex; width: min(420px, calc(100vw - 32px)); align-items: flex-start; gap: 10px; padding: 13px 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface-raised); box-shadow: 0 18px 42px rgb(15 23 42 / .18); }
+.yumi-day-detail strong { display: block; color: var(--ui-text); font-size: 12px; }
+.yumi-day-detail p { margin-top: 2px; color: var(--ui-text-muted); font-size: 11px; }
+.yumi-day-detail > button { width: 24px; height: 24px; color: var(--ui-text-subtle); font-size: 20px; line-height: 20px; }
+
+@media (max-width: 639px) {
+  .yumi-overall-title { padding: 16px; }
+  .yumi-overall-banner > p { padding: 14px 16px; }
+  .yumi-status-panel-header { align-items: flex-start; flex-direction: column; padding: 15px 16px; }
+  .yumi-status-legend { justify-content: flex-start; }
+  .yumi-status-row { padding: 15px 16px 13px; }
+  .status-history-scroll { margin-right: -16px; width: calc(100% + 16px); padding-right: 16px; }
+  .yumi-day-detail { right: 16px; bottom: 16px; }
+}

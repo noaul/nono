@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDays, WalletCards } from 'lucide-vue-next';
+import { CalendarDays, ServerCog, WalletCards } from 'lucide-vue-next';
 import type { AdminNotification } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 
@@ -28,6 +28,7 @@ defineEmits<{
       >
         <span class="home-urgent-icon" aria-hidden="true">
           <CalendarDays v-if="item.source === 'nodesk'" :size="17" />
+          <ServerCog v-else-if="item.source === 'yumi'" :size="17" />
           <WalletCards v-else :size="17" />
         </span>
         <span class="home-urgent-copy">

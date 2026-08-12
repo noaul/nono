@@ -48,6 +48,7 @@ export type ReadinessChecks = {
   postgres: boolean;
   nodesk: boolean;
   nomoney: boolean;
+  yumi: boolean;
 };
 
 export interface LlmClient {

@@ -572,6 +572,7 @@ export const en: Messages = {
     sourceBackup: 'Backups',
     sourceNodesk: 'NoDesk',
     sourceNomoney: 'NoMoney',
+    sourceYumi: 'Yumi',
     sourceNostar: 'NoStar',
     loadFailed: 'Could not load notifications',
     updateFailed: 'Could not update the notification',

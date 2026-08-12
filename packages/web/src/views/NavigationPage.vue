@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
@@ -297,6 +297,7 @@ const navigationEntryIcons = {
   link: Link2,
   star: Star,
   'wallet-cards': WalletCards,
+  'server-cog': ServerCog,
 };
 
 function navigationEntryIcon(icon: string) {

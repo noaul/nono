@@ -282,9 +282,10 @@ const listQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0)
 });
 
-export function registerAssetRoutes(router: Router, context: AppContext): void {
+export function registerAssetRoutes(router: Router, context: AppContext, allowedTypes?: AssetType[]): void {
+  const configs = assetConfigs.filter((config) => !allowedTypes || allowedTypes.includes(config.type));
   router.get('/assets/lookup', (_req, res) => {
-    const items = assetConfigs.flatMap((config) =>
+    const items = configs.flatMap((config) =>
       context.db
         .all<Record<string, unknown>>(
           `SELECT * FROM ${config.table} WHERE archived_at IS NULL ORDER BY ${displayColumn(config)} ASC, id DESC`
@@ -302,7 +303,7 @@ export function registerAssetRoutes(router: Router, context: AppContext): void {
     res.json({ items });
   });
 
-  for (const config of assetConfigs) {
+  for (const config of configs) {
     router.get(
       `/${config.route}`,
       asyncHandler(async (req, res) => {
@@ -1196,7 +1197,7 @@ function generateProbeApiKey(): string {
   return `mp_${randomBytes(24).toString('base64url')}`;
 }
 
-async function refreshVpsMonitor(
+export async function refreshVpsMonitor(
   context: AppContext,
   config: AssetConfig,
   id: number,

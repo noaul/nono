@@ -37,7 +37,7 @@ import { createBackupServiceFromEnv } from './services/backup.service.js';
 import { createBackupAutomationService } from './services/backup-automation.service.js';
 import { registerBackupAutomationScheduler } from './services/backup-automation.scheduler.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
-import { createNoMoneyDueReader, createNotificationService } from './services/notification.service.js';
+import { createNoMoneyDueReader, createNotificationService, createYumiDueReader } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
 import { createNoMoneyClient } from './services/nomoney-client.js';
@@ -58,6 +58,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     prisma,
     nodeskReader: () => nodeskStore.readPublicJson('site'),
     noMoneyReader: createNoMoneyDueReader(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data')),
+    yumiReader: createYumiDueReader(process.env.YUMI_DATA_DIR || path.resolve(process.cwd(), '../yumi-data')),
     backupService,
     backupAutomationService,
   });
@@ -80,7 +81,10 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupAutomationService,
     auditLogService,
     notificationService,
-    noMoneyClient: overrides.noMoneyClient || createNoMoneyClient(),
+    noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
+      port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
+      serviceName: 'Yumi',
+    }),
     readinessCheck: overrides.readinessCheck || createReadinessCheck(prisma, nodeskStore),
   };
 
@@ -192,7 +196,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 function createReadinessCheck(prisma: PrismaClient, nodeskStore: NodeskContentStore) {
   return async (): Promise<ReadinessChecks> => {
     const nomoneyPort = Number(process.env.NOMONEY_INTERNAL_PORT || 2030);
-    const [postgres, nodesk, nomoney] = await Promise.allSettled([
+    const yumiPort = Number(process.env.YUMI_INTERNAL_PORT || 2040);
+    const [postgres, nodesk, nomoney, yumi] = await Promise.allSettled([
       prisma.$queryRawUnsafe('SELECT 1'),
       nodeskStore.readPublicJson('site'),
       fetch(`http://127.0.0.1:${nomoneyPort}/api/readyz`, {
@@ -201,11 +206,18 @@ function createReadinessCheck(prisma: PrismaClient, nodeskStore: NodeskContentSt
       }).then((response) => {
         if (!response.ok) throw new Error('NoMoney is not ready');
       }),
+      fetch(`http://127.0.0.1:${yumiPort}/api/readyz`, {
+        signal: AbortSignal.timeout(2_000),
+        redirect: 'error',
+      }).then((response) => {
+        if (!response.ok) throw new Error('Yumi is not ready');
+      }),
     ]);
     return {
       postgres: postgres.status === 'fulfilled',
       nodesk: nodesk.status === 'fulfilled',
       nomoney: nomoney.status === 'fulfilled',
+      yumi: yumi.status === 'fulfilled',
     };
   };
 }

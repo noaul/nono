@@ -79,7 +79,7 @@ describe('NoNo Fastify app', () => {
       repo: new MemoryRepository(false),
       sessionSecret,
       encryptionKey,
-      readinessCheck: async () => ({ postgres: true, nodesk: true, nomoney: true }),
+      readinessCheck: async () => ({ postgres: true, nodesk: true, nomoney: true, yumi: true }),
     } as any);
 
     const live = await readyApp.inject({ method: 'GET', url: '/livez' });
@@ -89,7 +89,7 @@ describe('NoNo Fastify app', () => {
     expect(ready.statusCode).toBe(200);
     expect(ready.json()).toEqual({
       code: 0,
-      data: { ok: true, checks: { postgres: true, nodesk: true, nomoney: true } },
+      data: { ok: true, checks: { postgres: true, nodesk: true, nomoney: true, yumi: true } },
       message: '',
     });
     await readyApp.close();

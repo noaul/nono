@@ -11,6 +11,7 @@ backups/
 .DS_Store
 packages/server/prisma/migrations/dev.db*
 apps/nomoney/backend/public/
+apps/nomoney/backend/public-yumi/
 apps/nomoney/data/
 apps/nomoney/.env
 apps/nomoney/node_modules/

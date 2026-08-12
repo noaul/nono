@@ -20,13 +20,15 @@ export function createNoMoneyClient(options: {
   port?: number;
   token?: string;
   fetch?: typeof fetch;
+  serviceName?: string;
 } = {}): NoMoneyClient {
   const port = options.port || Number(process.env.NOMONEY_INTERNAL_PORT || 2030);
   const token = options.token ?? process.env.NOMONEY_INTERNAL_TOKEN ?? '';
   const request = options.fetch || fetch;
+  const serviceName = options.serviceName || 'NoMoney';
 
   async function send(path: string, method: 'POST' | 'PUT', body?: Record<string, unknown>) {
-    if (!token) throw serviceError(503, 'NoMoney internal authentication is not configured');
+    if (!token) throw serviceError(503, `${serviceName} internal authentication is not configured`);
     const response = await request(`http://127.0.0.1:${port}/api/internal${path}`, {
       method,
       headers: {
@@ -37,13 +39,13 @@ export function createNoMoneyClient(options: {
       redirect: 'error',
       signal: AbortSignal.timeout(5_000),
     }).catch(() => {
-      throw serviceError(502, 'NoMoney is unavailable');
+      throw serviceError(502, `${serviceName} is unavailable`);
     });
     const payload = await response.json().catch(() => ({})) as {
       error?: { message?: string };
       [key: string]: unknown;
     };
-    if (!response.ok) throw serviceError(response.status, payload.error?.message || 'NoMoney request failed');
+    if (!response.ok) throw serviceError(response.status, payload.error?.message || `${serviceName} request failed`);
     return payload as unknown as NoMoneyRenewalResult;
   }
 

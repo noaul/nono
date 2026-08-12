@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { createNoMoneyDueReader, createNotificationService } from '../src/services/notification.service.js';
+import { createNoMoneyDueReader, createNotificationService, createYumiDueReader } from '../src/services/notification.service.js';
 
 const now = new Date('2026-07-18T08:00:00.000Z');
 
@@ -61,7 +61,7 @@ describe('notification service', () => {
     const databasePath = path.join(directory, 'app.db');
     fs.writeFileSync(databasePath, 'sqlite-placeholder');
     const run = vi.fn(async () => ({
-      stdout: JSON.stringify([{ asset_type: 'domain', id: 3, name: 'noaul.com', due_date: '2026-07-20', status: 'active' }]),
+      stdout: JSON.stringify([{ asset_type: 'subscription', id: 3, name: 'Claude', due_date: '2026-07-20', status: 'active' }]),
       stderr: '',
     }));
     try {
@@ -70,9 +70,22 @@ describe('notification service', () => {
         '-readonly',
         '-json',
         databasePath,
-        expect.stringContaining("SELECT 'domain' AS asset_type"),
+        expect.stringContaining("SELECT 'phone' AS asset_type"),
       ]);
-      expect(items).toEqual([{ assetType: 'domain', id: 3, name: 'noaul.com', dueDate: '2026-07-20', status: 'active' }]);
+      expect(items).toEqual([{ assetType: 'subscription', id: 3, name: 'Claude', dueDate: '2026-07-20', status: 'active' }]);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('reads VPS and domains from the independent Yumi database', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-notification-yumi-'));
+    const databasePath = path.join(directory, 'app.db');
+    fs.writeFileSync(databasePath, 'sqlite-placeholder');
+    const run = vi.fn(async () => ({ stdout: JSON.stringify([{ asset_type: 'vps', id: 10, name: 'nc48', due_date: '2026-08-10', status: 'active' }]), stderr: '' }));
+    try {
+      await expect(createYumiDueReader(directory, run)()).resolves.toEqual([{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' }]);
+      expect(run).toHaveBeenCalledWith('sqlite3', ['-readonly', '-json', databasePath, expect.stringContaining("SELECT 'domain' AS asset_type")]);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -186,18 +199,19 @@ describe('notification service', () => {
       ],
     }));
     const noMoneyReader = vi.fn(async () => [
-      { assetType: 'domain', id: 9, name: 'noaul.com', dueDate: '2026-07-20', status: 'active' },
-      { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-20', status: 'active' },
+      { assetType: 'subscription', id: 9, name: 'Claude', dueDate: '2026-07-20', status: 'active' },
     ]);
+    const yumiReader = vi.fn(async () => [{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-07-21', status: 'active' }]);
     const backupService = {
       list: vi.fn(async () => [{ id: 'old', createdAt: '2026-07-12T08:00:00.000Z' }]),
     };
-    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, backupService: backupService as any, now: () => now } as any);
+    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, yumiReader, backupService: backupService as any, now: () => now } as any);
 
     const feed = await service.list({ id: 1, role: 'admin' } as any);
 
     expect(feed.items.filter((item) => item.source === 'nodesk').map((item) => item.title)).toEqual(['Publish notes', 'Renew certificate']);
     expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(1);
+    expect(feed.items.filter((item) => item.source === 'yumi')).toHaveLength(1);
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
   });
 
@@ -206,7 +220,8 @@ describe('notification service', () => {
     const service = createNotificationService({
       prisma,
       nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
-      noMoneyReader: vi.fn(async () => [
+      noMoneyReader: vi.fn(async () => []),
+      yumiReader: vi.fn(async () => [
         { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' },
       ]),
       backupService: { list: vi.fn(async () => []) } as any,
@@ -215,7 +230,7 @@ describe('notification service', () => {
 
     const feed = await service.list({ id: 1, role: 'admin' } as any);
 
-    expect(feed.items.find((item) => item.source === 'nomoney')).toMatchObject({
+    expect(feed.items.find((item) => item.source === 'yumi')).toMatchObject({
       entityId: 10,
       entityType: 'vps',
       entityLabel: 'nc48',

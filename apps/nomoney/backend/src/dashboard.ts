@@ -73,23 +73,23 @@ const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: 
   ]
 };
 
-export function registerDashboardRoutes(router: Router, context: AppContext): void {
+export function registerDashboardRoutes(router: Router, context: AppContext, allowedTypes: AssetType[] = assetTypes): void {
   router.get('/dashboard/summary', (req, res) => {
     const year = typeof req.query.year === 'string' ? Number(req.query.year) : context.now().getUTCFullYear();
-    res.json(getDashboardSummary(context, Number.isFinite(year) ? year : context.now().getUTCFullYear()));
+    res.json(getDashboardSummary(context, Number.isFinite(year) ? year : context.now().getUTCFullYear(), allowedTypes));
   });
 
   router.get('/dashboard/expiring', (req, res) => {
     const days = typeof req.query.days === 'string' ? Number(req.query.days) : 30;
-    res.json({ items: collectDueItems(context, Number.isFinite(days) ? days : 30) });
+    res.json({ items: collectDueItems(context, Number.isFinite(days) ? days : 30, allowedTypes) });
   });
 }
 
-export function getDashboardSummary(context: AppContext, year: number) {
+export function getDashboardSummary(context: AppContext, year: number, allowedTypes: AssetType[] = assetTypes) {
   const predictedMonthlyTotals: Partial<Record<Currency, number>> = {};
   const predictedYearlyTotals: Partial<Record<Currency, number>> = {};
   const categoryCosts = Object.fromEntries(
-    assetTypes.map((assetType) => [assetType, createCategoryCost(assetType)])
+    allowedTypes.map((assetType) => [assetType, createCategoryCost(assetType)])
   ) as Record<AssetType, CategoryCost>;
   const assetCounts: Record<string, number> = {
     phones: 0,
@@ -98,7 +98,7 @@ export function getDashboardSummary(context: AppContext, year: number) {
     subscriptions: 0
   };
 
-  for (const config of assetConfigs) {
+  for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
     const rows = context.db.all<Record<string, unknown>>(
       `SELECT * FROM ${config.table} WHERE archived_at IS NULL AND status = 'active'`
     );
@@ -143,12 +143,12 @@ export function getDashboardSummary(context: AppContext, year: number) {
     const currency = normalizeCurrency(row.currency);
     const amount = Number(row.total ?? 0);
     addCurrencyTotal(actualYearly, currency, amount);
-    if (isAssetType(row.asset_type)) {
+    if (isAssetType(row.asset_type) && allowedTypes.includes(row.asset_type)) {
       addCurrencyTotal(categoryCosts[row.asset_type].actualYearly, currency, amount);
     }
   }
 
-  const dueItems = collectDueItems(context, 30);
+  const dueItems = collectDueItems(context, 30, allowedTypes);
   for (const item of dueItems) {
     categoryCosts[item.assetType].dueCount += 1;
   }
@@ -239,11 +239,11 @@ function isAssetType(value: string): value is AssetType {
   return assetTypes.includes(value as AssetType);
 }
 
-export function collectDueItems(context: AppContext, withinDays: number): DueItem[] {
+export function collectDueItems(context: AppContext, withinDays: number, allowedTypes: AssetType[] = assetTypes): DueItem[] {
   const today = toIsoDate(context.now());
   const items: DueItem[] = [];
 
-  for (const config of assetConfigs) {
+  for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
     const rows = context.db.all<Record<string, unknown>>(
       `SELECT * FROM ${config.table} WHERE archived_at IS NULL AND status IN ('active', 'paused', 'expired')`
     );

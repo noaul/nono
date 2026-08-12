@@ -154,9 +154,10 @@ describe('NotabsView admin workflow', () => {
     await settle(wrapper);
 
     const rows = wrapper.findAll('.entry-editor-row');
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     expect(rows[0].classes()).toEqual(rows[1].classes());
     expect(rows[1].classes()).toEqual(rows[2].classes());
+    expect(rows[2].classes()).toEqual(rows[3].classes());
   });
 
   it('renames a NoTab inline and saves explicitly', async () => {

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "build": "tsc --noEmit -p tsconfig.json && npm run build:nomoney && npm run build:yumi",
+    "build:nomoney": "vite build --mode nomoney",
+    "build:yumi": "vite build --mode yumi",
     "lint": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },

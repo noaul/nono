@@ -2,6 +2,72 @@ import { describe, expect, setupAgent, test } from './test-utils.js';
 import { buildBackupPayload, restoreBackupPayload } from './backup.js';
 
 describe('backup APIs', () => {
+  test('keeps NoMoney and Yumi backup payloads inside their product boundaries', async () => {
+    const { context } = await setupAgent();
+    context.db.run("INSERT INTO phones (id, card_number, amount_minor_units, currency, billing_cycle, status, created_at, updated_at) VALUES (10, 'phone', 1, 'CNY', 'monthly', 'active', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO subscriptions (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (11, 'subscription', 1, 'CNY', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO vps (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (20, 'vps', 1, 'USD', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO domains (id, domain_name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (21, 'example.com', 1, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (30, 'phone', 10, 1, 'CNY', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'vps', 20, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+
+    context.product = 'nomoney';
+    const noMoney = buildBackupPayload(context);
+    expect(noMoney).toMatchObject({ version: 2, product: 'nomoney' });
+    expect(noMoney).toHaveProperty('phones');
+    expect(noMoney).toHaveProperty('subscriptions');
+    expect(noMoney).toHaveProperty('accounts');
+    expect(noMoney).not.toHaveProperty('vps');
+    expect(noMoney).not.toHaveProperty('domains');
+    expect(noMoney.expenses).toEqual([expect.objectContaining({ id: 30, asset_type: 'phone' })]);
+
+    context.product = 'yumi';
+    const yumi = buildBackupPayload(context);
+    expect(yumi).toMatchObject({ version: 2, product: 'yumi' });
+    expect(yumi).toHaveProperty('vps');
+    expect(yumi).toHaveProperty('domains');
+    expect(yumi).not.toHaveProperty('phones');
+    expect(yumi).not.toHaveProperty('subscriptions');
+    expect(yumi).not.toHaveProperty('accounts');
+    expect(yumi.expenses).toEqual([expect.objectContaining({ id: 31, asset_type: 'vps' })]);
+  });
+
+  test('restores only the current product rows in shared tables', async () => {
+    const { context } = await setupAgent();
+    context.product = 'nomoney';
+    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'vps', 20, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+    const payload = buildBackupPayload(context);
+    payload.expenses = [{ id: 30, asset_type: 'phone', asset_id: 10, amount_minor_units: 2, currency: 'CNY', paid_at: '2026-02-01', category: 'renewal', created_at: '2026-02-01', updated_at: '2026-02-01' }];
+
+    restoreBackupPayload(context, payload);
+
+    expect(context.db.all<{ id: number; asset_type: string }>('SELECT id, asset_type FROM expenses ORDER BY id')).toEqual([
+      { id: 30, asset_type: 'phone' },
+      { id: 31, asset_type: 'vps' }
+    ]);
+  });
+
+  test('rejects a product-scoped backup from the other product', async () => {
+    const { context } = await setupAgent();
+    context.product = 'nomoney';
+
+    expect(() => restoreBackupPayload(context, { version: 2, product: 'yumi' }))
+      .toThrow('Backup belongs to yumi and cannot be restored into nomoney');
+  });
+
+  test('downloads backups with the active product name', async () => {
+    const { context } = await setupAgent();
+    context.product = 'yumi';
+    const { createApp } = await import('./app.js');
+    const request = (await import('supertest')).default;
+    const agent = request.agent(createApp(context));
+    await agent.post('/api/auth/login').send({ username: 'owner', password: 'correct horse battery staple' });
+
+    const response = await agent.get('/api/export/json');
+
+    expect(response.headers['content-disposition']).toContain('filename="yumi-backup.json.enc"');
+  });
+
   test('backs up to WebDAV and restores data from the WebDAV backup', async () => {
     const { agent, context } = await setupAgent();
     let uploaded = '';
@@ -38,66 +104,6 @@ describe('backup APIs', () => {
       currency: 'EUR',
       billingCycle: 'monthly',
       nextDueDate: '2026-06-15',
-      status: 'active'
-    });
-
-    await agent.post('/api/domains').send({
-      domainName: 'mp',
-      domainExtension: 'cc',
-      registrar: 'Spaceship',
-      dnsProvider: 'Cloudflare',
-      amountMinorUnits: 880,
-      currency: 'USD',
-      billingCycle: 'annual',
-      expireDate: '2027-03-01',
-      status: 'active'
-    });
-
-    await agent.post('/api/vps').send({
-      name: 'probe-node',
-      vpsType: 'website',
-      provider: 'netcup',
-      ipAddress: '203.0.113.48',
-      location: 'DE',
-      cpu: '4 vCPU',
-      memory: '8 GB',
-      storage: '160 GB NVMe',
-      bandwidth: '2 TB',
-      os: 'Debian 12',
-      sshHost: '203.0.113.48',
-      sshPort: 2222,
-      sshUser: 'root',
-      sshAuthType: 'password',
-      sshPassword: 'secret-password',
-      sshPrivateKey: null,
-      sshPrivateKeyPassphrase: null,
-      sshCommand: 'ssh root@203.0.113.48 -p 2222',
-      probeUrl: 'https://probe.example.com/api/stat',
-      probePort: 9134,
-      probeApiKey: 'probe-secret',
-      probeInstallStatus: 'installed',
-      probeInstallMessage: 'moneypulse-probe-installed',
-      probeInstalledAt: '2026-05-22T01:00:00.000Z',
-      sshLastTestStatus: 'success',
-      sshLastTestMessage: 'moneypulse-ssh-ok',
-      sshLastTestedAt: '2026-05-22T01:00:00.000Z',
-      monitorStatus: 'online',
-      monitorCpuPercent: 22,
-      monitorMemoryPercent: 31,
-      monitorDiskPercent: 44,
-      monitorNetInBps: 1024,
-      monitorNetOutBps: 2048,
-      monitorNetTotalInBytes: 4096,
-      monitorNetTotalOutBytes: 8192,
-      monitorLoad1: 0.2,
-      monitorUptimeSeconds: 3600,
-      monitorUpdatedAt: '2026-05-22T01:00:00.000Z',
-      amountMinorUnits: 8900,
-      currency: 'CNY',
-      billingCycle: 'monthly',
-      nextDueDate: '2026-06-10',
-      startDate: '2026-01-01',
-      expireDate: '2027-01-01',
       status: 'active'
     });
 
@@ -146,8 +152,6 @@ describe('backup APIs', () => {
     expect(backup.body.counts).toMatchObject({
       users: 1,
       phones: 1,
-      vps: 1,
-      domains: 1,
       subscriptions: 1,
       accounts: 1,
       settings: expect.any(Number)
@@ -166,14 +170,6 @@ describe('backup APIs', () => {
     expect(exportedText).not.toContain('backup-passphrase');
     expect(exportedText).not.toContain('secret-license');
 
-    await agent.put('/api/domains/1').send({
-      domainName: 'ordinary-long-domain-name',
-      domainExtension: 'net'
-    });
-    await agent.put('/api/vps/1').send({
-      sshHost: '198.51.100.10',
-      monitorStatus: 'offline'
-    });
     await agent.put('/api/phones/1').send({
       carrier: 'Changed Carrier'
     });
@@ -194,38 +190,6 @@ describe('backup APIs', () => {
         isEsim: true,
         carrier: 'Telekom',
         planName: 'Data S'
-      })
-    ]);
-
-    const restored = await agent.get('/api/domains');
-    expect(restored.body.items).toEqual([
-      expect.objectContaining({
-        domainName: 'mp.cc',
-        domainExtension: '.cc',
-        rarityScore: 80
-      })
-    ]);
-
-    const restoredVps = await agent.get('/api/vps');
-    expect(restoredVps.body.items).toEqual([
-      expect.objectContaining({
-        name: 'probe-node',
-        vpsType: 'website',
-        sshHost: '203.0.113.48',
-        sshPort: 2222,
-        sshAuthType: 'password',
-        sshPassword: null,
-        hasSshPassword: true,
-        probeUrl: 'https://probe.example.com/api/stat',
-        probePort: 9134,
-        probeApiKey: null,
-        hasProbeApiKey: true,
-        probeInstallStatus: 'installed',
-        sshLastTestStatus: 'success',
-        monitorStatus: 'online',
-        monitorCpuPercent: 22,
-        monitorMemoryPercent: 31,
-        monitorDiskPercent: 44
       })
     ]);
 
@@ -268,7 +232,7 @@ describe('backup APIs', () => {
     });
   });
 
-  test('restoring a legacy backup clears renewal events that the old payload cannot contain', async () => {
+  test('restoring a backup without renewal events clears only the current product events', async () => {
     const { context } = await setupAgent();
     context.db.run(
       `INSERT INTO renewal_events (
@@ -276,11 +240,17 @@ describe('backup APIs', () => {
          amount_minor_units, currency, status, created_at
        ) VALUES ('legacy-stale', 'vps', 1, '2026-01-01', '2027-01-01', 1000, 'USD', 'active', '2026-01-01T00:00:00.000Z')`
     );
+    context.db.run(
+      `INSERT INTO renewal_events (
+         request_id, asset_type, asset_id, previous_expire_date, renewed_expire_date,
+         amount_minor_units, currency, status, created_at
+       ) VALUES ('nomoney-stale', 'phone', 2, '2026-01-01', '2027-01-01', 1000, 'CNY', 'active', '2026-01-01T00:00:00.000Z')`
+    );
     const legacyPayload = buildBackupPayload(context);
     delete legacyPayload.renewalEvents;
 
     restoreBackupPayload(context, legacyPayload);
 
-    expect(context.db.all('SELECT id FROM renewal_events')).toEqual([]);
+    expect(context.db.all('SELECT asset_type FROM renewal_events')).toEqual([{ asset_type: 'vps' }]);
   });
 });

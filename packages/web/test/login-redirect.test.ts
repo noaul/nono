@@ -16,6 +16,7 @@ describe('login redirect', () => {
   it('uses a document navigation for applications mounted outside the Vue router', () => {
     expect(requiresDocumentNavigation('/nostar/')).toBe(true);
     expect(requiresDocumentNavigation('/nomoney/settings')).toBe(true);
+    expect(requiresDocumentNavigation('/yumi/dashboard')).toBe(true);
     expect(requiresDocumentNavigation('/nodesk')).toBe(true);
     expect(requiresDocumentNavigation('/admin/llm')).toBe(false);
   });

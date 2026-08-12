@@ -2,12 +2,13 @@ import request from 'supertest';
 import { describe, expect, test } from 'vitest';
 import { createApp } from './app.js';
 import { createDatabase } from './db.js';
-import type { AppContext } from './types.js';
+import type { AppContext, ProductMode } from './types.js';
 
-export async function createTestContext(): Promise<AppContext> {
-  const db = await createDatabase({ persist: false });
+export async function createTestContext(product?: ProductMode): Promise<AppContext> {
+  const db = await createDatabase({ persist: false, product: product ?? 'nomoney' });
   return {
     db,
+    ...(product ? { product } : {}),
     jwtSecret: 'test-secret',
     internalToken: 'test-internal-token',
     encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
@@ -28,8 +29,8 @@ export async function createTestContext(): Promise<AppContext> {
   };
 }
 
-export async function setupAgent() {
-  const context = await createTestContext();
+export async function setupAgent(product?: ProductMode) {
+  const context = await createTestContext(product);
   const app = createApp(context);
   const agent = request.agent(app);
   await agent.post('/api/auth/setup').send({

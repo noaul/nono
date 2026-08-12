@@ -6,5 +6,5 @@ export function resolveInternalRedirect(value: unknown, fallback: string) {
 }
 
 export function requiresDocumentNavigation(path: string) {
-  return /^\/(?:nostar|nomoney|nodesk)(?:\/|$)/.test(path);
+  return /^\/(?:nostar|nomoney|yumi|nodesk)(?:\/|$)/.test(path);
 }

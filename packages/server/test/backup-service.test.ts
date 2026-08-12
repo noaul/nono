@@ -10,6 +10,7 @@ describe('backup service', () => {
   let backupDir: string;
   let nodeskContentDir: string;
   let nomoneyDataDir: string;
+  let yumiDataDir: string;
   let calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }>;
   let run: ReturnType<typeof vi.fn>;
 
@@ -18,10 +19,13 @@ describe('backup service', () => {
     backupDir = path.join(root, 'backups');
     nodeskContentDir = path.join(root, 'nodesk');
     nomoneyDataDir = path.join(root, 'nomoney');
+    yumiDataDir = path.join(root, 'yumi');
     fs.mkdirSync(nodeskContentDir, { recursive: true });
     fs.mkdirSync(nomoneyDataDir, { recursive: true });
+    fs.mkdirSync(yumiDataDir, { recursive: true });
     fs.writeFileSync(path.join(nodeskContentDir, 'content.md'), '# NoDesk');
     fs.writeFileSync(path.join(nomoneyDataDir, 'app.db'), 'sqlite-database');
+    fs.writeFileSync(path.join(yumiDataDir, 'app.db'), 'yumi-sqlite-database');
     calls = [];
     run = vi.fn(async (command: string, args: string[], options: { env?: NodeJS.ProcessEnv } = {}) => {
       calls.push({ command, args: [...args], env: options.env });
@@ -50,6 +54,7 @@ describe('backup service', () => {
       backupDir,
       nodeskContentDir,
       nomoneyDataDir,
+      yumiDataDir,
       databaseUrl: 'postgresql://nono:secret-password@postgres:5432/nono?schema=public',
       sourceCommit: 'abcdef1234567890',
       now: () => new Date('2026-07-18T12:34:56.000Z'),
@@ -65,7 +70,7 @@ describe('backup service', () => {
       id: '20260718T123456Z',
       createdAt: '2026-07-18T12:34:56.000Z',
       sourceCommit: 'abcdef1234567890',
-      components: ['postgres', 'nodesk', 'nomoney'],
+      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
       size: Buffer.byteLength('full-archive'),
     });
     expect(backup.sha256).toMatch(/^[a-f0-9]{64}$/);

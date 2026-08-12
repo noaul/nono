@@ -16,6 +16,7 @@ describe('backup restoration', () => {
   let backupDir: string;
   let nodeskContentDir: string;
   let nomoneyDataDir: string;
+  let yumiDataDir: string;
   let extractedDir: string;
   let extractedValues: Record<string, string>;
   let calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }>;
@@ -26,19 +27,22 @@ describe('backup restoration', () => {
     backupDir = path.join(root, 'backups');
     nodeskContentDir = path.join(root, 'nodesk');
     nomoneyDataDir = path.join(root, 'nomoney');
+    yumiDataDir = path.join(root, 'yumi');
     extractedDir = path.join(root, 'extracted-source');
-    for (const directory of [backupDir, nodeskContentDir, nomoneyDataDir, extractedDir]) fs.mkdirSync(directory, { recursive: true });
+    for (const directory of [backupDir, nodeskContentDir, nomoneyDataDir, yumiDataDir, extractedDir]) fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(path.join(nodeskContentDir, 'old.md'), 'old nodesk');
     fs.writeFileSync(path.join(nomoneyDataDir, 'app.db'), 'old sqlite');
+    fs.writeFileSync(path.join(yumiDataDir, 'app.db'), 'old yumi sqlite');
 
     extractedValues = {
       'postgres.dump': 'postgres-dump',
       'nodesk.tar.gz': 'nodesk-archive',
       'nomoney.db': 'new sqlite',
+      'yumi.db': 'new yumi sqlite',
     };
     const innerManifest = {
       kind: 'nono.full-backup',
-      version: 1,
+      version: 2,
       id: backupId,
       createdAt: '2026-07-18T14:00:00.000Z',
       sourceCommit: 'abcdef123456',
@@ -46,6 +50,7 @@ describe('backup restoration', () => {
         postgres: { filename: 'postgres.dump', ...fingerprint(extractedValues['postgres.dump']) },
         nodesk: { filename: 'nodesk.tar.gz', ...fingerprint(extractedValues['nodesk.tar.gz']) },
         nomoney: { filename: 'nomoney.db', ...fingerprint(extractedValues['nomoney.db']) },
+        yumi: { filename: 'yumi.db', ...fingerprint(extractedValues['yumi.db']) },
       },
     };
     extractedValues['manifest.json'] = `${JSON.stringify(innerManifest, null, 2)}\n`;
@@ -58,7 +63,7 @@ describe('backup restoration', () => {
       filename,
       ...fingerprint(archiveValue),
       status: 'verified',
-      components: ['postgres', 'nodesk', 'nomoney'],
+      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
       componentRecords: innerManifest.components,
     }));
 
@@ -66,7 +71,7 @@ describe('backup restoration', () => {
     run = vi.fn(async (command: string, args: string[], options: { env?: NodeJS.ProcessEnv } = {}) => {
       calls.push({ command, args: [...args], env: options.env });
       if (command === 'tar' && args[0] === '-tzf') {
-        return { stdout: './manifest.json\n./postgres.dump\n./nodesk.tar.gz\n./nomoney.db\n', stderr: '' };
+        return { stdout: './manifest.json\n./postgres.dump\n./nodesk.tar.gz\n./nomoney.db\n./yumi.db\n', stderr: '' };
       }
       if (command === 'tar' && args[0] === '-xzf' && args[1].includes(`nono-backup-${backupId}`)) {
         const destination = args[args.indexOf('-C') + 1];
@@ -93,6 +98,7 @@ describe('backup restoration', () => {
       backupDir,
       nodeskContentDir,
       nomoneyDataDir,
+      yumiDataDir,
       databaseUrl: 'postgresql://nono:secret-password@postgres:5432/nono?schema=public',
       run,
     });
@@ -121,6 +127,7 @@ describe('backup restoration', () => {
     expect(fs.existsSync(path.join(nodeskContentDir, 'old.md'))).toBe(false);
     expect(fs.readFileSync(path.join(nodeskContentDir, 'restored.md'), 'utf8')).toBe('restored nodesk');
     expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('new sqlite');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('new yumi sqlite');
   });
 
   it('drills a restore into isolated temporary targets without touching production data', async () => {
@@ -136,5 +143,6 @@ describe('backup restoration', () => {
     expect(dropdb?.args).toEqual(['--if-exists', createdb?.args.at(-1)]);
     expect(fs.readFileSync(path.join(nodeskContentDir, 'old.md'), 'utf8')).toBe('old nodesk');
     expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('old sqlite');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('old yumi sqlite');
   });
 });

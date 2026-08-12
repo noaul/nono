@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { Router } from 'express';
 import { z } from 'zod';
-import type { AppContext } from './types.js';
+import type { AppContext, AssetType } from './types.js';
 import { collectDueItems, type DueItem } from './dashboard.js';
 import { getSettings } from './settings.js';
 import { asyncHandler } from './http.js';
@@ -12,20 +12,22 @@ const logQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0)
 });
 
-export function registerReminderRoutes(router: Router, context: AppContext): void {
+export function registerReminderRoutes(router: Router, context: AppContext, allowedTypes?: AssetType[]): void {
   router.post(
     '/reminders/run-now',
     asyncHandler(async (_req, res) => {
-      res.json(await runReminderScan(context));
+      res.json(await runReminderScan(context, allowedTypes));
     })
   );
 
   router.get('/reminders/logs', (req, res) => {
     const query = logQuerySchema.parse(req.query);
-    const total = context.db.get<{ count: number }>('SELECT COUNT(*) as count FROM reminder_logs');
+    const types = allowedTypes ?? ['phone', 'vps', 'domain', 'subscription'];
+    const placeholders = types.map(() => '?').join(', ');
+    const total = context.db.get<{ count: number }>(`SELECT COUNT(*) as count FROM reminder_logs WHERE asset_type IN (${placeholders})`, types);
     const rows = context.db.all<Record<string, unknown>>(
-      'SELECT * FROM reminder_logs ORDER BY sent_at DESC, id DESC LIMIT ? OFFSET ?',
-      [query.limit, query.offset]
+      `SELECT * FROM reminder_logs WHERE asset_type IN (${placeholders}) ORDER BY sent_at DESC, id DESC LIMIT ? OFFSET ?`,
+      [...types, query.limit, query.offset]
     );
     res.json({
       items: rows.map(mapReminderLog),
@@ -34,14 +36,14 @@ export function registerReminderRoutes(router: Router, context: AppContext): voi
   });
 }
 
-export async function runReminderScan(context: AppContext) {
+export async function runReminderScan(context: AppContext, allowedTypes?: AssetType[]) {
   const settings = getSettings(context);
   if (!settings.reminderEnabled) {
     return { sent: false, items: [] };
   }
 
   const maxDays = Math.max(...settings.reminderDays, 0);
-  const dueItems = collectDueItems(context, maxDays).filter((item) =>
+  const dueItems = collectDueItems(context, maxDays, allowedTypes).filter((item) =>
     settings.reminderDays.includes(item.daysLeft)
   );
   const unsent = dueItems.filter((item) => !hasSentReminder(context, item));

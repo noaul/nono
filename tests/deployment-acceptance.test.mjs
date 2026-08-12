@@ -9,6 +9,8 @@ test('checks all public routes and recursively verifies NoStar lazy chunks', asy
     [`${baseUrl}/`, response('<main>Nono</main>', 'text/html')],
     [`${baseUrl}/nodesk`, response('<main>Nodesk</main>', 'text/html')],
     [`${baseUrl}/nomoney/api/readyz`, response('{"ok":true}', 'application/json')],
+    [`${baseUrl}/yumi/api/readyz`, response('{"ok":true}', 'application/json')],
+    [`${baseUrl}/yumi/`, response('<main>Yumi</main>', 'text/html')],
     [`${baseUrl}/nostar/`, response('<script type="module" src="/nostar/assets/index-test.js"></script>', 'text/html')],
     [`${baseUrl}/nostar/assets/index-test.js`, response('import("./RepositoriesView-test.js")', 'text/javascript')],
     [`${baseUrl}/nostar/assets/RepositoriesView-test.js`, response('import("./ReadmeModal-test.js"); import("./RepositoryEditModal-test.js")', 'text/javascript')],
@@ -27,7 +29,7 @@ test('checks all public routes and recursively verifies NoStar lazy chunks', asy
     log: () => {},
   });
 
-  assert.equal(result.routes.length, 5);
+  assert.equal(result.routes.length, 7);
   assert.equal(result.nostarAssets.some((url) => url.includes('ReadmeModal-test.js')), true);
   assert.equal(result.nostarAssets.some((url) => url.includes('RepositoryEditModal-test.js')), true);
   assert.equal(requested.includes(`${baseUrl}/nostar/assets/RepositoriesView-test.js`), true);

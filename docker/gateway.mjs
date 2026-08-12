@@ -7,8 +7,9 @@ const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
 const blogPort = numberFromEnv('BLOG_INTERNAL_PORT', 2025);
 const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
+const yumiPort = numberFromEnv('YUMI_INTERNAL_PORT', 2040);
 const children = new Set();
-const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort };
+const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort, yumi: yumiPort };
 const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
 let shuttingDown = false;
 let server;
@@ -43,6 +44,12 @@ function startService(name, cwd, entrypoint, port, extraEnv = {}) {
 
 function proxyRequest(request, response) {
   const url = request.url || '/';
+  const legacyYumiPath = legacyYumiRedirect(url);
+  if (legacyYumiPath) {
+    response.writeHead(308, { location: legacyYumiPath });
+    response.end();
+    return;
+  }
   if (url === '/blog' || url.startsWith('/blog/') || url.startsWith('/blog?')) {
     response.writeHead(308, { location: url.replace('/blog', '/nodesk') });
     response.end();
@@ -124,6 +131,7 @@ function shutdown(exitCode = 0) {
 startService('nono', '/app/nono', 'packages/server/dist/server.js', nonoPort);
 startService('blog', '/app/blog', 'server.js', blogPort);
 startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
+  PRODUCT_MODE: 'nomoney',
   APP_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
   JWT_SECRET: process.env.NOMONEY_JWT_SECRET || '',
   COOKIE_SECURE: process.env.NOMONEY_COOKIE_SECURE || 'true',
@@ -135,6 +143,32 @@ startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
   SMTP_FROM: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM || '',
   SMTP_TO: process.env.NOMONEY_SMTP_TO || process.env.SMTP_TO || '',
 });
+startService('yumi', '/app/nomoney', 'backend/dist/index.js', yumiPort, {
+  PRODUCT_MODE: 'yumi',
+  APP_DATA_DIR: process.env.YUMI_DATA_DIR || '/app/yumi-data',
+  NOMONEY_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
+  JWT_SECRET: process.env.YUMI_JWT_SECRET || '',
+  COOKIE_SECURE: process.env.YUMI_COOKIE_SECURE || process.env.NOMONEY_COOKIE_SECURE || 'true',
+  COOKIE_PATH: '/yumi',
+  YUMI_ENCRYPTION_KEY: process.env.YUMI_ENCRYPTION_KEY || '',
+  NOMONEY_ENCRYPTION_KEY: process.env.NOMONEY_ENCRYPTION_KEY || '',
+  SMTP_HOST: process.env.YUMI_SMTP_HOST || process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST || '',
+  SMTP_PORT: process.env.YUMI_SMTP_PORT || process.env.NOMONEY_SMTP_PORT || process.env.SMTP_PORT || '587',
+  SMTP_USER: process.env.YUMI_SMTP_USER || process.env.NOMONEY_SMTP_USER || process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.YUMI_SMTP_PASS || process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS || '',
+  SMTP_FROM: process.env.YUMI_SMTP_FROM || process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM || '',
+  SMTP_TO: process.env.YUMI_SMTP_TO || process.env.NOMONEY_SMTP_TO || process.env.SMTP_TO || '',
+});
+
+function legacyYumiRedirect(url) {
+  for (const route of ['vps', 'domains']) {
+    const prefix = `/nomoney/${route}`;
+    if (url === prefix || url.startsWith(`${prefix}/`) || url.startsWith(`${prefix}?`)) {
+      return `/yumi/${route}${url.slice(prefix.length)}`;
+    }
+  }
+  return null;
+}
 
 server = http.createServer(proxyRequest);
 server.on('upgrade', proxyUpgrade);

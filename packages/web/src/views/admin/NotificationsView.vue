@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Github,
   RefreshCw,
+  ServerCog,
   ShieldOff,
   Trash2,
   WalletCards,
@@ -46,6 +47,7 @@ const sourceMeta = {
   links: { labelKey: 'notifications.sourceLinks', icon: Activity },
   nodesk: { labelKey: 'notifications.sourceNodesk', icon: CalendarDays },
   nomoney: { labelKey: 'notifications.sourceNomoney', icon: WalletCards },
+  yumi: { labelKey: 'notifications.sourceYumi', icon: ServerCog },
   nostar: { labelKey: 'notifications.sourceNostar', icon: Github },
   backup: { labelKey: 'notifications.sourceBackup', icon: DatabaseBackup },
 } satisfies Record<AdminNotificationSource, { labelKey: MessageKey; icon: Component }>;
@@ -175,7 +177,7 @@ async function renewVps(item: AdminNotification) {
   try {
     const result = await apiRequest<{
       renewal: { id: number; renewedExpireDate: string };
-    }>(`/api/admin/nomoney/vps/${item.entityId}/renew`, {
+    }>(`/api/admin/yumi/vps/${item.entityId}/renew`, {
       method: 'POST',
       body: jsonBody({
         requestId: globalThis.crypto?.randomUUID?.() ?? `renew-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -195,7 +197,7 @@ async function renewVps(item: AdminNotification) {
           label: t('notifications.undoRenewal'),
           action: async () => {
             try {
-              await apiRequest(`/api/admin/nomoney/vps/${item.entityId}/renewals/${result.renewal.id}/undo`, { method: 'POST' });
+              await apiRequest(`/api/admin/yumi/vps/${item.entityId}/renewals/${result.renewal.id}/undo`, { method: 'POST' });
               notifySuccess(t('notifications.renewalUndone'));
               await load();
               announceChange();
@@ -235,7 +237,7 @@ async function saveRenewalAmount() {
   if (!edit || !Number.isFinite(amountMinorUnits) || amountMinorUnits < 0 || renewalAmountWorking.value) return;
   renewalAmountWorking.value = true;
   try {
-    await apiRequest(`/api/admin/nomoney/vps/${edit.itemId}/renewals/${edit.renewalId}/expense`, {
+    await apiRequest(`/api/admin/yumi/vps/${edit.itemId}/renewals/${edit.renewalId}/expense`, {
       method: 'PUT',
       body: jsonBody({ amountMinorUnits }),
     });
@@ -359,7 +361,7 @@ onMounted(load);
           <span class="notification-severity" :title="item.severity"></span>
           <div class="notification-actions">
             <button
-              v-if="item.source === 'nomoney' && item.entityType === 'vps' && item.entityId && item.renewalDate"
+              v-if="item.source === 'yumi' && item.entityType === 'vps' && item.entityId && item.renewalDate"
               class="icon-button secondary renewal-action"
               :data-testid="`mark-vps-renewed-${item.entityId}`"
               type="button"
@@ -507,6 +509,7 @@ onMounted(load);
 .source-links { --source-color: var(--admin-status-danger); --source-soft: color-mix(in srgb, var(--admin-status-danger) 16%, transparent); }
 .source-nodesk { --source-color: var(--admin-link); --source-soft: color-mix(in srgb, var(--admin-link) 16%, transparent); }
 .source-nomoney { --source-color: var(--admin-status-ok); --source-soft: color-mix(in srgb, var(--admin-status-ok) 16%, transparent); }
+.source-yumi { --source-color: var(--admin-status-info); --source-soft: color-mix(in srgb, var(--admin-status-info) 16%, transparent); }
 .source-nostar { --source-color: var(--admin-status-alt); --source-soft: color-mix(in srgb, var(--admin-status-alt) 16%, transparent); }
 .source-backup { --source-color: var(--admin-status-warn); --source-soft: color-mix(in srgb, var(--admin-status-warn) 16%, transparent); }
 
