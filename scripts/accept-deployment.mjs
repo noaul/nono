@@ -2,6 +2,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/'];
+const REQUIRED_ASSETS = ['/nodesk/images/nodesk-ambient-wallpaper.png'];
 const REQUIRED_NOSTAR_CHUNKS = ['RepositoriesView-', 'ReadmeModal-', 'RepositoryEditModal-'];
 
 export async function acceptDeployment({
@@ -20,6 +21,23 @@ export async function acceptDeployment({
     log(`accepted ${routePath} (${response.status})`);
   }
 
+  const assets = [];
+  for (const assetPath of REQUIRED_ASSETS) {
+    const url = `${normalizedBaseUrl}${assetPath}`;
+    const response = await fetchImpl(url, { redirect: 'follow', signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`${assetPath} returned HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      throw new Error(`${assetPath} returned unexpected content type ${contentType || '(missing)'}`);
+    }
+    const signature = new Uint8Array(await response.arrayBuffer()).subarray(0, 8);
+    if (!hasPngSignature(signature)) {
+      throw new Error(`${assetPath} did not contain a valid PNG signature`);
+    }
+    assets.push({ path: assetPath, status: response.status });
+    log(`accepted ${assetPath} (${response.status})`);
+  }
+
   const nostarUrl = `${normalizedBaseUrl}/nostar/`;
   const htmlResponse = await fetchImpl(nostarUrl, { redirect: 'follow', signal: AbortSignal.timeout(30_000) });
   if (!htmlResponse.ok) throw new Error(`/nostar/ returned HTTP ${htmlResponse.status}`);
@@ -34,12 +52,17 @@ export async function acceptDeployment({
     }
   }
 
-  return { routes, nostarAssets };
+  return { routes, assets, nostarAssets };
 }
 
 export function extractScriptSources(html) {
   return [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+\.js(?:\?[^"']*)?)["'][^>]*>/gi)]
     .map((match) => match[1]);
+}
+
+function hasPngSignature(bytes) {
+  const expected = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return bytes.length >= expected.length && expected.every((byte, index) => bytes[index] === byte);
 }
 
 async function crawlJavaScriptAssets(entryUrls, baseUrl, fetchImpl, log) {
@@ -94,7 +117,7 @@ function parseCliArgs(argv) {
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   acceptDeployment(parseCliArgs(process.argv.slice(2)))
-    .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.nostarAssets.length} NoStar assets`))
+    .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets`))
     .catch((error) => {
       console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;

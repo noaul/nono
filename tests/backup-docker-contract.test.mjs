@@ -12,6 +12,19 @@ test('packages database verification tools in the single application image', () 
   assert.match(dockerfile, /packages\/server\/dist/);
 });
 
+test('refreshes the application-owned Nodesk wallpaper before starting Next.js', () => {
+  assert.match(dockerfile, /RUN test -s \/app\/nodesk-seed\/public\/images\/nodesk-ambient-wallpaper\.png/);
+  assert.match(dockerfile, /mkdir -p \/app\/nodesk-content\/public\/images/);
+  assert.match(
+    dockerfile,
+    /cp \/app\/nodesk-seed\/public\/images\/nodesk-ambient-wallpaper\.png \/app\/nodesk-content\/public\/images\/\.nodesk-ambient-wallpaper\.png\.tmp/,
+  );
+  assert.match(
+    dockerfile,
+    /mv \/app\/nodesk-content\/public\/images\/\.nodesk-ambient-wallpaper\.png\.tmp \/app\/nodesk-content\/public\/images\/nodesk-ambient-wallpaper\.png/,
+  );
+});
+
 test('persists full backups outside the application lifecycle', () => {
   assert.match(compose, /BACKUP_DIR:\s*\/app\/backups/);
   assert.match(compose, /TZ:\s*\$\{TZ:-Asia\/Shanghai\}/);

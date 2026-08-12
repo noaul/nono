@@ -87,6 +87,7 @@ COPY --from=blog-build /app/blog/public ./nodesk-seed/public
 COPY --from=blog-build /app/blog/src ./nodesk-seed/src
 COPY --from=blog-build /app/blog/.next/standalone ./blog
 COPY --from=blog-build /app/blog/.next/static ./blog/.next/static
+RUN test -s /app/nodesk-seed/public/images/nodesk-ambient-wallpaper.png
 COPY --from=nomoney-build /app/nomoney/package.json ./nomoney/package.json
 COPY --from=nomoney-build /app/nomoney/backend/package.json ./nomoney/backend/package.json
 COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_modules
@@ -97,4 +98,4 @@ COPY docker/gateway.mjs ./gateway.mjs
 COPY docker/gateway-headers.mjs ./gateway-headers.mjs
 COPY docker/gateway-routing.mjs ./gateway-routing.mjs
 EXPOSE 3000
-CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]
+CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public/images; cp /app/nodesk-seed/public/images/nodesk-ambient-wallpaper.png /app/nodesk-content/public/images/.nodesk-ambient-wallpaper.png.tmp; mv /app/nodesk-content/public/images/.nodesk-ambient-wallpaper.png.tmp /app/nodesk-content/public/images/nodesk-ambient-wallpaper.png; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]
