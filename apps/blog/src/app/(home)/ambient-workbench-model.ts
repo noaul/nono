@@ -21,8 +21,34 @@ export type WorkbenchSearchItem = {
 	href?: string
 }
 
+export type WorkbenchBookmarkUsage = {
+	id: number
+	clickCount: number
+	lastClickedAt?: string | null
+	sortOrder?: number
+}
+
+export type ShanghaiClockParts = {
+	year: string
+	month: string
+	day: string
+	hour: string
+	minute: string
+	hourNumber: number
+}
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
+const SHANGHAI_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+	timeZone: SHANGHAI_TIME_ZONE,
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+	hourCycle: 'h23'
+})
 
 function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -68,6 +94,36 @@ export function filterWorkbenchItems(query: string, items: WorkbenchSearchItem[]
 	const normalized = query.trim().toLocaleLowerCase()
 	if (!normalized) return items.slice(0, limit)
 	return items.filter(item => `${item.title} ${item.subtitle}`.toLocaleLowerCase().includes(normalized)).slice(0, limit)
+}
+
+export function sortCommonBookmarks<T extends WorkbenchBookmarkUsage>(bookmarks: T[]): T[] {
+	return [...bookmarks].sort((left, right) => {
+		const clicks = right.clickCount - left.clickCount
+		if (clicks) return clicks
+		const leftClicked = left.lastClickedAt ? Date.parse(left.lastClickedAt) : 0
+		const rightClicked = right.lastClickedAt ? Date.parse(right.lastClickedAt) : 0
+		const recency = (Number.isNaN(rightClicked) ? 0 : rightClicked) - (Number.isNaN(leftClicked) ? 0 : leftClicked)
+		if (recency) return recency
+		return (right.sortOrder || 0) - (left.sortOrder || 0) || left.id - right.id
+	})
+}
+
+export function getShanghaiClockParts(date = new Date()): ShanghaiClockParts {
+	const values = Object.fromEntries(SHANGHAI_CLOCK_FORMATTER.formatToParts(date).map(part => [part.type, part.value]))
+	const hour = values.hour || '00'
+	return {
+		year: values.year || '0000',
+		month: values.month || '00',
+		day: values.day || '00',
+		hour,
+		minute: values.minute || '00',
+		hourNumber: Number(hour) || 0
+	}
+}
+
+export function shanghaiDateKey(date = new Date()): string {
+	const { year, month, day } = getShanghaiClockParts(date)
+	return `${year}-${month}-${day}`
 }
 
 export function formatFocusDuration(seconds: number): string {

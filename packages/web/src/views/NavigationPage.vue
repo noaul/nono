@@ -1391,6 +1391,7 @@ onUnmounted(() => {
 
           <div class="adaptive-folder-grid">
             <FolderCard
+              :username="username"
               v-for="(folder, index) in renderedFolders"
               :key="folder.id"
               :data-testid="`public-folder-card-${folder.id}`"

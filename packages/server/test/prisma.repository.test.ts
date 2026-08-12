@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPrismaRepository } from '../src/services/prisma.repository.js';
 
 describe('Prisma repository batch deletion', () => {
+	it('increments bookmark usage without allowing cross-user writes', async () => {
+		const prisma = {
+			link: {
+				updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+			},
+		};
+		const repo = createPrismaRepository(prisma as never);
+
+		await expect(repo.recordLinkClick(7, 21)).resolves.toBe(true);
+		expect(prisma.link.updateMany).toHaveBeenCalledWith({
+			where: { id: 21, folder: { userId: 7 } },
+			data: { clickCount: { increment: 1 }, lastClickedAt: expect.any(Date) },
+		});
+	});
+
   it('serializes first-admin initialization with a PostgreSQL transaction lock', async () => {
     const events: string[] = [];
     const created = { id: 1, username: 'owner', role: 'admin' };

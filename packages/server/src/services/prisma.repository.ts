@@ -245,6 +245,13 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
         },
       })));
     },
+    async recordLinkClick(userId, id) {
+      const result = await prisma.link.updateMany({
+        where: { id, folder: { userId } },
+        data: { clickCount: { increment: 1 }, lastClickedAt: new Date() },
+      });
+      return result.count === 1;
+    },
     async reorderLinks(userId, ids) {
       if (!ids.length) return;
       const owned = await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, select: { id: true } });

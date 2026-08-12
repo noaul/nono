@@ -5,9 +5,12 @@ import test from 'node:test'
 import {
 	filterWorkbenchItems,
 	formatFocusDuration,
+	getShanghaiClockParts,
 	nextFocusDuration,
 	normalizeEvents,
 	normalizeTasks,
+	shanghaiDateKey,
+	sortCommonBookmarks,
 	toggleTask
 } from '../src/app/(home)/ambient-workbench-model.ts'
 
@@ -56,6 +59,29 @@ test('filters workbench search results across tasks, bookmarks, and repositories
 	assert.deepEqual(results.map(result => result.id), ['task:1', 'repo:1'])
 })
 
+test('ranks common bookmarks by persisted usage and recent clicks', () => {
+	const ranked = sortCommonBookmarks([
+		{ id: 1, clickCount: 2, lastClickedAt: '2026-08-10T08:00:00.000Z', sortOrder: 100 },
+		{ id: 2, clickCount: 8, lastClickedAt: '2026-08-09T08:00:00.000Z', sortOrder: 80 },
+		{ id: 3, clickCount: 2, lastClickedAt: '2026-08-11T08:00:00.000Z', sortOrder: 60 }
+	])
+
+	assert.deepEqual(ranked.map(item => item.id), [2, 3, 1])
+})
+
+test('formats clock and date against Shanghai instead of the browser timezone', () => {
+	const date = new Date('2026-08-12T16:30:00.000Z')
+	assert.deepEqual(getShanghaiClockParts(date), {
+		year: '2026',
+		month: '08',
+		day: '13',
+		hour: '00',
+		minute: '30',
+		hourNumber: 0
+	})
+	assert.equal(shanghaiDateKey(date), '2026-08-13')
+})
+
 test('formats focus duration without exposing invalid or negative time', () => {
 	assert.equal(formatFocusDuration(0), '00:00')
 	assert.equal(formatFocusDuration(2_341), '39:01')
@@ -96,4 +122,19 @@ test('keeps browser-local time copy from causing hydration mismatches', async ()
 	assert.match(workbench, /className='ambient-time' suppressHydrationWarning/)
 	assert.match(workbench, /className='ambient-date' suppressHydrationWarning/)
 	assert.match(workbench, /className='ambient-greeting' suppressHydrationWarning/)
+})
+
+test('syncs the ambient workbench with Shanghai time and Nono home data', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /timeZone: 'Asia\/Shanghai'/)
+	assert.match(workbench, /上海时间/)
+	assert.match(workbench, /\/api\/navigation\/admin\/background/)
+	assert.match(workbench, /repositories\?limit=1000/)
+	assert.match(workbench, /sources=nodesk%2Cnomoney%2Cyumi/)
+	assert.match(workbench, /id: 'notifications'/)
+	assert.match(workbench, /clickCount/)
+	assert.match(styles, /ambient-time-zone/)
+	assert.match(styles, /ambient-dock-badge/)
 })

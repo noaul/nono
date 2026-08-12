@@ -90,6 +90,18 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     });
   });
 
+  app.post('/api/navigation/:username/links/:id/click', {
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const site = await findNavigationSite(services, (request.params as any).username);
+    if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
+    const access = await navigationAccess(request, site, services);
+    if (!access.unlocked) throw Object.assign(new Error('Navigation access required'), { statusCode: 403 });
+    const recorded = await services.repo.recordLinkClick(site.userId, Number((request.params as any).id));
+    if (!recorded) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    return reply.status(204).send();
+  });
+
   app.post('/api/navigation/:username/unlock', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (request, reply) => {
@@ -248,6 +260,8 @@ function publicLink(link: LinkRecord) {
     icon: link.icon ?? null,
     description: link.description ?? null,
     sortOrder: link.sortOrder,
+    clickCount: link.clickCount || 0,
+    lastClickedAt: link.lastClickedAt || null,
     createdAt: link.createdAt,
     updatedAt: link.updatedAt,
   };

@@ -11,6 +11,7 @@ import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{
   folder: Folder;
+  username?: string;
   depth?: number;
   highlight?: string;
   editable?: boolean;
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<{
   folderDropSide?: 'before' | 'after' | '';
 }>(), {
   depth: 0,
+  username: 'admin',
   highlight: '',
   editable: false,
   organizing: false,
@@ -150,7 +152,14 @@ function onBookmarkPointerEnd(linkId: number) {
 }
 
 function onBookmarkClick(linkId: number, event: MouseEvent) {
-  if (!props.organizing && suppressClickLinkId !== linkId) return;
+  if (!props.organizing && suppressClickLinkId !== linkId) {
+    void fetch(`/api/navigation/${encodeURIComponent(props.username)}/links/${linkId}/click`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      keepalive: true,
+    }).catch(() => undefined);
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   if (suppressClickLinkId === linkId) suppressClickLinkId = null;

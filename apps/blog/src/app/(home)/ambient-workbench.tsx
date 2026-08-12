@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from 'motion/react'
 import {
 	ArrowUpRight,
+	Bell,
 	Bookmark,
 	CalendarDays,
 	Check,
@@ -34,20 +35,27 @@ import {
 	nextFocusDuration,
 	normalizeEvents,
 	normalizeTasks,
+	getShanghaiClockParts,
+	shanghaiDateKey,
+	sortCommonBookmarks,
 	toggleTask,
 	type WorkbenchEvent,
 	type WorkbenchSearchItem,
 	type WorkbenchTask
 } from './ambient-workbench-model'
 
-type PanelId = 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
+type PanelId = 'bookmarks' | 'github' | 'yumi' | 'notifications' | 'calendar' | 'tasks' | 'focus'
 type LoadState = 'loading' | 'ready' | 'unavailable'
+type IntegrationId = 'bookmarks' | 'github' | 'yumi' | 'notifications'
 
 type BookmarkItem = {
 	id: number
 	name: string
 	url: string
 	description?: string | null
+	clickCount: number
+	lastClickedAt?: string | null
+	sortOrder?: number
 }
 
 type RepositoryItem = {
@@ -59,13 +67,15 @@ type RepositoryItem = {
 	stargazers_count?: number
 }
 
-type YumiItem = {
+type NotificationItem = {
 	key: string
+	source: 'nodesk' | 'nomoney' | 'yumi'
 	title: string
 	description: string
 	href: string
 	severity: 'info' | 'warning' | 'critical'
 	read: boolean
+	occurredAt: string
 }
 
 type DockItem = {
@@ -85,22 +95,25 @@ const DOCK_ITEMS: DockItem[] = [
 	{ id: 'bookmarks', label: '书签', detail: 'Bookmarks', icon: Bookmark },
 	{ id: 'github', label: 'GitHub', detail: 'NoStar', icon: Github },
 	{ id: 'yumi', label: 'Yumi', detail: 'Services', icon: Smile },
+	{ id: 'notifications', label: '通知', detail: 'Notifications', icon: Bell },
 	{ id: 'calendar', label: '日程', detail: 'Calendar', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', detail: 'Tasks', icon: ListTodo },
 	{ id: 'focus', label: '专注', detail: 'Focus', icon: Timer }
 ]
 
+const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
+const NOTIFICATION_SOURCE_LABELS = { nodesk: 'Nodesk', nomoney: 'NoMoney', yumi: 'Yumi' } as const
+
 function localDateKey(date = new Date()) {
-	const year = date.getFullYear()
-	const month = String(date.getMonth() + 1).padStart(2, '0')
-	const day = String(date.getDate()).padStart(2, '0')
-	return `${year}-${month}-${day}`
+	return shanghaiDateKey(date)
 }
 
-function nextHourKey() {
-	const next = new Date()
-	next.setHours(next.getHours() + 1, 0, 0, 0)
-	return `${String(next.getHours()).padStart(2, '0')}:00`
+function nextHourDate(date = new Date()) {
+	return new Date(date.getTime() + 60 * 60 * 1000)
+}
+
+function nextHourKey(date = new Date()) {
+	return `${getShanghaiClockParts(nextHourDate(date)).hour}:00`
 }
 
 function uniqueId(prefix: string) {
@@ -132,6 +145,11 @@ function validWebUrl(value: unknown): string | null {
 	}
 }
 
+function validNavigationHref(value: unknown, fallback: string): string {
+	if (typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')) return value
+	return validWebUrl(value) || fallback
+}
+
 function greetingForHour(hour: number) {
 	if (hour < 6) return '夜深了，留一点安静给自己。'
 	if (hour < 11) return '上午好，今天只做重要的事。'
@@ -141,6 +159,7 @@ function greetingForHour(hour: number) {
 }
 
 function panelTitle(panel: PanelId) {
+	if (panel === 'bookmarks') return '常用书签'
 	return DOCK_ITEMS.find(item => item.id === panel)?.label || ''
 }
 
@@ -164,49 +183,101 @@ export default function AmbientWorkbench() {
 	const [events, setEvents] = useState<WorkbenchEvent[]>([])
 	const [taskTitle, setTaskTitle] = useState('')
 	const [eventTitle, setEventTitle] = useState('')
-	const [eventDate, setEventDate] = useState(localDateKey)
+	const [eventDate, setEventDate] = useState(() => localDateKey(nextHourDate()))
 	const [eventTime, setEventTime] = useState(nextHourKey)
 	const [storageReady, setStorageReady] = useState(false)
 
 	const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([])
 	const [repositories, setRepositories] = useState<RepositoryItem[]>([])
-	const [yumiItems, setYumiItems] = useState<YumiItem[]>([])
-	const [integrationState, setIntegrationState] = useState<Record<'bookmarks' | 'github' | 'yumi', LoadState>>({
+	const [notifications, setNotifications] = useState<NotificationItem[]>([])
+	const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
+	const [integrationState, setIntegrationState] = useState<Record<IntegrationId, LoadState>>({
 		bookmarks: 'loading',
 		github: 'loading',
-		yumi: 'loading'
+		yumi: 'loading',
+		notifications: 'loading'
 	})
 
 	const [focusMinutes, setFocusMinutes] = useState(25)
 	const [focusRemaining, setFocusRemaining] = useState(25 * 60)
 	const [focusRunning, setFocusRunning] = useState(false)
 
-	const updateIntegration = (key: 'bookmarks' | 'github' | 'yumi', state: LoadState) => {
+	const updateIntegration = (key: IntegrationId, state: LoadState) => {
 		setIntegrationState(current => ({ ...current, [key]: state }))
 	}
 
+	const loadNotifications = async (showLoading = true) => {
+		if (showLoading) {
+			updateIntegration('yumi', 'loading')
+			updateIntegration('notifications', 'loading')
+		}
+		try {
+			const response = await fetch('/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cyumi', { credentials: 'same-origin', cache: 'no-store' })
+			if (!response.ok) throw new Error('Notifications unavailable')
+			const value = apiData(await response.json()) as { items?: unknown; unreadCount?: unknown } | null
+			const list = Array.isArray(value?.items) ? value.items : []
+			setNotifications(
+				list.flatMap(item => {
+					if (!item || typeof item !== 'object') return []
+					const notification = item as Record<string, unknown>
+					if (
+						typeof notification.key !== 'string'
+						|| typeof notification.title !== 'string'
+						|| (notification.source !== 'nodesk' && notification.source !== 'nomoney' && notification.source !== 'yumi')
+					) return []
+					const severity = notification.severity === 'critical' || notification.severity === 'warning' ? notification.severity : 'info'
+					return [{
+						key: notification.key,
+						source: notification.source,
+						title: notification.title,
+						description: typeof notification.description === 'string' ? notification.description : '',
+						href: validNavigationHref(notification.href, '/'),
+						severity,
+						read: notification.read === true,
+						occurredAt: typeof notification.occurredAt === 'string' ? notification.occurredAt : ''
+					}]
+				})
+			)
+			setNotificationUnreadCount(typeof value?.unreadCount === 'number' ? value.unreadCount : 0)
+			updateIntegration('yumi', 'ready')
+			updateIntegration('notifications', 'ready')
+		} catch {
+			updateIntegration('yumi', 'unavailable')
+			updateIntegration('notifications', 'unavailable')
+		}
+	}
+
 	const loadIntegrations = async () => {
-		setIntegrationState({ bookmarks: 'loading', github: 'loading', yumi: 'loading' })
+		setIntegrationState({ bookmarks: 'loading', github: 'loading', yumi: 'loading', notifications: 'loading' })
+		void loadNotifications(false)
 
 		void fetch('/api/admin/links', { credentials: 'same-origin', cache: 'no-store' })
 			.then(async response => {
 				if (!response.ok) throw new Error('Bookmarks unavailable')
 				const value = apiData(await response.json())
 				const list = Array.isArray(value) ? value : []
-				setBookmarks(
+				setBookmarks(sortCommonBookmarks(
 					list.flatMap(item => {
 						if (!item || typeof item !== 'object') return []
 						const link = item as Record<string, unknown>
 						const url = validWebUrl(link.url)
 						if (typeof link.id !== 'number' || typeof link.name !== 'string' || !url) return []
-						return [{ id: link.id, name: link.name.trim() || url, url, description: typeof link.description === 'string' ? link.description : null }]
+						return [{
+							id: link.id,
+							name: link.name.trim() || url,
+							url,
+							description: typeof link.description === 'string' ? link.description : null,
+							clickCount: typeof link.clickCount === 'number' ? link.clickCount : 0,
+							lastClickedAt: typeof link.lastClickedAt === 'string' ? link.lastClickedAt : null,
+							sortOrder: typeof link.sortOrder === 'number' ? link.sortOrder : 0
+						}]
 					})
-				)
+				))
 				updateIntegration('bookmarks', 'ready')
 			})
 			.catch(() => updateIntegration('bookmarks', 'unavailable'))
 
-		void fetch('/api/nostar/repositories?limit=8', { credentials: 'same-origin', cache: 'no-store' })
+		void fetch('/api/nostar/repositories?limit=1000', { credentials: 'same-origin', cache: 'no-store' })
 			.then(async response => {
 				if (!response.ok) throw new Error('GitHub unavailable')
 				const body = (await response.json()) as { repositories?: unknown }
@@ -233,32 +304,6 @@ export default function AmbientWorkbench() {
 			})
 			.catch(() => updateIntegration('github', 'unavailable'))
 
-		void fetch('/api/admin/notifications?limit=8&sources=yumi', { credentials: 'same-origin', cache: 'no-store' })
-			.then(async response => {
-				if (!response.ok) throw new Error('Yumi unavailable')
-				const value = apiData(await response.json()) as { items?: unknown } | null
-				const list = Array.isArray(value?.items) ? value.items : []
-				setYumiItems(
-					list.flatMap(item => {
-						if (!item || typeof item !== 'object') return []
-						const notification = item as Record<string, unknown>
-						if (typeof notification.key !== 'string' || typeof notification.title !== 'string') return []
-						const severity = notification.severity === 'critical' || notification.severity === 'warning' ? notification.severity : 'info'
-						return [
-							{
-								key: notification.key,
-								title: notification.title,
-								description: typeof notification.description === 'string' ? notification.description : '',
-								href: typeof notification.href === 'string' ? notification.href : '/yumi',
-								severity,
-								read: notification.read === true
-							}
-						]
-					})
-				)
-				updateIntegration('yumi', 'ready')
-			})
-			.catch(() => updateIntegration('yumi', 'unavailable'))
 	}
 
 	useEffect(() => {
@@ -267,8 +312,17 @@ export default function AmbientWorkbench() {
 		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
 		setStorageReady(true)
 		void loadIntegrations()
-		// The integrations load once on entry; the panel refresh control owns later reloads.
+		const refreshNotifications = () => {
+			void loadNotifications()
+		}
+		const pollTimer = window.setInterval(refreshNotifications, 5 * 60 * 1000)
+		window.addEventListener('focus', refreshNotifications)
+		// Other integrations refresh on demand; notifications additionally follow the homepage cadence.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
+		return () => {
+			window.clearInterval(pollTimer)
+			window.removeEventListener('focus', refreshNotifications)
+		}
 	}, [])
 
 	useEffect(() => {
@@ -364,8 +418,10 @@ export default function AmbientWorkbench() {
 		return () => window.cancelAnimationFrame(frame)
 	}, [searchOpen])
 
+	const shanghaiClock = getShanghaiClockParts(now)
+	const yumiItems = useMemo(() => notifications.filter(item => item.source === 'yumi'), [notifications])
 	const incompleteTasks = useMemo(() => tasks.filter(task => !task.completed), [tasks])
-	const upcomingEvents = useMemo(() => events.filter(event => `${event.date} ${event.time}` >= `${localDateKey(now)} 00:00`), [events, now])
+	const upcomingEvents = useMemo(() => events.filter(event => `${event.date} ${event.time}` >= `${localDateKey(now)} ${shanghaiClock.hour}:${shanghaiClock.minute}`), [events, now, shanghaiClock.hour, shanghaiClock.minute])
 	const currentItem = focusRunning
 		? { label: '正在专注', title: formatFocusDuration(focusRemaining), detail: `${focusMinutes} 分钟节奏`, panel: 'focus' as PanelId }
 		: incompleteTasks[0]
@@ -388,6 +444,33 @@ export default function AmbientWorkbench() {
 	const togglePanel = (panel: PanelId) => {
 		setSearchOpen(false)
 		setActivePanel(current => (current === panel ? null : panel))
+	}
+
+	const recordBookmarkClick = (id: number) => {
+		setBookmarks(current => sortCommonBookmarks(current.map(item => item.id === id
+			? { ...item, clickCount: item.clickCount + 1, lastClickedAt: new Date().toISOString() }
+			: item)))
+		void fetch(`/api/navigation/admin/links/${id}/click`, {
+			method: 'POST',
+			credentials: 'same-origin',
+			keepalive: true
+		}).catch(() => undefined)
+	}
+
+	const markNotificationRead = (item: NotificationItem) => {
+		if (item.read) return
+		setNotifications(current => current.map(entry => entry.key === item.key ? { ...entry, read: true } : entry))
+		setNotificationUnreadCount(current => Math.max(0, current - 1))
+		void fetch(`/api/admin/notifications/${encodeURIComponent(item.key)}/read`, {
+			method: 'PUT',
+			credentials: 'same-origin',
+			keepalive: true,
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ read: true })
+		}).then(response => {
+			if (!response.ok) throw new Error('Notification update failed')
+			window.dispatchEvent(new CustomEvent('nono:notifications-changed', { detail: 'nodesk' }))
+		}).catch(() => void loadNotifications(false))
 	}
 
 	const addTask = (event: FormEvent) => {
@@ -428,6 +511,7 @@ export default function AmbientWorkbench() {
 		setSearchOpen(false)
 		setSearchQuery('')
 		if (item.href) {
+			if (item.kind === 'bookmark') recordBookmarkClick(Number(item.id.slice('bookmark:'.length)))
 			window.open(item.href, '_blank', 'noopener,noreferrer')
 			return
 		}
@@ -444,7 +528,7 @@ export default function AmbientWorkbench() {
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
 			data-panel={activePanel ? 'open' : 'closed'}
-			style={{ '--ambient-wallpaper-url': `url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
+			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
 				<div className='ambient-wallpaper' />
 			</motion.div>
@@ -465,7 +549,7 @@ export default function AmbientWorkbench() {
 				</button>
 
 				<div className='ambient-top-actions'>
-					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
+					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: SHANGHAI_TIME_ZONE, month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
 					<button type='button' className='ambient-icon-button' onClick={toggleDim} title={dimmed ? '调亮画面' : '柔和画面'} aria-label={dimmed ? '调亮画面' : '柔和画面'}>
 						{dimmed ? <SunMedium size={20} /> : <Moon size={20} />}
 					</button>
@@ -477,9 +561,12 @@ export default function AmbientWorkbench() {
 
 			<main className='ambient-center-stage'>
 				<motion.div className='ambient-clock-stack' initial={reducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
-					<time className='ambient-time' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}</time>
-					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
-					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(now.getHours())}</p>
+					<div className='ambient-time-zone'><span aria-hidden='true' />上海时间 · UTC+8</div>
+					<time className='ambient-time' suppressHydrationWarning dateTime={`${shanghaiClock.hour}:${shanghaiClock.minute}`}>
+						<span>{shanghaiClock.hour}</span><i aria-hidden='true'>:</i><span>{shanghaiClock.minute}</span>
+					</time>
+					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
+					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(shanghaiClock.hourNumber)}</p>
 
 					<button type='button' className='ambient-now' onClick={() => togglePanel(currentItem.panel)} aria-label={`${currentItem.label}：${currentItem.title}`}>
 						<span className='ambient-now-label'>{currentItem.label}</span>
@@ -509,7 +596,7 @@ export default function AmbientWorkbench() {
 								<h2>{panelTitle(activePanel)}</h2>
 							</div>
 							<div className='ambient-panel-tools'>
-								{(['bookmarks', 'github', 'yumi'] as PanelId[]).includes(activePanel) && (
+								{(['bookmarks', 'github', 'yumi', 'notifications'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />
 									</button>
@@ -522,7 +609,7 @@ export default function AmbientWorkbench() {
 
 						<div className='ambient-panel-body'>
 							{activePanel === 'bookmarks' && <IntegrationList state={integrationState.bookmarks} empty='还没有可显示的书签。' unavailable='登录 Nono 后即可在这里查看书签。'>
-								{bookmarks.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.name} subtitle={item.description || new URL(item.url).hostname} href={item.url} icon={<Bookmark size={17} />} />)}
+								{bookmarks.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.name} subtitle={item.clickCount ? `${item.clickCount} 次打开 · ${item.description || new URL(item.url).hostname}` : item.description || new URL(item.url).hostname} href={item.url} icon={<Bookmark size={17} />} onActivate={() => recordBookmarkClick(item.id)} />)}
 							</IntegrationList>}
 
 							{activePanel === 'github' && <IntegrationList state={integrationState.github} empty='NoStar 中还没有仓库。' unavailable='登录 Nono 后即可读取 NoStar 仓库。'>
@@ -532,6 +619,18 @@ export default function AmbientWorkbench() {
 							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 Nono 后即可读取 Yumi 状态。'>
 								{yumiItems.slice(0, 7).map(item => <ExternalRow key={item.key} title={item.title} subtitle={item.description} href={item.href} icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Circle size={11} fill='currentColor' /></span>} />)}
 								<a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>
+							</IntegrationList>}
+
+							{activePanel === 'notifications' && <IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
+								{notifications.slice(0, 7).map(item => <ExternalRow
+									key={item.key}
+									title={item.title}
+									subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
+									href={item.href}
+									unread={!item.read}
+									onActivate={() => markNotificationRead(item)}
+									icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={16} /></span>}
+								/>)}
 							</IntegrationList>}
 
 							{activePanel === 'tasks' && (
@@ -605,8 +704,8 @@ export default function AmbientWorkbench() {
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
 						const isActive = activePanel === item.id
-						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => togglePanel(item.id)} aria-pressed={isActive} aria-label={item.label}>
-							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} /></span>
+						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => togglePanel(item.id)} aria-pressed={isActive} aria-label={item.id === 'notifications' && notificationUnreadCount ? `${item.label}，${notificationUnreadCount} 条未读` : item.label}>
+							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} />{item.id === 'notifications' && notificationUnreadCount > 0 ? <b className='ambient-dock-badge'>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
 							<span>{item.label}</span>
 						</button>
 					})}
@@ -640,8 +739,8 @@ function IntegrationList({ state, empty, unavailable, children }: { state: LoadS
 	return <div className='ambient-integration-list'>{Children.count(children) ? children : <EmptyState copy={empty} />}</div>
 }
 
-function ExternalRow({ title, subtitle, href, icon }: { title: string; subtitle: string; href: string; icon: React.ReactNode }) {
-	return <a className='ambient-external-row' href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined}>
+function ExternalRow({ title, subtitle, href, icon, unread = false, onActivate }: { title: string; subtitle: string; href: string; icon: React.ReactNode; unread?: boolean; onActivate?: () => void }) {
+	return <a className={`ambient-external-row${unread ? ' is-unread' : ''}`} href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined} onClick={onActivate}>
 		<span className='ambient-row-icon'>{icon}</span>
 		<span><strong>{title}</strong><small>{subtitle}</small></span>
 		<ArrowUpRight size={16} />

@@ -154,11 +154,14 @@ model Link {
   healthReason     String?
   healthFinalUrl   String?
   healthCheckedAt  DateTime?
+  clickCount       Int       @default(0)
+  lastClickedAt    DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
+  @@index([clickCount, lastClickedAt])
 }
 
 model TrashItem {

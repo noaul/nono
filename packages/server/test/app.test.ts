@@ -865,6 +865,28 @@ describe('NoNo Fastify app', () => {
     expect(secondFolder.json().data.sortOrder).toBeLessThanOrEqual(firstFolder.json().data.sortOrder);
   });
 
+  it('records public bookmark clicks for common-bookmark ranking', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Common' } });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie },
+      payload: { folderId: folder.json().data.id, name: 'Docs', url: 'https://docs.example/' },
+    });
+    const linkId = link.json().data.id;
+
+    const first = await app.inject({ method: 'POST', url: `/api/navigation/admin/links/${linkId}/click` });
+    const second = await app.inject({ method: 'POST', url: `/api/navigation/admin/links/${linkId}/click` });
+    const missing = await app.inject({ method: 'POST', url: '/api/navigation/admin/links/999999/click' });
+    const links = await app.inject({ method: 'GET', url: '/api/admin/links', headers: { cookie } });
+
+    expect(first.statusCode).toBe(204);
+    expect(second.statusCode).toBe(204);
+    expect(missing.statusCode).toBe(404);
+    expect(links.json().data.find((item: any) => item.id === linkId)).toMatchObject({ clickCount: 2 });
+  });
+
   it('moves a folder to the end of another notab', async () => {
     const cookie = await setupAdmin();
     const source = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Source' } });

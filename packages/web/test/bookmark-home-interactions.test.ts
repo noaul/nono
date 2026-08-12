@@ -29,10 +29,22 @@ function pointerEvent(type: string, init: { pointerId: number; clientX: number; 
 describe('homepage organize mode interactions', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('records an ordinary bookmark click for common-bookmark ranking', async () => {
+    const wrapper = mount(FolderCard, { props: { folder, username: 'owner' } });
+    await wrapper.get('[data-testid="public-bookmark-10"]').trigger('click');
+
+    expect(fetch).toHaveBeenCalledWith('/api/navigation/owner/links/10/click', expect.objectContaining({
+      method: 'POST',
+      keepalive: true,
+    }));
   });
 
   it('starts bookmark dragging immediately while organize mode is active', async () => {

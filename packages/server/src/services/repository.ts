@@ -64,6 +64,8 @@ export interface LinkRecord {
   healthReason?: string | null;
   healthFinalUrl?: string | null;
   healthCheckedAt?: Date | null;
+  clickCount?: number;
+  lastClickedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -248,6 +250,7 @@ export interface Repository {
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
   updateLinkHealth(userId: number, updates: LinkHealthUpdate[]): Promise<void>;
+  recordLinkClick(userId: number, id: number): Promise<boolean>;
   reorderLinks(userId: number, ids: number[]): Promise<void>;
   moveLink(userId: number, id: number, targetFolderId: number, sourceIds: number[], targetIds: number[]): Promise<LinkRecord>;
   deleteLink(userId: number, id: number): Promise<void>;
@@ -537,7 +540,7 @@ export class MemoryRepository implements Repository {
 
   async createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>) {
     const now = new Date();
-    const link = { ...input, healthCheckEnabled: input.healthCheckEnabled ?? true, id: nextId(this.links), createdAt: now, updatedAt: now };
+    const link = { ...input, healthCheckEnabled: input.healthCheckEnabled ?? true, clickCount: input.clickCount ?? 0, id: nextId(this.links), createdAt: now, updatedAt: now };
     this.links.push(link);
     return link;
   }
@@ -563,6 +566,14 @@ export class MemoryRepository implements Repository {
         healthCheckedAt: update.checkedAt,
       });
     }
+  }
+
+  async recordLinkClick(userId: number, id: number) {
+    const link = (await this.listLinks(userId)).find((item) => item.id === id);
+    if (!link) return false;
+    link.clickCount = (link.clickCount || 0) + 1;
+    link.lastClickedAt = new Date();
+    return true;
   }
 
   async reorderLinks(userId: number, ids: number[]) {

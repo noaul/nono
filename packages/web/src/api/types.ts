@@ -72,6 +72,8 @@ export interface Link {
   healthFinalUrl?: string | null;
   healthCheckedAt?: string | null;
   healthCheckEnabled?: boolean;
+  clickCount?: number;
+  lastClickedAt?: string | null;
 }
 
 export interface NavigationPayload {
