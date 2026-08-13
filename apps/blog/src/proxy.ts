@@ -33,5 +33,5 @@ function contentSecurityPolicy(nonce: string) {
 }
 
 export const config = {
-	matcher: ['/((?!api|_next/static|_next/image|favicon.png|manifest.json).*)']
+	matcher: ['/', '/((?!api|_next/static|_next/image|favicon.png|manifest.json).*)']
 }

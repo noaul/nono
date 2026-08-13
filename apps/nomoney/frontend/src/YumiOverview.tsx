@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { api } from './api';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
-import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview } from './types';
+import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
 
@@ -17,6 +17,7 @@ const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: str
 };
 
 const statusOverviewRefreshIntervalMs = 5 * 60_000;
+const statusWindows: StatusWindow[] = ['24h', '7d', '30d', '90d'];
 
 export function YumiOverview() {
   const { copy, language } = useI18n();
@@ -27,9 +28,12 @@ export function YumiOverview() {
   const [loadError, setLoadError] = useState('');
   const [refreshError, setRefreshError] = useState('');
   const [selected, setSelected] = useState<{ name: string; day: StatusDay } | null>(null);
-  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  const [statusWindow, setStatusWindow] = useState<StatusWindow>('24h');
+  const loadPromiseRef = useRef<{ window: StatusWindow; promise: Promise<void> } | null>(null);
   const mountedRef = useRef(false);
+  const statusWindowRef = useRef(statusWindow);
   const copyRef = useRef(copy);
+  statusWindowRef.current = statusWindow;
   copyRef.current = copy;
 
   useEffect(() => {
@@ -38,33 +42,37 @@ export function YumiOverview() {
   }, []);
 
   const load = useCallback(async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
-    if (loadPromiseRef.current) {
-      if (!force) return loadPromiseRef.current;
-      await loadPromiseRef.current;
+    const requestedWindow = statusWindow;
+    if (loadPromiseRef.current?.window === requestedWindow) {
+      if (!force) return loadPromiseRef.current.promise;
+      await loadPromiseRef.current.promise;
+    } else if (loadPromiseRef.current) {
+      await loadPromiseRef.current.promise;
     }
     const request = (async () => {
       try {
-        const overview = await api.get<StatusOverview>('/api/status/overview?days=90');
-        if (!mountedRef.current) return;
+        const overview = await api.get<StatusOverview>(`/api/status/overview?window=${statusWindow}`);
+        if (!mountedRef.current || statusWindowRef.current !== requestedWindow) return;
         setData(overview);
         setLoadError('');
       } catch (cause) {
-        if (mountedRef.current && !silent) {
+        if (mountedRef.current && statusWindowRef.current === requestedWindow && !silent) {
           setLoadError(cause instanceof Error ? cause.message : copyRef.current('状态加载失败', 'Unable to load status'));
         }
       } finally {
-        if (mountedRef.current) setLoading(false);
+        if (mountedRef.current && statusWindowRef.current === requestedWindow) setLoading(false);
       }
     })();
-    loadPromiseRef.current = request;
+    loadPromiseRef.current = { window: requestedWindow, promise: request };
     try {
       await request;
     } finally {
-      if (loadPromiseRef.current === request) loadPromiseRef.current = null;
+      if (loadPromiseRef.current?.promise === request) loadPromiseRef.current = null;
     }
-  }, []);
+  }, [statusWindow]);
 
   useEffect(() => {
+    setSelected(null);
     void load();
     return startVisibleStatusRefresh(() => { void load({ silent: true }); }, statusOverviewRefreshIntervalMs);
   }, [load]);
@@ -94,6 +102,9 @@ export function YumiOverview() {
 
   const rangeLabel = useMemo(() => {
     if (!data) return '';
+    if (data.range.unit === 'hour') {
+      return `${formatStatusHour(data.range.start, language)} - ${formatStatusHour(data.range.end, language)}`;
+    }
     return `${formatStatusDay(data.range.start, language)} - ${formatStatusDay(data.range.end, language)}`;
   }, [data, language]);
 
@@ -121,11 +132,31 @@ export function YumiOverview() {
                 <h2>{copy('系统状态', 'System status')}</h2>
                 <p>{rangeLabel}</p>
               </div>
-              <div className="yumi-status-legend" aria-label={copy('状态图例', 'Status legend')}>
-                <Legend state="operational" label={copy('正常', 'Operational')} />
-                <Legend state="degraded" label={copy('异常', 'Degraded')} />
-                <Legend state="outage" label={copy('中断', 'Outage')} />
-                <Legend state="no_data" label={copy('无数据', 'No data')} />
+              <div className="yumi-status-header-tools">
+                <div className="yumi-status-window-selector" role="group" aria-label={copy('状态时间范围', 'Status time range')}>
+                  {statusWindows.map((window) => (
+                    <button
+                      type="button"
+                      key={window}
+                      className={statusWindow === window ? 'is-active' : undefined}
+                      aria-pressed={statusWindow === window}
+                      onClick={() => {
+                        if (window === statusWindow) return;
+                        setData(null);
+                        setLoading(true);
+                        setStatusWindow(window);
+                      }}
+                    >
+                      {windowLabel(window, language)}
+                    </button>
+                  ))}
+                </div>
+                <div className="yumi-status-legend" aria-label={copy('状态图例', 'Status legend')}>
+                  <Legend state="operational" label={copy('正常', 'Operational')} />
+                  <Legend state="degraded" label={copy('异常', 'Degraded')} />
+                  <Legend state="outage" label={copy('中断', 'Outage')} />
+                  <Legend state="no_data" label={copy('无数据', 'No data')} />
+                </div>
               </div>
             </header>
 
@@ -147,7 +178,7 @@ export function YumiOverview() {
                   </div>
                 </div>
                 <div className="status-history-scroll" role="region" aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
-                  <div className="status-history-strip">
+                  <div className="status-history-strip" style={{ '--status-period-count': item.history.length } as React.CSSProperties}>
                     {item.history.map((day) => (
                       <button
                         type="button"
@@ -160,7 +191,10 @@ export function YumiOverview() {
                     ))}
                   </div>
                 </div>
-                <div className="yumi-history-axis"><span>{copy('90 天前', '90 days ago')}</span><span>{copy('今天', 'Today')}</span></div>
+                <div className="yumi-history-axis">
+                  <span>{axisStartLabel(statusWindow, language)}</span>
+                  <span>{statusWindow === '24h' ? copy('现在', 'Now') : copy('今天', 'Today')}</span>
+                </div>
               </article>
             ))}</div>}
           </section>
@@ -231,7 +265,29 @@ function OverviewSkeleton() {
 }
 
 function formatDay(day: string, language: string) {
-  return formatStatusDay(day, language);
+  return day.includes('T') ? formatStatusHour(day, language) : formatStatusDay(day, language);
+}
+
+function formatStatusHour(value: string, language: string) {
+  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC'
+  }).format(new Date(value));
+}
+
+function windowLabel(window: StatusWindow, language: string) {
+  if (language !== 'zh') return window;
+  return ({ '24h': '24小时', '7d': '7天', '30d': '30天', '90d': '90天' } as const)[window];
+}
+
+function axisStartLabel(window: StatusWindow, language: string) {
+  if (window === '24h') return language === 'zh' ? '24 小时前' : '24 hours ago';
+  const days = window.slice(0, -1);
+  return language === 'zh' ? `${days} 天前` : `${days} days ago`;
 }
 
 function dayTitle(day: StatusDay, language: string) {

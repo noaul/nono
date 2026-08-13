@@ -102,7 +102,7 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 
 	assert.match(page, /AmbientWorkbench/)
 	assert.doesNotMatch(page, /HiCard|ArtCard|CalendarCard|ScheduleSummaryCard|SnowfallBackground/)
-	assert.match(workbench, /Bookmarks|GitHub|Yumi|Calendar|Tasks|Focus/)
+	assert.match(workbench, /书签|GitHub|Yumi|日程|任务|专注/)
 	assert.match(workbench, /prefers-reduced-motion|useReducedMotion/)
 	assert.match(workbench, /requestFullscreen/)
 	assert.match(workbench, /localStorage/)
@@ -153,4 +153,17 @@ test('uses a seconds clock with flip motion and dismisses dock panels from outsi
 	assert.match(workbench, /rotateX/)
 	assert.match(styles, /\.ambient-time-unit/)
 	assert.match(styles, /\.ambient-dock-status[\s\S]*top: calc\(100% \+ 8px\)/)
+})
+
+test('uses a wider lower search trigger and gives every dock panel a home shortcut', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /Home/)
+	assert.match(workbench, /aria-label='返回 Nono 主页'/)
+	assert.match(workbench, /href='\/'/)
+	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
+	assert.doesNotMatch(workbench, /aria-label='关闭面板'/)
+	assert.match(styles, /minmax\(320px, 520px\)/)
+	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 12px/)
 })

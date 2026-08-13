@@ -145,6 +145,18 @@ describe('NoNo Fastify app', () => {
     expect(await buildError()).toBe('ENCRYPTION_KEY must be 64 hexadecimal characters');
   });
 
+  it('requires a public origin in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NONO_PUBLIC_URL', '');
+    vi.stubEnv('WEBAUTHN_ORIGIN', '');
+
+    await expect(buildApp({
+      repo: new MemoryRepository(false),
+      sessionSecret,
+      encryptionKey: 'abcdef0123456789'.repeat(4)
+    })).rejects.toThrow('NONO_PUBLIC_URL');
+  });
+
   it('initializes an admin, logs in, and exposes the current session', async () => {
     const setupCookie = await setupAdmin();
 

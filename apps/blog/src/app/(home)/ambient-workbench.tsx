@@ -11,6 +11,7 @@ import {
 	CloudSun,
 	ExternalLink,
 	Github,
+	Home,
 	ListTodo,
 	Maximize2,
 	Minimize2,
@@ -81,7 +82,6 @@ type NotificationItem = {
 type DockItem = {
 	id: PanelId
 	label: string
-	detail: string
 	icon: typeof Bookmark
 }
 
@@ -92,13 +92,13 @@ const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
 const DOCK_ITEMS: DockItem[] = [
-	{ id: 'bookmarks', label: '书签', detail: 'Bookmarks', icon: Bookmark },
-	{ id: 'github', label: 'GitHub', detail: 'NoStar', icon: Github },
-	{ id: 'yumi', label: 'Yumi', detail: 'Services', icon: Smile },
-	{ id: 'notifications', label: '通知', detail: 'Notifications', icon: Bell },
-	{ id: 'calendar', label: '日程', detail: 'Calendar', icon: CalendarDays },
-	{ id: 'tasks', label: '任务', detail: 'Tasks', icon: ListTodo },
-	{ id: 'focus', label: '专注', detail: 'Focus', icon: Timer }
+	{ id: 'bookmarks', label: '书签', icon: Bookmark },
+	{ id: 'github', label: 'GitHub', icon: Github },
+	{ id: 'yumi', label: 'Yumi', icon: Smile },
+	{ id: 'notifications', label: '通知', icon: Bell },
+	{ id: 'calendar', label: '日程', icon: CalendarDays },
+	{ id: 'tasks', label: '任务', icon: ListTodo },
+	{ id: 'focus', label: '专注', icon: Timer }
 ]
 
 const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
@@ -606,19 +606,16 @@ export default function AmbientWorkbench() {
 						transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
 						aria-label={`${panelTitle(activePanel)}面板`}>
 						<div className='ambient-panel-heading'>
-							<div>
-								<span>{DOCK_ITEMS.find(item => item.id === activePanel)?.detail}</span>
-								<h2>{panelTitle(activePanel)}</h2>
-							</div>
+							<h2>{panelTitle(activePanel)}</h2>
 							<div className='ambient-panel-tools'>
+								<a className='ambient-small-icon' href='/' title='返回 Nono 主页' aria-label='返回 Nono 主页'>
+									<Home size={17} />
+								</a>
 								{(['bookmarks', 'github', 'yumi', 'notifications'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />
 									</button>
 								)}
-								<button type='button' className='ambient-small-icon' onClick={() => setActivePanel(null)} title='关闭面板' aria-label='关闭面板'>
-									<X size={17} />
-								</button>
 							</div>
 						</div>
 

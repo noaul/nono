@@ -24,6 +24,16 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(source).not.toContain('actualYearly');
   });
 
+  it('offers four status windows and defaults to the latest 24 hours', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
+
+    expect(source).toContain("useState<StatusWindow>('24h')");
+    expect(source).toContain("['24h', '7d', '30d', '90d']");
+    expect(source).toContain("/api/status/overview?window=${statusWindow}");
+    expect(source).toContain('yumi-status-window-selector');
+    expect(source).toContain("statusWindow === '24h'");
+  });
+
   it('connects the tested refresh lifecycle and ignores requests after unmount', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
 

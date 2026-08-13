@@ -193,6 +193,12 @@ button { @apply active:translate-y-px; }
 .yumi-status-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--ui-border); }
 .yumi-status-panel-header h2 { color: var(--ui-text); font-size: 17px; font-weight: 600; }
 .yumi-status-panel-header p { margin-top: 2px; color: var(--ui-text-subtle); font-size: 12px; }
+.yumi-status-header-tools { display: flex; align-items: flex-end; flex-direction: column; gap: 10px; }
+.yumi-status-window-selector { display: inline-flex; padding: 3px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface-sunken); }
+.yumi-status-window-selector button { min-width: 52px; height: 28px; padding: 0 9px; border-radius: 5px; color: var(--ui-text-subtle); font-size: 11px; font-weight: 600; transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
+.yumi-status-window-selector button:hover { color: var(--ui-text); }
+.yumi-status-window-selector button.is-active { color: var(--ui-text); background: var(--ui-surface-raised); box-shadow: 0 1px 3px rgb(15 23 42 / .12); }
+.yumi-status-window-selector button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
 .yumi-status-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; color: var(--ui-text-subtle); font-size: 11px; }
 .yumi-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .yumi-status-legend i { width: 8px; height: 8px; border-radius: 2px; }
@@ -217,7 +223,7 @@ button { @apply active:translate-y-px; }
 .yumi-uptime strong { color: var(--ui-text); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
 .yumi-uptime span { display: block; margin-top: 3px; color: var(--ui-text-subtle); font-size: 10px; }
 .status-history-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
-.status-history-strip { display: grid; grid-template-columns: repeat(90, minmax(2px, 1fr)); min-width: 360px; height: 18px; gap: 2px; }
+.status-history-strip { display: grid; grid-template-columns: repeat(var(--status-period-count, 90), minmax(2px, 1fr)); min-width: min(360px, 100%); height: 18px; gap: 2px; }
 .status-history-day { min-width: 0; height: 18px; border: 0; border-radius: 1px; background: var(--status-color); outline: none; transition: transform 120ms ease, filter 120ms ease; }
 .status-history-day:hover, .status-history-day:focus-visible { z-index: 1; transform: scaleY(1.18); filter: brightness(.92); }
 .yumi-history-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--ui-text-subtle); font-size: 10px; }
@@ -266,6 +272,9 @@ button { @apply active:translate-y-px; }
   .yumi-overall-title { padding: 16px; }
   .yumi-overall-banner > p { padding: 14px 16px; }
   .yumi-status-panel-header { align-items: flex-start; flex-direction: column; padding: 15px 16px; }
+  .yumi-status-header-tools { width: 100%; align-items: flex-start; }
+  .yumi-status-window-selector { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .yumi-status-window-selector button { min-width: 0; padding: 0 4px; }
   .yumi-status-legend { justify-content: flex-start; }
   .yumi-status-grid { grid-template-columns: 1fr; }
   .yumi-status-row, .yumi-status-row:nth-child(2n), .yumi-status-row:nth-child(3n) { padding: 13px 14px 11px; border-right: 0; border-bottom: 1px solid var(--ui-border); }

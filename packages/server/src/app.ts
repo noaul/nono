@@ -349,7 +349,12 @@ function parseHostList(value: string | undefined) {
 }
 
 function resolvePublicOrigin(value: string | undefined) {
-  if (!value) return null;
+  if (!value) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('WEBAUTHN_ORIGIN or NONO_PUBLIC_URL must be configured in production');
+    }
+    return null;
+  }
   try {
     return new URL(value).origin;
   } catch {

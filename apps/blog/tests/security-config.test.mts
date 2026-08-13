@@ -38,6 +38,8 @@ test('adds baseline response security headers', async () => {
 	assert.match(proxy, /requestHeaders\.set\('x-nonce', nonce\)/)
 	assert.match(proxy, /requestHeaders\.set\('Content-Security-Policy', policy\)/)
 	assert.match(proxy, /response\.headers\.set\('Content-Security-Policy'/)
+	assert.match(proxy, /matcher: \['\/', '\/\(\(\?!api/)
+	assert.match(config, /source: '\/'[\s\S]*source: '\/\(\.\*\)'/)
 	assert.match(layout, /headers\(\)/)
 	assert.match(layout, /nonce=\{nonce\}/)
 	assert.match(head, /nonce=\{nonce\}/)

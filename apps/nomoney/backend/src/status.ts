@@ -1,11 +1,14 @@
 import type { Router } from 'express';
 import type { AppContext } from './types.js';
 import { assetConfigs, getAssetOrThrow, refreshVpsMonitor } from './assets.js';
-import { asyncHandler } from './http.js';
+import { asyncHandler, HttpError } from './http.js';
 
 export type StatusSampleState = 'up' | 'degraded' | 'down';
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
 export type OverallStatus = 'operational' | 'degraded' | 'partial_outage' | 'major_outage' | 'no_data';
+export type StatusWindow = '24h' | '7d' | '30d' | '90d';
+
+const statusWindows = new Set<StatusWindow>(['24h', '7d', '30d', '90d']);
 
 export function aggregateStatusDay(input: { expectedSamples: number; samples: StatusSampleState[] }) {
   const upCount = input.samples.filter((state) => state === 'up').length;
@@ -36,9 +39,7 @@ export function classifyOverallStatus(states: DailyStatusState[]): OverallStatus
 
 export function registerStatusRoutes(router: Router, context: AppContext): void {
   router.get('/status/overview', (req, res) => {
-    const requestedDays = Number(req.query.days ?? 90);
-    const days = Number.isInteger(requestedDays) ? Math.max(7, Math.min(365, requestedDays)) : 90;
-    res.json(buildStatusOverview(context, days));
+    res.json(buildStatusOverview(context, parseStatusWindow(req.query.window)));
   });
 
   router.post('/status/refresh', asyncHandler(async (_req, res) => {
@@ -98,20 +99,32 @@ export function recordStatusSample(
   );
 }
 
-export function buildStatusOverview(context: AppContext, days: number) {
-  const end = context.now().toISOString().slice(0, 10);
-  const dates = Array.from({ length: days }, (_, index) => addDays(end, index - days + 1));
-  const start = dates[0];
+export function parseStatusWindow(value: unknown): StatusWindow {
+  if (value === undefined) return '24h';
+  const normalized = String(value);
+  if (statusWindows.has(normalized as StatusWindow)) return normalized as StatusWindow;
+  throw new HttpError(400, 'INVALID_STATUS_WINDOW', 'Status window must be one of 24h, 7d, 30d, or 90d');
+}
+
+export function buildStatusOverview(context: AppContext, requestedWindow: StatusWindow | number = '24h') {
+  const window = normalizeStatusWindow(requestedWindow);
+  const now = context.now();
+  const hourly = window === '24h';
+  const days = hourly ? 1 : Number.parseInt(window, 10);
+  const end = hourly ? now.toISOString() : now.toISOString().slice(0, 10);
+  const periods = hourly ? hourlyPeriods(now) : dailyPeriods(end, days);
+  const start = periods[0];
   const vps = context.db.all<Record<string, unknown>>(
     "SELECT id, name, provider, location, probe_url, monitor_status, monitor_updated_at FROM vps WHERE archived_at IS NULL AND status != 'cancelled' ORDER BY name"
   );
   const items = vps.map((row) => {
+    if (hourly) return buildHourlyStatusItem(context, row, periods, start, end, now);
     const dailyRows = context.db.all<Record<string, unknown>>(
       'SELECT * FROM vps_status_daily WHERE vps_id = ? AND day >= ? AND day <= ? ORDER BY day',
       [Number(row.id), start, end]
     );
     const byDay = new Map(dailyRows.map((daily) => [String(daily.day), daily]));
-    const history = dates.map((day) => {
+    const history = periods.map((day) => {
       const daily = byDay.get(day);
       return daily ? {
         day,
@@ -127,7 +140,7 @@ export function buildStatusOverview(context: AppContext, days: number) {
       down: sum.down + Number(daily.down_count)
     }), { up: 0, degraded: 0, down: 0 });
     const measured = totals.up + totals.degraded + totals.down;
-    const currentState = currentStateFor(row, context.now(), context);
+    const currentState = currentStateFor(row, now, context);
     return {
       id: Number(row.id),
       name: String(row.name),
@@ -141,10 +154,71 @@ export function buildStatusOverview(context: AppContext, days: number) {
   });
   return {
     overallStatus: classifyOverallStatus(items.filter((item) => item.configured).map((item) => item.currentState)),
-    range: { start, end, days },
+    range: { start, end, days, window, unit: hourly ? 'hour' : 'day' },
     items,
     domainStats: buildDomainStats(context)
   };
+}
+
+function buildHourlyStatusItem(
+  context: AppContext,
+  row: Record<string, unknown>,
+  periods: string[],
+  start: string,
+  end: string,
+  now: Date
+) {
+  const samples = context.db.all<{ sampled_at: string; state: StatusSampleState }>(
+    'SELECT sampled_at, state FROM vps_status_samples WHERE vps_id = ? AND sampled_at >= ? AND sampled_at <= ? ORDER BY sampled_at',
+    [Number(row.id), start, end]
+  );
+  const byHour = new Map<string, StatusSampleState[]>();
+  for (const sample of samples) {
+    const index = Math.min(23, Math.max(0, Math.floor((Date.parse(sample.sampled_at) - Date.parse(start)) / 60 / 60_000)));
+    const period = periods[index];
+    byHour.set(period, [...(byHour.get(period) ?? []), sample.state]);
+  }
+  const history = periods.map((period) => {
+    const states = byHour.get(period) ?? [];
+    const aggregate = aggregateStatusDay({ expectedSamples: states.length, samples: states });
+    return {
+      day: period,
+      state: aggregate.state,
+      uptimePercent: aggregate.uptimePercent,
+      sampleCount: aggregate.sampleCount,
+      incidents: aggregate.downCount
+    };
+  });
+  const totals = samples.reduce<{ up: number; degraded: number; down: number }>((sum, sample) => ({
+    ...sum,
+    [sample.state]: sum[sample.state] + 1
+  }), { up: 0, degraded: 0, down: 0 });
+  const measured = samples.length;
+  return {
+    id: Number(row.id),
+    name: String(row.name),
+    provider: row.provider ?? null,
+    location: row.location ?? null,
+    configured: Boolean(row.probe_url),
+    currentState: currentStateFor(row, now, context),
+    uptimePercent: measured ? roundPercent(((totals.up + totals.degraded) / measured) * 100) : null,
+    history
+  };
+}
+
+function normalizeStatusWindow(value: StatusWindow | number): StatusWindow {
+  if (typeof value !== 'number') return value;
+  if (value === 7 || value === 30 || value === 90) return `${value}d` as StatusWindow;
+  return '90d';
+}
+
+function dailyPeriods(end: string, days: number): string[] {
+  return Array.from({ length: days }, (_, index) => addDays(end, index - days + 1));
+}
+
+function hourlyPeriods(now: Date): string[] {
+  const start = now.getTime() - 24 * 60 * 60_000;
+  return Array.from({ length: 24 }, (_, index) => new Date(start + index * 60 * 60_000).toISOString());
 }
 
 function buildDomainStats(context: AppContext) {
