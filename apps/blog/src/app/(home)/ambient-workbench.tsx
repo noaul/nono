@@ -11,7 +11,6 @@ import {
 	CloudSun,
 	ExternalLink,
 	Github,
-	Home,
 	ListTodo,
 	Maximize2,
 	Minimize2,
@@ -83,6 +82,8 @@ type DockItem = {
 	id: PanelId
 	label: string
 	icon: typeof Bookmark
+	shortcutHref?: string
+	shortcutLabel?: string
 }
 
 const TASKS_STORAGE_KEY = 'nodesk.ambient.tasks.v1'
@@ -92,10 +93,10 @@ const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
 const DOCK_ITEMS: DockItem[] = [
-	{ id: 'bookmarks', label: '书签', icon: Bookmark },
-	{ id: 'github', label: 'GitHub', icon: Github },
-	{ id: 'yumi', label: 'Yumi', icon: Smile },
-	{ id: 'notifications', label: '通知', icon: Bell },
+	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
+	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar' },
+	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi' },
+	{ id: 'notifications', label: '通知', icon: Bell, shortcutHref: '/admin/notifications', shortcutLabel: '打开通知中心' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
 	{ id: 'focus', label: '专注', icon: Timer }
@@ -175,6 +176,7 @@ export default function AmbientWorkbench() {
 
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
+	const activeDockItem = activePanel ? DOCK_ITEMS.find(item => item.id === activePanel) : undefined
 	const [searchOpen, setSearchOpen] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
@@ -608,9 +610,11 @@ export default function AmbientWorkbench() {
 						<div className='ambient-panel-heading'>
 							<h2>{panelTitle(activePanel)}</h2>
 							<div className='ambient-panel-tools'>
-								<a className='ambient-small-icon' href='/' title='返回 Nono 主页' aria-label='返回 Nono 主页'>
-									<Home size={17} />
-								</a>
+								{activeDockItem?.shortcutHref && activeDockItem.shortcutLabel && (
+									<a className='ambient-small-icon' href={activeDockItem.shortcutHref} title={activeDockItem.shortcutLabel} aria-label={activeDockItem.shortcutLabel}>
+										<ArrowUpRight size={17} />
+									</a>
+								)}
 								{(['bookmarks', 'github', 'yumi', 'notifications'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />

@@ -155,13 +155,16 @@ test('uses a seconds clock with flip motion and dismisses dock panels from outsi
 	assert.match(styles, /\.ambient-dock-status[\s\S]*top: calc\(100% \+ 8px\)/)
 })
 
-test('uses a wider lower search trigger and gives every dock panel a home shortcut', async () => {
+test('uses a wider lower search trigger and links integration panels to their products', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	assert.match(workbench, /Home/)
-	assert.match(workbench, /aria-label='返回 Nono 主页'/)
-	assert.match(workbench, /href='\/'/)
+	assert.match(workbench, /shortcutHref: '\/admin\/links', shortcutLabel: '打开书签管理'/)
+	assert.match(workbench, /shortcutHref: '\/nostar\/', shortcutLabel: '打开 NoStar'/)
+	assert.match(workbench, /shortcutHref: '\/yumi', shortcutLabel: '打开 Yumi'/)
+	assert.match(workbench, /shortcutHref: '\/admin\/notifications', shortcutLabel: '打开通知中心'/)
+	assert.match(workbench, /href=\{activeDockItem\.shortcutHref\}/)
+	assert.doesNotMatch(workbench, /返回 Nono 主页/)
 	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
 	assert.doesNotMatch(workbench, /aria-label='关闭面板'/)
 	assert.match(styles, /minmax\(320px, 520px\)/)
