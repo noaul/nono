@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from 'motion/react'
 import {
 	ArrowUpRight,
+	AppWindow,
 	Bell,
 	Bookmark,
 	CalendarDays,
@@ -21,10 +22,13 @@ import {
 	RefreshCw,
 	RotateCcw,
 	Search,
+	Settings,
 	Smile,
+	Star,
 	SunMedium,
 	Timer,
 	Trash2,
+	WalletCards,
 	X
 } from 'lucide-react'
 import { Children, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
@@ -43,8 +47,11 @@ import {
 	type WorkbenchSearchItem,
 	type WorkbenchTask
 } from './ambient-workbench-model'
+import { AmbientSettingsCenter } from './ambient-settings-center'
+import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 
 type PanelId = 'bookmarks' | 'github' | 'yumi' | 'notifications' | 'calendar' | 'tasks' | 'focus'
+type DockActionId = PanelId | 'settings'
 type LoadState = 'loading' | 'ready' | 'unavailable'
 type IntegrationId = 'bookmarks' | 'github' | 'yumi' | 'notifications'
 
@@ -79,7 +86,7 @@ type NotificationItem = {
 }
 
 type DockItem = {
-	id: PanelId
+	id: DockActionId
 	label: string
 	icon: typeof Bookmark
 	shortcutHref?: string
@@ -99,7 +106,8 @@ const DOCK_ITEMS: DockItem[] = [
 	{ id: 'notifications', label: '通知', icon: Bell, shortcutHref: '/admin/notifications', shortcutLabel: '打开通知中心' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
-	{ id: 'focus', label: '专注', icon: Timer }
+	{ id: 'focus', label: '专注', icon: Timer },
+	{ id: 'settings', label: '设置', icon: Settings }
 ]
 
 const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
@@ -164,6 +172,14 @@ function panelTitle(panel: PanelId) {
 	return DOCK_ITEMS.find(item => item.id === panel)?.label || ''
 }
 
+function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
+	if (entry.id === 'home' || entry.icon === 'bookmark') return <Bookmark size={19} />
+	if (entry.id === 'nomoney' || entry.icon === 'wallet-cards') return <WalletCards size={19} />
+	if (entry.id === 'nostar' || entry.icon === 'star') return <Star size={19} />
+	if (entry.id === 'yumi' || entry.icon === 'server-cog') return <Smile size={19} />
+	return <AppWindow size={19} />
+}
+
 export default function AmbientWorkbench() {
 	const reducedMotion = useReducedMotion()
 	const pointerX = useMotionValue(0)
@@ -182,6 +198,9 @@ export default function AmbientWorkbench() {
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
 	const [dimmed, setDimmed] = useState(false)
 	const [isFullscreen, setIsFullscreen] = useState(false)
+	const [settingsOpen, setSettingsOpen] = useState(false)
+	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
+	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
 
 	const [tasks, setTasks] = useState<WorkbenchTask[]>([])
 	const [events, setEvents] = useState<WorkbenchEvent[]>([])
@@ -310,12 +329,35 @@ export default function AmbientWorkbench() {
 
 	}
 
+	const loadWorkbenchNavigation = async () => {
+		try {
+			const response = await fetch('/api/navigation/admin', { credentials: 'same-origin', cache: 'no-store' })
+			if (!response.ok) return
+			const value = apiData(await response.json()) as { site?: { settings?: unknown } } | null
+			setWorkbenchNavigation(normalizeWorkbenchNavigation(value?.site?.settings))
+		} catch {
+			// Defaults keep the switcher usable while the navigation service is unavailable.
+		}
+	}
+
+	const saveQuickEntriesVisibility = async (visible: boolean) => {
+		const response = await fetch('/api/admin/nodesk/workbench', {
+			method: 'PUT',
+			credentials: 'same-origin',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ quickEntriesVisible: visible })
+		})
+		if (!response.ok) throw new Error(response.status === 403 ? '只有管理员可以修改此设置。' : '快捷入口设置保存失败。')
+		setWorkbenchNavigation(current => ({ ...current, quickEntriesVisible: visible }))
+	}
+
 	useEffect(() => {
 		setTasks(parseStored(TASKS_STORAGE_KEY, normalizeTasks))
 		setEvents(parseStored(EVENTS_STORAGE_KEY, normalizeEvents))
 		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
 		setStorageReady(true)
 		void loadIntegrations()
+		void loadWorkbenchNavigation()
 		const refreshNotifications = () => {
 			void loadNotifications()
 		}
@@ -413,6 +455,7 @@ export default function AmbientWorkbench() {
 			if (event.key === 'Escape') {
 				setSearchOpen(false)
 				setActivePanel(null)
+				setAppSwitcherOpen(false)
 			}
 		}
 		const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -554,11 +597,30 @@ export default function AmbientWorkbench() {
 					<span className='ambient-status-copy'>就绪</span>
 				</div>
 
-				<button type='button' className='ambient-command-trigger' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
-					<Search size={17} strokeWidth={1.8} />
-					<span>快速搜索与执行...</span>
-					<kbd>⌘ K</kbd>
-				</button>
+
+				<div className='ambient-top-center'>
+					{workbenchNavigation.quickEntriesVisible && <div
+						className={`ambient-app-switcher${appSwitcherOpen ? ' is-open' : ''}`}
+						onMouseEnter={() => setAppSwitcherOpen(true)}
+						onMouseLeave={() => setAppSwitcherOpen(false)}
+						onFocus={() => setAppSwitcherOpen(true)}
+						onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
+						<button type='button' className='ambient-app-switcher-trigger' aria-label='应用切换器' aria-expanded={appSwitcherOpen}>
+							<AppWindow size={17} /><span>应用</span>
+						</button>
+						<div className='ambient-app-switcher-menu' role='navigation' aria-label='应用快捷入口'>
+							{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
+								<span><AppEntryIcon entry={entry} /></span><strong>{entry.label}</strong><ArrowUpRight size={15} />
+							</a>)}
+						</div>
+					</div>}
+
+					<button type='button' className='ambient-command-trigger' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
+						<Search size={17} strokeWidth={1.8} />
+						<span>快速搜索与执行...</span>
+						<kbd>⌘ K</kbd>
+					</button>
+				</div>
 
 				<div className='ambient-top-actions'>
 					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: SHANGHAI_TIME_ZONE, month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
@@ -715,8 +777,15 @@ export default function AmbientWorkbench() {
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
-						const isActive = activePanel === item.id
-						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => togglePanel(item.id)} aria-pressed={isActive} aria-label={item.id === 'notifications' && notificationUnreadCount ? `${item.label}，${notificationUnreadCount} 条未读` : item.label}>
+						const isActive = item.id === 'settings' ? settingsOpen : activePanel === item.id
+						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => {
+							if (item.id === 'settings') {
+								setActivePanel(null)
+								setSettingsOpen(true)
+								return
+							}
+							togglePanel(item.id)
+						}} aria-pressed={isActive} aria-label={item.id === 'notifications' && notificationUnreadCount ? `${item.label}，${notificationUnreadCount} 条未读` : item.label}>
 							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} />{item.id === 'notifications' && notificationUnreadCount > 0 ? <b className='ambient-dock-badge'>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
 							<span>{item.label}</span>
 						</button>
@@ -727,6 +796,13 @@ export default function AmbientWorkbench() {
 					<span>{focusRunning ? `专注 ${formatFocusDuration(focusRemaining)}` : `${incompleteTasks.length} 项任务 · ${upcomingEvents.length} 项日程`}</span>
 				</div>
 			</div>
+
+			<AmbientSettingsCenter
+				open={settingsOpen}
+				onClose={() => setSettingsOpen(false)}
+				quickEntriesVisible={workbenchNavigation.quickEntriesVisible}
+				onQuickEntriesVisibleChange={saveQuickEntriesVisibility}
+			/>
 
 			<AnimatePresence>
 				{searchOpen && (

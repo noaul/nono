@@ -43,6 +43,25 @@ describe('NoDesk local content API', () => {
     expect(response.json().data).toEqual([{ name: 'Seed project' }]);
   });
 
+  it('persists the NoDesk quick-entry visibility without replacing other site settings', async () => {
+    const before = await repo.getSite(1);
+    await repo.updateSite(1, { settings: { ...before?.settings, existing: { value: 1 } } });
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/nodesk/workbench',
+      headers: { cookie },
+      payload: { quickEntriesVisible: false },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual({ quickEntriesVisible: false });
+    expect((await repo.getSite(1))?.settings).toMatchObject({
+      existing: { value: 1 },
+      nodeskWorkbench: { quickEntriesVisible: false },
+    });
+  });
+
   it('requires authentication for local content writes', async () => {
     const response = await app.inject({
       method: 'POST',

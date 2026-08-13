@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { requireAdmin } from '../plugins/auth.js';
 import { sendError, sendOk } from '../plugins/responses.js';
+import { setAuditContext } from '../plugins/audit.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
 import type { AppServices } from '../types.js';
 
@@ -22,6 +24,25 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
   app.get('/api/nodesk/content/:resource', async (request, reply) => {
     const resource = String((request.params as { resource?: string }).resource || '');
     return sendOk(reply, await store.readPublicJson(resource));
+  });
+
+  app.put('/api/admin/nodesk/workbench', async (request, reply) => {
+    const user = await requireAdmin(request, reply, services);
+    if (!user) return;
+    const input = z.object({ quickEntriesVisible: z.boolean() }).parse(request.body);
+    const site = await services.repo.getSite(user.id);
+    if (!site) throw Object.assign(new Error('Site not found'), { statusCode: 404 });
+    const before = site.settings.nodeskWorkbench;
+    const nodeskWorkbench = { quickEntriesVisible: input.quickEntriesVisible };
+    await services.repo.updateSite(user.id, { settings: { ...site.settings, nodeskWorkbench } });
+    setAuditContext(request, {
+      action: 'update',
+      resourceType: 'nodesk',
+      resourceId: 'workbench',
+      resourceLabel: 'NoDesk 工作台设置',
+      details: { before, after: nodeskWorkbench },
+    });
+    return sendOk(reply, nodeskWorkbench);
   });
 
   app.get('/api/admin/nodesk/files', async (request, reply) => {

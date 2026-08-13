@@ -13,6 +13,10 @@ import {
 	sortCommonBookmarks,
 	toggleTask
 } from '../src/app/(home)/ambient-workbench-model.ts'
+import {
+	DEFAULT_WORKBENCH_APP_ENTRIES,
+	normalizeWorkbenchNavigation
+} from '../src/app/(home)/ambient-workbench-settings.ts'
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -94,6 +98,28 @@ test('restarts a completed focus session from the selected preset', () => {
 	assert.equal(nextFocusDuration(1_204, 25), 1_204)
 })
 
+test('normalizes the server-backed NoDesk app switcher settings', () => {
+	assert.deepEqual(normalizeWorkbenchNavigation({
+		nodeskWorkbench: { quickEntriesVisible: false },
+		navigationEntries: [
+			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
+			{ id: 'unsafe', label: '危险地址', url: 'javascript:alert(1)', enabled: true },
+			{ id: 'hidden', label: '隐藏入口', url: '/hidden', enabled: false }
+		]
+	}), {
+		quickEntriesVisible: false,
+		entries: [
+			DEFAULT_WORKBENCH_APP_ENTRIES[0],
+			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false }
+		]
+	})
+
+	assert.deepEqual(normalizeWorkbenchNavigation(null), {
+		quickEntriesVisible: true,
+		entries: DEFAULT_WORKBENCH_APP_ENTRIES
+	})
+})
+
 test('replaces the legacy card canvas with an ambient dock-driven workbench', async () => {
 	const page = await read('src/app/(home)/page.tsx')
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
@@ -168,5 +194,30 @@ test('uses a wider lower search trigger and links integration panels to their pr
 	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
 	assert.doesNotMatch(workbench, /aria-label='关闭面板'/)
 	assert.match(styles, /minmax\(320px, 520px\)/)
-	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 12px/)
+	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
+})
+
+test('adds a hover app switcher and a dock settings center with independent backups', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+	const source = `${workbench}\n${settings}`
+
+	assert.match(source, /className=\{`ambient-app-switcher/)
+	assert.match(source, /onMouseEnter=.*setAppSwitcherOpen\(true\)/)
+	assert.match(source, /aria-label='应用切换器'/)
+	assert.match(source, /id: 'settings'[\s\S]*icon: Settings/)
+	assert.match(source, /桌面/)
+	assert.match(source, /备份与恢复/)
+	assert.match(source, /quickEntriesVisible/)
+	assert.match(source, /\/api\/admin\/backups/)
+	assert.match(source, /\/api\/nostar\/sync\/export/)
+	assert.match(source, /\/nomoney\/api\/export\/json/)
+	assert.match(source, /\/yumi\/api\/export\/json/)
+	assert.match(styles, /\.ambient-app-switcher[\s\S]*left: 50%/)
+	assert.match(styles, /\.ambient-app-switcher:not\(:hover\):not\(:focus-within\)/)
+	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
+	assert.match(styles, /\.ambient-settings-dialog/)
+	assert.match(settings, /event\.key !== 'Tab'/)
+	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
 })

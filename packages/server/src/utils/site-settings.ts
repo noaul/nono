@@ -203,6 +203,10 @@ const i18nSettingsSchema = z.object({
   defaultLocale: z.enum(['zh', 'en']).default('zh'),
 }).passthrough();
 
+const nodeskWorkbenchSchema = z.object({
+  quickEntriesVisible: z.boolean().default(true),
+});
+
 export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) return {};
   const settings = { ...input };
@@ -211,6 +215,7 @@ export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if ('navigationEntries' in settings) settings.navigationEntries = navigationEntriesSchema.parse(settings.navigationEntries);
   if ('searchEngines' in settings) settings.searchEngines = searchEngineSettingsSchema.parse(settings.searchEngines);
   if ('i18n' in settings) settings.i18n = i18nSettingsSchema.parse(settings.i18n);
+  if ('nodeskWorkbench' in settings) settings.nodeskWorkbench = nodeskWorkbenchSchema.parse(settings.nodeskWorkbench);
   return settings;
 }
 
