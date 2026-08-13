@@ -151,6 +151,7 @@ export interface AppConfigRecord {
   allowRegistration: boolean;
   defaultRole: Role;
   settings: Record<string, unknown>;
+  initializedAt?: Date | null;
 }
 
 export type BackupCadence = 'daily' | 'weekly';
@@ -332,7 +333,7 @@ export class MemoryRepository implements Repository {
   passkeys: PasskeyCredentialRecord[] = [];
   webAuthnChallenges: WebAuthnChallengeRecord[] = [];
   auditLogs: AuditLogRecord[] = [];
-  config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {} };
+  config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {}, initializedAt: null };
   backupAutomation: BackupAutomationRecord = defaultBackupAutomation();
   auditConfig: AuditConfigRecord = defaultAuditConfig();
 
@@ -401,15 +402,19 @@ export class MemoryRepository implements Repository {
   }
 
   async initializeAdmin(input: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>) {
+    if (this.config.initializedAt) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
     const existingAdmin = this.users.find((user) => user.role === 'admin' && user.passwordHash);
     if (existingAdmin) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
 
     const existing = this.users.find((user) => user.username === input.username) || this.users[0];
     if (existing) {
       Object.assign(existing, input, { updatedAt: new Date() });
+      this.config.initializedAt = new Date();
       return existing;
     }
-    return this.createUser(input);
+    const created = await this.createUser(input);
+    this.config.initializedAt = new Date();
+    return created;
   }
 
   async findUserById(id: number) {
@@ -434,11 +439,18 @@ export class MemoryRepository implements Repository {
 
   async updateUser(id: number, input: Partial<UserRecord>) {
     const user = await this.requiredUser(id);
+    if (user.role === 'admin' && input.role === 'user' && this.users.filter((item) => item.role === 'admin').length <= 1) {
+      throw Object.assign(new Error('The last administrator cannot be demoted'), { statusCode: 409 });
+    }
     Object.assign(user, input, { updatedAt: new Date() });
     return user;
   }
 
   async deleteUser(id: number) {
+    const user = await this.requiredUser(id);
+    if (user.role === 'admin' && this.users.filter((item) => item.role === 'admin').length <= 1) {
+      throw Object.assign(new Error('The last administrator cannot be deleted'), { statusCode: 409 });
+    }
     this.auditLogs.forEach((entry) => {
       if (entry.actorUserId === id) entry.actorUserId = null;
     });

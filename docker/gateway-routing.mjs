@@ -28,6 +28,18 @@ export function targetFor(url = '/', ports) {
   return { name: 'nono', port: ports.nono, path: url };
 }
 
+export function isPublicInternalPath(url = '/') {
+  let pathname = url.split('?', 1)[0].toLowerCase();
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    return true;
+  }
+  return ['/nomoney/api/internal', '/yumi/api/internal'].some(
+    prefix => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 function stripMountPath(url, mountPath) {
   if (url === mountPath) return '/';
   if (url.startsWith(`${mountPath}?`)) return `/${url.slice(mountPath.length)}`;

@@ -78,7 +78,8 @@ test('keeps keyboard, touch, motion, and mobile safe-area behavior consistent', 
 test('runs the same quality gates in GitHub Actions', async () => {
 	const workflow = await readRepositoryFile('.github/workflows/ci.yml')
 
-	for (const command of ['pnpm install --frozen-lockfile', 'pnpm test', 'pnpm typecheck', 'pnpm build']) {
+	assert.match(workflow, /npm run install:all/)
+	for (const command of ['pnpm test', 'pnpm typecheck', 'pnpm build']) {
 		assert.match(workflow, new RegExp(command.replaceAll(' ', '\\s+')))
 	}
 

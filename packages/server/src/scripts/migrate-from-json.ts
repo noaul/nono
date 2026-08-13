@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import { createPrismaRepository } from '../services/prisma.repository.js';
 import { hashPassword } from '../utils/crypto.js';
+import { requiredEnv } from '../utils/required-env.js';
 
 const file = process.argv[2] || 'data/nono.json';
 const repo = createPrismaRepository();
 
 const raw = JSON.parse(await fs.readFile(file, 'utf8'));
-const password = process.env.MIGRATED_ADMIN_PASSWORD || 'Password2026!';
+const password = requiredEnv('MIGRATED_ADMIN_PASSWORD');
 
 for (const oldUser of raw.users || []) {
   const existing = await repo.findUserByUsername(oldUser.username || oldUser.name);
@@ -23,7 +24,7 @@ for (const oldUser of raw.users || []) {
   });
 }
 
-const admin = await repo.findUserByUsername(raw.users?.[0]?.username || raw.users?.[0]?.name || 'admin');
+const admin = (await repo.listUsers()).find((user) => user.role === 'admin' && user.passwordHash);
 if (!admin) throw new Error('No migrated user was created');
 
 if (raw.site) {
@@ -68,4 +69,6 @@ for (const link of raw.links || []) {
   });
 }
 
-console.log(`Migrated ${(raw.folders || []).length} folders and ${(raw.links || []).length} links. Temporary password: ${password}`);
+await repo.updateConfig({ initializedAt: new Date() });
+
+console.log(`Migrated ${(raw.folders || []).length} folders and ${(raw.links || []).length} links.`);

@@ -73,4 +73,26 @@ describe('backendAdapter', () => {
     });
     expect(settingsCall?.[1]?.headers).not.toHaveProperty('Authorization');
   });
+
+  it('never asks the server to decrypt integration credentials', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });
+      if (url.endsWith('/settings')) return jsonResponse({});
+      if (url.includes('/configs/ai')) return jsonResponse([]);
+      if (url.includes('/configs/webdav')) return jsonResponse([]);
+      if (url.includes('/configs/embedding')) return jsonResponse([]);
+      if (url.includes('/configs/vector-search')) return jsonResponse({ enabled: false });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await backend.init();
+
+    await backend.fetchAIConfigs();
+    await backend.fetchWebDAVConfigs();
+    await backend.fetchEmbeddingConfigs();
+    await backend.fetchVectorSearchConfig();
+
+    expect(fetchMock.mock.calls.map(([url]) => String(url)).join('\n')).not.toContain('decrypt=true');
+  });
 });

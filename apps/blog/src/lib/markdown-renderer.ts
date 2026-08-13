@@ -1,11 +1,49 @@
 import { marked } from 'marked'
 import type { Tokens } from 'marked'
+import { unified } from 'unified'
+import rehypeParse from 'rehype-parse'
+import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize'
+import rehypeStringify from 'rehype-stringify'
 
 export type TocItem = { id: string; text: string; level: number }
 
 export interface MarkdownRenderResult {
 	html: string
 	toc: TocItem[]
+}
+
+type SanitizeProperty = NonNullable<SanitizeSchema['attributes']>[string][number]
+
+const markdownSchema: SanitizeSchema = {
+	...defaultSchema,
+	clobberPrefix: '',
+	tagNames: [
+		...(defaultSchema.tagNames || []),
+		'div',
+		'span'
+	],
+	attributes: {
+		...defaultSchema.attributes,
+		'*': [
+			...((defaultSchema.attributes?.['*'] || []) as SanitizeProperty[]),
+			'className',
+			['dataCode', /^.*$/]
+		],
+		code: [
+			...((defaultSchema.attributes?.code || []) as SanitizeProperty[]),
+			'className'
+		],
+		input: ['type', 'checked', 'disabled']
+	}
+}
+
+export async function sanitizeMarkdownHtml(html: string): Promise<string> {
+	const result = await unified()
+		.use(rehypeParse, { fragment: true })
+		.use(rehypeSanitize, markdownSchema)
+		.use(rehypeStringify)
+		.process(html)
+	return String(result)
 }
 
 export function slugify(text: string): string {
@@ -227,7 +265,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 			}
 		}
 	}
-	const html = (marked.parser(tokens) as string) || ''
+	const html = await sanitizeMarkdownHtml((marked.parser(tokens) as string) || '')
 
 	return { html, toc }
 }

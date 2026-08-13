@@ -28,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 test('renders bookmark transfer under automation in the neutral admin shell', async ({ page }) => {
   await page.goto('/admin/automation');
 
-  await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.locator('.bookmark-transfer-panel h2')).toHaveText('书签导入导出');
   await expect(page.getByTestId('preview-bookmarks')).toBeVisible();
   await expect(page.locator('a[href="/admin/automation"]')).toHaveCount(1);

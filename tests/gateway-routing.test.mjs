@@ -52,3 +52,15 @@ test('keeps Nodesk and Nono routing behavior intact', async () => {
     path: '/api/navigation/admin',
   });
 });
+
+test('identifies internal NoMoney and Yumi APIs that must not be routed publicly', async () => {
+  const { isPublicInternalPath } = await import(pathToFileURL(modulePath));
+
+  assert.equal(isPublicInternalPath('/nomoney/api/internal/vps/1/renew'), true);
+  assert.equal(isPublicInternalPath('/nomoney/api/internal?probe=1'), true);
+  assert.equal(isPublicInternalPath('/yumi/api/internal/vps/1/renew'), true);
+  assert.equal(isPublicInternalPath('/NoMoney/API/Internal/vps/1/renew'), true);
+  assert.equal(isPublicInternalPath('/nomoney/api/%69nternal/vps/1/renew'), true);
+  assert.equal(isPublicInternalPath('/yumi/api/status/overview'), false);
+  assert.equal(isPublicInternalPath('/api/internal/anything'), false);
+});

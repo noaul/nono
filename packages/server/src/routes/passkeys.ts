@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { z } from 'zod';
 import type { AppServices } from '../types.js';
-import { requireAuth } from '../plugins/auth.js';
+import { requireBrowserSession } from '../plugins/auth.js';
 import { sendOk } from '../plugins/responses.js';
 import { publicUser } from '../services/repository.js';
 import { issueBrowserSession } from '../services/session.service.js';
@@ -22,7 +22,7 @@ const authenticationSchema = z.object({
 
 export async function passkeyRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/admin/account/passkeys/options', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const context = webAuthnContext(request, services);
     const passkeys = await services.repo.listPasskeys(user.id);
@@ -52,7 +52,7 @@ export async function passkeyRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.post('/api/admin/account/passkeys', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = registrationSchema.parse(request.body);
     const challenge = await services.repo.consumeWebAuthnChallenge(input.challengeId, 'registration', user.id);
@@ -81,7 +81,7 @@ export async function passkeyRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.delete('/api/admin/account/passkeys/:id', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const id = String((request.params as { id?: string }).id || '');
     await services.repo.deletePasskey(user.id, id);

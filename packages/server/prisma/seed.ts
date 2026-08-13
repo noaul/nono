@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/utils/crypto.js';
+import { requiredEnv } from '../src/utils/required-env.js';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +11,7 @@ async function main() {
     create: { id: 1, allowRegistration: process.env.ALLOW_REGISTRATION === 'true', defaultRole: 'user', settings: {} },
   });
 
-  const passwordHash = await hashPassword(process.env.SEED_ADMIN_PASSWORD || 'Password2026!');
+  const passwordHash = await hashPassword(requiredEnv('SEED_ADMIN_PASSWORD'));
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
@@ -51,6 +52,9 @@ async function main() {
     update: {},
     create: { folderId: folder.id, name: 'GitHub', url: 'https://github.com/', icon: 'github', description: '', sortOrder: 100 },
   });
+  if (admin.role !== 'admin' || !admin.passwordHash) throw new Error('Seed administrator was not initialized');
+
+  await prisma.appConfig.update({ where: { id: 1 }, data: { initializedAt: new Date() } });
 }
 
 main()

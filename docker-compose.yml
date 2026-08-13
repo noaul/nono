@@ -40,7 +40,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nono}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-nono}?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
-      NONO_PUBLIC_URL: ${NONO_PUBLIC_URL:-http://localhost:3000}
+      NONO_PUBLIC_URL: ${NONO_PUBLIC_URL:?NONO_PUBLIC_URL is required}
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-Nono}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-}

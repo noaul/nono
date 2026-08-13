@@ -272,7 +272,7 @@ describe('NoStar routes', () => {
     expect(response.body).not.toContain('internal-service-secret');
   });
 
-  it('never reveals stored integration secrets to bearer tokens', async () => {
+  it('never reveals stored integration secrets to any browser client', async () => {
     const adminCookie = await setupAdmin();
     const tokenResponse = await app.inject({
       method: 'POST',
@@ -293,10 +293,10 @@ describe('NoStar routes', () => {
       headers: { cookie: adminCookie },
     });
 
-    expect(bearerResponse.statusCode).toBe(403);
+    expect(bearerResponse.statusCode).toBe(200);
     expect(bearerResponse.body).not.toContain('secret-ai-key');
     expect(sessionResponse.statusCode).toBe(200);
-    expect(sessionResponse.json()[0].apiKey).toBe('secret-ai-key');
+    expect(sessionResponse.json()[0].apiKey).toBe('***-key');
   });
 
   it('exports only the authenticated user data with masked secrets', async () => {

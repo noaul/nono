@@ -59,6 +59,7 @@ export interface AppContext {
   product?: ProductMode;
   jwtSecret: string;
   internalToken?: string;
+  publicOrigin?: string;
   encryptionKey: string;
   cookieSecure: boolean;
   cookiePath: string;

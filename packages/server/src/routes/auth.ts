@@ -53,8 +53,8 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
 
   app.get('/api/auth/session', async (request, reply) => {
     const user = await resolveUser(request, services);
-    const users = await services.repo.listUsers();
-    return sendOk(reply, { authenticated: Boolean(user), setupRequired: !users.some((item) => item.role === 'admin' && item.passwordHash), user });
+    const config = await services.repo.getConfig();
+    return sendOk(reply, { authenticated: Boolean(user), setupRequired: !config.initializedAt, user });
   });
 }
 

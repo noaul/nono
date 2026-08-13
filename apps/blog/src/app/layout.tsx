@@ -1,6 +1,7 @@
 import '@/styles/globals.css'
 
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import Layout from '@/layout'
 import Head from '@/layout/head'
 import siteContent from '@/config/site-content.json'
@@ -46,12 +47,14 @@ const htmlStyle = {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+	const nonce = (await headers()).get('x-nonce') || undefined
 	return (
 		<html lang='zh-CN' suppressHydrationWarning style={htmlStyle}>
-			<Head colorModeBootstrapSrc='/color-mode-bootstrap.js' />
+			<Head colorModeBootstrapSrc='/color-mode-bootstrap.js' nonce={nonce} />
 
 			<body>
 				<script
+					nonce={nonce}
 					dangerouslySetInnerHTML={{
 						__html: `
 					if (/windows|win32/i.test(navigator.userAgent)) {

@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -36,8 +39,8 @@ jobs:
             apps/nomoney/package-lock.json
             apps/nostar/package-lock.json
 
-      - name: Install Nono dependencies
-        run: npm ci
+      - name: Install all dependencies
+        run: npm run install:all
 
       - name: Generate Prisma client
         run: npm run prisma:generate
@@ -57,19 +60,11 @@ jobs:
       - name: Package browser extension
         run: npm run package:extension
 
-      - name: Install NoStar dependencies
-        working-directory: apps/nostar
-        run: npm ci
-
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Test browser smoke flows
         run: npm run test:e2e
-
-      - name: Install Blog dependencies
-        working-directory: apps/blog
-        run: pnpm install --frozen-lockfile
 
       - name: Audit Blog dependencies
         working-directory: apps/blog
@@ -86,10 +81,6 @@ jobs:
       - name: Build Blog
         working-directory: apps/blog
         run: pnpm build
-
-      - name: Install NoMoney dependencies
-        working-directory: apps/nomoney
-        run: npm ci
 
       - name: Test NoMoney
         working-directory: apps/nomoney

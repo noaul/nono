@@ -7,6 +7,31 @@ import { createDatabase } from './db.js';
 import request from 'supertest';
 
 describe('auth flow', () => {
+  test.each(['nomoney', 'yumi'] as const)('requires the configured browser origin for %s session writes', async (product) => {
+    const context = await createTestContext(product);
+    context.publicOrigin = 'https://nono.test';
+    const app = createApp(context);
+    const setup = await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    });
+    const setCookie = setup.headers['set-cookie'];
+    const cookie = (Array.isArray(setCookie) ? setCookie[0] : String(setCookie)).split(';', 1)[0];
+
+    await request(app).post('/api/auth/logout').set('Cookie', cookie).expect(403);
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://other.nono.test')
+      .expect(403);
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://nono.test')
+      .expect(204);
+  });
+
   test('initial setup creates the single user and login exposes current user through a cookie session', async () => {
     const context = await createTestContext();
     const app = createApp(context);

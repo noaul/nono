@@ -4,6 +4,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
 
+const BACKUP_CLI = '/app/nono/packages/server/dist/cli/backup.js';
+const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
+
 export function imageTagForCommit(repository, commit) {
   const normalized = String(commit).trim().replace(/[^a-fA-F0-9]/g, '');
   if (normalized.length < 12) throw new Error('Git commit must contain at least 12 hexadecimal characters');
@@ -20,7 +23,10 @@ export function destructiveMigrationStatements(sql) {
     else if (/^ALTER\s+TABLE\b.*\bRENAME\s+COLUMN\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} RENAME COLUMN`);
     else if (/^ALTER\s+TABLE\b.*\bDROP\s+CONSTRAINT\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} DROP CONSTRAINT`);
     else if (/^ALTER\s+TABLE\b.*\bSET\s+NOT\s+NULL\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} SET NOT NULL`);
+    else if (/^ALTER\s+TABLE\b.*\bRENAME\s+TO\b/i.test(compact)) findings.push(`ALTER TABLE ${tableName(compact)} RENAME TABLE`);
     else if (/^DROP\s+TABLE\b/i.test(compact)) findings.push('DROP TABLE');
+    else if (/^DROP\s+INDEX\b/i.test(compact)) findings.push('DROP INDEX');
+    else if (/^UPDATE\s+("[^"]+"|[\w.]+)\s+SET\b/i.test(compact)) findings.push('UPDATE DATA');
     else if (/^TRUNCATE(?:\s+TABLE)?\b/i.test(compact)) findings.push('TRUNCATE TABLE');
     else if (/^DELETE\s+FROM\b/i.test(compact)) findings.push('DELETE FROM');
     else if (/^ALTER\s+TABLE\b.*\bALTER(?:\s+COLUMN)?\b.*\bTYPE\b/i.test(compact)) findings.push('ALTER COLUMN TYPE');
@@ -84,11 +90,14 @@ export async function deployCompose({
 
   log(`deploying ${previousCommit.slice(0, 12)} -> ${currentCommit.slice(0, 12)} as ${imageTag}`);
   await run('docker', ['compose', 'up', '-d', 'postgres'], { ...commandOptions, env: deployEnv });
+  let safetyBackupId = '';
   if (previousImage.id) {
-    await run('docker', [
+    const backup = await run('docker', [
       'compose', 'exec', '-T', 'app', 'node',
-      '/app/nono/packages/server/dist/cli/backup.js', 'create'
-    ], { ...commandOptions, env: deployEnv });
+      BACKUP_CLI, 'create'
+    ], { ...commandOptions, env: deployEnv, capture: true });
+    safetyBackupId = parseBackupId(backup.stdout);
+    log(`safety backup created: ${safetyBackupId}`);
   } else {
     log('initial deployment detected; no existing application data to back up');
   }
@@ -103,8 +112,15 @@ export async function deployCompose({
       throw new Error(`Deployment acceptance failed and no previous image is available: ${errorText(deploymentError)}`);
     }
 
-    log(`deployment acceptance failed; restoring ${previousImage.reference}`);
+    log(`deployment acceptance failed; restoring data ${safetyBackupId} and image ${previousImage.reference}`);
     const rollbackEnv = { ...process.env, NONO_APP_IMAGE: previousImage.reference, NONO_BUILD_COMMIT: previousCommit };
+    await run('docker', ['compose', 'stop', 'app'], { ...commandOptions, env: rollbackEnv });
+    if (safetyBackupId) {
+      await run('docker', [
+        'compose', 'run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'app',
+        BACKUP_CLI, 'restore', '--id', safetyBackupId,
+      ], { ...commandOptions, env: rollbackEnv });
+    }
     await run('docker', ['compose', 'up', '-d', '--no-deps', '--force-recreate', 'app'], { ...commandOptions, env: rollbackEnv });
     try {
       await waitForAcceptance({ baseUrl, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
@@ -117,9 +133,23 @@ export async function deployCompose({
       imageTag,
       rolledBack: true,
       rollbackImage: previousImage.reference,
+      safetyBackupId,
       deploymentError: errorText(deploymentError),
     };
   }
+}
+
+function parseBackupId(output) {
+  const line = String(output).trim().split(/\r?\n/).filter(Boolean).at(-1);
+  if (!line) throw new Error('Safety backup did not return an identifier');
+  let id;
+  try {
+    id = JSON.parse(line).id;
+  } catch {
+    throw new Error('Safety backup returned invalid JSON');
+  }
+  if (!BACKUP_ID_PATTERN.test(id || '')) throw new Error('Safety backup returned an invalid identifier');
+  return id;
 }
 
 async function enforceMigrationGate({ cwd, previousCommit, currentCommit, allowDestructiveMigrations, run, log }) {

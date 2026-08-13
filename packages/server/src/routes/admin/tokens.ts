@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../../types.js';
-import { requireAuth } from '../../plugins/auth.js';
+import { requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { ApiTokenRecord } from '../../services/repository.js';
 import { setAuditContext } from '../../plugins/audit.js';
@@ -15,7 +15,7 @@ const tokenSchema = z.object({
 
 export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/tokens', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const tokens = await services.repo.listTokens(user.id);
     return sendOk(
@@ -25,7 +25,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   });
 
   app.get('/api/admin/tokens/summary', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     return sendOk(reply, summarizeTokens(await services.repo.listTokens(user.id)));
   });
@@ -47,7 +47,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   });
 
   app.post('/api/admin/tokens', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = tokenSchema.parse(request.body);
     const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
@@ -72,7 +72,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   });
 
   app.delete('/api/admin/tokens/:id', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const id = Number((request.params as any).id);
     const current = (await services.repo.listTokens(user.id)).find((token) => token.id === id);

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../../types.js';
-import { requireAuth } from '../../plugins/auth.js';
+import { requireAuth, requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { assertStrongPassword } from '../../services/auth.service.js';
 import { publicUser } from '../../services/repository.js';
@@ -25,7 +25,7 @@ const llmSchema = z.object({
 
 export async function accountRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/account', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const account = await services.repo.findUserById(user.id);
     if (!account) throw Object.assign(new Error('User not found'), { statusCode: 404 });
@@ -33,7 +33,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.put('/api/admin/account/password', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = passwordSchema.parse(request.body);
     assertStrongPassword(input.newPassword);
@@ -47,7 +47,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.get('/api/admin/account/security', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const currentId = currentSessionId(request);
     const [sessions, passkeys] = await Promise.all([
@@ -69,7 +69,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.delete('/api/admin/account/sessions/:id', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const id = String((request.params as { id?: string }).id || '');
     if (id === currentSessionId(request)) {
@@ -80,7 +80,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.post('/api/admin/account/sessions/revoke-others', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     await services.repo.deleteOtherSessions(user.id, currentSessionId(request));
     return sendOk(reply, { ok: true });

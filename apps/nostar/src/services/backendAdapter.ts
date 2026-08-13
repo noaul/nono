@@ -546,7 +546,7 @@ class BackendAdapter {
   async fetchAIConfigs(): Promise<AIConfig[]> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
-    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/ai?decrypt=true`, {
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/ai`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch AI configs error');
@@ -586,7 +586,7 @@ class BackendAdapter {
   async fetchWebDAVConfigs(): Promise<WebDAVConfig[]> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
-    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/webdav?decrypt=true`, {
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/webdav`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch WebDAV configs error');
@@ -619,7 +619,7 @@ class BackendAdapter {
   async fetchEmbeddingConfigs(): Promise<EmbeddingConfig[]> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
-    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/embedding?decrypt=true`, {
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/embedding`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch embedding configs error');
@@ -642,7 +642,7 @@ class BackendAdapter {
   async fetchVectorSearchConfig(): Promise<VectorSearchConfigResponse> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
-    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/vector-search?decrypt=true`, {
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/configs/vector-search`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch vector search config error');

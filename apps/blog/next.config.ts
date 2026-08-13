@@ -5,13 +5,13 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : '
 
 const contentSecurityPolicy = [
 	"default-src 'self'",
-	`script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ''} https://www.googletagmanager.com`,
+	`script-src 'self'${isDevelopment ? " 'unsafe-eval'" : ''} https://www.googletagmanager.com`,
 	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.cn",
 	"font-src 'self' data: https://fonts.gstatic.cn",
 	"img-src 'self' data: blob: https:",
 	"media-src 'self' blob:",
 	"connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com",
-	"frame-src 'self' https://player.bilibili.com",
+	"frame-src https://player.bilibili.com",
 	"worker-src 'self' blob:",
 	"object-src 'none'",
 	"base-uri 'self'",

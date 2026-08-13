@@ -119,13 +119,19 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
     async initializeAdmin(input) {
       return (await prisma.$transaction(async (transaction) => {
         await transaction.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1313820239)');
+        const config = await transaction.appConfig.upsert({
+          where: { id: 1 },
+          update: {},
+          create: { id: 1, allowRegistration: false, defaultRole: 'user', settings: {} },
+        });
+        if (config.initializedAt) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
         const users = await transaction.user.findMany({ orderBy: { id: 'asc' } });
         const existingAdmin = users.find((user) => user.role === 'admin' && user.passwordHash);
         if (existingAdmin) throw Object.assign(new Error('Admin is already initialized'), { statusCode: 409 });
 
         const existing = users.find((user) => user.username === input.username) || users[0];
-        if (existing) {
-          return transaction.user.update({
+        const user = existing
+          ? await transaction.user.update({
             where: { id: existing.id },
             data: {
               username: input.username,
@@ -134,9 +140,8 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
               passwordHash: input.passwordHash,
               role: 'admin',
             },
-          });
-        }
-        return transaction.user.create({
+          })
+          : await transaction.user.create({
           data: {
             username: input.username,
             email: input.email,
@@ -145,7 +150,9 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
             role: 'admin',
             sites: { create: toSiteCreate(defaultSite(0, input.username)) as any },
           },
-        });
+          });
+        await transaction.appConfig.update({ where: { id: 1 }, data: { initializedAt: new Date() } });
+        return user;
       })) as any;
     },
     async findUserById(id) {
@@ -175,10 +182,29 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
       })) as any;
     },
     async updateUser(id, input) {
+      if (input.role === 'user') {
+        return (await prisma.$transaction(async (transaction) => {
+          await transaction.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1313820239)');
+          const current = await transaction.user.findUnique({ where: { id } });
+          if (current?.role === 'admin') {
+            const adminCount = await transaction.user.count({ where: { role: 'admin' } });
+            if (adminCount <= 1) throw Object.assign(new Error('The last administrator cannot be demoted'), { statusCode: 409 });
+          }
+          return transaction.user.update({ where: { id }, data: prune(input) as any });
+        })) as any;
+      }
       return (await prisma.user.update({ where: { id }, data: prune(input) as any })) as any;
     },
     async deleteUser(id) {
-      await prisma.user.delete({ where: { id } });
+      await prisma.$transaction(async (transaction) => {
+        await transaction.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1313820239)');
+        const current = await transaction.user.findUnique({ where: { id } });
+        if (current?.role === 'admin') {
+          const adminCount = await transaction.user.count({ where: { role: 'admin' } });
+          if (adminCount <= 1) throw Object.assign(new Error('The last administrator cannot be deleted'), { statusCode: 409 });
+        }
+        await transaction.user.delete({ where: { id } });
+      });
     },
     async getSite(userId) {
       return (await prisma.site.findFirst({ where: { userId } })) as any;

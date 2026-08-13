@@ -19,7 +19,12 @@ test('does not expose or cache the GitHub private key', async () => {
 })
 
 test('adds baseline response security headers', async () => {
-	const config = await read('next.config.ts')
+	const [config, proxy, layout, head] = await Promise.all([
+		read('next.config.ts'),
+		read('src/proxy.ts'),
+		read('src/app/layout.tsx'),
+		read('src/layout/head.tsx')
+	])
 
 	for (const header of ['Content-Security-Policy', 'Referrer-Policy', 'X-Content-Type-Options', 'X-Frame-Options', 'Permissions-Policy']) {
 		assert.match(config, new RegExp(header))
@@ -28,6 +33,14 @@ test('adds baseline response security headers', async () => {
 	assert.match(config, /frame-ancestors 'self'/)
 	assert.match(config, /X-Frame-Options', value: 'SAMEORIGIN'/)
 	assert.doesNotMatch(config, /api\.github\.com|https:\/\/github\.com/)
+	assert.doesNotMatch(config, /script-src[^\n]*unsafe-inline/)
+	assert.match(proxy, /'nonce-\$\{nonce\}'/)
+	assert.match(proxy, /requestHeaders\.set\('x-nonce', nonce\)/)
+	assert.match(proxy, /requestHeaders\.set\('Content-Security-Policy', policy\)/)
+	assert.match(proxy, /response\.headers\.set\('Content-Security-Policy'/)
+	assert.match(layout, /headers\(\)/)
+	assert.match(layout, /nonce=\{nonce\}/)
+	assert.match(head, /nonce=\{nonce\}/)
 })
 
 test('keeps production log sampling at ten percent or lower', async () => {

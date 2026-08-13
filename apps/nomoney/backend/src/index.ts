@@ -7,7 +7,7 @@ import { createApp } from './app.js';
 import { createDatabase } from './db.js';
 import { createSmtpMailer } from './mailer.js';
 import { runReminderScan } from './reminders.js';
-import { assertEncryptionKey } from './secret-crypto.js';
+import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
 import { migrateStoredSecrets } from './secret-migration.js';
 import type { ProductMode } from './types.js';
 import { migrateYumiData, waitForDatabaseFile } from './yumi-migration.js';
@@ -18,6 +18,7 @@ const product = (process.env.PRODUCT_MODE === 'yumi' ? 'yumi' : 'nomoney') as Pr
 const port = Number(process.env.PORT ?? 3000);
 const dataDir = process.env.APP_DATA_DIR ?? path.resolve(process.cwd(), 'data');
 const jwtSecret = process.env.JWT_SECRET;
+const internalToken = process.env.NOMONEY_INTERNAL_TOKEN;
 const defaultEncryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const productEncryptionKeyName = product === 'yumi' ? 'YUMI_ENCRYPTION_KEY' : 'NOMONEY_ENCRYPTION_KEY';
 const encryptionKey = (product === 'yumi' ? process.env.YUMI_ENCRYPTION_KEY : process.env.NOMONEY_ENCRYPTION_KEY) || process.env.ENCRYPTION_KEY || (
@@ -28,8 +29,9 @@ const privateOutboundHosts = (process.env.NOMONEY_PRIVATE_OUTBOUND_HOSTS || proc
   .map((item) => item.trim())
   .filter(Boolean);
 
-if (process.env.NODE_ENV === 'production' && !jwtSecret) {
-  throw new Error('JWT_SECRET is required in production');
+if (process.env.NODE_ENV === 'production') {
+  assertRuntimeSecret(jwtSecret, 'JWT_SECRET');
+  assertRuntimeSecret(internalToken, 'NOMONEY_INTERNAL_TOKEN');
 }
 if (process.env.NODE_ENV === 'production' && (!encryptionKey || encryptionKey === defaultEncryptionKey)) {
   throw new Error(`${productEncryptionKeyName} or ENCRYPTION_KEY is required in production`);
@@ -58,7 +60,8 @@ const context = {
   db,
   product,
   jwtSecret: jwtSecret ?? 'development-only-secret',
-  internalToken: process.env.NOMONEY_INTERNAL_TOKEN,
+  internalToken,
+  publicOrigin: resolvePublicOrigin(process.env.NONO_PUBLIC_URL),
   encryptionKey,
   privateOutboundHosts,
   cookieSecure: process.env.COOKIE_SECURE === 'true',
@@ -66,6 +69,18 @@ const context = {
   now: () => new Date(),
   mailer: createSmtpMailer()
 };
+
+function resolvePublicOrigin(value: string | undefined): string | undefined {
+  if (!value) {
+    if (process.env.NODE_ENV === 'production') throw new Error('NONO_PUBLIC_URL is required in production');
+    return undefined;
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    throw new Error('NONO_PUBLIC_URL must be a valid URL');
+  }
+}
 
 migrateStoredSecrets(context);
 

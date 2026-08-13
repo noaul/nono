@@ -23,12 +23,18 @@ test('detects destructive SQL migration statements', () => {
     ALTER TABLE "User" RENAME COLUMN "name" TO "displayName";
     ALTER TABLE "User" DROP CONSTRAINT "User_email_key";
     ALTER TABLE "User" ALTER COLUMN "email" SET NOT NULL;
+    ALTER TABLE "User" RENAME TO "Account";
+    DROP INDEX "User_email_idx";
+    UPDATE "User" SET "role" = 'user';
     TRUNCATE TABLE "AuditLog";
   `), [
     'ALTER TABLE "User" DROP COLUMN',
     'ALTER TABLE "User" RENAME COLUMN',
     'ALTER TABLE "User" DROP CONSTRAINT',
     'ALTER TABLE "User" SET NOT NULL',
+    'ALTER TABLE "User" RENAME TABLE',
+    'DROP INDEX',
+    'UPDATE DATA',
     'TRUNCATE TABLE'
   ]);
 });
@@ -46,6 +52,7 @@ test('creates a full safety backup before replacing a running app', async () => 
     if (joined === 'docker compose ps -q app') return { stdout: 'old-container\n' };
     if (joined.includes('{{.Image}}')) return { stdout: 'sha256:old-image\n' };
     if (joined.includes('{{.Config.Image}}')) return { stdout: 'nono-app:0123456789ab\n' };
+    if (joined.includes('backup.js create')) return { stdout: '{"id":"20260812T120000Z"}\n' };
     return { stdout: '' };
   };
 
@@ -80,6 +87,7 @@ test('restores the previous image when post-deploy acceptance fails', async () =
     if (joined === 'docker compose ps -q app') return { stdout: 'old-container\n' };
     if (joined.includes('{{.Image}}')) return { stdout: 'sha256:old-image\n' };
     if (joined.includes('{{.Config.Image}}')) return { stdout: 'nono-app:0123456789ab\n' };
+    if (joined.includes('backup.js create')) return { stdout: '{"id":"20260812T120000Z"}\n' };
     return { stdout: '' };
   };
 
@@ -100,7 +108,12 @@ test('restores the previous image when post-deploy acceptance fails', async () =
   });
 
   assert.equal(result.rolledBack, true);
+  assert.equal(result.safetyBackupId, '20260812T120000Z');
   assert.equal(calls.some((call) => call.image === 'nono-app:abcdef123456'), true);
   assert.equal(calls.some((call) => call.args.includes('--force-recreate') && call.image === 'nono-app:0123456789ab'), true);
+  const stopIndex = calls.findIndex((call) => call.args.join(' ') === 'compose stop app');
+  const restoreIndex = calls.findIndex((call) => call.args.join(' ').includes('backup.js restore --id 20260812T120000Z'));
+  const oldImageIndex = calls.findIndex((call) => call.args.includes('--force-recreate') && call.image === 'nono-app:0123456789ab');
+  assert.ok(stopIndex >= 0 && stopIndex < restoreIndex && restoreIndex < oldImageIndex);
   assert.equal(acceptanceCalls, 2);
 });

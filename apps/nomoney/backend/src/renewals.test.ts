@@ -122,6 +122,7 @@ describe('VPS renewal APIs', () => {
     const { agent, app, context } = await setupAgent();
     context.internalToken = 'nono-to-nomoney-test-token';
     await agent.post('/api/vps').send(activeVps).expect(201);
+    context.publicOrigin = 'https://nono.test';
 
     await request(app).post('/api/internal/vps/1/renew').send({
       requestId: 'internal-denied',

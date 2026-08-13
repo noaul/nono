@@ -16,6 +16,8 @@ test('persists NoMoney data and requires its session secret', () => {
   assert.match(compose, /NOMONEY_INTERNAL_PORT:\s*2030/);
   assert.match(compose, /NOMONEY_DATA_DIR:\s*\/app\/nomoney-data/);
   assert.match(compose, /NOMONEY_JWT_SECRET:/);
+  assert.match(compose, /NOMONEY_INTERNAL_TOKEN:/);
+  assert.match(compose, /NONO_PUBLIC_URL:\s*\$\{NONO_PUBLIC_URL:\?NONO_PUBLIC_URL is required\}/);
   assert.match(compose, /NOMONEY_COOKIE_SECURE:\s*\$\{NOMONEY_COOKIE_SECURE:-true\}/);
   assert.match(compose, /nomoney_data:\/app\/nomoney-data/);
   assert.match(compose, /^\s*nomoney_data:\s*$/m);

@@ -181,6 +181,79 @@ describe('NoNo Fastify app', () => {
     expect(sameOrigin.statusCode).toBe(200);
   });
 
+  it('requires the exact configured origin for session-authenticated writes', async () => {
+    const csrfApp = await buildApp({
+      repo: new MemoryRepository(false),
+      sessionSecret,
+      encryptionKey,
+      webAuthnOrigin: 'https://nono.test',
+    });
+    const setup = await csrfApp.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: {
+        username: 'admin',
+        email: 'admin@nono.test',
+        displayName: 'Admin',
+        password: adminPassword,
+      },
+    });
+    const setCookie = setup.headers['set-cookie'];
+    const cookie = Array.isArray(setCookie) ? setCookie[0] : String(setCookie);
+
+    const missingOrigin = await csrfApp.inject({
+      method: 'PUT',
+      url: '/api/admin/config',
+      headers: { cookie, 'sec-fetch-site': 'same-origin' },
+      payload: { allowRegistration: true },
+    });
+    const mismatchedOrigin = await csrfApp.inject({
+      method: 'PUT',
+      url: '/api/admin/config',
+      headers: { cookie, origin: 'https://other.nono.test', 'sec-fetch-site': 'same-site' },
+      payload: { allowRegistration: true },
+    });
+    const matchingOrigin = await csrfApp.inject({
+      method: 'PUT',
+      url: '/api/admin/config',
+      headers: { cookie, origin: 'https://nono.test' },
+      payload: { allowRegistration: true },
+    });
+
+    expect(missingOrigin.statusCode).toBe(403);
+    expect(mismatchedOrigin.statusCode).toBe(403);
+    expect(matchingOrigin.statusCode).toBe(200);
+
+    const createdToken = await csrfApp.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie, origin: 'https://nono.test' },
+      payload: { name: 'Automation', scopes: ['*'] },
+    });
+    const bearerWrite = await csrfApp.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { authorization: `Bearer ${createdToken.json().data.token}` },
+      payload: { name: 'Bearer automation' },
+    });
+    expect(bearerWrite.statusCode).toBe(200);
+
+    await csrfApp.close();
+  });
+
+  it('rejects short and placeholder session secrets in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const productionEncryptionKey = 'abcdef0123456789'.repeat(4);
+
+    for (const candidate of ['short', 'change-me-session-secret-that-is-long-enough', 'replace-with-a-long-random-session-secret']) {
+      await expect(buildApp({
+        repo: new MemoryRepository(false),
+        sessionSecret: candidate,
+        encryptionKey: productionEncryptionKey,
+      })).rejects.toThrow('SESSION_SECRET');
+    }
+  });
+
   it('allows only one concurrent first-admin setup', async () => {
     const attempts = await Promise.all([
       app.inject({
@@ -1708,5 +1781,36 @@ describe('NoNo Fastify app', () => {
 
     expect(requester.mock.calls[0][0]).toBe('https://openrouter.example/api/v1/chat/completions');
     expect(requester.mock.calls[1][0]).toBe('https://claude-gateway.example/v1/messages');
+  });
+
+  it('refuses to demote the last administrator', async () => {
+    const cookie = await setupAdmin();
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/1',
+      headers: { cookie },
+      payload: { role: 'user' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect((await repo.findUserById(1))?.role).toBe('admin');
+  });
+
+  it('does not reopen initial setup after initialization has completed', async () => {
+    await setupAdmin();
+    const initialized = await repo.findUserById(1);
+    expect(initialized).not.toBeNull();
+    if (initialized) initialized.role = 'user';
+
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: { username: 'replacement', email: 'replacement@nono.test', password: adminPassword },
+    });
+    const session = await app.inject({ method: 'GET', url: '/api/auth/session' });
+
+    expect(setup.statusCode).toBe(409);
+    expect(session.json().data.setupRequired).toBe(false);
   });
 });

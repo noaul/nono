@@ -194,6 +194,7 @@ model AppConfig {
   allowRegistration Boolean @default(false)
   defaultRole       String  @default("user")
   settings          Json    @default("{}")
+  initializedAt     DateTime?
 }
 
 model BackupAutomation {

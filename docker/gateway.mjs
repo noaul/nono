@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { targetFor } from './gateway-routing.mjs';
+import { isPublicInternalPath, targetFor } from './gateway-routing.mjs';
 import { forwardedHeaders } from './gateway-headers.mjs';
 
 const gatewayPort = numberFromEnv('PORT', 3000);
@@ -44,6 +44,11 @@ function startService(name, cwd, entrypoint, port, extraEnv = {}) {
 
 function proxyRequest(request, response) {
   const url = request.url || '/';
+  if (isPublicInternalPath(url)) {
+    response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify({ error: 'not_found' }));
+    return;
+  }
   const legacyYumiPath = legacyYumiRedirect(url);
   if (legacyYumiPath) {
     response.writeHead(308, { location: legacyYumiPath });
@@ -88,6 +93,10 @@ function proxyRequest(request, response) {
 }
 
 function proxyUpgrade(request, socket, head) {
+  if (isPublicInternalPath(request.url || '/')) {
+    socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
+    return;
+  }
   const target = targetFor(request.url, servicePorts);
   const headers = forwardedHeaders({
     headers: request.headers,
@@ -134,6 +143,8 @@ startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
   PRODUCT_MODE: 'nomoney',
   APP_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
   JWT_SECRET: process.env.NOMONEY_JWT_SECRET || '',
+  NOMONEY_INTERNAL_TOKEN: process.env.NOMONEY_INTERNAL_TOKEN || '',
+  NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
   COOKIE_SECURE: process.env.NOMONEY_COOKIE_SECURE || 'true',
   COOKIE_PATH: '/nomoney',
   SMTP_HOST: process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST || '',
@@ -148,6 +159,8 @@ startService('yumi', '/app/nomoney', 'backend/dist/index.js', yumiPort, {
   APP_DATA_DIR: process.env.YUMI_DATA_DIR || '/app/yumi-data',
   NOMONEY_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
   JWT_SECRET: process.env.YUMI_JWT_SECRET || '',
+  NOMONEY_INTERNAL_TOKEN: process.env.NOMONEY_INTERNAL_TOKEN || '',
+  NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
   COOKIE_SECURE: process.env.YUMI_COOKIE_SECURE || process.env.NOMONEY_COOKIE_SECURE || 'true',
   COOKIE_PATH: '/yumi',
   YUMI_ENCRYPTION_KEY: process.env.YUMI_ENCRYPTION_KEY || '',

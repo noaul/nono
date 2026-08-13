@@ -69,7 +69,7 @@ test.beforeEach(async ({ page }) => {
 test('renders and updates the unified notification center without viewport overflow', async ({ page }, testInfo) => {
   await page.goto('/admin/notifications');
 
-  await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.locator('.notification-row')).toHaveCount(2);
   await expect(page.getByText('Nono 文档访问异常')).toBeVisible();
   await expect(page.getByText('域名 noaul.com 2 天后到期')).toBeVisible();

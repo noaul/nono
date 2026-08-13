@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { decryptSecret } from '../../utils/crypto.js';
-import { isBearerRequest } from '../../plugins/auth.js';
 import {
   arrayField,
   asRecord,
@@ -23,15 +22,13 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   app.get('/api/nostar/configs/ai', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const decrypt = asRecord(request.query).decrypt === 'true';
-    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarAiProfile.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
       name: row.name,
       apiType: row.apiType,
       baseUrl: row.baseUrl,
-      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, decrypt),
+      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, false),
       model: row.model,
       isActive: row.isActive,
       customPrompt: row.customPrompt || '',
@@ -113,15 +110,13 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   app.get('/api/nostar/configs/webdav', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const decrypt = asRecord(request.query).decrypt === 'true';
-    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarWebDavConfig.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
       name: row.name,
       url: row.url,
       username: row.username,
-      password: revealSecret(row.passwordEncrypted, services.encryptionKey, decrypt),
+      password: revealSecret(row.passwordEncrypted, services.encryptionKey, false),
       path: row.path,
       isActive: row.isActive,
     }));
@@ -138,15 +133,13 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   app.get('/api/nostar/configs/embedding', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const decrypt = asRecord(request.query).decrypt === 'true';
-    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const rows = await services.prisma.noStarEmbeddingConfig.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } });
     return rows.map((row) => ({
       id: row.legacyId,
       name: row.name,
       apiType: row.apiType,
       baseUrl: row.baseUrl,
-      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, decrypt),
+      apiKey: revealSecret(row.apiKeyEncrypted, services.encryptionKey, false),
       model: row.model,
       dimensions: row.dimensions,
       isActive: row.isActive,
@@ -164,8 +157,6 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   app.get('/api/nostar/configs/vector-search', async (request, reply) => {
     const user = await authed(request, reply, services);
     if (!user) return;
-    const decrypt = asRecord(request.query).decrypt === 'true';
-    if (decrypt && isBearerRequest(request)) return reply.status(403).send({ error: 'Bearer tokens cannot reveal stored secrets', code: 'SECRET_REVEAL_FORBIDDEN' });
     const row = await services.prisma.noStarVectorSearchConfig.findUnique({
       where: { userId: user.id },
       include: { embeddingConfig: true },
@@ -174,7 +165,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     return {
       enabled: row.enabled,
       workerUrl: row.workerUrl,
-      authToken: revealSecret(row.authTokenEncrypted, services.encryptionKey, decrypt),
+      authToken: revealSecret(row.authTokenEncrypted, services.encryptionKey, false),
       embeddingConfigId: row.embeddingConfig?.legacyId || '',
       indexMode: row.indexMode,
       readmeMaxChars: row.readmeMaxChars,

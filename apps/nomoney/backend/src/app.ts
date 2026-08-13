@@ -36,7 +36,7 @@ export function createApp(context: AppContext) {
   app.use(cookieParser());
 
   const api = express.Router();
-  api.use(originGuard);
+  api.use(originGuard(context));
   api.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
@@ -75,37 +75,52 @@ export function createApp(context: AppContext) {
   return app;
 }
 
-function originGuard(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-    next();
-    return;
-  }
-
-  const origin = req.get('origin');
-  if (!origin) {
-    next();
-    return;
-  }
-
-  const host = req.get('x-forwarded-host') ?? req.get('host');
-  if (!host) {
-    res.status(403).json({ error: { code: 'INVALID_ORIGIN', message: 'Invalid request origin' } });
-    return;
-  }
-
-  try {
-    const originHost = new URL(origin).host.toLowerCase();
-    const allowedHosts = String(host)
-      .split(',')
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
-    if (allowedHosts.includes(originHost)) {
+function originGuard(context: AppContext): express.RequestHandler {
+  return (req, res, next): void => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       next();
       return;
     }
-  } catch {
-    // Fall through to the rejection below.
-  }
 
+    const origin = req.get('origin');
+    const sessionCookie = context.product === 'yumi' ? 'yumi_session' : 'moneypulse_session';
+    if (req.cookies?.[sessionCookie] && context.publicOrigin) {
+      if (origin === context.publicOrigin) {
+        next();
+        return;
+      }
+      rejectOrigin(res);
+      return;
+    }
+
+    if (!origin) {
+      next();
+      return;
+    }
+
+    if (context.publicOrigin) {
+      if (origin === context.publicOrigin) {
+        next();
+        return;
+      }
+      rejectOrigin(res);
+      return;
+    }
+
+    const host = req.get('host');
+    try {
+      if (host && new URL(origin).host.toLowerCase() === host.toLowerCase()) {
+        next();
+        return;
+      }
+    } catch {
+      // Fall through to the rejection below.
+    }
+
+    rejectOrigin(res);
+  };
+}
+
+function rejectOrigin(res: express.Response): void {
   res.status(403).json({ error: { code: 'INVALID_ORIGIN', message: 'Invalid request origin' } });
 }

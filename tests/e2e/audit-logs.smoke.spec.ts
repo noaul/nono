@@ -66,7 +66,7 @@ test.beforeEach(async ({ page }) => {
 test('renders responsive audit logs without breaking the admin workspace', async ({ page }, testInfo) => {
   await page.goto('/admin/audit');
 
-  await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.locator('.page-title h1')).toHaveText('操作审计');
   await expect(page.locator('[data-testid^="audit-row-"]')).toHaveCount(8);
   await page.locator('[data-testid="audit-expand-1"]').click();

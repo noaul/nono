@@ -9,6 +9,17 @@ export function assertEncryptionKey(value: string, name = 'NOMONEY_ENCRYPTION_KE
   return value;
 }
 
+export function assertRuntimeSecret(value: string | undefined, name: string): string {
+  if (
+    !value
+    || value.length < 32
+    || /(?:change[-_ ]?me|replace[-_ ]?with|example|dev(?:elopment)?[-_ ]only)/i.test(value)
+  ) {
+    throw new Error(`${name} must be a non-placeholder value of at least 32 characters`);
+  }
+  return value;
+}
+
 export function isEncryptedSecret(value: string): boolean {
   return value.startsWith(encryptedSecretPrefix);
 }

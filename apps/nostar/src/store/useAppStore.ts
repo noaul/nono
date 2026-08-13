@@ -561,6 +561,22 @@ type PersistedAppState = Partial<
   forkExpandedRepositories?: unknown;
 };
 
+type SecretBearingState = Pick<
+  PersistedAppState,
+  'githubToken' | 'aiConfigs' | 'embeddingConfigs' | 'webdavConfigs' | 'vectorSearchConfig' | 'proxyConfig' | 'rpcDownloadConfig'
+>;
+
+export const scrubPersistedSecrets = <T extends SecretBearingState>(state: T): T => ({
+  ...state,
+  githubToken: state.githubToken === '__nono_server_managed__' ? state.githubToken : null,
+  aiConfigs: Array.isArray(state.aiConfigs) ? state.aiConfigs.map((config) => ({ ...config, apiKey: '' })) : [],
+  embeddingConfigs: Array.isArray(state.embeddingConfigs) ? state.embeddingConfigs.map((config) => ({ ...config, apiKey: '' })) : [],
+  webdavConfigs: Array.isArray(state.webdavConfigs) ? state.webdavConfigs.map((config) => ({ ...config, password: '' })) : [],
+  vectorSearchConfig: state.vectorSearchConfig ? { ...state.vectorSearchConfig, authToken: '' } : state.vectorSearchConfig,
+  proxyConfig: state.proxyConfig ? { ...state.proxyConfig, password: undefined } : state.proxyConfig,
+  rpcDownloadConfig: state.rpcDownloadConfig ? { ...state.rpcDownloadConfig, secret: undefined } : state.rpcDownloadConfig,
+}) as T;
+
 const normalizeNumberSet = (value: unknown): Set<number> => {
   if (value instanceof Set) {
     return new Set(Array.from(value).filter((item): item is number => typeof item === 'number'));
@@ -671,7 +687,7 @@ export const normalizePersistedState = (
   persisted: PersistedAppState | undefined,
   currentState: AppState & AppActions
 ): Partial<AppState & AppActions> => {
-  const safePersisted = persisted ?? {};
+  const safePersisted = scrubPersistedSecrets(persisted ?? {});
   const defaultDiscoveryChannelIds = new Set(defaultDiscoveryChannels.map((channel) => channel.id));
 
   const repositories = Array.isArray(safePersisted.repositories) ? safePersisted.repositories : [];
@@ -2204,9 +2220,9 @@ export const useAppStore = create<AppState & AppActions>()(
     }),
     {
       name: 'github-stars-manager',
-      version: 9,
+      version: 10,
       storage: debouncedPersistStorage,
-      partialize: (state) => ({
+      partialize: (state) => scrubPersistedSecrets({
         // 持久化用户信息和认证状态
         user: state.user,
         githubToken: state.githubToken,
@@ -2500,7 +2516,7 @@ export const useAppStore = create<AppState & AppActions>()(
     );
   }
 
-        return state as PersistedAppState;
+        return scrubPersistedSecrets(state as PersistedAppState);
       },
       merge: (persistedState, currentState) => {
         const normalized = normalizePersistedState(

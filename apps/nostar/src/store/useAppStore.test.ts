@@ -5,12 +5,13 @@ import { CUSTOM_RELEASE_SOURCE_ID, createCustomReleaseRepository } from '../util
 
 let useAppStore: typeof import('./useAppStore').useAppStore;
 let normalizePersistedState: typeof import('./useAppStore').normalizePersistedState;
+let scrubPersistedSecrets: typeof import('./useAppStore').scrubPersistedSecrets;
 
 beforeAll(async () => {
   const { indexedDBStorage } = await vi.importActual<typeof import('../services/indexedDbStorage')>('../services/indexedDbStorage');
   window.localStorage?.removeItem?.('github-stars-manager');
   await indexedDBStorage.removeItem('github-stars-manager');
-  ({ useAppStore, normalizePersistedState } = await vi.importActual<typeof import('./useAppStore')>('./useAppStore'));
+  ({ useAppStore, normalizePersistedState, scrubPersistedSecrets } = await vi.importActual<typeof import('./useAppStore')>('./useAppStore'));
 });
 
 const createRepository = (id: number, overrides: Partial<Repository> = {}): Repository => ({
@@ -80,7 +81,7 @@ describe('useAppStore vector search config normalization', () => {
     isActive: true,
   };
 
-  it('preserves full vectorSearchConfig during persisted-state hydration', () => {
+  it('scrubs credentials from legacy persisted state during hydration', () => {
     const normalized = normalizePersistedState({
       embeddingConfigs: [embeddingConfig],
       activeEmbeddingConfig: embeddingConfig.id,
@@ -102,7 +103,7 @@ describe('useAppStore vector search config normalization', () => {
     expect(normalized.vectorSearchConfig).toEqual({
       enabled: true,
       workerUrl: 'https://worker.example.com',
-      authToken: 'worker-token',
+      authToken: '',
       embeddingConfigId: embeddingConfig.id,
       indexMode: 'description',
       readmeMaxChars: 4096,
@@ -112,9 +113,30 @@ describe('useAppStore vector search config normalization', () => {
       enableReranking: false,
       embeddingFormatVersion: 2,
     });
+    expect(normalized.embeddingConfigs?.[0].apiKey).toBe('');
   });
 
-  it('defaults missing vectorSearchConfig fields for old persisted state', () => {
+  it('does not serialize integration credentials into browser storage', () => {
+    const state = {
+      ...useAppStore.getState(),
+      githubToken: 'github-secret',
+      aiConfigs: [{ id: 'ai-1', name: 'AI', baseUrl: 'https://ai.example', apiKey: 'ai-secret', model: 'model', isActive: true }],
+      embeddingConfigs: [embeddingConfig],
+      webdavConfigs: [{ id: 'dav-1', name: 'DAV', url: 'https://dav.example', username: 'user', password: 'dav-secret', path: '/', isActive: true }],
+      vectorSearchConfig: { ...useAppStore.getState().vectorSearchConfig, authToken: 'vector-secret' },
+      proxyConfig: { ...useAppStore.getState().proxyConfig, password: 'proxy-secret' },
+      rpcDownloadConfig: { ...useAppStore.getState().rpcDownloadConfig, secret: 'rpc-secret' },
+    };
+
+    const snapshot = scrubPersistedSecrets(state);
+    const serialized = JSON.stringify(snapshot);
+
+    for (const secret of ['github-secret', 'ai-secret', 'test-key', 'dav-secret', 'vector-secret', 'proxy-secret', 'rpc-secret']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('defaults missing vectorSearchConfig fields and removes old tokens', () => {
     const normalized = normalizePersistedState({
       embeddingConfigs: [embeddingConfig],
       vectorSearchConfig: {
@@ -130,7 +152,7 @@ describe('useAppStore vector search config normalization', () => {
     expect(normalized.vectorSearchConfig).toMatchObject({
       enabled: true,
       workerUrl: 'https://worker.example.com',
-      authToken: 'worker-token',
+      authToken: '',
       embeddingConfigId: embeddingConfig.id,
       indexMode: 'readme',
       readmeMaxChars: 6000,

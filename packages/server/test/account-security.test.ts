@@ -325,4 +325,44 @@ describe('account security', () => {
     expect(oldSession.json().data.authenticated).toBe(false);
     expect(currentSession.json().data.authenticated).toBe(true);
   });
+
+  it('does not allow a full-scope API token to create identity credentials', async () => {
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'admin', password } });
+    const cookie = sessionCookie(login);
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'automation', scopes: ['*'] },
+    });
+    const authorization = `Bearer ${created.json().data.token}`;
+
+    const passkey = await app.inject({
+      method: 'POST',
+      url: '/api/admin/account/passkeys/options',
+      headers: { authorization, origin: 'https://nono.test' },
+    });
+    const token = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { authorization },
+      payload: { name: 'persistent-copy', scopes: ['*'] },
+    });
+    const passwordChange = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/account/password',
+      headers: { authorization },
+      payload: { currentPassword: password, newPassword: 'Replacement2026!' },
+    });
+    const revokeSessions = await app.inject({
+      method: 'POST',
+      url: '/api/admin/account/sessions/revoke-others',
+      headers: { authorization },
+    });
+
+    expect(passkey.statusCode).toBe(403);
+    expect(token.statusCode).toBe(403);
+    expect(passwordChange.statusCode).toBe(403);
+    expect(revokeSessions.statusCode).toBe(403);
+  });
 });

@@ -65,7 +65,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const services: AppServices = {
     prisma,
     repo,
-    sessionSecret: overrides.sessionSecret || envOrThrow('SESSION_SECRET'),
+    sessionSecret: resolveSessionSecret(overrides.sessionSecret),
     encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
     nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
@@ -123,8 +123,14 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 
     const unsafeMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
     const bearerRequest = /^Bearer\s+/i.test(request.headers.authorization || '');
-    if (unsafeMethod && !bearerRequest && request.cookies.nono_session && request.headers['sec-fetch-site'] === 'cross-site') {
-      return sendError(reply, 403, 'Cross-site request blocked');
+    if (unsafeMethod && !bearerRequest && request.cookies.nono_session) {
+      const origin = request.headers.origin;
+      if (services.webAuthnOrigin && origin !== services.webAuthnOrigin) {
+        return sendError(reply, 403, 'Request origin is not allowed');
+      }
+      if (request.headers['sec-fetch-site'] === 'cross-site') {
+        return sendError(reply, 403, 'Cross-site request blocked');
+      }
     }
   });
   app.addHook('onSend', async (request, reply, payload) => {
@@ -227,6 +233,17 @@ function envOrThrow(name: string) {
   if (value && value !== 'change-me-in-production') return value;
   if (process.env.NODE_ENV === 'production') throw new Error(`${name} must be configured in production`);
   return 'dev-only-session-secret-change-me';
+}
+
+function resolveSessionSecret(override: string | undefined) {
+  const value = override || envOrThrow('SESSION_SECRET');
+  if (process.env.NODE_ENV === 'production' && (
+    value.length < 32
+    || /(?:change[-_ ]?me|replace[-_ ]?with|example|dev(?:elopment)?[-_ ]only)/i.test(value)
+  )) {
+    throw new Error('SESSION_SECRET must be a non-placeholder value of at least 32 characters in production');
+  }
+  return value;
 }
 
 function resolveEncryptionKey(override: string | undefined) {

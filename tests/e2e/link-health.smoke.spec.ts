@@ -62,10 +62,10 @@ test('renders persisted health in the bookmark table without viewport overflow',
   await expect(page.getByRole('heading', { name: '健康检查' })).toHaveCount(0);
   await expect(page.getByTestId('check-link-health')).toBeVisible();
   await expect(page.getByTestId('link-health-10')).toContainText('重定向');
-  await expect(page.locator('.admin-table-head')).toContainText('notab');
+  await expect(page.locator('.admin-table-head')).toContainText('NoTab');
   await expect(page.locator('.admin-table-head')).toContainText('状态');
-  await expect(page.locator('.chatgpt-admin-shell')).toBeVisible();
-  await expect(page.locator('.workbench-sidebar')).toHaveCSS('background-color', 'rgb(249, 249, 249)');
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-sidebar')).toHaveCount(1);
 
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

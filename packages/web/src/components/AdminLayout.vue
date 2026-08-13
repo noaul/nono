@@ -149,10 +149,11 @@ async function logout() {
 <template>
   <!-- One shell class. The five stacked skins this replaced fought each other by specificity;
        every primitive now has a single definition in admin.css, driven by the UI contract. -->
-  <div class="admin-shell">
+  <div class="admin-shell" data-testid="admin-shell">
     <aside
       ref="mobileNavRef"
       class="workbench-sidebar"
+      data-testid="admin-sidebar"
       :class="{ 'is-mobile-open': mobileNavOpen }"
       :role="mobileNavOpen ? 'dialog' : undefined"
       :aria-modal="mobileNavOpen ? 'true' : undefined"

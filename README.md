@@ -49,7 +49,7 @@ Nono 是一个可自托管的个人数字工作台。它把网址导航与智能
 ## 本地开发
 
 ```bash
-npm ci
+npm run install:all
 cp .env.example .env
 docker compose up -d postgres
 npm run prisma:generate
@@ -66,7 +66,7 @@ npm run dev:nomoney
 npm run dev:nostar
 ```
 
-默认 API 地址为 `http://127.0.0.1:3000`。首次打开站点时创建管理员；Nono 使用 PostgreSQL 事务锁保证并发部署中只能完成一次初始化，NoMoney 与 Yumi 分别使用单进程 SQLite。Yumi 首次启动会从 NoMoney 迁移 VPS、域名及关联流水，并等待 NoMoney 数据库完成初始化。`npm run seed` 只用于显式填充演示数据，不属于正常初始化流程。
+`npm run install:all` 严格按根目录、Blog、NoMoney 和 NoStar 的四份锁文件安装依赖。默认 API 地址为 `http://127.0.0.1:3000`。首次打开站点时创建管理员；Nono 使用 PostgreSQL 事务锁保证并发部署中只能完成一次初始化，NoMoney 与 Yumi 分别使用单进程 SQLite。Yumi 首次启动会从 NoMoney 迁移 VPS、域名及关联流水，并等待 NoMoney 数据库完成初始化。`npm run seed` 只用于显式填充演示数据，不属于正常初始化流程，并要求显式提供 `SEED_ADMIN_PASSWORD`；JSON 迁移同样要求 `MIGRATED_ADMIN_PASSWORD`。
 
 ## 验证与构建
 
@@ -88,7 +88,9 @@ npm run build:all
 npm run audit:all
 ```
 
-GitHub Actions 只是可选的远端质量门禁，不参与也不要求生产部署。nc48 的发布由服务器本地 Compose 脚本完成；依赖锁文件变更仍必须通过对应的高危漏洞审计。
+GitHub Actions 会在 pull request 和 `main` 分支推送时执行远端质量门禁，但不参与生产部署。nc48 的发布由服务器本地 Compose 脚本完成；依赖锁文件变更仍必须通过对应的高危漏洞审计。
+
+`initializedAt` 数据迁移会回填已存在的管理员状态，因此会被部署脚本的数据重写门禁拦截。首次部署该迁移前应确认安全备份和回滚方案，再显式使用 `--allow-destructive-migrations`；后续无新增受控数据迁移时不需要该参数。
 
 ## 配置
 

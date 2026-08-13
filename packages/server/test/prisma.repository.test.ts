@@ -32,6 +32,10 @@ describe('Prisma repository batch deletion', () => {
           return created;
         }),
       },
+      appConfig: {
+        upsert: vi.fn().mockResolvedValue({ id: 1, initializedAt: null }),
+        update: vi.fn().mockImplementation(async () => events.push('mark-initialized')),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)),
@@ -46,8 +50,43 @@ describe('Prisma repository batch deletion', () => {
       role: 'admin',
     })).resolves.toBe(created);
 
-    expect(events).toEqual(['lock', 'read', 'create']);
+    expect(events).toEqual(['lock', 'read', 'create', 'mark-initialized']);
     expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)');
+    expect(transaction.appConfig.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { initializedAt: expect.any(Date) } });
+  });
+
+  it('does not delete the last administrator inside the identity transaction lock', async () => {
+    const transaction = {
+      $queryRawUnsafe: vi.fn(),
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 7, role: 'admin' }),
+        count: vi.fn().mockResolvedValue(1),
+        delete: vi.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)),
+    };
+    const repo = createPrismaRepository(prisma as never);
+
+    await expect(repo.deleteUser(7)).rejects.toMatchObject({ statusCode: 409 });
+    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)');
+    expect(transaction.user.delete).not.toHaveBeenCalled();
+  });
+
+  it('does not delete the last administrator from the in-memory repository', async () => {
+    const { MemoryRepository } = await import('../src/services/repository.js');
+    const memory = new MemoryRepository(false);
+    await memory.initializeAdmin({
+      username: 'owner',
+      email: 'owner@nono.test',
+      displayName: 'Owner',
+      passwordHash: 'hash',
+      role: 'admin',
+    });
+
+    await expect(memory.deleteUser(1)).rejects.toMatchObject({ statusCode: 409 });
+    expect((await memory.findUserById(1))?.role).toBe('admin');
   });
 
   it('treats a folder already removed by cascade as deleted', async () => {

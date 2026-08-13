@@ -42,6 +42,16 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply, 
   return user;
 }
 
+export async function requireBrowserSession(request: FastifyRequest, reply: FastifyReply, services: AppServices) {
+  const user = await requireAuth(request, reply, services);
+  if (!user) return null;
+  if (!(request as any).authSessionId || isBearerRequest(request)) {
+    sendError(reply, 403, 'A browser session is required');
+    return null;
+  }
+  return user;
+}
+
 export function isBearerRequest(request: FastifyRequest) {
   return /^Bearer\s+/i.test(request.headers.authorization || '');
 }
