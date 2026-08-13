@@ -18,6 +18,8 @@ export const DEFAULT_WORKBENCH_APP_ENTRIES: WorkbenchAppEntry[] = [
 	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false }
 ]
 
+const WORKBENCH_NAVIGATION_VERSION = 3
+
 function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
@@ -38,7 +40,14 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 	const source = record(settings)
 	const workbench = record(source?.nodeskWorkbench)
 	const savedEntries = Array.isArray(source?.navigationEntries) ? source.navigationEntries : null
-	const entries = savedEntries?.flatMap((value, index) => {
+	const savedIds = new Set(savedEntries?.flatMap(value => {
+		const entry = record(value)
+		return typeof entry?.id === 'string' ? [entry.id.trim()] : []
+	}) || [])
+	const sourceEntries = savedEntries && Number(source?.navigationEntriesVersion || 0) < WORKBENCH_NAVIGATION_VERSION
+		? [...savedEntries, ...DEFAULT_WORKBENCH_APP_ENTRIES.filter(entry => entry.id !== 'home' && !savedIds.has(entry.id))]
+		: savedEntries
+	const entries = sourceEntries?.flatMap((value, index) => {
 		const entry = record(value)
 		const label = typeof entry?.label === 'string' ? entry.label.trim().slice(0, 60) : ''
 		const url = safeLocation(entry?.url)

@@ -100,6 +100,7 @@ test('restarts a completed focus session from the selected preset', () => {
 
 test('normalizes the server-backed NoDesk app switcher settings', () => {
 	assert.deepEqual(normalizeWorkbenchNavigation({
+		navigationEntriesVersion: 3,
 		nodeskWorkbench: { quickEntriesVisible: false },
 		navigationEntries: [
 			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
@@ -113,6 +114,14 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false }
 		]
 	})
+
+	assert.deepEqual(normalizeWorkbenchNavigation({
+		navigationEntriesVersion: 2,
+		navigationEntries: [
+			{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true },
+			{ id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true }
+		]
+	}).entries.map(entry => entry.id), ['home', 'nomoney', 'nostar', 'yumi'])
 
 	assert.deepEqual(normalizeWorkbenchNavigation(null), {
 		quickEntriesVisible: true,
