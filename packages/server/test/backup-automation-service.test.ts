@@ -82,6 +82,30 @@ describe('backup automation service', () => {
     });
   });
 
+  it('defaults to seven backups and prunes immediately when the policy is saved', async () => {
+    const automation = service();
+
+    expect((await automation.get()).settings.maxBackups).toBe(7);
+
+    await automation.update({
+      enabled: false,
+      cadence: 'daily',
+      hour: 3,
+      weekday: 0,
+      retentionDays: 365,
+      maxBackups: 2,
+    });
+
+    expect(backupService.remove.mock.calls.flat()).toEqual([
+      '20260715T200000Z',
+      '20260601T200000Z',
+    ]);
+    expect(records.map((record) => record.id)).toEqual([
+      '20260717T200000Z',
+      '20260716T200000Z',
+    ]);
+  });
+
   it('uses the latest weekly window and skips disabled policies', async () => {
     const automation = service();
     await expect(automation.runDue()).resolves.toEqual({ ran: false, reason: 'disabled' });

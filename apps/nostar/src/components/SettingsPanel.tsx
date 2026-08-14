@@ -3,9 +3,6 @@ import {
   Settings,
   Globe,
   Bot,
-  Cloud,
-  Database,
-  Server,
   Package,
   X,
   Trash2,
@@ -20,9 +17,6 @@ import { backend } from '../services/backendAdapter';
 import {
   GeneralPanel,
   AIConfigPanel,
-  WebDAVPanel,
-  BackupPanel,
-  BackendPanel,
   CategoryPanel,
   DataManagementPanel,
   NetworkPanel,
@@ -31,7 +25,7 @@ import {
   VectorSearchSettings,
 } from './settings';
 
-type SettingsTab = 'general' | 'ai' | 'webdav' | 'backup' | 'backend' | 'category' | 'menu' | 'data' | 'logs' | 'network' | 'vectorSearch';
+type SettingsTab = 'general' | 'ai' | 'category' | 'menu' | 'data' | 'logs' | 'network' | 'vectorSearch';
 
 interface SettingsTabItem {
   id: SettingsTab;
@@ -258,7 +252,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // Valid SettingsTab values for runtime validation
   const VALID_TABS: ReadonlySet<string> = useMemo(
-    () => new Set(['general', 'ai', 'webdav', 'backup', 'backend', 'category', 'menu', 'data', 'logs', 'network', 'vectorSearch']),
+    () => new Set(['general', 'ai', 'category', 'menu', 'data', 'logs', 'network', 'vectorSearch']),
     []
   );
 
@@ -317,21 +311,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       icon: <Bot className="w-5 h-5" />,
     },
     {
-      id: 'webdav',
-      label: t('WebDAV', 'WebDAV'),
-      icon: <Cloud className="w-5 h-5" />,
-    },
-    {
-      id: 'backup',
-      label: t('备份恢复', 'Backup'),
-      icon: <Database className="w-5 h-5" />,
-    },
-    {
-      id: 'backend',
-      label: t('后端同步', 'Backend'),
-      icon: <Server className="w-5 h-5" />,
-    },
-    {
       id: 'category',
       label: t('分类管理', 'Categories'),
       icon: <Package className="w-5 h-5" />,
@@ -370,12 +349,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           return <GeneralPanel t={t} />;
         case 'ai':
           return <AIConfigPanel t={t} />;
-        case 'webdav':
-          return <WebDAVPanel t={t} />;
-        case 'backup':
-          return <BackupPanel t={t} />;
-        case 'backend':
-          return <BackendPanel t={t} />;
         case 'category':
           return <CategoryPanel t={t} />;
         case 'menu':

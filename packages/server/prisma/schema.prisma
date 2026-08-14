@@ -204,7 +204,7 @@ model BackupAutomation {
   hour             Int      @default(3)
   weekday          Int      @default(0)
   retentionDays    Int      @default(30)
-  maxBackups       Int      @default(14)
+  maxBackups       Int      @default(7)
   lastScheduledFor String?
   lastStartedAt    DateTime?
   lastCompletedAt  DateTime?

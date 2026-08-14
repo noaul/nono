@@ -212,7 +212,7 @@ describe('notification service', () => {
     expect(feed.items.filter((item) => item.source === 'nodesk').map((item) => item.title)).toEqual(['Publish notes', 'Renew certificate']);
     expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(1);
     expect(feed.items.filter((item) => item.source === 'yumi')).toHaveLength(1);
-    expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/admin/backups' });
+    expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/nodesk/?settings=backups' });
   });
 
   it('exposes VPS identity and due date for the quick renewal action', async () => {
@@ -308,7 +308,7 @@ describe('notification service', () => {
       source: 'backup',
       severity: 'critical',
       description: 'pg_dump failed',
-      href: '/admin/backups',
+      href: '/nodesk/?settings=backups',
     });
   });
 

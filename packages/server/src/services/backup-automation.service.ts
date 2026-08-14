@@ -61,7 +61,7 @@ export function createBackupAutomationService(options: {
       });
       try {
         const backup = await options.backupService.create();
-        const removed = await enforceRetention(options.backupService, backup, record, current);
+        const removed = await enforceBackupRetention(options.backupService, record, current, backup.id);
         const completedAt = now();
         await options.repo.updateBackupAutomation({
           lastCompletedAt: completedAt,
@@ -88,7 +88,9 @@ export function createBackupAutomationService(options: {
       return snapshot(await options.repo.getBackupAutomation());
     },
     async update(settings) {
-      return snapshot(await options.repo.updateBackupAutomation(settings));
+      const record = await options.repo.updateBackupAutomation(settings);
+      await enforceBackupRetention(options.backupService, record, now());
+      return snapshot(record);
     },
     async runDue(current = now()) {
       const record = await options.repo.getBackupAutomation();
@@ -105,16 +107,20 @@ export function createBackupAutomationService(options: {
   };
 }
 
-async function enforceRetention(
+export async function enforceBackupRetention(
   service: Pick<BackupService, 'list' | 'remove'>,
-  created: BackupRecord,
   settings: Pick<BackupAutomationRecord, 'retentionDays' | 'maxBackups'>,
   current: Date,
+  protectedId = '',
 ) {
-  const records = (await service.list()).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const records = (await service.list()).sort((left, right) => {
+    if (left.id === protectedId) return -1;
+    if (right.id === protectedId) return 1;
+    return right.createdAt.localeCompare(left.createdAt);
+  });
   const cutoff = current.getTime() - settings.retentionDays * 86_400_000;
   const removals = records.filter((record, index) => (
-    record.id !== created.id
+    record.id !== protectedId
     && (index >= settings.maxBackups || new Date(record.createdAt).getTime() < cutoff)
   ));
   for (const record of removals) await service.remove(record.id);

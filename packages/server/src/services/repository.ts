@@ -305,7 +305,7 @@ function defaultBackupAutomation(): BackupAutomationRecord {
     hour: 3,
     weekday: 0,
     retentionDays: 30,
-    maxBackups: 14,
+    maxBackups: 7,
     lastScheduledFor: null,
     lastStartedAt: null,
     lastCompletedAt: null,

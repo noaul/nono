@@ -97,7 +97,7 @@ describe('admin dashboard workbench', () => {
       '/admin/links#folder-management',
       '/admin/links#bookmark-tools',
       '/admin/llm',
-      '/admin/tokens',
+      '/admin/account#api-tokens',
       '/admin/notifications',
       '/nodesk',
       '/nomoney',

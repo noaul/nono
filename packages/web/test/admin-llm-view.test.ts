@@ -20,16 +20,18 @@ describe('LlmView', () => {
   });
 
   it('loads and saves a custom API base URL', async () => {
-    apiRequest
-      .mockResolvedValueOnce({
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/account') return {
         llmProvider: 'openai',
         llmModel: 'custom-model',
         llmBaseUrl: 'https://gateway.example.com/v1',
         llmReasoningEffort: 'medium',
         hasLlmApiKey: true,
-      })
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ ok: true });
+      };
+      if (url === '/api/admin/nostar/ai') return [];
+      if (url === '/api/admin/account/llm' && options?.method === 'PUT') return { ok: true };
+      throw new Error(`Unexpected request: ${url}`);
+    });
 
     const wrapper = mount(LlmView, {
       global: {
@@ -59,10 +61,12 @@ describe('LlmView', () => {
   });
 
   it('tests the current LLM connection without saving the form', async () => {
-    apiRequest
-      .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-5-mini', hasLlmApiKey: true })
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ ok: true, model: 'gpt-5-mini', reasoningEffort: 'high' });
+    apiRequest.mockImplementation(async (url: string) => {
+      if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'gpt-5-mini', hasLlmApiKey: true };
+      if (url === '/api/admin/nostar/ai') return [];
+      if (url === '/api/admin/account/llm/test') return { ok: true, model: 'gpt-5-mini', reasoningEffort: 'high' };
+      throw new Error(`Unexpected request: ${url}`);
+    });
 
     const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
     await settle(wrapper);
@@ -77,22 +81,19 @@ describe('LlmView', () => {
     expect(wrapper.text()).toContain('连接成功');
   });
 
-  it('adds and saves a NoStar AI profile from the NoNo admin page', async () => {
-    apiRequest
-      .mockResolvedValueOnce({ llmProvider: 'openai', llmModel: 'gpt-4o-mini', hasLlmApiKey: false })
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ saved: 1 });
+  it('keeps NoStar AI configuration out of the NoNo LLM page', async () => {
+    apiRequest.mockImplementation(async (url: string) => {
+      if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'gpt-4o-mini', hasLlmApiKey: false };
+      if (url === '/api/admin/nostar/ai') return [];
+      throw new Error(`Unexpected request: ${url}`);
+    });
 
     const wrapper = mount(LlmView, { global: { stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] } } } });
     await settle(wrapper);
-    await wrapper.get('[data-testid="add-nostar-ai-profile"]').trigger('click');
-    await wrapper.get('[data-testid="nostar-profile-name-0"]').setValue('仓库分析');
-    await wrapper.get('[data-testid="save-nostar-ai-profiles"]').trigger('click');
-    await settle(wrapper);
 
-    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/nostar/ai', {
-      method: 'PUT',
-      body: expect.stringContaining('仓库分析'),
-    });
+    expect(apiRequest).toHaveBeenCalledTimes(1);
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/account');
+    expect(wrapper.text()).not.toContain('NoStar AI');
+    expect(wrapper.find('[data-testid="add-nostar-ai-profile"]').exists()).toBe(false);
   });
 });

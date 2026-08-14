@@ -1,5 +1,7 @@
 import path from 'node:path';
 import { createBackupServiceFromEnv } from '../services/backup.service.js';
+import { enforceBackupRetention } from '../services/backup-automation.service.js';
+import { createPrismaRepository } from '../services/prisma.repository.js';
 
 interface BackupCliOptions {
   command: 'create' | 'list' | 'verify' | 'drill' | 'restore' | 'delete';
@@ -23,7 +25,12 @@ export function parseBackupCliArgs(argv: string[]): BackupCliOptions {
 export async function runBackupCli(options: BackupCliOptions) {
   const nodeskContentDir = process.env.NODESK_CONTENT_DIR || path.resolve(process.cwd(), '../../../apps/blog');
   const service = createBackupServiceFromEnv(nodeskContentDir);
-  if (options.command === 'create') return service.create();
+  if (options.command === 'create') {
+    const backup = await service.create();
+    const settings = await createPrismaRepository().getBackupAutomation();
+    await enforceBackupRetention(service, settings, new Date(backup.createdAt), backup.id);
+    return backup;
+  }
   if (options.command === 'list') return { backups: await service.list() };
   if (options.command === 'verify') return service.verify(options.id);
   if (options.command === 'drill') return service.drill(options.id);

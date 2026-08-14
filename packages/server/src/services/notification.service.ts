@@ -375,7 +375,7 @@ async function collectBackupNotifications(
       severity: 'critical',
       title: t(locale, 'noBackupYet'),
       description: t(locale, 'noBackupYetHint'),
-      href: '/admin/backups',
+      href: '/nodesk/?settings=backups',
       occurredAt: current.toISOString(),
       dueAt: null,
     });
@@ -391,7 +391,7 @@ async function collectBackupNotifications(
       severity: 'warning',
       title: t(locale, 'backupStale'),
       description: t(locale, 'backupStaleHint', { date: latest.createdAt }),
-      href: '/admin/backups',
+      href: '/nodesk/?settings=backups',
       occurredAt: latest.createdAt,
       dueAt: null,
     });
@@ -410,7 +410,7 @@ function activeBackupFailure(automation: BackupAutomationSnapshot | null, locale
     severity: 'critical',
     title: t(locale, 'backupFailed'),
     description: error,
-    href: '/admin/backups',
+    href: '/nodesk/?settings=backups',
     occurredAt: failureAt,
     dueAt: null,
   }];

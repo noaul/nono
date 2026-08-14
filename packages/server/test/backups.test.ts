@@ -144,7 +144,7 @@ describe('global backups', () => {
       hour: 3,
       weekday: 0,
       retentionDays: 30,
-      maxBackups: 14,
+      maxBackups: 7,
     });
 
     const updated = await app.inject({

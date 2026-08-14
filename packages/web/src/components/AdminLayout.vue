@@ -2,13 +2,11 @@
 import '@/styles/admin.css';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
-  Archive,
   ArrowUpDown,
   Bell,
   Bot,
   Compass,
   Home,
-  KeyRound,
   Layers,
   LogOut,
   Menu,
@@ -16,7 +14,6 @@ import {
   ScrollText,
   Trash2,
   User,
-  Users,
   X,
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
@@ -71,7 +68,6 @@ const navSections: NavSection[] = [
     items: [
       { to: '/admin/automation', labelKey: 'admin.navAutomation', titleKey: 'admin.titleAutomation', icon: ArrowUpDown },
       { to: '/admin/llm', labelKey: 'admin.navLlm', titleKey: 'admin.titleLlm', icon: Bot },
-      { to: '/admin/tokens', labelKey: 'admin.navTokens', titleKey: 'admin.titleTokens', icon: KeyRound },
     ],
   },
   {
@@ -80,9 +76,7 @@ const navSections: NavSection[] = [
       { to: '/admin/notifications', labelKey: 'admin.navNotifications', titleKey: 'admin.titleNotifications', icon: Bell },
       { to: '/admin/account', labelKey: 'admin.navAccount', titleKey: 'admin.titleAccount', icon: User },
       { to: '/admin/trash', labelKey: 'admin.navTrash', titleKey: 'admin.titleTrash', icon: Trash2 },
-      { to: '/admin/backups', labelKey: 'admin.navBackups', titleKey: 'admin.titleBackups', icon: Archive, adminOnly: true },
       { to: '/admin/audit', labelKey: 'admin.navAudit', titleKey: 'admin.titleAudit', icon: ScrollText, adminOnly: true },
-      { to: '/admin/users', labelKey: 'admin.navUsers', titleKey: 'admin.titleUsers', icon: Users, adminOnly: true },
     ],
   },
 ];

@@ -199,6 +199,7 @@ export default function AmbientWorkbench() {
 	const [dimmed, setDimmed] = useState(false)
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
+	const [settingsInitialTab, setSettingsInitialTab] = useState<'desktop' | 'backups'>('desktop')
 	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
 
@@ -224,6 +225,14 @@ export default function AmbientWorkbench() {
 	const [focusMinutes, setFocusMinutes] = useState(25)
 	const [focusRemaining, setFocusRemaining] = useState(25 * 60)
 	const [focusRunning, setFocusRunning] = useState(false)
+
+	useEffect(() => {
+		const searchParams = new URLSearchParams(window.location.search)
+		if (searchParams.get('settings') === 'backups') {
+			setSettingsInitialTab('backups')
+			setSettingsOpen(true)
+		}
+	}, [])
 
 	const updateIntegration = (key: IntegrationId, state: LoadState) => {
 		setIntegrationState(current => ({ ...current, [key]: state }))
@@ -606,11 +615,11 @@ export default function AmbientWorkbench() {
 						onFocus={() => setAppSwitcherOpen(true)}
 						onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
 						<button type='button' className='ambient-app-switcher-trigger' aria-label='应用切换器' aria-expanded={appSwitcherOpen}>
-							<AppWindow size={17} /><span>应用</span>
+							<AppWindow size={18} />
 						</button>
 						<div className='ambient-app-switcher-menu' role='navigation' aria-label='应用快捷入口'>
-							{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
-								<span><AppEntryIcon entry={entry} /></span><strong>{entry.label}</strong><ArrowUpRight size={15} />
+							{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} aria-label={entry.label} title={entry.label} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
+								<AppEntryIcon entry={entry} /><span className='ambient-visually-hidden'>{entry.label}</span>
 							</a>)}
 						</div>
 					</div>}
@@ -799,6 +808,7 @@ export default function AmbientWorkbench() {
 
 			<AmbientSettingsCenter
 				open={settingsOpen}
+				initialTab={settingsInitialTab}
 				onClose={() => setSettingsOpen(false)}
 				quickEntriesVisible={workbenchNavigation.quickEntriesVisible}
 				onQuickEntriesVisibleChange={saveQuickEntriesVisibility}

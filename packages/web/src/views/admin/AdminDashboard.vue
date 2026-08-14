@@ -48,7 +48,7 @@ const toolShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aDuplicates', detailKey: 'dashboard.aDuplicatesHint', to: '/admin/links#bookmark-tools', icon: ListChecks },
   { labelKey: 'dashboard.aHealth', detailKey: 'dashboard.aHealthHint', to: '/admin/links#bookmark-tools', icon: Activity },
   { labelKey: 'dashboard.aLlm', detailKey: 'dashboard.aLlmHint', to: '/admin/llm', icon: Bot },
-  { labelKey: 'dashboard.aTokens', detailKey: 'dashboard.aTokensHint', to: '/admin/tokens', icon: KeyRound },
+  { labelKey: 'dashboard.aTokens', detailKey: 'dashboard.aTokensHint', to: '/admin/account#api-tokens', icon: KeyRound },
   { labelKey: 'dashboard.aNotifications', detailKey: 'dashboard.aNotificationsHint', to: '/admin/notifications', icon: Bell },
 ];
 

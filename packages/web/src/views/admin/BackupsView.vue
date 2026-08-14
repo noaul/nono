@@ -40,7 +40,7 @@ const isLoading = ref(true);
 const isCreating = ref(false);
 const isSavingAutomation = ref(false);
 const automation = ref<BackupAutomationSnapshot>({
-  settings: { enabled: false, cadence: 'daily', hour: 3, weekday: 0, retentionDays: 30, maxBackups: 14 },
+  settings: { enabled: false, cadence: 'daily', hour: 3, weekday: 0, retentionDays: 30, maxBackups: 7 },
   status: { lastSuccessAt: null, lastFailureAt: null, lastError: null },
 });
 const deletingIds = ref(new Set<string>());

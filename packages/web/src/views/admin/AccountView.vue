@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
-import { Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2 } from 'lucide-vue-next';
+import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
-import type { Site } from '@/api/types';
+import type { ApiToken, Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { useI18n } from '@/composables/useI18n';
+import { useModalBehavior } from '@/composables/useModalBehavior';
 
 const { t } = useI18n();
 
@@ -39,7 +41,77 @@ const sessions = ref<SessionItem[]>([]);
 const isLoadingSecurity = ref(true);
 const isAddingPasskey = ref(false);
 const isSavingGuestAccess = ref(false);
+const tokens = ref<ApiToken[]>([]);
+const tokenForm = reactive({ name: 'Chrome extension', scopeProfile: 'extension' as 'extension' | 'full', expiryDays: '' });
+const isCreatingToken = ref(false);
+const createdToken = ref('');
+const tokenDialogOpen = ref(false);
+const tokenDialog = ref<HTMLElement | null>(null);
+const tokenDialogClose = ref<HTMLButtonElement | null>(null);
+const tokenCopied = ref(false);
 const confirmApi = useConfirm();
+
+useModalBehavior({
+  open: tokenDialogOpen,
+  container: tokenDialog,
+  close: closeTokenDialog,
+  initialFocus: () => tokenDialogClose.value,
+});
+
+async function loadTokens() {
+  try {
+    tokens.value = await apiRequest<ApiToken[]>('/api/admin/tokens');
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : t('tokens.loadFailed');
+  }
+}
+
+async function createToken() {
+  if (!tokenForm.name.trim() || isCreatingToken.value) return;
+  error.value = '';
+  message.value = '';
+  isCreatingToken.value = true;
+  try {
+    const scopes = tokenForm.scopeProfile === 'full' ? ['*'] : ['bookmarks:read', 'bookmarks:write', 'ai:analyze'];
+    const expiresAt = tokenForm.expiryDays
+      ? new Date(Date.now() + Number(tokenForm.expiryDays) * 86_400_000).toISOString()
+      : null;
+    const token = await apiRequest<ApiToken>('/api/admin/tokens', {
+      method: 'POST',
+      body: jsonBody({ name: tokenForm.name.trim(), scopes, expiresAt }),
+    });
+    createdToken.value = token.token;
+    tokenCopied.value = false;
+    tokenDialogOpen.value = true;
+    tokens.value = [{ ...token, token: `${token.token.slice(0, 8)}...` }, ...tokens.value];
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : t('tokens.createFailed');
+  } finally {
+    isCreatingToken.value = false;
+  }
+}
+
+async function copyCreatedToken() {
+  await navigator.clipboard.writeText(createdToken.value);
+  tokenCopied.value = true;
+}
+
+function closeTokenDialog() {
+  tokenDialogOpen.value = false;
+  createdToken.value = '';
+  tokenCopied.value = false;
+}
+
+async function removeToken(token: ApiToken) {
+  if (!await confirmApi.confirm({ title: t('tokens.revoke'), message: token.name, confirmText: t('tokens.revoke'), tone: 'danger' })) return;
+  try {
+    await apiRequest(`/api/admin/tokens/${token.id}`, { method: 'DELETE' });
+    tokens.value = tokens.value.filter((item) => item.id !== token.id);
+    message.value = t('tokens.revoked');
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : t('tokens.revokeFailed');
+  }
+}
 
 async function loadGuestAccess() {
   try {
@@ -164,6 +236,7 @@ async function saveGuestAccess() {
 onMounted(() => {
   void loadSecurity();
   void loadGuestAccess();
+  void loadTokens();
 });
 </script>
 
@@ -198,27 +271,6 @@ onMounted(() => {
         </article>
       </div>
       <p v-else-if="!isLoadingSecurity" class="security-empty">{{ t('account.noPasskeys') }}</p>
-    </section>
-
-    <section class="admin-section security-section">
-      <header class="admin-section-head">
-        <h2><MonitorSmartphone :size="18" /> {{ t('account.devices') }}</h2>
-        <button v-if="sessions.some((session) => !session.current)" class="button secondary compact" type="button" @click="revokeOtherSessions">
-          <LogOut :size="16" /> {{ t('account.signOutOthers') }}
-        </button>
-      </header>
-      <div class="security-list">
-        <article v-for="session in sessions" :key="session.id" class="security-row">
-          <span class="security-row-icon"><MonitorSmartphone :size="18" /></span>
-          <div class="security-row-main">
-            <strong>{{ session.userAgent || t('account.unknownDevice') }} <span v-if="session.current" class="current-device">{{ t('account.currentDevice') }}</span></strong>
-            <small>{{ session.ipAddress || t('account.unknownIp') }} · {{ formatDate(session.lastSeenAt) }}</small>
-          </div>
-          <button v-if="!session.current" class="icon-button secondary" type="button" :title="t('account.signOutDevice')" :aria-label="t('account.signOutDevice')" @click="revokeSession(session)">
-            <LogOut :size="16" />
-          </button>
-        </article>
-      </div>
     </section>
 
     <form id="account-password-form" class="admin-section" @submit.prevent="save">
@@ -267,6 +319,82 @@ onMounted(() => {
         </button>
       </div>
     </form>
+
+    <section id="api-tokens" class="admin-section token-section" data-testid="api-token-section">
+      <header class="admin-section-head">
+        <h2><KeyRound :size="18" /> API Token</h2>
+      </header>
+      <form class="token-create-row" @submit.prevent="createToken">
+        <div class="field">
+          <label for="token-name">{{ t('tokens.name') }}</label>
+          <input id="token-name" v-model="tokenForm.name" data-testid="token-name" maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="token-scope">{{ t('tokens.scope') }}</label>
+          <select id="token-scope" v-model="tokenForm.scopeProfile" data-testid="token-scope-profile">
+            <option value="extension">{{ t('tokens.scopeExtension') }}</option>
+            <option value="full">{{ t('tokens.scopeFull') }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="token-expiry">{{ t('tokens.expiryPreset') }}</label>
+          <select id="token-expiry" v-model="tokenForm.expiryDays" data-testid="token-expiry-preset">
+            <option value="">{{ t('tokens.never') }}</option>
+            <option value="7">{{ t('tokens.days', { count: 7 }) }}</option>
+            <option value="30">{{ t('tokens.days', { count: 30 }) }}</option>
+            <option value="90">{{ t('tokens.days', { count: 90 }) }}</option>
+          </select>
+        </div>
+        <button class="button token-create-button" data-testid="create-api-token" type="button" :disabled="isCreatingToken || !tokenForm.name.trim()" @click="createToken">
+          <Plus :size="17" /> {{ isCreatingToken ? t('common.saving') : t('tokens.create') }}
+        </button>
+      </form>
+      <div class="token-list">
+        <EmptyState v-if="!tokens.length" :title="t('tokens.emptyTitle')" :description="t('tokens.emptyBody')" />
+        <article v-for="token in tokens" :key="token.id" class="token-row">
+          <span class="security-row-icon"><KeyRound :size="17" /></span>
+          <div class="security-row-main">
+            <strong>{{ token.name }}</strong>
+            <small>{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt ? formatDate(token.expiresAt) : t('tokens.never') }}</small>
+          </div>
+          <button class="icon-button danger" type="button" :title="t('tokens.revoke')" :aria-label="t('tokens.revoke')" @click="removeToken(token)"><Trash2 :size="16" /></button>
+        </article>
+      </div>
+    </section>
+
+    <section class="admin-section security-section" data-testid="login-devices-section">
+      <header class="admin-section-head">
+        <h2><MonitorSmartphone :size="18" /> {{ t('account.devices') }}</h2>
+        <button v-if="sessions.some((session) => !session.current)" class="button secondary compact" type="button" @click="revokeOtherSessions">
+          <LogOut :size="16" /> {{ t('account.signOutOthers') }}
+        </button>
+      </header>
+      <div class="security-list">
+        <article v-for="session in sessions" :key="session.id" class="security-row">
+          <span class="security-row-icon"><MonitorSmartphone :size="18" /></span>
+          <div class="security-row-main">
+            <strong>{{ session.userAgent || t('account.unknownDevice') }} <span v-if="session.current" class="current-device">{{ t('account.currentDevice') }}</span></strong>
+            <small>{{ session.ipAddress || t('account.unknownIp') }} · {{ formatDate(session.lastSeenAt) }}</small>
+          </div>
+          <button v-if="!session.current" class="icon-button secondary" type="button" :title="t('account.signOutDevice')" :aria-label="t('account.signOutDevice')" @click="revokeSession(session)">
+            <LogOut :size="16" />
+          </button>
+        </article>
+      </div>
+    </section>
+
+    <div v-if="tokenDialogOpen" class="token-dialog-backdrop" role="presentation" @mousedown.self="closeTokenDialog">
+      <section ref="tokenDialog" class="token-dialog" data-testid="created-api-token-modal" role="dialog" aria-modal="true" :aria-label="t('tokens.oneTimeTitle')" tabindex="-1">
+        <header>
+          <div><h2>{{ t('tokens.oneTimeTitle') }}</h2><p>{{ t('tokens.oneTimeHint') }}</p></div>
+          <button ref="tokenDialogClose" class="icon-button secondary" type="button" :title="t('common.close')" :aria-label="t('common.close')" @click="closeTokenDialog"><X :size="17" /></button>
+        </header>
+        <code>{{ createdToken }}</code>
+        <button class="button" data-testid="copy-created-api-token" type="button" @click="copyCreatedToken">
+          <Check v-if="tokenCopied" :size="17" /><Copy v-else :size="17" /> {{ tokenCopied ? t('tokens.copied') : t('tokens.copy') }}
+        </button>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -391,6 +519,94 @@ onMounted(() => {
   color: var(--admin-success);
 }
 
+.token-create-row {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(130px, 0.8fr) minmax(120px, 0.7fr) auto;
+}
+
+.token-create-button {
+  min-height: 40px;
+}
+
+.token-list {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  margin-top: 14px;
+  padding-top: 6px;
+}
+
+.token-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  min-height: 54px;
+  padding: 7px 0;
+}
+
+.token-row + .token-row {
+  border-top: 1px solid var(--admin-border);
+}
+
+.token-dialog-backdrop {
+  align-items: center;
+  background: rgba(10, 18, 28, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 100;
+}
+
+.token-dialog {
+  backdrop-filter: blur(28px) saturate(1.15);
+  background: color-mix(in srgb, var(--admin-surface-elevated) 94%, transparent);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  box-shadow: var(--admin-shadow-lg);
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  padding: 20px;
+  width: 100%;
+}
+
+.token-dialog header {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.token-dialog h2,
+.token-dialog p {
+  margin: 0;
+}
+
+.token-dialog h2 {
+  color: var(--admin-text);
+  font-size: 17px;
+}
+
+.token-dialog p {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.token-dialog code {
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  color: var(--admin-text);
+  overflow-wrap: anywhere;
+  padding: 13px;
+  user-select: all;
+}
+
 @media (max-width: 640px) {
   .security-add-row {
     grid-template-columns: 1fr;
@@ -403,6 +619,14 @@ onMounted(() => {
 
   .guest-access-fields {
     grid-template-columns: 1fr;
+  }
+
+  .token-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .token-create-button {
+    width: 100%;
   }
 }
 </style>

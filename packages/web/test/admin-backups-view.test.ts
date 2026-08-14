@@ -94,13 +94,13 @@ describe('BackupsView', () => {
     expect(wrapper.find(`[data-testid="backup-${firstBackup.id}"]`).exists()).toBe(false);
   });
 
-  it('registers an admin-only route and system navigation item', () => {
+  it('leaves backup navigation to the NoDesk settings center', () => {
     const router = fs.readFileSync(path.resolve(process.cwd(), 'src/router/index.ts'), 'utf8');
     const layout = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
 
-    expect(router).toContain("const BackupsView = () => import('@/views/admin/BackupsView.vue')");
-    expect(router).toMatch(/path:\s*'\/admin\/backups'[\s\S]*requiresAdmin:\s*true/);
-    expect(layout).toMatch(/to:\s*'\/admin\/backups'[\s\S]*adminOnly:\s*true/);
+    expect(router).not.toContain("const BackupsView = () => import('@/views/admin/BackupsView.vue')");
+    expect(router).not.toMatch(/path:\s*'\/admin\/backups'/);
+    expect(layout).not.toContain("to: '/admin/backups'");
   });
 
   it('configures automatic backups and retention from the backup page', async () => {
