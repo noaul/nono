@@ -24,12 +24,34 @@ describe('extension release package', () => {
     expect(manifest.version).toBe(packageJson.version);
   });
 
+  it('limits page access to an active user action and requests only the configured server origin', () => {
+    expect(manifest.content_scripts).toBeUndefined();
+    expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.optional_host_permissions).toEqual(expect.arrayContaining([
+      'https://*/*',
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+    ]));
+  });
+
+  it('exposes project and version information in the popup and manifest', async () => {
+    const popup = await readFile(path.join(root, 'popup', 'popup.html'), 'utf8');
+
+    expect(manifest.homepage_url).toBe('https://github.com/noaul/nono');
+    expect(popup).toContain('https://github.com/noaul/nono');
+    expect(popup).toContain('id="versionLabel"');
+    expect(popup).toContain('id="duplicateAction"');
+  });
+
   it('keeps popup controls keyboard and touch friendly', async () => {
     const styles = await readFile(path.join(root, 'popup', 'popup.css'), 'utf8');
 
     expect(styles).toContain(':focus-visible');
     expect(styles).toContain('touch-action: manipulation');
     expect(styles).toContain('button:disabled');
+    expect(styles).toContain('width: 360px');
+    expect(styles).toContain('backdrop-filter: blur(24px) saturate(135%)');
+    expect(styles).toContain('@media (prefers-reduced-transparency: reduce)');
   });
 
   it('builds a Chrome Web Store ZIP archive', async () => {

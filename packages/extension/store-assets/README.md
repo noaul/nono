@@ -1,6 +1,6 @@
 # Chrome Web Store assets
 
-These are ready-to-upload Chrome Web Store assets generated from `render.html`.
+These are ready-to-upload Chrome Web Store assets. `render.html` is the versioned source for the current `0.3.0` HyperOS-inspired frosted-glass visual direction.
 
 - `webstore-icon-128.png`: opaque 128 x 128 store icon.
 - `screenshot-1280x800.png`: required extension screenshot.

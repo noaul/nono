@@ -1,11 +1,13 @@
 import {
   buildFolderGroups,
   buildQuickSavePayload,
+  buildUpdateBookmarkPayload,
   compactBookmarkName,
   findDuplicateLink,
   findFolderGroup,
   normalizeServerUrl,
   preferredFolderId,
+  serverOriginPattern,
   tokenExpiryText,
 } from '../shared/popup-workflow.js';
 import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
@@ -15,8 +17,12 @@ const settingsPanel = document.querySelector('#settings');
 const workflow = document.querySelector('#workflow');
 const details = document.querySelector('#details');
 const statusEl = document.querySelector('#status');
+const statusLine = document.querySelector('.status-line');
 const tokenStatusEl = document.querySelector('#tokenStatus');
+const connectionNote = document.querySelector('.connection-note');
 const duplicateWarningEl = document.querySelector('#duplicateWarning');
+const duplicateMessageEl = document.querySelector('#duplicateMessage');
+const duplicateActionButton = document.querySelector('#duplicateAction');
 const serverUrlInput = document.querySelector('#serverUrl');
 const tokenInput = document.querySelector('#token');
 const nameInput = document.querySelector('#name');
@@ -24,8 +30,12 @@ const descriptionInput = document.querySelector('#description');
 const categorySelect = document.querySelector('#categorySelect');
 const folderSelect = document.querySelector('#folderSelect');
 const saveButton = document.querySelector('#saveBookmark');
+const saveSettingsButton = document.querySelector('#saveSettings');
+const testConnectionButton = document.querySelector('#testConnection');
 const analyzeButton = document.querySelector('#analyzeBookmark');
+const refreshFoldersButton = document.querySelector('#refreshFolders');
 const toggleDetailsButton = document.querySelector('#toggleDetails');
+const versionLabel = document.querySelector('#versionLabel');
 
 let config = {};
 let pageInfo = null;
@@ -37,12 +47,13 @@ let nameMode = 'auto';
 
 document.querySelector('#settingsButton').addEventListener('click', openSettings);
 document.querySelector('#closeSettings').addEventListener('click', closeSettings);
-document.querySelector('#saveSettings').addEventListener('click', saveSettings);
-document.querySelector('#testConnection').addEventListener('click', () => testConnection());
-document.querySelector('#refreshFolders').addEventListener('click', refreshFolders);
-document.querySelector('#saveBookmark').addEventListener('click', saveBookmark);
-document.querySelector('#analyzeBookmark').addEventListener('click', analyzeBookmark);
-document.querySelector('#toggleDetails').addEventListener('click', toggleDetails);
+saveSettingsButton.addEventListener('click', saveSettings);
+testConnectionButton.addEventListener('click', testConnectionFromInputs);
+refreshFoldersButton.addEventListener('click', refreshFoldersFromButton);
+saveButton.addEventListener('click', saveBookmark);
+duplicateActionButton.addEventListener('click', updateDuplicateBookmark);
+analyzeButton.addEventListener('click', analyzeBookmark);
+toggleDetailsButton.addEventListener('click', toggleDetails);
 categorySelect.addEventListener('change', () => renderFolderOptions());
 languageSelect?.addEventListener('change', () => changeLanguage(languageSelect.value));
 nameInput.addEventListener('input', () => {
@@ -50,16 +61,18 @@ nameInput.addEventListener('input', () => {
   if (pageInfo) renderPagePreview();
 });
 
+versionLabel.textContent = `v${chrome.runtime.getManifest().version}`;
 applyTranslations();
 init();
 
-/** Re-renders every data-i18n hook; called on load and whenever the language changes. */
 function applyTranslations() {
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
   for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
   document.documentElement.lang = getLocale() === 'zh' ? 'zh-CN' : 'en';
   if (languageSelect) languageSelect.value = getLocale();
+  renderDetailsLabel();
+  renderDuplicateWarning();
 }
 
 async function changeLanguage(next) {
@@ -73,59 +86,129 @@ async function changeLanguage(next) {
 }
 
 async function init() {
-  config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId', LOCALE_STORAGE_KEY]);
-  // A stored choice wins; otherwise follow the browser UI language, then Chinese.
-  const stored = config[LOCALE_STORAGE_KEY];
-  setLocale(isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh');
-  applyTranslations();
-  serverUrlInput.value = config.serverUrl || 'https://noaul.com';
-  tokenInput.value = config.token || '';
-  if (!config.serverUrl || !config.token) {
+  try {
+    config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId', LOCALE_STORAGE_KEY]);
+    const stored = config[LOCALE_STORAGE_KEY];
+    setLocale(isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh');
+    applyTranslations();
+    serverUrlInput.value = config.serverUrl || 'http://localhost:3000';
+    tokenInput.value = config.token || '';
+
+    if (!config.serverUrl || !config.token) {
+      openSettings();
+      return;
+    }
+    if (!await hasServerPermission(config.serverUrl)) {
+      openSettings();
+      setTokenStatus(t('permissionRequired'), 'error');
+      return;
+    }
+    if (await testConnection(config)) await prepareQuickSave();
+    else openSettings();
+  } catch (error) {
     openSettings();
-    return;
+    setTokenStatus(error.message || t('connectFailed'), 'error');
   }
-  if (await testConnection()) await prepareQuickSave();
-  else openSettings();
+}
+
+function connectionFromInputs() {
+  const token = tokenInput.value.trim();
+  if (!token) throw new Error(t('needToken'));
+  return { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token };
 }
 
 async function saveSettings() {
+  setBusy(saveSettingsButton, true, t('savingSettings'));
+  let candidate = null;
+  let previousPattern = null;
+  let nextPattern = null;
   try {
-    config = { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token: tokenInput.value.trim() };
-    await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
-    if (await testConnection()) {
-      closeSettings();
-      await prepareQuickSave();
+    candidate = connectionFromInputs();
+    previousPattern = config.serverUrl ? serverOriginPattern(config.serverUrl) : null;
+    nextPattern = serverOriginPattern(candidate.serverUrl);
+    const granted = await requestServerPermission(candidate.serverUrl);
+    if (!granted) throw new Error(t('permissionDenied'));
+    if (!await testConnection(candidate)) {
+      if (nextPattern !== previousPattern) await chrome.permissions.remove({ origins: [nextPattern] });
+      return;
     }
+
+    config = candidate;
+    await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
+    if (previousPattern && previousPattern !== nextPattern) {
+      await chrome.permissions.remove({ origins: [previousPattern] });
+    }
+    closeSettings();
+    await prepareQuickSave();
   } catch (error) {
-    setTokenStatus(error.message || t('invalidServerUrl'));
+    if (nextPattern && nextPattern !== previousPattern) {
+      await chrome.permissions.remove({ origins: [nextPattern] }).catch(() => false);
+    }
+    setTokenStatus(error.message || t('invalidServerUrl'), 'error');
+  } finally {
+    setBusy(saveSettingsButton, false, t('saveAndStart'));
   }
 }
 
-async function testConnection() {
+async function testConnectionFromInputs() {
+  setBusy(testConnectionButton, true, t('connecting'));
+  let temporaryPattern = null;
+  try {
+    const candidate = connectionFromInputs();
+    const savedPattern = config.serverUrl ? serverOriginPattern(config.serverUrl) : null;
+    const candidatePattern = serverOriginPattern(candidate.serverUrl);
+    if (candidatePattern !== savedPattern) temporaryPattern = candidatePattern;
+    const granted = await requestServerPermission(candidate.serverUrl);
+    if (!granted) throw new Error(t('permissionDenied'));
+    await testConnection(candidate);
+  } catch (error) {
+    setTokenStatus(error.message || t('connectFailed'), 'error');
+  } finally {
+    if (temporaryPattern) await chrome.permissions.remove({ origins: [temporaryPattern] }).catch(() => false);
+    setBusy(testConnectionButton, false, t('testConnection'));
+  }
+}
+
+async function testConnection(connection = config) {
   setTokenStatus(t('connecting'));
   try {
     const [session, token] = await Promise.all([
-      request('/api/auth/session', undefined, 'GET'),
-      request('/api/admin/tokens/current', undefined, 'GET'),
+      request('/api/auth/session', undefined, 'GET', connection),
+      request('/api/admin/tokens/current', undefined, 'GET', connection),
     ]);
-    setTokenStatus(`${session.user?.displayName || session.user?.username || t('connected')} · ${tokenExpiryText(token)}`);
+    setTokenStatus(`${session.user?.displayName || session.user?.username || t('connected')} · ${tokenExpiryText(token)}`, 'success');
     return true;
   } catch (error) {
-    setTokenStatus(error.message || t('connectFailed'));
+    setTokenStatus(error.message || t('connectFailed'), 'error');
     return false;
   }
 }
 
 async function prepareQuickSave() {
   workflow.classList.remove('hidden');
+  settingsPanel.classList.add('hidden');
   setStatus(t('readingPage'));
   try {
     await Promise.all([refreshFolders(), readCurrentPage()]);
     duplicateLink = findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
-    setStatus(t('pickThenSave'));
+    setStatus(folderGroups.length ? t('pickThenSave') : t('noFolders'), folderGroups.length ? '' : 'error');
   } catch (error) {
     setStatus(error.message || t('cannotReadPage'), 'error');
+  }
+}
+
+async function refreshFoldersFromButton() {
+  refreshFoldersButton.disabled = true;
+  try {
+    await refreshFolders();
+    duplicateLink = pageInfo ? findDuplicateLink(links, pageInfo.url) : null;
+    renderDuplicateWarning();
+    setStatus(folderGroups.length ? t('foldersRefreshed') : t('noFolders'), folderGroups.length ? 'success' : 'error');
+  } catch (error) {
+    setStatus(error.message || t('refreshFailed'), 'error');
+  } finally {
+    refreshFoldersButton.disabled = false;
   }
 }
 
@@ -156,7 +239,13 @@ async function readCurrentPage() {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
   }
-  pageInfo = { url: tab.url, title: meta.title || tab.title || '', description: meta.description || '', content: meta.content || '', meta };
+  pageInfo = {
+    url: tab.url,
+    title: meta.title || tab.title || '',
+    description: meta.description || '',
+    content: meta.content || '',
+    meta,
+  };
   setAutoName(pageInfo.title);
   descriptionInput.value = pageInfo.description;
   renderPagePreview();
@@ -172,10 +261,9 @@ async function saveBookmark() {
   setBusy(saveButton, true, t('saving'));
   try {
     const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value });
-    await request('/api/admin/links', payload);
-    await chrome.storage.local.set({ lastFolderId: folderId });
-    config.lastFolderId = folderId;
-    links = [{ ...payload, id: `saved-${Date.now()}` }, ...links];
+    const created = await request('/api/admin/links', payload);
+    await rememberFolder(folderId);
+    links = [created, ...links];
     duplicateLink = findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
     setStatus(t('saved'), 'success');
@@ -183,7 +271,31 @@ async function saveBookmark() {
   } catch (error) {
     setStatus(error.message || t('saveFailed'), 'error');
   } finally {
-    setBusy(saveButton, false, t('saveThisPage'));
+    setBusy(saveButton, false, duplicateLink ? t('saveAnotherCopy') : t('saveThisPage'));
+  }
+}
+
+async function updateDuplicateBookmark() {
+  if (!pageInfo || !duplicateLink) return;
+  const folderId = folderSelect.value;
+  if (!folderId) {
+    setStatus(t('pickFolderFirst'), 'error');
+    return;
+  }
+  setBusy(duplicateActionButton, true, t('updating'));
+  try {
+    const payload = buildUpdateBookmarkPayload(pageInfo, { folderId, name: nameInput.value, description: descriptionInput.value });
+    const updated = await request(`/api/admin/links/${duplicateLink.id}`, payload, 'PUT');
+    links = links.map((link) => String(link.id) === String(updated.id) ? updated : link);
+    duplicateLink = updated;
+    await rememberFolder(folderId);
+    renderDuplicateWarning();
+    setStatus(t('updatedExisting'), 'success');
+    chrome.action.setBadgeText({ text: 'OK' });
+  } catch (error) {
+    setStatus(error.message || t('updateFailed'), 'error');
+  } finally {
+    setBusy(duplicateActionButton, false, t('updateExisting'));
   }
 }
 
@@ -209,6 +321,14 @@ async function analyzeBookmark() {
 
 function renderCategoryOptions() {
   categorySelect.innerHTML = '';
+  if (!folderGroups.length) {
+    addEmptyOption(categorySelect, t('noFoldersOption'));
+    addEmptyOption(folderSelect, t('noFoldersOption'));
+    categorySelect.disabled = true;
+    folderSelect.disabled = true;
+    saveButton.disabled = true;
+    return;
+  }
   for (const group of folderGroups) {
     const option = document.createElement('option');
     option.value = String(group.category.id);
@@ -217,6 +337,8 @@ function renderCategoryOptions() {
   }
   const selectedGroup = findFolderGroup(folderGroups, config.lastFolderId);
   if (selectedGroup) categorySelect.value = String(selectedGroup.category.id);
+  categorySelect.disabled = false;
+  saveButton.disabled = false;
   renderFolderOptions(config.lastFolderId);
 }
 
@@ -231,8 +353,16 @@ function renderFolderOptions(selectedFolderId = '') {
   }
   const target = preferredFolderId([activeGroup].filter(Boolean), selectedFolderId || config.lastFolderId);
   if (target) folderSelect.value = target;
-  categorySelect.disabled = !folderGroups.length;
   folderSelect.disabled = !folderSelect.options.length;
+  saveButton.disabled = !folderSelect.options.length;
+}
+
+function addEmptyOption(select, label) {
+  select.innerHTML = '';
+  const option = document.createElement('option');
+  option.value = '';
+  option.textContent = label;
+  select.appendChild(option);
 }
 
 function renderPagePreview() {
@@ -248,17 +378,26 @@ function setAutoName(value) {
 }
 
 function renderDuplicateWarning() {
+  if (!duplicateWarningEl || !saveButton) return;
   if (!duplicateLink) {
     duplicateWarningEl.classList.add('hidden');
-    duplicateWarningEl.textContent = '';
+    duplicateMessageEl.textContent = '';
+    if (!saveButton.disabled) saveButton.textContent = t('saveThisPage');
     return;
   }
-  duplicateWarningEl.textContent = t('duplicateWarning', { name: duplicateLink.name });
+  duplicateMessageEl.textContent = t('duplicateWarning', { name: duplicateLink.name });
   duplicateWarningEl.classList.remove('hidden');
+  if (!saveButton.disabled) saveButton.textContent = t('saveAnotherCopy');
 }
 
 function toggleDetails() {
-  const expanded = details.classList.toggle('hidden') === false;
+  details.classList.toggle('hidden');
+  renderDetailsLabel();
+}
+
+function renderDetailsLabel() {
+  if (!details || !toggleDetailsButton) return;
+  const expanded = !details.classList.contains('hidden');
   toggleDetailsButton.textContent = expanded ? t('collapse') : t('edit');
   toggleDetailsButton.setAttribute('aria-expanded', String(expanded));
 }
@@ -269,8 +408,12 @@ function openSettings() {
 }
 
 function closeSettings() {
+  if (!pageInfo) {
+    window.close();
+    return;
+  }
   settingsPanel.classList.add('hidden');
-  if (pageInfo) workflow.classList.remove('hidden');
+  workflow.classList.remove('hidden');
 }
 
 function setBusy(button, busy, label) {
@@ -280,23 +423,49 @@ function setBusy(button, busy, label) {
 
 function setStatus(message, type = '') {
   statusEl.textContent = message;
-  statusEl.className = `status${type ? ` ${type}` : ''}`;
+  statusLine.className = `status-line${type ? ` ${type}` : ''}`;
 }
 
-function setTokenStatus(message) {
+function setTokenStatus(message, type = '') {
   tokenStatusEl.textContent = message;
+  connectionNote.className = `connection-note${type ? ` ${type}` : ''}`;
 }
 
-async function request(path, body, method = 'POST') {
-  const response = await fetch(`${normalizeServerUrl(config.serverUrl)}${path}`, {
-    method,
-    headers: {
-      authorization: `Bearer ${config.token}`,
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  const payload = await response.json();
-  if (payload.code !== 0) throw new Error(payload.message || t('requestFailed'));
-  return payload.data;
+async function rememberFolder(folderId) {
+  await chrome.storage.local.set({ lastFolderId: folderId });
+  config.lastFolderId = folderId;
+}
+
+async function hasServerPermission(serverUrl) {
+  return chrome.permissions.contains({ origins: [serverOriginPattern(serverUrl)] });
+}
+
+async function requestServerPermission(serverUrl) {
+  return chrome.permissions.request({ origins: [serverOriginPattern(serverUrl)] });
+}
+
+async function request(path, body, method = 'POST', connection = config) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(`${normalizeServerUrl(connection.serverUrl)}${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        authorization: `Bearer ${connection.token}`,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.code !== 0) {
+      throw new Error(payload?.message || `${t('requestFailed')} (${response.status})`);
+    }
+    return payload.data;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(t('requestTimedOut'));
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }

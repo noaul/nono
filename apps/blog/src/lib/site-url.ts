@@ -1,4 +1,4 @@
-export const DEFAULT_SITE_URL = 'https://aodo.me'
+export const DEFAULT_SITE_URL = 'http://localhost:3000/nodesk'
 
 interface SiteUrlEnvironment {
 	NEXT_PUBLIC_SITE_URL?: string

@@ -2,7 +2,7 @@
 import { useI18n } from '@/composables/useI18n';
 
 const { t } = useI18n();
-const updatedAt = '2026-07-16';
+const updatedAt = '2026-08-14';
 </script>
 
 <template>

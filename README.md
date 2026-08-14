@@ -206,7 +206,7 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.2.2.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.0.zip
 ```
 
 开发安装时在 `chrome://extensions/` 开启开发者模式并加载 `packages/extension/dist`。正式发布前：
@@ -217,7 +217,7 @@ packages/extension/artifacts/nono-quick-bookmark-chrome-v0.2.2.zip
 4. 上传 `artifacts/` 中的 ZIP，检查权限说明、隐私披露和版本号后提交审核。
 5. 在 Nono 后台创建插件专用的可过期 API Token；不要复用管理员密码或长期 Token。
 
-插件 Token 保存在 `chrome.storage.local`，请求只发往用户配置的 Nono 地址。公网地址必须使用 HTTPS。完整权限、配置和快捷键说明见 [插件文档](packages/extension/README.md)。
+插件 Token 保存在 `chrome.storage.local`，请求只发往用户配置的 Nono 地址。公网地址必须使用 HTTPS。`0.3.0` 起不再为所有网页注册常驻内容脚本，页面元数据仅在用户主动收藏时按需读取；服务访问权限也只为用户配置的精确 NoNo 来源授权。完整权限、配置、快捷键和商店提交文案见 [插件文档](packages/extension/README.md) 与 [Chrome Web Store 提交清单](packages/extension/CHROME_WEB_STORE.md)。
 
 ## 数据迁移
 

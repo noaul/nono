@@ -23,6 +23,11 @@ export function normalizeServerUrl(value) {
   return url.href.replace(/\/+$/, '');
 }
 
+export function serverOriginPattern(value) {
+  const url = new URL(normalizeServerUrl(value));
+  return `${url.origin}/*`;
+}
+
 export function normalizeBookmarkUrl(value) {
   try {
     return new URL(String(value || '').trim()).href.toLowerCase();
@@ -84,6 +89,11 @@ export function buildQuickSavePayload(pageInfo, fields) {
     url: pageInfo.url,
     description: String(fields.description || pageInfo.description || '').trim(),
   };
+}
+
+export function buildUpdateBookmarkPayload(pageInfo, fields) {
+  const { nameMode: _nameMode, ...payload } = buildQuickSavePayload(pageInfo, fields);
+  return payload;
 }
 
 export function compactBookmarkName(value, rawUrl) {

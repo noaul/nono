@@ -2,10 +2,16 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extName__",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "__MSG_extDescription__",
   "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*"
+  ],
+  "homepage_url": "https://github.com/noaul/nono",
   "action": {
     "default_title": "__MSG_actionTitle__",
     "default_popup": "popup/popup.html",
@@ -41,12 +47,5 @@
       },
       "description": "__MSG_commandQuickSave__"
     }
-  },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ]
+  }
 }

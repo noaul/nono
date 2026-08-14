@@ -1,11 +1,11 @@
 import { LOCALE_STORAGE_KEY, isLocale, localeFromUiLanguage, setLocale, t } from './shared/i18n.js';
-import { normalizeServerUrl } from './shared/popup-workflow.js';
+import { normalizeServerUrl, serverOriginPattern } from './shared/popup-workflow.js';
 
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
 const OPEN_MENU_ID = 'nono-open-save';
 
 chrome.runtime.onInstalled.addListener(async () => {
-  chrome.action.setBadgeBackgroundColor({ color: '#5c67e8' });
+  chrome.action.setBadgeBackgroundColor({ color: '#167d86' });
   await syncContextMenus();
 });
 
@@ -53,6 +53,10 @@ async function quickSave(tab) {
   if (!tab.url || !/^https?:/.test(tab.url)) return;
   const { serverUrl, token, lastFolderId } = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId']);
   if (!serverUrl || !token || !lastFolderId) {
+    await chrome.action.openPopup();
+    return;
+  }
+  if (!await chrome.permissions.contains({ origins: [serverOriginPattern(serverUrl)] })) {
     await chrome.action.openPopup();
     return;
   }

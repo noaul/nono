@@ -1,8 +1,8 @@
 {
 	"meta": {
 		"title": "NoDesk",
-		"description": "U1S1",
-		"username": "Austin",
+		"description": "A self-hosted space for notes and ideas",
+		"username": "NoNo",
 		"avatarUrl": "/images/avatar.png"
 	},
 	"portal": {
@@ -42,22 +42,8 @@
 		{
 			"id": "github",
 			"type": "github",
-			"value": "https://github.com/auaodo",
-			"label": "Github",
-			"order": 3
-		},
-		{
-			"id": "faint-light",
-			"type": "link",
-			"value": "https://aodo.me",
-			"label": "微光",
-			"order": 2
-		},
-		{
-			"id": "email",
-			"type": "email",
-			"value": "auaodo@gmail.com",
-			"label": "",
+			"value": "https://github.com/noaul/nono",
+			"label": "GitHub",
 			"order": 1
 		}
 	],

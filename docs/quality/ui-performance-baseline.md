@@ -78,13 +78,13 @@ The public entry CSS decreased by 41,875 bytes (61.1%). Admin rules are now emit
 
 ## Live RN 8188 Acceptance
 
-This acceptance used the live application, Fastify/Prisma request path, and RN PostgreSQL data store at `http://192.129.159.194:8188`.
+This acceptance used a live application, Fastify/Prisma request path, and PostgreSQL data store. The production address has been replaced with the documentation-only address `http://203.0.113.10:8188`.
 
 ### Environment
 
 | Field | Value |
 | --- | --- |
-| Base URL | `http://192.129.159.194:8188` |
+| Base URL | `http://203.0.113.10:8188` (redacted example) |
 | Acceptance date and time | `2026-07-12 12:28, Asia/Shanghai` |
 | Deployed commit | `394849efdc1c05a9592a28a26fab89a511dc7e0a` |
 | Browser and version | Chromium `149.0.7827.55` via Playwright `1.61.1` |

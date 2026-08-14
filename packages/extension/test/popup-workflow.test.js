@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { buildFolderGroups, buildQuickSavePayload, compactBookmarkName, findDuplicateLink, findFolderGroup, normalizeServerUrl, preferredFolderId, tokenExpiryText } from '../shared/popup-workflow.js';
+import {
+  buildFolderGroups,
+  buildQuickSavePayload,
+  buildUpdateBookmarkPayload,
+  compactBookmarkName,
+  findDuplicateLink,
+  findFolderGroup,
+  normalizeServerUrl,
+  preferredFolderId,
+  serverOriginPattern,
+  tokenExpiryText,
+} from '../shared/popup-workflow.js';
 
 describe('extension popup workflow helpers', () => {
   it('accepts HTTPS servers and loopback HTTP development servers', () => {
@@ -14,6 +25,11 @@ describe('extension popup workflow helpers', () => {
     expect(() => normalizeServerUrl('ftp://example.com')).toThrow('HTTPS');
     expect(() => normalizeServerUrl('not a url')).toThrow('有效');
     expect(() => normalizeServerUrl('')).toThrow('服务地址');
+  });
+
+  it('grants access only to the configured NoNo origin', () => {
+    expect(serverOriginPattern('https://nono.example/path')).toBe('https://nono.example/*');
+    expect(serverOriginPattern('http://localhost:3000/')).toBe('http://localhost:3000/*');
   });
 
   it('describes token expiry state', () => {
@@ -52,6 +68,15 @@ describe('extension popup workflow helpers', () => {
     );
 
     expect(payload).toEqual({ folderId: 2, name: 'Custom', nameMode: 'auto', url: 'https://example.com/', description: 'Desc' });
+  });
+
+  it('builds an update payload for an existing duplicate', () => {
+    const payload = buildUpdateBookmarkPayload(
+      { url: 'https://example.com/', title: 'Example', description: 'Page description' },
+      { folderId: '4', name: 'Updated', description: 'Fresh description' },
+    );
+
+    expect(payload).toEqual({ folderId: 4, name: 'Updated', url: 'https://example.com/', description: 'Fresh description' });
   });
 
   it('compacts page titles into recognizable bookmark names', () => {
