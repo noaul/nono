@@ -7,6 +7,7 @@ import type { NotificationService } from './services/notification.service.js';
 import type { BackupAutomationService } from './services/backup-automation.service.js';
 import type { AuditLogService } from './services/audit.service.js';
 import type { NoMoneyClient } from './services/nomoney-client.js';
+import type { BackupCenterService } from './services/backup-center.service.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
@@ -38,6 +39,7 @@ export interface AppServices {
   webAuthnOrigin: string | null;
   backupService: BackupService;
   backupAutomationService: BackupAutomationService;
+  backupCenterService: BackupCenterService;
   auditLogService: AuditLogService;
   notificationService: NotificationService;
   noMoneyClient: NoMoneyClient;

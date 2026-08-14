@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -24,6 +25,7 @@ import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
 import { passkeyRoutes } from './routes/passkeys.js';
 import { backupRoutes } from './routes/admin/backups.js';
+import { backupCenterRoutes } from './routes/admin/backup-center.js';
 import { notificationRoutes } from './routes/admin/notifications.js';
 import { auditRoutes } from './routes/admin/audit.js';
 import { trashRoutes } from './routes/admin/trash.js';
@@ -33,7 +35,7 @@ import { createPrismaRepository } from './services/prisma.repository.js';
 import type { AppServices, LlmClient, ReadinessChecks } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
-import { createBackupServiceFromEnv } from './services/backup.service.js';
+import { createBackupServiceFromEnv, type BackupRecord, type BackupService } from './services/backup.service.js';
 import { createBackupAutomationService } from './services/backup-automation.service.js';
 import { registerBackupAutomationScheduler } from './services/backup-automation.scheduler.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
@@ -41,6 +43,8 @@ import { createNoMoneyDueReader, createNotificationService, createYumiDueReader 
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
 import { createNoMoneyClient } from './services/nomoney-client.js';
+import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
+import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -50,8 +54,21 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const repo = overrides.repo || createPrismaRepository(prisma);
   const safeRequester = overrides.safeRequester || requestSafeResource;
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
+  const encryptionKey = resolveEncryptionKey(overrides.encryptionKey);
+  const privateOutboundHosts = overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS);
   const backupService = overrides.backupService || createBackupServiceFromEnv(nodeskContentDir);
-  const backupAutomationService = overrides.backupAutomationService || createBackupAutomationService({ repo, backupService });
+  const backupCenterService = overrides.backupCenterService || createBackupCenterService({
+    repo,
+    encryptionKey,
+    sourceCommit: process.env.NONO_BUILD_COMMIT || 'unknown',
+    adapters: createBackupModuleAdapters({ prisma, encryptionKey, nodeskContentDir }),
+    request: safeRequester,
+    allowPrivateHosts: privateOutboundHosts,
+  });
+  const backupAutomationService = overrides.backupAutomationService || createBackupAutomationService({
+    repo,
+    backupService: overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma),
+  });
   const auditLogService = overrides.auditLogService || createAuditLogService(repo);
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
@@ -66,19 +83,20 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     prisma,
     repo,
     sessionSecret: resolveSessionSecret(overrides.sessionSecret),
-    encryptionKey: resolveEncryptionKey(overrides.encryptionKey),
+    encryptionKey,
     nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
     publicFetcher: overrides.publicFetcher || fetchPublicResource,
     publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
     safeRequester,
-    privateOutboundHosts: overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS),
+    privateOutboundHosts,
     webAuthn: overrides.webAuthn || defaultWebAuthnService,
     webAuthnRpName: overrides.webAuthnRpName || process.env.WEBAUTHN_RP_NAME || 'NoNo',
     webAuthnRpId: overrides.webAuthnRpId || process.env.WEBAUTHN_RP_ID || null,
     webAuthnOrigin: overrides.webAuthnOrigin || resolvePublicOrigin(process.env.WEBAUTHN_ORIGIN || process.env.NONO_PUBLIC_URL),
     backupService,
     backupAutomationService,
+    backupCenterService,
     auditLogService,
     notificationService,
     noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
@@ -164,6 +182,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await userRoutes(app, services);
   await accountRoutes(app, services);
   await backupRoutes(app, services);
+  await backupCenterRoutes(app, services);
   await notificationRoutes(app, services);
   await auditRoutes(app, services);
   await metaRoutes(app, services);
@@ -233,6 +252,46 @@ function envOrThrow(name: string) {
   if (value && value !== 'change-me-in-production') return value;
   if (process.env.NODE_ENV === 'production') throw new Error(`${name} must be configured in production`);
   return 'dev-only-session-secret-change-me';
+}
+
+function webDavAutomationTarget(center: BackupCenterService, prisma: PrismaClient): BackupService {
+  async function adminUserId() {
+    const user = await prisma.user.findFirst({ where: { role: 'admin' }, orderBy: { id: 'asc' }, select: { id: true } });
+    if (!user) throw Object.assign(new Error('An administrator account is required for automatic WebDAV backup'), { statusCode: 503 });
+    return user.id;
+  }
+  const toRecord = (batch: BackupBatchManifest): BackupRecord => {
+    const modules = Object.values(batch.modules).filter(Boolean);
+    const serialized = JSON.stringify(batch);
+    return {
+      kind: 'nono.full-backup',
+      version: 2,
+      id: batch.id,
+      filename: `${batch.id}.json`,
+      createdAt: batch.createdAt,
+      sourceCommit: batch.sourceCommit,
+      size: modules.reduce((sum, item) => sum + Number(item?.size || 0), 0),
+      sha256: createHash('sha256').update(serialized).digest('hex'),
+      status: 'verified',
+      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+      componentRecords: {},
+    };
+  };
+  return {
+    list: async () => (await center.getWebDavConfig()).passwordConfigured
+      ? (await center.listWebDavBatches()).map(toRecord)
+      : [],
+    create: async () => toRecord(await center.backupToWebDav(await adminUserId())),
+    remove: (id) => center.removeWebDavBatch(id),
+    verify: async (id) => {
+      const record = (await center.listWebDavBatches()).find((item) => item.id === id);
+      if (!record) throw Object.assign(new Error('WebDAV backup not found'), { statusCode: 404 });
+      return toRecord(record);
+    },
+    drill: async () => { throw Object.assign(new Error('WebDAV drill restore is not available through the legacy API'), { statusCode: 400 }); },
+    restore: async () => { throw Object.assign(new Error('Use the backup center restore API'), { statusCode: 400 }); },
+    resolveDownload: async () => { throw Object.assign(new Error('Use the backup center local download API'), { statusCode: 400 }); },
+  };
 }
 
 function resolveSessionSecret(override: string | undefined) {

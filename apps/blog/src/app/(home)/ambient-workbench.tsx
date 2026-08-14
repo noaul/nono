@@ -47,6 +47,7 @@ import {
 	type WorkbenchSearchItem,
 	type WorkbenchTask
 } from './ambient-workbench-model'
+import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter } from './ambient-settings-center'
 import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 
@@ -193,6 +194,7 @@ export default function AmbientWorkbench() {
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
 	const activeDockItem = activePanel ? DOCK_ITEMS.find(item => item.id === activePanel) : undefined
+	const plannerOpen = activePanel === 'tasks' || activePanel === 'calendar'
 	const [searchOpen, setSearchOpen] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
@@ -672,14 +674,14 @@ export default function AmbientWorkbench() {
 					<motion.section
 						key={activePanel}
 						ref={panelRef}
-						className='ambient-panel ambient-wakeable'
+						className={`ambient-panel ambient-wakeable${plannerOpen ? ' is-planner' : ''}`}
 						initial={reducedMotion ? { x: '-50%' } : { opacity: 0, x: '-50%', y: 18, scale: 0.98 }}
 						animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
 						exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.985 }}
 						transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
 						aria-label={`${panelTitle(activePanel)}面板`}>
 						<div className='ambient-panel-heading'>
-							<h2>{panelTitle(activePanel)}</h2>
+							<h2>{plannerOpen ? '日程与任务' : panelTitle(activePanel)}</h2>
 							<div className='ambient-panel-tools'>
 								{activeDockItem?.shortcutHref && activeDockItem.shortcutLabel && (
 									<a className='ambient-small-icon' href={activeDockItem.shortcutHref} title={activeDockItem.shortcutLabel} aria-label={activeDockItem.shortcutLabel}>
@@ -720,8 +722,10 @@ export default function AmbientWorkbench() {
 								/>)}
 							</IntegrationList>}
 
-							{activePanel === 'tasks' && (
-								<div className='ambient-local-tool'>
+							{(activePanel === 'tasks' || activePanel === 'calendar') && (
+								<div className='ambient-planner-grid'>
+								<section className={`ambient-local-tool ambient-planner-section${activePanel === 'tasks' ? ' is-focused' : ''}`} aria-label='任务'>
+									<div className='ambient-planner-section-heading'><ListTodo size={17} /><strong>任务</strong><span>{tasks.filter(task => !task.completed).length} 项待完成</span></div>
 									<form className='ambient-add-row' onSubmit={addTask}>
 										<input value={taskTitle} onChange={event => setTaskTitle(event.target.value)} placeholder='添加一件要做的事' maxLength={180} aria-label='任务标题' />
 										<button type='submit' className='ambient-add-button' aria-label='添加任务'><Plus size={18} /></button>
@@ -735,15 +739,13 @@ export default function AmbientWorkbench() {
 											</div>
 										)) : <EmptyState copy='今天还没有任务。' />}
 									</div>
-								</div>
-							)}
+								</section>
 
-							{activePanel === 'calendar' && (
-								<div className='ambient-local-tool'>
+								<section className={`ambient-local-tool ambient-planner-section${activePanel === 'calendar' ? ' is-focused' : ''}`} aria-label='日程'>
+									<div className='ambient-planner-section-heading'><CalendarDays size={17} /><strong>日程</strong><span>{events.length} 项安排</span></div>
 									<form className='ambient-event-form' onSubmit={addEvent}>
 										<input className='ambient-event-title' value={eventTitle} onChange={event => setEventTitle(event.target.value)} placeholder='添加日程' maxLength={180} aria-label='日程标题' />
-										<input type='date' value={eventDate} onChange={event => setEventDate(event.target.value)} aria-label='日程日期' />
-										<input type='time' value={eventTime} onChange={event => setEventTime(event.target.value)} aria-label='日程时间' />
+										<AmbientDateTimePicker date={eventDate} time={eventTime} onDateChange={setEventDate} onTimeChange={setEventTime} />
 										<button type='submit' className='ambient-add-button' aria-label='添加日程'><Plus size={18} /></button>
 									</form>
 									<div className='ambient-list'>
@@ -755,6 +757,7 @@ export default function AmbientWorkbench() {
 											</div>
 										)) : <EmptyState copy='日历仍是一片留白。' />}
 									</div>
+								</section>
 								</div>
 							)}
 

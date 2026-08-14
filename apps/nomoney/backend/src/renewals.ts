@@ -222,7 +222,7 @@ export function updateVpsRenewalExpense(context: AppContext, vpsId: number, rene
   return { renewal: mapRenewal({ ...renewal, amount_minor_units: amountMinorUnits }) };
 }
 
-function requireInternalToken(context: AppContext): RequestHandler {
+export function requireInternalToken(context: AppContext): RequestHandler {
   return (req, res, next) => {
     const expected = context.internalToken;
     const supplied = req.get('x-nono-internal-token') || '';

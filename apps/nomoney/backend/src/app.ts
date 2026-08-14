@@ -8,7 +8,7 @@ import { registerExpenseRoutes } from './expenses.js';
 import { registerDashboardRoutes } from './dashboard.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerReminderRoutes } from './reminders.js';
-import { buildEncryptedBackupEnvelope, registerBackupRoutes } from './backup.js';
+import { buildEncryptedBackupEnvelope, registerBackupRoutes, registerInternalBackupRoutes } from './backup.js';
 import { registerAccountRoutes } from './accounts.js';
 import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
@@ -32,6 +32,7 @@ export function createApp(context: AppContext) {
       }
     })
   );
+  app.use('/api/internal/backup', express.json({ limit: '64mb' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
@@ -53,6 +54,7 @@ export function createApp(context: AppContext) {
     }
   });
   registerAuthRoutes(api, context);
+  registerInternalBackupRoutes(api, context);
   if (product !== 'nomoney') registerInternalRenewalRoutes(api, context);
 
   api.use(requireAuth(context));

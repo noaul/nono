@@ -209,8 +209,9 @@ test('uses a wider lower search trigger and links integration panels to their pr
 test('adds a hover app switcher and a dock settings center with independent backups', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
+	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
-	const source = `${workbench}\n${settings}`
+	const source = `${workbench}\n${settings}\n${backupCenter}`
 
 	assert.match(source, /className=\{`ambient-app-switcher/)
 	assert.match(source, /onMouseEnter=.*setAppSwitcherOpen\(true\)/)
@@ -219,14 +220,31 @@ test('adds a hover app switcher and a dock settings center with independent back
 	assert.match(source, /桌面/)
 	assert.match(source, /备份与恢复/)
 	assert.match(source, /quickEntriesVisible/)
-	assert.match(source, /\/api\/admin\/backups/)
-	assert.match(source, /\/api\/nostar\/sync\/export/)
-	assert.match(source, /\/nomoney\/api\/export\/json/)
-	assert.match(source, /\/yumi\/api\/export\/json/)
+	assert.match(source, /\/api\/admin\/backup-center\/webdav\/backups/)
+	assert.match(source, /\/api\/admin\/backup-center\/webdav\/restore/)
+	assert.match(source, /\/api\/admin\/backup-center\/local/)
 	assert.match(styles, /\.ambient-app-switcher[\s\S]*left: 50%/)
 	assert.match(styles, /\.ambient-app-switcher:not\(:hover\):not\(:focus-within\)/)
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 	assert.match(styles, /\.ambient-settings-dialog/)
 	assert.match(settings, /event\.key !== 'Tab'/)
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
+})
+
+test('keeps schedules and tasks visible together with a project-styled date time picker', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const picker = await read('src/app/(home)/ambient-date-time-picker.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /activePanel === 'tasks' \|\| activePanel === 'calendar'/)
+	assert.match(workbench, /ambient-planner-grid/)
+	assert.match(workbench, /AmbientDateTimePicker/)
+	assert.doesNotMatch(workbench, /type='date'/)
+	assert.doesNotMatch(workbench, /type='time'/)
+	assert.match(picker, /ambient-date-time-popover/)
+	assert.match(picker, /上个月/)
+	assert.match(picker, /选择小时/)
+	assert.match(styles, /\.ambient-planner-grid/)
+	assert.match(styles, /\.ambient-date-time-popover/)
+	assert.match(styles, /\.ambient-panel\.is-planner:has\(\.ambient-date-time-popover\)/)
 })

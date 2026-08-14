@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
 const archive = path.join(root, 'artifacts', `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
+const unpacked = path.join(root, 'artifacts', `nono-quick-bookmark-chrome-v${manifest.version}`);
 
 describe('extension release package', () => {
   it('keeps background context menus in sync with the saved locale', async () => {
@@ -54,6 +55,17 @@ describe('extension release package', () => {
     expect(styles).toContain('@media (prefers-reduced-transparency: reduce)');
   });
 
+  it('keeps the popup inside one rounded frosted viewport without an inner scrollbar', async () => {
+    const styles = await readFile(path.join(root, 'popup', 'popup.css'), 'utf8');
+
+    expect(styles).toMatch(/html\s*\{[^}]*border-radius:\s*18px/s);
+    expect(styles).toMatch(/body\s*\{[^}]*background:\s*rgba\(255,\s*255,\s*255,/s);
+    expect(styles).toMatch(/body\s*\{[^}]*overflow:\s*hidden/s);
+    expect(styles).toMatch(/\.popup\s*\{[^}]*max-height:\s*600px/s);
+    expect(styles).toMatch(/\.popup\s*\{[^}]*overflow:\s*hidden/s);
+    expect(styles).not.toMatch(/\.popup\s*\{[^}]*overflow-y:\s*auto/s);
+  });
+
   it('builds a Chrome Web Store ZIP archive', async () => {
     await rm(path.join(root, 'artifacts'), { recursive: true, force: true });
     const result = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });
@@ -62,6 +74,7 @@ describe('extension release package', () => {
     const content = await readFile(archive);
     expect(content.subarray(0, 4).toString('hex')).toBe('504b0304');
     expect(content.length).toBeGreaterThan(10_000);
+    expect(JSON.parse(await readFile(path.join(unpacked, 'manifest.json'), 'utf8')).version).toBe(manifest.version);
   });
 
   it('produces the same archive bytes on repeated builds', async () => {

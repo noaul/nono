@@ -21,6 +21,8 @@ if (packageJson.version !== manifest.version) {
 
 await fs.rm(artifacts, { recursive: true, force: true });
 await fs.mkdir(artifacts, { recursive: true });
+const unpackedPath = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}`);
+await fs.cp(dist, unpackedPath, { recursive: true });
 const outputPath = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
 const files = await listFiles(dist);
 const entries = [];
@@ -46,7 +48,7 @@ const content = await fs.readFile(outputPath);
 if (content.length < 4 || content.subarray(0, 4).toString('hex') !== '504b0304') {
   throw new Error('Extension package is not a valid ZIP archive');
 }
-console.log(`Packaged extension into ${outputPath}`);
+console.log(`Packaged extension into ${unpackedPath} and ${outputPath}`);
 
 async function listFiles(directory, prefix = '') {
   const entries = await fs.readdir(path.join(directory, prefix), { withFileTypes: true });

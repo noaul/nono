@@ -130,7 +130,7 @@ Recommended certifications:
 **Package**
 
 ```text
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.0.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1.zip
 ```
 
 **Store icon**
@@ -160,5 +160,5 @@ packages/extension/store-assets/promo-marquee-1400x560.png
 ## Release Notes
 
 ```text
-Version 0.3.0 introduces a HyperOS-inspired frosted-glass popup, duplicate bookmark updates, clearer loading and empty states, project/version links, request timeouts, and narrower privacy permissions. Page metadata is now extracted only after an explicit user action, and server access is granted only to the configured NoNo origin.
+Version 0.3.1 refines the HyperOS-inspired popup with a rounded clipped window, a white translucent frosted background, and a compact single-screen layout that removes internal scrolling while keeping quick save, duplicate handling, project links, and version details immediately accessible.
 ```

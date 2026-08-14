@@ -253,4 +253,26 @@ describe('backup APIs', () => {
 
     expect(context.db.all('SELECT asset_type FROM renewal_events')).toEqual([{ asset_type: 'vps' }]);
   });
+
+  test('exposes product-scoped backup and restore only to the internal Nono service token', async () => {
+    const { context, app } = await setupAgent('yumi');
+    const request = (await import('supertest')).default;
+    context.db.run("INSERT INTO vps (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (20, 'before', 1, 'USD', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
+
+    expect((await request(app).get('/api/internal/backup')).status).toBe(401);
+
+    const exported = await request(app)
+      .get('/api/internal/backup')
+      .set('x-nono-internal-token', 'test-internal-token');
+    expect(exported.status).toBe(200);
+    expect(exported.body).toMatchObject({ product: 'yumi', version: 2 });
+
+    context.db.run("UPDATE vps SET name = 'changed' WHERE id = 20");
+    const restored = await request(app)
+      .post('/api/internal/backup/restore')
+      .set('x-nono-internal-token', 'test-internal-token')
+      .send(exported.body);
+    expect(restored.status).toBe(200);
+    expect(context.db.get<{ name: string }>('SELECT name FROM vps WHERE id = 20')).toEqual({ name: 'before' });
+  });
 });

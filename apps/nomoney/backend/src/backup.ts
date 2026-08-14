@@ -6,6 +6,7 @@ import { getSettings, type Settings } from './settings.js';
 import { toIsoDateTime } from './utils.js';
 import { migrateStoredSecrets } from './secret-migration.js';
 import { requestOutbound } from './outbound-request.js';
+import { requireInternalToken } from './renewals.js';
 
 type BackupRow = Record<string, unknown>;
 
@@ -172,6 +173,19 @@ export function registerBackupRoutes(router: Router, context: AppContext): void 
       res.json({ ok: true, target, counts });
     })
   );
+}
+
+export function registerInternalBackupRoutes(router: Router, context: AppContext): void {
+  router.get('/internal/backup', requireInternalToken(context), (_req, res) => {
+    res.json(buildBackupPayload(context));
+  });
+
+  router.post('/internal/backup/restore', requireInternalToken(context), (req, res) => {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw new HttpError(400, 'INVALID_BACKUP', 'Backup must be a JSON object');
+    }
+    res.json({ ok: true, counts: restoreBackupPayload(context, req.body as Record<string, unknown>) });
+  });
 }
 
 export function buildBackupPayload(context: AppContext): Record<string, unknown> {

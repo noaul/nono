@@ -6,14 +6,21 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 
 test('keeps every backup control inside the NoDesk settings center', async () => {
 	const source = await read('src/app/(home)/ambient-settings-center.tsx')
+	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
 
-	assert.match(source, /\/api\/admin\/backups\/automation/)
-	assert.match(source, /method:\s*'PUT'/)
-	assert.match(source, /method:\s*'DELETE'/)
-	assert.match(source, /backup-max-count/)
-	assert.match(source, /backup-retention-days/)
-	assert.match(source, /\/api\/nostar\/configs\/webdav/)
-	assert.match(source, /\/api\/nostar\/proxy\/webdav/)
+	assert.match(source, /AmbientBackupCenter/)
+	assert.match(backupCenter, /\/api\/admin\/backups\/automation/)
+	assert.match(backupCenter, /\/api\/admin\/backup-center\/webdav\/config/)
+	assert.match(backupCenter, /\/api\/admin\/backup-center\/webdav\/backups/)
+	assert.match(backupCenter, /\/api\/admin\/backup-center\/webdav\/restore/)
+	assert.match(backupCenter, /\/api\/admin\/backup-center\/local\/\$\{localRestoreModule\}\/restore/)
+	assert.match(backupCenter, /nono[\s\S]*nodesk[\s\S]*nostar[\s\S]*nomoney[\s\S]*yumi/)
+	assert.match(backupCenter, /\/nono\/batches\//)
+	assert.match(backupCenter, /WebDAV 备份|WebDAV/)
+	assert.match(backupCenter, /本地备份/)
+	assert.match(backupCenter, /备份与恢复[\s\S]*自动备份[\s\S]*历史记录[\s\S]*连接设置/)
+	assert.doesNotMatch(backupCenter, /\/api\/nostar\/configs\/webdav/)
+	assert.doesNotMatch(backupCenter, /<span>备份目录<\/span>\s*<input/)
 	assert.doesNotMatch(source, /href=['"]\/admin\/backups/)
 })
 
