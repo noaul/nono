@@ -13,6 +13,10 @@ export type WorkbenchEvent = {
 	note?: string
 }
 
+export type WorkbenchUpcomingItem =
+	| { id: string; kind: 'task'; title: string; detail: string }
+	| { id: string; kind: 'event'; title: string; detail: string }
+
 export type WorkbenchSearchItem = {
 	id: string
 	kind: 'task' | 'bookmark' | 'repository' | 'event'
@@ -90,6 +94,30 @@ export function normalizeEvents(value: unknown): WorkbenchEvent[] {
 
 export function toggleTask(tasks: WorkbenchTask[], id: string): WorkbenchTask[] {
 	return tasks.map(task => (task.id === id ? { ...task, completed: !task.completed } : task))
+}
+
+export function selectUpcomingItems(tasks: WorkbenchTask[], events: WorkbenchEvent[], limit = 3): WorkbenchUpcomingItem[] {
+	const maximum = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 3
+	const pendingTasks = tasks.filter(task => !task.completed)
+	const items: WorkbenchUpcomingItem[] = []
+	let taskIndex = 0
+	let eventIndex = 0
+
+	while (items.length < maximum && (taskIndex < pendingTasks.length || eventIndex < events.length)) {
+		const task = pendingTasks[taskIndex]
+		if (task && items.length < maximum) {
+			items.push({ id: task.id, kind: 'task', title: task.title, detail: '任务' })
+			taskIndex += 1
+		}
+
+		const event = events[eventIndex]
+		if (event && items.length < maximum) {
+			items.push({ id: event.id, kind: 'event', title: event.title, detail: `${event.date} · ${event.time}` })
+			eventIndex += 1
+		}
+	}
+
+	return items
 }
 
 export function filterWorkbenchItems(query: string, items: WorkbenchSearchItem[], limit = 8): WorkbenchSearchItem[] {

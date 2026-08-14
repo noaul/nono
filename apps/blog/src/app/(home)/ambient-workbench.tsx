@@ -40,6 +40,7 @@ import {
 	normalizeEvents,
 	normalizeTasks,
 	getShanghaiClockParts,
+	selectUpcomingItems,
 	shanghaiDateKey,
 	sortCommonBookmarks,
 	toggleTask,
@@ -194,7 +195,6 @@ export default function AmbientWorkbench() {
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
 	const activeDockItem = activePanel ? DOCK_ITEMS.find(item => item.id === activePanel) : undefined
-	const plannerOpen = activePanel === 'tasks' || activePanel === 'calendar'
 	const [searchOpen, setSearchOpen] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
@@ -406,6 +406,7 @@ export default function AmbientWorkbench() {
 		const closePanelFromOutside = (event: PointerEvent) => {
 			const target = event.target
 			if (!(target instanceof Node)) return
+			if (target instanceof Element && target.closest('[data-ambient-floating]')) return
 			if (panelRef.current?.contains(target) || dockRef.current?.contains(target)) return
 			setActivePanel(null)
 		}
@@ -488,13 +489,11 @@ export default function AmbientWorkbench() {
 	const yumiItems = useMemo(() => notifications.filter(item => item.source === 'yumi'), [notifications])
 	const incompleteTasks = useMemo(() => tasks.filter(task => !task.completed), [tasks])
 	const upcomingEvents = useMemo(() => events.filter(event => `${event.date} ${event.time}` >= `${localDateKey(now)} ${shanghaiClock.hour}:${shanghaiClock.minute}`), [events, now, shanghaiClock.hour, shanghaiClock.minute])
-	const currentItem = focusRunning
-		? { label: '正在专注', title: formatFocusDuration(focusRemaining), detail: `${focusMinutes} 分钟节奏`, panel: 'focus' as PanelId }
-		: incompleteTasks[0]
-			? { label: '接下来', title: incompleteTasks[0].title, detail: `${incompleteTasks.length} 项待完成`, panel: 'tasks' as PanelId }
-			: upcomingEvents[0]
-				? { label: '下一项日程', title: upcomingEvents[0].title, detail: `${upcomingEvents[0].date} · ${upcomingEvents[0].time}`, panel: 'calendar' as PanelId }
-				: { label: 'Now', title: '此刻没有安排', detail: '留白也是计划的一部分', panel: 'tasks' as PanelId }
+	const upcomingItems = useMemo(() => selectUpcomingItems(incompleteTasks, upcomingEvents, 3), [incompleteTasks, upcomingEvents])
+	const upcomingCountLabel = [
+		incompleteTasks.length ? `${incompleteTasks.length} 项任务` : '',
+		upcomingEvents.length ? `${upcomingEvents.length} 项日程` : ''
+	].filter(Boolean).join(' · ') || '暂无安排'
 
 	const searchItems = useMemo<WorkbenchSearchItem[]>(
 		() => [
@@ -657,15 +656,38 @@ export default function AmbientWorkbench() {
 					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
 					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(shanghaiClock.hourNumber)}</p>
 
-					<button type='button' className='ambient-now' onClick={() => togglePanel(currentItem.panel)} aria-label={`${currentItem.label}：${currentItem.title}`}>
-						<span className='ambient-now-label'>{currentItem.label}</span>
-						<strong>{currentItem.title}</strong>
-						<span className='ambient-now-detail'>
-							<span className='ambient-now-indicator'>{focusRunning ? <Timer size={16} /> : <Circle size={12} fill='currentColor' />}</span>
-							{currentItem.detail}
-							<ArrowUpRight size={16} />
-						</span>
-					</button>
+					{focusRunning ? (
+						<button type='button' className='ambient-now ambient-now-focus' onClick={() => togglePanel('focus')} aria-label={`正在专注：${formatFocusDuration(focusRemaining)}`}>
+							<span className='ambient-now-label'>正在专注</span>
+							<strong>{formatFocusDuration(focusRemaining)}</strong>
+							<span className='ambient-now-detail'>
+								<span className='ambient-now-indicator'><Timer size={16} /></span>
+								{focusMinutes} 分钟节奏
+								<ArrowUpRight size={16} />
+							</span>
+						</button>
+					) : (
+						<section className='ambient-now ambient-now-list' aria-label='接下来'>
+							<div className='ambient-now-heading'><span className='ambient-now-label'>接下来</span><span>{upcomingCountLabel}</span></div>
+							<div className='ambient-now-items'>
+								{upcomingItems.length ? upcomingItems.map(item => {
+									const panel = item.kind === 'task' ? 'tasks' : 'calendar'
+									const Icon = item.kind === 'task' ? ListTodo : CalendarDays
+									return <button type='button' className='ambient-now-row' key={`${item.kind}:${item.id}`} onClick={() => togglePanel(panel)} aria-label={`${item.kind === 'task' ? '任务' : '日程'}：${item.title}`}>
+										<span className={`ambient-now-row-icon is-${item.kind}`}><Icon size={15} /></span>
+										<span><strong>{item.title}</strong><small>{item.detail}</small></span>
+										<ArrowUpRight size={14} />
+									</button>
+								}) : (
+									<button type='button' className='ambient-now-row is-empty' onClick={() => togglePanel('tasks')}>
+										<span className='ambient-now-row-icon'><Circle size={10} /></span>
+										<span><strong>此刻没有安排</strong><small>留白也是计划的一部分</small></span>
+										<ArrowUpRight size={14} />
+									</button>
+								)}
+							</div>
+						</section>
+					)}
 				</motion.div>
 			</main>
 
@@ -674,14 +696,14 @@ export default function AmbientWorkbench() {
 					<motion.section
 						key={activePanel}
 						ref={panelRef}
-						className={`ambient-panel ambient-wakeable${plannerOpen ? ' is-planner' : ''}`}
+						className='ambient-panel ambient-wakeable'
 						initial={reducedMotion ? { x: '-50%' } : { opacity: 0, x: '-50%', y: 18, scale: 0.98 }}
 						animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
 						exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.985 }}
 						transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
 						aria-label={`${panelTitle(activePanel)}面板`}>
 						<div className='ambient-panel-heading'>
-							<h2>{plannerOpen ? '日程与任务' : panelTitle(activePanel)}</h2>
+							<h2>{panelTitle(activePanel)}</h2>
 							<div className='ambient-panel-tools'>
 								{activeDockItem?.shortcutHref && activeDockItem.shortcutLabel && (
 									<a className='ambient-small-icon' href={activeDockItem.shortcutHref} title={activeDockItem.shortcutLabel} aria-label={activeDockItem.shortcutLabel}>
@@ -722,10 +744,8 @@ export default function AmbientWorkbench() {
 								/>)}
 							</IntegrationList>}
 
-							{(activePanel === 'tasks' || activePanel === 'calendar') && (
-								<div className='ambient-planner-grid'>
-								<section className={`ambient-local-tool ambient-planner-section${activePanel === 'tasks' ? ' is-focused' : ''}`} aria-label='任务'>
-									<div className='ambient-planner-section-heading'><ListTodo size={17} /><strong>任务</strong><span>{tasks.filter(task => !task.completed).length} 项待完成</span></div>
+							{activePanel === 'tasks' && (
+								<div className='ambient-local-tool'>
 									<form className='ambient-add-row' onSubmit={addTask}>
 										<input value={taskTitle} onChange={event => setTaskTitle(event.target.value)} placeholder='添加一件要做的事' maxLength={180} aria-label='任务标题' />
 										<button type='submit' className='ambient-add-button' aria-label='添加任务'><Plus size={18} /></button>
@@ -739,10 +759,11 @@ export default function AmbientWorkbench() {
 											</div>
 										)) : <EmptyState copy='今天还没有任务。' />}
 									</div>
-								</section>
+								</div>
+							)}
 
-								<section className={`ambient-local-tool ambient-planner-section${activePanel === 'calendar' ? ' is-focused' : ''}`} aria-label='日程'>
-									<div className='ambient-planner-section-heading'><CalendarDays size={17} /><strong>日程</strong><span>{events.length} 项安排</span></div>
+							{activePanel === 'calendar' && (
+								<div className='ambient-local-tool'>
 									<form className='ambient-event-form' onSubmit={addEvent}>
 										<input className='ambient-event-title' value={eventTitle} onChange={event => setEventTitle(event.target.value)} placeholder='添加日程' maxLength={180} aria-label='日程标题' />
 										<AmbientDateTimePicker date={eventDate} time={eventTime} onDateChange={setEventDate} onTimeChange={setEventTime} />
@@ -757,7 +778,6 @@ export default function AmbientWorkbench() {
 											</div>
 										)) : <EmptyState copy='日历仍是一片留白。' />}
 									</div>
-								</section>
 								</div>
 							)}
 

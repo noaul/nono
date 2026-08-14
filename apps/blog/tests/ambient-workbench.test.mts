@@ -9,6 +9,7 @@ import {
 	nextFocusDuration,
 	normalizeEvents,
 	normalizeTasks,
+	selectUpcomingItems,
 	shanghaiDateKey,
 	sortCommonBookmarks,
 	toggleTask
@@ -51,6 +52,23 @@ test('toggles a task without mutating unrelated tasks', () => {
 
 	assert.deepEqual(toggleTask(tasks, 'one').map(task => task.completed), [true, false])
 	assert.deepEqual(tasks.map(task => task.completed), [false, false])
+})
+
+test('selects a compact mix of incomplete tasks and upcoming schedules', () => {
+	const items = selectUpcomingItems([
+		{ id: 'task-one', title: 'Prepare report', completed: false, createdAt: '2026-08-12T08:00:00.000Z' },
+		{ id: 'task-done', title: 'Already done', completed: true, createdAt: '2026-08-12T09:00:00.000Z' },
+		{ id: 'task-two', title: 'Review notes', completed: false, createdAt: '2026-08-12T10:00:00.000Z' }
+	], [
+		{ id: 'event-one', title: 'Stand-up', date: '2026-08-15', time: '09:00' },
+		{ id: 'event-two', title: 'Planning', date: '2026-08-16', time: '10:30' }
+	], 3)
+
+	assert.deepEqual(items.map(item => `${item.kind}:${item.id}`), [
+		'task:task-one',
+		'event:event-one',
+		'task:task-two'
+	])
 })
 
 test('filters workbench search results across tasks, bookmarks, and repositories', () => {
@@ -231,20 +249,23 @@ test('adds a hover app switcher and a dock settings center with independent back
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
 })
 
-test('keeps schedules and tasks visible together with a project-styled date time picker', async () => {
+test('keeps dock task and schedule panels separate while the home summary shows both', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const picker = await read('src/app/(home)/ambient-date-time-picker.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	assert.match(workbench, /activePanel === 'tasks' \|\| activePanel === 'calendar'/)
-	assert.match(workbench, /ambient-planner-grid/)
+	assert.match(workbench, /selectUpcomingItems/)
+	assert.match(workbench, /ambient-now-list/)
+	assert.match(workbench, /activePanel === 'tasks' &&/)
+	assert.match(workbench, /activePanel === 'calendar' &&/)
+	assert.doesNotMatch(workbench, /activePanel === 'tasks' \|\| activePanel === 'calendar'/)
 	assert.match(workbench, /AmbientDateTimePicker/)
 	assert.doesNotMatch(workbench, /type='date'/)
 	assert.doesNotMatch(workbench, /type='time'/)
 	assert.match(picker, /ambient-date-time-popover/)
+	assert.match(picker, /createPortal/)
 	assert.match(picker, /上个月/)
 	assert.match(picker, /选择小时/)
-	assert.match(styles, /\.ambient-planner-grid/)
 	assert.match(styles, /\.ambient-date-time-popover/)
-	assert.match(styles, /\.ambient-panel\.is-planner:has\(\.ambient-date-time-popover\)/)
+	assert.match(styles, /\.ambient-date-time-popover \{[\s\S]*position: fixed/)
 })

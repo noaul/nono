@@ -1,7 +1,8 @@
 'use client'
 
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type AmbientDateTimePickerProps = {
 	date: string
@@ -31,15 +32,18 @@ function formatDateLabel(value: string) {
 
 export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }: AmbientDateTimePickerProps) {
 	const rootRef = useRef<HTMLDivElement>(null)
+	const triggerRef = useRef<HTMLButtonElement>(null)
+	const popoverRef = useRef<HTMLDivElement>(null)
 	const selectedDate = useMemo(() => parseDateKey(date), [date])
 	const [open, setOpen] = useState(false)
+	const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number; width: number } | null>(null)
 	const [visibleMonth, setVisibleMonth] = useState(() => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
 	const [hour = '00', minute = '00'] = time.split(':')
 
 	useEffect(() => {
 		if (!open) return
 		const closeFromOutside = (event: PointerEvent) => {
-			if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false)
+			if (event.target instanceof Node && !rootRef.current?.contains(event.target) && !popoverRef.current?.contains(event.target)) setOpen(false)
 		}
 		const closeFromEscape = (event: KeyboardEvent) => {
 			if (event.key === 'Escape') setOpen(false)
@@ -51,6 +55,36 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 			document.removeEventListener('keydown', closeFromEscape)
 		}
 	}, [open])
+
+	const updatePopoverPosition = useCallback(() => {
+		const trigger = triggerRef.current
+		if (!trigger) return
+
+		const safeEdge = 12
+		const gap = 8
+		const width = Math.min(318, window.innerWidth - safeEdge * 2)
+		const popoverHeight = popoverRef.current?.offsetHeight || 390
+		const triggerRect = trigger.getBoundingClientRect()
+		const roomAbove = triggerRect.top - safeEdge - gap
+		const roomBelow = window.innerHeight - triggerRect.bottom - safeEdge - gap
+		const openAbove = roomAbove >= popoverHeight || roomAbove > roomBelow
+		const preferredTop = openAbove ? triggerRect.top - popoverHeight - gap : triggerRect.bottom + gap
+		const top = Math.max(safeEdge, Math.min(preferredTop, window.innerHeight - popoverHeight - safeEdge))
+		const left = Math.max(safeEdge, Math.min(triggerRect.left, window.innerWidth - width - safeEdge))
+
+		setPopoverPosition({ top, left, width })
+	}, [])
+
+	useLayoutEffect(() => {
+		if (!open) return
+		updatePopoverPosition()
+		window.addEventListener('resize', updatePopoverPosition)
+		window.addEventListener('scroll', updatePopoverPosition, true)
+		return () => {
+			window.removeEventListener('resize', updatePopoverPosition)
+			window.removeEventListener('scroll', updatePopoverPosition, true)
+		}
+	}, [open, updatePopoverPosition])
 
 	useEffect(() => {
 		if (open) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
@@ -70,13 +104,19 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 
 	return (
 		<div className='ambient-date-time-picker' ref={rootRef}>
-			<button type='button' className='ambient-date-time-trigger' onClick={() => setOpen(current => !current)} aria-expanded={open} aria-haspopup='dialog'>
+			<button ref={triggerRef} type='button' className='ambient-date-time-trigger' onClick={() => setOpen(current => !current)} aria-expanded={open} aria-haspopup='dialog'>
 				<span><CalendarDays size={16} /><strong>{formatDateLabel(date)}</strong></span>
 				<span><Clock3 size={16} /><strong>{time}</strong></span>
 			</button>
 
-			{open && (
-				<div className='ambient-date-time-popover' role='dialog' aria-label='选择日程日期和时间'>
+			{open && typeof document !== 'undefined' && createPortal(
+				<div
+					ref={popoverRef}
+					className='ambient-date-time-popover'
+					data-ambient-floating
+					role='dialog'
+					aria-label='选择日程日期和时间'
+					style={popoverPosition ? { top: popoverPosition.top, left: popoverPosition.left, width: popoverPosition.width } : { visibility: 'hidden' }}>
 					<div className='ambient-picker-month'>
 						<button type='button' onClick={() => setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} title='上个月' aria-label='上个月'><ChevronLeft size={17} /></button>
 						<strong>{visibleMonth.getFullYear()} 年 {visibleMonth.getMonth() + 1} 月</strong>
@@ -99,7 +139,8 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 						<label><span>选择分钟</span><select value={minute} onChange={event => setTimePart(hour, event.target.value)} aria-label='选择分钟'>{MINUTES.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
 						<button type='button' className='ambient-picker-done' onClick={() => setOpen(false)}>完成</button>
 					</div>
-				</div>
+				</div>,
+				document.body
 			)}
 		</div>
 	)
