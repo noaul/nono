@@ -82,21 +82,18 @@
 
 .ambient-app-switcher {
 	bottom: max(58px, calc(env(safe-area-inset-bottom) + 42px));
-	left: max(28px, env(safe-area-inset-left));
 	position: absolute;
+	right: max(28px, env(safe-area-inset-right));
 	z-index: 31;
 }
 
 .ambient-app-switcher-trigger {
 	align-items: center;
 	backdrop-filter: blur(20px);
-	background: color-mix(in srgb, var(--ambient-glass) 72%, transparent);
-	border: 1px solid var(--ambient-line);
-	border-radius: 10px;
 	color: var(--ambient-ink);
 	display: flex;
 	font-size: 11px;
-	height: 30px;
+	height: 42px;
 	justify-content: center;
 	margin: 0 auto;
 	overflow: hidden;
@@ -123,14 +120,15 @@
 	grid-auto-flow: column;
 	grid-template-columns: repeat(4, 42px);
 	bottom: 47px;
-	left: 0;
 	max-width: calc(100vw - 28px);
 	opacity: 0;
+	overflow-x: auto;
 	padding: 8px;
 	pointer-events: none;
 	position: absolute;
+	right: 0;
 	transform: translateY(7px) scale(0.98);
-	transform-origin: bottom left;
+	transform-origin: bottom right;
 	transition: opacity 160ms ease, transform 160ms ease;
 }
 
@@ -144,7 +142,6 @@
 
 .ambient-app-switcher-menu a {
 	align-items: center;
-	border-radius: 9px;
 	color: var(--ambient-ink);
 	display: grid;
 	height: 42px;
@@ -153,19 +150,23 @@
 	width: 42px;
 }
 
+.ambient-app-switcher-trigger,
+.ambient-app-switcher-menu a,
+.ambient-dock-icon {
+	background: rgba(250, 253, 255, 0.66);
+	border: 1px solid rgba(255, 255, 255, 0.76);
+	border-radius: 12px;
+	box-shadow: 0 8px 20px rgba(54, 85, 116, 0.12), inset 0 1px rgba(255, 255, 255, 0.84);
+}
+
 .ambient-app-switcher-menu a:hover,
 .ambient-app-switcher-menu a:focus-visible {
 	background: color-mix(in srgb, var(--ambient-glass-strong) 84%, white);
 }
 
 .ambient-app-switcher-menu a > svg {
-	background: rgba(255, 255, 255, 0.46);
-	border: 1px solid var(--ambient-line);
-	border-radius: 8px;
-	box-sizing: content-box;
-	height: 34px;
-	padding: 0;
-	width: 34px;
+	height: 24px;
+	width: 24px;
 }
 
 .ambient-visually-hidden {
@@ -439,7 +440,7 @@
 	backdrop-filter: blur(28px) saturate(1.14);
 	background: var(--ambient-glass);
 	border: 1px solid var(--ambient-line);
-	border-radius: 24px;
+	border-radius: 14px;
 	box-shadow: var(--ambient-shadow);
 	display: flex;
 	flex-direction: column;
@@ -596,7 +597,7 @@
 	backdrop-filter: blur(34px) saturate(1.16);
 	background: color-mix(in srgb, var(--ambient-glass-strong) 92%, transparent);
 	border: 1px solid var(--ambient-line);
-	border-radius: 18px;
+	border-radius: 14px;
 	box-shadow: var(--ambient-shadow);
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr) auto;
@@ -605,15 +606,15 @@
 	position: absolute;
 	right: max(28px, env(safe-area-inset-right));
 	top: max(112px, calc(env(safe-area-inset-top) + 90px));
-	transition: width 180ms ease, border-radius 180ms ease, background-color 180ms ease;
+	transition: max-height 180ms ease, border-radius 180ms ease, background-color 180ms ease;
 	width: min(300px, calc(100vw - 56px));
 	z-index: 24;
 }
 
 .ambient-notification-rail.is-collapsed {
-	border-radius: 14px;
 	grid-template-rows: 44px;
-	width: 44px;
+	max-height: 44px;
+	width: min(300px, calc(100vw - 56px));
 }
 
 .ambient-notification-heading {
@@ -672,11 +673,7 @@
 .ambient-notification-rail.is-collapsed .ambient-notification-heading {
 	border-bottom: 0;
 	min-height: 44px;
-	padding: 5px;
-}
-
-.ambient-notification-rail.is-collapsed .ambient-notification-heading > span {
-	display: none;
+	padding: 5px 7px 5px 14px;
 }
 
 .ambient-notification-rail.is-collapsed .ambient-notification-heading button {
@@ -772,7 +769,7 @@
 	backdrop-filter: blur(32px) saturate(1.18);
 	background: var(--ambient-glass);
 	border: 1px solid var(--ambient-line);
-	border-radius: 28px;
+	border-radius: 14px;
 	box-shadow: var(--ambient-shadow);
 	display: flex;
 	gap: 13px;
@@ -800,10 +797,6 @@
 }
 
 .ambient-dock-icon {
-	background: rgba(250, 253, 255, 0.66);
-	border: 1px solid rgba(255, 255, 255, 0.76);
-	border-radius: 17px;
-	box-shadow: 0 8px 20px rgba(54, 85, 116, 0.12), inset 0 1px rgba(255, 255, 255, 0.84);
 	display: grid;
 	height: 56px;
 	place-items: center;
@@ -832,6 +825,8 @@
 	top: -6px;
 }
 
+[data-dimmed='true'] .ambient-app-switcher-trigger,
+[data-dimmed='true'] .ambient-app-switcher-menu a,
 [data-dimmed='true'] .ambient-dock-icon {
 	background: rgba(30, 48, 66, 0.64);
 	border-color: rgba(255, 255, 255, 0.18);
@@ -2486,13 +2481,17 @@ a.ambient-small-icon {
 
 	.ambient-app-switcher {
 		bottom: max(108px, calc(env(safe-area-inset-bottom) + 96px));
-		left: max(16px, env(safe-area-inset-left));
 		position: fixed;
+		right: max(16px, env(safe-area-inset-right));
 	}
 
 	.ambient-notification-rail {
 		right: max(16px, env(safe-area-inset-right));
 		top: max(82px, calc(env(safe-area-inset-top) + 68px));
+		width: min(280px, calc(100vw - 32px));
+	}
+
+	.ambient-notification-rail.is-collapsed {
 		width: min(280px, calc(100vw - 32px));
 	}
 
@@ -2598,7 +2597,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-now {
-		border-radius: 20px;
+		border-radius: 14px;
 		margin-top: 22px;
 		min-height: 126px;
 		padding: 17px 18px;
@@ -2615,7 +2614,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-dock {
-		border-radius: 22px;
+		border-radius: 14px;
 		gap: 0;
 		height: 78px;
 		justify-content: space-around;
@@ -2650,8 +2649,8 @@ a.ambient-small-icon {
 	.ambient-command-trigger {
 		bottom: max(106px, calc(env(safe-area-inset-bottom) + 94px));
 		height: 40px;
-		left: max(68px, calc(env(safe-area-inset-left) + 68px));
-		right: max(16px, env(safe-area-inset-right));
+		left: max(16px, env(safe-area-inset-left));
+		right: max(68px, calc(env(safe-area-inset-right) + 68px));
 		transform: none;
 		width: auto;
 	}

@@ -8,8 +8,8 @@ import {
 	Bookmark,
 	CalendarDays,
 	Check,
-	ChevronLeft,
-	ChevronRight,
+	ChevronDown,
+	ChevronUp,
 	Circle,
 	CloudSun,
 	ExternalLink,
@@ -800,7 +800,7 @@ export default function AmbientWorkbench() {
 				<header className='ambient-notification-heading'>
 					<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
 					<button type='button' onClick={() => setNotificationRailCollapsed(current => !current)} aria-label={notificationRailCollapsed ? '展开通知' : '折叠通知'} title={notificationRailCollapsed ? '展开通知' : '折叠通知'}>
-						{notificationRailCollapsed ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+						{notificationRailCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
 					</button>
 				</header>
 				{!notificationRailCollapsed && <>
