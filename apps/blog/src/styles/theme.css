@@ -54,23 +54,6 @@
 	z-index: 1;
 }
 
-.nodesk-color-mode {
-	color: var(--color-primary);
-	left: max(20px, env(safe-area-inset-left));
-	position: fixed;
-	top: max(20px, env(safe-area-inset-top));
-	z-index: 60;
-}
-
-/* Sits just right of the colour-mode control, sharing its trigger and menu styling. */
-.nodesk-language-mode {
-	color: var(--color-primary);
-	left: max(68px, calc(env(safe-area-inset-left) + 48px));
-	position: fixed;
-	top: max(20px, env(safe-area-inset-top));
-	z-index: 60;
-}
-
 .nodesk-portal-shortcut {
 	right: max(20px, env(safe-area-inset-right));
 	top: max(20px, env(safe-area-inset-top));
@@ -79,70 +62,6 @@
 .nodesk-safe-actions {
 	right: max(24px, env(safe-area-inset-right));
 	top: max(16px, env(safe-area-inset-top));
-}
-
-.nodesk-color-mode-trigger {
-	align-items: center;
-	backdrop-filter: blur(18px);
-	background: var(--nodesk-soft-surface);
-	border: 1px solid var(--color-border);
-	border-radius: 8px;
-	box-shadow: var(--nodesk-control-shadow);
-	display: flex;
-	height: 42px;
-	justify-content: center;
-	transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
-	width: 42px;
-}
-
-.nodesk-color-mode-trigger:hover,
-.nodesk-color-mode-trigger:focus-visible {
-	background: var(--nodesk-strong-surface);
-	transform: translateY(-1px);
-}
-
-.nodesk-color-mode-menu {
-	animation: nodesk-mode-menu-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
-	backdrop-filter: blur(22px);
-	background: var(--nodesk-strong-surface);
-	border: 1px solid var(--color-border);
-	border-radius: 8px;
-	box-shadow: var(--nodesk-control-shadow);
-	display: grid;
-	gap: 3px;
-	left: 0;
-	min-width: 154px;
-	padding: 5px;
-	position: absolute;
-	top: calc(100% + 8px);
-}
-
-@keyframes nodesk-mode-menu-in {
-	from {
-		opacity: 0;
-		transform: translateY(-5px) scale(0.98);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-	}
-}
-
-.nodesk-color-mode-menu button {
-	align-items: center;
-	border-radius: 6px;
-	display: grid;
-	font-size: 13px;
-	gap: 8px;
-	grid-template-columns: 18px minmax(0, 1fr) 16px;
-	min-height: 36px;
-	padding: 0 9px;
-	text-align: left;
-}
-
-.nodesk-color-mode-menu button:hover,
-.nodesk-color-mode-menu button:focus-visible {
-	background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 :root[data-color-mode='dark'] :where([class~='bg-white'], [class~='bg-white/60'], [class~='bg-white/70'], [class~='bg-white/75'], [class~='bg-white/80'], [class~='bg-white/85'], [class~='bg-white/90']) {
@@ -158,11 +77,6 @@
 }
 
 @media (max-width: 640px) {
-	.nodesk-color-mode {
-		left: max(16px, env(safe-area-inset-left));
-		top: max(16px, env(safe-area-inset-top));
-	}
-
 	.nodesk-portal-shortcut {
 		right: max(16px, env(safe-area-inset-right));
 		top: max(80px, calc(env(safe-area-inset-top) + 64px));
@@ -177,9 +91,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.nodesk-background-motion,
-	.nodesk-mode-scrim,
-	.nodesk-color-mode-trigger,
-	.nodesk-color-mode-menu {
+	.nodesk-mode-scrim {
 		animation: none;
 		transition: none;
 	}

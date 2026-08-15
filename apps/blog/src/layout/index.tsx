@@ -10,8 +10,6 @@ import { useSize, useSizeInit } from '@/hooks/use-size'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
 import { ScrollTopButton } from '@/components/scroll-top-button'
 import MusicCard from '@/components/music-card'
-import { LanguageControl } from '@/components/language-control'
-import { ColorModeControl } from '@/components/color-mode-control'
 import { usePathname } from 'next/navigation'
 
 export default function Layout({ children }: PropsWithChildren) {
@@ -85,9 +83,6 @@ export default function Layout({ children }: PropsWithChildren) {
 				/>
 			)}
 			<div className='nodesk-mode-scrim' aria-hidden='true' />
-			<LanguageControl />
-			<ColorModeControl />
-
 			<main className='relative z-10 h-full'>
 				{children}
 				<NavCard />

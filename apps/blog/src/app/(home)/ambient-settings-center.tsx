@@ -20,6 +20,7 @@ const quickEntryIcons = [
 	{ value: 'wallet-cards', label: '资产' },
 	{ value: 'star', label: '星标' },
 	{ value: 'server-cog', label: '服务器' },
+	{ value: 'scissors', label: '剪藏' },
 	{ value: 'github', label: 'GitHub' },
 	{ value: 'globe', label: '网站' },
 	{ value: 'link', label: '链接' }

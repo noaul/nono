@@ -25,6 +25,7 @@ import {
 	Plus,
 	RefreshCw,
 	RotateCcw,
+	Scissors,
 	Search,
 	Settings,
 	Smile,
@@ -41,6 +42,7 @@ import {
 	filterWorkbenchItems,
 	formatFocusDuration,
 	nextFocusDuration,
+	normalizeClipSearchResults,
 	normalizeEvents,
 	normalizeTasks,
 	getShanghaiClockParts,
@@ -182,6 +184,7 @@ function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
 	if (entry.id === 'nomoney' || entry.icon === 'wallet-cards') return <WalletCards size={19} />
 	if (entry.id === 'nostar' || entry.icon === 'star') return <Star size={19} />
 	if (entry.id === 'yumi' || entry.icon === 'server-cog') return <Smile size={19} />
+	if (entry.id === 'clipper' || entry.icon === 'scissors') return <Scissors size={19} />
 	if (entry.icon === 'github') return <Github size={19} />
 	if (entry.icon === 'globe') return <Globe2 size={19} />
 	if (entry.icon === 'link') return <Link2 size={19} />
@@ -222,6 +225,7 @@ export default function AmbientWorkbench() {
 
 	const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([])
 	const [repositories, setRepositories] = useState<RepositoryItem[]>([])
+	const [clipSearchItems, setClipSearchItems] = useState<WorkbenchSearchItem[]>([])
 	const [notifications, setNotifications] = useState<NotificationItem[]>([])
 	const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
 	const [integrationState, setIntegrationState] = useState<Record<IntegrationId, LoadState>>({
@@ -503,6 +507,32 @@ export default function AmbientWorkbench() {
 		return () => window.cancelAnimationFrame(frame)
 	}, [searchOpen])
 
+	useEffect(() => {
+		const query = searchQuery.trim()
+		if (!searchOpen || !query) {
+			setClipSearchItems([])
+			return
+		}
+		const controller = new AbortController()
+		const timer = window.setTimeout(() => {
+			void fetch(`/api/clipper/search?q=${encodeURIComponent(query)}&limit=100`, {
+				credentials: 'same-origin',
+				cache: 'no-store',
+				signal: controller.signal
+			}).then(async response => {
+				if (!response.ok) throw new Error('Clipper search unavailable')
+				setClipSearchItems(normalizeClipSearchResults(apiData(await response.json())))
+			}).catch(error => {
+				if (error instanceof DOMException && error.name === 'AbortError') return
+				setClipSearchItems([])
+			})
+		}, 180)
+		return () => {
+			window.clearTimeout(timer)
+			controller.abort()
+		}
+	}, [searchOpen, searchQuery])
+
 	const shanghaiClock = getShanghaiClockParts(now)
 	const yumiItems = useMemo(() => notifications.filter(item => item.source === 'yumi'), [notifications])
 	const incompleteTasks = useMemo(() => tasks.filter(task => !task.completed), [tasks])
@@ -518,9 +548,10 @@ export default function AmbientWorkbench() {
 			...incompleteTasks.map(task => ({ id: `task:${task.id}`, kind: 'task' as const, title: task.title, subtitle: '任务' })),
 			...events.map(event => ({ id: `event:${event.id}`, kind: 'event' as const, title: event.title, subtitle: `${event.date} · ${event.time}` })),
 			...bookmarks.map(item => ({ id: `bookmark:${item.id}`, kind: 'bookmark' as const, title: item.name, subtitle: '书签', href: item.url })),
-			...repositories.map(item => ({ id: `repository:${item.id}`, kind: 'repository' as const, title: item.full_name, subtitle: 'GitHub', href: item.html_url }))
+			...repositories.map(item => ({ id: `repository:${item.id}`, kind: 'repository' as const, title: item.full_name, subtitle: 'GitHub', href: item.html_url })),
+			...clipSearchItems
 		],
-		[bookmarks, events, incompleteTasks, repositories]
+		[bookmarks, clipSearchItems, events, incompleteTasks, repositories]
 	)
 	const searchResults = useMemo(() => filterWorkbenchItems(searchQuery, searchItems), [searchItems, searchQuery])
 
@@ -880,7 +911,7 @@ export default function AmbientWorkbench() {
 						<motion.div className='ambient-search-dialog' role='dialog' aria-modal='true' aria-label='快速搜索' initial={reducedMotion ? false : { opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.985 }}>
 							<div className='ambient-search-input-row'>
 								<Search size={20} />
-								<input ref={searchInputRef} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onKeyDown={onSearchKeyDown} placeholder='搜索任务、日程、书签与仓库' aria-label='搜索内容' />
+								<input ref={searchInputRef} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onKeyDown={onSearchKeyDown} placeholder='搜索任务、日程、书签、仓库与剪藏' aria-label='搜索内容' />
 								<button type='button' onClick={() => setSearchOpen(false)} aria-label='关闭搜索'><X size={18} /></button>
 							</div>
 							<div className='ambient-search-results'>

@@ -7,6 +7,7 @@ import {
 	formatFocusDuration,
 	getShanghaiClockParts,
 	nextFocusDuration,
+	normalizeClipSearchResults,
 	normalizeEvents,
 	normalizeTasks,
 	selectUpcomingItems,
@@ -71,14 +72,29 @@ test('selects a compact mix of incomplete tasks and upcoming schedules', () => {
 	])
 })
 
-test('filters workbench search results across tasks, bookmarks, and repositories', () => {
+test('filters workbench search results across tasks, bookmarks, repositories, and clip tags', () => {
 	const results = filterWorkbenchItems('node', [
 		{ id: 'task:1', kind: 'task', title: 'Finish Nodesk', subtitle: 'Task' },
 		{ id: 'bookmark:1', kind: 'bookmark', title: 'React docs', subtitle: 'Bookmark', href: 'https://react.dev' },
-		{ id: 'repo:1', kind: 'repository', title: 'nodejs/node', subtitle: 'GitHub', href: 'https://github.com/nodejs/node' }
+		{ id: 'repo:1', kind: 'repository', title: 'nodejs/node', subtitle: 'GitHub', href: 'https://github.com/nodejs/node' },
+		{ id: 'clip:1', kind: 'clip', title: 'AI reading notes', subtitle: '剪藏 · node · research', href: '/clipper/?clip=1' }
 	])
 
-	assert.deepEqual(results.map(result => result.id), ['task:1', 'repo:1'])
+	assert.deepEqual(results.map(result => result.id), ['task:1', 'repo:1', 'clip:1'])
+})
+
+test('normalizes Clipper search rows into safe deep-linked workbench results', () => {
+	assert.deepEqual(normalizeClipSearchResults({ items: [
+		{ id: 8, title: 'AI reading', domain: 'example.com', tags: ['Research', 'AI'] },
+		{ id: 'bad', title: 'Ignored' },
+		{ id: 9, title: '', tags: [] }
+	] }), [{
+		id: 'clip:8',
+		kind: 'clip',
+		title: 'AI reading',
+		subtitle: '剪藏 · example.com · Research, AI',
+		href: '/clipper/?clip=8'
+	}])
 })
 
 test('ranks common bookmarks by persisted usage and recent clicks', () => {
@@ -118,7 +134,7 @@ test('restarts a completed focus session from the selected preset', () => {
 
 test('normalizes the server-backed NoDesk app switcher settings', () => {
 	assert.deepEqual(normalizeWorkbenchNavigation({
-		navigationEntriesVersion: 3,
+		navigationEntriesVersion: 4,
 		nodeskWorkbench: { quickEntriesVisible: false },
 		navigationEntries: [
 			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
@@ -133,17 +149,17 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 	})
 
 	assert.deepEqual(normalizeWorkbenchNavigation({
-		navigationEntriesVersion: 3,
+		navigationEntriesVersion: 4,
 		navigationEntries: []
 	}).entries, [])
 
 	assert.deepEqual(normalizeWorkbenchNavigation({
-		navigationEntriesVersion: 2,
+		navigationEntriesVersion: 3,
 		navigationEntries: [
 			{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true },
 			{ id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true }
 		]
-	}).entries.map(entry => entry.id), ['home', 'nomoney', 'nostar', 'yumi'])
+	}).entries.map(entry => entry.id), ['home', 'nomoney', 'nostar', 'yumi', 'clipper'])
 
 	assert.deepEqual(normalizeWorkbenchNavigation(null), {
 		quickEntriesVisible: true,
@@ -171,6 +187,18 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 	assert.match(styles, /data-panel='open'/)
 	assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)
 	assert.match(layout, /isAmbientHome/)
+	assert.doesNotMatch(layout, /LanguageControl|ColorModeControl/)
+})
+
+test('loads Clipper title and tag matches into NoDesk quick search', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const model = await read('src/app/(home)/ambient-workbench-model.ts')
+
+	assert.match(workbench, /\/api\/clipper\/search\?q=/)
+	assert.match(workbench, /normalizeClipSearchResults/)
+	assert.match(model, /kind:\s*'clip'/)
+	assert.match(model, /\/clipper\/\?clip=/)
+	assert.match(workbench, /搜索任务、日程、书签、仓库与剪藏/)
 })
 
 test('keeps browser-local time copy from causing hydration mismatches', async () => {

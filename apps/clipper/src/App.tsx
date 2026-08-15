@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpenText, Search, Tags } from 'lucide-react';
 import { ClipListView } from './views/ClipListView';
 import { ReaderView } from './views/ReaderView';
@@ -11,7 +11,13 @@ type Pane = 'library' | 'search' | 'tags';
 export function App() {
   const openClip = useClipStore((state) => state.openClip);
   const openLoading = useClipStore((state) => state.openLoading);
+  const openReader = useClipStore((state) => state.openReader);
   const [pane, setPane] = useState<Pane>('library');
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('clip'));
+    if (Number.isInteger(id) && id > 0) void openReader(id);
+  }, [openReader]);
 
   return (
     <div className="clipper-shell">

@@ -53,7 +53,7 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
     const settings = {
       ...site.settings,
       nodeskWorkbench,
-      ...(input.navigationEntries ? { navigationEntries: input.navigationEntries, navigationEntriesVersion: 3 } : {}),
+      ...(input.navigationEntries ? { navigationEntries: input.navigationEntries, navigationEntriesVersion: 4 } : {}),
     };
     await services.repo.updateSite(user.id, { settings });
     setAuditContext(request, {

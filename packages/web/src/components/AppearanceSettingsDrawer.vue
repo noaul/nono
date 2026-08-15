@@ -8,7 +8,6 @@ import { useI18n } from '@/composables/useI18n';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { appearanceDefaults, appearanceSettingsForSave, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
-import { getSiteDefaultLocale, type Locale } from '@/utils/locale';
 import { PUBLIC_THEMES, accentCssVars, getSceneIntensity, getTheme, type PublicTheme } from '@/utils/themes';
 
 const props = defineProps<{ open: boolean; site: Site }>();
@@ -18,13 +17,12 @@ const emit = defineEmits<{
   preview: [site: Site];
 }>();
 
-const { t, setSiteDefaultLocale } = useI18n();
+const { t } = useI18n();
 
 const appearance = reactive<AppearanceSettings>({ ...appearanceDefaults });
 const theme = reactive({ id: '', accent: '', sceneIntensity: 100 });
 const backgroundColor = ref('#090a0f');
 const fontColor = ref('#ffffff');
-const siteLocale = ref<Locale>('zh');
 const saving = ref(false);
 const message = ref('');
 const error = ref('');
@@ -63,7 +61,6 @@ function draftSignature() {
     theme: { ...theme },
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
-    siteLocale: siteLocale.value,
   });
 }
 
@@ -105,7 +102,6 @@ function resetDraft() {
   theme.id = resolved?.id || savedTheme?.id || '';
   theme.accent = savedTheme?.accent || resolved?.accent || '';
   theme.sceneIntensity = getSceneIntensity(props.site.settings);
-  siteLocale.value = getSiteDefaultLocale(props.site.settings) || 'zh';
   userPresets.value = readUserPresets(props.site.settings);
   presetName.value = '';
   message.value = '';
@@ -151,13 +147,6 @@ function applyUserPreset(preset: UserAppearancePreset) {
   error.value = '';
 }
 
-/** Publishes the site default immediately so the drawer previews the language it will save. */
-function previewSiteLocale(next: Locale) {
-  siteLocale.value = next;
-  setSiteDefaultLocale(next);
-  message.value = '';
-}
-
 async function persist(successMessage = t('appearance.saved')) {
   if (saving.value) return false;
   saving.value = true;
@@ -174,7 +163,6 @@ async function persist(successMessage = t('appearance.saved')) {
           appearance: appearanceSettingsForSave(appearance),
           theme: { ...theme },
           appearancePresets: userPresets.value,
-          i18n: { ...(isRecord(props.site.settings?.i18n) ? props.site.settings.i18n : {}), defaultLocale: siteLocale.value },
         },
       }),
     });
@@ -226,7 +214,6 @@ async function removeUserPreset(preset: UserAppearancePreset) {
 /** Asks before discarding unsaved work; a clean drawer closes straight away. */
 function requestClose() {
   if (dirty.value && !window.confirm(t('appearance.editor.closeConfirm'))) return;
-  setSiteDefaultLocale(getSiteDefaultLocale(props.site.settings) || 'zh');
   emit('close');
 }
 
@@ -255,10 +242,6 @@ watch(draftSignature, () => {
       appearance: appearanceSettingsForSave(appearance),
       theme: { ...theme },
       appearancePresets: userPresets.value,
-      i18n: {
-        ...(isRecord(props.site.settings?.i18n) ? props.site.settings.i18n : {}),
-        defaultLocale: siteLocale.value,
-      },
     },
   });
 }, { flush: 'post' });
@@ -408,25 +391,6 @@ onBeforeUnmount(() => {
                 <small class="field-hint">{{ t('language.visitorHint') }}</small>
               </section>
 
-              <section class="preference-section">
-                <div class="drawer-section-title">
-                  <h3><Languages :size="16" /> {{ t('language.siteDefault') }}</h3>
-                </div>
-                <div class="site-locale-segments" role="group" :aria-label="t('language.siteDefault')">
-                  <button
-                    v-for="option in (['zh', 'en'] as Locale[])"
-                    :key="option"
-                    type="button"
-                    :class="{ active: siteLocale === option }"
-                    :aria-pressed="siteLocale === option"
-                    :data-testid="`site-locale-${option}`"
-                    @click="previewSiteLocale(option)"
-                  >
-                    {{ option === 'zh' ? t('language.zh') : t('language.en') }}
-                  </button>
-                </div>
-                <small class="field-hint">{{ t('language.siteDefaultHint') }}</small>
-              </section>
             </div>
 
             <section class="user-preset-section">
@@ -688,10 +652,6 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.preference-grid .preference-section:last-child {
-  grid-column: 1 / -1;
-}
-
 .drawer-section-title {
   align-items: center;
   display: flex;
@@ -709,31 +669,6 @@ onBeforeUnmount(() => {
 .field-hint {
   color: var(--drawer-faint);
   font-size: 10px;
-}
-
-.site-locale-segments {
-  background: var(--drawer-chip);
-  border: 1px solid var(--drawer-line);
-  border-radius: 8px;
-  display: grid;
-  gap: 3px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 3px;
-}
-
-.site-locale-segments button {
-  border-radius: 6px;
-  color: var(--drawer-muted);
-  font-size: 13px;
-  font-weight: 650;
-  min-height: 34px;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.site-locale-segments button.active {
-  background: var(--drawer-surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  color: var(--drawer-accent);
 }
 
 .theme-wall {
@@ -1297,9 +1232,6 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .preference-grid .preference-section:last-child {
-    grid-column: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

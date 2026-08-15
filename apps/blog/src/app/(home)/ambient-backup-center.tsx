@@ -12,6 +12,7 @@ import {
 	LoaderCircle,
 	RefreshCcw,
 	Save,
+	Scissors,
 	ServerCog,
 	Settings2,
 	ShieldCheck,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-type BackupModule = 'nono' | 'nodesk' | 'nostar' | 'nomoney' | 'yumi'
+type BackupModule = 'nono' | 'clipper' | 'nodesk' | 'nostar' | 'nomoney' | 'yumi'
 type Destination = 'webdav' | 'local'
 type WebDavPage = 'operations' | 'automatic' | 'history' | 'connection'
 type LocalPage = 'download' | 'restore'
@@ -69,6 +70,7 @@ type BackupAutomationSnapshot = {
 
 const MODULES: Array<{ id: BackupModule; label: string; description: string; icon: typeof Archive }> = [
 	{ id: 'nono', label: 'Nono', description: '站点、文件夹与书签', icon: DatabaseBackup },
+	{ id: 'clipper', label: 'Clipper', description: '剪藏正文、标签与标注', icon: Scissors },
 	{ id: 'nodesk', label: 'NoDesk', description: '桌面内容与资源文件', icon: FolderArchive },
 	{ id: 'nostar', label: 'NoStar', description: '仓库、分类、Release 与设置', icon: Github },
 	{ id: 'nomoney', label: 'NoMoney', description: '资产、费用与账户', icon: WalletCards },
@@ -183,7 +185,7 @@ export function AmbientBackupCenter() {
 		})
 		setBatches(current => [batch, ...current.filter(item => item.id !== batch.id)])
 		if (batch.scope === 'full') setFullRestoreId(batch.id)
-		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '五个模块已分别备份并写入同一批次清单。')
+		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '六个模块已分别备份并写入同一批次清单。')
 	})
 
 	const restoreWebDav = (batchId: string, modules?: BackupModule[]) => {
@@ -264,7 +266,7 @@ export function AmbientBackupCenter() {
 		{loading ? <div className='ambient-backup-loading'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
 			{destination === 'webdav' && webDavPage === 'operations' && <div className='ambient-backup-page'>
 				<section className='ambient-backup-hero'>
-					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>全站备份</strong><small>一个按钮分别备份五个模块，共用同一批次编号。</small></span></div>
+					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>全站备份</strong><small>一个按钮分别备份六个模块，共用同一批次编号。</small></span></div>
 					<div className='ambient-backup-actions'><button type='button' disabled={Boolean(busy) || !config.passwordConfigured} onClick={() => void backupWebDav()}>{busy === 'backup-all' ? <LoaderCircle className='is-spinning' size={16} /> : <Upload size={16} />}备份全部</button></div>
 					<div className='ambient-full-restore'><select value={fullRestoreId} onChange={event => setFullRestoreId(event.target.value)} aria-label='全站恢复批次'><option value=''>选择全站批次</option>{fullBatches.map(batch => <option value={batch.id} key={batch.id}>{formatDate(batch.createdAt)}</option>)}</select><button type='button' disabled={!fullRestoreId || Boolean(busy)} onClick={() => restoreWebDav(fullRestoreId)}><RefreshCcw size={16} />恢复全部</button></div>
 				</section>
@@ -286,7 +288,7 @@ export function AmbientBackupCenter() {
 			</div>}
 
 			{destination === 'webdav' && webDavPage === 'automatic' && <section className='ambient-settings-section ambient-backup-page'>
-				<div className='ambient-settings-section-copy'><h3>WebDAV 自动全站备份</h3><p>每次自动执行都会分别上传五个模块；本地下载不会定时执行。</p></div>
+				<div className='ambient-settings-section-copy'><h3>WebDAV 自动全站备份</h3><p>每次自动执行都会分别上传六个模块；本地下载不会定时执行。</p></div>
 				<div className='ambient-backup-policy'>
 					<label className='ambient-policy-toggle'><input type='checkbox' checked={automation.settings.enabled} onChange={event => updateAutomation('enabled', event.target.checked)} /><span>启用</span></label>
 					<label><span>频率</span><select value={automation.settings.cadence} onChange={event => updateAutomation('cadence', event.target.value as 'daily' | 'weekly')}><option value='daily'>每天</option><option value='weekly'>每周</option></select></label>
@@ -310,7 +312,7 @@ export function AmbientBackupCenter() {
 			</section>}
 
 			{destination === 'webdav' && webDavPage === 'connection' && <section className='ambient-settings-section ambient-backup-page'>
-				<div className='ambient-settings-section-copy'><h3>统一 WebDAV 连接</h3><p>全站与五个模块共用这一套地址、用户名和密码。</p></div>
+				<div className='ambient-settings-section-copy'><h3>统一 WebDAV 连接</h3><p>全站与六个模块共用这一套地址、用户名和密码。</p></div>
 				<div className='ambient-webdav-grid'>
 					<label className='is-wide'><span>WebDAV 地址</span><input type='url' value={connectionForm.url} onChange={event => setConnectionForm(current => ({ ...current, url: event.target.value }))} placeholder='https://dav.example.com/remote.php/dav/files/user/' /></label>
 					<label><span>用户名</span><input value={connectionForm.username} onChange={event => setConnectionForm(current => ({ ...current, username: event.target.value }))} /></label>
@@ -322,7 +324,7 @@ export function AmbientBackupCenter() {
 
 			{destination === 'local' && localPage === 'download' && <section className='ambient-settings-section ambient-backup-page'>
 				<div className='ambient-settings-section-copy'><h3>手动下载</h3><p>本地备份不会自动执行或占用服务器保留份数。</p></div>
-				<a className='ambient-local-all-download' href='/api/admin/backup-center/local/all'><Archive size={20} /><span><strong>下载全站备份</strong><small>一个文件内仍按五个模块独立保存并附带校验值。</small></span><Download size={17} /></a>
+				<a className='ambient-local-all-download' href='/api/admin/backup-center/local/all'><Archive size={20} /><span><strong>下载全站备份</strong><small>一个文件内仍按六个模块独立保存并附带校验值。</small></span><Download size={17} /></a>
 				<div className='ambient-module-backups'>{MODULES.map(module => {
 					const Icon = module.icon
 					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><a href={`/api/admin/backup-center/local/${module.id}`} title={`下载 ${module.label}`}><Download size={16} /></a></div>

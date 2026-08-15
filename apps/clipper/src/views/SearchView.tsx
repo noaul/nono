@@ -25,7 +25,7 @@ export function SearchView() {
           id="clip-search-input"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="搜索标题与正文"
+          placeholder="搜索标题、标签与正文"
           maxLength={200}
         />
         <button type="submit" className="icon-button" aria-label="搜索"><Search size={16} /></button>

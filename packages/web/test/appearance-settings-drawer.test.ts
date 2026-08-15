@@ -35,9 +35,19 @@ describe('AppearanceSettingsDrawer', () => {
     expect(wrapper.find('[data-testid="drawer-tab-general"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="drawer-tab-theme"]').attributes('aria-selected')).toBe('true');
     expect(wrapper.get('[data-testid="theme-winter-glow"]').isVisible()).toBe(true);
-    expect(wrapper.get('[data-testid="site-locale-zh"]').isVisible()).toBe(true);
+    expect(wrapper.find('[data-testid="site-locale-zh"]').exists()).toBe(false);
     expect(wrapper.getComponent({ name: 'ColorModeControl' }).isVisible()).toBe(true);
     expect(wrapper.getComponent({ name: 'LanguageControl' }).isVisible()).toBe(true);
+  });
+
+  it('keeps the two segmented preference controls aligned without wrapping labels', () => {
+    const drawerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
+    const colorSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ColorModeControl.vue'), 'utf8');
+    const languageSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/LanguageControl.vue'), 'utf8');
+
+    expect(drawerSource).not.toContain('site-locale-segments');
+    expect(colorSource).toMatch(/\.color-mode-segments button \{[\s\S]*?white-space:\s*nowrap/);
+    expect(languageSource).toMatch(/\.language-segments button \{[\s\S]*?white-space:\s*nowrap/);
   });
 
   it('pins grid content to the top instead of stretching cards across the drawer', () => {

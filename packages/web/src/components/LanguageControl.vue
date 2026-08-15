@@ -201,13 +201,14 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   color: inherit;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
-  gap: 7px;
+  gap: 4px;
   justify-content: center;
   min-height: 36px;
-  padding: 0 10px;
+  padding: 0 4px;
   transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
 }
 
 .language-segments button.active {

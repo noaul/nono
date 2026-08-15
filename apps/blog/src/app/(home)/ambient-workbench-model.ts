@@ -19,10 +19,32 @@ export type WorkbenchUpcomingItem =
 
 export type WorkbenchSearchItem = {
 	id: string
-	kind: 'task' | 'bookmark' | 'repository' | 'event'
+	kind: 'task' | 'bookmark' | 'repository' | 'event' | 'clip'
 	title: string
 	subtitle: string
 	href?: string
+}
+
+export function normalizeClipSearchResults(value: unknown): WorkbenchSearchItem[] {
+	const input = record(value)
+	if (!Array.isArray(input?.items)) return []
+	return input.items.flatMap(item => {
+		const clip = record(item)
+		const id = Number(clip?.id)
+		const title = cleanText(clip?.title, 500)
+		if (!Number.isInteger(id) || id <= 0 || !title) return []
+		const domain = cleanText(clip?.domain, 255)
+		const tags = Array.isArray(clip?.tags)
+			? [...new Set(clip.tags.map(tag => cleanText(tag, 60)).filter(Boolean))].slice(0, 12)
+			: []
+		return [{
+			id: `clip:${id}`,
+			kind: 'clip' as const,
+			title,
+			subtitle: ['剪藏', domain, tags.join(', ')].filter(Boolean).join(' · '),
+			href: `/clipper/?clip=${id}`
+		}]
+	})
 }
 
 export type WorkbenchBookmarkUsage = {

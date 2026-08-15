@@ -49,11 +49,38 @@ export function createClipSearch(prisma: PrismaClient) {
     // The userId predicate is part of the query itself so a search can never cross tenants.
     // `ESCAPE '\\'` here emits a single backslash to PostgreSQL.
     const items = await prisma.$queryRaw<Array<Record<string, unknown>>>`
-      SELECT "id", "title", "excerpt", "domain", "status", "starred", "clippedAt"
-      FROM "Clip"
-      WHERE "userId" = ${userId}
-        AND "searchText" ILIKE ${pattern} ESCAPE '\\'
-      ORDER BY "clippedAt" DESC
+      SELECT
+        clip."id",
+        clip."title",
+        clip."excerpt",
+        clip."domain",
+        clip."status",
+        clip."starred",
+        clip."clippedAt",
+        ARRAY(
+          SELECT tag."name"
+          FROM "ClipTagOnClip" AS assignment
+          INNER JOIN "ClipTag" AS tag ON tag."id" = assignment."tagId"
+          WHERE assignment."clipId" = clip."id"
+            AND assignment."userId" = ${userId}
+            AND tag."userId" = ${userId}
+          ORDER BY tag."name"
+        ) AS "tags"
+      FROM "Clip" AS clip
+      WHERE clip."userId" = ${userId}
+        AND (
+          clip."searchText" ILIKE ${pattern} ESCAPE '\\'
+          OR EXISTS (
+            SELECT 1
+            FROM "ClipTagOnClip" AS matched_assignment
+            INNER JOIN "ClipTag" AS matched_tag ON matched_tag."id" = matched_assignment."tagId"
+            WHERE matched_assignment."clipId" = clip."id"
+              AND matched_assignment."userId" = ${userId}
+              AND matched_tag."userId" = ${userId}
+              AND matched_tag."name" ILIKE ${pattern} ESCAPE '\\'
+          )
+        )
+      ORDER BY clip."clippedAt" DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 

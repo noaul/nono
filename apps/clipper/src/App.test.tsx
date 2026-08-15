@@ -55,6 +55,7 @@ function resetStore() {
 describe('Clipper app', () => {
   beforeEach(() => {
     resetStore();
+    window.history.replaceState({}, '', '/clipper/');
   });
 
   it('lists clips without loading their bodies', async () => {
@@ -125,6 +126,23 @@ describe('Clipper app', () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes('status=archived'))).toBe(true);
     });
+  });
+
+  it('opens a clip addressed by the NoDesk search deep link', async () => {
+    window.history.replaceState({}, '', '/clipper/?clip=1');
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({ ...clip, contentHtml: '<p>Deep link body</p>', contentMd: 'Deep link body', tags: [], highlights: [] });
+      }
+      if (url.includes('/api/clipper/tags')) return ok([]);
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('Deep link body')).toBeInTheDocument();
   });
 
   it('shows the original source and clipping time in the list and reader', async () => {

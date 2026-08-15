@@ -59,6 +59,21 @@ describe('clip search', () => {
     expect(calls[0].values).toContain('%fastify%');
   });
 
+  it('matches tag names and returns tags without selecting article bodies', async () => {
+    const { prisma, calls } = stubPrisma([{ id: 1, title: 'Article', tags: ['Research'] }]);
+    const search = createClipSearch(prisma as never);
+
+    const result = await search(7, 'research');
+    const sql = calls[0].strings.join('');
+
+    expect(sql).toContain('"ClipTagOnClip"');
+    expect(sql).toContain('"ClipTag"');
+    expect(sql).toContain('"tags"');
+    expect(sql).not.toContain('"contentHtml"');
+    expect(sql).not.toContain('"contentMd"');
+    expect(result.items[0].tags).toEqual(['Research']);
+  });
+
   it('escapes wildcards inside the bound pattern', async () => {
     const { prisma, calls } = stubPrisma();
     const search = createClipSearch(prisma as never);

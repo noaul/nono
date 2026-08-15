@@ -15,10 +15,11 @@ export const DEFAULT_WORKBENCH_APP_ENTRIES: WorkbenchAppEntry[] = [
 	{ id: 'home', label: '书签', url: '/', icon: 'bookmark', openInNewTab: false },
 	{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false },
 	{ id: 'nostar', label: 'NoStar', url: '/nostar/', icon: 'star', openInNewTab: false },
-	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false }
+	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false },
+	{ id: 'clipper', label: 'Clipper', url: '/clipper/', icon: 'scissors', openInNewTab: false }
 ]
 
-const WORKBENCH_NAVIGATION_VERSION = 3
+const WORKBENCH_NAVIGATION_VERSION = 4
 
 function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
