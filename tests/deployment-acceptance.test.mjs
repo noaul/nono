@@ -17,6 +17,8 @@ test('checks all public routes and recursively verifies NoStar lazy chunks', asy
     [`${baseUrl}/nostar/assets/RepositoriesView-test.js`, response('import("./ReadmeModal-test.js"); import("./RepositoryEditModal-test.js")', 'text/javascript')],
     [`${baseUrl}/nostar/assets/ReadmeModal-test.js`, response('export default {}', 'text/javascript')],
     [`${baseUrl}/nostar/assets/RepositoryEditModal-test.js`, response('export default {}', 'text/javascript')],
+    [`${baseUrl}/clipper/`, response('<script type="module" src="/clipper/assets/index-test.js"></script>', 'text/html')],
+    [`${baseUrl}/clipper/assets/index-test.js`, response('export default {}', 'text/javascript')],
   ]);
   const requested = [];
 
@@ -30,11 +32,13 @@ test('checks all public routes and recursively verifies NoStar lazy chunks', asy
     log: () => {},
   });
 
-  assert.equal(result.routes.length, 7);
+  assert.equal(result.routes.length, 8);
   assert.deepEqual(result.assets, [{ path: '/nodesk/images/nodesk-ambient-wallpaper.png', status: 200 }]);
   assert.equal(result.nostarAssets.some((url) => url.includes('ReadmeModal-test.js')), true);
   assert.equal(result.nostarAssets.some((url) => url.includes('RepositoryEditModal-test.js')), true);
   assert.equal(requested.includes(`${baseUrl}/nostar/assets/RepositoriesView-test.js`), true);
+  // Clipper ships a single bundle, so entry reachability is the whole contract for it.
+  assert.equal(result.clipperAssets.some((url) => url.includes('/clipper/assets/index-test.js')), true);
 });
 
 test('fails acceptance when the Nodesk wallpaper is not an image', async () => {

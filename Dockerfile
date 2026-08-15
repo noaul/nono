@@ -56,6 +56,16 @@ WORKDIR /app/nostar
 COPY apps/nostar/ ./
 RUN npm run build
 
+FROM node:22-alpine AS clipper-deps
+WORKDIR /app/clipper
+COPY apps/clipper/package.json apps/clipper/package-lock.json ./
+RUN npm ci
+
+FROM clipper-deps AS clipper-build
+WORKDIR /app/clipper
+COPY apps/clipper/ ./
+RUN npm run build
+
 FROM node:22-alpine AS nomoney-runtime-deps
 WORKDIR /app/nomoney
 COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
@@ -83,6 +93,7 @@ COPY --from=nono-build /app/nono/packages/server/dist ./nono/packages/server/dis
 COPY --from=nono-build /app/nono/packages/server/prisma ./nono/packages/server/prisma
 COPY --from=nono-build /app/nono/packages/web/dist ./nono/packages/web/dist
 COPY --from=nostar-build /app/nostar/dist ./nono/packages/web/dist/nostar
+COPY --from=clipper-build /app/clipper/dist ./nono/packages/web/dist/clipper
 COPY --from=blog-build /app/blog/public ./blog/public
 COPY --from=blog-build /app/blog/public ./nodesk-seed/public
 COPY --from=blog-build /app/blog/src ./nodesk-seed/src

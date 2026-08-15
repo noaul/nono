@@ -33,5 +33,5 @@ test('homepage default service navigation includes Yumi beside NoMoney', () => {
   assert.match(source, /id: 'yumi'/);
   assert.match(source, /label: 'Yumi'/);
   assert.match(source, /url: '\/yumi'/);
-  assert.match(source, /navigationEntriesVersion = 3/);
+  assert.match(source, /navigationEntriesVersion = 4/);
 });

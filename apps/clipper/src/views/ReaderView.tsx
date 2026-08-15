@@ -21,7 +21,8 @@ export function ReaderView() {
     // Highlights are matched against the plain text of the current body, so a rewritten article
     // surfaces them as stale rather than attaching them to the wrong sentence.
     const text = clip.contentMd || '';
-    return clip.highlights.map((highlight) => resolveHighlight(text, highlight, clip.contentVersion));
+    // Defensive: a detail payload without highlights must not white-screen the reader.
+    return (clip.highlights || []).map((highlight) => resolveHighlight(text, highlight, clip.contentVersion));
   }, [clip]);
 
   if (!clip) return null;
@@ -96,7 +97,7 @@ export function ReaderView() {
       />
 
       <aside className="highlight-list" aria-label="标注">
-        <h2>标注（{clip.highlights.length}）</h2>
+        <h2>标注（{(clip.highlights || []).length}）</h2>
         {staleCount > 0 ? (
           <p className="state-message">
             {staleCount} 条标注无法在当前正文中定位，可能是重新抓取后原文已改动。

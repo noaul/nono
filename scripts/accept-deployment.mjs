@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/'];
+const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/', '/clipper/'];
 const REQUIRED_ASSETS = ['/nodesk/images/nodesk-ambient-wallpaper.png'];
 const REQUIRED_NOSTAR_CHUNKS = ['RepositoriesView-', 'ReadmeModal-', 'RepositoryEditModal-'];
 
@@ -52,7 +52,17 @@ export async function acceptDeployment({
     }
   }
 
-  return { routes, assets, nostarAssets };
+  const clipperUrl = `${normalizedBaseUrl}/clipper/`;
+  const clipperHtmlResponse = await fetchImpl(clipperUrl, { redirect: 'follow', signal: AbortSignal.timeout(30_000) });
+  if (!clipperHtmlResponse.ok) throw new Error(`/clipper/ returned HTTP ${clipperHtmlResponse.status}`);
+  const clipperHtml = await clipperHtmlResponse.text();
+  const clipperEntries = extractScriptSources(clipperHtml).map((source) => new URL(source, clipperUrl).toString());
+  if (clipperEntries.length === 0) throw new Error('Clipper HTML did not contain a JavaScript entry');
+
+  // Clipper ships a single bundle, so a reachable entry is the whole contract here.
+  const clipperAssets = await crawlJavaScriptAssets(clipperEntries, normalizedBaseUrl, fetchImpl, log, '/clipper/');
+
+  return { routes, assets, nostarAssets, clipperAssets };
 }
 
 export function extractScriptSources(html) {
@@ -65,7 +75,7 @@ function hasPngSignature(bytes) {
   return bytes.length >= expected.length && expected.every((byte, index) => bytes[index] === byte);
 }
 
-async function crawlJavaScriptAssets(entryUrls, baseUrl, fetchImpl, log) {
+async function crawlJavaScriptAssets(entryUrls, baseUrl, fetchImpl, log, prefix = '/nostar/') {
   const queue = entryUrls.map((url) => ({ url, entry: true }));
   const visited = new Set();
   const expectedOrigin = new URL(baseUrl).origin;
@@ -74,10 +84,10 @@ async function crawlJavaScriptAssets(entryUrls, baseUrl, fetchImpl, log) {
     const next = queue.shift();
     if (!next || visited.has(next.url)) continue;
     const { url, entry } = next;
-    if (visited.size >= 200) throw new Error('NoStar asset graph exceeded 200 JavaScript files');
+    if (visited.size >= 200) throw new Error(`${prefix} asset graph exceeded 200 JavaScript files`);
 
     const parsed = new URL(url);
-    if (parsed.origin !== expectedOrigin || !parsed.pathname.startsWith('/nostar/')) continue;
+    if (parsed.origin !== expectedOrigin || !parsed.pathname.startsWith(prefix)) continue;
     const response = await fetchImpl(url, { redirect: 'follow', signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error(`${parsed.pathname} returned HTTP ${response.status}`);
     const source = await response.text();
@@ -88,7 +98,7 @@ async function crawlJavaScriptAssets(entryUrls, baseUrl, fetchImpl, log) {
       .filter((specifier) => !entry || isDefaultRouteDependency(specifier));
     for (const specifier of specifiers) {
       const resolved = new URL(specifier, url);
-      if (resolved.origin === expectedOrigin && resolved.pathname.startsWith('/nostar/') && !visited.has(resolved.toString())) {
+      if (resolved.origin === expectedOrigin && resolved.pathname.startsWith(prefix) && !visited.has(resolved.toString())) {
         queue.push({ url: resolved.toString(), entry: false });
       }
     }
@@ -102,7 +112,7 @@ function isDefaultRouteDependency(specifier) {
 }
 
 function extractJavaScriptSpecifiers(source) {
-  return [...source.matchAll(/["'`](\.\.?\/[^"'`]+\.js(?:\?[^"'`]*)?|\/nostar\/[^"'`]+\.js(?:\?[^"'`]*)?)["'`]/g)]
+  return [...source.matchAll(/["'`](\.\.?\/[^"'`]+\.js(?:\?[^"'`]*)?|\/(?:nostar|clipper)\/[^"'`]+\.js(?:\?[^"'`]*)?)["'`]/g)]
     .map((match) => match[1]);
 }
 
@@ -117,7 +127,7 @@ function parseCliArgs(argv) {
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   acceptDeployment(parseCliArgs(process.argv.slice(2)))
-    .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets`))
+    .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets, ${result.clipperAssets.length} Clipper assets`))
     .catch((error) => {
       console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;

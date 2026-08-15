@@ -4,6 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173';
 const nostarBaseURL = process.env.PLAYWRIGHT_NOSTAR_BASE_URL || 'http://127.0.0.1:4174';
+const clipperBaseURL = process.env.PLAYWRIGHT_CLIPPER_BASE_URL || 'http://127.0.0.1:4175';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -44,6 +45,12 @@ export default defineConfig({
     {
       command: 'npm --prefix apps/nostar run dev -- --host 127.0.0.1 --port 4174',
       url: `${nostarBaseURL}/nostar/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: 'npm --prefix apps/clipper run dev -- --host 127.0.0.1 --port 4175',
+      url: `${clipperBaseURL}/clipper/`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
