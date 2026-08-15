@@ -83,6 +83,7 @@ function classifyResource(pathname: string) {
   if (pathname.startsWith('/api/admin/account')) return 'account';
   if (pathname.startsWith('/api/admin/nodesk') || pathname.startsWith('/api/nodesk')) return 'nodesk';
   if (pathname.startsWith('/api/nostar')) return 'nostar';
+  if (pathname.startsWith('/api/clipper')) return 'clipper';
   return 'system';
 }
 

@@ -25,9 +25,19 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     enabled: true,
     openInNewTab: true,
   },
+  {
+    id: 'clipper',
+    label: 'Clipper',
+    url: '/clipper',
+    icon: 'scissors',
+    enabled: true,
+    openInNewTab: true,
+  },
 ];
 
-export const navigationEntriesVersion = 3;
+// Bumped so installs that already persisted a navigation list pick Clipper up. Without this the
+// saved list wins and the entry never appears for anyone who customized their navigation.
+export const navigationEntriesVersion = 4;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -80,7 +90,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
       url,
       icon: typeof value.icon === 'string' ? value.icon.trim().slice(0, 40) : 'link',
       enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
-      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar'
+      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar' || id === 'clipper'
         ? true
         : typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
     }];

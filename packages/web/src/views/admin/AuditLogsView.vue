@@ -55,6 +55,7 @@ const resourceKeys = [
   ['llm', 'audit.rLlm'],
   ['nodesk', 'audit.rNodesk'],
   ['nostar', 'audit.rNostar'],
+  ['clipper', 'audit.rClipper'],
   ['system', 'audit.rSystem'],
   ['audit', 'audit.rAudit'],
 ] as const satisfies ReadonlyArray<readonly [string, MessageKey]>;

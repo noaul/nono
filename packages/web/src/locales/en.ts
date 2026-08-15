@@ -848,7 +848,7 @@ export const en: Messages = {
   },
   audit: {
     rSite: 'Site', rUser: 'User', rToken: 'Token', rBackup: 'Backup', rAccount: 'Account',
-    rSession: 'Session', rPasskey: 'Passkey', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar',
+    rSession: 'Session', rPasskey: 'Passkey', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar', rClipper: 'Clipper',
     rSystem: 'System', rAudit: 'Audit settings',
     aCreate: 'Create', aUpdate: 'Update', aDelete: 'Delete', aReorder: 'Reorder',
     aBulkMove: 'Bulk move', aBulkDelete: 'Bulk delete', aImport: 'Import',

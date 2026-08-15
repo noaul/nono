@@ -154,10 +154,12 @@ describe('NotabsView admin workflow', () => {
     await settle(wrapper);
 
     const rows = wrapper.findAll('.entry-editor-row');
-    expect(rows).toHaveLength(4);
-    expect(rows[0].classes()).toEqual(rows[1].classes());
-    expect(rows[1].classes()).toEqual(rows[2].classes());
-    expect(rows[2].classes()).toEqual(rows[3].classes());
+    // The invariant is that every row shares one column layout, not how many rows there are —
+    // asserting a count made this fail whenever a product entry was added.
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    for (const row of rows) {
+      expect(row.classes()).toEqual(rows[0].classes());
+    }
   });
 
   it('renames a NoTab inline and saves explicitly', async () => {

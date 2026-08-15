@@ -850,7 +850,7 @@ export const zh = {
   },
   audit: {
     rSite: '站点', rUser: '用户', rToken: 'Token', rBackup: '备份', rAccount: '账户',
-    rSession: '会话', rPasskey: '通行密钥', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar',
+    rSession: '会话', rPasskey: '通行密钥', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar', rClipper: '剪藏',
     rSystem: '系统', rAudit: '审计设置',
     aCreate: '新增', aUpdate: '修改', aDelete: '删除', aReorder: '排序',
     aBulkMove: '批量移动', aBulkDelete: '批量删除', aImport: '导入',
