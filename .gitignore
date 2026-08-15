@@ -15,3 +15,4 @@ apps/nomoney/backend/public-yumi/
 apps/nomoney/data/
 apps/nomoney/.env
 apps/nomoney/node_modules/
+packages/extension/artifacts/*/

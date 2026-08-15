@@ -10,6 +10,11 @@
   },
   "devDependencies": {
     "archiver": "^8.0.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
     "vitest": "^4.0.14"
+  },
+  "dependencies": {
+    "defuddle": "^0.19.2"
   }
 }

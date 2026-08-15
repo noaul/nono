@@ -1,22 +1,21 @@
-(function () {
-  function readMeta(selector) {
-    return document.querySelector(selector)?.content || '';
-  }
+import { extractArticle, extractPageMetadata, extractSelection } from './shared/extract.js';
 
-  function extractPageMetadata() {
-    const text = String(document.body?.innerText || '').replace(/\s+/g, ' ').trim();
-    return {
-      title: document.title || readMeta('meta[property="og:title"]'),
-      description: readMeta('meta[name="description"]') || readMeta('meta[property="og:description"]'),
-      ogTitle: readMeta('meta[property="og:title"]'),
-      ogImage: readMeta('meta[property="og:image"]'),
-      content: text.slice(0, 500),
-    };
+/**
+ * Injected on demand by `chrome.scripting`, never as a registered content script. The bundle is
+ * built as an IIFE because Chrome cannot inject an ES module here.
+ */
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  switch (message?.type) {
+    case 'NONO_EXTRACT':
+      sendResponse(extractPageMetadata());
+      return true;
+    case 'NONO_EXTRACT_ARTICLE':
+      sendResponse(extractArticle());
+      return true;
+    case 'NONO_EXTRACT_SELECTION':
+      sendResponse(extractSelection());
+      return true;
+    default:
+      return false;
   }
-
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== 'NONO_EXTRACT') return false;
-    sendResponse(extractPageMetadata());
-    return true;
-  });
-})();
+});

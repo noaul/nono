@@ -1,8 +1,8 @@
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
@@ -85,5 +85,45 @@ describe('extension release package', () => {
     const second = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });
     expect(second.status, second.stderr || second.stdout).toBe(0);
     expect(await readFile(archive)).toEqual(firstContent);
+  });
+});
+
+describe('extension bundle formats', () => {
+  const dist = path.join(root, 'dist');
+
+  beforeAll(() => {
+    const result = spawnSync(process.execPath, ['scripts/build.mjs'], { cwd: root, encoding: 'utf8' });
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+  });
+
+  // Chrome cannot inject an ES module as a content script. If the bundle keeps module syntax the
+  // script fails silently in the page, which is exactly the sort of break a unit test never sees.
+  it('emits the injected content script as a self-contained IIFE', async () => {
+    const content = await readFile(path.join(dist, 'content.js'), 'utf8');
+
+    expect(content).not.toMatch(/^\s*import\s/m);
+    expect(content).not.toMatch(/^\s*export\s/m);
+    expect(content).not.toMatch(/\bfrom\s+['"]defuddle/);
+  });
+
+  it('bundles the article extractor into the content script', async () => {
+    const content = await readFile(path.join(dist, 'content.js'), 'utf8');
+
+    // defuddle/full is the only entry point that can produce Markdown; the core bundle cannot.
+    expect(content).toContain('contentMarkdown');
+    expect(content.length).toBeGreaterThan(100_000);
+  });
+
+  it('leaves no unresolved imports in the module bundles', async () => {
+    for (const relative of ['background.js', 'popup/popup.js']) {
+      const bundle = await readFile(path.join(dist, relative), 'utf8');
+
+      expect(bundle, relative).not.toMatch(/\bfrom\s+['"]defuddle/);
+      expect(bundle, relative).not.toMatch(/\bfrom\s+['"]\.\.?\/shared\//);
+    }
+  });
+
+  it('does not ship source modules alongside the bundles', async () => {
+    await expect(stat(path.join(dist, 'shared'))).rejects.toThrow();
   });
 });
