@@ -1,7 +1,20 @@
 {
-  "extName": { "message": "NoNo Smart Bookmark" },
-  "extDescription": { "message": "Save, organize, and update the current page in your self-hosted NoNo." },
-  "actionTitle": { "message": "NoNo quick save" },
-  "commandOpenPopup": { "message": "Open NoNo quick save" },
-  "commandQuickSave": { "message": "Save to the last used folder" }
+  "extName": {
+    "message": "NoNo Smart Bookmark"
+  },
+  "extDescription": {
+    "message": "Save, organize, and update the current page in your self-hosted NoNo."
+  },
+  "actionTitle": {
+    "message": "NoNo quick save"
+  },
+  "commandOpenPopup": {
+    "message": "Open NoNo quick save"
+  },
+  "commandQuickSave": {
+    "message": "Save to the last used folder"
+  },
+  "commandClipPage": {
+    "message": "Clip the current page"
+  }
 }

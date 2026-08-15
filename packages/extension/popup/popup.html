@@ -66,6 +66,26 @@
           </div>
         </section>
 
+        <div class="mode-switch" role="tablist" data-i18n-aria="modeClip" aria-label="模式">
+          <button id="modeBookmark" class="mode-option is-active" type="button" role="tab" aria-selected="true" data-i18n="modeBookmark">收藏</button>
+          <button id="modeClip" class="mode-option" type="button" role="tab" aria-selected="false" data-i18n="modeClip">剪藏</button>
+        </div>
+
+        <section id="clipPanel" class="clip-panel hidden">
+          <section id="clipPreview" class="clip-preview glass-panel" aria-live="polite">
+            <p id="clipStatusLine" class="page-domain" data-i18n="readingArticle">正在读取正文...</p>
+            <h2 id="clipTitle"></h2>
+            <p id="clipMeta" class="clip-meta"></p>
+            <p id="clipExcerpt" class="clip-excerpt"></p>
+            <p id="clipTruncated" class="clip-truncated hidden" data-i18n="clipTruncated">正文已按体积上限截断。</p>
+          </section>
+          <div class="save-actions">
+            <button id="saveClip" class="primary-save" type="button" data-i18n="clipThisPage">剪藏此页</button>
+            <button id="saveClipSelection" class="secondary-button" type="button" data-i18n="clipSelection">剪藏选区</button>
+          </div>
+        </section>
+
+        <div id="bookmarkPanel">
         <section class="name-editor glass-panel">
           <div class="section-heading compact">
             <span class="eyebrow" data-i18n="bookmarkName">书签名称</span>
@@ -112,6 +132,7 @@
           </div>
           <label><span data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
         </section>
+        </div>
       </section>
 
       <footer class="project-footer">
@@ -120,7 +141,7 @@
           <a href="https://github.com/noaul/nono" target="_blank" rel="noreferrer">GitHub · noaul/nono</a>
         </div>
         <a class="issue-link" href="https://github.com/noaul/nono/issues" target="_blank" rel="noreferrer" data-i18n="feedback">反馈</a>
-        <span id="versionLabel" class="version-label">v0.3.1</span>
+        <span id="versionLabel" class="version-label">v0.4.0</span>
       </footer>
     </main>
     <script type="module" src="popup.js"></script>

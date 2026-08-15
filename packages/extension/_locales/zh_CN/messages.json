@@ -1,7 +1,20 @@
 {
-  "extName": { "message": "NoNo 智能收藏" },
-  "extDescription": { "message": "把当前网页保存、归类或更新到自托管的 NoNo。" },
-  "actionTitle": { "message": "NoNo 快速收藏" },
-  "commandOpenPopup": { "message": "打开 NoNo 快速收藏" },
-  "commandQuickSave": { "message": "保存到上次使用的文件夹" }
+  "extName": {
+    "message": "NoNo 智能收藏"
+  },
+  "extDescription": {
+    "message": "把当前网页保存、归类或更新到自托管的 NoNo。"
+  },
+  "actionTitle": {
+    "message": "NoNo 快速收藏"
+  },
+  "commandOpenPopup": {
+    "message": "打开 NoNo 快速收藏"
+  },
+  "commandQuickSave": {
+    "message": "保存到上次使用的文件夹"
+  },
+  "commandClipPage": {
+    "message": "剪藏当前页面"
+  }
 }

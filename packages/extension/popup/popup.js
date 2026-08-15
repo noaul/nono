@@ -1,4 +1,6 @@
 import {
+  buildClipPayload,
+  clipErrorMessage,
   buildFolderGroups,
   buildQuickSavePayload,
   buildUpdateBookmarkPayload,
@@ -36,6 +38,17 @@ const analyzeButton = document.querySelector('#analyzeBookmark');
 const refreshFoldersButton = document.querySelector('#refreshFolders');
 const toggleDetailsButton = document.querySelector('#toggleDetails');
 const versionLabel = document.querySelector('#versionLabel');
+const modeBookmarkButton = document.querySelector('#modeBookmark');
+const modeClipButton = document.querySelector('#modeClip');
+const bookmarkPanel = document.querySelector('#bookmarkPanel');
+const clipPanel = document.querySelector('#clipPanel');
+const clipPreviewTitle = document.querySelector('#clipTitle');
+const clipPreviewMeta = document.querySelector('#clipMeta');
+const clipPreviewExcerpt = document.querySelector('#clipExcerpt');
+const clipStatusLine = document.querySelector('#clipStatusLine');
+const clipTruncatedEl = document.querySelector('#clipTruncated');
+const saveClipButton = document.querySelector('#saveClip');
+const saveClipSelectionButton = document.querySelector('#saveClipSelection');
 
 let config = {};
 let pageInfo = null;
@@ -54,6 +67,10 @@ saveButton.addEventListener('click', saveBookmark);
 duplicateActionButton.addEventListener('click', updateDuplicateBookmark);
 analyzeButton.addEventListener('click', analyzeBookmark);
 toggleDetailsButton.addEventListener('click', toggleDetails);
+modeBookmarkButton.addEventListener('click', () => setMode('bookmark'));
+modeClipButton.addEventListener('click', () => setMode('clip'));
+saveClipButton.addEventListener('click', () => saveClip('NONO_EXTRACT_ARTICLE'));
+saveClipSelectionButton.addEventListener('click', () => saveClip('NONO_EXTRACT_SELECTION'));
 categorySelect.addEventListener('change', () => renderFolderOptions());
 languageSelect?.addEventListener('change', () => changeLanguage(languageSelect.value));
 nameInput.addEventListener('input', () => {
@@ -459,7 +476,11 @@ async function request(path, body, method = 'POST', connection = config) {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok || payload?.code !== 0) {
-      throw new Error(payload?.message || `${t('requestFailed')} (${response.status})`);
+      // Carry the status so callers can tell an insufficient token scope from a generic failure.
+      throw Object.assign(
+        new Error(payload?.message || `${t('requestFailed')} (${response.status})`),
+        { status: response.status },
+      );
     }
     return payload.data;
   } catch (error) {
@@ -467,5 +488,82 @@ async function request(path, body, method = 'POST', connection = config) {
     throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+
+/**
+ * Clip mode.
+ *
+ * The article is parsed only once the user switches into clip mode or invokes a clip command.
+ * Running the full extractor on every popup open would parse pages nobody intends to clip.
+ */
+let clipMode = 'bookmark';
+let clipArticle = null;
+
+function setMode(mode) {
+  clipMode = mode;
+  const clipping = mode === 'clip';
+  modeBookmarkButton.classList.toggle('is-active', !clipping);
+  modeClipButton.classList.toggle('is-active', clipping);
+  modeBookmarkButton.setAttribute('aria-selected', String(!clipping));
+  modeClipButton.setAttribute('aria-selected', String(clipping));
+  bookmarkPanel.classList.toggle('hidden', clipping);
+  clipPanel.classList.toggle('hidden', !clipping);
+  if (clipping && !clipArticle) void loadClipPreview();
+}
+
+async function extractFromActiveTab(extractType) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) throw new Error(t('useOnNormalTab'));
+  try {
+    return await chrome.tabs.sendMessage(tab.id, { type: extractType });
+  } catch {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+    return chrome.tabs.sendMessage(tab.id, { type: extractType });
+  }
+}
+
+async function loadClipPreview() {
+  clipStatusLine.textContent = t('readingArticle');
+  try {
+    clipArticle = await extractFromActiveTab('NONO_EXTRACT_ARTICLE');
+    renderClipPreview(clipArticle);
+  } catch (error) {
+    clipStatusLine.textContent = error.message || t('clipFailed');
+  }
+}
+
+function renderClipPreview(article) {
+  if (!article) return;
+  clipStatusLine.textContent = article.domain || '';
+  clipPreviewTitle.textContent = article.title || '';
+  clipPreviewMeta.textContent = [article.siteName, article.author, t('clipWords', { 1: article.wordCount || 0 })]
+    .filter(Boolean)
+    .join(' · ');
+  clipPreviewExcerpt.textContent = String(article.contentMd || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+  clipTruncatedEl.classList.toggle('hidden', !article.contentTruncated);
+}
+
+async function saveClip(extractType) {
+  const button = extractType === 'NONO_EXTRACT_SELECTION' ? saveClipSelectionButton : saveClipButton;
+  const label = extractType === 'NONO_EXTRACT_SELECTION' ? t('clipSelection') : t('clipThisPage');
+  setBusy(button, true, t('clipping'));
+  try {
+    const article = extractType === 'NONO_EXTRACT_ARTICLE' && clipArticle
+      ? clipArticle
+      : await extractFromActiveTab(extractType);
+    if (!article) throw new Error(t('noSelection'));
+    if (extractType === 'NONO_EXTRACT_ARTICLE') {
+      clipArticle = article;
+      renderClipPreview(article);
+    }
+    await request('/api/clipper/clips', buildClipPayload(article));
+    setStatus(t('clipSaved'), 'success');
+    chrome.action.setBadgeText({ text: 'OK' });
+  } catch (error) {
+    setStatus(clipErrorMessage(error), 'error');
+  } finally {
+    setBusy(button, false, label);
   }
 }

@@ -2,9 +2,14 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extName__",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "__MSG_extDescription__",
-  "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "contextMenus"
+  ],
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*",
@@ -46,6 +51,13 @@
         "mac": "MacCtrl+Shift+B"
       },
       "description": "__MSG_commandQuickSave__"
+    },
+    "clip-current-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+C",
+        "mac": "MacCtrl+Shift+C"
+      },
+      "description": "__MSG_commandClipPage__"
     }
   }
 }

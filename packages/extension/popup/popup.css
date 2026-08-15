@@ -533,3 +533,75 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+.mode-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(120, 120, 128, 0.12);
+}
+
+.mode-option {
+  flex: 1;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mode-option.is-active {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.mode-option:focus-visible {
+  outline: 2px solid #167d86;
+  outline-offset: 2px;
+}
+
+.clip-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clip-preview h2 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.clip-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.clip-excerpt {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clip-truncated {
+  margin: 6px 0 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mode-option.is-active {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}

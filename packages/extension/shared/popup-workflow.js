@@ -141,3 +141,51 @@ function siteNameFromUrl(rawUrl) {
     return t('untitledBookmark');
   }
 }
+
+export const CLIP_MODES = ['bookmark', 'clip'];
+
+export function isClipMode(value) {
+  return CLIP_MODES.includes(value);
+}
+
+/**
+ * Maps an extraction onto the /api/clipper/clips ingest contract.
+ *
+ * Content is not re-truncated here: the extractor already trimmed it to the byte budget and set
+ * `contentTruncated`. The server re-checks and rejects anything still over the limit rather than
+ * trusting that flag.
+ */
+export function buildClipPayload(article) {
+  const payload = {
+    url: article.url,
+    title: article.title || article.canonicalUrl || article.url,
+    contentHtml: article.contentHtml || '',
+    contentMd: article.contentMd || '',
+    contentTruncated: Boolean(article.contentTruncated),
+    extractor: article.extractor || 'defuddle',
+  };
+
+  // Only send optional fields that carry a value. An empty canonicalUrl would fail URL validation
+  // server-side instead of falling back to the page URL.
+  if (article.canonicalUrl) payload.canonicalUrl = article.canonicalUrl;
+  if (article.author) payload.author = article.author;
+  if (article.siteName) payload.siteName = article.siteName;
+  if (article.description) payload.description = article.description;
+  if (article.lang) payload.lang = article.lang;
+  if (article.favicon) payload.favicon = article.favicon;
+  if (article.image) payload.image = article.image;
+  if (article.publishedAt) payload.publishedAt = article.publishedAt;
+  if (Number.isFinite(article.wordCount)) payload.wordCount = article.wordCount;
+  if (article.sourceMeta) payload.sourceMeta = article.sourceMeta;
+
+  return payload;
+}
+
+/**
+ * Tokens created before Clipper existed carry no clip scopes, so the first clip attempt with one
+ * fails with a bare 403. Say what to do about it.
+ */
+export function clipErrorMessage(error) {
+  if (error?.status === 403) return t('clipScopeMissing');
+  return error?.message || t('clipFailed');
+}
