@@ -81,4 +81,16 @@ describe('Yumi availability history', () => {
     });
     expect(JSON.stringify(overview.domainStats)).not.toMatch(/amount|currency|cost|fee/i);
   });
+
+  test('groups Yumi daily status by the Shanghai calendar day', async () => {
+    const context = await createTestContext('yumi');
+    context.now = () => new Date('2026-08-14T16:30:00.000Z');
+    context.db.run("INSERT INTO vps (id, name, probe_url, monitor_status, monitor_updated_at, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (1, 'midnight-vps', 'http://example.test', 'online', '2026-08-14T16:30:00.000Z', 0, 'USD', 'monthly', 'active', '[]', '2026-08-15', '2026-08-15')");
+
+    recordStatusSample(context, 1, 'up', 12, null);
+    const overview = buildStatusOverview(context, 7);
+
+    expect(context.db.get<{ day: string }>('SELECT day FROM vps_status_daily WHERE vps_id = 1')?.day).toBe('2026-08-15');
+    expect(overview.range.end).toBe('2026-08-15');
+  });
 });

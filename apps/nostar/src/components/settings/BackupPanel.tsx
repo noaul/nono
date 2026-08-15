@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { WebDAVService } from '../../services/webdavService';
 import { useDialog } from '../../hooks/useDialog';
 import { IncludeKeysToggle } from './IncludeKeysToggle';
+import { formatShanghaiDateTime, shanghaiDateKey } from '../../utils/dateTime';
 
 interface BackupPanelProps {
   t: (zh: string, en: string) => string;
@@ -86,7 +87,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         version: '1.0'
       };
 
-      const filename = `github-stars-backup-${new Date().toISOString().split('T')[0]}.json`;
+      const filename = `github-stars-backup-${shanghaiDateKey()}.json`;
       const success = await webdavService.uploadFile(filename, JSON.stringify(backupData, null, 2));
 
       if (success) {
@@ -344,7 +345,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         <div className="p-4 bg-light-surface dark:bg-white/[0.04] rounded-lg">
           <p className="text-sm text-gray-700 dark:text-text-secondary ">
             <span className="font-medium">{t('上次备份:', 'Last backup:')}</span>{' '}
-            {new Date(lastBackup).toLocaleString()}
+            {formatShanghaiDateTime(lastBackup)}
           </p>
         </div>
       )}

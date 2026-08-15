@@ -8,6 +8,7 @@ import { createGitHubApiService } from '../services/githubApiFactory';
 import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
 import { hljs, normalizeHighlightLanguage } from '../services/highlight';
+import { formatShanghaiDateTime } from '../utils/dateTime';
 
 interface GistDetailModalProps {
   gist: Gist | null;
@@ -175,7 +176,7 @@ export const GistDetailModal: React.FC<GistDetailModalProps> = ({ gist, isOpen, 
           <div className="min-w-0 text-sm text-gray-500 dark:text-text-tertiary">
             <span>{gist.owner?.login || t('未知创建者', 'Unknown owner')}</span>
             <span className="mx-2">·</span>
-            <span>{t('更新于', 'Updated')} {new Date(gist.updated_at).toLocaleString()}</span>
+            <span>{t('更新于', 'Updated')} {formatShanghaiDateTime(gist.updated_at)}</span>
             <span className="mx-2">·</span>
             <span>{gist.public ? t('公开', 'Public') : t('私有', 'Secret')}</span>
           </div>

@@ -322,18 +322,18 @@ async function collectNodeskNotifications(reader: () => Promise<unknown>, curren
 }
 
 async function collectNoMoneyNotifications(reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
-  return collectProductNotifications('nomoney', reader, current, timeZone, locale);
+  return collectProductNotifications('nomoney', reader, current, timeZone, locale, 30);
 }
 
 async function collectYumiNotifications(reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
-  return collectProductNotifications('yumi', reader, current, timeZone, locale);
+  return collectProductNotifications('yumi', reader, current, timeZone, locale, 3);
 }
 
-async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
+async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale, leadDays: number): Promise<RawNotification[]> {
   const items = await reader().catch(() => []);
   const today = dateKeyInTimeZone(current, timeZone);
   const firstDay = addDateDays(today, -30);
-  const lastDay = addDateDays(today, 30);
+  const lastDay = addDateDays(today, leadDays);
   const sourceNames = { phone: locale === 'zh' ? '电话卡' : 'SIM card', domain: t(locale, 'sourceDomain'), vps: t(locale, 'sourceVps'), subscription: t(locale, 'sourceSubscription') } as const;
   const hrefs = { phone: '/nomoney/phones', domain: '/yumi/domains', vps: '/yumi/vps', subscription: '/nomoney/subscriptions' } as const;
   return items

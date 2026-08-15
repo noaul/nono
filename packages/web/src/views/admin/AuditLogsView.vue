@@ -16,6 +16,7 @@ import { apiRequest, jsonBody } from '@/api/client';
 import type { AuditLogEntry, AuditLogPage, AuditSettings } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 import type { MessageKey } from '@/locales';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -156,9 +157,7 @@ function toggleDetails(id: number) {
 }
 
 function formatTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return formatShanghaiDateTime(value, 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -166,7 +165,7 @@ function formatTime(value: string) {
     minute: '2-digit',
     second: '2-digit',
     hour12: false,
-  }).format(date);
+  });
 }
 
 function formatDetails(details: Record<string, unknown>) {

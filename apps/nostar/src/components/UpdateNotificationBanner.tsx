@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Download, Calendar, Package } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { UpdateService } from '../services/updateService';
+import { formatShanghaiDate } from '../utils/dateTime';
 
 export const UpdateNotificationBanner: React.FC = () => {
   const { updateNotification, dismissUpdateNotification, language } = useAppStore();
@@ -19,7 +20,7 @@ export const UpdateNotificationBanner: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
+      return formatShanghaiDate(dateString, language === 'zh' ? 'zh-CN' : 'en-US');
     } catch {
       return dateString;
     }

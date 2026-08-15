@@ -141,7 +141,7 @@ const navigationEntrySchema = z.object({
   openInNewTab: z.boolean().default(false),
 });
 
-const navigationEntriesSchema = z.array(navigationEntrySchema).max(20).transform((items) => {
+export const navigationEntriesSchema = z.array(navigationEntrySchema).max(20).transform((items) => {
   const usedIds = new Set<string>();
   return items.map((item, index) => {
     const baseId = normalizeNavigationEntryId(item.id) || `entry-${index + 1}`;

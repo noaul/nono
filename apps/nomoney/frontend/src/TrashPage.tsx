@@ -8,6 +8,7 @@ import type { AssetItem, CommunicationAccount, ListResponse } from './types';
 import { useI18n } from './i18n';
 import { Button, EmptyState, PageHeader, Skeleton, StateBanner } from './ui';
 import { product } from './product';
+import { formatShanghaiDateTime } from './format';
 
 type TrashKind = AssetPageConfig['endpoint'] | 'accounts';
 
@@ -207,9 +208,5 @@ function byNewestArchive(a: TrashItem, b: TrashItem): number {
 
 function formatArchivedAt(value: string | null, language: 'zh' | 'en'): string {
   if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
-    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-  }).format(date);
+  return formatShanghaiDateTime(value, language);
 }

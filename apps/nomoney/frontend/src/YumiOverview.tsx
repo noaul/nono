@@ -7,6 +7,7 @@ import { useLayoutActions } from './Layout';
 import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
+import { APP_TIME_ZONE } from './format';
 
 const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: string; detailEn: string }> = {
   operational: { zh: '所有服务运行正常', en: 'All systems operational', detailZh: '当前没有发现影响服务器可用性的问题。', detailEn: 'No availability issues are currently affecting your servers.' },
@@ -275,7 +276,7 @@ function formatStatusHour(value: string, language: string) {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
-    timeZone: 'UTC'
+    timeZone: APP_TIME_ZONE
   }).format(new Date(value));
 }
 

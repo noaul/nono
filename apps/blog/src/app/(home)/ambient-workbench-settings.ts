@@ -40,11 +40,12 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 	const source = record(settings)
 	const workbench = record(source?.nodeskWorkbench)
 	const savedEntries = Array.isArray(source?.navigationEntries) ? source.navigationEntries : null
+	const savedVersion = Number(source?.navigationEntriesVersion || 0)
 	const savedIds = new Set(savedEntries?.flatMap(value => {
 		const entry = record(value)
 		return typeof entry?.id === 'string' ? [entry.id.trim()] : []
 	}) || [])
-	const sourceEntries = savedEntries && Number(source?.navigationEntriesVersion || 0) < WORKBENCH_NAVIGATION_VERSION
+	const sourceEntries = savedEntries && savedVersion < WORKBENCH_NAVIGATION_VERSION
 		? [...savedEntries, ...DEFAULT_WORKBENCH_APP_ENTRIES.filter(entry => entry.id !== 'home' && !savedIds.has(entry.id))]
 		: savedEntries
 	const entries = sourceEntries?.flatMap((value, index) => {
@@ -61,9 +62,11 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 		}]
 	})
 	const includesHome = entries?.some(entry => entry.id === 'home' || entry.url === '/')
-	const visibleEntries = entries?.length
-		? includesHome ? entries : [DEFAULT_WORKBENCH_APP_ENTRIES[0], ...entries]
-		: DEFAULT_WORKBENCH_APP_ENTRIES
+	const visibleEntries = savedEntries && savedVersion >= WORKBENCH_NAVIGATION_VERSION
+		? entries || []
+		: entries?.length
+			? includesHome ? entries : [DEFAULT_WORKBENCH_APP_ENTRIES[0], ...entries]
+			: DEFAULT_WORKBENCH_APP_ENTRIES
 
 	return {
 		quickEntriesVisible: typeof workbench?.quickEntriesVisible === 'boolean' ? workbench.quickEntriesVisible : true,

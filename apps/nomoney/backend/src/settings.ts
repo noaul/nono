@@ -107,8 +107,12 @@ export function getSettings(context: AppContext): Settings {
   }
 
   const defaultBackupPath = context.product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
+  const savedReminderDays = settings.reminderDays ?? [30, 14, 7, 3, 1, 0];
+  const reminderDays = context.product === 'yumi'
+    ? savedReminderDays.filter((days) => days <= 3)
+    : savedReminderDays;
   return {
-    reminderDays: settings.reminderDays ?? [30, 14, 7, 3, 1, 0],
+    reminderDays: reminderDays.length ? reminderDays : [3, 1, 0],
     reminderEnabled: settings.reminderEnabled ?? true,
     defaultCurrency: settings.defaultCurrency ?? 'CNY',
     timezone: settings.timezone ?? 'Asia/Shanghai',

@@ -42,9 +42,12 @@ export async function runReminderScan(context: AppContext, allowedTypes?: AssetT
     return { sent: false, items: [] };
   }
 
-  const maxDays = Math.max(...settings.reminderDays, 0);
+  const reminderDays = isYumiReminderScope(allowedTypes)
+    ? settings.reminderDays.filter((days) => days <= 3)
+    : settings.reminderDays;
+  const maxDays = Math.max(...reminderDays, 0);
   const dueItems = collectDueItems(context, maxDays, allowedTypes).filter((item) =>
-    settings.reminderDays.includes(item.daysLeft)
+    reminderDays.includes(item.daysLeft)
   );
   const unsent = dueItems.filter((item) => !hasSentReminder(context, item));
 
@@ -82,6 +85,10 @@ export async function runReminderScan(context: AppContext, allowedTypes?: AssetT
     }
     return { sent: false, items: unsent };
   }
+}
+
+function isYumiReminderScope(types: AssetType[] | undefined) {
+  return Boolean(types?.length) && types!.every((type) => type === 'domain' || type === 'vps');
 }
 
 function hasSentReminder(context: AppContext, item: DueItem): boolean {

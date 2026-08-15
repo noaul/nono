@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { formatShanghaiDateTime } from '../../utils/dateTime';
 import {
   Search,
   Eye,
@@ -804,7 +805,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
             <div className="flex items-center gap-2">
               <span className="text-gray-500">🕐</span>
               <span className="text-gray-700 dark:text-gray-300">
-                {t('最后同步', 'Last sync')}: {new Date(vectorSearchStatus.lastSyncAt).toLocaleString()}
+                {t('最后同步', 'Last sync')}: {formatShanghaiDateTime(vectorSearchStatus.lastSyncAt)}
               </span>
             </div>
           )}

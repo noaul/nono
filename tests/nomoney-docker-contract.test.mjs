@@ -9,6 +9,7 @@ test('packages NoMoney in the combined image', () => {
   assert.match(dockerfile, /AS nomoney-runtime-deps/);
   assert.match(dockerfile, /\/app\/nomoney\/backend\/dist/);
   assert.match(dockerfile, /\/app\/nomoney\/backend\/public/);
+  assert.match(dockerfile, /apk add --no-cache[^\n]*tzdata/);
 });
 
 test('persists NoMoney data and requires its session secret', () => {
@@ -30,6 +31,14 @@ test('binds the application to loopback by default', () => {
   assert.match(compose, /\$\{PORT:-127\.0\.0\.1:3000\}:3000/);
   assert.match(exampleEnv, /^PORT=127\.0\.0\.1:3000$/m);
   assert.match(exampleEnv, /^NOMONEY_COOKIE_SECURE=true$/m);
+  assert.match(exampleEnv, /^TZ=Asia\/Shanghai$/m);
+});
+
+test('defaults application and PostgreSQL containers to Shanghai time', () => {
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+  assert.match(compose, /postgres:[\s\S]*TZ:\s*\$\{TZ:-Asia\/Shanghai\}/);
+  assert.match(compose, /PGTZ:\s*\$\{TZ:-Asia\/Shanghai\}/);
+  assert.match(compose, /app:[\s\S]*TZ:\s*\$\{TZ:-Asia\/Shanghai\}/);
 });
 
 test('runs both NoMoney backend and frontend tests from the repository quality gate', () => {

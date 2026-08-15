@@ -8,10 +8,14 @@ import {
 	Bookmark,
 	CalendarDays,
 	Check,
+	ChevronLeft,
+	ChevronRight,
 	Circle,
 	CloudSun,
 	ExternalLink,
 	Github,
+	Globe2,
+	Link2,
 	ListTodo,
 	Maximize2,
 	Minimize2,
@@ -52,7 +56,7 @@ import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter } from './ambient-settings-center'
 import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 
-type PanelId = 'bookmarks' | 'github' | 'yumi' | 'notifications' | 'calendar' | 'tasks' | 'focus'
+type PanelId = 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
 type DockActionId = PanelId | 'settings'
 type LoadState = 'loading' | 'ready' | 'unavailable'
 type IntegrationId = 'bookmarks' | 'github' | 'yumi' | 'notifications'
@@ -105,7 +109,6 @@ const DOCK_ITEMS: DockItem[] = [
 	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
 	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar' },
 	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi' },
-	{ id: 'notifications', label: '通知', icon: Bell, shortcutHref: '/admin/notifications', shortcutLabel: '打开通知中心' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
 	{ id: 'focus', label: '专注', icon: Timer },
@@ -179,6 +182,9 @@ function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
 	if (entry.id === 'nomoney' || entry.icon === 'wallet-cards') return <WalletCards size={19} />
 	if (entry.id === 'nostar' || entry.icon === 'star') return <Star size={19} />
 	if (entry.id === 'yumi' || entry.icon === 'server-cog') return <Smile size={19} />
+	if (entry.icon === 'github') return <Github size={19} />
+	if (entry.icon === 'globe') return <Globe2 size={19} />
+	if (entry.icon === 'link') return <Link2 size={19} />
 	return <AppWindow size={19} />
 }
 
@@ -203,6 +209,7 @@ export default function AmbientWorkbench() {
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<'desktop' | 'backups'>('desktop')
 	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
+	const [notificationRailCollapsed, setNotificationRailCollapsed] = useState(false)
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
 
 	const [tasks, setTasks] = useState<WorkbenchTask[]>([])
@@ -360,6 +367,17 @@ export default function AmbientWorkbench() {
 		})
 		if (!response.ok) throw new Error(response.status === 403 ? '只有管理员可以修改此设置。' : '快捷入口设置保存失败。')
 		setWorkbenchNavigation(current => ({ ...current, quickEntriesVisible: visible }))
+	}
+
+	const saveQuickEntries = async (entries: WorkbenchAppEntry[]) => {
+		const response = await fetch('/api/admin/nodesk/workbench', {
+			method: 'PUT',
+			credentials: 'same-origin',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ navigationEntries: entries })
+		})
+		if (!response.ok) throw new Error(response.status === 403 ? '只有管理员可以修改此设置。' : '快捷应用保存失败。')
+		setWorkbenchNavigation(current => ({ ...current, entries }))
 	}
 
 	useEffect(() => {
@@ -592,6 +610,7 @@ export default function AmbientWorkbench() {
 			className='ambient-workbench'
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
+			data-notifications={notificationRailCollapsed ? 'collapsed' : 'expanded'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
@@ -609,22 +628,6 @@ export default function AmbientWorkbench() {
 
 
 				<div className='ambient-top-center'>
-					{workbenchNavigation.quickEntriesVisible && <div
-						className={`ambient-app-switcher${appSwitcherOpen ? ' is-open' : ''}`}
-						onMouseEnter={() => setAppSwitcherOpen(true)}
-						onMouseLeave={() => setAppSwitcherOpen(false)}
-						onFocus={() => setAppSwitcherOpen(true)}
-						onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
-						<button type='button' className='ambient-app-switcher-trigger' aria-label='应用切换器' aria-expanded={appSwitcherOpen}>
-							<AppWindow size={18} />
-						</button>
-						<div className='ambient-app-switcher-menu' role='navigation' aria-label='应用快捷入口'>
-							{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} aria-label={entry.label} title={entry.label} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
-								<AppEntryIcon entry={entry} /><span className='ambient-visually-hidden'>{entry.label}</span>
-							</a>)}
-						</div>
-					</div>}
-
 					<button type='button' className='ambient-command-trigger' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
 						<Search size={17} strokeWidth={1.8} />
 						<span>快速搜索与执行...</span>
@@ -710,7 +713,7 @@ export default function AmbientWorkbench() {
 										<ArrowUpRight size={17} />
 									</a>
 								)}
-								{(['bookmarks', 'github', 'yumi', 'notifications'] as PanelId[]).includes(activePanel) && (
+								{(['bookmarks', 'github', 'yumi'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />
 									</button>
@@ -730,18 +733,6 @@ export default function AmbientWorkbench() {
 							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 Nono 后即可读取 Yumi 状态。'>
 								{yumiItems.slice(0, 7).map(item => <ExternalRow key={item.key} title={item.title} subtitle={item.description} href={item.href} icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Circle size={11} fill='currentColor' /></span>} />)}
 								<a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>
-							</IntegrationList>}
-
-							{activePanel === 'notifications' && <IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
-								{notifications.slice(0, 7).map(item => <ExternalRow
-									key={item.key}
-									title={item.title}
-									subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
-									href={item.href}
-									unread={!item.read}
-									onActivate={() => markNotificationRead(item)}
-									icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={16} /></span>}
-								/>)}
 							</IntegrationList>}
 
 							{activePanel === 'tasks' && (
@@ -805,6 +796,50 @@ export default function AmbientWorkbench() {
 				)}
 			</AnimatePresence>
 
+			<aside className={`ambient-notification-rail ambient-wakeable${notificationRailCollapsed ? ' is-collapsed' : ''}`} aria-label='通知'>
+				<header className='ambient-notification-heading'>
+					<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
+					<button type='button' onClick={() => setNotificationRailCollapsed(current => !current)} aria-label={notificationRailCollapsed ? '展开通知' : '折叠通知'} title={notificationRailCollapsed ? '展开通知' : '折叠通知'}>
+						{notificationRailCollapsed ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+					</button>
+				</header>
+				{!notificationRailCollapsed && <>
+					<div className='ambient-notification-list'>
+						<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
+							{notifications.slice(0, 6).map(item => <ExternalRow
+								key={item.key}
+								title={item.title}
+								subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
+								href={item.href}
+								unread={!item.read}
+								onActivate={() => markNotificationRead(item)}
+								icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={15} /></span>}
+							/>)}
+						</IntegrationList>
+					</div>
+					<div className='ambient-notification-footer'>
+						<button type='button' onClick={() => void loadNotifications()} aria-label='刷新通知' title='刷新通知'><RefreshCw size={15} /></button>
+						<a href='/admin/notifications'>查看全部通知 <ArrowUpRight size={14} /></a>
+					</div>
+				</>}
+			</aside>
+
+			{workbenchNavigation.quickEntriesVisible && <div
+				className={`ambient-app-switcher ambient-wakeable${appSwitcherOpen ? ' is-open' : ''}`}
+				onMouseEnter={() => setAppSwitcherOpen(true)}
+				onMouseLeave={() => setAppSwitcherOpen(false)}
+				onFocus={() => setAppSwitcherOpen(true)}
+				onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
+				<button type='button' className='ambient-app-switcher-trigger' aria-label='应用切换器' aria-expanded={appSwitcherOpen}>
+					<AppWindow size={18} />
+				</button>
+				<div className='ambient-app-switcher-menu' role='navigation' aria-label='应用快捷入口'>
+					{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} aria-label={entry.label} title={entry.label} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
+						<AppEntryIcon entry={entry} /><span className='ambient-visually-hidden'>{entry.label}</span>
+					</a>)}
+				</div>
+			</div>}
+
 			<div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
@@ -817,8 +852,8 @@ export default function AmbientWorkbench() {
 								return
 							}
 							togglePanel(item.id)
-						}} aria-pressed={isActive} aria-label={item.id === 'notifications' && notificationUnreadCount ? `${item.label}，${notificationUnreadCount} 条未读` : item.label}>
-							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} />{item.id === 'notifications' && notificationUnreadCount > 0 ? <b className='ambient-dock-badge'>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
+						}} aria-pressed={isActive} aria-label={item.label}>
+							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} /></span>
 							<span>{item.label}</span>
 						</button>
 					})}
@@ -835,6 +870,8 @@ export default function AmbientWorkbench() {
 				onClose={() => setSettingsOpen(false)}
 				quickEntriesVisible={workbenchNavigation.quickEntriesVisible}
 				onQuickEntriesVisibleChange={saveQuickEntriesVisibility}
+				quickEntries={workbenchNavigation.entries}
+				onQuickEntriesChange={saveQuickEntries}
 			/>
 
 			<AnimatePresence>

@@ -5,6 +5,7 @@ import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
 import { useConfirm } from '@/composables/useConfirm';
 import { useI18n } from '@/composables/useI18n';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -120,7 +121,7 @@ async function removeBackup(backup: BackupRecord) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  return formatShanghaiDateTime(value, 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function formatBytes(bytes: number) {

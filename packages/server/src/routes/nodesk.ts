@@ -5,6 +5,14 @@ import { sendError, sendOk } from '../plugins/responses.js';
 import { setAuditContext } from '../plugins/audit.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
 import type { AppServices } from '../types.js';
+import { navigationEntriesSchema } from '../utils/site-settings.js';
+
+const workbenchSettingsSchema = z.object({
+  quickEntriesVisible: z.boolean().optional(),
+  navigationEntries: navigationEntriesSchema.optional(),
+}).refine((value) => value.quickEntriesVisible !== undefined || value.navigationEntries !== undefined, {
+  message: 'At least one workbench setting is required',
+});
 
 export async function nodeskRoutes(app: FastifyInstance, services: AppServices) {
   const store = new NodeskContentStore(services.nodeskContentDir);
@@ -29,18 +37,37 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
   app.put('/api/admin/nodesk/workbench', async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
-    const input = z.object({ quickEntriesVisible: z.boolean() }).parse(request.body);
+    const input = workbenchSettingsSchema.parse(request.body);
     const site = await services.repo.getSite(user.id);
     if (!site) throw Object.assign(new Error('Site not found'), { statusCode: 404 });
-    const before = site.settings.nodeskWorkbench;
-    const nodeskWorkbench = { quickEntriesVisible: input.quickEntriesVisible };
-    await services.repo.updateSite(user.id, { settings: { ...site.settings, nodeskWorkbench } });
+    const before = {
+      nodeskWorkbench: site.settings.nodeskWorkbench,
+      navigationEntries: site.settings.navigationEntries,
+    };
+    const currentWorkbench = site.settings.nodeskWorkbench && typeof site.settings.nodeskWorkbench === 'object'
+      ? site.settings.nodeskWorkbench as { quickEntriesVisible?: unknown }
+      : {};
+    const nodeskWorkbench = {
+      quickEntriesVisible: input.quickEntriesVisible ?? (typeof currentWorkbench.quickEntriesVisible === 'boolean' ? currentWorkbench.quickEntriesVisible : true),
+    };
+    const settings = {
+      ...site.settings,
+      nodeskWorkbench,
+      ...(input.navigationEntries ? { navigationEntries: input.navigationEntries, navigationEntriesVersion: 3 } : {}),
+    };
+    await services.repo.updateSite(user.id, { settings });
     setAuditContext(request, {
       action: 'update',
       resourceType: 'nodesk',
       resourceId: 'workbench',
       resourceLabel: 'NoDesk 工作台设置',
-      details: { before, after: nodeskWorkbench },
+      details: {
+        before,
+        after: {
+          nodeskWorkbench,
+          ...(input.navigationEntries ? { navigationEntries: input.navigationEntries } : {}),
+        },
+      },
     });
     return sendOk(reply, nodeskWorkbench);
   });

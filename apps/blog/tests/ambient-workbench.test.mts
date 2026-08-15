@@ -128,10 +128,14 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 	}), {
 		quickEntriesVisible: false,
 		entries: [
-			DEFAULT_WORKBENCH_APP_ENTRIES[0],
 			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false }
 		]
 	})
+
+	assert.deepEqual(normalizeWorkbenchNavigation({
+		navigationEntriesVersion: 3,
+		navigationEntries: []
+	}).entries, [])
 
 	assert.deepEqual(normalizeWorkbenchNavigation({
 		navigationEntriesVersion: 2,
@@ -187,7 +191,7 @@ test('syncs the ambient workbench with Shanghai time and Nono home data', async 
 	assert.match(workbench, /\/api\/navigation\/admin\/background/)
 	assert.match(workbench, /repositories\?limit=1000/)
 	assert.match(workbench, /sources=nodesk%2Cnomoney%2Cyumi/)
-	assert.match(workbench, /id: 'notifications'/)
+	assert.match(workbench, /ambient-notification-rail/)
 	assert.match(workbench, /clickCount/)
 	assert.match(styles, /ambient-time-zone/)
 	assert.match(styles, /ambient-dock-badge/)
@@ -215,7 +219,7 @@ test('uses a wider lower search trigger and links integration panels to their pr
 	assert.match(workbench, /shortcutHref: '\/admin\/links', shortcutLabel: '打开书签管理'/)
 	assert.match(workbench, /shortcutHref: '\/nostar\/', shortcutLabel: '打开 NoStar'/)
 	assert.match(workbench, /shortcutHref: '\/yumi', shortcutLabel: '打开 Yumi'/)
-	assert.match(workbench, /shortcutHref: '\/admin\/notifications', shortcutLabel: '打开通知中心'/)
+	assert.match(workbench, /href='\/admin\/notifications'/)
 	assert.match(workbench, /href=\{activeDockItem\.shortcutHref\}/)
 	assert.doesNotMatch(workbench, /返回 Nono 主页/)
 	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
@@ -241,12 +245,47 @@ test('adds a hover app switcher and a dock settings center with independent back
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/backups/)
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/restore/)
 	assert.match(source, /\/api\/admin\/backup-center\/local/)
-	assert.match(styles, /\.ambient-app-switcher[\s\S]*left: 50%/)
+	assert.match(styles, /\.ambient-app-switcher[\s\S]*left: max\(28px, env\(safe-area-inset-left\)\)/)
+	assert.match(styles, /\.ambient-app-switcher-menu[\s\S]*bottom:/)
 	assert.match(styles, /\.ambient-app-switcher:not\(:hover\):not\(:focus-within\)/)
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 	assert.match(styles, /\.ambient-settings-dialog/)
 	assert.match(settings, /event\.key !== 'Tab'/)
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
+})
+
+test('keeps notifications in a default-open collapsible right rail instead of the dock', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /notificationRailCollapsed[\s\S]*useState\(false\)/)
+	assert.match(workbench, /ambient-notification-rail/)
+	assert.match(workbench, /aria-label=\{notificationRailCollapsed \? '展开通知' : '折叠通知'\}/)
+	assert.match(workbench, /href='\/admin\/notifications'/)
+	assert.doesNotMatch(workbench, /\{ id: 'notifications', label: '通知', icon: Bell/)
+	assert.doesNotMatch(workbench, /activePanel === 'notifications'/)
+	assert.match(styles, /\.ambient-notification-rail[\s\S]*right: max\(28px, env\(safe-area-inset-right\)\)/)
+	assert.match(styles, /\.ambient-notification-rail\.is-collapsed/)
+	assert.match(workbench, /data-notifications=\{notificationRailCollapsed \? 'collapsed' : 'expanded'\}/)
+	assert.match(styles, /data-notifications='expanded'[\s\S]*\.ambient-center-stage/)
+	assert.match(styles, /\.ambient-command-trigger[\s\S]*left: max\(68px/)
+})
+
+test('lets administrators edit server-backed quick applications from NoDesk settings', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /navigationEntries: entries/)
+	assert.match(workbench, /quickEntries=\{workbenchNavigation\.entries\}/)
+	assert.match(settings, /应用名称/)
+	assert.match(settings, /跳转链接/)
+	assert.match(settings, /新标签页打开/)
+	assert.match(settings, /添加快捷应用/)
+	assert.match(settings, /删除快捷应用/)
+	assert.match(settings, /onQuickEntriesChange/)
+	assert.match(styles, /\.ambient-quick-app-list/)
+	assert.match(styles, /\.ambient-now-list\s*\{[^}]*min-height:\s*0/)
 })
 
 test('keeps dock task and schedule panels separate while the home summary shows both', async () => {

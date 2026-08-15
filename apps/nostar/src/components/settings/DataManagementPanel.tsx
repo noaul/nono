@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { formatShanghaiDateTime, shanghaiDateKey } from '../../utils/dateTime';
 import {
   Trash2,
   AlertTriangle,
@@ -187,7 +188,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
     const newLog: OperationLog = {
       id: Date.now().toString(),
       operation,
-      timestamp: new Date().toLocaleString(),
+      timestamp: formatShanghaiDateTime(new Date()),
       success,
       details,
     };
@@ -550,7 +551,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nostar-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `nostar-backup-${shanghaiDateKey()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1699,7 +1700,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
             <div className="p-6 space-y-4">
               <div className="text-sm text-gray-700 dark:text-text-tertiary">
                 <p><strong>{t('文件名:', 'File:')}</strong> {importPreview.fileName}</p>
-                <p><strong>{t('导出日期:', 'Export Date:')}</strong> {new Date(importPreview.data.exportDate).toLocaleString()}</p>
+                <p><strong>{t('导出日期:', 'Export Date:')}</strong> {formatShanghaiDateTime(importPreview.data.exportDate)}</p>
                 <p><strong>{t('版本:', 'Version:')}</strong> {importPreview.data.appVersion}</p>
               </div>
 

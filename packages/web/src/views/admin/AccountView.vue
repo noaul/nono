@@ -9,6 +9,7 @@ import type { ApiToken, Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { useI18n } from '@/composables/useI18n';
 import { useModalBehavior } from '@/composables/useModalBehavior';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -194,7 +195,7 @@ async function revokeOtherSessions() {
 
 function formatDate(value: string | null) {
   if (!value) return t('account.neverUsed');
-  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  return formatShanghaiDateTime(value, 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 async function save() {

@@ -1,3 +1,5 @@
+import { APP_TIME_ZONE } from './format';
+
 interface StatusRefreshEventSource {
   addEventListener(type: string, listener: () => void): void;
   removeEventListener(type: string, listener: () => void): void;
@@ -19,7 +21,7 @@ export function formatStatusDay(day: string, language: string): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC'
+    timeZone: APP_TIME_ZONE
   }).format(new Date(`${day}T00:00:00Z`));
 }
 

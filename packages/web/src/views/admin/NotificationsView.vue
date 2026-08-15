@@ -23,6 +23,7 @@ import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
 import type { MessageKey } from '@/locales';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -285,14 +286,12 @@ function isAdminRoute(item: AdminNotification) {
 
 function formatTime(item: AdminNotification) {
   const value = item.dueAt || item.occurredAt;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return formatShanghaiDateTime(value, 'zh-CN', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(date);
+  });
 }
 
 onMounted(load);

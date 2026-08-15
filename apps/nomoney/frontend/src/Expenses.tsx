@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CalendarRange, Pencil, Plus, ReceiptText, Server, Trash2, WalletCards } from 'lucide-react';
 import type { AssetLookupItem, AssetType, Currency, ExpenseItem, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
-import { compactDate, formatMoney } from './format';
+import { compactDate, currentShanghaiYear, formatMoney, shanghaiDateKey } from './format';
 import { Button, DataTable, Drawer, EmptyState, Field, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
@@ -22,12 +22,12 @@ type ExpenseForm = {
 const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const assetTypes: AssetType[] = ['vps', 'domain'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
-const currentYear = new Date().getFullYear();
+const currentYear = currentShanghaiYear();
 const initialForm: ExpenseForm = {
   assetKey: '',
   amount: '',
   currency: 'CNY',
-  paidAt: new Date().toISOString().slice(0, 10),
+  paidAt: shanghaiDateKey(),
   periodStart: '',
   periodEnd: '',
   category: 'monthly',

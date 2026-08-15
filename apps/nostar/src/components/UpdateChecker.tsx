@@ -4,6 +4,7 @@ import { Download, RefreshCw, ExternalLink, Calendar, Package } from 'lucide-rea
 import { UpdateService, VersionInfo } from '../services/updateService';
 import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
+import { formatShanghaiDate } from '../utils/dateTime';
 
 interface UpdateCheckerProps {
   onUpdateAvailable?: (version: VersionInfo) => void;
@@ -63,7 +64,7 @@ export const UpdateChecker: React.FC<UpdateCheckerProps> = ({ onUpdateAvailable 
 
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
+      return formatShanghaiDate(dateString, language === 'zh' ? 'zh-CN' : 'en-US');
     } catch {
       return dateString;
     }

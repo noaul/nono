@@ -62,6 +62,40 @@ describe('NoDesk local content API', () => {
     });
   });
 
+  it('validates and persists editable NoDesk quick applications', async () => {
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/nodesk/workbench',
+      headers: { cookie },
+      payload: {
+        quickEntriesVisible: true,
+        navigationEntries: [
+          { id: 'docs', label: '文档', url: 'https://docs.example.com', icon: 'book-open', enabled: true, openInNewTab: true },
+          { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', enabled: true, openInNewTab: false },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect((await repo.getSite(1))?.settings).toMatchObject({
+      navigationEntriesVersion: 3,
+      navigationEntries: [
+        { id: 'docs', label: '文档', url: 'https://docs.example.com', icon: 'book-open', enabled: true, openInNewTab: true },
+        { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', enabled: true, openInNewTab: false },
+      ],
+    });
+
+    const unsafe = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/nodesk/workbench',
+      headers: { cookie },
+      payload: {
+        navigationEntries: [{ id: 'unsafe', label: 'Unsafe', url: 'javascript:alert(1)', icon: 'link', enabled: true, openInNewTab: false }],
+      },
+    });
+    expect(unsafe.statusCode).toBe(400);
+  });
+
   it('requires authentication for local content writes', async () => {
     const response = await app.inject({
       method: 'POST',

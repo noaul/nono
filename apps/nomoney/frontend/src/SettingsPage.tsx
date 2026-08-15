@@ -6,11 +6,12 @@ import { withBasePath } from './base-path';
 import { Button, DataTable, Field, PageHeader, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
 import { product } from './product';
+import { formatShanghaiDateTime } from './format';
 
 const productBackupName = product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
 
 const defaultSettings: SettingsValue = {
-  reminderDays: [30, 14, 7, 3, 1, 0],
+  reminderDays: product === 'yumi' ? [3, 1, 0] : [30, 14, 7, 3, 1, 0],
   reminderEnabled: true,
   defaultCurrency: 'CNY',
   timezone: 'Asia/Shanghai',
@@ -139,7 +140,7 @@ export function SettingsPage() {
     { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <span className="font-mono text-xs text-slate-500">{item.assetType} #{item.assetId}</span> },
     { key: 'due', header: copy('到期日', 'Due date'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.dueDate}</span> },
     { key: 'days', header: copy('提前', 'Lead time'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.daysBefore}d</span> },
-    { key: 'sent', header: copy('发送时间', 'Sent at'), align: 'right', render: (item) => <span className="font-mono text-xs text-slate-500">{item.sentAt}</span> },
+    { key: 'sent', header: copy('发送时间', 'Sent at'), align: 'right', render: (item) => <span className="font-mono text-xs text-slate-500">{formatShanghaiDateTime(item.sentAt, language)}</span> },
     { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> }
   ];
 

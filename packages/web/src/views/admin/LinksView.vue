@@ -14,6 +14,7 @@ import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult
 import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -71,7 +72,7 @@ function healthStatusTitle(link: Link) {
     healthStatusLabel(link.healthStatus),
     link.healthStatusCode,
     link.healthReason,
-    link.healthCheckedAt ? t('links.checkedAt', { date: new Date(link.healthCheckedAt).toLocaleString() }) : '',
+    link.healthCheckedAt ? t('links.checkedAt', { date: formatShanghaiDateTime(link.healthCheckedAt) }) : '',
   ].filter(Boolean).join(' · ');
 }
 

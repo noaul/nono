@@ -8,6 +8,7 @@ import {
   predictedYearly,
   toIsoDate
 } from './utils.js';
+import { getSettings } from './settings.js';
 
 export interface DueItem {
   assetType: AssetType;
@@ -75,8 +76,9 @@ const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: 
 
 export function registerDashboardRoutes(router: Router, context: AppContext, allowedTypes: AssetType[] = assetTypes): void {
   router.get('/dashboard/summary', (req, res) => {
-    const year = typeof req.query.year === 'string' ? Number(req.query.year) : context.now().getUTCFullYear();
-    res.json(getDashboardSummary(context, Number.isFinite(year) ? year : context.now().getUTCFullYear(), allowedTypes));
+    const currentYear = Number(toIsoDate(context.now(), getSettings(context).timezone).slice(0, 4));
+    const year = typeof req.query.year === 'string' ? Number(req.query.year) : currentYear;
+    res.json(getDashboardSummary(context, Number.isFinite(year) ? year : currentYear, allowedTypes));
   });
 
   router.get('/dashboard/expiring', (req, res) => {
@@ -241,7 +243,7 @@ function isAssetType(value: string): value is AssetType {
 }
 
 export function collectDueItems(context: AppContext, withinDays: number, allowedTypes: AssetType[] = assetTypes): DueItem[] {
-  const today = toIsoDate(context.now());
+  const today = toIsoDate(context.now(), getSettings(context).timezone);
   const items: DueItem[] = [];
 
   for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {

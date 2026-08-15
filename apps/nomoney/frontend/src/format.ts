@@ -10,6 +10,37 @@ const currencySymbols: Record<Currency, string> = {
   CAD: 'CA$'
 };
 
+export const APP_TIME_ZONE = 'Asia/Shanghai';
+
+export function shanghaiDateKey(value: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+export function currentShanghaiYear(value: Date = new Date()): number {
+  return Number(shanghaiDateKey(value).slice(0, 4));
+}
+
+export function formatShanghaiDateTime(value: string | number | Date, language: Language = getStoredLanguage()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
+    timeZone: APP_TIME_ZONE,
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).format(date);
+}
+
 export function formatMoney(amountMinorUnits: number, currency: Currency): string {
   return `${currencySymbols[currency]}${(amountMinorUnits / 100).toFixed(2)}`;
 }
@@ -50,8 +81,7 @@ export function formatStatus(status: AssetStatus, language: Language = getStored
 
 export function daysLeft(dateValue: string | null | undefined): number | null {
   if (!dateValue) return null;
-  const today = new Date();
-  const start = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const start = Date.parse(`${shanghaiDateKey()}T00:00:00.000Z`);
   const target = Date.parse(`${dateValue}T00:00:00.000Z`);
   return Math.round((target - start) / 86_400_000);
 }

@@ -101,4 +101,29 @@ describe('reminders', () => {
     expect(response.body.items).toEqual([]);
     expect(context.mailer.sent).toEqual([]);
   });
+
+  test('caps Yumi domain and VPS reminder lead time at three days', async () => {
+    const { agent, context } = await setupAgent('yumi');
+
+    await agent.put('/api/settings').send({
+      reminderDays: [30, 14, 7, 4, 3, 1, 0],
+      reminderEnabled: true,
+      smtpTo: 'owner@example.com',
+      smtpFrom: 'yumi@example.com'
+    });
+    await agent.post('/api/domains').send({
+      domainName: 'three-days.example', registrar: 'Cloudflare', amountMinorUnits: 1200,
+      currency: 'USD', billingCycle: 'annual', expireDate: '2026-05-25', status: 'active'
+    });
+    await agent.post('/api/vps').send({
+      name: 'four-days', provider: 'Example', amountMinorUnits: 1200,
+      currency: 'USD', billingCycle: 'annual', expireDate: '2026-05-26', status: 'active'
+    });
+
+    const response = await agent.post('/api/reminders/run-now');
+
+    expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['three-days.example']);
+    expect((await agent.get('/api/settings')).body.settings.reminderDays).toEqual([3, 1, 0]);
+    expect(context.mailer.sent).toHaveLength(1);
+  });
 });

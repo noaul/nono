@@ -65,10 +65,11 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache 
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache postgresql16-client sqlite su-exec \
+RUN apk add --no-cache postgresql16-client sqlite su-exec tzdata \
   && addgroup -S nono \
   && adduser -S -D -G nono nono
 ENV NODE_ENV=production
+ENV TZ=Asia/Shanghai
 ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001
 ENV BLOG_INTERNAL_PORT=2025

@@ -1,3 +1,4 @@
+import { formatShanghaiDateTime } from '../utils/dateTime';
 import {
   Repository,
   Gist,
@@ -229,7 +230,7 @@ export class GitHubApiService {
       }
       if (response.status === 403 && this.rateLimitRemaining === 0) {
         const resetDate = this.rateLimitReset
-          ? new Date(this.rateLimitReset * 1000).toLocaleString()
+          ? formatShanghaiDateTime(this.rateLimitReset * 1000)
           : 'unknown';
         logger.warn('githubApi', 'API request failed: rate limit exceeded', { method, endpoint, status: response.status, durationMs });
         throw new Error(`GitHub API rate limit exceeded. Resets at ${resetDate}`);

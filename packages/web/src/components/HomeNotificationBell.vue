@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Bell, CalendarDays, Check, CheckCheck, ServerCog, WalletCards, X } from 'lucide-vue-next';
 import type { AdminNotification } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const props = defineProps<{
   items: AdminNotification[];
@@ -96,14 +97,12 @@ function restoreBodyScroll() {
 
 function formatTime(item: AdminNotification) {
   const value = item.dueAt || item.occurredAt;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return formatShanghaiDateTime(value, 'zh-CN', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(date);
+  });
 }
 
 onMounted(() => {

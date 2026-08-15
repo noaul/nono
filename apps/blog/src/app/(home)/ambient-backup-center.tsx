@@ -107,7 +107,7 @@ async function requestData<T>(url: string, init?: RequestInit): Promise<T> {
 
 function formatDate(value: string | null) {
 	if (!value) return '暂无'
-	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(new Date(value))
 }
 
 function formatBytes(bytes: number) {

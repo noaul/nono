@@ -13,6 +13,7 @@ import { FloatingTooltip } from './FloatingTooltip';
 import { shallow } from 'zustand/shallow';
 import { useDialog } from '../hooks/useDialog';
 import { logger } from '../services/logger';
+import { formatShanghaiDateTime } from '../utils/dateTime';
 
 const RepositoryEditModal = React.lazy(() => import('./RepositoryEditModal').then((module) => ({ default: module.RepositoryEditModal })));
 const ReadmeModal = React.lazy(() => import('./ReadmeModal').then((module) => ({ default: module.ReadmeModal })));
@@ -329,8 +330,8 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
 
     if (repository.analyzed_at) {
       const confirmMessage = language === 'zh'
-        ? `此仓库已于 ${new Date(repository.analyzed_at).toLocaleString()} 进行过AI分析。\n\n是否要重新分析？这将覆盖现有的分析结果。`
-        : `This repository was analyzed on ${new Date(repository.analyzed_at).toLocaleString()}.\n\nDo you want to re-analyze? This will overwrite the existing analysis results.`;
+        ? `此仓库已于 ${formatShanghaiDateTime(repository.analyzed_at, 'zh-CN')} 进行过AI分析。\n\n是否要重新分析？这将覆盖现有的分析结果。`
+        : `This repository was analyzed on ${formatShanghaiDateTime(repository.analyzed_at, 'en-US')}.\n\nDo you want to re-analyze? This will overwrite the existing analysis results.`;
 
       if (!await confirm(t('重新分析确认', 'Re-analyze Confirmation'), confirmMessage, { type: 'warning' })) {
         return;
@@ -660,12 +661,12 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
   // 使用 useMemo 缓存AI分析按钮提示文本
   const aiButtonTitle = useMemo(() => {
     if (repository.analysis_failed) {
-      const analyzeTime = new Date(repository.analyzed_at!).toLocaleString();
+      const analyzeTime = formatShanghaiDateTime(repository.analyzed_at!, language === 'zh' ? 'zh-CN' : 'en-US');
       return language === 'zh'
         ? `分析失败于 ${analyzeTime}，点击重新分析`
         : `Analysis failed on ${analyzeTime}, click to retry`;
     } else if (repository.analyzed_at) {
-      const analyzeTime = new Date(repository.analyzed_at).toLocaleString();
+      const analyzeTime = formatShanghaiDateTime(repository.analyzed_at, language === 'zh' ? 'zh-CN' : 'en-US');
       return language === 'zh'
         ? `已于 ${analyzeTime} 分析过，点击重新分析`
         : `Analyzed on ${analyzeTime}, click to re-analyze`;
@@ -1084,7 +1085,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
           ) : displayContent.isAnalyzed ? (
             <div 
               className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-indigo/10 dark:bg-brand-indigo/20 text-brand-indigo border border-brand-indigo/20"
-              title={displayContent.analyzedAt ? `${language === 'zh' ? '分析于' : 'Analyzed on'} ${new Date(displayContent.analyzedAt).toLocaleString()}` : ''}
+              title={displayContent.analyzedAt ? `${language === 'zh' ? '分析于' : 'Analyzed on'} ${formatShanghaiDateTime(displayContent.analyzedAt, language === 'zh' ? 'zh-CN' : 'en-US')}` : ''}
             >
               <Sparkles className="w-3 h-3" />
               <span>{language === 'zh' ? 'AI已分析' : 'AI Analyzed'}</span>

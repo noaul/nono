@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { formatShanghaiDate } from '../utils/dateTime';
 import {
   RefreshCw,
   TrendingUp,
@@ -691,7 +692,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
     if (diffMin < 60) return t(`${diffMin}分钟前`, `${diffMin}m ago`);
     const diffHours = Math.floor(diffMin / 60);
     if (diffHours < 24) return t(`${diffHours}小时前`, `${diffHours}h ago`);
-    return date.toLocaleDateString();
+    return formatShanghaiDate(date);
   }, [t]);
 
   // 处理滚动事件：保存滚动位置、控制工具栏显示、控制侧栏固定

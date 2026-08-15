@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshCw, Loader2, TrendingUp, Rocket, Crown, Tag, Search } from 'lucide-react';
 import type { DiscoveryChannel, DiscoveryChannelId, DiscoveryChannelIcon } from '../types';
+import { formatShanghaiDate } from '../utils/dateTime';
 
 const discoveryChannelIconMap: Record<DiscoveryChannelIcon, React.ReactNode> = {
   trending: <TrendingUp className="w-4 h-4 text-gray-700 dark:text-text-secondary" />,
@@ -43,7 +44,7 @@ export const DiscoverySidebar: React.FC<DiscoverySidebarProps> = ({
     if (diffMin < 60) return `${diffMin}${t('分钟前', 'm ago')}`;
     const diffHours = Math.floor(diffMin / 60);
     if (diffHours < 24) return `${diffHours}${t('小时前', 'h ago')}`;
-    return date.toLocaleDateString();
+    return formatShanghaiDate(date);
   };
 
   const enabledChannels = (channels || []).filter(ch => ch.enabled).map(ch => ({

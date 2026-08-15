@@ -8,6 +8,7 @@ import type { TrashItem, TrashItemKind } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToasts } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
+import { formatShanghaiDateTime } from '@/utils/dateTime';
 
 const { t } = useI18n();
 
@@ -110,7 +111,7 @@ async function emptyTrash() {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  return formatShanghaiDateTime(value, 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 onMounted(load);

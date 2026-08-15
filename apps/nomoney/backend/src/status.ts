@@ -2,6 +2,8 @@ import type { Router } from 'express';
 import type { AppContext } from './types.js';
 import { assetConfigs, getAssetOrThrow, refreshVpsMonitor } from './assets.js';
 import { asyncHandler, HttpError } from './http.js';
+import { getSettings } from './settings.js';
+import { toIsoDate } from './utils.js';
 
 export type StatusSampleState = 'up' | 'degraded' | 'down';
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
@@ -81,16 +83,17 @@ export function recordStatusSample(
   detail: string | null
 ): void {
   const sampledAt = context.now().toISOString();
-  const day = sampledAt.slice(0, 10);
+  const timeZone = getSettings(context).timezone;
+  const day = toIsoDate(context.now(), timeZone);
   context.db.run(
     'INSERT OR REPLACE INTO vps_status_samples (vps_id, sampled_at, state, latency_ms, detail) VALUES (?, ?, ?, ?, ?)',
     [vpsId, sampledAt, state, latencyMs, detail]
   );
-  const samples = context.db.all<{ state: StatusSampleState }>(
-    'SELECT state FROM vps_status_samples WHERE vps_id = ? AND sampled_at >= ? AND sampled_at < ?',
-    [vpsId, `${day}T00:00:00.000Z`, `${addDays(day, 1)}T00:00:00.000Z`]
-  ).map((row) => row.state);
-  const aggregate = aggregateStatusDay({ expectedSamples: expectedSamplesForDay(day, context.now()), samples });
+  const samples = context.db.all<{ sampled_at: string; state: StatusSampleState }>(
+    'SELECT sampled_at, state FROM vps_status_samples WHERE vps_id = ?',
+    [vpsId]
+  ).filter((row) => toIsoDate(new Date(row.sampled_at), timeZone) === day).map((row) => row.state);
+  const aggregate = aggregateStatusDay({ expectedSamples: expectedSamplesForDay(day, context.now(), timeZone), samples });
   context.db.run(
     `INSERT OR REPLACE INTO vps_status_daily (
        vps_id, day, state, uptime_percent, sample_count, up_count, degraded_count, down_count, updated_at
@@ -109,9 +112,10 @@ export function parseStatusWindow(value: unknown): StatusWindow {
 export function buildStatusOverview(context: AppContext, requestedWindow: StatusWindow | number = '24h') {
   const window = normalizeStatusWindow(requestedWindow);
   const now = context.now();
+  const timeZone = getSettings(context).timezone;
   const hourly = window === '24h';
   const days = hourly ? 1 : Number.parseInt(window, 10);
-  const end = hourly ? now.toISOString() : now.toISOString().slice(0, 10);
+  const end = hourly ? now.toISOString() : toIsoDate(now, timeZone);
   const periods = hourly ? hourlyPeriods(now) : dailyPeriods(end, days);
   const start = periods[0];
   const vps = context.db.all<Record<string, unknown>>(
@@ -222,7 +226,7 @@ function hourlyPeriods(now: Date): string[] {
 }
 
 function buildDomainStats(context: AppContext) {
-  const today = context.now().toISOString().slice(0, 10);
+  const today = toIsoDate(context.now(), getSettings(context).timezone);
   const cutoff = addDays(today, 30);
   const rows = context.db.all<{
     status: string;
@@ -277,16 +281,24 @@ function currentStateFor(row: Record<string, unknown>, now: Date, context: AppCo
 
 function pruneStatusHistory(context: AppContext): void {
   const rawCutoff = new Date(context.now().getTime() - 7 * 86_400_000).toISOString();
-  const dailyCutoff = new Date(context.now().getTime() - 365 * 86_400_000).toISOString().slice(0, 10);
+  const dailyCutoff = toIsoDate(new Date(context.now().getTime() - 365 * 86_400_000), getSettings(context).timezone);
   context.db.run('DELETE FROM vps_status_samples WHERE sampled_at < ?', [rawCutoff]);
   context.db.run('DELETE FROM vps_status_daily WHERE day < ?', [dailyCutoff]);
 }
 
-function expectedSamplesForDay(day: string, now: Date): number {
-  const today = now.toISOString().slice(0, 10);
+function expectedSamplesForDay(day: string, now: Date, timeZone: string): number {
+  const today = toIsoDate(now, timeZone);
   if (day < today) return 288;
   if (day > today) return 0;
-  return Math.max(1, Math.floor((now.getUTCHours() * 60 + now.getUTCMinutes()) / 5) + 1);
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now);
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value || 0);
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value || 0);
+  return Math.max(1, Math.floor((hour * 60 + minute) / 5) + 1);
 }
 
 function addDays(day: string, offset: number): string {

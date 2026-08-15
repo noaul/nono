@@ -11,6 +11,7 @@ import { useDialog } from '../hooks/useDialog';
 import { isRepoCustomized } from '../utils/repoUtils';
 import { logger } from '../services/logger';
 import { NumberInput } from './ui/NumberInput';
+import { formatShanghaiDate } from '../utils/dateTime';
 
 type SortBy = 'stars' | 'updated' | 'name' | 'starred';
 
@@ -958,7 +959,7 @@ export const SearchBar: React.FC = () => {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours < 1) return t('刚刚', 'Just now');
     if (diffHours < 24) return t(`${diffHours}小时前`, `${diffHours}h ago`);
-    return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
+    return formatShanghaiDate(date, language === 'zh' ? 'zh-CN' : 'en-US');
   };
 
   // 全局快捷键支持（Ctrl/Cmd+K、Ctrl/Cmd+Shift+F、/、Escape）

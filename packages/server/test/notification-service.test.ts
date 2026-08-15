@@ -215,6 +215,26 @@ describe('notification service', () => {
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/nodesk/?settings=backups' });
   });
 
+  it('starts Yumi domain and VPS notifications three days before expiry', async () => {
+    const { prisma } = createPrisma();
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
+      noMoneyReader: vi.fn(async () => []),
+      yumiReader: vi.fn(async () => [
+        { assetType: 'domain', id: 1, name: 'three-days.example', dueDate: '2026-07-21', status: 'active' },
+        { assetType: 'vps', id: 2, name: 'four-days', dueDate: '2026-07-22', status: 'active' },
+      ]),
+      backupService: { list: vi.fn(async () => []) } as any,
+      now: () => now,
+      timeZone: 'Asia/Shanghai',
+    } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any, { sources: ['yumi'] });
+
+    expect(feed.items.map((item) => item.entityLabel)).toEqual(['three-days.example']);
+  });
+
   it('exposes VPS identity and due date for the quick renewal action', async () => {
     const { prisma } = createPrisma();
     const service = createNotificationService({
@@ -222,7 +242,7 @@ describe('notification service', () => {
       nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
       noMoneyReader: vi.fn(async () => []),
       yumiReader: vi.fn(async () => [
-        { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' },
+        { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-07-21', status: 'active' },
       ]),
       backupService: { list: vi.fn(async () => []) } as any,
       now: () => now,
@@ -234,7 +254,7 @@ describe('notification service', () => {
       entityId: 10,
       entityType: 'vps',
       entityLabel: 'nc48',
-      renewalDate: '2026-08-10',
+      renewalDate: '2026-07-21',
     });
   });
 

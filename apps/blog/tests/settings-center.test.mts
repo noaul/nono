@@ -33,3 +33,14 @@ test('uses an icon-only horizontal application launcher and supports backup deep
 	assert.match(workbench, /settings=backups|searchParams\.get\('settings'\)[\s\S]*backups/)
 	assert.match(styles, /\.ambient-app-switcher-menu\s*\{[^}]*grid-template-columns:/)
 })
+
+test('keeps quick application CRUD inside the NoDesk desktop settings tab', async () => {
+	const source = await read('src/app/(home)/ambient-settings-center.tsx')
+
+	assert.match(source, /quickEntries: WorkbenchAppEntry\[\]/)
+	assert.match(source, /onQuickEntriesChange: \(entries: WorkbenchAppEntry\[\]\) => Promise<void>/)
+	assert.match(source, /应用名称/)
+	assert.match(source, /跳转链接/)
+	assert.match(source, /添加快捷应用/)
+	assert.match(source, /删除快捷应用/)
+})

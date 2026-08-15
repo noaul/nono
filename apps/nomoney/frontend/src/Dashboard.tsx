@@ -16,7 +16,7 @@ import {
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AssetType, Currency, DashboardCategoryCost, DashboardSummary, DueItem } from './types';
 import { api } from './api';
-import { compactDate, dueTone, formatCycle, formatMoney } from './format';
+import { compactDate, currentShanghaiYear, dueTone, formatCycle, formatMoney } from './format';
 import { DataTable, EmptyState, MetricCard, PageHeader, Skeleton, StateBanner, StatusBadge, type DataTableColumn } from './ui';
 
 const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
@@ -169,7 +169,7 @@ export function Dashboard() {
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('年度成本对比', 'Yearly cost comparison')}</h3>
               <p className="mt-1 text-xs text-slate-500">{copy('预测支出和真实支出的多币种对照。', 'Forecast against real spend, across currencies.')}</p>
             </div>
-            <span className="rounded-lg border border-slate-200 px-2 py-1 font-mono text-xs text-slate-500 dark:border-white/10">FY {new Date().getFullYear()}</span>
+            <span className="rounded-lg border border-slate-200 px-2 py-1 font-mono text-xs text-slate-500 dark:border-white/10">FY {currentShanghaiYear()}</span>
           </div>
           <div className="h-72 min-w-0">
             <ResponsiveContainer width="100%" height="100%">

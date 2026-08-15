@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
 import { safeWriteText } from '../utils/clipboardUtils';
 import { getGistFileCount, getGistPrimaryLanguage, getGistTitle } from '../utils/gistUtils';
+import { formatShanghaiDate } from '../utils/dateTime';
 
 interface GistCardProps {
   gist: Gist;
@@ -178,7 +179,7 @@ export const GistCard: React.FC<GistCardProps> = ({
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
-              {new Date(gist.updated_at).toLocaleDateString()}
+              {formatShanghaiDate(gist.updated_at)}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <FileCode2 className="h-4 w-4" />

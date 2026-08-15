@@ -5,6 +5,7 @@ import { GitHubApiService } from '../services/githubApi';
 import { backend } from '../services/backendAdapter';
 import { logger } from '../services/logger';
 import { safeReadText } from '../utils/clipboardUtils';
+import { formatShanghaiDateTime } from '../utils/dateTime';
 
 export const LoginScreen: React.FC = () => {
   const [token, setToken] = useState('');
@@ -147,7 +148,7 @@ export const LoginScreen: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-status-emerald mt-1">
-                {t('上次同步:', 'Last sync:')} {new Date(lastSync).toLocaleString()}
+                {t('上次同步:', 'Last sync:')} {formatShanghaiDateTime(lastSync, language === 'zh' ? 'zh-CN' : 'en-US')}
               </p>
             </div>
           )}
