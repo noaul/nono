@@ -73,6 +73,7 @@ export function ClipListView() {
           type="button"
           className="icon-button"
           aria-label={view === 'list' ? '切换到紧凑视图' : '切换到列表视图'}
+          title={view === 'list' ? '切换到紧凑视图' : '切换到列表视图'}
           onClick={() => setView(view === 'list' ? 'compact' : 'list')}
         >
             {view === 'list' ? <Rows3 size={16} /> : <LayoutList size={16} />}
@@ -116,30 +117,34 @@ export function ClipListView() {
       <ul className={`clip-items is-${view}`}>
         {items.map((clip) => (
           <li key={clip.id} className="clip-item">
-            <button type="button" className="clip-open" onClick={() => void openReader(clip.id)}>
-              <span className="clip-title">{clip.title}</span>
-              <span className="clip-domain">{clip.domain}</span>
-              {view === 'list' ? <span className="clip-excerpt">{clip.excerpt}</span> : null}
-              <span className="clip-meta">
-                {clip.wordCount ? `${clip.wordCount} 字` : null}
-                {clip.contentTruncated ? ' · 已截断' : null}
-                {clip.status === 'archived' ? ' · 已归档' : null}
-              </span>
-            </button>
+            <div className="clip-item-content">
+              <button type="button" className="clip-open" onClick={() => void openReader(clip.id)}>
+                <span className="clip-title">{clip.title}</span>
+                {view === 'list' ? <span className="clip-excerpt">{clip.description || clip.excerpt}</span> : null}
+              </button>
+              <div className="clip-provenance">
+                <a href={clip.url} target="_blank" rel="noopener noreferrer" title={clip.url}>{clip.url}</a>
+                <time dateTime={clip.clippedAt}>{formatClipTimestamp(clip.clippedAt)}</time>
+                {clip.wordCount ? <span>{clip.wordCount} 字</span> : null}
+                {clip.contentTruncated ? <span>已截断</span> : null}
+                {clip.status === 'archived' ? <span>已归档</span> : null}
+              </div>
+            </div>
             <div className="clip-actions">
               <button
                 type="button"
                 className="icon-button"
                 aria-label="星标"
+                title="星标"
                 aria-pressed={clip.starred}
                 onClick={() => void toggleStar(clip.id)}
               >
                 <Star size={15} fill={clip.starred ? 'currentColor' : 'none'} />
               </button>
-              <button type="button" className="icon-button" aria-label="重新抓取" onClick={() => void refetch(clip.id)}>
+              <button type="button" className="icon-button" aria-label="重新抓取" title="重新抓取" onClick={() => void refetch(clip.id)}>
                 <RefreshCw size={15} />
               </button>
-              <button type="button" className="icon-button" aria-label="删除" onClick={() => void removeClip(clip.id)}>
+              <button type="button" className="icon-button" aria-label="删除" title="删除" onClick={() => void removeClip(clip.id)}>
                 <Trash2 size={15} />
               </button>
             </div>
@@ -154,4 +159,17 @@ export function ClipListView() {
       ) : null}
     </section>
   );
+}
+
+function formatClipTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }

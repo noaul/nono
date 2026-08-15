@@ -58,11 +58,11 @@ button {
   color: #fff;
   cursor: pointer;
   display: inline-flex;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 720;
   justify-content: center;
-  min-height: 38px;
-  padding: 0 13px;
+  min-height: 32px;
+  padding: 0 11px;
   touch-action: manipulation;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, transform 150ms ease;
   white-space: nowrap;
@@ -93,10 +93,10 @@ button:disabled {
 
 .popup {
 	display: grid;
-	gap: 7px;
+	gap: 6px;
 	max-height: 600px;
 	overflow: hidden;
-	padding: 9px 10px 8px;
+	padding: 8px 9px 7px;
 }
 
 .popup-header,
@@ -134,20 +134,20 @@ button:disabled {
 
 .brand-copy strong {
   color: #203438;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 760;
 }
 
 .brand-copy span {
   color: #7a878b;
-  font-size: 9px;
+  font-size: 8px;
   margin-top: 4px;
 }
 
 .brand-mark {
 	display: block;
-	height: 30px;
-	width: 30px;
+	height: 28px;
+	width: 28px;
 }
 
 .icon-button {
@@ -157,9 +157,9 @@ button:disabled {
   color: #4f6166;
   flex: 0 0 auto;
   font-size: 17px;
-	min-height: 32px;
+	min-height: 28px;
   padding: 0;
-	width: 32px;
+	width: 28px;
 }
 
 .icon-button:hover {
@@ -187,8 +187,8 @@ button:disabled {
 .destination,
 .details {
 	display: grid;
-	gap: 7px;
-	padding: 9px 10px;
+	gap: 6px;
+	padding: 8px 9px;
 }
 
 .workflow {
@@ -204,8 +204,8 @@ button:disabled {
   align-items: center;
   display: flex;
 	gap: 9px;
-	min-height: 52px;
-	padding: 8px 10px;
+	min-height: 46px;
+	padding: 7px 9px;
 }
 
 .page-copy {
@@ -222,9 +222,9 @@ button:disabled {
   flex: 0 0 auto;
   font-size: 15px;
   font-weight: 780;
-	height: 34px;
+	height: 30px;
   justify-content: center;
-	width: 34px;
+	width: 30px;
 }
 
 .page-preview h1,
@@ -235,7 +235,7 @@ p {
 }
 
 .page-preview h1 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 680;
   line-height: 1.35;
   overflow: hidden;
@@ -246,7 +246,7 @@ p {
 .page-domain,
 .eyebrow {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
 }
 
@@ -280,7 +280,7 @@ p {
 label {
   color: #59676b;
   display: grid;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 680;
   gap: 5px;
   min-width: 0;
@@ -293,9 +293,10 @@ select {
   border: 1px solid rgba(107, 127, 132, 0.2);
   border-radius: 8px;
   color: var(--ink);
-	min-height: 36px;
+	font-size: 11px;
+	min-height: 31px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
   width: 100%;
 }
@@ -308,7 +309,7 @@ select:hover {
 
 textarea {
 	line-height: 1.5;
-	min-height: 52px;
+	min-height: 48px;
 	resize: vertical;
 }
 
@@ -465,7 +466,7 @@ textarea {
 
 .primary-save {
 	flex: 1;
-	min-height: 38px;
+	min-height: 34px;
 }
 
 .edit-button {
@@ -536,19 +537,20 @@ textarea {
 
 .mode-switch {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 8px;
   background: rgba(120, 120, 128, 0.12);
 }
 
 .mode-option {
   flex: 1;
-  padding: 7px 12px;
+  min-height: 30px;
+  padding: 5px 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 7px;
   background: transparent;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: inherit;
   cursor: pointer;
@@ -568,35 +570,33 @@ textarea {
 .clip-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
-.clip-preview h2 {
-  margin: 2px 0 0;
-  font-size: 15px;
-  line-height: 1.35;
+.clip-editor {
+  display: grid;
+  gap: 7px;
+  padding: 8px 9px;
 }
 
-.clip-meta {
-  margin: 4px 0 0;
-  font-size: 12px;
-  opacity: 0.7;
+.clip-source-block {
+  min-width: 0;
 }
 
-.clip-excerpt {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  opacity: 0.85;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.clip-source-url {
+  color: var(--accent-strong);
+  display: block;
+  font-size: 9px;
   overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 220px;
 }
 
 .clip-truncated {
-  margin: 6px 0 0;
-  font-size: 11px;
+  margin: 0;
+  font-size: 9px;
   opacity: 0.75;
 }
 

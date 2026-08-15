@@ -10,6 +10,7 @@ const analyzeSchema = z.object({
   title: z.string().max(300).optional(),
   content: z.string().max(5000).optional(),
   meta: z.record(z.string(), z.unknown()).optional(),
+  purpose: z.enum(['bookmark', 'clip']).optional(),
 });
 
 const saveSchema = analyzeSchema.extend({

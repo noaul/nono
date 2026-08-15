@@ -58,7 +58,7 @@
       </section>
 
       <section id="workflow" class="workflow hidden">
-        <section class="page-preview glass-panel" aria-live="polite">
+        <section id="pagePreview" class="page-preview glass-panel" aria-live="polite">
           <span id="siteInitial" class="site-initial">N</span>
           <div class="page-copy">
             <p id="pageDomain" class="page-domain" data-i18n="readingPage">读取当前网页...</p>
@@ -72,11 +72,26 @@
         </div>
 
         <section id="clipPanel" class="clip-panel hidden">
-          <section id="clipPreview" class="clip-preview glass-panel" aria-live="polite">
-            <p id="clipStatusLine" class="page-domain" data-i18n="readingArticle">正在读取正文...</p>
-            <h2 id="clipTitle"></h2>
-            <p id="clipMeta" class="clip-meta"></p>
-            <p id="clipExcerpt" class="clip-excerpt"></p>
+          <section class="clip-editor glass-panel" aria-live="polite">
+            <div class="section-heading compact">
+              <div class="clip-source-block">
+                <span id="clipStatusLine" class="eyebrow" data-i18n="readingArticle">正在读取正文...</span>
+                <a id="clipSourceUrl" class="clip-source-url" target="_blank" rel="noreferrer"></a>
+              </div>
+              <button id="analyzeClip" class="text-button" type="button" data-i18n="aiAnalyzeClip">AI 分析</button>
+            </div>
+            <label>
+              <span data-i18n="clipTitleLabel">标题</span>
+              <input id="clipTitleInput" maxlength="500" data-i18n-aria="clipTitleLabel" aria-label="标题" />
+            </label>
+            <label>
+              <span data-i18n="clipKeywordsLabel">关键词（标签）</span>
+              <input id="clipKeywordsInput" maxlength="500" data-i18n-placeholder="clipKeywordsPlaceholder" placeholder="例如：AI, 阅读, 工具" />
+            </label>
+            <label>
+              <span data-i18n="clipSummaryLabel">摘要</span>
+              <textarea id="clipSummaryInput" maxlength="2000" rows="3"></textarea>
+            </label>
             <p id="clipTruncated" class="clip-truncated hidden" data-i18n="clipTruncated">正文已按体积上限截断。</p>
           </section>
           <div class="save-actions">

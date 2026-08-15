@@ -1772,7 +1772,11 @@ describe('NoNo Fastify app', () => {
       payload: { url: 'https://example.com/article', title: 'Example Article', content: 'A concise summary' },
     });
     expect(analysis.statusCode).toBe(200);
-    expect(analysis.json().data).toMatchObject({ suggestedName: 'Example Article', createFolder: false });
+    expect(analysis.json().data).toMatchObject({
+      suggestedName: 'Example Article',
+      suggestedKeywords: [],
+      createFolder: false,
+    });
 
     const saved = await app.inject({
       method: 'POST',
@@ -1786,7 +1790,9 @@ describe('NoNo Fastify app', () => {
   });
 
   it('persists a custom LLM API base URL and passes it to bookmark analysis', async () => {
-    const llmClient = { complete: vi.fn().mockResolvedValue('{"suggestedName":"AI result"}') };
+    const llmClient = {
+      complete: vi.fn().mockResolvedValue('{"suggestedName":"A complete long article title about dependable clipping","suggestedDescription":"Summary","suggestedKeywords":["AI","Reading"]}'),
+    };
     await app.close();
     app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
     const cookie = await setupAdmin();
@@ -1818,10 +1824,15 @@ describe('NoNo Fastify app', () => {
       method: 'POST',
       url: '/api/ai/analyze',
       headers: { cookie },
-      payload: { url: 'https://example.com/article', title: 'Example' },
+      payload: { url: 'https://example.com/article', title: 'Example', purpose: 'clip' },
     });
 
     expect(analysis.statusCode).toBe(200);
+    expect(analysis.json().data).toMatchObject({
+      suggestedName: 'A complete long article title about dependable clipping',
+      suggestedDescription: 'Summary',
+      suggestedKeywords: ['AI', 'Reading'],
+    });
     expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({
       provider: 'openai',
       model: 'custom-model',
@@ -1829,6 +1840,8 @@ describe('NoNo Fastify app', () => {
       reasoningEffort: 'high',
       prompt: expect.stringContaining('只收录深度阅读和长篇资料'),
     }));
+    expect(llmClient.complete.mock.calls[0][0].prompt).toContain('suggestedKeywords');
+    expect(llmClient.complete.mock.calls[0][0].prompt).toContain('web clip');
   });
 
   it('tests an unsaved LLM connection with the selected reasoning depth', async () => {

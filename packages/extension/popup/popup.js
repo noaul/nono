@@ -1,5 +1,5 @@
 import {
-  buildClipPayload,
+  buildClipSavePlan,
   clipErrorMessage,
   buildFolderGroups,
   buildQuickSavePayload,
@@ -40,13 +40,16 @@ const toggleDetailsButton = document.querySelector('#toggleDetails');
 const versionLabel = document.querySelector('#versionLabel');
 const modeBookmarkButton = document.querySelector('#modeBookmark');
 const modeClipButton = document.querySelector('#modeClip');
+const pagePreview = document.querySelector('#pagePreview');
 const bookmarkPanel = document.querySelector('#bookmarkPanel');
 const clipPanel = document.querySelector('#clipPanel');
-const clipPreviewTitle = document.querySelector('#clipTitle');
-const clipPreviewMeta = document.querySelector('#clipMeta');
-const clipPreviewExcerpt = document.querySelector('#clipExcerpt');
 const clipStatusLine = document.querySelector('#clipStatusLine');
+const clipSourceUrl = document.querySelector('#clipSourceUrl');
+const clipTitleInput = document.querySelector('#clipTitleInput');
+const clipKeywordsInput = document.querySelector('#clipKeywordsInput');
+const clipSummaryInput = document.querySelector('#clipSummaryInput');
 const clipTruncatedEl = document.querySelector('#clipTruncated');
+const analyzeClipButton = document.querySelector('#analyzeClip');
 const saveClipButton = document.querySelector('#saveClip');
 const saveClipSelectionButton = document.querySelector('#saveClipSelection');
 
@@ -69,6 +72,7 @@ analyzeButton.addEventListener('click', analyzeBookmark);
 toggleDetailsButton.addEventListener('click', toggleDetails);
 modeBookmarkButton.addEventListener('click', () => setMode('bookmark'));
 modeClipButton.addEventListener('click', () => setMode('clip'));
+analyzeClipButton.addEventListener('click', analyzeClip);
 saveClipButton.addEventListener('click', () => saveClip('NONO_EXTRACT_ARTICLE'));
 saveClipSelectionButton.addEventListener('click', () => saveClip('NONO_EXTRACT_SELECTION'));
 categorySelect.addEventListener('change', () => renderFolderOptions());
@@ -86,6 +90,7 @@ function applyTranslations() {
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
   for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
   document.documentElement.lang = getLocale() === 'zh' ? 'zh-CN' : 'en';
   if (languageSelect) languageSelect.value = getLocale();
   renderDetailsLabel();
@@ -509,6 +514,7 @@ function setMode(mode) {
   modeBookmarkButton.setAttribute('aria-selected', String(!clipping));
   modeClipButton.setAttribute('aria-selected', String(clipping));
   bookmarkPanel.classList.toggle('hidden', clipping);
+  pagePreview.classList.toggle('hidden', clipping);
   clipPanel.classList.toggle('hidden', !clipping);
   if (clipping && !clipArticle) void loadClipPreview();
 }
@@ -528,21 +534,47 @@ async function loadClipPreview() {
   clipStatusLine.textContent = t('readingArticle');
   try {
     clipArticle = await extractFromActiveTab('NONO_EXTRACT_ARTICLE');
-    renderClipPreview(clipArticle);
+    renderClipEditor(clipArticle);
   } catch (error) {
     clipStatusLine.textContent = error.message || t('clipFailed');
   }
 }
 
-function renderClipPreview(article) {
+function renderClipEditor(article) {
   if (!article) return;
   clipStatusLine.textContent = article.domain || '';
-  clipPreviewTitle.textContent = article.title || '';
-  clipPreviewMeta.textContent = [article.siteName, article.author, t('clipWords', { 1: article.wordCount || 0 })]
-    .filter(Boolean)
-    .join(' · ');
-  clipPreviewExcerpt.textContent = String(article.contentMd || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+  clipSourceUrl.href = article.url || pageInfo?.url || '';
+  clipSourceUrl.textContent = article.url || pageInfo?.url || '';
+  clipSourceUrl.title = article.url || pageInfo?.url || '';
+  clipTitleInput.value = article.title || pageInfo?.title || '';
+  clipKeywordsInput.value = '';
+  clipSummaryInput.value = article.description
+    || String(article.contentMd || '').replace(/\s+/g, ' ').trim().slice(0, 240);
   clipTruncatedEl.classList.toggle('hidden', !article.contentTruncated);
+}
+
+async function analyzeClip() {
+  setBusy(analyzeClipButton, true, t('analyzingClip'));
+  try {
+    if (!clipArticle) clipArticle = await extractFromActiveTab('NONO_EXTRACT_ARTICLE');
+    const analysis = await request('/api/ai/analyze', {
+      url: clipArticle.url,
+      title: clipTitleInput.value || clipArticle.title || '',
+      content: String(clipArticle.contentMd || '').slice(0, 5000),
+      meta: clipArticle.sourceMeta || {},
+      purpose: 'clip',
+    });
+    clipTitleInput.value = analysis.suggestedName || clipTitleInput.value;
+    clipKeywordsInput.value = Array.isArray(analysis.suggestedKeywords)
+      ? analysis.suggestedKeywords.join(', ')
+      : clipKeywordsInput.value;
+    clipSummaryInput.value = analysis.suggestedDescription || clipSummaryInput.value;
+    setStatus(t('clipAnalyzed'), 'success');
+  } catch (error) {
+    setStatus(error.message || t('clipAnalyzeFailed'), 'error');
+  } finally {
+    setBusy(analyzeClipButton, false, t('aiAnalyzeClip'));
+  }
 }
 
 async function saveClip(extractType) {
@@ -556,9 +588,19 @@ async function saveClip(extractType) {
     if (!article) throw new Error(t('noSelection'));
     if (extractType === 'NONO_EXTRACT_ARTICLE') {
       clipArticle = article;
-      renderClipPreview(article);
+      renderClipEditor(article);
     }
-    await request('/api/clipper/clips', buildClipPayload(article));
+    const plan = buildClipSavePlan(article, {
+      title: clipTitleInput.value,
+      keywords: clipKeywordsInput.value,
+      summary: clipSummaryInput.value,
+    });
+    const created = await request('/api/clipper/clips', plan.payload);
+    if (plan.tagNames.length > 0) {
+      const tags = await Promise.all(plan.tagNames.map((name) => request('/api/clipper/tags', { name })));
+      const tagIds = [...new Set(tags.map((tag) => Number(tag?.id)).filter(Number.isInteger))];
+      if (tagIds.length > 0) await request(`/api/clipper/clips/${created.id}/tags`, { tagIds }, 'PUT');
+    }
     setStatus(t('clipSaved'), 'success');
     chrome.action.setBadgeText({ text: 'OK' });
   } catch (error) {

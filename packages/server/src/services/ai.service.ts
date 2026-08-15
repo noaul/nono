@@ -9,6 +9,7 @@ export interface AnalyzeInput {
   title?: string;
   content?: string;
   meta?: Record<string, unknown>;
+  purpose?: 'bookmark' | 'clip';
 }
 
 export async function analyzeBookmark(services: AppServices, user: AuthUser, input: AnalyzeInput) {
@@ -17,22 +18,28 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
   const fallback = {
     suggestedFolderId: folders[0]?.id || null,
     suggestedFolderName: folders[0]?.name || '未分类',
-    suggestedName: shortenBookmarkName(input.title, input.url),
+    suggestedName: suggestedName(input.title, input.url, input.purpose),
     suggestedDescription: String(input.content || '').slice(0, 120),
+    suggestedKeywords: [] as string[],
     createFolder: false,
   };
   if (!account?.llmProvider || !account.llmApiKey || !services.llmClient) return fallback;
   const apiKey = decryptSecret(account.llmApiKey, services.encryptionKey);
   if (!apiKey) throw Object.assign(new Error('LLM API key is not configured'), { statusCode: 400 });
   const prompt = [
-    'You classify browser bookmarks for NoNo. Return JSON only.',
+    input.purpose === 'clip'
+      ? 'You prepare metadata for a saved web clip in NoNo. Return JSON only.'
+      : 'You classify browser bookmarks for NoNo. Return JSON only.',
     'Choose suggestedFolderId only from the listed folder IDs. A folder prompt is a routing rule; a child folder inherits its category prompt and its own prompt has priority.',
     `Folders:\n${formatFoldersForPrompt(folders)}`,
     `URL: ${input.url}`,
     `Title: ${input.title || ''}`,
     `Content: ${String(input.content || '').slice(0, 1000)}`,
-    'SuggestedName must be a memorable bookmark label, preferably 2-20 characters. Keep the product, site, or page topic; remove articles, SEO suffixes, dates, and long taglines.',
-    'JSON shape: {"suggestedFolderId":number|null,"suggestedFolderName":string,"suggestedName":string,"suggestedDescription":string,"createFolder":boolean}',
+    input.purpose === 'clip'
+      ? 'SuggestedName must be a concise, faithful article title. Preserve the subject and do not reduce it to a short site label.'
+      : 'SuggestedName must be a memorable bookmark label, preferably 2-20 characters. Keep the product, site, or page topic; remove articles, SEO suffixes, dates, and long taglines.',
+    'SuggestedKeywords must contain 2-6 concise topic tags with no duplicates.',
+    'JSON shape: {"suggestedFolderId":number|null,"suggestedFolderName":string,"suggestedName":string,"suggestedDescription":string,"suggestedKeywords":string[],"createFolder":boolean}',
   ].join('\n');
   try {
     const raw = await services.llmClient.complete({
@@ -45,10 +52,38 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
       prompt,
     });
     const result = JSON.parse(raw);
-    return { ...fallback, ...result, suggestedName: shortenBookmarkName(result.suggestedName || fallback.suggestedName, input.url) };
+    return {
+      ...fallback,
+      ...result,
+      suggestedName: suggestedName(result.suggestedName || fallback.suggestedName, input.url, input.purpose),
+      suggestedKeywords: normalizeSuggestedKeywords(result.suggestedKeywords),
+    };
   } catch {
     return fallback;
   }
+}
+
+function suggestedName(value: unknown, url: string, purpose: AnalyzeInput['purpose']) {
+  if (purpose === 'clip') {
+    const title = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+    return title || url;
+  }
+  return shortenBookmarkName(String(value || ''), url);
+}
+
+function normalizeSuggestedKeywords(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+  for (const item of value) {
+    const name = String(item || '').replace(/^[#\s]+/, '').trim().slice(0, 60);
+    const key = name.normalize('NFKC').toLocaleLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    keywords.push(name);
+    if (keywords.length === 6) break;
+  }
+  return keywords;
 }
 
 export async function saveAnalyzedBookmark(services: AppServices, user: AuthUser, input: AnalyzeInput & { folderId?: number; folderName?: string; name?: string; description?: string }) {

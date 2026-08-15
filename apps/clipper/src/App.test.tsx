@@ -111,10 +111,7 @@ describe('Clipper app', () => {
     render(<App />);
     await userEvent.click(await screen.findByText('A clipped article'));
 
-    await waitFor(() => {
-      const frame = document.querySelector('iframe');
-      expect(frame?.getAttribute('srcdoc')).toContain('Full body');
-    });
+    expect(await screen.findByText('Full body')).toBeInTheDocument();
   });
 
   it('filters by status', async () => {
@@ -128,6 +125,52 @@ describe('Clipper app', () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes('status=archived'))).toBe(true);
     });
+  });
+
+  it('shows the original source and clipping time in the list and reader', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({ ...clip, contentHtml: '<p>Fallback</p>', contentMd: 'Body', tags: [], highlights: [] });
+      }
+      if (url.includes('/api/clipper/tags')) return ok([]);
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('https://example.com/a')).toBeInTheDocument();
+    expect(screen.getByText(/2026/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText('A clipped article'));
+
+    expect(await screen.findByRole('link', { name: 'https://example.com/a' })).toHaveAttribute('href', 'https://example.com/a');
+    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0);
+  });
+
+  it('renders stored Markdown links and images instead of the HTML fallback', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({
+          ...clip,
+          contentHtml: '<p>HTML fallback only</p>',
+          contentMd: 'Read [reference](https://docs.example.com)\n\n![diagram](https://example.com/diagram.png)',
+          tags: [],
+          highlights: [],
+        });
+      }
+      if (url.includes('/api/clipper/tags')) return ok([]);
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await userEvent.click(await screen.findByText('A clipped article'));
+
+    expect(await screen.findByRole('link', { name: 'reference' })).toHaveAttribute('href', 'https://docs.example.com');
+    expect(screen.getByRole('img', { name: 'diagram' })).toHaveAttribute('src', 'https://example.com/diagram.png');
+    expect(screen.queryByText('HTML fallback only')).not.toBeInTheDocument();
   });
 
   it('filters clips by tag and domain', async () => {
@@ -241,10 +284,10 @@ describe('Clipper app', () => {
     await userEvent.click(await screen.findByText('A clipped article'));
 
     await waitFor(() => {
-      const srcdoc = document.querySelector('iframe')?.getAttribute('srcdoc') || '';
-      expect(srcdoc).toContain('font-size: 21px');
-      expect(srcdoc).toContain('data-measure="wide"');
-      expect(srcdoc).toContain('data-theme="dark"');
+      const article = document.querySelector('.markdown-article') as HTMLElement | null;
+      expect(article).toHaveStyle({ fontSize: '21px' });
+      expect(article).toHaveAttribute('data-measure', 'wide');
+      expect(article).toHaveAttribute('data-theme', 'dark');
     });
   });
 });

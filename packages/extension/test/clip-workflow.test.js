@@ -79,6 +79,23 @@ describe('clip payload', () => {
     const payload = buildClipPayload({ ...article, extractor: 'selection' });
     expect(payload.extractor).toBe('selection');
   });
+
+  it('builds an editable clip save plan with normalized keyword tags', async () => {
+    const helpers = await import('../shared/popup-workflow.js');
+
+    expect(typeof helpers.buildClipSavePlan).toBe('function');
+    expect(helpers.buildClipSavePlan(article, {
+      title: '  Edited title  ',
+      summary: '  Edited summary  ',
+      keywords: 'AI, Reading，ai\nNotes',
+    })).toEqual({
+      payload: expect.objectContaining({
+        title: 'Edited title',
+        description: 'Edited summary',
+      }),
+      tagNames: ['AI', 'Reading', 'Notes'],
+    });
+  });
 });
 
 describe('clip error messages', () => {
@@ -132,13 +149,17 @@ describe('background clip entry points', () => {
 });
 
 describe('popup clip surface', () => {
-  it('offers a bookmark/clip segmented control and a clip preview', async () => {
+  it('offers a bookmark/clip segmented control and only editable clip metadata', async () => {
     const html = await readFile(path.join(root, 'popup', 'popup.html'), 'utf8');
 
     expect(html).toContain('id="modeBookmark"');
     expect(html).toContain('id="modeClip"');
-    expect(html).toContain('id="clipPreview"');
+    expect(html).toContain('id="clipTitleInput"');
+    expect(html).toContain('id="clipKeywordsInput"');
+    expect(html).toContain('id="clipSummaryInput"');
+    expect(html).toContain('id="analyzeClip"');
     expect(html).toContain('id="saveClip"');
+    expect(html).not.toContain('id="clipExcerpt"');
   });
 
   it('extracts the article only after the user asks for a clip', async () => {
@@ -153,6 +174,8 @@ describe('popup clip surface', () => {
     const popup = await readFile(path.join(root, 'popup', 'popup.js'), 'utf8');
 
     expect(popup).toContain('/api/clipper/clips');
+    expect(popup).toContain('/api/clipper/tags');
+    expect(popup).toContain('/tags');
   });
 });
 

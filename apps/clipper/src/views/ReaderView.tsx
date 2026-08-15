@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Highlighter, Minus, Moon, MoveHorizontal, MoveVertical, Plus, Sun, X } from 'lucide-react';
-import { SandboxedArticle } from '../components/SandboxedArticle';
+import { ArrowLeft, CalendarClock, ExternalLink, Highlighter, Minus, Moon, MoveHorizontal, MoveVertical, Plus, Sun } from 'lucide-react';
+import { MarkdownArticle } from '../components/MarkdownArticle';
 import { articleTextFromHtml } from '../components/articleText';
 import { buildAnchor, isStale, resolveHighlight } from '../components/highlightAnchor';
 import { useClipStore } from '../stores/clipStore';
@@ -58,6 +58,9 @@ export function ReaderView() {
   return (
     <section className="reader" aria-label={clip.title}>
       <header className="reader-header">
+        <button type="button" className="reader-back" onClick={closeReader}>
+          <ArrowLeft size={15} /> 返回列表
+        </button>
         <div className="reader-title-block">
           <h1>{clip.title}</h1>
           <p className="reader-meta">
@@ -67,16 +70,17 @@ export function ReaderView() {
           </p>
         </div>
         <div className="reader-controls">
-          <button type="button" className="icon-button" aria-label="缩小字号" onClick={() => setPreferences((value) => ({ ...value, fontScale: Math.max(0.8, value.fontScale - 0.1) }))}>
+          <button type="button" className="icon-button" aria-label="缩小字号" title="缩小字号" onClick={() => setPreferences((value) => ({ ...value, fontScale: Math.max(0.8, value.fontScale - 0.1) }))}>
             <Minus size={15} />
           </button>
-          <button type="button" className="icon-button" aria-label="放大字号" onClick={() => setPreferences((value) => ({ ...value, fontScale: Math.min(1.6, value.fontScale + 0.1) }))}>
+          <button type="button" className="icon-button" aria-label="放大字号" title="放大字号" onClick={() => setPreferences((value) => ({ ...value, fontScale: Math.min(1.6, value.fontScale + 0.1) }))}>
             <Plus size={15} />
           </button>
           <button
             type="button"
             className="icon-button"
             aria-label={measure === 'narrow' ? '加宽版面' : '收窄版面'}
+            title={measure === 'narrow' ? '加宽版面' : '收窄版面'}
             onClick={() => setPreferences((value) => ({ ...value, measure: value.measure === 'narrow' ? 'wide' : 'narrow' }))}
           >
             {measure === 'narrow' ? <MoveHorizontal size={15} /> : <MoveVertical size={15} />}
@@ -85,18 +89,26 @@ export function ReaderView() {
             type="button"
             className="icon-button"
             aria-label={theme === 'light' ? '切换到深色主题' : '切换到浅色主题'}
+            title={theme === 'light' ? '切换到深色主题' : '切换到浅色主题'}
             onClick={() => setPreferences((value) => ({ ...value, theme: value.theme === 'light' ? 'dark' : 'light' }))}
           >
             {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
           </button>
-          <a className="icon-button" href={clip.url} target="_blank" rel="noopener noreferrer" aria-label="打开原文">
-            <ExternalLink size={15} />
-          </a>
-          <button type="button" className="icon-button" aria-label="关闭" onClick={closeReader}>
-            <X size={16} />
-          </button>
         </div>
       </header>
+
+      <div className="reader-provenance">
+        <a href={clip.url} target="_blank" rel="noopener noreferrer" title={clip.url}>
+          <ExternalLink size={13} aria-hidden="true" />
+          <span>{clip.url}</span>
+        </a>
+        <time dateTime={clip.clippedAt}>
+          <CalendarClock size={13} aria-hidden="true" />
+          剪藏于 {formatClipTimestamp(clip.clippedAt)}
+        </time>
+      </div>
+
+      {clip.description ? <p className="reader-summary">{clip.description}</p> : null}
 
       {clip.contentTruncated ? (
         <p className="state-message">正文已按体积上限截断，完整内容请打开原文。</p>
@@ -148,8 +160,8 @@ export function ReaderView() {
         </div>
       ) : null}
 
-      <SandboxedArticle
-        html={clip.contentHtml}
+      <MarkdownArticle
+        markdown={clip.contentMd || clip.description || ''}
         fontScale={fontScale}
         measure={measure}
         theme={theme}
@@ -188,6 +200,19 @@ export function ReaderView() {
       </footer>
     </section>
   );
+}
+
+function formatClipTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }
 
 const READER_STORAGE_KEY = 'nono.clipper.reader';

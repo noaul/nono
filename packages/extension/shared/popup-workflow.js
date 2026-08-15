@@ -181,6 +181,30 @@ export function buildClipPayload(article) {
   return payload;
 }
 
+/** Builds the ingest payload and the tag names that must be assigned after the clip is saved. */
+export function buildClipSavePlan(article, fields = {}) {
+  const title = String(fields.title || article.title || article.canonicalUrl || article.url).trim();
+  const summary = String(fields.summary ?? article.description ?? '').trim();
+  const payload = buildClipPayload({
+    ...article,
+    title: title || article.canonicalUrl || article.url,
+    description: summary,
+  });
+
+  const seen = new Set();
+  const tagNames = [];
+  for (const raw of String(fields.keywords || '').split(/[,，;；\n]+/u)) {
+    const name = raw.replace(/^[#\s]+/u, '').trim().slice(0, 60);
+    const key = name.normalize('NFKC').toLocaleLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    tagNames.push(name);
+    if (tagNames.length === 50) break;
+  }
+
+  return { payload, tagNames };
+}
+
 /**
  * Tokens created before Clipper existed carry no clip scopes, so the first clip attempt with one
  * fails with a bare 403. Say what to do about it.
