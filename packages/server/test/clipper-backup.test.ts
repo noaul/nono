@@ -28,7 +28,7 @@ function stubPrisma(overrides: Record<string, any> = {}) {
         clippedAt: new Date('2026-08-01T00:00:00.000Z'),
         updatedAt: new Date('2026-08-01T00:00:00.000Z'),
         link: { id: 42, url: 'https://example.com/a', folderId: 5 },
-        tags: [{ tag: { name: 'Reading', normalizedName: 'reading', color: null } }],
+        tags: [{ tag: { name: 'Reading', normalizedName: 'reading', color: '#ffcc00' } }],
         highlights: [{ text: 'kept', note: null, color: 'yellow', anchor: { quote: 'kept' }, contentVersion: 2 }],
       },
     ],
@@ -92,6 +92,7 @@ describe('Clipper backup module', () => {
     expect(artifact.module).toBe('clipper');
     expect(artifact.clips).toHaveLength(1);
     expect(artifact.clips[0].tagNames).toEqual(['Reading']);
+    expect(artifact.clips[0].tagDefinitions).toEqual([{ name: 'Reading', color: '#ffcc00' }]);
     expect(artifact.clips[0].highlights).toHaveLength(1);
     expect(artifact.clips[0].contentMd).toBe('kept');
   });
@@ -124,9 +125,12 @@ describe('Clipper backup module', () => {
 });
 
 describe('Clipper backup restore', () => {
-  async function roundTrip(prisma: any, linkRows: any[]) {
+  async function roundTrip(prisma: any, linkRows: any[], folderName = 'Inbox') {
     const artifact = await adapters(prisma).clipper.export(OWNER);
-    const target = stubPrisma({ link: { findMany: vi.fn(async () => linkRows) } });
+    const target = stubPrisma({
+      link: { findMany: vi.fn(async () => linkRows) },
+      folder: { findFirst: vi.fn(async () => ({ name: folderName, parentId: null })) },
+    });
     await adapters(target.prisma).clipper.restore(OWNER, artifact);
     return target;
   }
@@ -147,6 +151,13 @@ describe('Clipper backup restore', () => {
     expect(target.state.created[0].linkId).toBeNull();
   });
 
+  it('leaves the clip detached when the only URL match has a different folder path', async () => {
+    const { prisma } = stubPrisma();
+    const target = await roundTrip(prisma, [{ id: 999, url: 'https://example.com/a', folderId: 6 }], 'Archive');
+
+    expect(target.state.created[0].linkId).toBeNull();
+  });
+
   it('leaves the clip detached when the reference is ambiguous', async () => {
     const { prisma } = stubPrisma();
     const target = await roundTrip(prisma, [
@@ -162,6 +173,7 @@ describe('Clipper backup restore', () => {
     const target = await roundTrip(prisma, [{ id: 999, url: 'https://example.com/a', folderId: 5 }]);
 
     expect(target.state.tagRows.map((tag) => tag.name)).toEqual(['Reading']);
+    expect(target.state.tagRows[0].color).toBe('#ffcc00');
     expect(target.state.joinRows[0]).toMatchObject({ userId: OWNER });
     expect(target.state.highlightRows[0]).toMatchObject({ userId: OWNER, text: 'kept', contentVersion: 2 });
   });

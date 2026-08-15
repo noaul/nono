@@ -65,9 +65,10 @@ describe('Clipper app', () => {
 
     expect(await screen.findByText('A clipped article')).toBeInTheDocument();
     expect(screen.getByText('An excerpt of the article')).toBeInTheDocument();
-    // The list endpoint is the only call; detail is deferred until the reader opens.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/clipper/clips');
+    const requestedUrls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(requestedUrls).toContain('/api/clipper/clips?limit=30&offset=0');
+    expect(requestedUrls).toContain('/api/clipper/tags');
+    expect(requestedUrls.some((url) => /\/api\/clipper\/clips\/[^?]+/.test(url))).toBe(false);
   });
 
   it('shows an empty state rather than a blank pane', async () => {
@@ -129,6 +130,27 @@ describe('Clipper app', () => {
     });
   });
 
+  it('filters clips by tag and domain', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/tags')) {
+        return ok([{ id: 3, name: 'Reading', normalizedName: 'reading', color: '#ffcc00' }]);
+      }
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await screen.findByText('A clipped article');
+    await userEvent.selectOptions(await screen.findByLabelText('按标签筛选'), '3');
+    await userEvent.selectOptions(screen.getByLabelText('按域名筛选'), 'example.com');
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('tagId=3'))).toBe(true);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('domain=example.com'))).toBe(true);
+    });
+  });
+
   it('remembers the list or compact view across mounts', async () => {
     vi.stubGlobal('fetch', vi.fn(() => ok({ items: [clip], total: 1, limit: 30, offset: 0 })));
 
@@ -175,6 +197,54 @@ describe('Clipper app', () => {
 
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit)?.method === 'POST')).toBe(true);
+    });
+  });
+
+  it('assigns a tag from the reader', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/clipper/tags')) {
+        return ok([{ id: 3, name: 'Reading', normalizedName: 'reading', color: '#ffcc00' }]);
+      }
+      if (url.includes('/api/clipper/clips/1/tags') && init?.method === 'PUT') return ok({ assigned: 1 });
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({ ...clip, contentHtml: '<p>Full body</p>', contentMd: 'Full body', tags: [], highlights: [] });
+      }
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await userEvent.click(await screen.findByText('A clipped article'));
+    await userEvent.click(await screen.findByRole('checkbox', { name: '标签 Reading' }));
+
+    await waitFor(() => {
+      const request = fetchMock.mock.calls.find(([url, init]) => String(url).includes('/clips/1/tags') && (init as RequestInit)?.method === 'PUT');
+      expect(request).toBeDefined();
+      expect(JSON.parse(String((request?.[1] as RequestInit).body))).toEqual({ tagIds: [3] });
+    });
+  });
+
+  it('restores reader font, measure and theme preferences from local storage', async () => {
+    window.localStorage.setItem('nono.clipper.reader', JSON.stringify({ fontScale: 1.3, measure: 'wide', theme: 'dark' }));
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({ ...clip, contentHtml: '<p>Full body</p>', contentMd: 'Full body', tags: [], highlights: [] });
+      }
+      if (url.includes('/api/clipper/tags')) return ok([]);
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await userEvent.click(await screen.findByText('A clipped article'));
+
+    await waitFor(() => {
+      const srcdoc = document.querySelector('iframe')?.getAttribute('srcdoc') || '';
+      expect(srcdoc).toContain('font-size: 21px');
+      expect(srcdoc).toContain('data-measure="wide"');
+      expect(srcdoc).toContain('data-theme="dark"');
     });
   });
 });

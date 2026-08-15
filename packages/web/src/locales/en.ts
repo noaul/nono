@@ -523,6 +523,7 @@ export const en: Messages = {
   },
   trash: {
     all: 'All',
+    kindClip: 'Clip',
     loadFailed: 'Could not load the trash',
     restore: 'Restore',
     restoreKind: 'Restore {kind}',
@@ -538,7 +539,7 @@ export const en: Messages = {
     emptyMessage: 'Permanently delete {count} items in the trash. This cannot be undone.',
     emptied: 'Trash emptied',
     emptyFailed: 'Could not empty the trash',
-    description: 'Deleted bookmarks, folders, and NoTabs stay here until you empty the trash.',
+    description: 'Deleted bookmarks, folders, NoTabs, and clips stay here until you empty the trash.',
     filters: 'Trash filters',
     itemCount: '{count} items',
     loading: 'Loading the trash',

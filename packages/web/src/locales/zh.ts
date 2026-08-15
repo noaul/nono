@@ -525,6 +525,7 @@ export const zh = {
   },
   trash: {
     all: '全部',
+    kindClip: '剪藏',
     loadFailed: '回收站加载失败',
     restore: '恢复',
     restoreKind: '恢复{kind}',
@@ -540,7 +541,7 @@ export const zh = {
     emptyMessage: '永久删除回收站中的 {count} 个项目，此操作无法撤销。',
     emptied: '回收站已清空',
     emptyFailed: '清空失败',
-    description: '删除的书签、文件夹和 NoTab 会保留在这里，直到手动清空。',
+    description: '删除的书签、文件夹、NoTab 和剪藏会保留在这里，直到手动清空。',
     filters: '回收站筛选',
     itemCount: '{count} 项',
     loading: '正在读取回收站',

@@ -19,6 +19,7 @@ function createClipStore() {
   const tags: ClipRow[] = [];
   const seenWhere: Array<Record<string, unknown>> = [];
   const rawQueries: Array<{ strings: string[]; values: unknown[] }> = [];
+  const controls: { tagUpdateError: unknown } = { tagUpdateError: null };
   let nextId = 1;
   let nextTagId = 1;
 
@@ -91,6 +92,11 @@ function createClipStore() {
       },
       updateMany: async ({ where, data }: any) => {
         seenWhere.push(where);
+        if (controls.tagUpdateError) {
+          const error = controls.tagUpdateError;
+          controls.tagUpdateError = null;
+          throw error;
+        }
         const target = tags.find((tag) => tag.id === where.id && tag.userId === where.userId);
         if (!target) return { count: 0 };
         Object.assign(target, data);
@@ -121,6 +127,7 @@ function createClipStore() {
     tags,
     seenWhere,
     rawQueries,
+    controls,
     prisma: {
       ...tx,
       $transaction: async (operation: any) => operation(tx),
@@ -436,6 +443,35 @@ describe('Clipper routes', () => {
     });
 
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it('rejects renaming a tag to another existing normalized name', async () => {
+    const cookie = await setupAdmin();
+    store.tags.push(
+      { id: 1, userId: 1, name: 'Reading', normalizedName: 'reading' },
+      { id: 2, userId: 1, name: 'Research', normalizedName: 'research' },
+    );
+
+    const response = await app.inject({
+      method: 'PATCH', url: '/api/clipper/tags/2', headers: { cookie }, payload: { name: 'READING' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toBe('Tag name already exists');
+    expect(store.tags[1]).toMatchObject({ name: 'Research', normalizedName: 'research' });
+  });
+
+  it('maps a tag rename uniqueness race to conflict', async () => {
+    const cookie = await setupAdmin();
+    store.tags.push({ id: 1, userId: 1, name: 'Research', normalizedName: 'research' });
+    store.controls.tagUpdateError = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+
+    const response = await app.inject({
+      method: 'PATCH', url: '/api/clipper/tags/1', headers: { cookie }, payload: { name: 'Reading' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toBe('Tag name already exists');
   });
 
   it('does not delete a tag owned by someone else', async () => {

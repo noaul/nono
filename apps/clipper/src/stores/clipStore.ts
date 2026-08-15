@@ -223,7 +223,8 @@ export const useClipStore = create<ClipState>((set, get) => ({
 
   async loadTags() {
     try {
-      set({ tags: await api.listTags() });
+      const tags = await api.listTags();
+      set({ tags: Array.isArray(tags) ? tags : [] });
     } catch (error) {
       set({ error: message(error) });
     }

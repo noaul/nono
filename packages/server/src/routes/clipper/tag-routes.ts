@@ -54,13 +54,28 @@ export function registerClipTagRoutes(app: FastifyInstance, services: AppService
 
     const id = Number((request.params as any).id);
     const input = tagSchema.partial().parse(request.body);
-    const updated = await prisma.clipTag.updateMany({
-      where: { id, userId: user.id },
-      data: {
-        ...(input.name ? { name: input.name, normalizedName: normalizeClipTagName(input.name) } : {}),
-        ...(input.color !== undefined ? { color: input.color } : {}),
-      },
-    });
+    const current = await prisma.clipTag.findFirst({ where: { id, userId: user.id } });
+    if (!current) return sendError(reply, 404, 'Tag not found');
+
+    const normalizedName = input.name ? normalizeClipTagName(input.name) : null;
+    if (normalizedName) {
+      const existing = await prisma.clipTag.findFirst({ where: { userId: user.id, normalizedName } });
+      if (existing && existing.id !== id) return sendError(reply, 409, 'Tag name already exists');
+    }
+
+    let updated;
+    try {
+      updated = await prisma.clipTag.updateMany({
+        where: { id, userId: user.id },
+        data: {
+          ...(input.name ? { name: input.name, normalizedName } : {}),
+          ...(input.color !== undefined ? { color: input.color } : {}),
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConflict(error)) return sendError(reply, 409, 'Tag name already exists');
+      throw error;
+    }
     if (!updated.count) return sendError(reply, 404, 'Tag not found');
     return sendOk(reply, await prisma.clipTag.findFirst({ where: { id, userId: user.id } }));
   });
@@ -88,4 +103,8 @@ export function registerClipTagRoutes(app: FastifyInstance, services: AppService
       return handleClipError(reply, error);
     }
   });
+}
+
+function isPrismaUniqueConflict(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }

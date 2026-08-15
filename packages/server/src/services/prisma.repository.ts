@@ -368,6 +368,13 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
             await transaction.folder.create({ data: folder as any });
           }
           if (links.length) await transaction.link.createMany({ data: links as any });
+          const linkedClips = revivePrismaLinkedClips(payload.linkedClips);
+          for (const linkedClip of linkedClips) {
+            await transaction.clip.updateMany({
+              where: { id: linkedClip.id, userId, linkId: null },
+              data: { linkId: linkedClip.linkId },
+            });
+          }
         } else {
           // Previously any unrecognized kind fell through to the folder branch, which would have
           // fed a Clipper snapshot to the folder restore path.
@@ -543,13 +550,23 @@ async function trashPrismaFolders(prisma: PrismaClient, userId: number, requeste
       if (!root) continue;
       const folderIds = collectPrismaFolderIds(folders, rootId);
       const links = await transaction.link.findMany({ where: { folderId: { in: folderIds } } });
+      const linkedClips = links.length
+        ? await transaction.clip.findMany({
+          where: { userId, linkId: { in: links.map((link) => link.id) } },
+          select: { id: true, linkId: true },
+        })
+        : [];
       await transaction.trashItem.create({
         data: {
           userId,
           kind: root.parentId ? 'folder' : 'notab',
           entityId: root.id,
           label: root.name,
-          payload: serializeTrashPayload({ folders: folders.filter((folder) => folderIds.includes(folder.id)), links }),
+          payload: serializeTrashPayload({
+            folders: folders.filter((folder) => folderIds.includes(folder.id)),
+            links,
+            linkedClips,
+          }),
         },
       });
     }
@@ -634,6 +651,19 @@ function revivePrismaFolders(value: unknown) {
 function revivePrismaLinks(value: unknown) {
   if (!Array.isArray(value)) throw Object.assign(new Error('Invalid trash snapshot'), { statusCode: 409 });
   return value.map(revivePrismaLink);
+}
+
+function revivePrismaLinkedClips(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const record = entry as Record<string, unknown>;
+    const id = Number(record.id);
+    const linkId = Number(record.linkId);
+    return Number.isInteger(id) && id > 0 && Number.isInteger(linkId) && linkId > 0
+      ? [{ id, linkId }]
+      : [];
+  });
 }
 
 function revivePrismaLink(value: unknown) {
@@ -738,8 +768,9 @@ async function resolveClipBookmark(
     where: { url: linkRef.url, folder: { userId } },
     select: { id: true, folderId: true },
   });
-  if (candidates.length === 1) return candidates[0].id;
   if (candidates.length === 0) return null;
+
+  if (!Array.isArray(linkRef.folderPath)) return candidates.length === 1 ? candidates[0].id : null;
 
   // Several bookmarks share this URL. Disambiguate by folder ancestry, and give up if that still
   // leaves more than one.

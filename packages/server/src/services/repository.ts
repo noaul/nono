@@ -70,7 +70,7 @@ export interface LinkRecord {
   updatedAt: Date;
 }
 
-export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
+export type TrashItemKind = 'bookmark' | 'folder' | 'notab' | 'clip';
 
 export interface TrashItemRecord {
   id: string;

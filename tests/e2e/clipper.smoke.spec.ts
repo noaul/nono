@@ -83,6 +83,38 @@ test.describe('Clipper', () => {
     await expect(page.getByText('剪藏模块设计')).toBeVisible();
   });
 
+  test('creates and renders a text highlight', async ({ page }) => {
+    await stubApi(page);
+    await page.route('**/api/clipper/clips/1/highlights', (route) => json(route, {
+      id: 99,
+      clipId: 1,
+      text: '完整的剪藏正文',
+      note: null,
+      color: 'yellow',
+      contentVersion: 1,
+      anchor: { quote: '完整的剪藏正文', startOffset: 2, endOffset: 9 },
+      createdAt: '2026-08-15T00:00:00.000Z',
+    }));
+    await page.goto(`${clipperBaseURL}/clipper/`);
+    await page.getByText('剪藏模块设计').click();
+
+    const article = page.locator('iframe.clip-article-frame').contentFrame().locator('p');
+    await article.evaluate((paragraph) => {
+      const text = paragraph.firstChild!;
+      const range = document.createRange();
+      range.setStart(text, 2);
+      range.setEnd(text, 9);
+      const selection = document.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    await page.getByRole('button', { name: '标注', exact: true }).click();
+
+    const mark = page.locator('iframe.clip-article-frame').contentFrame().locator('mark[data-highlight-id="99"]');
+    await expect(mark).toHaveText('完整的剪藏正文');
+  });
+
   test('redirects to login when the session has expired', async ({ page }) => {
     await page.route('**/api/clipper/**', (route) => route.fulfill({
       status: 401,

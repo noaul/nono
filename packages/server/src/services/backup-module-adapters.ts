@@ -448,6 +448,9 @@ function createClipperAdapter(prisma: PrismaClient, now: () => Date): BackupModu
           publishedAt: clip.publishedAt?.toISOString?.() ?? null,
           updatedAt: clip.updatedAt?.toISOString?.() ?? null,
           tagNames: (tags || []).map((entry: any) => entry.tag?.name).filter(Boolean),
+          tagDefinitions: (tags || []).flatMap((entry: any) => entry.tag?.name
+            ? [{ name: entry.tag.name, color: entry.tag.color ?? null }]
+            : []),
           highlights: (highlights || []).map((highlight: any) => ({
             text: highlight.text,
             note: highlight.note,
@@ -484,7 +487,7 @@ function createClipperAdapter(prisma: PrismaClient, now: () => Date): BackupModu
 
         for (const entry of backup.clips) {
           const clip = record(entry);
-          const { tagNames, highlights, linkRef, ...fields } = clip as any;
+          const { tagNames, tagDefinitions, highlights, linkRef, ...fields } = clip as any;
 
           const created = await tx.clip.create({
             data: {
@@ -494,13 +497,17 @@ function createClipperAdapter(prisma: PrismaClient, now: () => Date): BackupModu
             },
           });
 
+          const definitions = array(tagDefinitions).length
+            ? array(tagDefinitions).map((value) => record(value))
+            : array(tagNames).map((name) => ({ name, color: null }));
           const tagIds: number[] = [];
-          for (const name of array(tagNames)) {
-            const display = text(name);
+          for (const definition of definitions) {
+            const display = text(definition.name);
             const normalizedName = normalizeClipTagName(display);
             if (!normalizedName) continue;
             const existing = await tx.clipTag.findFirst({ where: { userId, normalizedName } });
-            const tag = existing || await tx.clipTag.create({ data: { userId, name: display, normalizedName } });
+            const color = nullableClipTagColor(definition.color);
+            const tag = existing || await tx.clipTag.create({ data: { userId, name: display, normalizedName, color } });
             tagIds.push(tag.id);
           }
           if (tagIds.length) {
@@ -551,8 +558,9 @@ async function resolveBackupBookmark(tx: any, userId: number, linkRef: unknown):
     where: { url: normalizedUrl, folder: { userId } },
     select: { id: true, folderId: true },
   });
-  if (candidates.length === 1) return candidates[0].id;
   if (candidates.length === 0) return null;
+
+  if (!Array.isArray(reference.folderPath)) return candidates.length === 1 ? candidates[0].id : null;
 
   const wanted = array(reference.folderPath).map((value) => text(value)).join('\u0000');
   const matched: number[] = [];
@@ -590,4 +598,9 @@ function reviveClipFields(fields: Record<string, any>) {
     }
   }
   return revived;
+}
+
+function nullableClipTagColor(value: unknown) {
+  const color = nullableText(value);
+  return color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : null;
 }

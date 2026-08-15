@@ -40,4 +40,22 @@ describe('TrashView', () => {
     expect(apiRequest).toHaveBeenCalledWith('/api/admin/trash/trash-1/restore', { method: 'POST' });
     expect(wrapper.find('[data-testid="trash-item-trash-1"]').exists()).toBe(false);
   });
+
+  it('renders and restores a deleted clip', async () => {
+    apiRequest.mockResolvedValueOnce([
+      { id: 'trash-clip', kind: 'clip', entityId: 11, label: 'Clipped article', deletedAt: '2026-08-15T03:00:00.000Z' },
+    ]).mockResolvedValueOnce({ ok: true });
+    const { default: TrashView } = await import('../src/views/admin/TrashView.vue');
+    const wrapper = mount(TrashView);
+    await vi.dynamicImportSettled();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get('[data-testid="trash-item-trash-clip"]').text()).toContain('Clipped article');
+    await wrapper.get('[data-testid="restore-trash-trash-clip"]').trigger('click');
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/trash/trash-clip/restore', { method: 'POST' });
+    expect(wrapper.find('[data-testid="trash-item-trash-clip"]').exists()).toBe(false);
+  });
 });

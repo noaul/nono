@@ -108,6 +108,7 @@ describe('Prisma repository batch deletion', () => {
   });
 
   it('deletes selected folder roots within the current user', async () => {
+    const trashCreate = vi.fn().mockResolvedValue({});
     const transaction = {
       folder: {
         findMany: vi.fn().mockResolvedValue([
@@ -117,7 +118,8 @@ describe('Prisma repository batch deletion', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       link: { findMany: vi.fn().mockResolvedValue([]) },
-      trashItem: { create: vi.fn().mockResolvedValue({}) },
+      clip: { findMany: vi.fn().mockResolvedValue([]) },
+      trashItem: { create: trashCreate },
     };
     const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
     const repo = createPrismaRepository(prisma as never);
@@ -126,6 +128,38 @@ describe('Prisma repository batch deletion', () => {
 
     expect(transaction.trashItem.create).toHaveBeenCalledTimes(2);
     expect(transaction.folder.deleteMany).toHaveBeenCalledWith({ where: { userId: 7, id: { in: [12, 18] } } });
+  });
+
+  it('snapshots clip associations before deleting a folder tree', async () => {
+    const transaction = {
+      folder: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 12, userId: 7, parentId: null, name: 'Inbox' },
+        ]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      link: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 21, folderId: 12, name: 'Article', url: 'https://example.com/a' },
+        ]),
+      },
+      clip: {
+        findMany: vi.fn().mockResolvedValue([{ id: 11, linkId: 21 }]),
+      },
+      trashItem: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
+    const repo = createPrismaRepository(prisma as never);
+
+    await repo.deleteFolder(7, 12);
+
+    expect(transaction.clip.findMany).toHaveBeenCalledWith({
+      where: { userId: 7, linkId: { in: [21] } },
+      select: { id: true, linkId: true },
+    });
+    expect(transaction.trashItem.create.mock.calls[0][0].data.payload).toMatchObject({
+      linkedClips: [{ id: 11, linkId: 21 }],
+    });
   });
 
   it('deletes selected links only when their folder belongs to the current user', async () => {
@@ -265,6 +299,16 @@ describe('Clipper trash restore', () => {
     expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBeNull();
   });
 
+  it('leaves the clip detached when the only URL match is in a different folder', async () => {
+    const { prisma, transaction } = trashFixture();
+    transaction.folder.findFirst.mockResolvedValue({ id: 6, name: 'Archive', parentId: null, userId: OWNER });
+    const repo = createPrismaRepository(prisma as never);
+
+    await repo.restoreTrashItem(OWNER, 'trash-1');
+
+    expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBeNull();
+  });
+
   it('rejects an unknown trash kind instead of restoring it as a folder', async () => {
     const { prisma, transaction } = trashFixture();
     transaction.trashItem.findFirst.mockResolvedValue({
@@ -311,5 +355,41 @@ describe('Clipper trash restore', () => {
         data: { linkId: 42 },
       }),
     );
+  });
+
+  it('reattaches clips when their containing folder is restored', async () => {
+    const { prisma, transaction } = trashFixture();
+    transaction.trashItem.findFirst.mockResolvedValue({
+      id: 'trash-3',
+      userId: OWNER,
+      kind: 'folder',
+      entityId: 5,
+      label: 'Inbox',
+      payload: {
+        folders: [{ id: 5, userId: OWNER, parentId: null, name: 'Inbox', createdAt: new Date(), updatedAt: new Date() }],
+        links: [{ id: 42, folderId: 5, name: 'Example', url: 'https://example.com/a', sortOrder: 0, createdAt: new Date(), updatedAt: new Date() }],
+        linkedClips: [{ id: 11, linkId: 42 }],
+      },
+    });
+    Object.assign(transaction, {
+      folder: {
+        ...transaction.folder,
+        count: vi.fn().mockResolvedValue(0),
+        create: vi.fn().mockResolvedValue({ id: 5 }),
+      },
+      link: {
+        ...transaction.link,
+        count: vi.fn().mockResolvedValue(0),
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    });
+    const repo = createPrismaRepository(prisma as never);
+
+    await repo.restoreTrashItem(OWNER, 'trash-3');
+
+    expect(transaction.clip.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, userId: OWNER, linkId: null },
+      data: { linkId: 42 },
+    });
   });
 });
