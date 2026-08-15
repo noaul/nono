@@ -506,7 +506,7 @@ describe('NoNo Fastify app', () => {
     expect(registered.json().data.user.role).toBe('user');
   });
 
-  it('limits extension tokens to bookmark operations by default', async () => {
+  it('limits extension tokens to bookmark and clip operations by default', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({
       method: 'POST',
@@ -522,7 +522,9 @@ describe('NoNo Fastify app', () => {
     });
     const token = tokenResponse.json().data.token;
 
-    expect(tokenResponse.json().data.scopes).toEqual(['bookmarks:read', 'bookmarks:write', 'ai:analyze']);
+    expect(tokenResponse.json().data.scopes).toEqual([
+      'bookmarks:read', 'bookmarks:write', 'ai:analyze', 'clips:read', 'clips:write',
+    ]);
 
     const folders = await app.inject({
       method: 'GET',
@@ -744,9 +746,104 @@ describe('NoNo Fastify app', () => {
     expect(current.json().data).toMatchObject({
       name: 'Extension token',
       expiresAt,
-      scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'],
+      scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze', 'clips:read', 'clips:write'],
     });
     expect(current.json().data.token).toContain('...');
+  });
+
+  /**
+   * Stored tokens are never silently widened. A token issued before Clipper existed keeps the
+   * scopes it was created with until its owner amends them deliberately.
+   */
+  it('amends the scopes of an existing token without reissuing it', async () => {
+    const cookie = await setupAdmin();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Legacy token', scopes: ['bookmarks:read', 'bookmarks:write'] },
+    });
+    const token = created.json().data.token;
+    const id = created.json().data.id;
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/tokens/${id}`,
+      headers: { cookie },
+      payload: { scopes: ['bookmarks:read', 'bookmarks:write', 'clips:read', 'clips:write'] },
+    });
+
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().data.scopes).toEqual(['bookmarks:read', 'bookmarks:write', 'clips:read', 'clips:write']);
+
+    // The secret itself is unchanged, so the extension does not have to be reconfigured.
+    const current = await app.inject({
+      method: 'GET',
+      url: '/api/admin/tokens/current',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(current.statusCode).toBe(200);
+    expect(current.json().data.scopes).toContain('clips:write');
+  });
+
+  it('refuses to amend token scopes from a bearer caller', async () => {
+    const cookie = await setupAdmin();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Self-escalating token', scopes: ['bookmarks:read'] },
+    });
+    const token = created.json().data.token;
+    const id = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/tokens/${id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { scopes: ['*'] },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('rejects an unknown scope', async () => {
+    const cookie = await setupAdmin();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie },
+      payload: { name: 'Token', scopes: ['bookmarks:read'] },
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/tokens/${created.json().data.id}`,
+      headers: { cookie },
+      payload: { scopes: ['clips:everything'] },
+    });
+
+    expect(response.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it('does not amend a token belonging to another user', async () => {
+    const adminCookie = await setupAdmin();
+    const other = await setupUser(adminCookie, 'reader');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tokens',
+      headers: { cookie: adminCookie },
+      payload: { name: 'Admin token', scopes: ['bookmarks:read'] },
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/tokens/${created.json().data.id}`,
+      headers: { cookie: other.cookie },
+      payload: { scopes: ['*'] },
+    });
+
+    expect(response.statusCode).toBe(404);
   });
 
   it('imports and exports Netscape browser bookmarks', async () => {

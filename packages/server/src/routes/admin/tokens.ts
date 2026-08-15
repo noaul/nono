@@ -13,6 +13,10 @@ const tokenSchema = z.object({
   scopes: z.array(z.enum(API_TOKEN_SCOPES)).min(1).max(API_TOKEN_SCOPES.length).optional(),
 });
 
+const scopeUpdateSchema = z.object({
+  scopes: z.array(z.enum(API_TOKEN_SCOPES)).min(1).max(API_TOKEN_SCOPES.length),
+});
+
 export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/tokens', async (request, reply) => {
     const user = await requireBrowserSession(request, reply, services);
@@ -69,6 +73,28 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
       expiresAt: token.expiresAt || null,
       createdAt: token.createdAt,
     });
+  });
+
+  /**
+   * Browser session only. A bearer caller must not be able to widen its own scopes, which is
+   * exactly what this endpoint would allow if `requireAuth` were used here.
+   */
+  app.patch('/api/admin/tokens/:id', async (request, reply) => {
+    const user = await requireBrowserSession(request, reply, services);
+    if (!user) return;
+    const id = Number((request.params as any).id);
+    const input = scopeUpdateSchema.parse(request.body);
+    const before = (await services.repo.listTokens(user.id)).find((token) => token.id === id);
+    const updated = await services.repo.updateTokenScopes(user.id, id, input.scopes);
+    if (!updated) throw Object.assign(new Error('Token not found'), { statusCode: 404 });
+    setAuditContext(request, {
+      action: 'update',
+      resourceType: 'token',
+      resourceId: id,
+      resourceLabel: updated.name,
+      details: { before: { scopes: before?.scopes || [] }, after: { scopes: updated.scopes } },
+    });
+    return sendOk(reply, publicToken(updated));
   });
 
   app.delete('/api/admin/tokens/:id', async (request, reply) => {

@@ -383,6 +383,13 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
         include: { user: true },
       })) as any;
     },
+    async updateTokenScopes(userId, id, scopes) {
+      // updateMany rather than update: it scopes by userId in the same statement, so another user's
+      // token id cannot be reached.
+      const updated = await prisma.apiToken.updateMany({ where: { userId, id }, data: { scopes } });
+      if (updated.count === 0) return null;
+      return (await prisma.apiToken.findFirst({ where: { userId, id } })) as any;
+    },
     async deleteToken(userId, id) {
       await prisma.apiToken.deleteMany({ where: { userId, id } });
     },

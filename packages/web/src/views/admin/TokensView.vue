@@ -5,6 +5,7 @@ import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, ApiTokenSummary } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
+import { scopesForProfile } from '@/utils/tokenScopes';
 
 const { t } = useI18n();
 
@@ -22,7 +23,7 @@ async function loadSummary() {
 }
 
 async function createToken() {
-  const scopes = form.scopeProfile === 'full' ? ['*'] : ['bookmarks:read', 'bookmarks:write', 'ai:analyze'];
+  const scopes = scopesForProfile(form.scopeProfile);
   const token = await apiRequest<ApiToken>('/api/admin/tokens', { method: 'POST', body: jsonBody({ name: form.name, scopes, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null }) });
   createdToken.value = token.token;
   await load();

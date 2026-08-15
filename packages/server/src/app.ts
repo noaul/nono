@@ -23,6 +23,7 @@ import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
 import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
+import { clipperRoutes } from './routes/clipper.js';
 import { passkeyRoutes } from './routes/passkeys.js';
 import { backupRoutes } from './routes/admin/backups.js';
 import { backupCenterRoutes } from './routes/admin/backup-center.js';
@@ -189,6 +190,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);
   await nostarRoutes(app, services);
+  await clipperRoutes(app, services);
   registerLinkHealthScheduler(app, services);
   registerBackupAutomationScheduler(app, services);
 

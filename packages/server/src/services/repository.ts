@@ -263,6 +263,9 @@ export interface Repository {
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
+  // Amends scopes in place. The stored secret is untouched, so a token that gains clip scopes does
+  // not have to be reissued and reconfigured in the extension.
+  updateTokenScopes(userId: number, id: number, scopes: string[]): Promise<ApiTokenRecord | null>;
   deleteToken(userId: number, id: number): Promise<void>;
   createSession(userId: number, input: { userAgent?: string | null; ipAddress?: string | null; expiresAt: Date }): Promise<CreatedAuthSessionRecord>;
   findSession(token: string): Promise<(AuthSessionRecord & { user: UserRecord }) | null>;
@@ -704,6 +707,13 @@ export class MemoryRepository implements Repository {
     if (!record) return null;
     const user = await this.findUserById(record.userId);
     return user ? { ...record, user } : null;
+  }
+
+  async updateTokenScopes(userId: number, id: number, scopes: string[]) {
+    const record = this.tokens.find((token) => token.userId === userId && token.id === id);
+    if (!record) return null;
+    record.scopes = scopes;
+    return record;
   }
 
   async deleteToken(userId: number, id: number) {

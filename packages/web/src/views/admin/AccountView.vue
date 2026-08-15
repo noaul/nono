@@ -10,6 +10,7 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useI18n } from '@/composables/useI18n';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import { formatShanghaiDateTime } from '@/utils/dateTime';
+import { scopesForProfile } from '@/utils/tokenScopes';
 
 const { t } = useI18n();
 
@@ -73,7 +74,7 @@ async function createToken() {
   message.value = '';
   isCreatingToken.value = true;
   try {
-    const scopes = tokenForm.scopeProfile === 'full' ? ['*'] : ['bookmarks:read', 'bookmarks:write', 'ai:analyze'];
+    const scopes = scopesForProfile(tokenForm.scopeProfile);
     const expiresAt = tokenForm.expiryDays
       ? new Date(Date.now() + Number(tokenForm.expiryDays) * 86_400_000).toISOString()
       : null;
