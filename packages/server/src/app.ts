@@ -197,9 +197,11 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
     const noStarIndexPath = path.join(webDist, 'nostar/index.html');
+    const clipperIndexPath = path.join(webDist, 'clipper/index.html');
     // 构建产物在进程生命周期内不会变化，启动时读入内存，避免每个 SPA 请求都同步读盘。
     const indexHtml = fs.readFileSync(path.join(webDist, 'index.html'), 'utf8');
     const noStarHtml = fs.existsSync(noStarIndexPath) ? fs.readFileSync(noStarIndexPath, 'utf8') : null;
+    const clipperHtml = fs.existsSync(clipperIndexPath) ? fs.readFileSync(clipperIndexPath, 'utf8') : null;
     await app.register(fastifyStatic, { root: webDist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) return sendError(reply, 404, 'Not found');
@@ -207,6 +209,10 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       if (pathname === '/nostar') return reply.redirect('/nostar/');
       if (noStarHtml && request.url.startsWith('/nostar/')) {
         return reply.type('text/html; charset=utf-8').send(noStarHtml);
+      }
+      if (pathname === '/clipper') return reply.redirect('/clipper/');
+      if (clipperHtml && request.url.startsWith('/clipper/')) {
+        return reply.type('text/html; charset=utf-8').send(clipperHtml);
       }
       return reply.type('text/html; charset=utf-8').send(indexHtml);
     });
