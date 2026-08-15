@@ -3,7 +3,9 @@ import type { Repository } from './repository.js';
 import type { PublicFetchResult, SafeRequestOptions } from '../utils/safe-fetch.js';
 import { decryptSecret, encryptSecret } from '../utils/crypto.js';
 
-export const BACKUP_MODULES = ['nono', 'nodesk', 'nostar', 'nomoney', 'yumi'] as const;
+// Order is restore order. 'clipper' sits directly after 'nono' because clips resolve their
+// bookmark reference against links that Nono must have recreated first.
+export const BACKUP_MODULES = ['nono', 'clipper', 'nodesk', 'nostar', 'nomoney', 'yumi'] as const;
 export type BackupModule = (typeof BACKUP_MODULES)[number];
 
 const CONFIG_KEY = 'backupCenterWebdav';
