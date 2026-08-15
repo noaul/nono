@@ -206,8 +206,17 @@ export function createClipService(prisma: PrismaClient) {
 
     async removeToTrash(userId: number, id: number) {
       return prisma.$transaction(async (tx) => {
-        const clip = await tx.clip.findFirst({ where: { id, userId } });
+        const clip = await tx.clip.findFirst({
+          where: { id, userId },
+          include: {
+            tags: { include: { tag: true } },
+            highlights: true,
+            link: true,
+          },
+        }) as any;
         if (!clip) return false;
+
+        const { tags, highlights, link, ...scalars } = clip;
 
         await tx.trashItem.create({
           data: {
@@ -215,7 +224,24 @@ export function createClipService(prisma: PrismaClient) {
             kind: 'clip',
             entityId: clip.id,
             label: clip.title,
-            payload: { version: 1, clip } as never,
+            // Versioned so a future snapshot shape can be told apart on restore. Tags travel as
+            // names and the bookmark as a URL plus folder path: both are recreated with new
+            // autoincrement ids, so stored ids would not survive a restore.
+            payload: {
+              version: 1,
+              clip: scalars,
+              tagNames: (tags || []).map((entry: any) => entry.tag?.name).filter(Boolean),
+              highlights: (highlights || []).map((highlight: any) => ({
+                text: highlight.text,
+                note: highlight.note,
+                color: highlight.color,
+                anchor: highlight.anchor,
+                contentVersion: highlight.contentVersion,
+              })),
+              linkRef: link
+                ? { url: link.url, folderPath: await folderPath(tx, userId, link.folderId) }
+                : null,
+            } as never,
           },
         });
 
@@ -310,4 +336,23 @@ function hostOf(value: string) {
   } catch {
     return '';
   }
+}
+
+/** Folder ancestry, used to disambiguate a restored bookmark when several share a URL. */
+async function folderPath(tx: any, userId: number, folderId: number | null): Promise<string[]> {
+  const path: string[] = [];
+  let current = folderId;
+  const seen = new Set<number>();
+  while (current) {
+    if (seen.has(current)) break;
+    seen.add(current);
+    const folder = await tx.folder?.findFirst?.({
+      where: { id: current, userId },
+      select: { name: true, parentId: true },
+    });
+    if (!folder) break;
+    path.unshift(folder.name);
+    current = folder.parentId;
+  }
+  return path;
 }

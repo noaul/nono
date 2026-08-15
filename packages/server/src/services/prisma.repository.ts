@@ -335,8 +335,21 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
           const folder = await transaction.folder.findFirst({ where: { id: link.folderId, userId } });
           if (!folder) throw Object.assign(new Error('Restore the original folder first'), { statusCode: 409 });
           if (await transaction.link.findUnique({ where: { id: link.id } })) throw Object.assign(new Error('Bookmark already exists'), { statusCode: 409 });
-          await transaction.link.create({ data: link as any });
-        } else {
+          const created = await transaction.link.create({ data: link as any });
+          // Clips were detached (not deleted) when this bookmark went away, so restoring it puts
+          // the association back.
+          const linkedClipIds = Array.isArray(payload.linkedClipIds)
+            ? (payload.linkedClipIds as unknown[]).map(Number).filter(Number.isInteger)
+            : [];
+          if (linkedClipIds.length) {
+            await transaction.clip.updateMany({
+              where: { id: { in: linkedClipIds }, userId },
+              data: { linkId: (created as any)?.id ?? link.id },
+            });
+          }
+        } else if (item.kind === 'clip') {
+          await restorePrismaClip(transaction, userId, payload);
+        } else if (item.kind === 'folder' || item.kind === 'notab') {
           const folders = revivePrismaFolders(payload.folders);
           const links = revivePrismaLinks(payload.links);
           const root = folders.find((folder) => folder.id === item.entityId);
@@ -355,6 +368,10 @@ export function createPrismaRepository(prisma = new PrismaClient()): Repository 
             await transaction.folder.create({ data: folder as any });
           }
           if (links.length) await transaction.link.createMany({ data: links as any });
+        } else {
+          // Previously any unrecognized kind fell through to the folder branch, which would have
+          // fed a Clipper snapshot to the folder restore path.
+          throw Object.assign(new Error(`Unsupported trash kind: ${item.kind}`), { statusCode: 409 });
         }
         await transaction.trashItem.delete({ where: { id: item.id } });
         return item;
@@ -546,6 +563,17 @@ async function trashPrismaLinks(prisma: PrismaClient, userId: number, requestedI
     const links = await transaction.link.findMany({ where: { id: { in: requestedIds }, folder: { userId } } });
     if (requestedIds.length === 1 && !links.length) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     if (links.length) {
+      // Deleting a bookmark detaches its clip rather than deleting it (onDelete: SetNull), so the
+      // association has to be recorded now or it cannot be put back on restore.
+      const attachedClips = await transaction.clip.findMany({
+        where: { userId, linkId: { in: links.map((link) => link.id) } },
+        select: { id: true, linkId: true },
+      });
+      const clipsByLink = new Map<number, number[]>();
+      for (const clip of attachedClips) {
+        if (clip.linkId == null) continue;
+        clipsByLink.set(clip.linkId, [...(clipsByLink.get(clip.linkId) || []), clip.id]);
+      }
       // 单条 createMany 代替逐行 create，事务内的往返次数从 N 降到 1，
       // 避免大批量删除撞上 Prisma 交互式事务默认 5s 的超时。
       await transaction.trashItem.createMany({
@@ -554,7 +582,7 @@ async function trashPrismaLinks(prisma: PrismaClient, userId: number, requestedI
           kind: 'bookmark',
           entityId: link.id,
           label: link.name,
-          payload: serializeTrashPayload({ link }),
+          payload: serializeTrashPayload({ link, linkedClipIds: clipsByLink.get(link.id) || [] }),
         })),
       });
       await transaction.link.deleteMany({ where: { id: { in: links.map((link) => link.id) } } });
@@ -641,4 +669,118 @@ function assertExactIds(actual: number[], expected: number[]) {
   if (actual.some((id) => !expectedIds.has(id))) {
     throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
   }
+}
+
+/**
+ * Restores a Clipper snapshot: the clip row, its tags (recreated or reconnected by normalized
+ * name), its highlights, and — only when unambiguous — its bookmark association.
+ *
+ * The snapshot never carries a raw linkId. Bookmarks are restored with fresh autoincrement ids, so
+ * a stored id would point at whatever row happens to occupy it now. The reference is resolved by
+ * normalized URL and folder ancestry instead, and a clip is left detached rather than attached to
+ * the wrong bookmark.
+ */
+async function restorePrismaClip(transaction: any, userId: number, payload: Record<string, unknown>) {
+  const snapshot = (payload.clip || {}) as Record<string, any>;
+  if (!snapshot || typeof snapshot !== 'object' || !snapshot.canonicalUrl) {
+    throw Object.assign(new Error('Invalid clip trash snapshot'), { statusCode: 409 });
+  }
+
+  const { id: _ignoredId, userId: _ignoredUserId, linkId: _ignoredLinkId, ...fields } = snapshot;
+  const linkId = await resolveClipBookmark(transaction, userId, payload.linkRef as any);
+
+  const clip = await transaction.clip.create({
+    data: { ...reviveClipDates(fields), userId, linkId },
+  });
+
+  const tagNames = Array.isArray(payload.tagNames) ? (payload.tagNames as unknown[]).map(String) : [];
+  const tagIds: number[] = [];
+  for (const name of tagNames) {
+    const normalizedName = normalizeClipTagName(name);
+    if (!normalizedName) continue;
+    const existing = await transaction.clipTag.findFirst({ where: { userId, normalizedName } });
+    const tag = existing || await transaction.clipTag.create({ data: { userId, name, normalizedName } });
+    tagIds.push(tag.id);
+  }
+  if (tagIds.length) {
+    await transaction.clipTagOnClip.createMany({
+      data: tagIds.map((tagId) => ({ clipId: clip.id, tagId, userId })),
+      skipDuplicates: true,
+    });
+  }
+
+  const highlights = Array.isArray(payload.highlights) ? (payload.highlights as Record<string, any>[]) : [];
+  if (highlights.length) {
+    await transaction.clipHighlight.createMany({
+      data: highlights.map((highlight) => ({
+        clipId: clip.id,
+        userId,
+        text: String(highlight.text ?? ''),
+        note: highlight.note ?? null,
+        color: highlight.color || 'yellow',
+        anchor: highlight.anchor ?? {},
+        contentVersion: Number(highlight.contentVersion) || 1,
+      })),
+    });
+  }
+
+  return clip;
+}
+
+async function resolveClipBookmark(
+  transaction: any,
+  userId: number,
+  linkRef?: { url?: string; folderPath?: string[] } | null,
+): Promise<number | null> {
+  if (!linkRef?.url) return null;
+
+  const candidates = await transaction.link.findMany({
+    where: { url: linkRef.url, folder: { userId } },
+    select: { id: true, folderId: true },
+  });
+  if (candidates.length === 1) return candidates[0].id;
+  if (candidates.length === 0) return null;
+
+  // Several bookmarks share this URL. Disambiguate by folder ancestry, and give up if that still
+  // leaves more than one.
+  const wanted = (linkRef.folderPath || []).join('\u0000');
+  const matched: number[] = [];
+  for (const candidate of candidates) {
+    const path = await folderPathFor(transaction, userId, candidate.folderId);
+    if (path.join('\u0000') === wanted) matched.push(candidate.id);
+  }
+  return matched.length === 1 ? matched[0] : null;
+}
+
+async function folderPathFor(transaction: any, userId: number, folderId: number | null): Promise<string[]> {
+  const path: string[] = [];
+  let current = folderId;
+  const guard = new Set<number>();
+  while (current) {
+    if (guard.has(current)) break;
+    guard.add(current);
+    const folder = await transaction.folder.findFirst({
+      where: { id: current, userId },
+      select: { name: true, parentId: true },
+    });
+    if (!folder) break;
+    path.unshift(folder.name);
+    current = folder.parentId;
+  }
+  return path;
+}
+
+export function normalizeClipTagName(name: string) {
+  return String(name ?? '').normalize('NFKC').trim().toLowerCase();
+}
+
+function reviveClipDates(fields: Record<string, any>) {
+  const revived: Record<string, any> = { ...fields };
+  for (const key of ['clippedAt', 'publishedAt', 'updatedAt']) {
+    if (revived[key]) {
+      const parsed = new Date(revived[key]);
+      revived[key] = Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+  return revived;
 }
