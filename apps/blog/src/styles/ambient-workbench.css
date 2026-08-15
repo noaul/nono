@@ -318,7 +318,7 @@
 .ambient-add-button:active,
 .ambient-row-action:active,
 .ambient-focus-reset:active,
-.ambient-dock button:active {
+.ambient-dock :is(button, a):active {
 	transform: scale(0.97);
 }
 
@@ -777,7 +777,7 @@
 	padding: 11px 20px 8px;
 }
 
-.ambient-dock button {
+.ambient-dock :is(button, a) {
 	align-items: center;
 	background: transparent;
 	border: 0;
@@ -789,10 +789,11 @@
 	gap: 5px;
 	min-width: 58px;
 	position: relative;
+	text-decoration: none;
 	transition: transform 180ms ease;
 }
 
-.ambient-dock button:hover {
+.ambient-dock :is(button, a):hover {
 	transform: translateY(-4px);
 }
 
@@ -2622,7 +2623,7 @@ a.ambient-small-icon {
 		width: 100%;
 	}
 
-	.ambient-dock button {
+	.ambient-dock :is(button, a) {
 		flex: 1;
 		font-size: 8.5px;
 		gap: 3px;

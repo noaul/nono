@@ -3,7 +3,6 @@ import path from 'node:path';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import ColorModeControl from '../src/components/ColorModeControl.vue';
 import { navigationEntriesVersion } from '../src/utils/navigationEntries';
 import NavigationPage from '../src/views/NavigationPage.vue';
 import { useAuthStore } from '../src/stores/auth';
@@ -442,7 +441,8 @@ describe('NavigationPage public workflow', () => {
       },
     }));
     wrapper = await mountNavigationPage();
-    wrapper.getComponent(ColorModeControl).vm.$emit('change', 'dark');
+    document.documentElement.dataset.colorMode = 'dark';
+    window.dispatchEvent(new CustomEvent('nono-color-mode-change', { detail: 'dark' }));
     await wrapper.vm.$nextTick();
     style = wrapper.get('.nav-page').attributes('style');
     expect(style).toContain('--public-bookmark-text-rgb: 255, 255, 255');

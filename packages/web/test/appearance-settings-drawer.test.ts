@@ -46,6 +46,7 @@ describe('AppearanceSettingsDrawer', () => {
     const languageSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/LanguageControl.vue'), 'utf8');
 
     expect(drawerSource).not.toContain('site-locale-segments');
+    expect(drawerSource).toMatch(/\.preference-section \{[\s\S]*?align-content:\s*start/);
     expect(colorSource).toMatch(/\.color-mode-segments button \{[\s\S]*?white-space:\s*nowrap/);
     expect(languageSource).toMatch(/\.language-segments button \{[\s\S]*?white-space:\s*nowrap/);
   });

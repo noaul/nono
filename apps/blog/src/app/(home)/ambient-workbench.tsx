@@ -93,13 +93,22 @@ type NotificationItem = {
 	occurredAt: string
 }
 
-type DockItem = {
+type DockPanelItem = {
 	id: DockActionId
 	label: string
 	icon: typeof Bookmark
 	shortcutHref?: string
 	shortcutLabel?: string
 }
+
+type DockLinkItem = {
+	id: 'clipper'
+	label: string
+	icon: typeof Bookmark
+	href: string
+}
+
+type DockItem = DockPanelItem | DockLinkItem
 
 const TASKS_STORAGE_KEY = 'nodesk.ambient.tasks.v1'
 const EVENTS_STORAGE_KEY = 'nodesk.ambient.events.v1'
@@ -111,6 +120,7 @@ const DOCK_ITEMS: DockItem[] = [
 	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
 	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar' },
 	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi' },
+	{ id: 'clipper', label: '剪藏', icon: Scissors, href: '/clipper/' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
 	{ id: 'focus', label: '专注', icon: Timer },
@@ -203,7 +213,9 @@ export default function AmbientWorkbench() {
 
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
-	const activeDockItem = activePanel ? DOCK_ITEMS.find(item => item.id === activePanel) : undefined
+	const activeDockItem = activePanel
+		? DOCK_ITEMS.find((item): item is DockPanelItem => !('href' in item) && item.id === activePanel)
+		: undefined
 	const [searchOpen, setSearchOpen] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
@@ -875,6 +887,10 @@ export default function AmbientWorkbench() {
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
+						if ('href' in item) return <a key={item.id} href={item.href} aria-label={item.label}>
+							<span className='ambient-dock-icon'><Icon size={26} strokeWidth={1.75} /></span>
+							<span>{item.label}</span>
+						</a>
 						const isActive = item.id === 'settings' ? settingsOpen : activePanel === item.id
 						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => {
 							if (item.id === 'settings') {

@@ -5,8 +5,6 @@ import { useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, Scissors, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
-import ColorModeControl from '@/components/ColorModeControl.vue';
-import LanguageControl from '@/components/LanguageControl.vue';
 import FolderCard from '@/components/FolderCard.vue';
 import FolderExpandModal from '@/components/FolderExpandModal.vue';
 import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
@@ -104,6 +102,10 @@ let postDragClickHandler: ((event: MouseEvent) => void) | null = null;
 const resolvedMode = ref<ResolvedColorMode>(
   typeof document !== 'undefined' && document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
 );
+
+function syncResolvedMode() {
+  resolvedMode.value = document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light';
+}
 
 /**
  * Brings the active notab back into view after a switch. On phones the strip scrolls horizontally
@@ -1183,6 +1185,7 @@ function observeFolderSentinel(element: HTMLElement | null) {
 onMounted(() => {
   load();
   window.addEventListener('keydown', onGlobalKeydown);
+  window.addEventListener('nono-color-mode-change', syncResolvedMode);
   window.addEventListener('resize', updateTabIndicator);
 });
 watch(username, load);
@@ -1227,6 +1230,7 @@ onUnmounted(() => {
   folderObserver?.disconnect();
   removeBackgroundHints();
   window.removeEventListener('keydown', onGlobalKeydown);
+  window.removeEventListener('nono-color-mode-change', syncResolvedMode);
   window.removeEventListener('resize', updateTabIndicator);
   clearTimeout(debounceTimer);
   clearTimeout(bookmarkMessageTimer);
@@ -1262,8 +1266,6 @@ onUnmounted(() => {
         @dismiss="dismissHomeNotification"
         @mark-all-read="markAllHomeNotificationsRead"
       />
-      <LanguageControl />
-      <ColorModeControl @change="resolvedMode = $event" />
       <button
         v-if="canEditAppearance"
         class="portal-corner-link"

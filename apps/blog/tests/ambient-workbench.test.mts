@@ -176,6 +176,8 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 	assert.match(page, /AmbientWorkbench/)
 	assert.doesNotMatch(page, /HiCard|ArtCard|CalendarCard|ScheduleSummaryCard|SnowfallBackground/)
 	assert.match(workbench, /书签|GitHub|Yumi|日程|任务|专注/)
+	assert.match(workbench, /id: 'clipper', label: '剪藏', icon: Scissors, href: '\/clipper\/'/)
+	assert.match(workbench, /<a[^>]+href=\{item\.href\}/)
 	assert.match(workbench, /prefers-reduced-motion|useReducedMotion/)
 	assert.match(workbench, /requestFullscreen/)
 	assert.match(workbench, /localStorage/)

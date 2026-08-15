@@ -684,7 +684,8 @@ describe('visual contracts', () => {
     const blogLayout = fs.readFileSync(path.join(root, 'apps/blog/src/app/layout.tsx'), 'utf8');
     const blogTheme = fs.readFileSync(path.join(root, 'apps/blog/src/styles/theme.css'), 'utf8');
 
-    expect(navigation).toContain('<ColorModeControl');
+    expect(navigation).not.toContain('<ColorModeControl');
+    expect(navigation).not.toContain('<LanguageControl');
     expect(navigation).toContain('data-color-mode');
     expect(navigation).toContain(':mode="resolvedMode"');
     expect(navigation).toContain('--public-mode-scrim');

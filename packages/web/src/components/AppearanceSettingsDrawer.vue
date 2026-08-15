@@ -642,6 +642,7 @@ onBeforeUnmount(() => {
 }
 
 .preference-section {
+  align-content: start;
   display: grid;
   gap: 8px;
 }
