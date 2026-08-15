@@ -40,6 +40,10 @@ model User {
   noStarSettings           NoStarSetting[]
   noStarEmbeddingConfigs   NoStarEmbeddingConfig[]
   noStarVectorSearchConfig NoStarVectorSearchConfig?
+  clips                    Clip[]
+  clipTags                 ClipTag[]
+  clipTagLinks             ClipTagOnClip[]
+  clipHighlights           ClipHighlight[]
 }
 
 model NotificationState {
@@ -158,6 +162,7 @@ model Link {
   lastClickedAt    DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  clip             Clip?
 
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
@@ -451,4 +456,100 @@ model NoStarVectorSearchConfig {
   lastSyncAt         DateTime?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
+}
+
+model Clip {
+  id               Int             @id @default(autoincrement())
+  userId           Int
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A clip may stand alone or hang off an existing bookmark. Deleting the bookmark detaches the
+  // clip instead of destroying it.
+  linkId           Int?            @unique
+  link             Link?           @relation(fields: [linkId], references: [id], onDelete: SetNull)
+
+  url              String
+  canonicalUrl     String
+  title            String
+  author           String?
+  siteName         String?
+  domain           String
+  description      String?
+  excerpt          String
+  contentHtml      String
+  contentMd        String
+  // Bumped whenever a refetch replaces the body, so highlights can tell whether their anchor was
+  // captured against the text they are being resolved into.
+  contentVersion   Int             @default(1)
+  contentHash      String
+  contentTruncated Boolean         @default(false)
+  wordCount        Int             @default(0)
+  lang             String?
+  favicon          String?
+  image            String?
+  publishedAt      DateTime?
+
+  status           String          @default("unread")
+  starred          Boolean         @default(false)
+  extractor        String
+  sourceMeta       Json?
+  clippedAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tags             ClipTagOnClip[]
+  highlights       ClipHighlight[]
+
+  @@unique([userId, canonicalUrl])
+  @@index([userId, clippedAt])
+  @@index([userId, status, clippedAt])
+}
+
+model ClipTag {
+  id             Int             @id @default(autoincrement())
+  userId         Int
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // `name` is what the user sees; `normalizedName` is lowercase NFKC and owns uniqueness, so
+  // "Reading" and "reading" cannot both exist.
+  name           String
+  normalizedName String
+  color          String?
+  createdAt      DateTime        @default(now())
+  clips          ClipTagOnClip[]
+
+  @@unique([userId, normalizedName])
+  @@index([userId, name])
+}
+
+model ClipTagOnClip {
+  clipId Int
+  tagId  Int
+  // Denormalized so assignment queries filter by tenant without joining back through Clip.
+  userId Int
+  clip   Clip    @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  tag    ClipTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([clipId, tagId])
+  @@index([tagId])
+  @@index([userId])
+}
+
+model ClipHighlight {
+  id             Int      @id @default(autoincrement())
+  clipId         Int
+  userId         Int
+  clip           Clip     @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text           String
+  note           String?
+  // { quote, prefix, suffix, startOffset, endOffset } — text offsets alone break as soon as a
+  // refetch rewrites the body, so the quote and its surrounding context are stored with them.
+  anchor         Json
+  contentVersion Int      @default(1)
+  color          String   @default("yellow")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([clipId, createdAt])
+  @@index([userId])
 }
