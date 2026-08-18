@@ -69,6 +69,7 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
     if (!user) return;
     const body = asRecord(request.body);
     const releases = Array.isArray(body.releases) ? body.releases.map(asRecord) : [];
+    const githubIds = releases.map((release) => requiredBigInt(release.id, 'release id'));
     await services.prisma.$transaction(async (tx) => {
       // 事务内一次性载入仓库索引，替代逐条 release 的 findUnique（原本每行 2 次往返）。
       // 键同时按 githubId 和 fullName 建，对齐 findReleaseRepository 的两种匹配方式。
@@ -78,8 +79,9 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
       });
       const byGithubId = new Map(owned.map((repo) => [repo.githubId.toString(), repo.id]));
       const byFullName = new Map(owned.map((repo) => [repo.fullName, repo.id]));
-      for (const release of releases) {
-        const githubId = requiredBigInt(release.id, 'release id');
+      for (let index = 0; index < releases.length; index += 1) {
+        const release = releases[index];
+        const githubId = githubIds[index];
         const repositoryId = resolveRepositoryId(release, byGithubId, byFullName);
         if (repositoryId === undefined) continue;
         const data = releaseData(release, repositoryId);
@@ -88,6 +90,9 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
           update: data,
           create: { userId: user.id, githubId, ...data },
         });
+      }
+      if (body.isFullSync === true) {
+        await tx.noStarRelease.deleteMany({ where: { userId: user.id, githubId: { notIn: githubIds } } });
       }
     }, SYNC_TRANSACTION_OPTIONS);
     return { synced: releases.length };

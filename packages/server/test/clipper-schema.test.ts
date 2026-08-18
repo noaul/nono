@@ -27,7 +27,9 @@ describe('Clipper Prisma schema', () => {
 
   it('deduplicates clips by canonical URL per user', () => {
     expect(schema).toMatch(/model Clip \{[\s\S]*?canonicalUrl\s+String/);
-    expect(schema).toMatch(/model Clip \{[\s\S]*?@@unique\(\[userId, canonicalUrl\]\)/);
+    expect(schema).toMatch(/model Clip \{[\s\S]*?clipKind\s+String\s+@default\("page"\)/);
+    expect(schema).toMatch(/model Clip \{[\s\S]*?selectionFingerprint\s+String\s+@default\(""\)/);
+    expect(schema).toMatch(/model Clip \{[\s\S]*?@@unique\(\[userId, canonicalUrl, clipKind, selectionFingerprint\]\)/);
     expect(schema).toMatch(/model Clip \{[\s\S]*?@@index\(\[userId, status, clippedAt\]\)/);
   });
 

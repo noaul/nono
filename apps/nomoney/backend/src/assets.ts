@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AppContext, AssetType, BillingCycle, Currency, DbValue, SshAuthType, SshExecOptions } from './types.js';
 import { asyncHandler, HttpError, parseBody } from './http.js';
 import { domainSchema, phoneSchema, subscriptionSchema, vpsSchema } from './schemas.js';
-import { parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
+import { daysBetween, parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
 import { billingCycleSchema, currencySchema, statusSchema } from './schemas.js';
 import { getSettings } from './settings.js';
 import { runSshCommand } from './ssh.js';
@@ -51,6 +51,40 @@ type RegistrarAccountOption = {
   account: string;
   value: string;
   count: number;
+};
+
+type AssetSummary = {
+  total: number;
+  totalsByCurrency: Partial<Record<Currency, number>>;
+  dueWithin30Days: number;
+  statusCounts: Record<string, number>;
+  phone?: {
+    domestic: number;
+    foreign: number;
+    carrierCounts: Array<{ carrier: string; count: number }>;
+    foreignCountryCounts: Array<{ country: string; count: number }>;
+    monthlyTotal: Partial<Record<Currency, number>>;
+    domesticMonthlyTotal: Partial<Record<Currency, number>>;
+    activeCount: number;
+    riskWithin30Days: number;
+    riskWithin60Days: number;
+  };
+  domain?: {
+    registrarCount: number;
+    accountCount: number;
+    topSuffix: string;
+    autoRenewCount: number;
+    riskWithin30Days: number;
+  };
+  vps?: {
+    online: number;
+    offline: number;
+    configured: number;
+    avgCpu: number | null;
+    avgMemory: number | null;
+    totalTrafficBytes: number;
+    riskWithin30Days: number;
+  };
 };
 
 type MonitorSnapshot = {
@@ -390,8 +424,8 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
         }
 
         const whereSql = where.join(' AND ');
-        const count = context.db.get<{ count: number }>(
-          `SELECT COUNT(*) as count FROM ${config.table} WHERE ${whereSql}`,
+        const summaryRows = context.db.all<Record<string, unknown>>(
+          `SELECT * FROM ${config.table} WHERE ${whereSql}`,
           params
         );
         const sort = sortExpression(config, query.sort);
@@ -400,7 +434,12 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
           `SELECT * FROM ${config.table} WHERE ${whereSql} ORDER BY ${sort} ${direction}, id DESC LIMIT ? OFFSET ?`,
           [...params, query.limit, query.offset]
         );
-        const meta: Record<string, unknown> = { total: Number(count?.count ?? 0), limit: query.limit, offset: query.offset };
+        const meta: Record<string, unknown> = {
+          total: summaryRows.length,
+          limit: query.limit,
+          offset: query.offset,
+          assetSummary: calculateAssetSummary(context, config, summaryRows)
+        };
         if (config.type === 'domain') {
           meta.renewalTotals = await calculateRenewalTotals(
             context,
@@ -1376,6 +1415,186 @@ function percentFromUsedTotal(used: number | null, total: number | null): number
 
 function roundMetric(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function calculateAssetSummary(
+  context: AppContext,
+  config: AssetConfig,
+  rows: Array<Record<string, unknown>>
+): AssetSummary {
+  const totalsByCurrency: Partial<Record<Currency, number>> = {};
+  const statusCounts: Record<string, number> = {};
+  const today = toIsoDate(context.now(), getSettings(context).timezone);
+  let dueWithin30Days = 0;
+
+  for (const row of rows) {
+    const currency = normalizeCurrency(row.currency);
+    totalsByCurrency[currency] = (totalsByCurrency[currency] ?? 0) + Number(row.amount_minor_units ?? 0);
+    const status = stringValue(row.status) || 'unknown';
+    statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+    if (withinDays(today, assetDueDate(config, row), 30)) dueWithin30Days += 1;
+  }
+
+  const summary: AssetSummary = {
+    total: rows.length,
+    totalsByCurrency,
+    dueWithin30Days,
+    statusCounts
+  };
+
+  if (config.type === 'phone') summary.phone = calculatePhoneSummary(rows, today, totalsByCurrency);
+  if (config.type === 'domain') summary.domain = calculateDomainSummary(rows, dueWithin30Days);
+  if (config.type === 'vps') summary.vps = calculateVpsSummary(rows, dueWithin30Days);
+  return summary;
+}
+
+function calculatePhoneSummary(
+  rows: Array<Record<string, unknown>>,
+  today: string,
+  monthlyTotal: Partial<Record<Currency, number>>
+) {
+  const carrierCounts = new Map<string, number>();
+  const foreignCountryCounts = new Map<string, number>();
+  const domesticMonthlyTotal: Partial<Record<Currency, number>> = {};
+  let domestic = 0;
+  let foreign = 0;
+  let activeCount = 0;
+  let riskWithin30Days = 0;
+  let riskWithin60Days = 0;
+
+  for (const row of rows) {
+    const isForeign = stringValue(row.phone_type) === 'foreign';
+    if (isForeign) {
+      foreign += 1;
+      incrementCount(foreignCountryCounts, phoneCountry(row));
+    } else {
+      domestic += 1;
+      incrementCount(carrierCounts, stringValue(row.carrier));
+      const currency = normalizeCurrency(row.currency);
+      domesticMonthlyTotal[currency] = (domesticMonthlyTotal[currency] ?? 0) + Number(row.amount_minor_units ?? 0);
+    }
+    if (stringValue(row.status) === 'active') activeCount += 1;
+    const riskDate = stringValue(row.total_keepalive_until) || stringValue(row.next_due_date) || stringValue(row.expire_date);
+    if (withinDays(today, riskDate, 30)) riskWithin30Days += 1;
+    if (withinDays(today, riskDate, 60)) riskWithin60Days += 1;
+  }
+
+  return {
+    domestic,
+    foreign,
+    carrierCounts: sortedCounts(carrierCounts, 'carrier'),
+    foreignCountryCounts: sortedCounts(foreignCountryCounts, 'country'),
+    monthlyTotal,
+    domesticMonthlyTotal,
+    activeCount,
+    riskWithin30Days,
+    riskWithin60Days
+  };
+}
+
+function calculateDomainSummary(rows: Array<Record<string, unknown>>, riskWithin30Days: number) {
+  const registrars = new Set<string>();
+  const accounts = new Set<string>();
+  const suffixCounts = new Map<string, number>();
+  let autoRenewCount = 0;
+
+  for (const row of rows) {
+    const registrar = stringValue(row.registrar);
+    const account = stringValue(row.registrar_account);
+    const suffix = normalizeDomainExtension(row.domain_extension || inferDomainExtension(row.domain_name));
+    if (registrar) registrars.add(registrar);
+    if (account) accounts.add(`${registrar}::${account}`);
+    if (suffix) incrementCount(suffixCounts, suffix);
+    if (Boolean(row.auto_renew)) autoRenewCount += 1;
+  }
+
+  const topSuffix = [...suffixCounts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? '-';
+  return { registrarCount: registrars.size, accountCount: accounts.size, topSuffix, autoRenewCount, riskWithin30Days };
+}
+
+function calculateVpsSummary(rows: Array<Record<string, unknown>>, riskWithin30Days: number) {
+  let online = 0;
+  let offline = 0;
+  let configured = 0;
+  let cpuTotal = 0;
+  let cpuCount = 0;
+  let memoryTotal = 0;
+  let memoryCount = 0;
+  let totalTrafficBytes = 0;
+
+  for (const row of rows) {
+    if (stringValue(row.probe_url)) configured += 1;
+    const status = stringValue(row.monitor_status);
+    if (status === 'online') online += 1;
+    if (status === 'offline') offline += 1;
+    const cpu = numberValue(row.monitor_cpu_percent);
+    const memory = numberValue(row.monitor_memory_percent);
+    if (cpu !== null) {
+      cpuTotal += cpu;
+      cpuCount += 1;
+    }
+    if (memory !== null) {
+      memoryTotal += memory;
+      memoryCount += 1;
+    }
+    totalTrafficBytes += Number(row.monitor_net_total_in_bytes ?? 0) + Number(row.monitor_net_total_out_bytes ?? 0);
+  }
+
+  return {
+    online,
+    offline,
+    configured,
+    avgCpu: cpuCount ? roundMetric(cpuTotal / cpuCount) : null,
+    avgMemory: memoryCount ? roundMetric(memoryTotal / memoryCount) : null,
+    totalTrafficBytes,
+    riskWithin30Days
+  };
+}
+
+function assetDueDate(config: AssetConfig, row: Record<string, unknown>): string {
+  for (const field of config.dueFields) {
+    const value = stringValue(row[field]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function withinDays(today: string, date: string, limit: number): boolean {
+  return Boolean(date) && daysBetween(today, date) <= limit;
+}
+
+function incrementCount(counts: Map<string, number>, value: string) {
+  const key = value || '-';
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
+function sortedCounts(counts: Map<string, number>, key: 'carrier'): Array<{ carrier: string; count: number }>;
+function sortedCounts(counts: Map<string, number>, key: 'country'): Array<{ country: string; count: number }>;
+function sortedCounts(counts: Map<string, number>, key: 'carrier' | 'country') {
+  const entries = [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  return key === 'carrier'
+    ? entries.map(([carrier, count]) => ({ carrier, count }))
+    : entries.map(([country, count]) => ({ country, count }));
+}
+
+function phoneCountry(row: Record<string, unknown>): string {
+  const homeLocation = stringValue(row.home_location).trim().toUpperCase();
+  if (homeLocation) return normalizeCountryShortName(homeLocation);
+  const dialCode = stringValue(row.country_code).replace(/^\+/, '');
+  const byDialCode: Record<string, string> = {
+    '1': 'US', '44': 'UK', '49': 'DE', '81': 'JP', '82': 'KR',
+    '852': 'HK', '853': 'MAC', '886': 'TW'
+  };
+  return byDialCode[dialCode] || dialCode || '-';
+}
+
+function normalizeCountryShortName(value: string): string {
+  const aliases: Record<string, string> = {
+    HONGKONG: 'HK', 'HONG KONG': 'HK', MACAO: 'MAC', MACAU: 'MAC', MO: 'MAC',
+    GB: 'UK', UNITEDKINGDOM: 'UK', 'UNITED KINGDOM': 'UK',
+    UNITEDSTATES: 'US', 'UNITED STATES': 'US', USA: 'US'
+  };
+  return aliases[value] || value;
 }
 
 async function calculateRenewalTotals(

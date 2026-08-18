@@ -175,6 +175,16 @@ export function createBackupCenterService(options: {
     return manifest;
   }
 
+  async function cleanupUploads(config: StoredWebDavConfig & { password: string }, paths: readonly string[]) {
+    for (const path of [...paths].reverse()) {
+      try {
+        await webDavRequest(config, path, 'DELETE');
+      } catch {
+        // Cleanup is best-effort; preserve the original backup error.
+      }
+    }
+  }
+
   async function restoreBodies(userId: number, modules: BackupModule[], bodies: Map<BackupModule, Buffer>) {
     for (const module of modules) await options.adapters[module].validate(bodies.get(module)!);
     const safety = new Map<BackupModule, Buffer>();
@@ -243,38 +253,47 @@ export function createBackupCenterService(options: {
       const createdAt = now().toISOString();
       const id = uniqueBatchId(formatBatchId(new Date(createdAt)));
       const records: Partial<Record<BackupModule, BackupBatchModuleRecord>> = {};
+      const uploadedPaths: string[] = [];
 
-      for (const module of modules) {
-        const adapter = options.adapters[module];
-        const body = await adapter.export(userId);
-        await adapter.validate(body);
-        const filename = `${module}-${id}.${adapter.extension}`;
-        const path = `/nono/${module}/${filename}`;
-        await put(config, path, body, adapter.contentType);
-        records[module] = {
-          module,
-          path,
-          filename,
-          contentType: adapter.contentType,
-          size: body.length,
-          sha256: sha256(body),
-          status: 'verified',
+      try {
+        for (const module of modules) {
+          const adapter = options.adapters[module];
+          const body = await adapter.export(userId);
+          await adapter.validate(body);
+          const filename = `${module}-${id}.${adapter.extension}`;
+          const path = `/nono/${module}/${filename}`;
+          uploadedPaths.push(path);
+          await put(config, path, body, adapter.contentType);
+          records[module] = {
+            module,
+            path,
+            filename,
+            contentType: adapter.contentType,
+            size: body.length,
+            sha256: sha256(body),
+            status: 'verified',
+          };
+        }
+
+        const manifest: BackupBatchManifest = {
+          kind: BATCH_KIND,
+          version: BATCH_VERSION,
+          id,
+          scope: modules.length === BACKUP_MODULES.length ? 'full' : 'module',
+          createdAt,
+          sourceCommit,
+          modules: records,
         };
+        const manifestPath = `/nono/batches/${id}.json`;
+        uploadedPaths.push(manifestPath);
+        await put(config, manifestPath, Buffer.from(JSON.stringify(manifest, null, 2)), 'application/json');
+        const index = await readIndex(config);
+        await writeIndex(config, [manifest, ...index.filter((batch) => batch.id !== id)]);
+        return manifest;
+      } catch (error) {
+        await cleanupUploads(config, uploadedPaths);
+        throw error;
       }
-
-      const manifest: BackupBatchManifest = {
-        kind: BATCH_KIND,
-        version: BATCH_VERSION,
-        id,
-        scope: modules.length === BACKUP_MODULES.length ? 'full' : 'module',
-        createdAt,
-        sourceCommit,
-        modules: records,
-      };
-      await put(config, `/nono/batches/${id}.json`, Buffer.from(JSON.stringify(manifest, null, 2)), 'application/json');
-      const index = await readIndex(config);
-      await writeIndex(config, [manifest, ...index.filter((batch) => batch.id !== id)]);
-      return manifest;
     },
 
     async listWebDavBatches() {

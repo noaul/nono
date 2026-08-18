@@ -20,3 +20,22 @@ test('provides one documented command for every independent lockfile', () => {
   assert.match(bootstrap, /npm --prefix apps\/nostar ci/);
   assert.match(readme, /npm run install:all/);
 });
+
+test('runs browser smoke tests from the unified verification command', () => {
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const verifyAll = packageJson.scripts['verify:all'];
+
+  assert.match(verifyAll, /npm run test:e2e/);
+  assert.ok(
+    verifyAll.indexOf('npm run build:all') < verifyAll.indexOf('npm run test:e2e'),
+    'the production assets required by server-backed E2E tests must be built first',
+  );
+});
+
+test('pins the patched deepmerge dependency used by Prisma config', () => {
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const packageLock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+
+  assert.equal(packageJson.overrides['deepmerge-ts'], '8.0.1');
+  assert.equal(packageLock.packages['node_modules/deepmerge-ts'].version, '8.0.1');
+});

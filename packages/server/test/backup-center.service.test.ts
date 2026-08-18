@@ -112,6 +112,34 @@ describe('backup center service', () => {
     expect(remote.has(`https://dav.example/root/nono/batches/${second.id}.json`)).toBe(true);
   });
 
+  it('cleans up module uploads when a WebDAV backup fails before the manifest is committed', async () => {
+    const center = service();
+    await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
+    adapters.clipper.export = vi.fn(async () => { throw new Error('clipper export failed'); });
+
+    await expect(center.backupToWebDav(7, ['nono', 'clipper'])).rejects.toThrow('clipper export failed');
+
+    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/clipper/'))).toEqual([]);
+    expect([...remote.keys()].filter((url) => url.includes('/nono/batches/'))).toEqual([]);
+  });
+
+  it('cleans up a module file when WebDAV writes it but reports an upload failure', async () => {
+    const center = service();
+    await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
+    const baseRequest = request.getMockImplementation()!;
+    request.mockImplementation(async (url: string, options: { method?: string; body?: string | Buffer } = {}) => {
+      if ((options.method || 'GET').toUpperCase() === 'PUT' && url.includes('/nono/clipper/')) {
+        remote.set(url, Buffer.isBuffer(options.body) ? options.body : Buffer.from(options.body || ''));
+        return { statusCode: 500, headers: {}, body: Buffer.alloc(0) };
+      }
+      return baseRequest(url, options);
+    });
+
+    await expect(center.backupToWebDav(7, ['nono', 'clipper'])).rejects.toThrow('upload failed');
+
+    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/clipper/'))).toEqual([]);
+  });
+
   it('verifies remote checksums before restore and leaves live data untouched when validation fails', async () => {
     const center = service();
     await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });

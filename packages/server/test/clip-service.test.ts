@@ -253,10 +253,49 @@ describe('clip service ingest', () => {
 
     expect(transaction.clip.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId_canonicalUrl: { userId: OWNER, canonicalUrl: 'https://example.com/a' } },
+        where: {
+          userId_canonicalUrl_clipKind_selectionFingerprint: {
+            userId: OWNER,
+            canonicalUrl: 'https://example.com/a',
+            clipKind: 'page',
+            selectionFingerprint: '',
+          },
+        },
       }),
     );
     expect(transaction.clip.update).toHaveBeenCalled();
     expect(transaction.clip.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps a selection clip separate from the full-page clip for the same URL', async () => {
+    const { prisma, transaction } = stubPrisma();
+    const service = createClipService(prisma as never);
+
+    await service.upsert(OWNER, {
+      ...PAYLOAD,
+      extractor: 'selection',
+      contentHtml: '<p>selected text</p>',
+      contentMd: 'selected text',
+    });
+
+    expect(transaction.clip.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId_canonicalUrl_clipKind_selectionFingerprint: {
+            userId: OWNER,
+            canonicalUrl: 'https://example.com/a',
+            clipKind: 'selection',
+            selectionFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+          },
+        },
+      }),
+    );
+    expect(transaction.clip.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: OWNER,
+        clipKind: 'selection',
+        selectionFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    });
   });
 });

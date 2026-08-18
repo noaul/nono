@@ -16,6 +16,8 @@ test('keeps every backup control inside the NoDesk settings center', async () =>
 	assert.match(backupCenter, /\/api\/admin\/backup-center\/local\/\$\{localRestoreModule\}\/restore/)
 	assert.match(backupCenter, /nono[\s\S]*clipper[\s\S]*nodesk[\s\S]*nostar[\s\S]*nomoney[\s\S]*yumi/)
 	assert.match(backupCenter, /六个模块/)
+	assert.match(backupCenter, /当前账户完整备份/)
+	assert.doesNotMatch(backupCenter, /全站备份|全站与|恢复全站|>全站</)
 	assert.match(backupCenter, /\/nono\/batches\//)
 	assert.match(backupCenter, /WebDAV 备份|WebDAV/)
 	assert.match(backupCenter, /本地备份/)

@@ -99,6 +99,9 @@ export function createClipService(prisma: PrismaClient) {
       // document, and the stored value is what has to stay inside the limit.
       validateClipPayloadSizes({ contentHtml, contentMd, sourceMeta: input.sourceMeta });
 
+      const contentHash = clipContentHash(contentHtml, contentMd);
+      const clipKind = input.extractor === 'selection' ? 'selection' : 'page';
+      const selectionFingerprint = clipKind === 'selection' ? contentHash : '';
       const fields = {
         url: input.url,
         canonicalUrl,
@@ -110,7 +113,7 @@ export function createClipService(prisma: PrismaClient) {
         excerpt: clipExcerpt(contentMd),
         contentHtml,
         contentMd,
-        contentHash: clipContentHash(contentHtml, contentMd),
+        contentHash,
         contentTruncated: Boolean(input.contentTruncated),
         wordCount: Number.isFinite(input.wordCount) ? Number(input.wordCount) : 0,
         lang: input.lang || null,
@@ -118,6 +121,8 @@ export function createClipService(prisma: PrismaClient) {
         image: input.image || null,
         publishedAt: parseDate(input.publishedAt),
         extractor: input.extractor || 'defuddle',
+        clipKind,
+        selectionFingerprint,
         sourceMeta: (input.sourceMeta ?? null) as never,
       };
 
@@ -125,7 +130,14 @@ export function createClipService(prisma: PrismaClient) {
         if (input.linkId != null) await assertOwnedLink(tx, userId, input.linkId);
 
         const existing = await tx.clip.findUnique({
-          where: { userId_canonicalUrl: { userId, canonicalUrl } },
+          where: {
+            userId_canonicalUrl_clipKind_selectionFingerprint: {
+              userId,
+              canonicalUrl,
+              clipKind,
+              selectionFingerprint,
+            },
+          },
         });
 
         if (existing) {

@@ -95,4 +95,21 @@ describe('backendAdapter', () => {
 
     expect(fetchMock.mock.calls.map(([url]) => String(url)).join('\n')).not.toContain('decrypt=true');
   });
+
+  it('sends releases as a full snapshot so server-side deletions persist', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });
+      if (url.endsWith('/settings')) return jsonResponse({});
+      if (url.endsWith('/releases')) return jsonResponse({ synced: 0 });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await backend.init();
+
+    await backend.syncReleases([]);
+
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/releases') && init?.method === 'PUT');
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ releases: [], isFullSync: true });
+  });
 });

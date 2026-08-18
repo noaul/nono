@@ -37,9 +37,12 @@ function createClipStore() {
     },
     findUnique: async ({ where }: any) => {
       seenWhere.push(where);
-      const key = where.userId_canonicalUrl;
+      const key = where.userId_canonicalUrl_clipKind_selectionFingerprint;
       if (!key) return rows.find((row) => row.id === where.id) || null;
-      return rows.find((row) => row.userId === key.userId && row.canonicalUrl === key.canonicalUrl) || null;
+      return rows.find((row) => row.userId === key.userId
+        && row.canonicalUrl === key.canonicalUrl
+        && row.clipKind === key.clipKind
+        && row.selectionFingerprint === key.selectionFingerprint) || null;
     },
     findMany: async ({ where, select }: any) => {
       seenWhere.push(where);
@@ -211,6 +214,26 @@ describe('Clipper routes', () => {
     expect(store.rows[0].title).toBe('Updated');
   });
 
+  it('stores a selection beside the full-page clip for the same canonical URL', async () => {
+    const cookie = await setupAdmin();
+
+    await app.inject({ method: 'POST', url: '/api/clipper/clips', headers: { cookie }, payload: clipPayload });
+    await app.inject({
+      method: 'POST',
+      url: '/api/clipper/clips',
+      headers: { cookie },
+      payload: {
+        ...clipPayload,
+        extractor: 'selection',
+        contentHtml: '<p>Selected passage</p>',
+        contentMd: 'Selected passage',
+      },
+    });
+
+    expect(store.rows).toHaveLength(2);
+    expect(store.rows.map((row) => row.clipKind)).toEqual(['page', 'selection']);
+  });
+
   it('sanitizes clipped HTML before storing it', async () => {
     const cookie = await setupAdmin();
 
@@ -245,7 +268,7 @@ describe('Clipper routes', () => {
 
     expect(store.seenWhere.length).toBeGreaterThan(0);
     for (const where of store.seenWhere) {
-      const scoped = 'userId' in where || 'userId_canonicalUrl' in where;
+      const scoped = 'userId' in where || 'userId_canonicalUrl_clipKind_selectionFingerprint' in where;
       expect(scoped, `unscoped query: ${JSON.stringify(where)}`).toBe(true);
     }
   });

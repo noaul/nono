@@ -402,7 +402,7 @@ describe('asset APIs', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.body.meta).toEqual({ total: 1, limit: 1, offset: 0 });
+    expect(response.body.meta).toMatchObject({ total: 1, limit: 1, offset: 0 });
     expect(response.body.items).toEqual([
       expect.objectContaining({
         name: 'Beta',
@@ -411,6 +411,41 @@ describe('asset APIs', () => {
         amountMinorUnits: 6000
       })
     ]);
+  });
+
+  test('calculates asset summaries across the full filtered result instead of the current page', async () => {
+    const { agent } = await setupAgent();
+    const base = {
+      provider: 'Vendor',
+      account: 'owner@example.com',
+      category: 'AI',
+      currency: 'USD',
+      billingCycle: 'monthly',
+      status: 'active'
+    };
+
+    await agent.post('/api/subscriptions').send({
+      ...base,
+      name: 'First',
+      amountMinorUnits: 2000,
+      nextDueDate: '2026-06-01'
+    }).expect(201);
+    await agent.post('/api/subscriptions').send({
+      ...base,
+      name: 'Second',
+      amountMinorUnits: 6000,
+      nextDueDate: '2026-05-28'
+    }).expect(201);
+
+    const response = await agent.get('/api/subscriptions?status=active&limit=1&offset=0');
+
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.meta.total).toBe(2);
+    expect(response.body.meta.assetSummary).toMatchObject({
+      totalsByCurrency: { USD: 8000 },
+      dueWithin30Days: 2,
+      statusCounts: { active: 2 }
+    });
   });
 
   test('stores VPS SSH and probe fields and normalizes live monitor snapshots', async () => {

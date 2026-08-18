@@ -395,6 +395,7 @@ npm run seed              # 显式写入演示数据
 | `WEBAUTHN_RP_ID` | 从公开 URL 推导 | Passkey RP ID；特殊域名场景覆盖 |
 | `WEBAUTHN_ORIGIN` | 从公开 URL 推导 | Passkey 允许的精确 Origin |
 | `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | 是否信任网关入口收到的转发头 |
+| `GATEWAY_UPSTREAM_TIMEOUT_MS` | `30000` | 网关等待内部应用响应的最长毫秒数；超时返回 `504` |
 | `NONO_BUILD_COMMIT` | `unknown` | 写入备份清单的构建标识 |
 | `TZ` | `Asia/Shanghai` | 日程、提醒和自动备份时区 |
 

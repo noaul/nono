@@ -220,6 +220,39 @@ export interface ListMeta {
       };
     };
   };
+  assetSummary?: {
+    total: number;
+    totalsByCurrency: Partial<Record<Currency, number>>;
+    dueWithin30Days: number;
+    statusCounts: Partial<Record<AssetStatus | 'archived', number>>;
+    phone?: {
+      domestic: number;
+      foreign: number;
+      carrierCounts: Array<{ carrier: string; count: number }>;
+      foreignCountryCounts: Array<{ country: string; count: number }>;
+      monthlyTotal: Partial<Record<Currency, number>>;
+      domesticMonthlyTotal: Partial<Record<Currency, number>>;
+      activeCount: number;
+      riskWithin30Days: number;
+      riskWithin60Days: number;
+    };
+    domain?: {
+      registrarCount: number;
+      accountCount: number;
+      topSuffix: string;
+      autoRenewCount: number;
+      riskWithin30Days: number;
+    };
+    vps?: {
+      online: number;
+      offline: number;
+      configured: number;
+      avgCpu: number | null;
+      avgMemory: number | null;
+      totalTrafficBytes: number;
+      riskWithin30Days: number;
+    };
+  };
 }
 
 export interface ListResponse<T> {

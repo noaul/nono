@@ -8,6 +8,7 @@ const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
 const blogPort = numberFromEnv('BLOG_INTERNAL_PORT', 2025);
 const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
 const yumiPort = numberFromEnv('YUMI_INTERNAL_PORT', 2040);
+const upstreamTimeoutMs = numberFromEnv('GATEWAY_UPSTREAM_TIMEOUT_MS', 30_000);
 const children = new Set();
 const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort, yumi: yumiPort };
 const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
@@ -78,14 +79,21 @@ function proxyRequest(request, response) {
     upstream.pipe(response);
   });
 
-  proxy.on('error', error => {
-    if (!response.headersSent) {
-      response.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
+  let timedOut = false;
+  proxy.setTimeout(upstreamTimeoutMs, () => {
+    timedOut = true;
+    proxy.destroy(new Error(`Upstream ${target.name} timed out`));
+  });
+  proxy.on('error', () => {
+    if (response.writableEnded) return;
+    if (response.headersSent) {
+      response.destroy();
+      return;
     }
+    response.writeHead(timedOut ? 504 : 502, { 'content-type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify({
-      error: 'service_unavailable',
+      error: timedOut ? 'gateway_timeout' : 'service_unavailable',
       service: target.name,
-      message: error.message,
     }));
   });
 
@@ -110,6 +118,7 @@ function proxyUpgrade(request, socket, head) {
     path: target.path,
     headers,
   });
+  let timedOut = false;
 
   proxy.on('upgrade', (upstream, upstreamSocket, upstreamHead) => {
     socket.write(
@@ -125,7 +134,14 @@ function proxyUpgrade(request, socket, head) {
     socket.pipe(upstreamSocket);
   });
 
-  proxy.on('error', () => socket.destroy());
+  proxy.setTimeout(upstreamTimeoutMs, () => {
+    timedOut = true;
+    proxy.destroy();
+    if (!socket.destroyed) socket.end('HTTP/1.1 504 Gateway Timeout\r\nConnection: close\r\n\r\n');
+  });
+  proxy.on('error', () => {
+    if (!timedOut) socket.destroy();
+  });
   proxy.end();
 }
 

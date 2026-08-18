@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarClock, ExternalLink, Highlighter, Minus, Moon, MoveHorizontal, MoveVertical, Plus, Sun } from 'lucide-react';
 import { MarkdownArticle } from '../components/MarkdownArticle';
-import { articleTextFromHtml } from '../components/articleText';
 import { buildAnchor, isStale, resolveHighlight } from '../components/highlightAnchor';
 import { useClipStore } from '../stores/clipStore';
 
@@ -18,6 +17,13 @@ export function ReaderView() {
   // Reader preferences are local only; they never modify the stored article.
   const [preferences, setPreferences] = useState(readStoredPreferences);
   const [pending, setPending] = useState<{ text: string; startOffset: number; fullText: string } | null>(null);
+  const [renderedText, setRenderedText] = useState<{
+    clipId: number;
+    contentVersion: number;
+    text: string;
+  } | null>(null);
+  const clipId = clip?.id;
+  const clipContentVersion = clip?.contentVersion;
   const { fontScale, measure, theme } = preferences;
 
   useEffect(() => {
@@ -32,14 +38,24 @@ export function ReaderView() {
     }
   }, [preferences]);
 
+  const captureRenderedText = useCallback((text: string) => {
+    if (clipId == null || clipContentVersion == null) return;
+    setRenderedText((current) => (
+      current?.clipId === clipId && current.contentVersion === clipContentVersion && current.text === text
+        ? current
+        : { clipId, contentVersion: clipContentVersion, text }
+    ));
+  }, [clipContentVersion, clipId]);
+
   const resolved = useMemo(() => {
     if (!clip) return [];
-    // Highlights are matched against the plain text of the current body, so a rewritten article
-    // surfaces them as stale rather than attaching them to the wrong sentence.
-    const text = articleTextFromHtml(clip.contentHtml || '');
+    const text = renderedText?.clipId === clip.id && renderedText.contentVersion === clip.contentVersion
+      ? renderedText.text
+      : null;
+    if (text == null) return [];
     // Defensive: a detail payload without highlights must not white-screen the reader.
     return (clip.highlights || []).map((highlight) => resolveHighlight(text, highlight, clip.contentVersion));
-  }, [clip]);
+  }, [clip, renderedText]);
 
   const highlightRanges = useMemo(() => resolved.flatMap((entry) => isStale(entry)
     ? []
@@ -167,6 +183,7 @@ export function ReaderView() {
         theme={theme}
         highlightRanges={highlightRanges}
         onSelect={setPending}
+        onTextChange={captureRenderedText}
       />
 
       <aside className="highlight-list" aria-label="标注">

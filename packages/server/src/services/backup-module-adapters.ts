@@ -589,6 +589,13 @@ async function clipFolderPath(client: any, userId: number, folderId: number | nu
 
 function reviveClipFields(fields: Record<string, any>) {
   const revived: Record<string, any> = { ...fields };
+  const clipKind = revived.clipKind === 'selection' || (!revived.clipKind && revived.extractor === 'selection')
+    ? 'selection'
+    : 'page';
+  revived.clipKind = clipKind;
+  revived.selectionFingerprint = clipKind === 'selection'
+    ? text(revived.selectionFingerprint) || text(revived.contentHash)
+    : '';
   for (const key of ['clippedAt', 'publishedAt', 'updatedAt']) {
     if (revived[key]) {
       const parsed = new Date(revived[key]);

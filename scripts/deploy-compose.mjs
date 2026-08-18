@@ -102,9 +102,9 @@ export async function deployCompose({
     log('initial deployment detected; no existing application data to back up');
   }
   await run('docker', ['compose', 'build', 'app'], { ...commandOptions, env: deployEnv });
-  await run('docker', ['compose', 'up', '-d', '--no-deps', 'app'], { ...commandOptions, env: deployEnv });
 
   try {
+    await run('docker', ['compose', 'up', '-d', '--no-deps', 'app'], { ...commandOptions, env: deployEnv });
     await waitForAcceptance({ baseUrl, accept, wait, attempts: acceptanceAttempts, log });
     return { previousCommit, currentCommit, imageTag, rolledBack: false };
   } catch (deploymentError) {

@@ -63,13 +63,10 @@ test.describe('Clipper', () => {
 
     await page.getByText('剪藏模块设计').click();
 
-    const frame = page.locator('iframe.clip-article-frame');
-    await expect(frame).toBeVisible();
-    // The reader must never be able to execute what it renders.
-    await expect(frame).toHaveAttribute('sandbox', /allow-same-origin/);
-    const sandbox = await frame.getAttribute('sandbox');
-    expect(sandbox).not.toContain('allow-scripts');
-    await expect(frame.contentFrame().getByText('这是完整的剪藏正文')).toBeVisible();
+    const article = page.locator('.markdown-article');
+    await expect(article).toBeVisible();
+    await expect(article.getByText('这是完整的剪藏正文')).toBeVisible();
+    await expect(page.locator('iframe.clip-article-frame')).toHaveCount(0);
   });
 
   test('searches Chinese text', async ({ page }) => {
@@ -98,7 +95,7 @@ test.describe('Clipper', () => {
     await page.goto(`${clipperBaseURL}/clipper/`);
     await page.getByText('剪藏模块设计').click();
 
-    const article = page.locator('iframe.clip-article-frame').contentFrame().locator('p');
+    const article = page.locator('.markdown-article p');
     await article.evaluate((paragraph) => {
       const text = paragraph.firstChild!;
       const range = document.createRange();
@@ -107,11 +104,11 @@ test.describe('Clipper', () => {
       const selection = document.getSelection()!;
       selection.removeAllRanges();
       selection.addRange(range);
-      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      paragraph.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     });
     await page.getByRole('button', { name: '标注', exact: true }).click();
 
-    const mark = page.locator('iframe.clip-article-frame').contentFrame().locator('mark[data-highlight-id="99"]');
+    const mark = page.locator('.markdown-article mark[data-highlight-id="99"]');
     await expect(mark).toHaveText('完整的剪藏正文');
   });
 

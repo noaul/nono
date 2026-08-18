@@ -45,19 +45,26 @@ type VpsRenewal = {
 type VpsRenewalResponse = { idempotent: boolean; item: AssetItem; renewal: VpsRenewal };
 type VpsRenewalToastState = { itemId: number; renewal: VpsRenewal };
 type VpsStats = {
+  total: number;
   online: number;
   offline: number;
   configured: number;
   avgCpu: number | null;
   avgMemory: number | null;
   totalTrafficBytes: number;
+  riskWithin30Days: number;
 };
 type PhoneStats = {
+  total: number;
   domestic: number;
   foreign: number;
   carrierCounts: Array<{ carrier: string; count: number }>;
   foreignCountryCounts: Array<{ country: string; count: number }>;
   monthlyTotal: Partial<Record<Currency, number>>;
+  domesticMonthlyTotal: Partial<Record<Currency, number>>;
+  activeCount: number;
+  riskWithin30Days: number;
+  riskWithin60Days: number;
 };
 type PhoneVisualStyleKey = 'nebula' | 'daylight' | 'graphite' | 'ocean';
 type PhoneVisualAccentKey = 'cyan' | 'rose' | 'violet' | 'lime' | 'amber';
@@ -203,6 +210,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const { setTopbarActions } = useLayoutActions();
   const [items, setItems] = useState<AssetItem[]>([]);
   const [meta, setMeta] = useState<ListMeta | null>(null);
+  const assetSummary = meta?.assetSummary;
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'card' | 'compact' | 'table'>('card');
   const [query, setQuery] = useState('');
@@ -379,7 +387,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
-  const load = async (nextOffset = offset) => {
+  const load = async (nextOffset = offset, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (deferredQuery.trim()) params.set('q', deferredQuery.trim());
     if (!isPhoneVisual && !isVps && status) params.set('status', status);
@@ -395,19 +403,22 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     if (direction) params.set('direction', direction);
     params.set('limit', String(pageSize));
     params.set('offset', String(nextOffset));
-    const response = await api.get<ListResponse<AssetItem>>(`/api/${config.endpoint}?${params}`);
+    const response = await api.get<ListResponse<AssetItem>>(`/api/${config.endpoint}?${params}`, signal);
     setItems(response.items);
     setMeta(response.meta ?? null);
     setLoading(false);
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setError('');
-    load().catch((err) => {
+    load(offset, controller.signal).catch((err) => {
+      if (controller.signal.aborted) return;
       setError(err instanceof ApiError ? err.message : copy('加载失败', 'Failed to load'));
       setLoading(false);
     });
+    return () => controller.abort();
   }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
 
   const vpsProbeKey = useMemo(
@@ -458,11 +469,30 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   const phoneStats = useMemo<PhoneStats | null>(() => {
     if (!isPhone) return null;
+    if (assetSummary?.phone) {
+      const normalizedCarriers = new Map<string, number>();
+      for (const entry of assetSummary.phone.carrierCounts) {
+        const carrier = normalizeDomesticCarrier(entry.carrier, copy);
+        normalizedCarriers.set(carrier, (normalizedCarriers.get(carrier) ?? 0) + entry.count);
+      }
+      const orderedCarriers = ['移动', '联通', '电信'];
+      const carrierCounts = orderedCarriers
+        .map((carrier) => ({ carrier, count: normalizedCarriers.get(carrier) ?? 0 }))
+        .concat([...normalizedCarriers.entries()]
+          .filter(([carrier]) => !orderedCarriers.includes(carrier))
+          .map(([carrier, count]) => ({ carrier, count }))
+          .sort((a, b) => b.count - a.count || a.carrier.localeCompare(b.carrier)));
+      return { total: assetSummary.total, ...assetSummary.phone, carrierCounts };
+    }
     const carrierCounts = new Map<string, number>();
     const foreignCountryCounts = new Map<string, number>();
     const monthlyTotal: Partial<Record<Currency, number>> = {};
+    const domesticMonthlyTotal: Partial<Record<Currency, number>> = {};
     let domestic = 0;
     let foreign = 0;
+    let activeCount = 0;
+    let riskWithin30Days = 0;
+    let riskWithin60Days = 0;
     for (const item of items) {
       if (stringValue(item.phoneType) === 'foreign') {
         foreign += 1;
@@ -472,9 +502,16 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         domestic += 1;
         const carrier = normalizeDomesticCarrier(item.carrier, copy);
         carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);
+        const itemCurrency = (item.currency || 'CNY') as Currency;
+        domesticMonthlyTotal[itemCurrency] = (domesticMonthlyTotal[itemCurrency] ?? 0) + Number(item.amountMinorUnits ?? 0);
       }
       const itemCurrency = (item.currency || 'CNY') as Currency;
       monthlyTotal[itemCurrency] = (monthlyTotal[itemCurrency] ?? 0) + Number(item.amountMinorUnits ?? 0);
+      if (item.status === 'active') activeCount += 1;
+      const dueDate = stringValue(item.totalKeepaliveUntil) || stringValue(item.nextDueDate) || stringValue(item.expireDate);
+      const left = daysLeft(dueDate || null);
+      if (left !== null && left <= 30) riskWithin30Days += 1;
+      if (left !== null && left <= 60) riskWithin60Days += 1;
     }
     const orderedCarriers = ['移动', '联通', '电信'];
     const normalizedCarrierCounts = orderedCarriers
@@ -488,10 +525,24 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     const normalizedCountryCounts = Array.from(foreignCountryCounts.entries())
       .map(([country, count]) => ({ country, count }))
       .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
-    return { domestic, foreign, carrierCounts: normalizedCarrierCounts, foreignCountryCounts: normalizedCountryCounts, monthlyTotal };
-  }, [items, isPhone, copy]);
+    return {
+      total: items.length,
+      domestic,
+      foreign,
+      carrierCounts: normalizedCarrierCounts,
+      foreignCountryCounts: normalizedCountryCounts,
+      monthlyTotal,
+      domesticMonthlyTotal,
+      activeCount,
+      riskWithin30Days,
+      riskWithin60Days
+    };
+  }, [assetSummary, items, isPhone, copy]);
 
   const totals = useMemo(() => {
+    if (assetSummary) {
+      return { sum: assetSummary.totalsByCurrency, dueCount: assetSummary.dueWithin30Days };
+    }
     const sum = items.reduce((acc, item) => acc + Number(item.amountMinorUnits ?? 0), 0);
     const dueCount = items.filter((item) => {
       const dueDate = isDomain
@@ -501,10 +552,11 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       return left !== null && left <= 30;
     }).length;
     return { sum, dueCount };
-  }, [items, config.dueKey, isDomain]);
+  }, [assetSummary, items, config.dueKey, isDomain]);
 
   const domainStats = useMemo(() => {
     if (!isDomain) return null;
+    if (assetSummary?.domain) return assetSummary.domain;
     const registrarCount = new Set(items.map((item) => stringValue(item.registrar)).filter(Boolean)).size;
     const accountCount = new Set(items.map((item) => {
       const account = stringValue(item.registrarAccount);
@@ -518,11 +570,17 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       if (item.autoRenew) autoRenewCount += 1;
     }
     const topSuffix = Array.from(suffixCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '-';
-    return { registrarCount, accountCount, topSuffix, autoRenewCount };
-  }, [items, isDomain]);
+    const riskWithin30Days = items.filter((item) => {
+      const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
+      const left = daysLeft(dueDate || null);
+      return left !== null && left <= 30;
+    }).length;
+    return { registrarCount, accountCount, topSuffix, autoRenewCount, riskWithin30Days };
+  }, [assetSummary, items, isDomain]);
 
   const vpsStats = useMemo<VpsStats | null>(() => {
     if (!isVps) return null;
+    if (assetSummary?.vps) return { total: assetSummary.total, ...assetSummary.vps };
     let online = 0;
     let offline = 0;
     let configured = 0;
@@ -551,14 +609,20 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       totalTrafficBytes += netIn + netOut;
     }
     return {
+      total: items.length,
       online,
       offline,
       configured,
       avgCpu: cpuCount > 0 ? Math.round((cpuTotal / cpuCount) * 10) / 10 : null,
       avgMemory: memoryCount > 0 ? Math.round((memoryTotal / memoryCount) * 10) / 10 : null,
-      totalTrafficBytes
+      totalTrafficBytes,
+      riskWithin30Days: items.filter((item) => {
+        const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
+        const left = daysLeft(dueDate || null);
+        return left !== null && left <= 30;
+      }).length
     };
-  }, [items, isVps, monitorById]);
+  }, [assetSummary, items, isVps, monitorById]);
 
   const updateForm = (key: string, value: string | boolean) => {
     setForm((current) => {
@@ -1025,9 +1089,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   return (
     <div className="space-y-4">
-      {isDomain && domainStats && <DomainCommandPanel stats={domainStats} items={items} renewalTotals={meta?.renewalTotals} copy={copy} />}
-      {isVps && vpsStats && <VpsCommandPanel stats={vpsStats} items={items} autoRefresh={autoRefreshVps} onAutoRefreshChange={setAutoRefreshVps} copy={copy} />}
-      {isPhone && !isPhoneVisual && phoneStats && <PhoneCommandPanel stats={phoneStats} items={items} copy={copy} />}
+      {isDomain && domainStats && <DomainCommandPanel stats={domainStats} renewalTotals={meta?.renewalTotals} copy={copy} />}
+      {isVps && vpsStats && <VpsCommandPanel stats={vpsStats} autoRefresh={autoRefreshVps} onAutoRefreshChange={setAutoRefreshVps} copy={copy} />}
+      {isPhone && !isPhoneVisual && phoneStats && <PhoneCommandPanel stats={phoneStats} copy={copy} />}
 
       {!isPhoneVisual && <section className="card">
         <div className={isDomain ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[180px_118px_108px_168px_112px_132px_118px_40px_auto] xl:items-center' : isVps ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_130px_130px_150px_auto] xl:items-center' : isPhone ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_120px_120px_130px_auto] xl:items-center' : 'grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_auto]'}>
@@ -1105,8 +1169,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-44" />)}</div>
-      ) : isPhoneVisual ? (
-        <PhoneVisualDashboard items={items} copy={copy} />
+      ) : isPhoneVisual && phoneStats ? (
+        <PhoneVisualDashboard items={items} stats={phoneStats} copy={copy} />
       ) : items.length === 0 ? (
         <EmptyState title={copy(`暂无${config.singular}`, `No ${assetSingular(config.singular, language)}s yet`)} description={copy('换个筛选条件，或新增一条资产记录。', 'Try another filter, or add a record.')} action={<Button onClick={openCreate}><Plus size={16} />{copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>} />
       ) : view === 'card' ? (
@@ -1210,28 +1274,21 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
 function PhoneCommandPanel({
   stats,
-  items,
   copy
 }: {
   stats: PhoneStats;
-  items: AssetItem[];
   copy: (zh: string, en: string) => string;
 }) {
-  const riskCount = items.filter((item) => {
-    const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
-    const left = daysLeft(dueDate || null);
-    return left !== null && left <= 30;
-  }).length;
   const carrierSummary = stats.carrierCounts.map(({ carrier, count }) => `${carrier} ${count}`).join(' / ');
   const countrySummary = stats.foreignCountryCounts.length > 0
     ? stats.foreignCountryCounts.map(({ country, count }) => `${country} ${count}`).join(' / ')
     : '-';
   return (
     <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <DomainStat icon={<Phone size={17} />} label={copy('电话卡总数', 'Phone cards')} value={items.length} detail={copy(`国内 ${stats.domestic} / 国外 ${stats.foreign}`, `${stats.domestic} domestic / ${stats.foreign} foreign`)} />
-      <DomainStat icon={<Signal size={17} />} label={copy('总月花费', 'Monthly total')} value={formatMoneyTotals(stats.monthlyTotal)} detail={copy('按当前页活跃筛选合计', 'Total for current active filter')} mono />
+      <DomainStat icon={<Phone size={17} />} label={copy('电话卡总数', 'Phone cards')} value={stats.total} detail={copy(`国内 ${stats.domestic} / 国外 ${stats.foreign}`, `${stats.domestic} domestic / ${stats.foreign} foreign`)} />
+      <DomainStat icon={<Signal size={17} />} label={copy('总月花费', 'Monthly total')} value={formatMoneyTotals(stats.monthlyTotal)} detail={copy('按当前筛选结果合计', 'Total for the current filter')} mono />
       <DomainStat icon={<Database size={17} />} label={copy('国内运营商', 'Domestic carriers')} value={<CountPills entries={stats.carrierCounts} labelKey="carrier" />} detail={carrierSummary} />
-      <DomainStat icon={<UserRound size={17} />} label={copy('国外卡片', 'Foreign cards')} value={<CountPills entries={stats.foreignCountryCounts} labelKey="country" />} detail={copy(`${countrySummary}，30 天风险 ${riskCount}`, `${countrySummary}, ${riskCount} risks`)} mono />
+      <DomainStat icon={<UserRound size={17} />} label={copy('国外卡片', 'Foreign cards')} value={<CountPills entries={stats.foreignCountryCounts} labelKey="country" />} detail={copy(`${countrySummary}，30 天风险 ${stats.riskWithin30Days}`, `${countrySummary}, ${stats.riskWithin30Days} risks`)} mono />
     </section>
   );
 }
@@ -1249,18 +1306,11 @@ function CountPills<T extends { count: number } & Record<string, string | number
   );
 }
 
-function PhoneVisualDashboard({ items, copy }: { items: AssetItem[]; copy: (zh: string, en: string) => string }) {
+function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stats: PhoneStats; copy: (zh: string, en: string) => string }) {
   const [styleKey, setStyleKey] = useState<PhoneVisualStyleKey>(() => getStoredPhoneVisualStyle());
   const [accentKey, setAccentKey] = useState<PhoneVisualAccentKey>(() => getStoredPhoneVisualAccent());
   const domestic = items.filter((item) => stringValue(item.phoneType) !== 'foreign');
   const foreign = items.filter((item) => stringValue(item.phoneType) === 'foreign');
-  const monthlyTotal = domestic.reduce((sum, item) => sum + Number(item.amountMinorUnits ?? 0), 0);
-  const activeCount = items.filter((item) => item.status === 'active').length;
-  const riskCount = items.filter((item) => {
-    const dueDate = stringValue(item.totalKeepaliveUntil) || stringValue(item.nextDueDate) || stringValue(item.expireDate);
-    const left = daysLeft(dueDate || null);
-    return left !== null && left <= 60;
-  }).length;
   const costChart = domestic
     .map((item) => ({
       number: getPhoneDisplayNumber(item).replace(/^\+86/, ''),
@@ -1270,8 +1320,8 @@ function PhoneVisualDashboard({ items, copy }: { items: AssetItem[]; copy: (zh: 
     }))
     .sort((a, b) => b.cost - a.cost)
     .slice(0, 10);
-  const carrierChart = countBy(domestic, (item) => normalizeDomesticCarrier(item.carrier, copy));
-  const countryChart = countBy(foreign, (item) => getPhoneCountryCode(item));
+  const carrierChart = stats.carrierCounts.map(({ carrier, count }) => ({ name: carrier, count }));
+  const countryChart = stats.foreignCountryCounts.map(({ country, count }) => ({ name: country, count }));
   const userChart = countBy(domestic, (item) => stringValue(item.userName) || stringValue(item.realNamePerson) || copy('未记录', 'Unknown')).slice(0, 6);
   const keepaliveItems = foreign
     .map((item) => {
@@ -1303,7 +1353,7 @@ function PhoneVisualDashboard({ items, copy }: { items: AssetItem[]; copy: (zh: 
     localStorage.setItem('moneypulse-phone-visual-accent', accentKey);
   }, [accentKey]);
 
-  if (items.length === 0) {
+  if (stats.total === 0) {
     return <EmptyState title={copy('暂无电话卡', 'No phone cards')} description={copy('新增几张电话卡后，这里会生成可视化管理大屏。', 'Add phone cards to generate the visual management board.')} />;
   }
 
@@ -1338,11 +1388,11 @@ function PhoneVisualDashboard({ items, copy }: { items: AssetItem[]; copy: (zh: 
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <VisualGlassCard label={copy('月花费', 'Monthly cost')} value={formatMoney(monthlyTotal, 'CNY')} detail={copy(`${activeCount} 张活跃卡`, `${activeCount} active cards`)} icon={<Signal size={18} />} color={visualAccent.tertiary} visualStyle={visualStyle} compact />
-          <VisualGlassCard label={copy('号码总数', 'Total numbers')} value={items.length} detail={copy(`国内 ${domestic.length} / 国外 ${foreign.length}`, `${domestic.length} domestic / ${foreign.length} foreign`)} icon={<Phone size={18} />} color={visualAccent.primary} visualStyle={visualStyle} compact />
-          <PhoneHeroMetric label={copy('国内', 'Domestic')} value={domestic.length} color={visualAccent.primary} visualStyle={visualStyle} />
-          <PhoneHeroMetric label={copy('国外', 'Foreign')} value={foreign.length} color={visualAccent.secondary} visualStyle={visualStyle} />
-          <PhoneHeroMetric label={copy('关注', 'Watch')} value={riskCount} color={visualAccent.tertiary} visualStyle={visualStyle} />
+          <VisualGlassCard label={copy('月花费', 'Monthly cost')} value={formatMoneyTotals(stats.domesticMonthlyTotal)} detail={copy(`${stats.activeCount} 张活跃卡`, `${stats.activeCount} active cards`)} icon={<Signal size={18} />} color={visualAccent.tertiary} visualStyle={visualStyle} compact />
+          <VisualGlassCard label={copy('号码总数', 'Total numbers')} value={stats.total} detail={copy(`国内 ${stats.domestic} / 国外 ${stats.foreign}`, `${stats.domestic} domestic / ${stats.foreign} foreign`)} icon={<Phone size={18} />} color={visualAccent.primary} visualStyle={visualStyle} compact />
+          <PhoneHeroMetric label={copy('国内', 'Domestic')} value={stats.domestic} color={visualAccent.primary} visualStyle={visualStyle} />
+          <PhoneHeroMetric label={copy('国外', 'Foreign')} value={stats.foreign} color={visualAccent.secondary} visualStyle={visualStyle} />
+          <PhoneHeroMetric label={copy('关注', 'Watch')} value={stats.riskWithin60Days} color={visualAccent.tertiary} visualStyle={visualStyle} />
         </div>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.6fr_0.9fr]">
@@ -1664,26 +1714,19 @@ function PhoneFormSections({
 
 function VpsCommandPanel({
   stats,
-  items,
   autoRefresh,
   onAutoRefreshChange,
   copy
 }: {
   stats: VpsStats;
-  items: AssetItem[];
   autoRefresh: boolean;
   onAutoRefreshChange: (value: boolean) => void;
   copy: (zh: string, en: string) => string;
 }) {
-  const riskCount = items.filter((item) => {
-    const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
-    const left = daysLeft(dueDate || null);
-    return left !== null && left <= 30;
-  }).length;
   return (
     <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <VpsStat icon={<Server size={17} />} label={copy('在线节点', 'Online nodes')} value={`${stats.online}/${items.length}`} detail={copy(`${stats.offline} 台离线或异常`, `${stats.offline} offline or failing`)} tone={stats.offline > 0 ? 'warning' : 'success'} />
-      <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${items.length}`} detail={copy('dstatus / neko 风格接口', 'dstatus / neko-style endpoints')} tone="brand" />
+      <VpsStat icon={<Server size={17} />} label={copy('在线节点', 'Online nodes')} value={`${stats.online}/${stats.total}`} detail={copy(`${stats.offline} 台离线或异常`, `${stats.offline} offline or failing`)} tone={stats.offline > 0 ? 'warning' : 'success'} />
+      <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${stats.total}`} detail={copy('dstatus / neko 风格接口', 'dstatus / neko-style endpoints')} tone="brand" />
       <VpsStat icon={<Activity size={17} />} label={copy('平均负载', 'Average load')} value={formatPercent(stats.avgCpu)} detail={copy(`内存均值 ${formatPercent(stats.avgMemory)}`, `Memory average ${formatPercent(stats.avgMemory)}`)} tone={stats.avgCpu !== null && stats.avgCpu >= 80 ? 'danger' : 'brand'} />
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-850">
         <div className="flex items-start justify-between gap-3">
@@ -1694,7 +1737,7 @@ function VpsCommandPanel({
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-success-500/20 bg-success-500/10 text-success-500"><Database size={17} /></div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>{copy(`30 天续费风险 ${riskCount}`, `${riskCount} renewal risks`)}</span>
+          <span>{copy(`30 天续费风险 ${stats.riskWithin30Days}`, `${stats.riskWithin30Days} renewal risks`)}</span>
           <button
             type="button"
             onClick={() => onAutoRefreshChange(!autoRefresh)}
@@ -2180,26 +2223,18 @@ function VpsFormSections({
 
 function DomainCommandPanel({
   stats,
-  items,
   renewalTotals,
   copy
 }: {
-  stats: { registrarCount: number; accountCount: number; topSuffix: string; autoRenewCount: number };
-  items: AssetItem[];
+  stats: { registrarCount: number; accountCount: number; topSuffix: string; autoRenewCount: number; riskWithin30Days: number };
   renewalTotals?: RenewalTotals;
   copy: (zh: string, en: string) => string;
 }) {
-  const riskCount = items.filter((item) => {
-    const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
-    const left = daysLeft(dueDate || null);
-    return left !== null && left <= 30;
-  }).length;
-
   return (
     <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <DomainPeriodTotalCard totals={renewalTotals} copy={copy} />
       <DomainStat icon={<ShieldCheck size={17} />} label={copy('注册商', 'Registrars')} value={stats.registrarCount} detail={copy(`${stats.accountCount} 个服务商账号`, `${stats.accountCount} registrar accounts`)} />
-      <DomainStat icon={<CalendarClock size={17} />} label={copy('30 天风险', '30-day risk')} value={riskCount} detail={copy('按续费/到期日期合并判断', 'Calculated from renewal or expiry dates')} />
+      <DomainStat icon={<CalendarClock size={17} />} label={copy('30 天风险', '30-day risk')} value={stats.riskWithin30Days} detail={copy('按续费/到期日期合并判断', 'Calculated from renewal or expiry dates')} />
       <DomainStat icon={<Link2 size={17} />} label={copy('主力后缀', 'Top suffix')} value={stats.topSuffix} detail={copy(`${stats.autoRenewCount} 个域名开启自动续费`, `${stats.autoRenewCount} domains on auto renew`)} mono />
     </section>
   );

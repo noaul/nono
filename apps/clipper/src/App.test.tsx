@@ -191,6 +191,47 @@ describe('Clipper app', () => {
     expect(screen.queryByText('HTML fallback only')).not.toBeInTheDocument();
   });
 
+  it('resolves highlights against the rendered Markdown text', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/clipper/clips/1')) {
+        return ok({
+          ...clip,
+          contentHtml: '<p>Unrelated HTML fallback</p>',
+          contentMd: 'Before **selected words** after.',
+          tags: [],
+          highlights: [{
+            id: 7,
+            clipId: 1,
+            text: 'selected words',
+            note: null,
+            color: 'yellow',
+            contentVersion: 1,
+            anchor: {
+              quote: 'selected words',
+              prefix: 'Before ',
+              suffix: ' after.',
+              startOffset: 7,
+              endOffset: 21,
+            },
+            createdAt: '2026-08-15T00:00:00.000Z',
+          }],
+        });
+      }
+      if (url.includes('/api/clipper/tags')) return ok([]);
+      return ok({ items: [clip], total: 1, limit: 30, offset: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await userEvent.click(await screen.findByText('A clipped article'));
+
+    await waitFor(() => {
+      expect(document.querySelector('mark[data-highlight-id="7"]')).toHaveTextContent('selected words');
+    });
+    expect(screen.queryByText(/标注无法在当前正文中定位/)).not.toBeInTheDocument();
+  });
+
   it('filters clips by tag and domain', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

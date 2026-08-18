@@ -55,3 +55,18 @@ test('packages the trusted forwarding helper in the runtime image', () => {
   const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
   assert.match(dockerfile, /COPY docker\/gateway-headers\.mjs \.\/gateway-headers\.mjs/);
 });
+
+test('bounds upstream requests and reports gateway timeouts separately', () => {
+  const gateway = fs.readFileSync('docker/gateway.mjs', 'utf8');
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+  const readme = fs.readFileSync('README.md', 'utf8');
+
+  assert.match(gateway, /GATEWAY_UPSTREAM_TIMEOUT_MS/);
+  assert.match(gateway, /proxy\.setTimeout\(upstreamTimeoutMs/);
+  assert.match(gateway, /504/);
+  assert.match(gateway, /gateway_timeout/);
+  assert.match(compose, /GATEWAY_UPSTREAM_TIMEOUT_MS: \$\{GATEWAY_UPSTREAM_TIMEOUT_MS:-30000\}/);
+  assert.match(envExample, /GATEWAY_UPSTREAM_TIMEOUT_MS=30000/);
+  assert.match(readme, /`GATEWAY_UPSTREAM_TIMEOUT_MS` \| `30000`/);
+});

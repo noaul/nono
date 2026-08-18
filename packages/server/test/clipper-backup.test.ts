@@ -178,6 +178,23 @@ describe('Clipper backup restore', () => {
     expect(target.state.highlightRows[0]).toMatchObject({ userId: OWNER, text: 'kept', contentVersion: 2 });
   });
 
+  it('restores legacy selection backups with an independent selection identity', async () => {
+    const { prisma } = stubPrisma();
+    const artifact = JSON.parse((await adapters(prisma).clipper.export(OWNER)).toString('utf8'));
+    artifact.clips[0].extractor = 'selection';
+    artifact.clips[0].contentHash = 'a'.repeat(64);
+    delete artifact.clips[0].clipKind;
+    delete artifact.clips[0].selectionFingerprint;
+
+    const target = stubPrisma();
+    await adapters(target.prisma).clipper.restore(OWNER, Buffer.from(JSON.stringify(artifact)));
+
+    expect(target.state.created[0]).toMatchObject({
+      clipKind: 'selection',
+      selectionFingerprint: 'a'.repeat(64),
+    });
+  });
+
   it('clears the existing Clipper rows for that user before restoring', async () => {
     const { prisma } = stubPrisma();
     const target = await roundTrip(prisma, []);

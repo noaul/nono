@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ArticleHighlightRange } from './SandboxedArticle';
@@ -10,6 +10,7 @@ interface MarkdownArticleProps {
   theme?: 'light' | 'dark';
   highlightRanges?: ArticleHighlightRange[];
   onSelect?: (selection: { text: string; startOffset: number; fullText: string }) => void;
+  onTextChange?: (text: string) => void;
 }
 
 export function MarkdownArticle({
@@ -19,12 +20,17 @@ export function MarkdownArticle({
   theme = 'light',
   highlightRanges = [],
   onSelect,
+  onTextChange,
 }: MarkdownArticleProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const contentKey = useMemo(
     () => `${markdown}\u0000${highlightRanges.map((range) => `${range.id}:${range.start}:${range.end}:${range.color}`).join('|')}`,
     [highlightRanges, markdown],
   );
+
+  useLayoutEffect(() => {
+    onTextChange?.(rootRef.current?.textContent || '');
+  }, [markdown, onTextChange]);
 
   useEffect(() => {
     const root = rootRef.current;

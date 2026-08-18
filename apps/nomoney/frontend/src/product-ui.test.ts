@@ -73,4 +73,18 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(config).toContain('transformIndexHtml');
     expect(config).toContain("product === 'yumi' ? 'Yumi' : 'NoMoney'");
   });
+
+  it('uses full-result asset summaries and cancels stale filter requests', () => {
+    const assetPage = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const api = fs.readFileSync(path.resolve(process.cwd(), 'src/api.ts'), 'utf8');
+
+    expect(assetPage).toContain('meta?.assetSummary');
+    expect(assetPage).toContain('new AbortController()');
+    expect(assetPage).toContain('controller.abort()');
+    expect(assetPage).toContain('value={stats.total}');
+    expect(assetPage).toContain('`${stats.online}/${stats.total}`');
+    expect(assetPage).toContain('stats.riskWithin30Days');
+    expect(assetPage).toContain('<PhoneVisualDashboard items={items} stats={phoneStats}');
+    expect(api).toContain('signal?: AbortSignal');
+  });
 });

@@ -14,13 +14,15 @@ describe('NoStar routes', () => {
   const repositoryQueries: Array<Record<string, unknown>> = [];
   const settings = new Map<string, unknown>();
   let safeRequester: ReturnType<typeof vi.fn>;
+  let releaseDeleteMany: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     repositoryQueries.length = 0;
     settings.clear();
+    releaseDeleteMany = vi.fn(async () => ({ count: 1 }));
     safeRequester = vi.fn(async () => ({ statusCode: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"ok":true}') }));
     repo = new MemoryRepository(false);
-    const prisma = {
+    const prisma: any = {
       noStarRepository: {
         findMany: async ({ where }: any) => {
           repositoryQueries.push(where);
@@ -39,7 +41,12 @@ describe('NoStar routes', () => {
         },
         count: async () => 1,
       },
-      noStarRelease: { findMany: async () => [] },
+      noStarRelease: {
+        findMany: async () => [],
+        count: async () => 0,
+        upsert: async () => ({}),
+        deleteMany: releaseDeleteMany,
+      },
       noStarCategory: { findMany: async () => [] },
       noStarAiProfile: {
         findMany: async ({ where }: any) => where.userId === 1 ? [{
@@ -92,6 +99,7 @@ describe('NoStar routes', () => {
         },
       },
     };
+    prisma.$transaction = async (operation: (tx: any) => unknown) => operation(prisma);
     app = await buildApp({ repo, prisma: prisma as any, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
   });
 
@@ -136,6 +144,22 @@ describe('NoStar routes', () => {
     expect(adminResponse.json().repositories[0].name).toBe('repo-1');
     expect(readerResponse.json().repositories[0].name).toBe('repo-2');
     expect(repositoryQueries).toEqual([{ userId: 1 }, { userId: 2 }]);
+  });
+
+  it('deletes releases missing from an authenticated full snapshot', async () => {
+    const adminCookie = await setupAdmin();
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/nostar/releases',
+      headers: { cookie: adminCookie },
+      payload: { releases: [], isFullSync: true },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(releaseDeleteMany).toHaveBeenCalledWith({
+      where: { userId: 1, githubId: { notIn: [] } },
+    });
   });
 
   it('restricts server network proxy settings to administrators', async () => {

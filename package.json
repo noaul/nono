@@ -46,7 +46,7 @@
     "audit:nostar": "npm --prefix apps/nostar audit --audit-level=high",
     "audit:clipper": "npm --prefix apps/clipper audit --audit-level=high",
     "audit:all": "npm run audit:nono && npm run audit:blog && npm run audit:nomoney && npm run audit:nostar && npm run audit:clipper",
-    "verify:all": "npm run test:all && npm run typecheck:blog && npm run lint:nostar && npm run typecheck:nostar && npm run lint:clipper && npm run typecheck:clipper && npm run build:all && npm run bundle:check:nostar && npm run bundle:check:clipper && npm run audit:all && npm run package:extension",
+    "verify:all": "npm run test:all && npm run typecheck:blog && npm run lint:nostar && npm run typecheck:nostar && npm run lint:clipper && npm run typecheck:clipper && npm run build:all && npm run test:e2e && npm run bundle:check:nostar && npm run bundle:check:clipper && npm run audit:all && npm run package:extension",
     "install:all": "npm ci && pnpm --dir apps/blog install --frozen-lockfile && npm --prefix apps/nomoney ci && npm --prefix apps/nostar ci && npm --prefix apps/clipper ci",
     "install:blog": "pnpm --dir apps/blog install --frozen-lockfile",
     "prisma:generate": "npm run prisma:generate -w packages/server",
@@ -69,6 +69,7 @@
     "node": ">=22"
   },
   "overrides": {
+    "deepmerge-ts": "8.0.1",
     "@vue/test-utils": {
       "js-beautify": "2.0.3"
     }

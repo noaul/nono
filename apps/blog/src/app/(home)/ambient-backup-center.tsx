@@ -190,7 +190,7 @@ export function AmbientBackupCenter() {
 
 	const restoreWebDav = (batchId: string, modules?: BackupModule[]) => {
 		if (!batchId) return
-		const label = modules ? MODULES.find(item => item.id === modules[0])?.label : '全站'
+		const label = modules ? MODULES.find(item => item.id === modules[0])?.label : '当前账户完整数据'
 		if (!window.confirm(`从批次 ${batchId} 恢复${label}？系统会先制作安全快照，失败时自动回滚。`)) return
 		void run(`restore-${modules?.join('-') || 'all'}`, async () => {
 			await requestData('/api/admin/backup-center/webdav/restore', {
@@ -241,7 +241,7 @@ export function AmbientBackupCenter() {
 			await requestData(`/api/admin/backup-center/local/${localRestoreModule}/restore`, {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(parsed)
 			})
-			setMessage(`${localRestoreModule === 'all' ? '全站' : MODULES.find(item => item.id === localRestoreModule)?.label}本地备份已恢复。`)
+			setMessage(`${localRestoreModule === 'all' ? '当前账户完整数据' : MODULES.find(item => item.id === localRestoreModule)?.label}本地备份已恢复。`)
 		})
 	}
 
@@ -266,9 +266,9 @@ export function AmbientBackupCenter() {
 		{loading ? <div className='ambient-backup-loading'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
 			{destination === 'webdav' && webDavPage === 'operations' && <div className='ambient-backup-page'>
 				<section className='ambient-backup-hero'>
-					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>全站备份</strong><small>一个按钮分别备份六个模块，共用同一批次编号。</small></span></div>
+					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>当前账户完整备份</strong><small>备份当前登录账户在六个模块中的数据，不包含其他账户、登录凭据或系统级配置。</small></span></div>
 					<div className='ambient-backup-actions'><button type='button' disabled={Boolean(busy) || !config.passwordConfigured} onClick={() => void backupWebDav()}>{busy === 'backup-all' ? <LoaderCircle className='is-spinning' size={16} /> : <Upload size={16} />}备份全部</button></div>
-					<div className='ambient-full-restore'><select value={fullRestoreId} onChange={event => setFullRestoreId(event.target.value)} aria-label='全站恢复批次'><option value=''>选择全站批次</option>{fullBatches.map(batch => <option value={batch.id} key={batch.id}>{formatDate(batch.createdAt)}</option>)}</select><button type='button' disabled={!fullRestoreId || Boolean(busy)} onClick={() => restoreWebDav(fullRestoreId)}><RefreshCcw size={16} />恢复全部</button></div>
+					<div className='ambient-full-restore'><select value={fullRestoreId} onChange={event => setFullRestoreId(event.target.value)} aria-label='当前账户完整恢复批次'><option value=''>选择完整批次</option>{fullBatches.map(batch => <option value={batch.id} key={batch.id}>{formatDate(batch.createdAt)}</option>)}</select><button type='button' disabled={!fullRestoreId || Boolean(busy)} onClick={() => restoreWebDav(fullRestoreId)}><RefreshCcw size={16} />恢复全部</button></div>
 				</section>
 
 				<div className='ambient-backup-module-grid'>
@@ -288,7 +288,7 @@ export function AmbientBackupCenter() {
 			</div>}
 
 			{destination === 'webdav' && webDavPage === 'automatic' && <section className='ambient-settings-section ambient-backup-page'>
-				<div className='ambient-settings-section-copy'><h3>WebDAV 自动全站备份</h3><p>每次自动执行都会分别上传六个模块；本地下载不会定时执行。</p></div>
+				<div className='ambient-settings-section-copy'><h3>WebDAV 自动当前账户备份</h3><p>每次自动执行都会分别上传当前账户的六个模块；本地下载不会定时执行。</p></div>
 				<div className='ambient-backup-policy'>
 					<label className='ambient-policy-toggle'><input type='checkbox' checked={automation.settings.enabled} onChange={event => updateAutomation('enabled', event.target.checked)} /><span>启用</span></label>
 					<label><span>频率</span><select value={automation.settings.cadence} onChange={event => updateAutomation('cadence', event.target.value as 'daily' | 'weekly')}><option value='daily'>每天</option><option value='weekly'>每周</option></select></label>
@@ -305,14 +305,14 @@ export function AmbientBackupCenter() {
 				<div className='ambient-backup-history-head'><span><strong>WebDAV 历史</strong><small>批次清单会验证每个模块的大小和 SHA-256。</small></span><b>{batches.length} 份</b></div>
 				{batches.length ? <div className='ambient-batch-history'>{batches.map(batch => <div className='ambient-batch-row' key={batch.id}>
 					<span className='ambient-batch-state'><CheckCircle2 size={16} /></span>
-					<span><strong>{formatDate(batch.createdAt)}</strong><small>{batch.scope === 'full' ? '全站' : '模块'} · {Object.keys(batch.modules).join(' / ')}</small></span>
+					<span><strong>{formatDate(batch.createdAt)}</strong><small>{batch.scope === 'full' ? '当前账户完整' : '模块'} · {Object.keys(batch.modules).join(' / ')}</small></span>
 					<span>{Object.values(batch.modules).reduce((sum, module) => sum + Number(module?.size || 0), 0) ? formatBytes(Object.values(batch.modules).reduce((sum, module) => sum + Number(module?.size || 0), 0)) : ''}</span>
 					<button type='button' title='删除批次' disabled={Boolean(busy)} onClick={() => removeBatch(batch)}>{busy === `delete-${batch.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Trash2 size={15} />}</button>
 				</div>)}</div> : <div className='ambient-backup-empty'>还没有 WebDAV 备份。</div>}
 			</section>}
 
 			{destination === 'webdav' && webDavPage === 'connection' && <section className='ambient-settings-section ambient-backup-page'>
-				<div className='ambient-settings-section-copy'><h3>统一 WebDAV 连接</h3><p>全站与六个模块共用这一套地址、用户名和密码。</p></div>
+				<div className='ambient-settings-section-copy'><h3>统一 WebDAV 连接</h3><p>当前账户完整备份与六个模块共用这一套地址、用户名和密码。</p></div>
 				<div className='ambient-webdav-grid'>
 					<label className='is-wide'><span>WebDAV 地址</span><input type='url' value={connectionForm.url} onChange={event => setConnectionForm(current => ({ ...current, url: event.target.value }))} placeholder='https://dav.example.com/remote.php/dav/files/user/' /></label>
 					<label><span>用户名</span><input value={connectionForm.username} onChange={event => setConnectionForm(current => ({ ...current, username: event.target.value }))} /></label>
@@ -324,7 +324,7 @@ export function AmbientBackupCenter() {
 
 			{destination === 'local' && localPage === 'download' && <section className='ambient-settings-section ambient-backup-page'>
 				<div className='ambient-settings-section-copy'><h3>手动下载</h3><p>本地备份不会自动执行或占用服务器保留份数。</p></div>
-				<a className='ambient-local-all-download' href='/api/admin/backup-center/local/all'><Archive size={20} /><span><strong>下载全站备份</strong><small>一个文件内仍按六个模块独立保存并附带校验值。</small></span><Download size={17} /></a>
+				<a className='ambient-local-all-download' href='/api/admin/backup-center/local/all'><Archive size={20} /><span><strong>下载当前账户完整备份</strong><small>一个文件内按六个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></a>
 				<div className='ambient-module-backups'>{MODULES.map(module => {
 					const Icon = module.icon
 					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><a href={`/api/admin/backup-center/local/${module.id}`} title={`下载 ${module.label}`}><Download size={16} /></a></div>
@@ -333,9 +333,9 @@ export function AmbientBackupCenter() {
 
 			{destination === 'local' && localPage === 'restore' && <section className='ambient-settings-section ambient-backup-page'>
 				<div className='ambient-settings-section-copy'><h3>上传与恢复</h3><p>选择备份类型后上传对应文件；恢复前会自动制作安全快照并在失败时回滚。</p></div>
-				<div className='ambient-local-restore-types'><button type='button' className={localRestoreModule === 'all' ? 'is-active' : ''} onClick={() => setLocalRestoreModule('all')}>全站</button>{MODULES.map(module => <button type='button' className={localRestoreModule === module.id ? 'is-active' : ''} onClick={() => setLocalRestoreModule(module.id)} key={module.id}>{module.label}</button>)}</div>
-				<input ref={fileInputRef} type='file' accept='application/json,.json' hidden onChange={event => { const file = event.target.files?.[0]; if (file && window.confirm(`上传 ${file.name} 并恢复${localRestoreModule === 'all' ? '全站' : localRestoreModule}？`)) void restoreLocalFile(file); event.currentTarget.value = '' }} />
-				<button type='button' className='ambient-local-upload' disabled={Boolean(busy)} onClick={() => fileInputRef.current?.click()}>{busy.startsWith('local-restore') ? <LoaderCircle className='is-spinning' size={20} /> : <Upload size={20} />}<span><strong>选择备份文件</strong><small>当前恢复类型：{localRestoreModule === 'all' ? '全站' : MODULES.find(item => item.id === localRestoreModule)?.label}</small></span></button>
+				<div className='ambient-local-restore-types'><button type='button' className={localRestoreModule === 'all' ? 'is-active' : ''} onClick={() => setLocalRestoreModule('all')}>当前账户完整数据</button>{MODULES.map(module => <button type='button' className={localRestoreModule === module.id ? 'is-active' : ''} onClick={() => setLocalRestoreModule(module.id)} key={module.id}>{module.label}</button>)}</div>
+				<input ref={fileInputRef} type='file' accept='application/json,.json' hidden onChange={event => { const file = event.target.files?.[0]; if (file && window.confirm(`上传 ${file.name} 并恢复${localRestoreModule === 'all' ? '当前账户完整数据' : localRestoreModule}？`)) void restoreLocalFile(file); event.currentTarget.value = '' }} />
+				<button type='button' className='ambient-local-upload' disabled={Boolean(busy)} onClick={() => fileInputRef.current?.click()}>{busy.startsWith('local-restore') ? <LoaderCircle className='is-spinning' size={20} /> : <Upload size={20} />}<span><strong>选择备份文件</strong><small>当前恢复类型：{localRestoreModule === 'all' ? '当前账户完整数据' : MODULES.find(item => item.id === localRestoreModule)?.label}</small></span></button>
 				<div className='ambient-backup-note'><ShieldCheck size={17} /><span>文件类型、模块、版本、大小与 SHA-256 全部通过后才会开始恢复。</span></div>
 			</section>}
 		</>}

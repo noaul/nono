@@ -492,6 +492,8 @@ model Clip {
   status           String          @default("unread")
   starred          Boolean         @default(false)
   extractor        String
+  clipKind         String          @default("page")
+  selectionFingerprint String      @default("")
   sourceMeta       Json?
   clippedAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -499,7 +501,7 @@ model Clip {
   tags             ClipTagOnClip[]
   highlights       ClipHighlight[]
 
-  @@unique([userId, canonicalUrl])
+  @@unique([userId, canonicalUrl, clipKind, selectionFingerprint])
   @@index([userId, clippedAt])
   @@index([userId, status, clippedAt])
 }

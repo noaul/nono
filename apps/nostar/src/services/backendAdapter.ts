@@ -487,7 +487,7 @@ class BackendAdapter {
     const res = await this.fetchWithRetry(`${this._backendUrl}/releases`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ releases })
+      body: JSON.stringify({ releases, isFullSync: true })
     }, 120000, 3);
     if (!res.ok) await this.throwTranslatedError(res, 'Sync releases error');
   }
