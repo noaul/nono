@@ -43,6 +43,24 @@ describe('NoDesk local content API', () => {
     expect(response.json().data).toEqual([{ name: 'Seed project' }]);
   });
 
+  it('keeps calendar events out of public NoDesk site content', async () => {
+    await fs.mkdir(path.join(contentDir, 'src/config'), { recursive: true });
+    await fs.writeFile(path.join(contentDir, 'src/config/site-content.json'), JSON.stringify({
+      meta: { title: 'NoDesk' },
+      calendarEvents: [{ id: 'private', date: '2026-08-22', time: '09:00', title: 'Private review' }],
+    }));
+
+    const publicResponse = await app.inject({ method: 'GET', url: '/api/nodesk/content/site' });
+    const adminResponse = await app.inject({ method: 'GET', url: '/api/nodesk/content/site', headers: { cookie } });
+
+    expect(publicResponse.statusCode).toBe(200);
+    expect(publicResponse.json().data).toEqual({ meta: { title: 'NoDesk' } });
+    expect(adminResponse.statusCode).toBe(200);
+    expect(adminResponse.json().data.calendarEvents).toEqual([
+      { id: 'private', date: '2026-08-22', time: '09:00', title: 'Private review' },
+    ]);
+  });
+
   it('persists the NoDesk quick-entry visibility without replacing other site settings', async () => {
     const before = await repo.getSite(1);
     await repo.updateSite(1, { settings: { ...before?.settings, existing: { value: 1 } } });

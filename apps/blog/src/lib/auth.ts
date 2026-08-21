@@ -56,8 +56,8 @@ export function clearAllAuthCache(): void {
 	sessionCache = undefined
 }
 
-export async function hasAuth(): Promise<boolean> {
-	return isAdminSession(await readSession())
+export async function hasAuth(force = false): Promise<boolean> {
+	return isAdminSession(await readSession(force))
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireAdmin, resolveUser } from '../plugins/auth.js';
 import { sendError, sendOk } from '../plugins/responses.js';
 import { setAuditContext } from '../plugins/audit.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
@@ -31,7 +31,10 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
 
   app.get('/api/nodesk/content/:resource', async (request, reply) => {
     const resource = String((request.params as { resource?: string }).resource || '');
-    return sendOk(reply, await store.readPublicJson(resource));
+    const content = await store.readPublicJson(resource);
+    if (resource !== 'site' && resource !== 'site-content') return sendOk(reply, content);
+    const user = await resolveUser(request, services);
+    return sendOk(reply, user?.role === 'admin' ? content : withoutPrivateSiteContent(content));
   });
 
   app.put('/api/admin/nodesk/workbench', async (request, reply) => {
@@ -93,4 +96,11 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
     const files = (request.body as { files?: unknown })?.files;
     return sendOk(reply, await store.batch(files));
   });
+}
+
+function withoutPrivateSiteContent(content: unknown) {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return content;
+  const publicContent = { ...(content as Record<string, unknown>) };
+  delete publicContent.calendarEvents;
+  return publicContent;
 }

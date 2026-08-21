@@ -38,6 +38,22 @@ test('uses the same-origin Nono admin session without exposing a credential', as
 	assert.equal(requestedUrl, '/api/auth/session')
 })
 
+test('can refresh the Nono session instead of trusting a stale cached login', async () => {
+	let requests = 0
+	globalThis.fetch = async () => {
+		requests += 1
+		return jsonResponse(requests === 1
+			? { authenticated: true, user: { role: 'admin' } }
+			: { authenticated: false, user: null })
+	}
+
+	assert.equal(await hasAuth(), true)
+	assert.equal(await hasAuth(), true)
+	assert.equal(requests, 1)
+	assert.equal(await hasAuth(true), false)
+	assert.equal(requests, 2)
+})
+
 test('converts the legacy blob-tree-commit flow into one local batch write', async () => {
 	const calls: Array<{ url: string; init?: RequestInit }> = []
 	globalThis.fetch = async (input, init) => {

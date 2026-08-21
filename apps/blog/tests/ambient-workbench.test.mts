@@ -192,6 +192,22 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 	assert.doesNotMatch(layout, /LanguageControl|ColorModeControl/)
 })
 
+test('keeps private NoDesk data and controls behind the live Nono admin session', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+
+	assert.match(workbench, /useAuthStore/)
+	assert.match(workbench, /const privateWorkbenchVisible = initialized && isAuth/)
+	assert.match(workbench, /if \(!privateWorkbenchVisible\) \{[\s\S]*setTasks\(\[\]\)[\s\S]*setEvents\(\[\]\)[\s\S]*setNotifications\(\[\]\)[\s\S]*return/)
+	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-top-center'/)
+	assert.match(workbench, /privateWorkbenchVisible && \(focusRunning \?/)
+	assert.match(workbench, /privateWorkbenchVisible && activePanel &&/)
+	assert.match(workbench, /privateWorkbenchVisible && <aside className=\{`ambient-notification-rail/)
+	assert.match(workbench, /privateWorkbenchVisible && workbenchNavigation\.quickEntriesVisible/)
+	assert.match(workbench, /privateWorkbenchVisible && <div ref=\{dockRef\} className='ambient-dock-wrap/)
+	assert.match(workbench, /open=\{privateWorkbenchVisible && settingsOpen\}/)
+	assert.match(workbench, /privateWorkbenchVisible && searchOpen &&/)
+})
+
 test('loads Clipper title and tag matches into NoDesk quick search', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const model = await read('src/app/(home)/ambient-workbench-model.ts')
@@ -304,7 +320,7 @@ test('keeps notifications in a default-open collapsible right rail instead of th
 	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed\s*\{[^}]*width: 44px/)
 	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed \.ambient-notification-heading > span\s*\{[^}]*display: none/)
 	assert.match(workbench, /notificationRailCollapsed \? <ChevronDown size=\{18\} \/> : <ChevronUp size=\{18\} \/>/)
-	assert.match(workbench, /data-notifications=\{notificationRailCollapsed \? 'collapsed' : 'expanded'\}/)
+	assert.match(workbench, /data-notifications=\{privateWorkbenchVisible \? \(notificationRailCollapsed \? 'collapsed' : 'expanded'\) : 'hidden'\}/)
 	assert.match(styles, /data-notifications='expanded'[\s\S]*\.ambient-center-stage/)
 	assert.match(styles, /\.ambient-command-trigger[\s\S]*right: max\(68px/)
 })

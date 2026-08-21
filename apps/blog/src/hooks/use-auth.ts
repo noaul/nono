@@ -9,7 +9,7 @@ interface AuthStore {
 	getAuthToken: () => Promise<string>
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
+export const useAuthStore = create<AuthStore>(set => ({
 	isAuth: false,
 	initialized: false,
 
@@ -19,12 +19,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 	},
 
 	refreshAuthState: async () => {
-		set({ isAuth: await checkAuth(), initialized: true })
+		set({ isAuth: await checkAuth(true), initialized: true })
 	},
 
 	getAuthToken: async () => {
 		const token = await getToken()
-		await get().refreshAuthState()
+		set({ isAuth: true, initialized: true })
 		return token
 	}
 }))

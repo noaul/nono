@@ -54,6 +54,7 @@ import {
 	type WorkbenchSearchItem,
 	type WorkbenchTask
 } from './ambient-workbench-model'
+import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter } from './ambient-settings-center'
 import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
@@ -203,6 +204,8 @@ function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
 
 export default function AmbientWorkbench() {
 	const reducedMotion = useReducedMotion()
+	const { isAuth, initialized, refreshAuthState } = useAuthStore()
+	const privateWorkbenchVisible = initialized && isAuth
 	const pointerX = useMotionValue(0)
 	const pointerY = useMotionValue(0)
 	const wallpaperX = useSpring(pointerX, { stiffness: 38, damping: 24, mass: 0.8 })
@@ -252,12 +255,30 @@ export default function AmbientWorkbench() {
 	const [focusRunning, setFocusRunning] = useState(false)
 
 	useEffect(() => {
+		const refreshSession = () => {
+			void refreshAuthState()
+		}
+		const refreshVisibleSession = () => {
+			if (document.visibilityState === 'visible') refreshSession()
+		}
+
+		refreshSession()
+		window.addEventListener('focus', refreshSession)
+		document.addEventListener('visibilitychange', refreshVisibleSession)
+		return () => {
+			window.removeEventListener('focus', refreshSession)
+			document.removeEventListener('visibilitychange', refreshVisibleSession)
+		}
+	}, [refreshAuthState])
+
+	useEffect(() => {
+		if (!privateWorkbenchVisible) return
 		const searchParams = new URLSearchParams(window.location.search)
 		if (searchParams.get('settings') === 'backups') {
 			setSettingsInitialTab('backups')
 			setSettingsOpen(true)
 		}
-	}, [])
+	}, [privateWorkbenchVisible])
 
 	const updateIntegration = (key: IntegrationId, state: LoadState) => {
 		setIntegrationState(current => ({ ...current, [key]: state }))
@@ -397,9 +418,33 @@ export default function AmbientWorkbench() {
 	}
 
 	useEffect(() => {
+		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
+	}, [])
+
+	useEffect(() => {
+		if (!privateWorkbenchVisible) {
+			setStorageReady(false)
+			setTasks([])
+			setEvents([])
+			setTaskTitle('')
+			setEventTitle('')
+			setBookmarks([])
+			setRepositories([])
+			setClipSearchItems([])
+			setNotifications([])
+			setNotificationUnreadCount(0)
+			setWorkbenchNavigation(normalizeWorkbenchNavigation(null))
+			setFocusRunning(false)
+			setActivePanel(null)
+			setSearchOpen(false)
+			setSearchQuery('')
+			setSettingsOpen(false)
+			setAppSwitcherOpen(false)
+			return
+		}
+
 		setTasks(parseStored(TASKS_STORAGE_KEY, normalizeTasks))
 		setEvents(parseStored(EVENTS_STORAGE_KEY, normalizeEvents))
-		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
 		setStorageReady(true)
 		void loadIntegrations()
 		void loadWorkbenchNavigation()
@@ -414,7 +459,7 @@ export default function AmbientWorkbench() {
 			window.clearInterval(pollTimer)
 			window.removeEventListener('focus', refreshNotifications)
 		}
-	}, [])
+	}, [privateWorkbenchVisible])
 
 	useEffect(() => {
 		if (!storageReady) return
@@ -495,6 +540,7 @@ export default function AmbientWorkbench() {
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+				if (!privateWorkbenchVisible) return
 				event.preventDefault()
 				setSearchOpen(true)
 			}
@@ -511,7 +557,7 @@ export default function AmbientWorkbench() {
 			window.removeEventListener('keydown', onKeyDown)
 			document.removeEventListener('fullscreenchange', onFullscreen)
 		}
-	}, [])
+	}, [privateWorkbenchVisible])
 
 	useEffect(() => {
 		if (!searchOpen) return
@@ -521,7 +567,7 @@ export default function AmbientWorkbench() {
 
 	useEffect(() => {
 		const query = searchQuery.trim()
-		if (!searchOpen || !query) {
+		if (!privateWorkbenchVisible || !searchOpen || !query) {
 			setClipSearchItems([])
 			return
 		}
@@ -543,7 +589,7 @@ export default function AmbientWorkbench() {
 			window.clearTimeout(timer)
 			controller.abort()
 		}
-	}, [searchOpen, searchQuery])
+	}, [privateWorkbenchVisible, searchOpen, searchQuery])
 
 	const shanghaiClock = getShanghaiClockParts(now)
 	const yumiItems = useMemo(() => notifications.filter(item => item.source === 'yumi'), [notifications])
@@ -653,7 +699,7 @@ export default function AmbientWorkbench() {
 			className='ambient-workbench'
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
-			data-notifications={notificationRailCollapsed ? 'collapsed' : 'expanded'}
+			data-notifications={privateWorkbenchVisible ? (notificationRailCollapsed ? 'collapsed' : 'expanded') : 'hidden'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
@@ -670,13 +716,13 @@ export default function AmbientWorkbench() {
 				</div>
 
 
-				<div className='ambient-top-center'>
+				{privateWorkbenchVisible && <div className='ambient-top-center'>
 					<button type='button' className='ambient-command-trigger' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
 						<Search size={17} strokeWidth={1.8} />
 						<span>快速搜索与执行...</span>
 						<kbd>⌘ K</kbd>
 					</button>
-				</div>
+				</div>}
 
 				<div className='ambient-top-actions'>
 					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: SHANGHAI_TIME_ZONE, month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
@@ -702,7 +748,7 @@ export default function AmbientWorkbench() {
 					<p className='ambient-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(now)}</p>
 					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(shanghaiClock.hourNumber)}</p>
 
-					{focusRunning ? (
+					{privateWorkbenchVisible && (focusRunning ? (
 						<button type='button' className='ambient-now ambient-now-focus' onClick={() => togglePanel('focus')} aria-label={`正在专注：${formatFocusDuration(focusRemaining)}`}>
 							<span className='ambient-now-label'>正在专注</span>
 							<strong>{formatFocusDuration(focusRemaining)}</strong>
@@ -733,12 +779,12 @@ export default function AmbientWorkbench() {
 								)}
 							</div>
 						</section>
-					)}
+					))}
 				</motion.div>
 			</main>
 
 			<AnimatePresence>
-				{activePanel && (
+				{privateWorkbenchVisible && activePanel && (
 					<motion.section
 						key={activePanel}
 						ref={panelRef}
@@ -839,7 +885,7 @@ export default function AmbientWorkbench() {
 				)}
 			</AnimatePresence>
 
-			<aside className={`ambient-notification-rail ambient-wakeable${notificationRailCollapsed ? ' is-collapsed' : ''}`} aria-label='通知'>
+			{privateWorkbenchVisible && <aside className={`ambient-notification-rail ambient-wakeable${notificationRailCollapsed ? ' is-collapsed' : ''}`} aria-label='通知'>
 				<header className='ambient-notification-heading'>
 					<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
 					<button type='button' onClick={() => setNotificationRailCollapsed(current => !current)} aria-label={notificationRailCollapsed ? '展开通知' : '折叠通知'} title={notificationRailCollapsed ? '展开通知' : '折叠通知'}>
@@ -865,9 +911,9 @@ export default function AmbientWorkbench() {
 						<a href='/admin/notifications'>查看全部通知 <ArrowUpRight size={14} /></a>
 					</div>
 				</>}
-			</aside>
+			</aside>}
 
-			{workbenchNavigation.quickEntriesVisible && <div
+			{privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible && <div
 				className={`ambient-app-switcher ambient-wakeable${appSwitcherOpen ? ' is-open' : ''}`}
 				onMouseEnter={() => setAppSwitcherOpen(true)}
 				onMouseLeave={() => setAppSwitcherOpen(false)}
@@ -883,7 +929,7 @@ export default function AmbientWorkbench() {
 				</div>
 			</div>}
 
-			<div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
+			{privateWorkbenchVisible && <div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
@@ -909,10 +955,10 @@ export default function AmbientWorkbench() {
 					<span className='ambient-status-dot' aria-hidden='true' />
 					<span>{focusRunning ? `专注 ${formatFocusDuration(focusRemaining)}` : `${incompleteTasks.length} 项任务 · ${upcomingEvents.length} 项日程`}</span>
 				</div>
-			</div>
+			</div>}
 
 			<AmbientSettingsCenter
-				open={settingsOpen}
+				open={privateWorkbenchVisible && settingsOpen}
 				initialTab={settingsInitialTab}
 				onClose={() => setSettingsOpen(false)}
 				quickEntriesVisible={workbenchNavigation.quickEntriesVisible}
@@ -922,7 +968,7 @@ export default function AmbientWorkbench() {
 			/>
 
 			<AnimatePresence>
-				{searchOpen && (
+				{privateWorkbenchVisible && searchOpen && (
 					<motion.div className='ambient-search-backdrop' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={event => { if (event.target === event.currentTarget) setSearchOpen(false) }}>
 						<motion.div className='ambient-search-dialog' role='dialog' aria-modal='true' aria-label='快速搜索' initial={reducedMotion ? false : { opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.985 }}>
 							<div className='ambient-search-input-row'>
