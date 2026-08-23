@@ -75,13 +75,15 @@ test('keeps keyboard, touch, motion, and mobile safe-area behavior consistent', 
 	assert.match(portalShortcut, /nodesk-portal-shortcut/)
 })
 
-test('runs the same quality gates in GitHub Actions', async () => {
+test('runs the repository quality gate in GitHub Actions', async () => {
 	const workflow = await readRepositoryFile('.github/workflows/ci.yml')
+	const packageJson = JSON.parse(await readRepositoryFile('package.json'))
 
 	assert.match(workflow, /npm run install:all/)
-	for (const command of ['pnpm test', 'pnpm typecheck', 'pnpm build']) {
-		assert.match(workflow, new RegExp(command.replaceAll(' ', '\\s+')))
-	}
+	assert.match(workflow, /npm run verify:all/)
+	assert.match(packageJson.scripts['test:all'], /test:blog/)
+	assert.match(packageJson.scripts['verify:all'], /typecheck:blog/)
+	assert.match(packageJson.scripts['build:all'], /build:blog/)
 
 	assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/)
 	assert.match(workflow, /timeout-minutes:/)

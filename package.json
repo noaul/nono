@@ -31,7 +31,7 @@
     "test:nomoney": "npm --prefix apps/nomoney test",
     "test:nostar": "npm --prefix apps/nostar test -- --run",
     "test:clipper": "npm --prefix apps/clipper test -- --run",
-    "test:gateway": "node --test tests/ci-contract.test.mjs tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/clipper-docker-contract.test.mjs tests/yumi-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs tests/backup-docker-contract.test.mjs tests/backup-compose.test.mjs tests/restore-compose.test.mjs",
+    "test:gateway": "node --test tests/ci-contract.test.mjs tests/ui-contract.test.mjs tests/clipper-plan-contract.test.mjs tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/clipper-docker-contract.test.mjs tests/yumi-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs tests/backup-docker-contract.test.mjs tests/backup-compose.test.mjs tests/restore-compose.test.mjs",
     "test:all": "npm test && npm run test:blog && npm run test:nomoney && npm run test:nostar && npm run test:gateway && npm run test:clipper",
     "typecheck:blog": "pnpm --dir apps/blog typecheck",
     "lint:nostar": "npm --prefix apps/nostar run lint",

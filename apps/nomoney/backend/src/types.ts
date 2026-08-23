@@ -58,6 +58,7 @@ export interface AppContext {
   db: DbClient;
   product?: ProductMode;
   jwtSecret: string;
+  bootstrapToken?: string;
   internalToken?: string;
   publicOrigin?: string;
   encryptionKey: string;

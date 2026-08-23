@@ -175,7 +175,7 @@ flowchart LR
 | `/healthz`、`/livez` | Nono | 进程存活检查 |
 | `/readyz` | Nono | PostgreSQL、NoDesk、NoMoney、Yumi 联合就绪检查 |
 
-`GATEWAY_TRUST_FORWARDED_HEADERS` 默认关闭。只有受信反向代理是业务容器唯一入口，并且会覆盖客户端传入的转发头时，才应启用它。
+`GATEWAY_TRUST_FORWARDED_HEADERS` 默认关闭。启用时还必须通过 `GATEWAY_TRUSTED_PROXY_ADDRESSES` 配置允许提交转发头的代理 IP 或 CIDR；未命中的连接仍按直连请求处理。
 
 ## 技术栈
 
@@ -191,7 +191,7 @@ flowchart LR
 | 测试 | Vitest、Node Test Runner、Playwright、契约测试 |
 | 部署 | 多阶段 Dockerfile、Docker Compose、Node HTTP 网关 |
 
-仓库根 npm workspaces 只包含 `packages/server`、`packages/web`、`packages/extension`。`apps/blog`、`apps/nomoney` 和 `apps/nostar` 保留各自的依赖与锁文件。
+仓库根 npm workspaces 只包含 `packages/server`、`packages/web`、`packages/extension`。`apps/blog`、`apps/nomoney`、`apps/nostar` 和 `apps/clipper` 保留各自的依赖与锁文件。
 
 ## 仓库结构
 
@@ -289,7 +289,7 @@ npm run dev:web
 
 ### Nono
 
-首次访问 Nono 时，前端会跳转到 `/setup`。创建的第一个账号是管理员；服务端使用 PostgreSQL 事务锁和 `AppConfig.initializedAt` 防止并发请求重复初始化。
+首次访问 Nono 时，前端会跳转到 `/setup`。填写 `.env` 中统一的 `BOOTSTRAP_TOKEN` 后才能创建第一个管理员；服务端使用 PostgreSQL 事务锁和 `AppConfig.initializedAt` 防止并发请求重复初始化。
 
 初始化完成后：
 
@@ -303,7 +303,7 @@ npm run dev:web
 
 ### NoMoney 与 Yumi
 
-NoMoney 和 Yumi 都有自己的 `/setup`，需要分别创建账号。它们不复用 Nono Session，也不彼此复用 Cookie。生产部署中 Yumi 首次创建独立数据库时，会等待 NoMoney 数据库初始化并迁移旧版 VPS/域名相关数据；之后两套数据独立写入。
+NoMoney 和 Yumi 都有自己的 `/setup`，需要使用同一个 `BOOTSTRAP_TOKEN` 分别创建账号。它们不复用 Nono Session，也不彼此复用 Cookie；注销会立即撤销当前 JWT 会话，重放旧 Cookie 无法恢复登录。生产部署中 Yumi 首次创建独立数据库时，会等待 NoMoney 数据库初始化并迁移旧版 VPS/域名相关数据；之后两套数据独立写入。
 
 ### NoDesk 与 NoStar
 
@@ -326,7 +326,7 @@ corepack enable
 npm run install:all
 ```
 
-`install:all` 会严格使用四套锁文件：根 npm、NoDesk pnpm、NoMoney npm、NoStar npm。不要用另一个包管理器重写这些锁文件。
+`install:all` 会严格使用五套锁文件：根 npm、NoDesk pnpm、NoMoney npm、NoStar npm、Clipper npm。不要用另一个包管理器重写这些锁文件。
 
 ### 开发命令
 
@@ -387,6 +387,7 @@ npm run seed              # 显式写入演示数据
 | 变量 | 默认/要求 | 用途 |
 | --- | --- | --- |
 | `PORT` | `127.0.0.1:3000` | Compose 应用端口映射 |
+| `BOOTSTRAP_TOKEN` | **生产必填** | Nono、NoMoney、Yumi 首次初始化共同使用的一次性部署凭据 |
 | `NONO_PUBLIC_URL` | **生产必填** | 浏览器实际访问的根地址和同源校验依据 |
 | `BLOG_PUBLIC_URL` | **生产必填** | NoDesk 完整公开地址，通常是 `<root>/nodesk` |
 | `NONO_NAVIGATION_URL` | `/` | NoDesk 返回 Nono 的导航地址 |
@@ -395,6 +396,7 @@ npm run seed              # 显式写入演示数据
 | `WEBAUTHN_RP_ID` | 从公开 URL 推导 | Passkey RP ID；特殊域名场景覆盖 |
 | `WEBAUTHN_ORIGIN` | 从公开 URL 推导 | Passkey 允许的精确 Origin |
 | `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | 是否信任网关入口收到的转发头 |
+| `GATEWAY_TRUSTED_PROXY_ADDRESSES` | 空 | 启用转发头信任时允许的代理 IP/CIDR，逗号分隔 |
 | `GATEWAY_UPSTREAM_TIMEOUT_MS` | `30000` | 网关等待内部应用响应的最长毫秒数；超时返回 `504` |
 | `NONO_BUILD_COMMIT` | `unknown` | 写入备份清单的构建标识 |
 | `TZ` | `Asia/Shanghai` | 日程、提醒和自动备份时区 |
@@ -619,7 +621,7 @@ NOMONEY_COOKIE_SECURE=true
 YUMI_COOKIE_SECURE=true
 ```
 
-不要把 PostgreSQL 端口或未加密应用端口直接暴露到公网。只有确认反向代理是唯一入口并正确清洗转发头后，才设置 `GATEWAY_TRUST_FORWARDED_HEADERS=true`。
+不要把 PostgreSQL 端口或未加密应用端口直接暴露到公网。只有确认反向代理是唯一入口并正确清洗转发头后，才设置 `GATEWAY_TRUST_FORWARDED_HEADERS=true`，并同步填写 `GATEWAY_TRUSTED_PROXY_ADDRESSES`。携带 Authorization、Cookie、API Key 或 URL Token 的公网出站请求必须使用 HTTPS；HTTP 只允许 loopback 或 `PRIVATE_OUTBOUND_HOSTS` 中明确列出的私网服务。
 
 ## 备份与恢复
 
@@ -851,7 +853,7 @@ docker compose logs --tail=200 app postgres
 
 - 保持 `main` 可部署；行为修改应带回归测试，跨模块契约放在根 `tests/`。
 - Prisma schema 变更必须包含迁移，并验证向前迁移、备份恢复和旧镜像回滚边界。
-- 根 npm、NoDesk pnpm、NoMoney npm、NoStar npm 的锁文件分别维护，升级依赖后运行对应测试和 `npm run audit:all`。
+- 根 npm、NoDesk pnpm、NoMoney npm、NoStar npm、Clipper npm 的锁文件分别维护，升级依赖后运行对应测试和 `npm run audit:all`。
 - 共享 UI token 和跨产品视觉规则写入 `docs/design`，不要让各应用无说明地复制出不同规范。
 - 只提交源码、迁移、稳定文档、质量基线和明确需要版本控制的发布资产。
 - 不提交过程计划、临时输出、测试截图、数据库副本、解压后的扩展产物或本地诊断状态。

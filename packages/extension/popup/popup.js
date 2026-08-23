@@ -13,6 +13,7 @@ import {
   tokenExpiryText,
 } from '../shared/popup-workflow.js';
 import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
+import { connectionDraft, persistConnectionDraft } from '../shared/settings-draft.js';
 
 const languageSelect = document.querySelector('#languageSelect');
 const settingsPanel = document.querySelector('#settings');
@@ -40,7 +41,6 @@ const toggleDetailsButton = document.querySelector('#toggleDetails');
 const versionLabel = document.querySelector('#versionLabel');
 const modeBookmarkButton = document.querySelector('#modeBookmark');
 const modeClipButton = document.querySelector('#modeClip');
-const pagePreview = document.querySelector('#pagePreview');
 const bookmarkPanel = document.querySelector('#bookmarkPanel');
 const clipPanel = document.querySelector('#clipPanel');
 const clipStatusLine = document.querySelector('#clipStatusLine');
@@ -49,6 +49,7 @@ const clipTitleInput = document.querySelector('#clipTitleInput');
 const clipKeywordsInput = document.querySelector('#clipKeywordsInput');
 const clipSummaryInput = document.querySelector('#clipSummaryInput');
 const clipTruncatedEl = document.querySelector('#clipTruncated');
+const clipPreviewMeta = document.querySelector('#clipPreviewMeta');
 const analyzeClipButton = document.querySelector('#analyzeClip');
 const saveClipButton = document.querySelector('#saveClip');
 const saveClipSelectionButton = document.querySelector('#saveClipSelection');
@@ -60,6 +61,8 @@ let links = [];
 let folderGroups = [];
 let duplicateLink = null;
 let nameMode = 'auto';
+let draftSaveTimer = null;
+let activeServerUrl = '';
 
 document.querySelector('#settingsButton').addEventListener('click', openSettings);
 document.querySelector('#closeSettings').addEventListener('click', closeSettings);
@@ -77,6 +80,8 @@ saveClipButton.addEventListener('click', () => saveClip('NONO_EXTRACT_ARTICLE'))
 saveClipSelectionButton.addEventListener('click', () => saveClip('NONO_EXTRACT_SELECTION'));
 categorySelect.addEventListener('change', () => renderFolderOptions());
 languageSelect?.addEventListener('change', () => changeLanguage(languageSelect.value));
+serverUrlInput.addEventListener('input', scheduleDraftSave);
+tokenInput.addEventListener('input', scheduleDraftSave);
 nameInput.addEventListener('input', () => {
   nameMode = 'manual';
   if (pageInfo) renderPagePreview();
@@ -125,8 +130,10 @@ async function init() {
       setTokenStatus(t('permissionRequired'), 'error');
       return;
     }
-    if (await testConnection(config)) await prepareQuickSave();
-    else openSettings();
+    if (await testConnection(config)) {
+      activeServerUrl = config.serverUrl;
+      await prepareQuickSave();
+    } else openSettings();
   } catch (error) {
     openSettings();
     setTokenStatus(error.message || t('connectFailed'), 'error');
@@ -139,23 +146,38 @@ function connectionFromInputs() {
   return { ...config, serverUrl: normalizeServerUrl(serverUrlInput.value), token };
 }
 
+function scheduleDraftSave() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => {
+    void saveDraftFromInputs().catch(() => {
+      setTokenStatus(t('settingsSaveFailed'), 'error');
+    });
+  }, 120);
+}
+
+async function saveDraftFromInputs() {
+  clearTimeout(draftSaveTimer);
+  const draft = connectionDraft(serverUrlInput.value, tokenInput.value);
+  await persistConnectionDraft(chrome.storage.local, draft);
+  return draft;
+}
+
 async function saveSettings() {
   setBusy(saveSettingsButton, true, t('savingSettings'));
   let candidate = null;
   let previousPattern = null;
   let nextPattern = null;
   try {
+    await saveDraftFromInputs();
     candidate = connectionFromInputs();
-    previousPattern = config.serverUrl ? serverOriginPattern(config.serverUrl) : null;
+    previousPattern = activeServerUrl ? serverOriginPattern(activeServerUrl) : null;
     nextPattern = serverOriginPattern(candidate.serverUrl);
     const granted = await requestServerPermission(candidate.serverUrl);
     if (!granted) throw new Error(t('permissionDenied'));
-    if (!await testConnection(candidate)) {
-      if (nextPattern !== previousPattern) await chrome.permissions.remove({ origins: [nextPattern] });
-      return;
-    }
+    if (!await testConnection(candidate)) return;
 
     config = candidate;
+    activeServerUrl = candidate.serverUrl;
     await chrome.storage.local.set({ serverUrl: config.serverUrl, token: config.token });
     if (previousPattern && previousPattern !== nextPattern) {
       await chrome.permissions.remove({ origins: [previousPattern] });
@@ -163,9 +185,6 @@ async function saveSettings() {
     closeSettings();
     await prepareQuickSave();
   } catch (error) {
-    if (nextPattern && nextPattern !== previousPattern) {
-      await chrome.permissions.remove({ origins: [nextPattern] }).catch(() => false);
-    }
     setTokenStatus(error.message || t('invalidServerUrl'), 'error');
   } finally {
     setBusy(saveSettingsButton, false, t('saveAndStart'));
@@ -174,19 +193,15 @@ async function saveSettings() {
 
 async function testConnectionFromInputs() {
   setBusy(testConnectionButton, true, t('connecting'));
-  let temporaryPattern = null;
   try {
+    await saveDraftFromInputs();
     const candidate = connectionFromInputs();
-    const savedPattern = config.serverUrl ? serverOriginPattern(config.serverUrl) : null;
-    const candidatePattern = serverOriginPattern(candidate.serverUrl);
-    if (candidatePattern !== savedPattern) temporaryPattern = candidatePattern;
     const granted = await requestServerPermission(candidate.serverUrl);
     if (!granted) throw new Error(t('permissionDenied'));
     await testConnection(candidate);
   } catch (error) {
     setTokenStatus(error.message || t('connectFailed'), 'error');
   } finally {
-    if (temporaryPattern) await chrome.permissions.remove({ origins: [temporaryPattern] }).catch(() => false);
     setBusy(testConnectionButton, false, t('testConnection'));
   }
 }
@@ -214,7 +229,7 @@ async function prepareQuickSave() {
     await Promise.all([refreshFolders(), readCurrentPage()]);
     duplicateLink = findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
-    setStatus(folderGroups.length ? t('pickThenSave') : t('noFolders'), folderGroups.length ? '' : 'error');
+    setStatus(folderGroups.length ? '' : t('noFolders'), folderGroups.length ? '' : 'error');
   } catch (error) {
     setStatus(error.message || t('cannotReadPage'), 'error');
   }
@@ -445,7 +460,7 @@ function setBusy(button, busy, label) {
 
 function setStatus(message, type = '') {
   statusEl.textContent = message;
-  statusLine.className = `status-line${type ? ` ${type}` : ''}`;
+  statusLine.className = `status-line${type ? ` ${type}` : ''}${message ? '' : ' hidden'}`;
 }
 
 function setTokenStatus(message, type = '') {
@@ -514,7 +529,6 @@ function setMode(mode) {
   modeBookmarkButton.setAttribute('aria-selected', String(!clipping));
   modeClipButton.setAttribute('aria-selected', String(clipping));
   bookmarkPanel.classList.toggle('hidden', clipping);
-  pagePreview.classList.toggle('hidden', clipping);
   clipPanel.classList.toggle('hidden', !clipping);
   if (clipping && !clipArticle) void loadClipPreview();
 }
@@ -550,6 +564,11 @@ function renderClipEditor(article) {
   clipKeywordsInput.value = '';
   clipSummaryInput.value = article.description
     || String(article.contentMd || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const content = String(article.contentMd || '').trim();
+  const words = content ? content.split(/\s+/).filter(Boolean).length : 0;
+  const characters = content.length;
+  const minutes = Math.max(1, Math.ceil(words / 220));
+  clipPreviewMeta.textContent = t('clipPreviewStats', { words, characters, minutes });
   clipTruncatedEl.classList.toggle('hidden', !article.contentTruncated);
 }
 

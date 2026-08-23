@@ -102,6 +102,7 @@ export async function requestSafeResource(
   };
 
   for (let redirectCount = 0; ; redirectCount += 1) {
+    assertSecureCredentialTransport(url, requestOptions);
     const address = await resolveRequestAddress(url.hostname, requestOptions.allowPrivateHosts || [], lookup);
     const response = await request(url, address, requestOptions);
     const location = firstHeader(response.headers.location);
@@ -130,6 +131,33 @@ function parsePublicUrl(rawUrl: string) {
     throw new Error('Only public HTTP and HTTPS URLs are allowed');
   }
   return url;
+}
+
+function assertSecureCredentialTransport(url: URL, options: SafeRequestOptions) {
+  if (url.protocol !== 'http:' || !hasCredentials(url, options.headers || {})) return;
+  const host = stripIpv6Brackets(url.hostname).toLowerCase();
+  const allowlist = new Set((options.allowPrivateHosts || []).map((item) => stripIpv6Brackets(item.trim()).toLowerCase()).filter(Boolean));
+  if (allowlist.has(host) || isLoopbackHost(host)) return;
+  throw new Error('HTTPS is required when sending credentials to a public host');
+}
+
+function hasCredentials(url: URL, headers: Record<string, string>) {
+  if (Object.keys(headers).some(isSensitiveHeaderName)) return true;
+  return [...url.searchParams.keys()].some((name) => (
+    /^(?:key|api[-_]?key|access[-_]?token|auth[-_]?token|token|client[-_]?secret|secret)$/i.test(name)
+  ));
+}
+
+function isSensitiveHeaderName(name: string) {
+  const normalized = name.trim().toLowerCase();
+  if (['authorization', 'proxy-authorization', 'cookie'].includes(normalized)) return true;
+  return /(?:^|[-_])(?:api[-_]?key|access[-_]?token|auth[-_]?token|session[-_]?token|security[-_]?token|client[-_]?secret|token|secret)$/.test(normalized);
+}
+
+function isLoopbackHost(host: string) {
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  const normalized = normalizeAddress(host);
+  return normalized === '::1' || normalized.startsWith('127.');
 }
 
 async function defaultLookup(hostname: string): Promise<LookupAddress[]> {
@@ -188,7 +216,7 @@ function redirectedOptions(options: SafeRequestOptions, statusCode: number, prev
   const headers = { ...(options.headers || {}) };
   if (previousUrl.origin !== nextUrl.origin) {
     for (const name of Object.keys(headers)) {
-      if (['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'api-key'].includes(name.toLowerCase())) delete headers[name];
+      if (isSensitiveHeaderName(name)) delete headers[name];
     }
   }
 

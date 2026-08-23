@@ -38,6 +38,7 @@ jobs:
             package-lock.json
             apps/nomoney/package-lock.json
             apps/nostar/package-lock.json
+            apps/clipper/package-lock.json
 
       - name: Install all dependencies
         run: npm run install:all
@@ -45,75 +46,8 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
 
-      - name: Test Nono
-        run: npm test
-
-      - name: Test combined gateway contracts
-        run: npm run test:gateway
-
-      - name: Audit Nono dependencies
-        run: npm audit --audit-level=high
-
-      - name: Build Nono
-        run: npm run build:nono
-
-      - name: Package browser extension
-        run: npm run package:extension
-
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Test browser smoke flows
-        run: npm run test:e2e
-
-      - name: Audit Blog dependencies
-        working-directory: apps/blog
-        run: pnpm audit --audit-level high
-
-      - name: Test Blog
-        working-directory: apps/blog
-        run: pnpm test
-
-      - name: Check Blog types
-        working-directory: apps/blog
-        run: pnpm typecheck
-
-      - name: Build Blog
-        working-directory: apps/blog
-        run: pnpm build
-
-      - name: Test NoMoney
-        working-directory: apps/nomoney
-        run: npm test
-
-      - name: Audit NoMoney dependencies
-        working-directory: apps/nomoney
-        run: npm audit --audit-level=high
-
-      - name: Build NoMoney
-        working-directory: apps/nomoney
-        run: npm run build
-
-      - name: Test NoStar
-        working-directory: apps/nostar
-        run: npm run test:run
-
-      - name: Lint NoStar
-        working-directory: apps/nostar
-        run: npm run lint
-
-      - name: Check NoStar types
-        working-directory: apps/nostar
-        run: npm run typecheck
-
-      - name: Audit NoStar dependencies
-        working-directory: apps/nostar
-        run: npm audit --audit-level=high
-
-      - name: Build NoStar
-        working-directory: apps/nostar
-        run: npm run build
-
-      - name: Check NoStar bundle budget
-        working-directory: apps/nostar
-        run: npm run bundle:check
+      - name: Verify repository
+        run: npm run verify:all

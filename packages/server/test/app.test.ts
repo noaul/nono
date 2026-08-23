@@ -123,6 +123,48 @@ describe('NoNo Fastify app', () => {
     expect(extension.headers['access-control-allow-origin']).toBe(extensionOrigin);
   });
 
+  it('rejects Chrome extension requests that try to reuse a browser session cookie', async () => {
+    const cookie = await setupAdmin();
+    const extensionOrigin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backup-center/local/all',
+      headers: { origin: extensionOrigin, cookie },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('requires the configured bootstrap token for initial administrator setup', async () => {
+    const secured = await buildApp({
+      repo: new MemoryRepository(false),
+      sessionSecret,
+      encryptionKey,
+      bootstrapToken: 'bootstrap-secret',
+    } as any);
+
+    const denied = await secured.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: { username: 'owner', password: 'secure12345', email: 'owner@example.com' },
+    });
+    const allowed = await secured.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: {
+        username: 'owner',
+        password: 'secure12345',
+        email: 'owner@example.com',
+        bootstrapToken: 'bootstrap-secret',
+      },
+    });
+
+    expect(denied.statusCode).toBe(403);
+    expect(allowed.statusCode).toBe(200);
+    await secured.close();
+  });
+
   it('requires a valid non-default encryption key in production', async () => {
     const buildError = async () => {
       try {
@@ -153,7 +195,8 @@ describe('NoNo Fastify app', () => {
     await expect(buildApp({
       repo: new MemoryRepository(false),
       sessionSecret,
-      encryptionKey: 'abcdef0123456789'.repeat(4)
+      encryptionKey: 'abcdef0123456789'.repeat(4),
+      bootstrapToken: 'bootstrap-token-that-is-long-enough',
     })).rejects.toThrow('NONO_PUBLIC_URL');
   });
 

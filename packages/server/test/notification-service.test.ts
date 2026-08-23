@@ -1,8 +1,5 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { createNoMoneyDueReader, createNotificationService, createYumiDueReader } from '../src/services/notification.service.js';
+import { createNotificationService } from '../src/services/notification.service.js';
 
 const now = new Date('2026-07-18T08:00:00.000Z');
 
@@ -56,41 +53,6 @@ function createService(overrides: Record<string, unknown> = {}) {
 }
 
 describe('notification service', () => {
-  it('reads only the expected NoMoney tables through a read-only sqlite command', async () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-notification-nomoney-'));
-    const databasePath = path.join(directory, 'app.db');
-    fs.writeFileSync(databasePath, 'sqlite-placeholder');
-    const run = vi.fn(async () => ({
-      stdout: JSON.stringify([{ asset_type: 'subscription', id: 3, name: 'Claude', due_date: '2026-07-20', status: 'active' }]),
-      stderr: '',
-    }));
-    try {
-      const items = await createNoMoneyDueReader(directory, run)();
-      expect(run).toHaveBeenCalledWith('sqlite3', [
-        '-readonly',
-        '-json',
-        databasePath,
-        expect.stringContaining("SELECT 'phone' AS asset_type"),
-      ]);
-      expect(items).toEqual([{ assetType: 'subscription', id: 3, name: 'Claude', dueDate: '2026-07-20', status: 'active' }]);
-    } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
-  });
-
-  it('reads VPS and domains from the independent Yumi database', async () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-notification-yumi-'));
-    const databasePath = path.join(directory, 'app.db');
-    fs.writeFileSync(databasePath, 'sqlite-placeholder');
-    const run = vi.fn(async () => ({ stdout: JSON.stringify([{ asset_type: 'vps', id: 10, name: 'nc48', due_date: '2026-08-10', status: 'active' }]), stderr: '' }));
-    try {
-      await expect(createYumiDueReader(directory, run)()).resolves.toEqual([{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' }]);
-      expect(run).toHaveBeenCalledWith('sqlite3', ['-readonly', '-json', databasePath, expect.stringContaining("SELECT 'domain' AS asset_type")]);
-    } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
-  });
-
   it('scopes personal sources and state to the authenticated user', async () => {
     const link = {
       id: 31,

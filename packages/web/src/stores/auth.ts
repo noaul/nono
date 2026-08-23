@@ -21,7 +21,7 @@ export const useAuthStore = defineStore('auth', {
       this.loaded = true;
       return session;
     },
-    async setup(input: { username: string; email: string; displayName?: string; password: string }) {
+    async setup(input: { username: string; email: string; displayName?: string; password: string; bootstrapToken?: string }) {
       const result = await apiRequest<{ user: User }>('/api/auth/setup', { method: 'POST', body: jsonBody(input) });
       this.user = result.user;
       this.setupRequired = false;

@@ -15,11 +15,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build:desktop": "node scripts/build-desktop.js",
-    "update-version": "node scripts/update-version.cjs",
-    "dev:server": "cd server && npm run dev",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
-    "build:server": "cd server && npm run build",
-    "build:all": "npm run build && npm run build:server"
+    "update-version": "node scripts/update-version.cjs"
   },
   "dependencies": {
     "@types/query-string": "^6.2.0",
@@ -45,7 +41,6 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.18",
-    "concurrently": "^8.2.0",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",

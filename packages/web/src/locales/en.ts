@@ -380,6 +380,7 @@ export const en: Messages = {
     password: 'Password',
     email: 'Email',
     displayName: 'Display name',
+    bootstrapToken: 'Bootstrap token',
     signIn: 'Sign in',
     or: 'or',
     passkeyVerifying: 'Verifying…',

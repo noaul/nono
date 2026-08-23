@@ -29,6 +29,7 @@ test('uses only the first valid forwarded address when proxy trust is enabled', 
     },
     remoteAddress: '172.18.0.1',
     trustForwardedHeaders: true,
+    trustedProxyAddresses: ['172.18.0.0/16'],
   });
 
   assert.equal(headers['x-forwarded-for'], '203.0.113.8');
@@ -45,9 +46,26 @@ test('falls back to the socket address for malformed forwarded values', () => {
     },
     remoteAddress: '::ffff:192.0.2.9',
     trustForwardedHeaders: true,
+    trustedProxyAddresses: ['192.0.2.9'],
   });
 
   assert.equal(headers['x-forwarded-for'], '192.0.2.9');
+  assert.equal(headers['x-forwarded-proto'], 'http');
+});
+
+test('ignores forwarded headers from an untrusted socket even when proxy trust is enabled', () => {
+  const headers = forwardedHeaders({
+    headers: {
+      host: 'noaul.com',
+      'x-forwarded-for': '203.0.113.8',
+      'x-forwarded-proto': 'https',
+    },
+    remoteAddress: '198.51.100.20',
+    trustForwardedHeaders: true,
+    trustedProxyAddresses: ['172.18.0.0/16'],
+  });
+
+  assert.equal(headers['x-forwarded-for'], '198.51.100.20');
   assert.equal(headers['x-forwarded-proto'], 'http');
 });
 
@@ -69,4 +87,6 @@ test('bounds upstream requests and reports gateway timeouts separately', () => {
   assert.match(compose, /GATEWAY_UPSTREAM_TIMEOUT_MS: \$\{GATEWAY_UPSTREAM_TIMEOUT_MS:-30000\}/);
   assert.match(envExample, /GATEWAY_UPSTREAM_TIMEOUT_MS=30000/);
   assert.match(readme, /`GATEWAY_UPSTREAM_TIMEOUT_MS` \| `30000`/);
+  assert.match(compose, /GATEWAY_TRUSTED_PROXY_ADDRESSES/);
+  assert.match(envExample, /GATEWAY_TRUSTED_PROXY_ADDRESSES=/);
 });

@@ -1,13 +1,11 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { DEFAULT_LOCALE, t, type Locale } from '../utils/i18n.js';
 import type { AuthUser } from '../types.js';
-import type { BackupService, BackupCommandRunner } from './backup.service.js';
-import { runBackupCommand } from './backup.service.js';
+import type { BackupService } from './backup.service.js';
 import type { BackupAutomationService, BackupAutomationSnapshot } from './backup-automation.service.js';
 import { shouldSkipLinkHealthCheck } from './link-health.service.js';
+import type { ProductDueItem } from './product-due-client.js';
 
 export type NotificationSource = 'nodesk' | 'nomoney' | 'yumi' | 'nostar' | 'links' | 'backup';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
@@ -35,14 +33,6 @@ export interface NotificationFeed {
   unreadCount: number;
   urgentUnreadCount: number;
   generatedAt: string;
-}
-
-export interface ProductDueItem {
-  assetType: 'phone' | 'domain' | 'vps' | 'subscription';
-  id: number;
-  name: string;
-  dueDate: string;
-  status: string;
 }
 
 export interface NotificationService {
@@ -157,74 +147,6 @@ function filterNotificationSources(items: RawNotification[], sources?: Notificat
   const allowed = new Set(sources);
   return items.filter((item) => allowed.has(item.source));
 }
-
-export function createNoMoneyDueReader(
-  nomoneyDataDir: string,
-  run: BackupCommandRunner = runBackupCommand,
-): () => Promise<ProductDueItem[]> {
-  const databasePath = path.join(nomoneyDataDir, 'app.db');
-  return async () => {
-    if (!fs.existsSync(databasePath)) return [];
-    const result = await run('sqlite3', ['-readonly', '-json', databasePath, NO_MONEY_DUE_QUERY]);
-    if (!result.stdout.trim()) return [];
-    const rows = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
-    if (!Array.isArray(rows)) return [];
-    return rows.flatMap((row) => {
-      const assetType = String(row.asset_type || '');
-      const id = Number(row.id);
-      const name = String(row.name || '').trim();
-      const dueDate = String(row.due_date || '');
-      if (!['phone', 'subscription'].includes(assetType) || !Number.isSafeInteger(id) || !name || !isDateKey(dueDate)) return [];
-      return [{ assetType: assetType as ProductDueItem['assetType'], id, name, dueDate, status: String(row.status || '') }];
-    });
-  };
-}
-
-const NO_MONEY_DUE_QUERY = `
-SELECT 'phone' AS asset_type, id, card_number AS name,
-       COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
-FROM phones
-WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived')
-UNION ALL
-SELECT 'subscription' AS asset_type, id, name, NULLIF(next_due_date, '') AS due_date, status
-FROM subscriptions
-WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived');
-`;
-
-export function createYumiDueReader(yumiDataDir: string, run: BackupCommandRunner = runBackupCommand) {
-  return createDueReader(yumiDataDir, YUMI_DUE_QUERY, ['domain', 'vps'], run);
-}
-
-function createDueReader(dataDir: string, query: string, types: ProductDueItem['assetType'][], run: BackupCommandRunner) {
-  const databasePath = path.join(dataDir, 'app.db');
-  return async (): Promise<ProductDueItem[]> => {
-    if (!fs.existsSync(databasePath)) return [];
-    const result = await run('sqlite3', ['-readonly', '-json', databasePath, query]);
-    if (!result.stdout.trim()) return [];
-    const rows = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
-    if (!Array.isArray(rows)) return [];
-    return rows.flatMap((row) => {
-      const assetType = String(row.asset_type || '') as ProductDueItem['assetType'];
-      const id = Number(row.id);
-      const name = String(row.name || '').trim();
-      const dueDate = String(row.due_date || '');
-      if (!types.includes(assetType) || !Number.isSafeInteger(id) || !name || !isDateKey(dueDate)) return [];
-      return [{ assetType, id, name, dueDate, status: String(row.status || '') }];
-    });
-  };
-}
-
-const YUMI_DUE_QUERY = `
-SELECT 'domain' AS asset_type, id, domain_name AS name,
-       COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
-FROM domains
-WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived')
-UNION ALL
-SELECT 'vps' AS asset_type, id, name,
-       COALESCE(NULLIF(next_due_date, ''), NULLIF(expire_date, '')) AS due_date, status
-FROM vps
-WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'archived');
-`;
 
 async function collectLinkNotifications(prisma: PrismaClient, userId: number, fallbackNow: Date, locale: Locale): Promise<RawNotification[]> {
   const links = await prisma.link.findMany({

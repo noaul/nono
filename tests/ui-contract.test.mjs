@@ -17,6 +17,7 @@ const CANONICAL = 'packages/web/src/styles/design-tokens.css';
 const COPIES = [
   'apps/nostar/src/design-tokens.css',
   'apps/nomoney/frontend/src/design-tokens.css',
+  'apps/clipper/src/design-tokens.css',
 ];
 
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8').replace(/\r\n/g, '\n');
@@ -102,6 +103,7 @@ test('every app imports the contract where it boots', () => {
     'packages/web/src/main.ts': "import './styles/design-tokens.css';",
     'apps/nostar/src/main.tsx': "import './design-tokens.css';",
     'apps/nomoney/frontend/src/main.tsx': "import './design-tokens.css';",
+    'apps/clipper/src/main.tsx': "import './design-tokens.css';",
   };
   for (const [entry, statement] of Object.entries(entries)) {
     assert.ok(read(entry).includes(statement), `${entry} must import its design tokens`);

@@ -18,7 +18,21 @@ test('provides one documented command for every independent lockfile', () => {
   assert.match(bootstrap, /pnpm --dir apps\/blog install --frozen-lockfile/);
   assert.match(bootstrap, /npm --prefix apps\/nomoney ci/);
   assert.match(bootstrap, /npm --prefix apps\/nostar ci/);
+  assert.match(bootstrap, /npm --prefix apps\/clipper ci/);
   assert.match(readme, /npm run install:all/);
+  assert.match(readme, /Clipper npm/);
+});
+
+test('delegates CI verification to the canonical repository command', () => {
+  const workflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
+
+  assert.match(workflow, /run:\s*npm run verify:all/);
+});
+
+test('runs the shared UI contract from the root gateway test command', () => {
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+  assert.match(packageJson.scripts['test:gateway'], /tests\/ui-contract\.test\.mjs/);
 });
 
 test('runs browser smoke tests from the unified verification command', () => {

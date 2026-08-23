@@ -50,9 +50,37 @@ describe('extension release package', () => {
     expect(styles).toContain(':focus-visible');
     expect(styles).toContain('touch-action: manipulation');
     expect(styles).toContain('button:disabled');
-    expect(styles).toContain('width: 360px');
+    expect(styles).toContain('width: 340px');
     expect(styles).toContain('backdrop-filter: blur(24px) saturate(135%)');
     expect(styles).toContain('@media (prefers-reduced-transparency: reduce)');
+  });
+
+  it('saves connection drafts before requesting optional host permission', async () => {
+    const popup = await readFile(path.join(root, 'popup', 'popup.js'), 'utf8');
+
+    expect(popup).toContain("serverUrlInput.addEventListener('input'");
+    expect(popup).toContain("tokenInput.addEventListener('input'");
+    expect(popup.indexOf('await saveDraftFromInputs()')).toBeLessThan(popup.indexOf('await requestServerPermission(candidate.serverUrl)'));
+    expect(popup).toContain("let activeServerUrl = ''");
+    expect(popup).not.toContain('config = { ...config, ...draft }');
+  });
+
+  it('keeps bookmark and clip modes compact and structurally aligned', async () => {
+    const [html, popup, styles] = await Promise.all([
+      readFile(path.join(root, 'popup', 'popup.html'), 'utf8'),
+      readFile(path.join(root, 'popup', 'popup.js'), 'utf8'),
+      readFile(path.join(root, 'popup', 'popup.css'), 'utf8'),
+    ]);
+
+    expect(html).not.toContain('data-i18n="saveTo"');
+    expect(html).toContain('id="clipPreviewMeta"');
+    expect(html).toContain('id="clipSummaryInput" maxlength="2000" rows="2"');
+    expect(html).toContain('id="bookmarkPanel" class="mode-panel"');
+    expect(html).toContain('id="clipPanel" class="clip-panel mode-panel hidden"');
+    expect(popup).not.toContain("t('pickThenSave')");
+    expect(popup).not.toContain("pagePreview.classList.toggle('hidden', clipping)");
+    expect(styles).toContain('.mode-panel');
+    expect(styles).toContain('min-height: 26px');
   });
 
   it('keeps the popup inside one rounded frosted viewport without an inner scrollbar', async () => {

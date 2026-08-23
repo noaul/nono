@@ -26,6 +26,7 @@ export interface AppServices {
   prisma: PrismaClient;
   repo: Repository;
   sessionSecret: string;
+  bootstrapToken: string;
   encryptionKey: string;
   nodeskContentDir: string;
   llmClient?: LlmClient;

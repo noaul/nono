@@ -13,6 +13,7 @@ import { registerAccountRoutes } from './accounts.js';
 import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
 import { registerStatusRoutes } from './status.js';
+import { registerInternalNotificationRoutes } from './internal-notifications.js';
 
 export function createApp(context: AppContext) {
   const product = context.product;
@@ -55,6 +56,7 @@ export function createApp(context: AppContext) {
   });
   registerAuthRoutes(api, context);
   registerInternalBackupRoutes(api, context);
+  registerInternalNotificationRoutes(api, context);
   if (product !== 'nomoney') registerInternalRenewalRoutes(api, context);
 
   api.use(requireAuth(context));

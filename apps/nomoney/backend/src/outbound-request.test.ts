@@ -38,4 +38,36 @@ describe('safe outbound requests', () => {
     expect(response.statusCode).toBe(200);
     expect(request).toHaveBeenCalledTimes(1);
   });
+
+  test('does not send API credentials to a public HTTP endpoint', async () => {
+    const request = vi.fn(async () => ({ statusCode: 200, headers: {}, body: Buffer.from('{}') }));
+
+    await expect(requestSafeResource('http://probe.example/api/stat', {
+      headers: { 'x-openai-api-key': 'secret' }
+    }, {
+      lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+      request
+    })).rejects.toThrow('HTTPS');
+
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  test('removes custom token headers when a redirect changes origin', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce({
+        statusCode: 307,
+        headers: { location: 'https://other.example/api/stat' },
+        body: Buffer.alloc(0)
+      })
+      .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.from('{}') });
+
+    await requestSafeResource('https://probe.example/api/stat', {
+      headers: { 'x-github-token': 'secret' }
+    }, {
+      lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+      request
+    });
+
+    expect(request.mock.calls[1][2].headers).not.toHaveProperty('x-github-token');
+  });
 });

@@ -13,6 +13,8 @@ const NONO_KIND = 'nono.core-backup';
 const NOSTAR_KIND = 'nono.nostar-backup';
 const CLIPPER_KIND = 'nono.clipper-backup';
 const PRODUCT_KIND = 'nono.product-backup';
+const MAX_NODESK_ARCHIVE_ENTRIES = 10_000;
+const MAX_NODESK_EXPANDED_BYTES = 512 * 1024 * 1024;
 
 export function createBackupModuleAdapters(options: {
   prisma: PrismaClient;
@@ -246,10 +248,27 @@ function createNoDeskAdapter(contentDir: string, run: BackupCommandRunner): Back
 
   async function validateArchive(archivePath: string) {
     const listing = await run('tar', ['-tzf', archivePath]);
-    for (const rawEntry of listing.stdout.split(/\r?\n/).filter(Boolean)) {
+    const entries = listing.stdout.split(/\r?\n/).filter(Boolean);
+    if (entries.length > MAX_NODESK_ARCHIVE_ENTRIES) {
+      throw httpError(409, 'NoDesk backup contains too many entries');
+    }
+    for (const rawEntry of entries) {
       const entry = rawEntry.replace(/^\.\//, '');
       if (!entry || path.posix.isAbsolute(entry) || /^[a-z]:/i.test(entry) || entry.split('/').includes('..')) {
         throw httpError(409, 'NoDesk backup contains an unsafe path');
+      }
+    }
+
+    const verbose = await run('tar', ['-tvzf', archivePath]);
+    let expandedBytes = 0;
+    for (const line of verbose.stdout.split(/\r?\n/).filter(Boolean)) {
+      const type = line.trimStart().charAt(0);
+      if (type !== '-' && type !== 'd') {
+        throw httpError(409, 'NoDesk backup contains an unsupported entry type');
+      }
+      if (type === '-') expandedBytes += archiveEntrySize(line);
+      if (expandedBytes > MAX_NODESK_EXPANDED_BYTES) {
+        throw httpError(409, 'NoDesk backup expanded size exceeds the limit');
       }
     }
   }
@@ -293,6 +312,14 @@ function createNoDeskAdapter(contentDir: string, run: BackupCommandRunner): Back
       });
     },
   };
+}
+
+function archiveEntrySize(line: string) {
+  const gnu = line.match(/^\S+\s+\S+\s+(\d+)\s+/);
+  if (gnu) return Number(gnu[1]);
+  const bsd = line.match(/^\S+\s+\d+\s+\S+\s+\S+\s+(\d+)\s+/);
+  if (bsd) return Number(bsd[1]);
+  throw httpError(409, 'NoDesk backup metadata is invalid');
 }
 
 function createProductAdapter(

@@ -382,6 +382,7 @@ export const zh = {
     password: '密码',
     email: '邮箱',
     displayName: '显示名',
+    bootstrapToken: '初始化 Token',
     signIn: '登录',
     or: '或',
     passkeyVerifying: '验证中',

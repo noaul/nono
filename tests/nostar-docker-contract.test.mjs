@@ -17,3 +17,11 @@ test('serves the NoStar SPA from the Nono Fastify process', () => {
   assert.match(app, /request\.url\.startsWith\('\/nostar\/'\)/);
   assert.match(app, /reply\.redirect\('\/nostar\/'\)/);
 });
+
+test('does not expose scripts for the retired standalone NoStar server', () => {
+  const packageJson = JSON.parse(fs.readFileSync('apps/nostar/package.json', 'utf8'));
+
+  for (const name of ['dev:server', 'dev:all', 'build:server', 'build:all']) {
+    assert.equal(packageJson.scripts[name], undefined, `${name} still targets the removed apps/nostar/server directory`);
+  }
+});

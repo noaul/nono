@@ -71,7 +71,7 @@
           <button id="modeClip" class="mode-option" type="button" role="tab" aria-selected="false" data-i18n="modeClip">剪藏</button>
         </div>
 
-        <section id="clipPanel" class="clip-panel hidden">
+        <section id="clipPanel" class="clip-panel mode-panel hidden">
           <section class="clip-editor glass-panel" aria-live="polite">
             <div class="section-heading compact">
               <div class="clip-source-block">
@@ -80,6 +80,7 @@
               </div>
               <button id="analyzeClip" class="text-button" type="button" data-i18n="aiAnalyzeClip">AI 分析</button>
             </div>
+            <p id="clipPreviewMeta" class="clip-preview-meta" data-i18n="clipPreviewPending">正在生成正文预览...</p>
             <label>
               <span data-i18n="clipTitleLabel">标题</span>
               <input id="clipTitleInput" maxlength="500" data-i18n-aria="clipTitleLabel" aria-label="标题" />
@@ -90,7 +91,7 @@
             </label>
             <label>
               <span data-i18n="clipSummaryLabel">摘要</span>
-              <textarea id="clipSummaryInput" maxlength="2000" rows="3"></textarea>
+              <textarea id="clipSummaryInput" maxlength="2000" rows="2"></textarea>
             </label>
             <p id="clipTruncated" class="clip-truncated hidden" data-i18n="clipTruncated">正文已按体积上限截断。</p>
           </section>
@@ -100,53 +101,52 @@
           </div>
         </section>
 
-        <div id="bookmarkPanel">
-        <section class="name-editor glass-panel">
-          <div class="section-heading compact">
-            <span class="eyebrow" data-i18n="bookmarkName">书签名称</span>
-            <button id="analyzeBookmark" class="text-button" type="button" data-i18n="aiTidy">AI 整理</button>
-          </div>
-          <input id="name" maxlength="180" data-i18n-aria="bookmarkName" aria-label="书签名称" />
-        </section>
-
-        <section class="destination glass-panel">
-          <div class="section-heading compact">
-            <span class="eyebrow" data-i18n="saveTo">保存到</span>
-            <button id="refreshFolders" class="icon-button quiet" type="button" data-i18n-title="refreshFolders" data-i18n-aria="refreshFolders" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
-          </div>
-          <div class="field-grid">
-            <label>NoTab<select id="categorySelect"></select></label>
-            <label><span data-i18n="folder">文件夹</span><select id="folderSelect"></select></label>
-          </div>
-        </section>
-
-        <section id="duplicateWarning" class="duplicate-callout hidden" aria-live="polite">
-          <div>
-            <strong data-i18n="duplicateFound">发现重复收藏</strong>
-            <p id="duplicateMessage"></p>
-          </div>
-          <button id="duplicateAction" class="warning-button" type="button" data-i18n="updateExisting">更新已有</button>
-        </section>
-
-        <div class="status-line">
-          <span class="status-dot" aria-hidden="true"></span>
-          <p id="status" class="status" aria-live="polite" data-i18n="readyStatus">准备保存。</p>
-        </div>
-
-        <div class="save-actions">
-          <button id="saveBookmark" class="primary-save" type="button" data-i18n="saveThisPage">收藏此页</button>
-          <button id="toggleDetails" class="secondary-button edit-button" type="button" aria-expanded="false" data-i18n="edit">编辑</button>
-        </div>
-
-        <section id="details" class="details glass-panel hidden">
-          <div class="section-heading compact">
-            <div>
-              <span class="eyebrow" data-i18n="optional">可选</span>
-              <h2 data-i18n="extraInfo">补充信息</h2>
+        <div id="bookmarkPanel" class="mode-panel">
+          <section class="name-editor glass-panel">
+            <div class="section-heading compact">
+              <span class="eyebrow" data-i18n="bookmarkName">书签名称</span>
+              <button id="analyzeBookmark" class="text-button" type="button" data-i18n="aiTidy">AI 整理</button>
             </div>
+            <input id="name" maxlength="180" data-i18n-aria="bookmarkName" aria-label="书签名称" />
+          </section>
+
+          <section class="destination glass-panel">
+            <div class="section-heading compact destination-heading">
+              <button id="refreshFolders" class="icon-button quiet" type="button" data-i18n-title="refreshFolders" data-i18n-aria="refreshFolders" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
+            </div>
+            <div class="field-grid">
+              <label>NoTab<select id="categorySelect"></select></label>
+              <label><span data-i18n="folder">文件夹</span><select id="folderSelect"></select></label>
+            </div>
+          </section>
+
+          <section id="duplicateWarning" class="duplicate-callout hidden" aria-live="polite">
+            <div>
+              <strong data-i18n="duplicateFound">发现重复收藏</strong>
+              <p id="duplicateMessage"></p>
+            </div>
+            <button id="duplicateAction" class="warning-button" type="button" data-i18n="updateExisting">更新已有</button>
+          </section>
+
+          <div class="status-line hidden">
+            <span class="status-dot" aria-hidden="true"></span>
+            <p id="status" class="status" aria-live="polite"></p>
           </div>
-          <label><span data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
-        </section>
+
+          <div class="save-actions">
+            <button id="saveBookmark" class="primary-save" type="button" data-i18n="saveThisPage">收藏此页</button>
+            <button id="toggleDetails" class="secondary-button edit-button" type="button" aria-expanded="false" data-i18n="edit">编辑</button>
+          </div>
+
+          <section id="details" class="details glass-panel hidden">
+            <div class="section-heading compact">
+              <div>
+                <span class="eyebrow" data-i18n="optional">可选</span>
+                <h2 data-i18n="extraInfo">补充信息</h2>
+              </div>
+            </div>
+            <label><span data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
+          </section>
         </div>
       </section>
 

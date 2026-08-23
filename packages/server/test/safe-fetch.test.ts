@@ -60,6 +60,33 @@ describe('safe public resource fetching', () => {
     }, { lookup, request })).resolves.toMatchObject({ statusCode: 200 });
   });
 
+  it('rejects credentials over public HTTP while allowing explicit private HTTP integrations', async () => {
+    const lookup = vi.fn(async (hostname: string) => [{
+      address: hostname === 'llm.lan' ? '192.168.1.20' : '93.184.216.34',
+      family: 4 as const,
+    }]);
+    const request = vi.fn(async () => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0) }));
+
+    await expect(requestSafeResource('http://api.example/v1/messages', {
+      headers: { authorization: 'Bearer secret' },
+    }, { lookup, request })).rejects.toThrow('HTTPS');
+    await expect(requestSafeResource('http://api.example/v1/messages', {
+      headers: { 'x-openai-api-key': 'secret' },
+    }, { lookup, request })).rejects.toThrow('HTTPS');
+    await expect(requestSafeResource('http://api.example/v1/messages?key=secret', {}, {
+      lookup,
+      request,
+    })).rejects.toThrow('HTTPS');
+    await expect(requestSafeResource('http://api.example/v1/messages?client_secret=secret', {}, {
+      lookup,
+      request,
+    })).rejects.toThrow('HTTPS');
+    await expect(requestSafeResource('http://llm.lan/v1/messages', {
+      headers: { 'x-api-key': 'secret' },
+      allowPrivateHosts: ['llm.lan'],
+    }, { lookup, request })).resolves.toMatchObject({ statusCode: 200 });
+  });
+
   it('removes authorization when a redirect changes origin', async () => {
     const lookup = vi.fn(async () => [{ address: '93.184.216.34', family: 4 as const }]);
     const request = vi
@@ -69,12 +96,17 @@ describe('safe public resource fetching', () => {
 
     const response = await requestSafeResource('https://api.example/v1/messages', {
       method: 'POST',
-      headers: { authorization: 'Bearer secret', 'x-api-key': 'secret' },
+      headers: {
+        authorization: 'Bearer secret',
+        'x-api-key': 'secret',
+        'x-github-token': 'secret',
+      },
       body: '{}',
     }, { lookup, request });
 
     expect(request.mock.calls[1][2].headers).not.toHaveProperty('authorization');
     expect(request.mock.calls[1][2].headers).not.toHaveProperty('x-api-key');
+    expect(request.mock.calls[1][2].headers).not.toHaveProperty('x-github-token');
     expect(response.finalUrl).toBe('https://other.example/v1/messages');
   });
 });

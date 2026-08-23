@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildFolderGroups,
   buildQuickSavePayload,
@@ -11,8 +11,19 @@ import {
   serverOriginPattern,
   tokenExpiryText,
 } from '../shared/popup-workflow.js';
+import { connectionDraft, persistConnectionDraft } from '../shared/settings-draft.js';
 
 describe('extension popup workflow helpers', () => {
+  it('persists incomplete or invalid connection settings without validating them', async () => {
+    const storage = { set: vi.fn(async () => undefined) };
+    const draft = connectionDraft(' http://not-public.example/path ', ' invalid token ');
+
+    await persistConnectionDraft(storage, draft);
+
+    expect(draft).toEqual({ serverUrl: 'http://not-public.example/path', token: 'invalid token' });
+    expect(storage.set).toHaveBeenCalledWith(draft);
+  });
+
   it('accepts HTTPS servers and loopback HTTP development servers', () => {
     expect(normalizeServerUrl(' https://noaul.com/// ')).toBe('https://noaul.com');
     expect(normalizeServerUrl('http://localhost:3000/')).toBe('http://localhost:3000');

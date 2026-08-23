@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { AppServices } from '../types.js';
 import { sendOk } from '../plugins/responses.js';
@@ -12,11 +13,13 @@ const authSchema = z.object({
   email: z.string().email().optional(),
   displayName: z.string().trim().max(80).optional(),
   password: z.string().min(1),
+  bootstrapToken: z.string().optional(),
 });
 
 export async function authRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/auth/setup', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const input = authSchema.parse(request.body);
+    assertBootstrapToken(services.bootstrapToken, input.bootstrapToken);
     assertStrongPassword(input.password);
     const user = await setupAdmin(services.repo, input as any);
     await issueBrowserSession(services.repo, user.id, request, reply);
@@ -56,6 +59,15 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     const config = await services.repo.getConfig();
     return sendOk(reply, { authenticated: Boolean(user), setupRequired: !config.initializedAt, user });
   });
+}
+
+function assertBootstrapToken(expected: string, supplied: string | undefined) {
+  if (!expected) return;
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied || '');
+  if (expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {
+    throw Object.assign(new Error('Invalid bootstrap token'), { statusCode: 403 });
+  }
 }
 
 async function recordUserCreation(services: AppServices, request: FastifyRequest, user: UserRecord, source: 'setup' | 'registration') {

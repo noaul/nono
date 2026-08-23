@@ -70,6 +70,39 @@ describe('auth flow', () => {
     expect(login.body.user.email).toBe('owner@example.com');
   });
 
+  test('logout revokes the JWT even when a client replays the old cookie', async () => {
+    const context = await createTestContext();
+    const app = createApp(context);
+    const setup = await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    });
+    const rawCookie = Array.isArray(setup.headers['set-cookie']) ? setup.headers['set-cookie'][0] : String(setup.headers['set-cookie']);
+    const cookie = rawCookie.split(';', 1)[0];
+
+    await request(app).post('/api/auth/logout').set('Cookie', cookie).expect(204);
+    await request(app).get('/api/auth/me').set('Cookie', cookie).expect(401);
+  });
+
+  test('initial setup requires the configured bootstrap token', async () => {
+    const context = await createTestContext();
+    context.bootstrapToken = 'bootstrap-secret';
+    const app = createApp(context);
+
+    await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    }).expect(403);
+    await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com',
+      bootstrapToken: 'bootstrap-secret'
+    }).expect(201);
+  });
+
   test('scopes the session cookie to the configured application path', async () => {
     const context = await createTestContext();
     context.cookiePath = '/nomoney';

@@ -40,12 +40,13 @@ import { createBackupServiceFromEnv, type BackupRecord, type BackupService } fro
 import { createBackupAutomationService } from './services/backup-automation.service.js';
 import { registerBackupAutomationScheduler } from './services/backup-automation.scheduler.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
-import { createNoMoneyDueReader, createNotificationService, createYumiDueReader } from './services/notification.service.js';
+import { createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
 import { createNoMoneyClient } from './services/nomoney-client.js';
 import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
 import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
+import { createProductDueReader } from './services/product-due-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -75,8 +76,16 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const notificationService = overrides.notificationService || createNotificationService({
     prisma,
     nodeskReader: () => nodeskStore.readPublicJson('site'),
-    noMoneyReader: createNoMoneyDueReader(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data')),
-    yumiReader: createYumiDueReader(process.env.YUMI_DATA_DIR || path.resolve(process.cwd(), '../yumi-data')),
+    noMoneyReader: createProductDueReader({
+      port: Number(process.env.NOMONEY_INTERNAL_PORT || 2030),
+      token: process.env.NOMONEY_INTERNAL_TOKEN || '',
+      serviceName: 'NoMoney',
+    }),
+    yumiReader: createProductDueReader({
+      port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
+      token: process.env.NOMONEY_INTERNAL_TOKEN || '',
+      serviceName: 'Yumi',
+    }),
     backupService,
     backupAutomationService,
   });
@@ -84,6 +93,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     prisma,
     repo,
     sessionSecret: resolveSessionSecret(overrides.sessionSecret),
+    bootstrapToken: resolveBootstrapToken(overrides.bootstrapToken),
     encryptionKey,
     nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
@@ -142,6 +152,10 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 
     const unsafeMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
     const bearerRequest = /^Bearer\s+/i.test(request.headers.authorization || '');
+    const extensionOrigin = /^chrome-extension:\/\/[a-p]{32}$/.test(request.headers.origin || '');
+    if (extensionOrigin && request.cookies.nono_session) {
+      return sendError(reply, 403, 'Browser sessions are not accepted from extension origins');
+    }
     if (unsafeMethod && !bearerRequest && request.cookies.nono_session) {
       const origin = request.headers.origin;
       if (services.webAuthnOrigin && origin !== services.webAuthnOrigin) {
@@ -309,6 +323,17 @@ function resolveSessionSecret(override: string | undefined) {
     || /(?:change[-_ ]?me|replace[-_ ]?with|example|dev(?:elopment)?[-_ ]only)/i.test(value)
   )) {
     throw new Error('SESSION_SECRET must be a non-placeholder value of at least 32 characters in production');
+  }
+  return value;
+}
+
+function resolveBootstrapToken(override: string | undefined) {
+  const value = override ?? process.env.BOOTSTRAP_TOKEN ?? '';
+  if (process.env.NODE_ENV === 'production' && (
+    value.length < 24
+    || /(?:change[-_ ]?me|replace[-_ ]?with|example|dev(?:elopment)?[-_ ]only)/i.test(value)
+  )) {
+    throw new Error('BOOTSTRAP_TOKEN must be a non-placeholder value of at least 24 characters in production');
   }
   return value;
 }

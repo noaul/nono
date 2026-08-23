@@ -32,7 +32,7 @@ body {
 	color: var(--ink);
 	margin: 0;
 	overflow: hidden;
-	width: 360px;
+	width: 340px;
 }
 
 button,
@@ -58,11 +58,11 @@ button {
   color: #fff;
   cursor: pointer;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 720;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 11px;
+  min-height: 26px;
+  padding: 0 9px;
   touch-action: manipulation;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, transform 150ms ease;
   white-space: nowrap;
@@ -93,10 +93,10 @@ button:disabled {
 
 .popup {
 	display: grid;
-	gap: 6px;
+	gap: 5px;
 	max-height: 600px;
 	overflow: hidden;
-	padding: 8px 9px 7px;
+	padding: 7px 8px 6px;
 }
 
 .popup-header,
@@ -117,12 +117,12 @@ button:disabled {
 }
 
 .popup-header {
-	min-height: 34px;
+	min-height: 30px;
 	padding: 0 2px;
 }
 
 .brand {
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
 }
 
@@ -134,20 +134,20 @@ button:disabled {
 
 .brand-copy strong {
   color: #203438;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 760;
 }
 
 .brand-copy span {
   color: #7a878b;
-  font-size: 8px;
-  margin-top: 4px;
+  font-size: 7px;
+  margin-top: 3px;
 }
 
 .brand-mark {
 	display: block;
-	height: 28px;
-	width: 28px;
+	height: 25px;
+	width: 25px;
 }
 
 .icon-button {
@@ -156,10 +156,10 @@ button:disabled {
   box-shadow: 0 4px 14px rgba(50, 68, 72, 0.08), inset 0 1px 0 #fff;
   color: #4f6166;
   flex: 0 0 auto;
-  font-size: 17px;
-	min-height: 28px;
+  font-size: 15px;
+	min-height: 25px;
   padding: 0;
-	width: 28px;
+	width: 25px;
 }
 
 .icon-button:hover {
@@ -187,13 +187,13 @@ button:disabled {
 .destination,
 .details {
 	display: grid;
-	gap: 6px;
-	padding: 8px 9px;
+	gap: 5px;
+	padding: 7px 8px;
 }
 
 .workflow {
 	display: grid;
-	gap: 7px;
+	gap: 6px;
 }
 
 .hidden {
@@ -203,9 +203,9 @@ button:disabled {
 .page-preview {
   align-items: center;
   display: flex;
-	gap: 9px;
-	min-height: 46px;
-	padding: 7px 9px;
+	gap: 8px;
+	min-height: 42px;
+	padding: 6px 8px;
 }
 
 .page-copy {
@@ -220,11 +220,11 @@ button:disabled {
   color: var(--accent-strong);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 780;
-	height: 30px;
+	height: 28px;
   justify-content: center;
-	width: 30px;
+	width: 28px;
 }
 
 .page-preview h1,
@@ -235,7 +235,7 @@ p {
 }
 
 .page-preview h1 {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 680;
   line-height: 1.35;
   overflow: hidden;
@@ -246,12 +246,12 @@ p {
 .page-domain,
 .eyebrow {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
 }
 
 .page-domain {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -274,15 +274,15 @@ p {
 }
 
 .section-heading.compact {
-	min-height: 22px;
+	min-height: 19px;
 }
 
 label {
   color: #59676b;
   display: grid;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 680;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -293,10 +293,10 @@ select {
   border: 1px solid rgba(107, 127, 132, 0.2);
   border-radius: 8px;
   color: var(--ink);
-	font-size: 11px;
-	min-height: 31px;
+	font-size: 10px;
+	min-height: 27px;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 5px 7px;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
   width: 100%;
 }
@@ -309,13 +309,13 @@ select:hover {
 
 textarea {
 	line-height: 1.5;
-	min-height: 48px;
+	min-height: 44px;
 	resize: vertical;
 }
 
 .field-grid {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
@@ -327,12 +327,12 @@ textarea {
 }
 
 .language-row select {
-	min-height: 34px;
+	min-height: 28px;
 }
 
 .button-row {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
@@ -350,8 +350,8 @@ textarea {
 .text-button {
   background: transparent;
   color: var(--accent-strong);
-  font-size: 11px;
-  min-height: 26px;
+  font-size: 9px;
+  min-height: 22px;
   padding: 0 4px;
 }
 
@@ -362,17 +362,17 @@ textarea {
 
 .connection-note,
 .status-line {
-	gap: 7px;
-	min-height: 19px;
+	gap: 6px;
+	min-height: 17px;
 }
 
 .connection-note {
   background: rgba(255, 255, 255, 0.45);
   border-radius: 8px;
   color: #5e6e72;
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.45;
-	padding: 6px 8px;
+	padding: 5px 7px;
 }
 
 .status-dot {
@@ -387,7 +387,7 @@ textarea {
 
 .privacy-note {
   color: #788489;
-  font-size: 10px;
+  font-size: 8px;
 	line-height: 1.4;
 }
 
@@ -420,7 +420,7 @@ textarea {
   background: rgba(255, 255, 255, 0.7);
   border-color: rgba(177, 111, 28, 0.25);
   color: #8b5718;
-	min-height: 32px;
+	min-height: 26px;
   padding-inline: 10px;
 }
 
@@ -435,7 +435,7 @@ textarea {
 }
 
 .status {
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.45;
   min-width: 0;
 }
@@ -461,16 +461,16 @@ textarea {
 }
 
 .save-actions {
-  gap: 8px;
+  gap: 6px;
 }
 
 .primary-save {
 	flex: 1;
-	min-height: 34px;
+	min-height: 28px;
 }
 
 .edit-button {
-  min-width: 70px;
+  min-width: 58px;
 }
 
 .details {
@@ -480,11 +480,11 @@ textarea {
 .project-footer {
   color: #778388;
   display: grid;
-  font-size: 9px;
+  font-size: 8px;
   gap: 5px 8px;
   grid-template-columns: minmax(0, 1fr) auto auto;
   line-height: 1.35;
-	min-height: 22px;
+	min-height: 18px;
   padding: 0 3px;
 }
 
@@ -537,20 +537,20 @@ textarea {
 
 .mode-switch {
   display: flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 2px;
   border-radius: 8px;
   background: rgba(120, 120, 128, 0.12);
 }
 
 .mode-option {
   flex: 1;
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 24px;
+  padding: 2px 8px;
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: inherit;
   cursor: pointer;
@@ -570,13 +570,27 @@ textarea {
 .clip-panel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+}
+
+.mode-panel {
+  min-height: 248px;
+}
+
+#bookmarkPanel.mode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mode-panel > .save-actions:last-of-type {
+  margin-top: auto;
 }
 
 .clip-editor {
   display: grid;
-  gap: 7px;
-  padding: 8px 9px;
+  gap: 5px;
+  padding: 7px 8px;
 }
 
 .clip-source-block {
@@ -586,12 +600,22 @@ textarea {
 .clip-source-url {
   color: var(--accent-strong);
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   overflow: hidden;
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 220px;
+  width: 205px;
+}
+
+.clip-preview-meta {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.destination-heading {
+  justify-content: flex-end;
 }
 
 .clip-truncated {

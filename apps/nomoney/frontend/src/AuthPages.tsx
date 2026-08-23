@@ -47,7 +47,7 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: (user: User) =
 
 export function SetupPage({ onAuthenticated }: { onAuthenticated: (user: User) => void }) {
   const { copy } = useI18n();
-  const [form, setForm] = useState({ username: 'owner', email: '', password: '' });
+  const [form, setForm] = useState({ username: 'owner', email: '', password: '', bootstrapToken: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -76,6 +76,9 @@ export function SetupPage({ onAuthenticated }: { onAuthenticated: (user: User) =
         </Field>
         <Field label={copy('密码', 'Password')} hint={copy('至少 8 位，用于本地单用户登录。', 'At least 8 characters, for local single-user sign-in.')}>
           <input className={inputClass} type="password" value={form.password} autoComplete="new-password" onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        </Field>
+        <Field label={copy('初始化 Token', 'Bootstrap token')}>
+          <input className={inputClass} type="password" value={form.bootstrapToken} autoComplete="off" onChange={(e) => setForm({ ...form, bootstrapToken: e.target.value })} />
         </Field>
         {error && <StateBanner tone="danger">{error}</StateBanner>}
         <Button className="w-full" type="submit" disabled={submitting}>

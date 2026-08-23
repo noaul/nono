@@ -56,4 +56,36 @@ describe('backup module adapters', () => {
     await expect(adapters.nomoney.restore(1, wrong)).rejects.toThrow('NoMoney backup');
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('rejects NoDesk archives containing links or an excessive expanded size', async () => {
+    const linkRunner = vi.fn(async (_command: string, args: string[]) => ({
+      stdout: args.includes('-tvzf')
+        ? 'lrwxrwxrwx owner/group 0 2026-08-23 00:00 public/latest -> /etc/passwd\n'
+        : 'public/latest\n',
+      stderr: '',
+    }));
+    const linkAdapters = createBackupModuleAdapters({
+      prisma: {} as never,
+      encryptionKey: '1'.repeat(64),
+      nodeskContentDir: 'unused',
+      run: linkRunner,
+    });
+
+    await expect(linkAdapters.nodesk.validate(Buffer.from('archive'))).rejects.toThrow('unsupported entry type');
+
+    const oversizedRunner = vi.fn(async (_command: string, args: string[]) => ({
+      stdout: args.includes('-tvzf')
+        ? `-rw-r--r-- owner/group ${512 * 1024 * 1024 + 1} 2026-08-23 00:00 public/huge.bin\n`
+        : 'public/huge.bin\n',
+      stderr: '',
+    }));
+    const oversizedAdapters = createBackupModuleAdapters({
+      prisma: {} as never,
+      encryptionKey: '1'.repeat(64),
+      nodeskContentDir: 'unused',
+      run: oversizedRunner,
+    });
+
+    await expect(oversizedAdapters.nodesk.validate(Buffer.from('archive'))).rejects.toThrow('expanded size');
+  });
 });

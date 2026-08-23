@@ -8,7 +8,7 @@ const { t } = useI18n();
 
 const auth = useAuthStore();
 const router = useRouter();
-const form = reactive({ username: 'admin', email: 'admin@nono.local', displayName: 'NoNo Admin', password: '' });
+const form = reactive({ username: 'admin', email: 'admin@nono.local', displayName: 'NoNo Admin', password: '', bootstrapToken: '' });
 const error = ref('');
 
 async function submit() {
@@ -31,6 +31,7 @@ async function submit() {
       <div class="field"><label>{{ t('auth.email') }}</label><input v-model="form.email" type="email" /></div>
       <div class="field"><label>{{ t('auth.displayName') }}</label><input v-model="form.displayName" /></div>
       <div class="field"><label>{{ t('auth.password') }}</label><input v-model="form.password" type="password" autocomplete="new-password" /></div>
+      <div class="field"><label>{{ t('auth.bootstrapToken') }}</label><input v-model="form.bootstrapToken" type="password" autocomplete="off" /></div>
       <button class="button" type="submit">{{ t('auth.createAdmin') }}</button>
     </form>
   </main>

@@ -12,6 +12,10 @@ const upstreamTimeoutMs = numberFromEnv('GATEWAY_UPSTREAM_TIMEOUT_MS', 30_000);
 const children = new Set();
 const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort, yumi: yumiPort };
 const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
+const trustedProxyAddresses = (process.env.GATEWAY_TRUSTED_PROXY_ADDRESSES || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 let shuttingDown = false;
 let server;
 
@@ -67,6 +71,7 @@ function proxyRequest(request, response) {
     headers: request.headers,
     remoteAddress: request.socket.remoteAddress,
     trustForwardedHeaders,
+    trustedProxyAddresses,
   });
   const proxy = http.request({
     hostname: '127.0.0.1',
@@ -110,6 +115,7 @@ function proxyUpgrade(request, socket, head) {
     headers: request.headers,
     remoteAddress: request.socket.remoteAddress,
     trustForwardedHeaders,
+    trustedProxyAddresses,
   });
   const proxy = http.request({
     hostname: '127.0.0.1',

@@ -183,6 +183,12 @@ describe('backup APIs', () => {
     const restore = await agent.post('/api/backup/restore').send();
     expect(restore.status).toBe(200);
 
+    await agent.get('/api/phones').expect(401);
+    await agent.post('/api/auth/login').send({
+      username: 'owner',
+      password: 'correct horse battery staple'
+    }).expect(200);
+
     const restoredPhones = await agent.get('/api/phones');
     expect(restoredPhones.body.items).toEqual([
       expect.objectContaining({

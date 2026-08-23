@@ -19,6 +19,7 @@ const port = Number(process.env.PORT ?? 3000);
 const dataDir = process.env.APP_DATA_DIR ?? path.resolve(process.cwd(), 'data');
 const jwtSecret = process.env.JWT_SECRET;
 const internalToken = process.env.NOMONEY_INTERNAL_TOKEN;
+const bootstrapToken = process.env.BOOTSTRAP_TOKEN;
 const defaultEncryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const productEncryptionKeyName = product === 'yumi' ? 'YUMI_ENCRYPTION_KEY' : 'NOMONEY_ENCRYPTION_KEY';
 const encryptionKey = (product === 'yumi' ? process.env.YUMI_ENCRYPTION_KEY : process.env.NOMONEY_ENCRYPTION_KEY) || process.env.ENCRYPTION_KEY || (
@@ -32,6 +33,7 @@ const privateOutboundHosts = (process.env.NOMONEY_PRIVATE_OUTBOUND_HOSTS || proc
 if (process.env.NODE_ENV === 'production') {
   assertRuntimeSecret(jwtSecret, 'JWT_SECRET');
   assertRuntimeSecret(internalToken, 'NOMONEY_INTERNAL_TOKEN');
+  assertRuntimeSecret(bootstrapToken, 'BOOTSTRAP_TOKEN');
 }
 if (process.env.NODE_ENV === 'production' && (!encryptionKey || encryptionKey === defaultEncryptionKey)) {
   throw new Error(`${productEncryptionKeyName} or ENCRYPTION_KEY is required in production`);
@@ -61,6 +63,7 @@ const context = {
   product,
   jwtSecret: jwtSecret ?? 'development-only-secret',
   internalToken,
+  bootstrapToken,
   publicOrigin: resolvePublicOrigin(process.env.NONO_PUBLIC_URL),
   encryptionKey,
   privateOutboundHosts,

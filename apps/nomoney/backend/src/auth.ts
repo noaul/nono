@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from './types.js';
@@ -17,7 +18,8 @@ const setupQueues = new WeakMap<AppContext, Promise<void>>();
 const setupSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(8),
-  email: z.string().email()
+  email: z.string().email(),
+  bootstrapToken: z.string().optional()
 });
 
 const loginSchema = z.object({
@@ -42,6 +44,7 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
       assertAuthRateLimit(context, rateKey);
       try {
         const body = parseBody(setupSchema, req.body);
+        assertBootstrapToken(context.bootstrapToken, body.bootstrapToken);
         await withSetupLock(context, async () => {
           if (hasUser(context)) {
             throw new HttpError(409, 'SETUP_ALREADY_DONE', 'Setup has already been completed');
@@ -88,7 +91,8 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
     })
   );
 
-  router.post('/auth/logout', (_req, res) => {
+  router.post('/auth/logout', (req, res) => {
+    revokeRequestSession(context, req);
     res.clearCookie(cookieName(context), cookieOptions(context));
     res.status(204).end();
   });
@@ -145,14 +149,19 @@ export function requireAuth(context: AppContext) {
     }
 
     try {
-      const payload = jwt.verify(token, context.jwtSecret) as { sub: string; sv?: number };
+      const payload = jwt.verify(token, context.jwtSecret) as { sub: string; sv?: number; jti?: string };
       const userId = Number(payload.sub);
       const sessionVersion = Number(payload.sv);
+      const sessionId = String(payload.jti || '');
       const user = context.db.get<{ session_version: number }>(
         'SELECT session_version FROM users WHERE id = ?',
         [userId]
       );
-      if (!user || !Number.isFinite(sessionVersion) || Number(user.session_version) !== sessionVersion) {
+      const session = sessionId ? context.db.get<{ jti: string }>(
+        'SELECT jti FROM auth_sessions WHERE jti = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?',
+        [sessionId, userId, toIsoDateTime(context.now())]
+      ) : undefined;
+      if (!user || !session || !Number.isFinite(sessionVersion) || Number(user.session_version) !== sessionVersion) {
         res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
         return;
       }
@@ -182,11 +191,45 @@ function getPublicUser(context: AppContext, id: number) {
 
 function setSessionCookie(res: Response, context: AppContext, userId: number): void {
   const sessionVersion = getSessionVersion(context, userId);
-  const token = jwt.sign({ sub: String(userId), sv: sessionVersion }, context.jwtSecret, { expiresIn: '30d' });
+  const sessionId = randomUUID();
+  const createdAt = context.now();
+  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+  context.db.run('DELETE FROM auth_sessions WHERE expires_at <= ?', [toIsoDateTime(createdAt)]);
+  context.db.run(
+    'INSERT INTO auth_sessions (jti, user_id, expires_at, revoked_at, created_at) VALUES (?, ?, ?, NULL, ?)',
+    [sessionId, userId, toIsoDateTime(expiresAt), toIsoDateTime(createdAt)]
+  );
+  const token = jwt.sign({ sub: String(userId), sv: sessionVersion, jti: sessionId }, context.jwtSecret, { expiresIn: '30d' });
   res.cookie(cookieName(context), token, {
     ...cookieOptions(context),
     maxAge: 30 * 24 * 60 * 60 * 1000
   });
+}
+
+function revokeRequestSession(context: AppContext, req: Request): void {
+  const token = req.cookies?.[cookieName(context)];
+  if (!token) return;
+  try {
+    const payload = jwt.verify(token, context.jwtSecret) as { sub?: string; jti?: string };
+    const userId = Number(payload.sub);
+    if (payload.jti && Number.isInteger(userId)) {
+      context.db.run(
+        'UPDATE auth_sessions SET revoked_at = ? WHERE jti = ? AND user_id = ? AND revoked_at IS NULL',
+        [toIsoDateTime(context.now()), payload.jti, userId]
+      );
+    }
+  } catch {
+    // Clearing an invalid cookie remains idempotent.
+  }
+}
+
+function assertBootstrapToken(expected: string | undefined, supplied: string | undefined): void {
+  if (!expected) return;
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied || '');
+  if (expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {
+    throw new HttpError(403, 'INVALID_BOOTSTRAP_TOKEN', 'Invalid bootstrap token');
+  }
 }
 
 function cookieOptions(context: AppContext) {
