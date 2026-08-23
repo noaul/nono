@@ -139,12 +139,12 @@ describe('background clip entry points', () => {
     expect(manifest.content_scripts).toBeUndefined();
   });
 
-  it('ships version 0.4.0 in both manifest and package', async () => {
+  it('ships version 0.4.1 in both manifest and package', async () => {
     const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
     const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 
-    expect(manifest.version).toBe('0.4.0');
-    expect(packageJson.version).toBe('0.4.0');
+    expect(manifest.version).toBe('0.4.1');
+    expect(packageJson.version).toBe('0.4.1');
   });
 });
 

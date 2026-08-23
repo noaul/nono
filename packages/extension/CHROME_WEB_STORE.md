@@ -130,7 +130,7 @@ Recommended certifications:
 **Package**
 
 ```text
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.0.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.1.zip
 ```
 
 **Store icon**
@@ -160,5 +160,5 @@ packages/extension/store-assets/promo-marquee-1400x560.png
 ## Release Notes
 
 ```text
-Version 0.4.0 adds a clip mode: the popup, the page and selection context menus, and Alt+Shift+C extract the main article as HTML and Markdown and save it to the Clipper module of your own Nono server. Extraction runs only when you ask for it, and content is still sent solely to the server you configured. Version 0.3.1 refined the HyperOS-inspired popup with a rounded clipped window, a white translucent frosted background, and a compact single-screen layout that removes internal scrolling while keeping quick save, duplicate handling, project links, and version details immediately accessible.
+Version 0.4.1 preserves the server URL and API token draft before requesting host permission, so configuration survives the browser permission prompt even when the connection has not been validated. It also makes bookmark and clip modes denser with smaller typography, controls, and aligned preview areas. Version 0.4.0 added clip mode for saving a full article or selection as HTML and Markdown to the self-hosted Clipper module.
 ```
