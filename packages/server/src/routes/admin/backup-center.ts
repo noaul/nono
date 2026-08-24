@@ -50,7 +50,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
     return sendOk(reply, { batches: await services.backupCenterService.listWebDavBatches() });
   });
 
-  app.post('/api/admin/backup-center/webdav/backups', { config: { rateLimit: { max: 3, timeWindow: '10 minutes' } } }, async (request, reply) => {
+  app.post('/api/admin/backup-center/webdav/backups', async (request, reply) => {
     const user = await admin(request, reply);
     if (!user) return;
     const input = modulesSchema.parse(request.body || {});
@@ -59,7 +59,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
     return sendOk(reply, batch);
   });
 
-  app.post('/api/admin/backup-center/webdav/restore', { bodyLimit: 2 * 1024 * 1024, config: { rateLimit: { max: 2, timeWindow: '10 minutes' } } }, async (request, reply) => {
+  app.post('/api/admin/backup-center/webdav/restore', { bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
     const user = await admin(request, reply);
     if (!user) return;
     const input = z.object({ batchId: z.string().regex(/^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/), modules: z.array(moduleSchema).min(1).max(BACKUP_MODULES.length).optional() }).parse(request.body);
@@ -87,7 +87,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
     return reply.send(download.body);
   });
 
-  app.post('/api/admin/backup-center/local/:module/restore', { bodyLimit: 256 * 1024 * 1024, config: { rateLimit: { max: 2, timeWindow: '10 minutes' } } }, async (request, reply) => {
+  app.post('/api/admin/backup-center/local/:module/restore', { bodyLimit: 256 * 1024 * 1024 }, async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
     const module = z.union([moduleSchema, z.literal('all')]).parse((request.params as { module?: string }).module);

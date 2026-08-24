@@ -57,6 +57,30 @@ describe('backup center routes', () => {
     expect(center.restoreWebDavBatch).toHaveBeenCalledWith(expect.any(Number), batchId, ['nomoney', 'yumi']);
   });
 
+  it('does not impose a small route-level quota on manual WebDAV backups', async () => {
+    vi.mocked(center.backupToWebDav).mockImplementation(async (_userId, modules = ['nono', 'clipper', 'nodesk', 'nostar', 'nomoney', 'yumi']) => ({
+      kind: 'nono.webdav-backup-batch',
+      version: 1,
+      id: `20260824T12000${vi.mocked(center.backupToWebDav).mock.calls.length}Z-a1b2c3`,
+      scope: modules.length === 6 ? 'full' : 'module',
+      createdAt: '2026-08-24T12:00:00.000Z',
+      sourceCommit: 'test',
+      modules: {},
+    }));
+
+    const responses = [];
+    for (let index = 0; index < 4; index += 1) {
+      responses.push(await app.inject({
+        method: 'POST',
+        url: '/api/admin/backup-center/webdav/backups',
+        headers: { cookie: adminCookie },
+        payload: { modules: ['nono'] },
+      }));
+    }
+
+    expect(responses.map(response => response.statusCode)).toEqual([200, 200, 200, 200]);
+  });
+
   it('passes the uploaded local JSON body to the selected restore adapter', async () => {
     const payload = { kind: 'nono.local-module-backup', version: 1, module: 'nostar', artifact: { body: 'test' } };
     const response = await app.inject({

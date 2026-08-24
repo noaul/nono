@@ -53,4 +53,14 @@ describe('Yumi status display', () => {
     expect(styles).toMatch(/\.status-history-day\s*\{[^}]*border-radius:\s*3px/s);
     expect(styles).not.toMatch(/\.status-history-day:hover[^}]*transform:/s);
   });
+
+  it('keeps the overview mounted while a different time window loads', () => {
+    const overview = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
+
+    expect(overview).toContain('const [statusWindowLoading, setStatusWindowLoading] = useState(false)');
+    expect(overview).toContain('setStatusWindowLoading(true)');
+    expect(overview).toContain('statusWindowLoading ? <StatusHistoryLoading />');
+    expect(overview).not.toContain('setData(null)');
+    expect(overview).not.toContain('setLoading(true)');
+  });
 });

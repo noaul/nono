@@ -88,4 +88,25 @@ describe('backup module adapters', () => {
 
     await expect(oversizedAdapters.nodesk.validate(Buffer.from('archive'))).rejects.toThrow('expanded size');
   });
+
+  it('accepts the harmless archive root entry emitted by tar', async () => {
+    const run = vi.fn(async (_command: string, args: string[]) => ({
+      stdout: args.includes('-tvzf')
+        ? [
+            'drwxr-xr-x owner/group 0 2026-08-24 00:00 ./',
+            'drwxr-xr-x owner/group 0 2026-08-24 00:00 ./public/',
+            '-rw-r--r-- owner/group 12 2026-08-24 00:00 ./public/index.html',
+          ].join('\n')
+        : ['./', './public/', './public/index.html'].join('\n'),
+      stderr: '',
+    }));
+    const adapters = createBackupModuleAdapters({
+      prisma: {} as never,
+      encryptionKey: '1'.repeat(64),
+      nodeskContentDir: 'unused',
+      run,
+    });
+
+    await expect(adapters.nodesk.validate(Buffer.from('archive'))).resolves.toBeUndefined();
+  });
 });

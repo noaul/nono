@@ -201,11 +201,19 @@ test('keeps private NoDesk data and controls behind the live Nono admin session'
 	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-top-center'/)
 	assert.match(workbench, /privateWorkbenchVisible && \(focusRunning \?/)
 	assert.match(workbench, /privateWorkbenchVisible && activePanel &&/)
-	assert.match(workbench, /privateWorkbenchVisible && <aside className=\{`ambient-notification-rail/)
-	assert.match(workbench, /privateWorkbenchVisible && workbenchNavigation\.quickEntriesVisible/)
+	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-side-stack/)
+	assert.match(workbench, /workbenchNavigation\.quickEntriesVisible && <aside/)
 	assert.match(workbench, /privateWorkbenchVisible && <div ref=\{dockRef\} className='ambient-dock-wrap/)
 	assert.match(workbench, /open=\{privateWorkbenchVisible && settingsOpen\}/)
 	assert.match(workbench, /privateWorkbenchVisible && searchOpen &&/)
+})
+
+test('waits for the live session check before revealing the complete workbench interface', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(workbench, /data-session=\{initialized \? 'ready' : 'loading'\}/)
+	assert.match(styles, /\.ambient-workbench\[data-session='loading'\][\s\S]*\.ambient-topbar[\s\S]*\.ambient-center-stage/)
 })
 
 test('loads Clipper title and tag matches into NoDesk quick search', async () => {
@@ -274,16 +282,17 @@ test('uses a wider lower search trigger and links integration panels to their pr
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 })
 
-test('adds a hover app switcher and a dock settings center with independent backups', async () => {
+test('places a hover-expanded application rail below the notification rail', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
 	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 	const source = `${workbench}\n${settings}\n${backupCenter}`
 
-	assert.match(source, /className=\{`ambient-app-switcher/)
+	assert.match(source, /className='ambient-side-stack ambient-wakeable'/)
+	assert.match(source, /ambient-notification-rail[\s\S]*ambient-app-rail/)
 	assert.match(source, /onMouseEnter=.*setAppSwitcherOpen\(true\)/)
-	assert.match(source, /aria-label='应用切换器'/)
+	assert.match(source, /aria-label='应用'/)
 	assert.match(source, /id: 'settings'[\s\S]*icon: Settings/)
 	assert.match(source, /桌面/)
 	assert.match(source, /备份与恢复/)
@@ -291,13 +300,10 @@ test('adds a hover app switcher and a dock settings center with independent back
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/backups/)
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/restore/)
 	assert.match(source, /\/api\/admin\/backup-center\/local/)
-	assert.match(styles, /\.ambient-app-switcher\s*\{[^}]*right: max\(28px, env\(safe-area-inset-right\)\)/)
-	assert.doesNotMatch(styles, /\.ambient-app-switcher\s*\{[^}]*left:/)
-	assert.match(styles, /\.ambient-app-switcher-menu[\s\S]*bottom:/)
-	assert.match(styles, /\.ambient-app-switcher-menu\s*\{[^}]*right: 0;[^}]*transform-origin: bottom right/)
-	assert.match(styles, /\.ambient-app-switcher:not\(:hover\):not\(:focus-within\)/)
-	assert.match(styles, /\.ambient-app-switcher-trigger,\s*\.ambient-app-switcher-menu a,\s*\.ambient-dock-icon\s*\{[^}]*background: rgba\(250, 253, 255, 0\.66\);[^}]*border: 1px solid rgba\(255, 255, 255, 0\.76\);[^}]*border-radius: 12px;[^}]*box-shadow: 0 8px 20px rgba\(54, 85, 116, 0\.12\), inset 0 1px rgba\(255, 255, 255, 0\.84\)/)
-	assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.ambient-app-switcher\s*\{[^}]*right: max\(16px, env\(safe-area-inset-right\)\)/)
+	assert.match(styles, /\.ambient-side-stack\s*\{[^}]*right: max\(28px, env\(safe-area-inset-right\)\)/)
+	assert.match(styles, /\.ambient-app-rail\s*\{[^}]*width: min\(300px, calc\(100vw - 56px\)\)/)
+	assert.doesNotMatch(styles, /\.ambient-app-switcher\s*\{[^}]*bottom:/)
+	assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.ambient-side-stack\s*\{[^}]*right: max\(16px, env\(safe-area-inset-right\)\)/)
 	assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.ambient-command-trigger\s*\{[^}]*left: max\(16px, env\(safe-area-inset-left\)\);[^}]*right: max\(68px, calc\(env\(safe-area-inset-right\) \+ 68px\)\)/)
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 	assert.match(styles, /\.ambient-settings-dialog/)
@@ -305,24 +311,46 @@ test('adds a hover app switcher and a dock settings center with independent back
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
 })
 
-test('keeps notifications in a default-open collapsible right rail instead of the dock', async () => {
+test('auto-collapses notifications and expands the rail only on hover or keyboard focus', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	assert.match(workbench, /notificationRailCollapsed[\s\S]*useState\(false\)/)
+	assert.match(workbench, /notificationRailExpanded[\s\S]*useState\(false\)/)
 	assert.match(workbench, /ambient-notification-rail/)
-	assert.match(workbench, /aria-label=\{notificationRailCollapsed \? '展开通知' : '折叠通知'\}/)
+	assert.match(workbench, /onMouseEnter=\{\(\) => setNotificationRailExpanded\(true\)\}/)
+	assert.match(workbench, /onMouseLeave=\{\(\) => setNotificationRailExpanded\(false\)\}/)
+	assert.doesNotMatch(workbench, /aria-label=\{notificationRailCollapsed \? '展开通知' : '折叠通知'\}/)
 	assert.match(workbench, /href='\/admin\/notifications'/)
 	assert.doesNotMatch(workbench, /\{ id: 'notifications', label: '通知', icon: Bell/)
 	assert.doesNotMatch(workbench, /activePanel === 'notifications'/)
-	assert.match(styles, /\.ambient-notification-rail[\s\S]*right: max\(28px, env\(safe-area-inset-right\)\)/)
+	assert.match(styles, /\.ambient-side-stack[\s\S]*right: max\(28px, env\(safe-area-inset-right\)\)/)
 	assert.match(styles, /\.ambient-notification-rail\.is-collapsed\s*\{[^}]*grid-template-rows: 44px;[^}]*max-height: 44px;[^}]*width: min\(300px, calc\(100vw - 56px\)\)/)
 	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed\s*\{[^}]*width: 44px/)
 	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed \.ambient-notification-heading > span\s*\{[^}]*display: none/)
-	assert.match(workbench, /notificationRailCollapsed \? <ChevronDown size=\{18\} \/> : <ChevronUp size=\{18\} \/>/)
-	assert.match(workbench, /data-notifications=\{privateWorkbenchVisible \? \(notificationRailCollapsed \? 'collapsed' : 'expanded'\) : 'hidden'\}/)
+	assert.match(workbench, /notificationRailExpanded \? <ChevronUp size=\{18\} \/> : <ChevronDown size=\{18\} \/>/)
+	assert.match(workbench, /data-notifications=\{privateWorkbenchVisible \? \(notificationRailExpanded \? 'expanded' : 'collapsed'\) : 'hidden'\}/)
 	assert.match(styles, /data-notifications='expanded'[\s\S]*\.ambient-center-stage/)
 	assert.match(styles, /\.ambient-command-trigger[\s\S]*right: max\(68px/)
+})
+
+test('uses calmer backup page groupings instead of one dense control grid', async () => {
+	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(backupCenter, /ambient-backup-page-header/)
+	assert.match(backupCenter, /ambient-backup-policy-block/)
+	assert.match(backupCenter, /ambient-backup-policy-grid/)
+	assert.match(backupCenter, /ambient-backup-module-list/)
+	assert.match(styles, /\.ambient-backup-center\s*\{[^}]*gap: 20px/)
+	assert.match(styles, /\.ambient-backup-policy-grid\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+})
+
+test('downloads local backups through an error-aware client action', async () => {
+	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
+
+	assert.match(backupCenter, /const downloadLocalBackup = \(module: BackupModule \| 'all'\)/)
+	assert.match(backupCenter, /response\.blob\(\)/)
+	assert.doesNotMatch(backupCenter, /href='\/api\/admin\/backup-center\/local\/all'/)
 })
 
 test('uses restrained corner radii for the upcoming card, notification rail, and dock', async () => {

@@ -31,6 +31,7 @@ export function YumiOverview() {
   const [refreshError, setRefreshError] = useState('');
   const [selected, setSelected] = useState<{ name: string; day: StatusDay } | null>(null);
   const [statusWindow, setStatusWindow] = useState<StatusWindow>('24h');
+  const [statusWindowLoading, setStatusWindowLoading] = useState(false);
   const loadPromiseRef = useRef<{ window: StatusWindow; promise: Promise<void> } | null>(null);
   const mountedRef = useRef(false);
   const statusWindowRef = useRef(statusWindow);
@@ -62,7 +63,10 @@ export function YumiOverview() {
           setLoadError(cause instanceof Error ? cause.message : copyRef.current('状态加载失败', 'Unable to load status'));
         }
       } finally {
-        if (mountedRef.current && statusWindowRef.current === requestedWindow) setLoading(false);
+        if (mountedRef.current && statusWindowRef.current === requestedWindow) {
+          setLoading(false);
+          setStatusWindowLoading(false);
+        }
       }
     })();
     loadPromiseRef.current = { window: requestedWindow, promise: request };
@@ -144,8 +148,7 @@ export function YumiOverview() {
                       aria-pressed={statusWindow === window}
                       onClick={() => {
                         if (window === statusWindow) return;
-                        setData(null);
-                        setLoading(true);
+                        setStatusWindowLoading(true);
                         setStatusWindow(window);
                       }}
                     >
@@ -179,8 +182,8 @@ export function YumiOverview() {
                     <span>{copy('可用率', 'uptime')}</span>
                   </div>
                 </div>
-                <div className="status-history-scroll" role="region" aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
-                  <div className="status-history-strip">
+                <div className="status-history-scroll" role="region" aria-busy={statusWindowLoading} aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
+                  {statusWindowLoading ? <StatusHistoryLoading /> : <div className="status-history-strip">
                     {buildStatusDisplayHistory(item.history).map((day, index) => (
                       <button
                         type="button"
@@ -191,7 +194,7 @@ export function YumiOverview() {
                         onClick={() => setSelected({ name: item.name, day })}
                       />
                     ))}
-                  </div>
+                  </div>}
                 </div>
                 <div className="yumi-history-axis">
                   <span>{axisStartLabel(statusWindow, language)}</span>
@@ -264,6 +267,10 @@ function Legend({ state, label }: { state: DailyStatusState; label: string }) {
 
 function OverviewSkeleton() {
   return <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-80 w-full" /></div>;
+}
+
+function StatusHistoryLoading() {
+  return <div className="status-history-strip is-loading" aria-hidden="true">{Array.from({ length: 90 }, (_, index) => <span key={index} />)}</div>;
 }
 
 function formatDay(day: string, language: string) {

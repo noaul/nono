@@ -253,6 +253,7 @@ function createNoDeskAdapter(contentDir: string, run: BackupCommandRunner): Back
       throw httpError(409, 'NoDesk backup contains too many entries');
     }
     for (const rawEntry of entries) {
+      if (rawEntry === '.' || rawEntry === './') continue;
       const entry = rawEntry.replace(/^\.\//, '');
       if (!entry || path.posix.isAbsolute(entry) || /^[a-z]:/i.test(entry) || entry.split('/').includes('..')) {
         throw httpError(409, 'NoDesk backup contains an unsafe path');

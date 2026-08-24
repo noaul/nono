@@ -37,7 +37,7 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
     return sendOk(reply, { backups: await services.backupService.list() });
   });
 
-  app.post('/api/admin/backups', { config: { rateLimit: { max: 2, timeWindow: '10 minutes' } } }, async (request, reply) => {
+  app.post('/api/admin/backups', async (request, reply) => {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const result = await services.backupAutomationService.runNow();

@@ -27,14 +27,14 @@ test('keeps every backup control inside the NoDesk settings center', async () =>
 	assert.doesNotMatch(source, /href=['"]\/admin\/backups/)
 })
 
-test('uses an icon-only horizontal application launcher and supports backup deep links', async () => {
+test('uses a labeled application rail and supports backup deep links', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	assert.doesNotMatch(workbench, /<AppWindow size=\{17\} \/><span>应用<\/span>/)
-	assert.match(workbench, /aria-label=\{entry\.label\}/)
+	assert.match(workbench, /<AppWindow size=\{17\} \/><strong>应用<\/strong>/)
+	assert.match(workbench, /<strong>\{entry\.label\}<\/strong>/)
 	assert.match(workbench, /settings=backups|searchParams\.get\('settings'\)[\s\S]*backups/)
-	assert.match(styles, /\.ambient-app-switcher-menu\s*\{[^}]*grid-template-columns:/)
+	assert.match(styles, /\.ambient-app-list\s*\{[^}]*display: grid/)
 })
 
 test('keeps quick application CRUD inside the NoDesk desktop settings tab', async () => {

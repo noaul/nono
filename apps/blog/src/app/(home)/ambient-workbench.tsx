@@ -227,7 +227,7 @@ export default function AmbientWorkbench() {
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<'desktop' | 'backups'>('desktop')
 	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
-	const [notificationRailCollapsed, setNotificationRailCollapsed] = useState(false)
+	const [notificationRailExpanded, setNotificationRailExpanded] = useState(false)
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
 
 	const [tasks, setTasks] = useState<WorkbenchTask[]>([])
@@ -699,7 +699,8 @@ export default function AmbientWorkbench() {
 			className='ambient-workbench'
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
-			data-notifications={privateWorkbenchVisible ? (notificationRailCollapsed ? 'collapsed' : 'expanded') : 'hidden'}
+			data-session={initialized ? 'ready' : 'loading'}
+			data-notifications={privateWorkbenchVisible ? (notificationRailExpanded ? 'expanded' : 'collapsed') : 'hidden'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
@@ -885,48 +886,62 @@ export default function AmbientWorkbench() {
 				)}
 			</AnimatePresence>
 
-			{privateWorkbenchVisible && <aside className={`ambient-notification-rail ambient-wakeable${notificationRailCollapsed ? ' is-collapsed' : ''}`} aria-label='通知'>
-				<header className='ambient-notification-heading'>
-					<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
-					<button type='button' onClick={() => setNotificationRailCollapsed(current => !current)} aria-label={notificationRailCollapsed ? '展开通知' : '折叠通知'} title={notificationRailCollapsed ? '展开通知' : '折叠通知'}>
-						{notificationRailCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-					</button>
-				</header>
-				{!notificationRailCollapsed && <>
-					<div className='ambient-notification-list'>
-						<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
-							{notifications.slice(0, 6).map(item => <ExternalRow
-								key={item.key}
-								title={item.title}
-								subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
-								href={item.href}
-								unread={!item.read}
-								onActivate={() => markNotificationRead(item)}
-								icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={15} /></span>}
-							/>)}
-						</IntegrationList>
-					</div>
-					<div className='ambient-notification-footer'>
-						<button type='button' onClick={() => void loadNotifications()} aria-label='刷新通知' title='刷新通知'><RefreshCw size={15} /></button>
-						<a href='/admin/notifications'>查看全部通知 <ArrowUpRight size={14} /></a>
-					</div>
-				</>}
-			</aside>}
+			{privateWorkbenchVisible && <div className='ambient-side-stack ambient-wakeable'>
+				<aside
+					className={`ambient-notification-rail ambient-side-rail${notificationRailExpanded ? ' is-expanded' : ' is-collapsed'}`}
+					aria-label='通知'
+					aria-expanded={notificationRailExpanded}
+					tabIndex={0}
+					onMouseEnter={() => setNotificationRailExpanded(true)}
+					onMouseLeave={() => setNotificationRailExpanded(false)}
+					onFocus={() => setNotificationRailExpanded(true)}
+					onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setNotificationRailExpanded(false) }}>
+					<header className='ambient-notification-heading'>
+						<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
+						<span className='ambient-side-chevron' aria-hidden='true'>{notificationRailExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+					</header>
+					{notificationRailExpanded && <>
+						<div className='ambient-notification-list'>
+							<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
+								{notifications.slice(0, 6).map(item => <ExternalRow
+									key={item.key}
+									title={item.title}
+									subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
+									href={item.href}
+									unread={!item.read}
+									onActivate={() => markNotificationRead(item)}
+									icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={15} /></span>}
+								/>)}
+							</IntegrationList>
+						</div>
+						<div className='ambient-notification-footer'>
+							<button type='button' onClick={() => void loadNotifications()} aria-label='刷新通知' title='刷新通知'><RefreshCw size={15} /></button>
+							<a href='/admin/notifications'>查看全部通知 <ArrowUpRight size={14} /></a>
+						</div>
+					</>}
+				</aside>
 
-			{privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible && <div
-				className={`ambient-app-switcher ambient-wakeable${appSwitcherOpen ? ' is-open' : ''}`}
-				onMouseEnter={() => setAppSwitcherOpen(true)}
-				onMouseLeave={() => setAppSwitcherOpen(false)}
-				onFocus={() => setAppSwitcherOpen(true)}
-				onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
-				<button type='button' className='ambient-app-switcher-trigger' aria-label='应用切换器' aria-expanded={appSwitcherOpen}>
-					<AppWindow size={18} />
-				</button>
-				<div className='ambient-app-switcher-menu' role='navigation' aria-label='应用快捷入口'>
-					{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} aria-label={entry.label} title={entry.label} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
-						<AppEntryIcon entry={entry} /><span className='ambient-visually-hidden'>{entry.label}</span>
-					</a>)}
-				</div>
+				{workbenchNavigation.quickEntriesVisible && <aside
+					className={`ambient-app-rail ambient-side-rail${appSwitcherOpen ? ' is-expanded' : ' is-collapsed'}`}
+					aria-label='应用'
+					aria-expanded={appSwitcherOpen}
+					tabIndex={0}
+					onMouseEnter={() => setAppSwitcherOpen(true)}
+					onMouseLeave={() => setAppSwitcherOpen(false)}
+					onFocus={() => setAppSwitcherOpen(true)}
+					onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
+					<header className='ambient-notification-heading'>
+						<span><AppWindow size={17} /><strong>应用</strong><b>{workbenchNavigation.entries.length}</b></span>
+						<span className='ambient-side-chevron' aria-hidden='true'>{appSwitcherOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+					</header>
+					{appSwitcherOpen && <nav className='ambient-app-list' aria-label='应用快捷入口'>
+						{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
+							<span className='ambient-app-entry-icon'><AppEntryIcon entry={entry} /></span>
+							<span><strong>{entry.label}</strong><small>{entry.url}</small></span>
+							<ArrowUpRight size={15} />
+						</a>)}
+					</nav>}
+				</aside>}
 			</div>}
 
 			{privateWorkbenchVisible && <div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
