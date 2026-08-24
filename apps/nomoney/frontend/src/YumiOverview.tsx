@@ -7,6 +7,7 @@ import { useLayoutActions } from './Layout';
 import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
+import { buildStatusDisplayHistory, formatStatusLocation } from './yumi-status-display';
 import { APP_TIME_ZONE } from './format';
 
 const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: string; detailEn: string }> = {
@@ -171,7 +172,7 @@ export function YumiOverview() {
                       <StatusDot state={item.currentState} />
                       <h3 className="truncate">{item.name}</h3>
                     </div>
-                    <p>{[item.provider, item.location].filter(Boolean).join(' / ') || copy('未填写服务商与地区', 'Provider and region not set')}</p>
+                    <p>{[item.provider, formatStatusLocation(item.location)].filter(Boolean).join(' / ') || copy('未填写服务商与地区', 'Provider and region not set')}</p>
                   </div>
                   <div className="yumi-uptime">
                     <strong>{item.uptimePercent === null ? '--' : `${item.uptimePercent.toFixed(2)}%`}</strong>
@@ -179,11 +180,11 @@ export function YumiOverview() {
                   </div>
                 </div>
                 <div className="status-history-scroll" role="region" aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
-                  <div className="status-history-strip" style={{ '--status-period-count': item.history.length } as React.CSSProperties}>
-                    {item.history.map((day) => (
+                  <div className="status-history-strip">
+                    {buildStatusDisplayHistory(item.history).map((day, index) => (
                       <button
                         type="button"
-                        key={day.day}
+                        key={`${day.day}-${index}`}
                         className={`status-history-day is-${day.state}`}
                         title={dayTitle(day, language)}
                         aria-label={dayTitle(day, language)}
