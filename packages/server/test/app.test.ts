@@ -136,6 +136,24 @@ describe('NoNo Fastify app', () => {
     expect(response.statusCode).toBe(403);
   });
 
+  it('accepts Chrome extension requests authenticated by a bearer token when a browser cookie is also present', async () => {
+    const cookie = await setupAdmin();
+    const token = await repo.createToken(1, 'Chrome extension', null, ['bookmarks:read']);
+    const extensionOrigin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/folders',
+      headers: {
+        origin: extensionOrigin,
+        cookie,
+        authorization: `Bearer ${token.token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
   it('requires the configured bootstrap token for initial administrator setup', async () => {
     const secured = await buildApp({
       repo: new MemoryRepository(false),

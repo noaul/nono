@@ -153,7 +153,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     const unsafeMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method);
     const bearerRequest = /^Bearer\s+/i.test(request.headers.authorization || '');
     const extensionOrigin = /^chrome-extension:\/\/[a-p]{32}$/.test(request.headers.origin || '');
-    if (extensionOrigin && request.cookies.nono_session) {
+    if (extensionOrigin && !bearerRequest && request.cookies.nono_session) {
       return sendError(reply, 403, 'Browser sessions are not accepted from extension origins');
     }
     if (unsafeMethod && !bearerRequest && request.cookies.nono_session) {
