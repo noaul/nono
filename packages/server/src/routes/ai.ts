@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../types.js';
-import { requireAuth } from '../plugins/auth.js';
+import { requireAuth, requireBrowserSession } from '../plugins/auth.js';
 import { sendOk } from '../plugins/responses.js';
 import { analyzeBookmark, saveAnalyzedBookmark } from '../services/ai.service.js';
 
@@ -22,7 +22,7 @@ const saveSchema = analyzeSchema.extend({
 
 export async function aiRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/ai/analyze', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     return sendOk(reply, await analyzeBookmark(services, user, analyzeSchema.parse(request.body)));
   });

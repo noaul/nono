@@ -5,9 +5,10 @@ import {
   DEBUG_SETTING_KEY,
   PROXY_SETTING_KEY,
   RPC_SETTING_KEY,
-  adminOnly,
   asRecord,
   authed,
+  browserAdminOnly,
+  browserAuthed,
   maskSecret,
   normalizeJson,
   text,
@@ -15,9 +16,9 @@ import {
 import {
   callAria2,
   errorMessage,
-  externalRequest,
   isHttpUrl,
   maskSettingValue,
+  outboundRequest,
   proxyConfigForRequest,
   proxyConfigForStorage,
   publicProxyConfig,
@@ -53,7 +54,7 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.put('/api/nostar/settings', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const updates = asRecord(request.body);
     if (user.role !== 'admin' && [PROXY_SETTING_KEY, RPC_SETTING_KEY].some((key) => key in updates)) {
@@ -82,13 +83,13 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.get('/api/nostar/settings/proxy', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     return publicProxyConfig(await storedConfig(services, user.id, PROXY_SETTING_KEY));
   });
 
   app.put('/api/nostar/settings/proxy', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, PROXY_SETTING_KEY);
@@ -98,14 +99,14 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.post('/api/nostar/settings/proxy/test', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, PROXY_SETTING_KEY);
     try {
       const config = proxyConfigForRequest(input, existing, services.encryptionKey);
       if (!config.host || !config.port) return { success: false, error: 'Host and port are required' };
-      const response = await externalRequest('https://api.github.com/rate_limit', {
+      const response = await outboundRequest(services, user, 'https://api.github.com/rate_limit', {
         method: 'GET',
         headers: { accept: 'application/vnd.github+json', 'user-agent': 'NoStar-NoNo' },
         timeout: 10000,
@@ -117,13 +118,13 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.get('/api/nostar/settings/rpc-download', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     return publicRpcConfig(await storedConfig(services, user.id, RPC_SETTING_KEY));
   });
 
   app.put('/api/nostar/settings/rpc-download', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await storedConfig(services, user.id, RPC_SETTING_KEY);
@@ -133,7 +134,7 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.post('/api/nostar/settings/rpc-download/test', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     const existing = await storedConfig(services, user.id, RPC_SETTING_KEY);
     const config = rpcConfigForRequest(asRecord(request.body), existing, services.encryptionKey);
@@ -142,7 +143,7 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
   });
 
   app.post('/api/nostar/download/rpc', async (request, reply) => {
-    const user = await adminOnly(request, reply, services);
+    const user = await browserAdminOnly(request, reply, services);
     if (!user) return;
     const stored = await storedConfig(services, user.id, RPC_SETTING_KEY);
     const config = rpcConfigForRequest({}, stored, services.encryptionKey);

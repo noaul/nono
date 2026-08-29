@@ -17,6 +17,7 @@ function sessionCookie(response: { headers: Record<string, string | string[] | u
 
 describe('global backups', () => {
   let app: FastifyInstance;
+  let repo: MemoryRepository;
   let adminCookie: string;
   let memberCookie: string;
   let tempDir: string;
@@ -58,7 +59,7 @@ describe('global backups', () => {
       remove: vi.fn().mockResolvedValue(true),
     };
 
-    const repo = new MemoryRepository(true);
+    repo = new MemoryRepository(true);
     await repo.updateConfig({ allowRegistration: true });
     app = await buildApp({ repo, sessionSecret, encryptionKey, backupService } as any);
     const setup = await app.inject({
@@ -198,5 +199,21 @@ describe('global backups', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().data.ok).toBe(true);
     expect(backupService.remove).toHaveBeenCalledWith('20260718T120000Z');
+  });
+
+  it('does not let a full-scope API token operate on whole-stack backups', async () => {
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+    const headers = { authorization: `Bearer ${token}` };
+
+    const responses = await Promise.all([
+      app.inject({ method: 'GET', url: '/api/admin/backups/automation', headers }),
+      app.inject({ method: 'PUT', url: '/api/admin/backups/automation', headers, payload: { enabled: true } }),
+      app.inject({ method: 'GET', url: '/api/admin/backups', headers }),
+      app.inject({ method: 'POST', url: '/api/admin/backups', headers }),
+      app.inject({ method: 'GET', url: '/api/admin/backups/20260718T120000Z/download', headers }),
+      app.inject({ method: 'DELETE', url: '/api/admin/backups/20260718T120000Z', headers }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode)).toEqual([403, 403, 403, 403, 403, 403]);
   });
 });

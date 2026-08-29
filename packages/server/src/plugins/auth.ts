@@ -66,6 +66,16 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply,
   return user;
 }
 
+export async function requireAdminSession(request: FastifyRequest, reply: FastifyReply, services: AppServices) {
+  const user = await requireBrowserSession(request, reply, services);
+  if (!user) return null;
+  if (user.role !== 'admin') {
+    sendError(reply, 403, 'Admin permission required');
+    return null;
+  }
+  return user;
+}
+
 function publicAuthUser(user: any): AuthUser {
   return {
     id: user.id,

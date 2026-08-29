@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../../types.js';
-import { requireAuth, requireBrowserSession } from '../../plugins/auth.js';
+import { requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { assertStrongPassword } from '../../services/auth.service.js';
 import { publicUser } from '../../services/repository.js';
@@ -87,7 +87,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.put('/api/admin/account/llm', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = llmSchema.parse(request.body);
     const patch: Record<string, unknown> = {
@@ -102,7 +102,7 @@ export async function accountRoutes(app: FastifyInstance, services: AppServices)
   });
 
   app.post('/api/admin/account/llm/test', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = llmSchema.parse(request.body);
     const account = await services.repo.findUserById(user.id);

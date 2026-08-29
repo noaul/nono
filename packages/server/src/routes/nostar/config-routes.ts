@@ -6,6 +6,7 @@ import {
   arrayField,
   asRecord,
   authed,
+  browserAuthed,
   defaultVectorConfig,
   nextEncryptedSecret,
   replaceAiProfiles,
@@ -59,7 +60,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.put('/api/admin/nostar/ai', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const profiles = arrayField(request.body, 'profiles');
     await replaceAiProfiles(services, user.id, profiles);
@@ -67,7 +68,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.post('/api/admin/nostar/ai/test', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = input.id
@@ -100,7 +101,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.put('/api/nostar/configs/ai/bulk', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const configs = arrayField(request.body, 'configs');
     await replaceAiProfiles(services, user.id, configs);
@@ -123,7 +124,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.put('/api/nostar/configs/webdav/bulk', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const configs = arrayField(request.body, 'configs');
     await replaceWebDavConfigs(services, user.id, configs);
@@ -147,7 +148,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.put('/api/nostar/configs/embedding/bulk', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const configs = arrayField(request.body, 'configs');
     await replaceEmbeddingConfigs(services, user.id, configs);
@@ -175,7 +176,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
   });
 
   app.put('/api/nostar/configs/vector-search', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const input = asRecord(request.body);
     const existing = await services.prisma.noStarVectorSearchConfig.findUnique({ where: { userId: user.id } });

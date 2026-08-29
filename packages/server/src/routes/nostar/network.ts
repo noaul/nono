@@ -232,8 +232,19 @@ export async function outboundRequest(
   // Configuring one is admin-only. What is still worth blocking is a target that never needed a
   // proxy to begin with — see `assertProxyTarget`.
   if (proxy?.enabled) {
-    assertProxyTarget(url, privateHostsFor(user, services));
-    return externalRequest(url, config, proxy);
+    const allowPrivateHosts = privateHostsFor(user, services);
+    let target = url;
+    let requestConfig: AxiosRequestConfig = { ...config, maxRedirects: 0 };
+    for (let redirects = 0; ; redirects += 1) {
+      assertProxyTarget(target, allowPrivateHosts);
+      const response = await externalRequest(target, requestConfig, proxy);
+      const location = firstHeader(response.headers.location);
+      if (!isRedirect(response.status) || !location) return response;
+      if (redirects >= 3) throw Object.assign(new Error('Too many proxy redirects'), { statusCode: 502 });
+      const nextTarget = new URL(location, target).toString();
+      requestConfig = redirectedProxyConfig(requestConfig, response.status, target, nextTarget);
+      target = nextTarget;
+    }
   }
   const response = await services.safeRequester(url, {
     method: String(config.method || 'GET'),
@@ -254,13 +265,17 @@ export async function outboundRequest(
  * "point an AI baseUrl at 127.0.0.1 and tunnel straight to an internal service port".
  */
 export function assertProxyTarget(rawUrl: string, allowPrivateHosts: string[]) {
-  let host: string;
+  let url: URL;
   try {
-    host = new URL(rawUrl).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    url = new URL(rawUrl);
   } catch {
     throw Object.assign(new Error('Invalid outbound URL'), { statusCode: 400 });
   }
-  if (allowPrivateHosts.map((entry) => entry.trim().toLowerCase()).includes(host)) return;
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw Object.assign(new Error('Invalid outbound URL'), { statusCode: 400 });
+  }
+  const host = canonicalHostname(url.hostname);
+  if (allowPrivateHosts.map(canonicalHostname).includes(host)) return;
 
   const isPrivate = isIP(host)
     ? !isPublicAddress(host)
@@ -270,11 +285,47 @@ export function assertProxyTarget(rawUrl: string, allowPrivateHosts: string[]) {
   }
 }
 
+function canonicalHostname(host: string) {
+  return host.trim().replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+}
+
+function redirectedProxyConfig(config: AxiosRequestConfig, status: number, previousUrl: string, nextUrl: string): AxiosRequestConfig {
+  const headers = { ...(config.headers || {}) } as Record<string, any>;
+  if (new URL(previousUrl).origin !== new URL(nextUrl).origin) {
+    for (const name of Object.keys(headers)) {
+      if (isSensitiveHeaderName(name)) delete headers[name];
+    }
+  }
+
+  const method = String(config.method || 'GET').toUpperCase();
+  if (status === 303 || ((status === 301 || status === 302) && method === 'POST')) {
+    for (const name of Object.keys(headers)) {
+      if (['content-length', 'content-type'].includes(name.toLowerCase())) delete headers[name];
+    }
+    return { ...config, method: 'GET', data: undefined, headers, maxRedirects: 0 };
+  }
+  return { ...config, headers, maxRedirects: 0 };
+}
+
+function isSensitiveHeaderName(name: string) {
+  const normalized = name.trim().toLowerCase();
+  if (['authorization', 'proxy-authorization', 'cookie'].includes(normalized)) return true;
+  return /(?:^|[-_])(?:api[-_]?key|access[-_]?token|auth[-_]?token|session[-_]?token|security[-_]?token|client[-_]?secret|token|secret)$/.test(normalized);
+}
+
+function isRedirect(status: number) {
+  return status >= 300 && status < 400;
+}
+
+function firstHeader(value: unknown) {
+  return Array.isArray(value) ? String(value[0] || '') : typeof value === 'string' ? value : '';
+}
+
 export function privateHostsFor(user: AuthUser, services: AppServices) {
   return user.role === 'admin' ? services.privateOutboundHosts : [];
 }
 
-export async function externalRequest(url: string, config: AxiosRequestConfig, proxy?: RuntimeProxyConfig | null) {
+async function externalRequest(url: string, config: AxiosRequestConfig, proxy?: RuntimeProxyConfig | null) {
   const request: AxiosRequestConfig = { ...config, url, validateStatus: () => true, maxContentLength: 50 * 1024 * 1024 };
   if (proxy?.enabled) {
     if (proxy.type === 'socks5') {

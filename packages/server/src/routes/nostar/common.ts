@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { requireAdmin, requireAuth } from '../../plugins/auth.js';
+import { requireAdminSession, requireAuth, requireBrowserSession } from '../../plugins/auth.js';
 import type { AppServices, AuthUser } from '../../types.js';
 import { decryptSecret, encryptSecret } from '../../utils/crypto.js';
 
@@ -13,8 +13,12 @@ export async function authed(request: FastifyRequest, reply: FastifyReply, servi
   return requireAuth(request, reply, services);
 }
 
-export async function adminOnly(request: FastifyRequest, reply: FastifyReply, services: AppServices): Promise<AuthUser | null> {
-  return requireAdmin(request, reply, services);
+export async function browserAuthed(request: FastifyRequest, reply: FastifyReply, services: AppServices): Promise<AuthUser | null> {
+  return requireBrowserSession(request, reply, services);
+}
+
+export async function browserAdminOnly(request: FastifyRequest, reply: FastifyReply, services: AppServices): Promise<AuthUser | null> {
+  return requireAdminSession(request, reply, services);
 }
 
 export function repositoryData(repo: AnyRecord) {

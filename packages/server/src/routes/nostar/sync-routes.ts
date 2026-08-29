@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
-import { asRecord, authed } from './common.js';
+import { asRecord, authed, browserAuthed } from './common.js';
 import { exportNoStarData, importNoStarData } from './sync-service.js';
 
 export function registerNoStarSyncRoutes(app: FastifyInstance, services: AppServices) {
@@ -11,7 +11,7 @@ export function registerNoStarSyncRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.post('/api/nostar/sync/import', { bodyLimit: 64 * 1024 * 1024 }, async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await browserAuthed(request, reply, services);
     if (!user) return;
     const data = asRecord(request.body);
     if (Object.keys(data).length === 0) {

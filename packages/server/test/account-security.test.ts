@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
-import { createSessionToken } from '../src/utils/crypto.js';
+import { createSessionToken, encryptSecret } from '../src/utils/crypto.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -43,10 +43,12 @@ function sessionCookie(response: { headers: Record<string, string | string[] | u
 describe('account security', () => {
   let app: FastifyInstance;
   let repo: MemoryRepository;
+  let llmClient: { complete: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     repo = new MemoryRepository(false);
-    app = await buildApp({ repo, sessionSecret, encryptionKey, webAuthn } as any);
+    llmClient = { complete: vi.fn(async () => '{"ok":true}') };
+    app = await buildApp({ repo, sessionSecret, encryptionKey, webAuthn, llmClient } as any);
     await app.inject({
       method: 'POST',
       url: '/api/auth/setup',
@@ -364,5 +366,41 @@ describe('account security', () => {
     expect(token.statusCode).toBe(403);
     expect(passwordChange.statusCode).toBe(403);
     expect(revokeSessions.statusCode).toBe(403);
+  });
+
+  it('does not let a full-scope API token redirect a stored LLM credential', async () => {
+    await repo.updateUser(1, {
+      llmProvider: 'openai',
+      llmModel: 'saved-model',
+      llmApiKey: encryptSecret('saved-secret-key', encryptionKey),
+      llmBaseUrl: 'https://trusted.example/v1',
+    });
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+    const headers = { authorization: `Bearer ${token}` };
+
+    const updated = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/account/llm',
+      headers,
+      payload: { provider: 'openai', baseUrl: 'https://attacker.example/collect' },
+    });
+    const tested = await app.inject({
+      method: 'POST',
+      url: '/api/admin/account/llm/test',
+      headers,
+      payload: { baseUrl: 'https://attacker.example/collect' },
+    });
+    const analyzed = await app.inject({
+      method: 'POST',
+      url: '/api/ai/analyze',
+      headers,
+      payload: { url: 'https://example.com/article', title: 'Stored-key analysis' },
+    });
+
+    expect(updated.statusCode).toBe(403);
+    expect(tested.statusCode).toBe(403);
+    expect(analyzed.statusCode).toBe(403);
+    expect(llmClient.complete).not.toHaveBeenCalled();
+    expect((await repo.findUserById(1))?.llmBaseUrl).toBe('https://trusted.example/v1');
   });
 });

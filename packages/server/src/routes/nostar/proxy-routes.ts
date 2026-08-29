@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
-import { isBearerRequest } from '../../plugins/auth.js';
+import { isBearerRequest, requireBrowserSession } from '../../plugins/auth.js';
 import { decryptSecret } from '../../utils/crypto.js';
 import { asRecord, authed, nullableText, text } from './common.js';
 import {
@@ -14,7 +14,7 @@ import {
 
 export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppServices) {
   app.post('/api/nostar/proxy/github/graphql', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
     const proxy = await userProxyConfig(services, user);
@@ -28,7 +28,7 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
   });
 
   app.post('/api/nostar/proxy/github-raw', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
     const proxy = await userProxyConfig(services, user);
@@ -46,7 +46,7 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
   });
 
   app.post('/api/nostar/proxy/github/*', async (request, reply) => {
-    const user = await authed(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const token = await githubTokenFor(services, user.id);
     const proxy = await userProxyConfig(services, user);
@@ -73,10 +73,12 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
   });
 
   app.post('/api/nostar/proxy/ai', { bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
-    const user = await authed(request, reply, services);
-    if (!user) return;
     const input = asRecord(request.body);
-    const proxy = await userProxyConfig(services, user);
+    const user = input.configId
+      ? await requireBrowserSession(request, reply, services)
+      : await authed(request, reply, services);
+    if (!user) return;
+    const proxy = isBearerRequest(request) ? null : await userProxyConfig(services, user);
     const inline = asRecord(input.config);
     let apiType = text(inline.apiType) || 'openai';
     let baseUrl = text(inline.baseUrl);

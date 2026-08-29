@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../../types.js';
-import { requireAdmin } from '../../plugins/auth.js';
+import { requireAdminSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { setAuditContext } from '../../plugins/audit.js';
 
@@ -17,13 +17,13 @@ const automationSchema = z.object({
 
 export async function backupRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/backups/automation', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     return sendOk(reply, await services.backupAutomationService.get());
   });
 
   app.put('/api/admin/backups/automation', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     const before = await services.backupAutomationService.get();
     const updated = await services.backupAutomationService.update(automationSchema.parse(request.body));
@@ -32,13 +32,13 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/admin/backups', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     return sendOk(reply, { backups: await services.backupService.list() });
   });
 
   app.post('/api/admin/backups', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     const result = await services.backupAutomationService.runNow();
     setAuditContext(request, { action: 'create', resourceType: 'backup', resourceId: result.backup.id, resourceLabel: result.backup.id, details: { backup: result.backup, removed: result.removed } });
@@ -50,7 +50,7 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/admin/backups/:id/download', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     const id = String((request.params as { id?: string }).id || '');
     const download = await services.backupService.resolveDownload(id);
@@ -61,7 +61,7 @@ export async function backupRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.delete('/api/admin/backups/:id', async (request, reply) => {
-    const admin = await requireAdmin(request, reply, services);
+    const admin = await requireAdminSession(request, reply, services);
     if (!admin) return;
     const id = String((request.params as { id?: string }).id || '');
     await services.backupService.remove(id);

