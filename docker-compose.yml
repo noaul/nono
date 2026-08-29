@@ -40,7 +40,7 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-nono}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-nono}?schema=public
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:?BOOTSTRAP_TOKEN is required}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       NONO_PUBLIC_URL: ${NONO_PUBLIC_URL:?NONO_PUBLIC_URL is required}

@@ -13,6 +13,32 @@ test('requires environment-managed PostgreSQL credentials', () => {
   assert.doesNotMatch(compose, /postgresql:\/\/nono:nono@/);
 });
 
+test('refuses to start when any required secret is unset', () => {
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+
+  // Every one of these fails the stack fast at `docker compose up` rather than booting with a
+  // placeholder. SESSION_SECRET used to be the exception: it defaulted to a value the app rejects
+  // at startup, which turned a named compose error into an unexplained container crash-loop.
+  for (const name of [
+    'SESSION_SECRET',
+    'BOOTSTRAP_TOKEN',
+    'ENCRYPTION_KEY',
+    'NOMONEY_JWT_SECRET',
+    'NOMONEY_INTERNAL_TOKEN',
+    'YUMI_JWT_SECRET',
+    'YUMI_ENCRYPTION_KEY',
+  ]) {
+    assert.match(
+      compose,
+      new RegExp(`${name}:\\s*\\$\\{${name}:\\?${name} is required\\}`),
+      `${name} must use the :? form so an unset value stops the deployment`,
+    );
+  }
+
+  // The one deliberate exception: it falls back to ENCRYPTION_KEY inside the app.
+  assert.match(compose, /NOMONEY_ENCRYPTION_KEY:\s*\$\{NOMONEY_ENCRYPTION_KEY:-\}/);
+});
+
 test('binds PostgreSQL locally by default and documents required variables', () => {
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   const exampleEnv = fs.readFileSync('.env.example', 'utf8');
