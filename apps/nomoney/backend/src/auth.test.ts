@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import bcrypt from 'bcryptjs';
+import { vi } from 'vitest';
 import { createTestContext, describe, expect, test } from './test-utils.js';
 import { createApp } from './app.js';
 import { createDatabase } from './db.js';
@@ -156,6 +158,33 @@ describe('auth flow', () => {
 
     expect(attempts.map((response) => response.status).sort()).toEqual([201, 409]);
     expect(context.db.get<{ count: number }>('SELECT COUNT(*) as count FROM users')?.count).toBe(1);
+  });
+
+  test('compares a password even when the username does not exist', async () => {
+    // Short-circuiting on an unknown username would answer instantly where a real account pays for
+    // bcrypt, which tells an unauthenticated caller which accounts exist. Assert the comparison
+    // itself runs on both paths rather than measuring wall-clock time, which is flaky under load.
+    const context = await createTestContext();
+    const app = createApp(context);
+    await request(app).post('/api/auth/setup').send({
+      username: 'owner',
+      password: 'correct horse battery staple',
+      email: 'owner@example.com'
+    });
+
+    const compare = vi.spyOn(bcrypt, 'compare');
+    try {
+      const unknown = await request(app).post('/api/auth/login').send({ username: 'nobody', password: 'whatever' });
+      const wrong = await request(app).post('/api/auth/login').send({ username: 'owner', password: 'whatever' });
+
+      expect(unknown.status).toBe(401);
+      expect(unknown.body).toEqual(wrong.body);
+      expect(compare).toHaveBeenCalledTimes(2);
+      // Against a real bcrypt hash, not an empty string, which compare rejects for free.
+      expect(String(compare.mock.calls[0][1])).toMatch(/^\$2[aby]\$10\$/);
+    } finally {
+      compare.mockRestore();
+    }
   });
 
   test('rate limits repeated failed setup attempts', async () => {
