@@ -15,10 +15,7 @@ import {
 	sortCommonBookmarks,
 	toggleTask
 } from '../src/app/(home)/ambient-workbench-model.ts'
-import {
-	DEFAULT_WORKBENCH_APP_ENTRIES,
-	normalizeWorkbenchNavigation
-} from '../src/app/(home)/ambient-workbench-settings.ts'
+import { normalizeWorkbenchNavigation } from '../src/app/(home)/ambient-workbench-settings.ts'
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -134,7 +131,7 @@ test('restarts a completed focus session from the selected preset', () => {
 
 test('normalizes the server-backed NoDesk app switcher settings', () => {
 	assert.deepEqual(normalizeWorkbenchNavigation({
-		navigationEntriesVersion: 4,
+		navigationEntriesVersion: 5,
 		nodeskWorkbench: { quickEntriesVisible: false },
 		navigationEntries: [
 			{ id: 'nomoney', label: '资产', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
@@ -154,17 +151,18 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 	}).entries, [])
 
 	assert.deepEqual(normalizeWorkbenchNavigation({
-		navigationEntriesVersion: 3,
+		navigationEntriesVersion: 4,
 		navigationEntries: [
+			{ id: 'home', label: '书签', url: '/', icon: 'bookmark', enabled: true },
 			{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true },
-			{ id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true }
+			{ id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true },
+			{ id: 'custom-home', label: '个人主页', url: '/', icon: 'link', enabled: true }
 		]
-	}).entries.map(entry => entry.id), ['home', 'nomoney', 'nostar', 'yumi', 'clipper'])
+	}).entries.map(entry => entry.id), ['nomoney', 'nostar', 'custom-home'])
 
-	assert.deepEqual(normalizeWorkbenchNavigation(null), {
-		quickEntriesVisible: true,
-		entries: DEFAULT_WORKBENCH_APP_ENTRIES
-	})
+	assert.deepEqual(normalizeWorkbenchNavigation(null).entries.map(entry => entry.id), [
+		'nomoney', 'nostar', 'yumi', 'clipper'
+	])
 })
 
 test('replaces the legacy card canvas with an ambient dock-driven workbench', async () => {

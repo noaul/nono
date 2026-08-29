@@ -21,7 +21,7 @@ describe('Clipper navigation entry', () => {
    */
   it('is merged into a saved list from an older version', () => {
     const entries = getNavigationEntries({
-      navigationEntriesVersion: navigationEntriesVersion - 1,
+      navigationEntriesVersion: 3,
       navigationEntries: [
         { id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true },
       ],

@@ -35,9 +35,9 @@ export const defaultNavigationEntries: NavigationEntry[] = [
   },
 ];
 
-// Bumped so installs that already persisted a navigation list pick Clipper up. Without this the
-// saved list wins and the entry never appears for anyone who customized their navigation.
-export const navigationEntriesVersion = 4;
+// Version 5 drops the legacy `home` shortcut. The public navigation already is the bookmark page,
+// so sending people back to `/` from that same strip is redundant.
+export const navigationEntriesVersion = 5;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -67,11 +67,20 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
     ? settings.navigationEntries
     : null;
   const savedVersion = isRecord(settings) ? Number(settings.navigationEntriesVersion || 0) : 0;
-  const savedIds = new Set((saved || []).map((value, index) => isRecord(value) ? normalizeId(value.id, index) : ''));
+  const migratedSaved = savedVersion < navigationEntriesVersion
+    ? saved?.filter((value, index) => !(
+        isRecord(value)
+        && normalizeId(value.id, index) === 'home'
+        && safeLocation(value.url) === '/'
+      )) || null
+    : saved;
+  const savedIds = new Set((migratedSaved || []).map((value, index) => isRecord(value) ? normalizeId(value.id, index) : ''));
   const source = saved
     ? savedVersion >= navigationEntriesVersion
       ? saved
-      : [...saved, ...defaultNavigationEntries.filter((entry) => !savedIds.has(entry.id))]
+      : savedVersion === navigationEntriesVersion - 1
+        ? migratedSaved || []
+        : [...(migratedSaved || []), ...defaultNavigationEntries.filter((entry) => !savedIds.has(entry.id))]
     : defaultNavigationEntries;
   const used = new Set<string>();
   return source.flatMap((value, index) => {

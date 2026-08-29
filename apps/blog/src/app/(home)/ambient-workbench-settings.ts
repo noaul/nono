@@ -12,14 +12,13 @@ export type WorkbenchNavigation = {
 }
 
 export const DEFAULT_WORKBENCH_APP_ENTRIES: WorkbenchAppEntry[] = [
-	{ id: 'home', label: '书签', url: '/', icon: 'bookmark', openInNewTab: false },
 	{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false },
 	{ id: 'nostar', label: 'NoStar', url: '/nostar/', icon: 'star', openInNewTab: false },
 	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false },
 	{ id: 'clipper', label: 'Clipper', url: '/clipper/', icon: 'scissors', openInNewTab: false }
 ]
 
-const WORKBENCH_NAVIGATION_VERSION = 4
+const WORKBENCH_NAVIGATION_VERSION = 5
 
 function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
@@ -42,12 +41,20 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 	const workbench = record(source?.nodeskWorkbench)
 	const savedEntries = Array.isArray(source?.navigationEntries) ? source.navigationEntries : null
 	const savedVersion = Number(source?.navigationEntriesVersion || 0)
-	const savedIds = new Set(savedEntries?.flatMap(value => {
+	const migratedEntries = savedVersion < WORKBENCH_NAVIGATION_VERSION
+		? savedEntries?.filter(value => {
+			const entry = record(value)
+			return !(entry?.id === 'home' && safeLocation(entry.url) === '/')
+		}) || null
+		: savedEntries
+	const savedIds = new Set(migratedEntries?.flatMap(value => {
 		const entry = record(value)
 		return typeof entry?.id === 'string' ? [entry.id.trim()] : []
 	}) || [])
 	const sourceEntries = savedEntries && savedVersion < WORKBENCH_NAVIGATION_VERSION
-		? [...savedEntries, ...DEFAULT_WORKBENCH_APP_ENTRIES.filter(entry => entry.id !== 'home' && !savedIds.has(entry.id))]
+		? savedVersion === WORKBENCH_NAVIGATION_VERSION - 1
+			? migratedEntries || []
+			: [...(migratedEntries || []), ...DEFAULT_WORKBENCH_APP_ENTRIES.filter(entry => !savedIds.has(entry.id))]
 		: savedEntries
 	const entries = sourceEntries?.flatMap((value, index) => {
 		const entry = record(value)
@@ -62,12 +69,7 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 			openInNewTab: entry?.openInNewTab === true
 		}]
 	})
-	const includesHome = entries?.some(entry => entry.id === 'home' || entry.url === '/')
-	const visibleEntries = savedEntries && savedVersion >= WORKBENCH_NAVIGATION_VERSION
-		? entries || []
-		: entries?.length
-			? includesHome ? entries : [DEFAULT_WORKBENCH_APP_ENTRIES[0], ...entries]
-			: DEFAULT_WORKBENCH_APP_ENTRIES
+	const visibleEntries = savedEntries ? entries || [] : DEFAULT_WORKBENCH_APP_ENTRIES
 
 	return {
 		quickEntriesVisible: typeof workbench?.quickEntriesVisible === 'boolean' ? workbench.quickEntriesVisible : true,

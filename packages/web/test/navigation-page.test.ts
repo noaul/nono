@@ -178,16 +178,18 @@ describe('NavigationPage public workflow', () => {
     expect(tabs.findAll('button.active')).toHaveLength(1);
   });
 
-  it('migrates saved NoMoney and NoStar entries to open in a new tab', async () => {
+  it('removes the legacy bookmark shortcut while migrating saved service entries', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      navigationEntriesVersion: 2,
+      navigationEntriesVersion: navigationEntriesVersion - 1,
       navigationEntries: [
+        { id: 'home', label: '书签', url: '/', icon: 'bookmark', enabled: true, openInNewTab: false },
         { id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', enabled: true, openInNewTab: false },
         { id: 'nostar', label: 'NoStar', url: '/nostar', icon: 'star', enabled: true, openInNewTab: false },
       ],
     }));
 
     const wrapper = await mountNavigationPage();
+    expect(wrapper.find('[data-testid="navigation-entry-home"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="navigation-entry-nomoney"]').attributes('target')).toBe('_blank');
     expect(wrapper.get('[data-testid="navigation-entry-nostar"]').attributes('target')).toBe('_blank');
   });

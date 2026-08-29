@@ -103,7 +103,7 @@ describe('NoDesk local content API', () => {
 
     expect(response.statusCode).toBe(200);
     expect((await repo.getSite(1))?.settings).toMatchObject({
-      navigationEntriesVersion: 4,
+      navigationEntriesVersion: 5,
       navigationEntries: [
         { id: 'docs', label: '文档', url: 'https://docs.example.com', icon: 'book-open', enabled: true, openInNewTab: true },
         { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', enabled: true, openInNewTab: false },
