@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 import { CLIP_INGEST_BODY_LIMIT } from '../src/services/clip-content.js';
@@ -330,6 +330,41 @@ describe('Clipper routes', () => {
 
     expect(written.statusCode).toBe(200);
     expect(read.statusCode).toBe(200);
+  });
+
+  it('does not grant a clip token the administrator private-host allowlist when refetching', async () => {
+    await app.close();
+    const safeRequester = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+      body: Buffer.from('<html><head><title>LAN article</title></head><body><article><p>Private network article body.</p></article></body></html>'),
+      finalUrl: 'http://clips.lan/article',
+    });
+    app = await buildApp({
+      repo,
+      sessionSecret,
+      encryptionKey,
+      prisma: store.prisma as never,
+      safeRequester: safeRequester as never,
+      privateOutboundHosts: ['clips.lan'],
+    });
+    const cookie = await setupAdmin();
+    const token = await createToken(cookie, ['clips:read', 'clips:write']);
+    await app.inject({
+      method: 'POST',
+      url: '/api/clipper/clips',
+      headers: { cookie },
+      payload: { ...clipPayload, url: 'http://clips.lan/article' },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/clipper/clips/1/refetch',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith('http://clips.lan/article', expect.objectContaining({ allowPrivateHosts: [] }));
   });
 
   it('refuses a bookmark-only token', async () => {

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireAdmin, requireAuth } from '../../plugins/auth.js';
+import { requireAdmin, requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { resolveRequestLocale } from '../../utils/i18n.js';
@@ -36,7 +36,7 @@ const renewalExpenseBodySchema = z.object({
 
 export async function notificationRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/notifications', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const query = listQuerySchema.parse(request.query);
     return sendOk(reply, await services.notificationService.list(user, {
@@ -47,7 +47,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.post('/api/admin/notifications/mark-all-read', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const query = markAllQuerySchema.parse(request.query);
     const updated = query.sources
@@ -57,7 +57,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.put('/api/admin/notifications/:key/read', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const key = String((request.params as { key?: string }).key || '');
     const body = readBodySchema.parse(request.body);
@@ -66,7 +66,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.delete('/api/admin/notifications/:key', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const key = String((request.params as { key?: string }).key || '');
     await services.notificationService.dismiss(user, key);

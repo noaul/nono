@@ -4,6 +4,7 @@ import { sendOk } from '../plugins/responses.js';
 import { resolveUser } from '../plugins/auth.js';
 import { createNavigationAccessToken, verifyNavigationAccessToken, verifyPassword } from '../utils/crypto.js';
 import type { FolderRecord, LinkRecord, SiteRecord } from '../services/repository.js';
+import { currentSessionId } from '../services/session.service.js';
 import { numericParam } from '../utils/route-params.js';
 
 const NAVIGATION_ACCESS_COOKIE = 'nono_navigation_access';
@@ -231,7 +232,8 @@ function publicFolder(folder: FolderRecord, links: LinkRecord[]) {
 
 async function navigationAccess(request: Parameters<typeof resolveUser>[0], site: SiteRecord, services: AppServices) {
   if (!site.guestAccessEnabled) return { required: false, unlocked: true };
-  if (await resolveUser(request, services)) return { required: true, unlocked: true };
+  const user = await resolveUser(request, services);
+  if (user?.id === site.userId && currentSessionId(request)) return { required: true, unlocked: true };
   const token = (request.cookies as Record<string, string> | undefined)?.[NAVIGATION_ACCESS_COOKIE];
   return {
     required: true,

@@ -10,6 +10,7 @@ import type { LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { numericParam } from '../../utils/route-params.js';
+import { currentSessionId } from '../../services/session.service.js';
 
 const linkUpdateSchema = z.object({
   folderId: z.coerce.number().int().positive().optional(),
@@ -148,7 +149,10 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const result = await checkLinksHealth(
       ids.length ? links.filter((link) => idFilter.has(link.id)) : links,
       services.safeRequester,
-      { allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [], concurrency: 4 },
+      {
+        allowPrivateHosts: user.role === 'admin' && currentSessionId(request) ? services.privateOutboundHosts : [],
+        concurrency: 4,
+      },
     );
     await services.repo.updateLinkHealth(user.id, result.results.map((item) => ({
       id: item.id,

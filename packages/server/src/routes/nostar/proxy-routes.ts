@@ -78,7 +78,8 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
       ? await requireBrowserSession(request, reply, services)
       : await authed(request, reply, services);
     if (!user) return;
-    const proxy = isBearerRequest(request) ? null : await userProxyConfig(services, user);
+    const bearerRequest = isBearerRequest(request);
+    const proxy = bearerRequest ? null : await userProxyConfig(services, user);
     const inline = asRecord(input.config);
     let apiType = text(inline.apiType) || 'openai';
     let baseUrl = text(inline.baseUrl);
@@ -111,7 +112,7 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
       headers: target.headers,
       body: JSON.stringify(effectiveBody),
       signal: AbortSignal.timeout(reasoningEffort ? 600000 : 120000),
-    }, proxy);
+    }, proxy, bearerRequest ? [] : undefined);
   });
 
   app.post('/api/nostar/proxy/webdav', { bodyLimit: 16 * 1024 * 1024 }, async (request, reply) => {

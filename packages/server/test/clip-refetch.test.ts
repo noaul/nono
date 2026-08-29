@@ -94,9 +94,23 @@ describe('clip refetch transport', () => {
       privateOutboundHosts: ['internal.lan'],
     });
 
-    await refetch(ADMIN, 1);
+    await refetch(ADMIN, 1, true);
 
     expect(safeRequester.mock.calls[0][1].allowPrivateHosts).toEqual(['internal.lan']);
+  });
+
+  it('withholds the private host allowlist from administrators unless the caller authorizes it', async () => {
+    const prisma = stubPrisma();
+    const safeRequester = vi.fn().mockResolvedValue(htmlResponse());
+    const refetch = createClipRefetch({
+      prisma: prisma as never,
+      safeRequester: safeRequester as never,
+      privateOutboundHosts: ['internal.lan'],
+    });
+
+    await refetch(ADMIN, 1);
+
+    expect(safeRequester.mock.calls[0][1].allowPrivateHosts).toEqual([]);
   });
 
   it('propagates a transport failure instead of swallowing it', async () => {

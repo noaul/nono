@@ -50,11 +50,18 @@ describe('NoDesk local content API', () => {
       calendarEvents: [{ id: 'private', date: '2026-08-22', time: '09:00', title: 'Private review' }],
     }));
 
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
     const publicResponse = await app.inject({ method: 'GET', url: '/api/nodesk/content/site' });
+    const tokenResponse = await app.inject({
+      method: 'GET',
+      url: '/api/nodesk/content/site',
+      headers: { authorization: `Bearer ${token}` },
+    });
     const adminResponse = await app.inject({ method: 'GET', url: '/api/nodesk/content/site', headers: { cookie } });
 
     expect(publicResponse.statusCode).toBe(200);
     expect(publicResponse.json().data).toEqual({ meta: { title: 'NoDesk' } });
+    expect(tokenResponse.json().data).toEqual({ meta: { title: 'NoDesk' } });
     expect(adminResponse.statusCode).toBe(200);
     expect(adminResponse.json().data.calendarEvents).toEqual([
       { id: 'private', date: '2026-08-22', time: '09:00', title: 'Private review' },
@@ -158,6 +165,31 @@ describe('NoDesk local content API', () => {
 
     const responses = await Promise.all(requests);
     expect(responses.map((response) => response.statusCode)).toEqual([403, 403, 403]);
+  });
+
+  it('requires an administrator browser session for every NoDesk management endpoint', async () => {
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+    const headers = { authorization: `Bearer ${token}` };
+
+    const responses = await Promise.all([
+      app.inject({
+        method: 'PUT',
+        url: '/api/admin/nodesk/workbench',
+        headers,
+        payload: { quickEntriesVisible: false },
+      }),
+      app.inject({ method: 'GET', url: '/api/admin/nodesk/files?path=src%2Fapp%2Fprojects%2Flist.json', headers }),
+      app.inject({ method: 'GET', url: '/api/admin/nodesk/files/list?path=src%2Fapp%2Fprojects', headers }),
+      app.inject({
+        method: 'POST',
+        url: '/api/admin/nodesk/files/batch',
+        headers,
+        payload: { files: [{ path: 'src/app/projects/list.json', contentBase64: Buffer.from('[]').toString('base64') }] },
+      }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode)).toEqual([403, 403, 403, 403]);
+    await expect(fs.readFile(path.join(contentDir, 'src/app/projects/list.json'), 'utf8')).resolves.toBe(JSON.stringify([{ name: 'Seed project' }]));
   });
 
   it('writes, lists, reads, and deletes local content files after login', async () => {

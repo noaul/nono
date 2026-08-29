@@ -479,6 +479,74 @@ describe('NoNo Fastify app', () => {
     expect(unlocked.json().data.links[0]).not.toHaveProperty('healthReason');
   });
 
+  it('does not let another signed-in user bypass a protected navigation site', async () => {
+    const ownerCookie = await setupAdmin();
+    const otherUser = await setupUser(ownerCookie);
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie: ownerCookie },
+      payload: { name: 'Owner links' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: ownerCookie },
+      payload: { folderId: folder.json().data.id, name: 'Private link', url: 'https://private.example/' },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie: ownerCookie },
+      payload: { guestAccessEnabled: true, guestAccessPassword: 'GuestAccess2026!' },
+    });
+
+    const ownerView = await app.inject({ method: 'GET', url: '/api/navigation/admin', headers: { cookie: ownerCookie } });
+    const otherView = await app.inject({ method: 'GET', url: '/api/navigation/admin', headers: { cookie: otherUser.cookie } });
+
+    expect(ownerView.json().data).toMatchObject({ access: { required: true, unlocked: true } });
+    expect(ownerView.json().data.folders).toHaveLength(1);
+    expect(otherView.json().data).toMatchObject({ access: { required: true, unlocked: false }, folders: [] });
+  });
+
+  it('does not let an API token bypass its owner protected navigation site', async () => {
+    const ownerCookie = await setupAdmin();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie: ownerCookie },
+      payload: { guestAccessEnabled: true, guestAccessPassword: 'GuestAccess2026!' },
+    });
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+
+    const tokenView = await app.inject({
+      method: 'GET',
+      url: '/api/navigation/admin',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(tokenView.json().data).toMatchObject({ access: { required: true, unlocked: false }, folders: [] });
+  });
+
+  it('does not let an API token overwrite browser-managed site settings', async () => {
+    const ownerCookie = await setupAdmin();
+    const before = await repo.getSite(1);
+    await repo.updateSite(1, {
+      settings: { ...before?.settings, nodeskWorkbench: { quickEntriesVisible: true } },
+    });
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { settings: { nodeskWorkbench: { quickEntriesVisible: false } } },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect((await repo.getSite(1))?.settings).toMatchObject({ nodeskWorkbench: { quickEntriesVisible: true } });
+  });
+
   it('keeps disabled registration and unauthenticated errors in the unified response envelope', async () => {
     const register = await app.inject({
       method: 'POST',
@@ -1457,6 +1525,36 @@ describe('NoNo Fastify app', () => {
       method: 'POST',
       url: '/api/admin/links/health-check',
       headers: { cookie: reader.cookie },
+      payload: { ids: [link.json().data.id] },
+    });
+
+    expect(safeRequester).toHaveBeenCalledWith('http://bookmarks.lan/', expect.objectContaining({ allowPrivateHosts: [] }));
+  });
+
+  it('does not grant API tokens the administrator private-host allowlist', async () => {
+    await app.close();
+    const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
+    app = await buildApp({
+      repo,
+      sessionSecret,
+      encryptionKey,
+      safeRequester: safeRequester as any,
+      privateOutboundHosts: ['bookmarks.lan'],
+    });
+    const adminCookie = await setupAdmin();
+    const token = (await repo.createToken(1, 'extension', null, ['bookmarks:read', 'bookmarks:write'])).token;
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie: adminCookie }, payload: { name: 'Private network' } });
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/admin/links',
+      headers: { cookie: adminCookie },
+      payload: { folderId: folder.json().data.id, name: 'LAN', url: 'http://bookmarks.lan/' },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/links/health-check',
+      headers: { authorization: `Bearer ${token}` },
       payload: { ids: [link.json().data.id] },
     });
 

@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireAdmin, resolveUser } from '../plugins/auth.js';
+import { requireAdminSession, resolveUser } from '../plugins/auth.js';
 import { sendError, sendOk } from '../plugins/responses.js';
 import { setAuditContext } from '../plugins/audit.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
+import { currentSessionId } from '../services/session.service.js';
 import type { AppServices } from '../types.js';
 import { navigationEntriesSchema } from '../utils/site-settings.js';
 
@@ -34,11 +35,12 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
     const content = await store.readPublicJson(resource);
     if (resource !== 'site' && resource !== 'site-content') return sendOk(reply, content);
     const user = await resolveUser(request, services);
-    return sendOk(reply, user?.role === 'admin' ? content : withoutPrivateSiteContent(content));
+    const canReadPrivateContent = user?.role === 'admin' && Boolean(currentSessionId(request));
+    return sendOk(reply, canReadPrivateContent ? content : withoutPrivateSiteContent(content));
   });
 
   app.put('/api/admin/nodesk/workbench', async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await requireAdminSession(request, reply, services);
     if (!user) return;
     const input = workbenchSettingsSchema.parse(request.body);
     const site = await services.repo.getSite(user.id);
@@ -76,7 +78,7 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/admin/nodesk/files', async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await requireAdminSession(request, reply, services);
     if (!user) return;
     const logicalPath = String((request.query as { path?: string }).path || '');
     const content = await store.read(logicalPath);
@@ -84,14 +86,14 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
   });
 
   app.get('/api/admin/nodesk/files/list', async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await requireAdminSession(request, reply, services);
     if (!user) return;
     const logicalPath = String((request.query as { path?: string }).path || '');
     return sendOk(reply, await store.list(logicalPath));
   });
 
   app.post('/api/admin/nodesk/files/batch', { bodyLimit: 16 * 1024 * 1024 }, async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await requireAdminSession(request, reply, services);
     if (!user) return;
     const files = (request.body as { files?: unknown })?.files;
     return sendOk(reply, await store.batch(files));

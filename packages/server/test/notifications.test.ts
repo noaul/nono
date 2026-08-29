@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
+import { createNotificationService } from '../src/services/notification.service.js';
 
 const sessionSecret = 'notification-test-session-secret';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -15,6 +16,7 @@ function sessionCookie(response: { headers: Record<string, string | string[] | u
 describe('notification routes', () => {
   let app: FastifyInstance;
   let cookie: string;
+  let repo: MemoryRepository;
   let notificationService: {
     list: ReturnType<typeof vi.fn>;
     markRead: ReturnType<typeof vi.fn>;
@@ -43,7 +45,7 @@ describe('notification routes', () => {
       undoVpsRenewal: vi.fn(async () => ({ item: { id: 10, expireDate: '2026-08-10' } })),
       updateVpsRenewalExpense: vi.fn(async () => ({ renewal: { id: 41, amountMinorUnits: 1400, currency: 'USD' } })),
     };
-    const repo = new MemoryRepository(false);
+    repo = new MemoryRepository(false);
     app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService, noMoneyClient } as any);
     const setup = await app.inject({
       method: 'POST',
@@ -61,6 +63,50 @@ describe('notification routes', () => {
     const response = await app.inject({ method: 'GET', url: '/api/admin/notifications' });
     expect(response.statusCode).toBe(401);
     expect(notificationService.list).not.toHaveBeenCalled();
+  });
+
+  it('does not expose private NoDesk notifications to a bearer token', async () => {
+    await app.close();
+    const actualNotificationService = createNotificationService({
+      prisma: {
+        notificationState: { findMany: async () => [] },
+      } as never,
+      nodeskReader: async () => ({
+        calendarEvents: [{ id: 'private', date: '2026-08-29', time: '09:00', title: 'Private review', note: 'Secret note' }],
+      }),
+      noMoneyReader: async () => [],
+      backupService: { list: async () => [] },
+      now: () => new Date('2026-08-29T08:00:00.000Z'),
+      timeZone: 'UTC',
+    });
+    app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService: actualNotificationService } as any);
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/notifications?sources=nodesk',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).not.toContain('Private review');
+    expect(response.body).not.toContain('Secret note');
+  });
+
+  it('does not let bearer tokens mutate notification state', async () => {
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+    const headers = { authorization: `Bearer ${token}` };
+
+    const responses = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/admin/notifications/mark-all-read', headers }),
+      app.inject({ method: 'PUT', url: '/api/admin/notifications/nostar%3Aabc/read', headers, payload: { read: true } }),
+      app.inject({ method: 'DELETE', url: '/api/admin/notifications/links%3Aabc', headers }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode)).toEqual([403, 403, 403]);
+    expect(notificationService.markAllRead).not.toHaveBeenCalled();
+    expect(notificationService.markRead).not.toHaveBeenCalled();
+    expect(notificationService.dismiss).not.toHaveBeenCalled();
   });
 
   it('returns the authenticated user feed with a bounded limit', async () => {

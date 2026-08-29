@@ -58,6 +58,7 @@ export async function proxyJson(
   url: string,
   init: RequestInit,
   proxy?: RuntimeProxyConfig | null,
+  allowPrivateHosts?: string[],
 ) {
   const response = await outboundRequest(services, user, url, {
     method: init.method,
@@ -66,7 +67,7 @@ export async function proxyJson(
     signal: init.signal || undefined,
     timeout: init.signal ? 0 : 120000,
     responseType: 'text',
-  }, proxy);
+  }, proxy, allowPrivateHosts);
   const contentType = text(response.headers['content-type']) || 'application/json; charset=utf-8';
   return reply.status(response.status).type(contentType).send(text(response.data));
 }
@@ -226,13 +227,13 @@ export async function outboundRequest(
   url: string,
   config: AxiosRequestConfig,
   proxy?: RuntimeProxyConfig | null,
+  allowPrivateHosts = privateHostsFor(user, services),
 ) {
   // An enabled proxy is a deliberate trust boundary: the request leaves through axios, which
   // resolves and dials on its own, so none of the address checks inside `safeRequester` apply.
   // Configuring one is admin-only. What is still worth blocking is a target that never needed a
   // proxy to begin with — see `assertProxyTarget`.
   if (proxy?.enabled) {
-    const allowPrivateHosts = privateHostsFor(user, services);
     let target = url;
     let requestConfig: AxiosRequestConfig = { ...config, maxRedirects: 0 };
     for (let redirects = 0; ; redirects += 1) {
@@ -253,7 +254,7 @@ export async function outboundRequest(
     timeoutMs: config.timeout && config.timeout > 0 ? config.timeout : 120000,
     maxBytes: typeof config.maxContentLength === 'number' && config.maxContentLength > 0 ? config.maxContentLength : 50 * 1024 * 1024,
     signal: config.signal as AbortSignal | undefined,
-    allowPrivateHosts: privateHostsFor(user, services),
+    allowPrivateHosts,
   });
   return { status: response.statusCode, headers: response.headers, data: response.body.toString('utf8') };
 }

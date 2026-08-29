@@ -7,6 +7,7 @@ import { createClipService } from '../../services/clip.service.js';
 import { createClipRefetch } from '../../services/clip-refetch.js';
 import { handleClipError } from './clip-routes.js';
 import { numericParam } from '../../utils/route-params.js';
+import { currentSessionId } from '../../services/session.service.js';
 
 /**
  * The anchor carries the quote plus its surrounding context, not just offsets. Offsets alone stop
@@ -66,7 +67,7 @@ export function registerClipHighlightRoutes(app: FastifyInstance, services: AppS
       if (!user) return;
 
       try {
-        const clip = await refetch(user, numericParam(request));
+        const clip = await refetch(user, numericParam(request), Boolean(currentSessionId(request)));
         if (!clip) return sendError(reply, 404, 'Clip not found');
         const { contentHtml, contentMd, sourceMeta, ...rest } = clip as Record<string, any>;
         return sendOk(reply, rest);

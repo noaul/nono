@@ -15,6 +15,7 @@ describe('NoStar routes', () => {
   const settings = new Map<string, unknown>();
   let safeRequester: ReturnType<typeof vi.fn>;
   let releaseDeleteMany: ReturnType<typeof vi.fn>;
+  let prisma: any;
 
   beforeEach(async () => {
     repositoryQueries.length = 0;
@@ -22,7 +23,7 @@ describe('NoStar routes', () => {
     releaseDeleteMany = vi.fn(async () => ({ count: 1 }));
     safeRequester = vi.fn(async () => ({ statusCode: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"ok":true}') }));
     repo = new MemoryRepository(false);
-    const prisma: any = {
+    prisma = {
       noStarRepository: {
         findMany: async ({ where }: any) => {
           repositoryQueries.push(where);
@@ -224,6 +225,41 @@ describe('NoStar routes', () => {
     expect(safeRequester).toHaveBeenCalledWith(
       'https://ai.example/v1/chat/completions',
       expect.objectContaining({ method: 'POST', allowPrivateHosts: [] }),
+    );
+  });
+
+  it('does not grant a bearer AI proxy the administrator private-host allowlist', async () => {
+    await app.close();
+    app = await buildApp({
+      repo,
+      prisma,
+      sessionSecret,
+      encryptionKey,
+      safeRequester: safeRequester as any,
+      privateOutboundHosts: ['ai.lan'],
+    });
+    await setupAdmin();
+    const token = (await repo.createToken(1, 'automation', null, ['*'])).token;
+    safeRequester.mockResolvedValueOnce({
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.from('{"choices":[{"message":{"content":"ok"}}]}'),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/proxy/ai',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        config: { apiType: 'openai', baseUrl: 'http://ai.lan', apiKey: 'inline-key', model: 'model' },
+        body: { model: 'model', messages: [] },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith(
+      'http://ai.lan/v1/chat/completions',
+      expect.objectContaining({ allowPrivateHosts: [] }),
     );
   });
 

@@ -32,6 +32,7 @@ export function createClipRefetch({ prisma, safeRequester, privateOutboundHosts 
   return async function refetchClip(
     user: { id: number; role: string },
     clipId: number,
+    allowPrivateAccess = false,
   ) {
     const clip = await prisma.clip.findFirst({ where: { id: clipId, userId: user.id } });
     if (!clip) return null;
@@ -41,9 +42,9 @@ export function createClipRefetch({ prisma, safeRequester, privateOutboundHosts 
       maxBytes: CLIP_REFETCH_MAX_BYTES,
       maxRedirects: CLIP_REFETCH_MAX_REDIRECTS,
       timeoutMs: CLIP_REFETCH_TIMEOUT_MS,
-      // The private-host allowlist widens what the server may reach. Only administrators configure
-      // it, so only administrators get the benefit of it.
-      allowPrivateHosts: user.role === 'admin' ? privateOutboundHosts : [],
+      // The private-host allowlist widens what the server may reach. The route grants it only to a
+      // tracked administrator browser session; bearer tokens never inherit it from the user role.
+      allowPrivateHosts: user.role === 'admin' && allowPrivateAccess ? privateOutboundHosts : [],
       headers: { accept: 'text/html,application/xhtml+xml' },
     });
 

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
-import { requireAuth } from '../../plugins/auth.js';
+import { requireAuth, requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { siteUpdateSchema } from '../../utils/site-settings.js';
 import { setAuditContext } from '../../plugins/audit.js';
@@ -15,7 +15,7 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
   });
 
   app.put('/api/admin/site', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
+    const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
     const input = siteUpdateSchema.parse(request.body);
     const current = await services.repo.getSite(user.id);
