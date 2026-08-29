@@ -4,12 +4,17 @@ import path from 'node:path';
 import test from 'node:test';
 
 /**
- * The shared UI contract is duplicated into every operator-facing app because the Dockerfile
- * builds each app from its own directory only — nothing outside an app's tree is reachable at
- * build time, so a shared workspace package would break that isolation.
+ * The shared UI contract is duplicated into every operator-facing app because each of those apps is
+ * an independent project: apps/nostar, apps/nomoney and apps/clipper sit outside the root npm
+ * workspaces and carry their own lockfiles, so none of them can reference a shared workspace
+ * package, and each dev server resolves only from its own root.
  *
- * These tests are what make the duplication safe: the copies must stay byte-identical, and the
- * values must match what docs/design/ui-contract.md documents.
+ * The Docker build is not the reason. The build context is the repository root and the Dockerfile
+ * already copies across directories, so a shared file would be reachable at build time. Sharing it
+ * for real means adding a sync step and touching all four toolchains.
+ *
+ * These tests are what make the duplication safe in the meantime: the copies must stay
+ * byte-identical, and the values must match what docs/design/ui-contract.md documents.
  */
 
 const root = process.cwd();
