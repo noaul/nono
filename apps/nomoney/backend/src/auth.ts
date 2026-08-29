@@ -11,8 +11,15 @@ function cookieName(context: AppContext): string {
   return context.product === 'yumi' ? 'yumi_session' : 'moneypulse_session';
 }
 const authWindowMs = 15 * 60 * 1000;
-const maxAuthAttempts = 8;
-const authAttempts = new WeakMap<AppContext, Map<string, { count: number; resetAt: number }>>();
+export const maxAuthAttempts = 8;
+/**
+ * Buckets are keyed per (ip, username) and are otherwise only dropped when that exact key is
+ * revisited after lapsing, so an attacker cycling usernames would grow this map without bound.
+ * `pruneAuthRateLimit` caps it.
+ */
+export const maxAuthRateKeys = 10_000;
+export type AuthAttempt = { count: number; resetAt: number };
+const authAttempts = new WeakMap<AppContext, Map<string, AuthAttempt>>();
 const setupQueues = new WeakMap<AppContext, Promise<void>>();
 
 const setupSchema = z.object({
@@ -80,7 +87,8 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
         [body.username]
       );
 
-      if (!user || !(await bcrypt.compare(body.password, user.password_hash))) {
+      const passwordMatches = await bcrypt.compare(body.password, user?.password_hash || await absentUserHash());
+      if (!user || !passwordMatches) {
         recordFailedAuthAttempt(context, rateKey);
         throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
       }
@@ -124,6 +132,18 @@ export function registerAuthRoutes(router: Router, context: AppContext): void {
       res.status(204).end();
     })
   );
+}
+
+/**
+ * The hash of a password nobody holds, derived once on first use at the same cost factor as a real
+ * one. An unknown username is compared against this rather than short-circuiting, so a failed login
+ * takes the same time either way instead of answering instantly for accounts that do not exist.
+ */
+let absentUserPasswordHash: Promise<string> | null = null;
+
+function absentUserHash(): Promise<string> {
+  absentUserPasswordHash ??= bcrypt.hash(randomUUID(), 10);
+  return absentUserPasswordHash;
 }
 
 async function withSetupLock(context: AppContext, operation: () => Promise<void>): Promise<void> {
@@ -280,11 +300,30 @@ function recordFailedAuthAttempt(context: AppContext, key: string): void {
   const now = Date.now();
   const buckets = rateBuckets(context);
   const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + authWindowMs });
+  if (bucket && bucket.resetAt > now) {
+    bucket.count += 1;
     return;
   }
-  bucket.count += 1;
+  if (!buckets.has(key)) pruneAuthRateLimit(buckets, now);
+  buckets.set(key, { count: 1, resetAt: now + authWindowMs });
+}
+
+export function pruneAuthRateLimit(buckets: Map<string, AuthAttempt>, now: number): void {
+  if (buckets.size < maxAuthRateKeys) return;
+
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  }
+  if (buckets.size < maxAuthRateKeys) return;
+
+  // Nothing had lapsed yet, so shed a batch rather than sweeping again on the very next insert.
+  // Fewest attempts go first, which is what makes shedding safe: a flood of fresh keys carries a
+  // count of 1 and evicts itself, while an account actually approaching its lockout is the last
+  // thing dropped. Soonest-to-expire only breaks ties.
+  const ordered = [...buckets].sort((left, right) => (
+    left[1].count - right[1].count || left[1].resetAt - right[1].resetAt
+  ));
+  for (const [key] of ordered.slice(0, Math.ceil(maxAuthRateKeys / 10))) buckets.delete(key);
 }
 
 function clearAuthRateLimit(context: AppContext, key: string): void {
