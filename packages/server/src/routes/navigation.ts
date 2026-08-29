@@ -4,6 +4,7 @@ import { sendOk } from '../plugins/responses.js';
 import { resolveUser } from '../plugins/auth.js';
 import { createNavigationAccessToken, verifyNavigationAccessToken, verifyPassword } from '../utils/crypto.js';
 import type { FolderRecord, LinkRecord, SiteRecord } from '../services/repository.js';
+import { numericParam } from '../utils/route-params.js';
 
 const NAVIGATION_ACCESS_COOKIE = 'nono_navigation_access';
 const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024;
@@ -97,7 +98,7 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const access = await navigationAccess(request, site, services);
     if (!access.unlocked) throw Object.assign(new Error('Navigation access required'), { statusCode: 403 });
-    const recorded = await services.repo.recordLinkClick(site.userId, Number((request.params as any).id));
+    const recorded = await services.repo.recordLinkClick(site.userId, numericParam(request));
     if (!recorded) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     return reply.status(204).send();
   });
@@ -171,7 +172,7 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const access = await navigationAccess(request, site, services);
     if (!access.unlocked) throw Object.assign(new Error('Navigation access required'), { statusCode: 403 });
-    const folder = await services.repo.getFolder(site.userId, Number((request.params as any).id));
+    const folder = await services.repo.getFolder(site.userId, numericParam(request));
     if (!folder?.passwordHash) return sendOk(reply, { verified: true });
     const ok = await verifyPassword(String((request.body as any)?.password || ''), folder.passwordHash);
     return sendOk(reply, {

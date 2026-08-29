@@ -6,6 +6,7 @@ import { sendError, sendOk } from '../../plugins/responses.js';
 import { createClipService } from '../../services/clip.service.js';
 import { createClipRefetch } from '../../services/clip-refetch.js';
 import { handleClipError } from './clip-routes.js';
+import { numericParam } from '../../utils/route-params.js';
 
 /**
  * The anchor carries the quote plus its surrounding context, not just offsets. Offsets alone stop
@@ -39,7 +40,7 @@ export function registerClipHighlightRoutes(app: FastifyInstance, services: AppS
 
     const input = highlightSchema.parse(request.body);
     try {
-      const highlight = await clips.addHighlight(user.id, Number((request.params as any).id), input);
+      const highlight = await clips.addHighlight(user.id, numericParam(request), input);
       return sendOk(reply, highlight);
     } catch (error) {
       return handleClipError(reply, error);
@@ -50,7 +51,7 @@ export function registerClipHighlightRoutes(app: FastifyInstance, services: AppS
     const user = await requireAuth(request, reply, services);
     if (!user) return;
 
-    const removed = await clips.removeHighlight(user.id, Number((request.params as any).id));
+    const removed = await clips.removeHighlight(user.id, numericParam(request));
     if (!removed) return sendError(reply, 404, 'Highlight not found');
     return sendOk(reply, { ok: true });
   });
@@ -65,7 +66,7 @@ export function registerClipHighlightRoutes(app: FastifyInstance, services: AppS
       if (!user) return;
 
       try {
-        const clip = await refetch(user, Number((request.params as any).id));
+        const clip = await refetch(user, numericParam(request));
         if (!clip) return sendError(reply, 404, 'Clip not found');
         const { contentHtml, contentMd, sourceMeta, ...rest } = clip as Record<string, any>;
         return sendOk(reply, rest);

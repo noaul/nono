@@ -7,6 +7,7 @@ import { hashPassword } from '../../utils/crypto.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import type { FolderRecord } from '../../services/repository.js';
 import { setAuditContext } from '../../plugins/audit.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const folderUpdateSchema = z.object({
   parentId: z.union([z.number().int().positive(), z.null(), z.literal('')]).optional(),
@@ -75,7 +76,7 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
   app.put('/api/admin/folders/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const { password, parentId, ...fields } = folderUpdateSchema.parse(request.body);
     setAuditContext(request, { action: 'update', resourceType: 'folder', resourceId: id });
     const current = await services.repo.getFolder(user.id, id);
@@ -100,7 +101,7 @@ export async function folderRoutes(app: FastifyInstance, services: AppServices) 
   app.delete('/api/admin/folders/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const current = await services.repo.getFolder(user.id, id);
     await services.repo.deleteFolder(user.id, id);
     setAuditContext(request, {

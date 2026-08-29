@@ -9,6 +9,7 @@ import { checkLinksHealth, shouldSkipLinkHealthCheck } from '../../services/link
 import type { LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import { setAuditContext } from '../../plugins/audit.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const linkUpdateSchema = z.object({
   folderId: z.coerce.number().int().positive().optional(),
@@ -188,7 +189,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body: Partial<LinkRecord> = linkUpdateSchema.parse(request.body);
-    const linkId = Number((request.params as any).id);
+    const linkId = numericParam(request);
     const current = (await services.repo.listLinks(user.id)).find((link) => link.id === linkId);
     if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     const before = linkAuditSnapshot(current);
@@ -228,7 +229,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.delete('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const before = (await services.repo.listLinks(user.id)).find((link) => link.id === id);
     await services.repo.deleteLink(user.id, id);
     setAuditContext(request, { action: 'delete', resourceType: 'bookmark', resourceId: id, resourceLabel: before?.name || null, details: { before: before ? linkAuditSnapshot(before) : null } });

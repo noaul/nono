@@ -5,6 +5,7 @@ import { requireAdmin } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import { publicUser } from '../../services/repository.js';
 import { setAuditContext } from '../../plugins/audit.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const userUpdateSchema = z.object({
   role: z.enum(['admin', 'user']).optional(),
@@ -29,7 +30,7 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const input = userUpdateSchema.parse(request.body);
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const current = await services.repo.findUserById(id);
     const before = current ? publicUser(current) : null;
     const updated = publicUser(await services.repo.updateUser(id, input as any));
@@ -40,7 +41,7 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
   app.delete('/api/admin/users/:id', async (request, reply) => {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     if (id === admin.id) throw Object.assign(new Error('You cannot delete your own account'), { statusCode: 400 });
     const current = await services.repo.findUserById(id);
     await services.repo.deleteUser(id);

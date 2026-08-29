@@ -4,6 +4,7 @@ import { requireAdmin, requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
 import type { AppServices } from '../../types.js';
 import { resolveRequestLocale } from '../../utils/i18n.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const notificationSourceSchema = z.enum(['nodesk', 'nomoney', 'yumi', 'nostar', 'links', 'backup']);
 const sourceFilterSchema = z.preprocess(
@@ -75,7 +76,7 @@ export async function notificationRoutes(app: FastifyInstance, services: AppServ
   app.post('/api/admin/yumi/vps/:id/renew', async (request, reply) => {
     const user = await requireAdmin(request, reply, services);
     if (!user) return;
-    const id = z.coerce.number().int().positive().parse((request.params as { id?: string }).id);
+    const id = numericParam(request);
     return sendOk(reply, await services.noMoneyClient.renewVps(id, vpsRenewalBodySchema.parse(request.body)));
   });
 

@@ -6,6 +6,7 @@ import { sendError, sendOk } from '../../plugins/responses.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { CLIP_INGEST_BODY_LIMIT, ClipValidationError } from '../../services/clip-content.js';
 import { CLIP_STATUSES, createClipService } from '../../services/clip.service.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const ingestSchema = z.object({
   url: z.string().url(),
@@ -87,7 +88,7 @@ export function registerClipRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
 
-    const clip = await clips.get(user.id, Number((request.params as any).id));
+    const clip = await clips.get(user.id, numericParam(request));
     // 404 rather than 403: a clip owned by someone else must not be distinguishable from one that
     // does not exist.
     if (!clip) return sendError(reply, 404, 'Clip not found');
@@ -98,7 +99,7 @@ export function registerClipRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
 
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const patch = patchSchema.parse(request.body);
     try {
       const clip = await clips.update(user.id, id, patch);
@@ -119,7 +120,7 @@ export function registerClipRoutes(app: FastifyInstance, services: AppServices) 
     const user = await requireAuth(request, reply, services);
     if (!user) return;
 
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const removed = await clips.removeToTrash(user.id, id);
     if (!removed) return sendError(reply, 404, 'Clip not found');
     setAuditContext(request, { action: 'delete', resourceType: 'clip', resourceId: id });

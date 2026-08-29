@@ -6,6 +6,7 @@ import { sendOk } from '../../plugins/responses.js';
 import type { ApiTokenRecord } from '../../services/repository.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { API_TOKEN_SCOPES, DEFAULT_API_TOKEN_SCOPES } from '../../utils/api-token-scopes.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const tokenSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -82,7 +83,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   app.patch('/api/admin/tokens/:id', async (request, reply) => {
     const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const input = scopeUpdateSchema.parse(request.body);
     const before = (await services.repo.listTokens(user.id)).find((token) => token.id === id);
     const updated = await services.repo.updateTokenScopes(user.id, id, input.scopes);
@@ -100,7 +101,7 @@ export async function tokenRoutes(app: FastifyInstance, services: AppServices) {
   app.delete('/api/admin/tokens/:id', async (request, reply) => {
     const user = await requireBrowserSession(request, reply, services);
     if (!user) return;
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const current = (await services.repo.listTokens(user.id)).find((token) => token.id === id);
     await services.repo.deleteToken(user.id, id);
     setAuditContext(request, {

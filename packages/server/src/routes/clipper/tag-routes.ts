@@ -6,6 +6,7 @@ import { sendError, sendOk } from '../../plugins/responses.js';
 import { createClipService } from '../../services/clip.service.js';
 import { normalizeClipTagName } from '../../services/prisma.repository.js';
 import { handleClipError } from './clip-routes.js';
+import { numericParam } from '../../utils/route-params.js';
 
 const tagSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -52,7 +53,7 @@ export function registerClipTagRoutes(app: FastifyInstance, services: AppService
     const user = await requireAuth(request, reply, services);
     if (!user) return;
 
-    const id = Number((request.params as any).id);
+    const id = numericParam(request);
     const input = tagSchema.partial().parse(request.body);
     const current = await prisma.clipTag.findFirst({ where: { id, userId: user.id } });
     if (!current) return sendError(reply, 404, 'Tag not found');
@@ -85,7 +86,7 @@ export function registerClipTagRoutes(app: FastifyInstance, services: AppService
     if (!user) return;
 
     const removed = await prisma.clipTag.deleteMany({
-      where: { id: Number((request.params as any).id), userId: user.id },
+      where: { id: numericParam(request), userId: user.id },
     });
     if (!removed.count) return sendError(reply, 404, 'Tag not found');
     return sendOk(reply, { ok: true });
@@ -97,7 +98,7 @@ export function registerClipTagRoutes(app: FastifyInstance, services: AppService
 
     const input = assignSchema.parse(request.body);
     try {
-      const assigned = await clips.assignTags(user.id, Number((request.params as any).id), input.tagIds);
+      const assigned = await clips.assignTags(user.id, numericParam(request), input.tagIds);
       return sendOk(reply, { assigned });
     } catch (error) {
       return handleClipError(reply, error);
