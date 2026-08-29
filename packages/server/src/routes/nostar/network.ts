@@ -1,8 +1,10 @@
 import type { FastifyReply } from 'fastify';
+import { isIP } from 'node:net';
 import axios, { type AxiosRequestConfig } from 'axios';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import type { AppServices, AuthUser } from '../../types.js';
 import { decryptSecret, encryptSecret } from '../../utils/crypto.js';
+import { isPublicAddress } from '../../utils/safe-fetch.js';
 import {
   PROXY_SETTING_KEY,
   RPC_SETTING_KEY,
@@ -225,7 +227,14 @@ export async function outboundRequest(
   config: AxiosRequestConfig,
   proxy?: RuntimeProxyConfig | null,
 ) {
-  if (proxy?.enabled) return externalRequest(url, config, proxy);
+  // An enabled proxy is a deliberate trust boundary: the request leaves through axios, which
+  // resolves and dials on its own, so none of the address checks inside `safeRequester` apply.
+  // Configuring one is admin-only. What is still worth blocking is a target that never needed a
+  // proxy to begin with — see `assertProxyTarget`.
+  if (proxy?.enabled) {
+    assertProxyTarget(url, privateHostsFor(user, services));
+    return externalRequest(url, config, proxy);
+  }
   const response = await services.safeRequester(url, {
     method: String(config.method || 'GET'),
     headers: config.headers as Record<string, string> | undefined,
@@ -236,6 +245,29 @@ export async function outboundRequest(
     allowPrivateHosts: privateHostsFor(user, services),
   });
   return { status: response.statusCode, headers: response.headers, data: response.body.toString('utf8') };
+}
+
+/**
+ * A hostname the proxy resolves cannot be checked here, and that is fine — the proxy exists to
+ * reach public APIs from a network that cannot. What can be checked is a target that is already
+ * private before any resolution: a literal loopback/RFC1918 address or a loopback name. Those close
+ * "point an AI baseUrl at 127.0.0.1 and tunnel straight to an internal service port".
+ */
+export function assertProxyTarget(rawUrl: string, allowPrivateHosts: string[]) {
+  let host: string;
+  try {
+    host = new URL(rawUrl).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  } catch {
+    throw Object.assign(new Error('Invalid outbound URL'), { statusCode: 400 });
+  }
+  if (allowPrivateHosts.map((entry) => entry.trim().toLowerCase()).includes(host)) return;
+
+  const isPrivate = isIP(host)
+    ? !isPublicAddress(host)
+    : host === 'localhost' || /\.(?:localhost|local|internal)$/.test(host);
+  if (isPrivate) {
+    throw Object.assign(new Error('Proxy target must be a public address'), { statusCode: 400 });
+  }
 }
 
 export function privateHostsFor(user: AuthUser, services: AppServices) {
