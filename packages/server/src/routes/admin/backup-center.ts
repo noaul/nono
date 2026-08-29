@@ -10,11 +10,16 @@ const moduleSchema = z.enum(BACKUP_MODULES);
 const modulesSchema = z.object({ modules: z.array(moduleSchema).min(1).max(BACKUP_MODULES.length).optional() });
 
 export async function backupCenterRoutes(app: FastifyInstance, services: AppServices) {
+  /**
+   * Every route here either uses stored WebDAV credentials or moves the whole dataset, so all of
+   * them need an administrator at a browser, not a token. A `*`-scoped API token would otherwise
+   * export the entire database in one GET and overwrite it in one POST.
+   */
   async function admin(request: Parameters<typeof requireAdmin>[0], reply: Parameters<typeof requireAdmin>[1]) {
     const user = await requireAdmin(request, reply, services);
     if (!user) return null;
     if (isBearerRequest(request)) {
-      reply.status(403).send({ code: 403, data: null, message: 'Stored WebDAV credentials require an administrator session' });
+      reply.status(403).send({ code: 403, data: null, message: 'Backup and restore require an administrator session' });
       return null;
     }
     return user;
@@ -77,7 +82,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.get('/api/admin/backup-center/local/:module', async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await admin(request, reply);
     if (!user) return;
     const module = z.union([moduleSchema, z.literal('all')]).parse((request.params as { module?: string }).module);
     const download = await services.backupCenterService.createLocalBackup(user.id, module);
@@ -88,7 +93,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
   });
 
   app.post('/api/admin/backup-center/local/:module/restore', { bodyLimit: 256 * 1024 * 1024 }, async (request, reply) => {
-    const user = await requireAdmin(request, reply, services);
+    const user = await admin(request, reply);
     if (!user) return;
     const module = z.union([moduleSchema, z.literal('all')]).parse((request.params as { module?: string }).module);
     const body = Buffer.from(JSON.stringify(request.body));

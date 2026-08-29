@@ -96,3 +96,74 @@ describe('backup center routes', () => {
     expect(JSON.parse(call[2].toString())).toEqual(payload);
   });
 });
+
+/**
+ * These two routes move the whole dataset — one GET exports every module, one POST overwrites them
+ * — so they are the last place a stored credential should be enough. The WebDAV half of the file
+ * already required a session; the local half did not, which left the most destructive pair as the
+ * only ones a `*`-scoped API token could reach.
+ */
+describe('backup center credentials', () => {
+  let app: FastifyInstance;
+  let adminToken: string;
+  let adminCookie: string;
+
+  beforeEach(async () => {
+    const repo = new MemoryRepository(false);
+    const center = {
+      createLocalBackup: vi.fn(async () => ({ filename: 'backup.json', contentType: 'application/json', body: Buffer.from('{}') })),
+      restoreLocalBackup: vi.fn(async () => ({ restored: ['nono'] })),
+    } as unknown as BackupCenterService;
+    app = await buildApp({ repo, sessionSecret, encryptionKey, backupCenterService: center } as any);
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: { username: 'admin', email: 'admin@nono.test', displayName: 'Admin', password: 'Password2026!' },
+    });
+    adminCookie = cookieFrom(setup);
+    adminToken = (await repo.createToken(1, 'automation', null, ['*'])).token;
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('refuses a full local export presented with an API token', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backup-center/local/all',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().message).toBe('Backup and restore require an administrator session');
+  });
+
+  it('refuses a local restore presented with an API token', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/backup-center/local/nono/restore',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { kind: 'nono.module-backup' },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('still serves both to an administrator session', async () => {
+    const exported = await app.inject({
+      method: 'GET',
+      url: '/api/admin/backup-center/local/all',
+      headers: { cookie: adminCookie },
+    });
+    const restored = await app.inject({
+      method: 'POST',
+      url: '/api/admin/backup-center/local/nono/restore',
+      headers: { cookie: adminCookie, origin: 'http://localhost:3000' },
+      payload: { kind: 'nono.module-backup' },
+    });
+
+    expect(exported.statusCode).toBe(200);
+    expect(restored.statusCode).toBe(200);
+  });
+});
