@@ -20,6 +20,10 @@ export async function responsePlugin(app: FastifyInstance) {
       return;
     }
     const status = Number(err.statusCode || 500);
+    // Fastify only logs a failed request from its own default error handler, and registering this
+    // one replaces it. Without this line every unexpected 500 — a Prisma failure, a TypeError —
+    // reaches the client as an opaque "Internal server error" and leaves no trace in the log.
+    if (status >= 500) request.log.error({ err: error }, 'unhandled request error');
     const message = status === 500 ? 'Internal server error' : err.message || 'Internal server error';
     setAuditContext(request, { errorMessage: message });
     sendError(reply, status, message, status);
