@@ -1,6 +1,10 @@
 # Nono
 
 <p align="center">
+  <strong>简体中文</strong> | <a href="README_EN.md">English</a>
+</p>
+
+<p align="center">
   <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="Nono 图标">
 </p>
 
@@ -42,6 +46,8 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - [常见问题](#常见问题)
 - [维护约定](#维护约定)
 - [文档索引](#文档索引)
+- [项目链接与许可](#项目链接与许可)
+- [社区](#社区)
 
 ## 项目组成
 
@@ -97,7 +103,7 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 
 ### NoStar
 
-- 项目来源：[AmintaCCCP/GithubStarsManager](https://github.com/AmintaCCCP/GithubStarsManager)。
+- NoStar 基于 [AmintaCCCP/GithubStarsManager](https://github.com/AmintaCCCP/GithubStarsManager) 集成与演进。
 - 同步并管理 GitHub Stars，支持分类、自定义标签、描述、排序和批量操作。
 - 提供本地搜索、筛选、README 查看、相似项目和发现视图。
 - 跟踪仓库 Release、未读状态和下载资源。
@@ -110,29 +116,29 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - 仅在用户主动操作时读取当前标签页的标题、URL、描述和正文摘要。
 - 支持 AI 分析后确认保存、手动选择文件夹、快速保存到上次文件夹。
 - 发现相同 URL 时可以更新已有书签，避免无提示地重复创建。
-- 提供工具栏弹窗、右键菜单和 `Alt+Shift+S` / `Alt+Shift+B` 快捷键。
+- 提供工具栏弹窗、右键菜单和 `Alt+Shift+S` / `Alt+Shift+B` / `Alt+Shift+C` 快捷键。
 - 服务端访问权限按用户配置的精确 Origin 动态申请，不使用常驻内容脚本。
 - 弹窗采用 HyperOS 风格的雾面玻璃视觉，并内置版本、GitHub、Issue 和隐私政策入口。
 
 ### Clipper
 
-- 通过 Chrome 扩展剪藏整页正文或选区,保存为净化后的 HTML 与 Markdown。
+- 通过 Chrome 扩展剪藏整页正文或选区，保存为净化后的 HTML 与 Markdown。
 - 提供阅读器、列表/紧凑双视图、状态与星标筛选、标签和划词标注。
-- 支持重新抓取原文;抓取走服务端安全出站层,并限流 10 次 / 10 分钟。
-- 剪藏与书签可选关联;删除书签只会解除关联,不会删除剪藏。
+- 支持重新抓取原文；抓取走服务端安全出站层，并限流 10 次 / 10 分钟。
+- 剪藏与书签可选关联；删除书签只会解除关联，不会删除剪藏。
 
-**边界与已知限制:**
+**边界与已知限制：**
 
-- 单条剪藏的 `contentHtml` 与 `contentMd` 各自上限 2 MiB,`sourceMeta` 上限 256 KiB,
-  上传请求体上限 6 MiB。扩展会按 UTF-8 边界截断并标记 `contentTruncated`,服务端不信任该标记,
+- 单条剪藏的 `contentHtml` 与 `contentMd` 各自上限 2 MiB，`sourceMeta` 上限 256 KiB，
+  上传请求体上限 6 MiB。扩展会按 UTF-8 边界截断并标记 `contentTruncated`，服务端不信任该标记，
   仍会拒绝任何超限字段。
-- 检索使用 PostgreSQL `pg_trgm` 三元组索引。PostgreSQL 内置无中文分词器,三元组可匹配任意语种子串,
-  但**少于 3 个字符的查询无法命中索引**,会退化为顺序扫描——两字中文查询正是常见情形。
-- 生成列 `searchText` 会复制一份 `contentMd`,叠加 GIN 索引后单条剪藏约占 3 倍存储。
-- 阅读器在 `srcdoc` 沙箱 iframe 中渲染,**不授予 `allow-scripts`**;这是服务端净化之后的第二道防线。
-- 首版**不含**:公开分享、图片本地化、AI 摘要与自动打标、转 NoDesk 文章、同一书签关联多条剪藏。
+- 检索使用 PostgreSQL `pg_trgm` 三元组索引。PostgreSQL 内置无中文分词器，三元组可匹配任意语种子串，
+  但**少于 3 个字符的查询无法命中索引**，会退化为顺序扫描；两字中文查询正是常见情形。
+- 生成列 `searchText` 会复制一份 `contentMd`，叠加 GIN 索引后单条剪藏约占 3 倍存储。
+- 阅读器在 `srcdoc` 沙箱 iframe 中渲染，**不授予 `allow-scripts`**；这是服务端净化之后的第二道防线。
+- 首版**不含**：公开分享、图片本地化、AI 摘要与自动打标、转 NoDesk 文章、同一书签关联多条剪藏。
 
-扩展隐私行为未变:不注册常驻内容脚本,不申请 host 权限,提取器仅在你主动剪藏时按需注入,
+扩展隐私行为未变：不注册常驻内容脚本，不申请常驻 Host 权限，提取器仅在你主动剪藏时按需注入，
 数据只发送到你配置的 Nono 服务。第三方依赖许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 系统架构
@@ -166,7 +172,7 @@ flowchart LR
 | --- | --- | --- |
 | `/`、`/:username` | Nono | 默认/指定用户的公开导航页 |
 | `/login`、`/setup`、`/admin/*` | Nono | 登录、首次初始化和管理后台 |
-| `/api/*` | Nono | Nono API；`/api/nostar/*` 也由 Nono 提供 |
+| `/api/*` | Nono | Nono API；`/api/nostar/*` 与 `/api/clipper/*` 也由 Nono 提供 |
 | `/nodesk`、`/nodesk/*` | NoDesk | 内容站与编辑界面 |
 | `/blog/*` | NoDesk | 兼容入口，308 重定向到 `/nodesk/*` |
 | `/nomoney`、`/nomoney/*` | NoMoney | 个人资产费用工作台 |
@@ -199,7 +205,7 @@ flowchart LR
 ```text
 nono/
 ├─ packages/
-│  ├─ server/          # Nono/NoStar API、Prisma、认证、备份与后台任务
+│  ├─ server/          # Nono/NoStar/Clipper API、Prisma、认证、备份与后台任务
 │  ├─ web/             # Nono Vue 前端
 │  └─ extension/       # Chrome 扩展、商店素材和发布文档
 ├─ apps/
@@ -262,6 +268,7 @@ curl --fail http://127.0.0.1:3000/readyz
 | NoMoney | `http://localhost:3000/nomoney/` |
 | Yumi | `http://localhost:3000/yumi/` |
 | NoStar | `http://localhost:3000/nostar/` |
+| Clipper | `http://localhost:3000/clipper/` |
 
 停止容器时使用 `docker compose down`。普通停止或升级不要附加 `-v`，否则会删除数据库和内容卷。
 
@@ -306,9 +313,9 @@ npm run dev:web
 
 NoMoney 和 Yumi 都有自己的 `/setup`，需要使用同一个 `BOOTSTRAP_TOKEN` 分别创建账号。它们不复用 Nono Session，也不彼此复用 Cookie；注销会立即撤销当前 JWT 会话，重放旧 Cookie 无法恢复登录。生产部署中 Yumi 首次创建独立数据库时，会等待 NoMoney 数据库初始化并迁移旧版 VPS/域名相关数据；之后两套数据独立写入。
 
-### NoDesk 与 NoStar
+### NoDesk、NoStar 与 Clipper
 
-NoDesk 的公开内容无需登录；编辑内容需要 Nono 管理员 Session。NoStar 直接复用 Nono Session，未登录访问会跳转到 `/login?next=/nostar`。
+NoDesk 的公开内容无需登录；编辑内容需要 Nono 管理员 Session。NoStar 和 Clipper 直接复用 Nono Session，未登录访问时分别跳转到带原目标路径的 Nono 登录页。
 
 ## 本地开发
 
@@ -365,7 +372,9 @@ npm run seed              # 显式写入演示数据
 
 ## 环境变量
 
-以 [`.env.example`](.env.example) 为唯一模板。`.env` 不进入 Git；生产密钥应由密码管理器、容器 Secret 或受控部署系统提供。
+以 [`.env.example`](.env.example) 为配置起点。`.env` 不进入 Git；生产密钥应由密码管理器、容器 Secret 或受控部署系统提供。
+
+`docker-compose.yml` 只会把 `app.environment` 中显式映射的变量传入业务容器。直接启动 Nono 服务时可用、但 Compose 未映射的变量（例如 `CORS_ORIGIN`、`LOG_LEVEL` 和备份调度器间隔）如需在容器中覆盖，必须同时加入 Compose 的 `app.environment`。
 
 ### PostgreSQL 与 Nono
 
@@ -519,12 +528,13 @@ npm run verify:all
 
 它依次执行：
 
-1. Nono Server、Web、扩展、NoDesk、NoMoney、NoStar 和网关/部署契约测试。
-2. NoDesk 与 NoStar 类型检查，以及 NoStar ESLint。
+1. Nono Server、Web、扩展、NoDesk、NoMoney、NoStar、Clipper 和网关/部署契约测试。
+2. NoDesk、NoStar 与 Clipper 类型检查，以及 NoStar、Clipper ESLint。
 3. 所有产品的生产构建。
-4. NoStar bundle 预算检查。
-5. 四套依赖树的高危漏洞审计。
-6. Chrome 扩展发布包生成与内容校验。
+4. Playwright 端到端测试。
+5. NoStar 与 Clipper bundle 预算检查。
+6. 根工作区、NoDesk、NoMoney、NoStar、Clipper 五套依赖树的高危漏洞审计。
+7. Chrome 扩展发布包生成与内容校验。
 
 按范围运行：
 
@@ -705,7 +715,7 @@ npm run migrate:nostar -- --sqlite /path/to/data.db --username admin
 
 ## Chrome 扩展
 
-扩展位于 `packages/extension`，当前版本为 **0.3.1**。
+扩展位于 `packages/extension`，当前版本为 **0.4.1**。
 
 ### 开发安装
 
@@ -746,8 +756,8 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.1/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.1.zip
 ```
 
 发布前必须同步更新 `packages/extension/package.json` 与 `manifest.json` 版本，运行扩展测试和打包，检查 ZIP 中不含 `.env`、源码映射、测试、临时文件或个人数据，再使用 `store-assets/` 中的图标和宣传素材提交 Chrome Web Store。
@@ -761,7 +771,7 @@ packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1.zip
 ## 第三方依赖
 
 Clipper 引入的第三方依赖及其许可证记录在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-该文件不为本仓库指定项目级开源许可证;仓库目前仍未附带 `LICENSE`,即保留所有权利。
+该文件不为本仓库指定项目级开源许可证；仓库目前仍未附带根级 `LICENSE`，即保留所有权利。
 
 ## 安全与隐私
 
@@ -836,7 +846,7 @@ docker compose logs --tail=200 app postgres
 
 ### 扩展无法连接 Nono
 
-检查服务地址是否是完整 Origin、是否使用 HTTPS、可选 Host 权限是否已授予、Token 是否过期，以及 Token 是否包含 `bookmarks:read`、`bookmarks:write`、`ai:analyze`。
+检查服务地址是否是完整 Origin、是否使用 HTTPS、可选 Host 权限是否已授予、Token 是否过期，以及 Token 是否包含 `bookmarks:read`、`bookmarks:write`、`ai:analyze`；使用剪藏功能时还需要 `clips:read` 和 `clips:write`。
 
 ### AI 分析总是返回基础结果
 
@@ -891,7 +901,7 @@ git status --short
 - [Chrome 扩展](packages/extension/README.md)
 - [Chrome Web Store 提交资料](packages/extension/CHROME_WEB_STORE.md)
 - [NoMoney](apps/nomoney/README.md)
-- [NoStar](apps/nostar/README.md)
+- [NoStar](apps/nostar/README_zh.md)
 
 ## 项目链接与许可
 
