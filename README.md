@@ -899,3 +899,7 @@ git status --short
 - 隐私政策：[noaul.com/privacy](https://noaul.com/privacy)
 
 仓库根目录目前没有声明统一开源许可证。在获得明确授权前，不应假定整个仓库可按某种开源许可证复制、修改或再分发。`apps/nostar` 保留其导入项目的 MIT 许可证，详见 [NoStar LICENSE](apps/nostar/LICENSE)。
+
+## 社区
+
+讨论与交流：**[LINUX DO 社区](https://linux.do/)**
