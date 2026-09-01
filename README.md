@@ -97,6 +97,7 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 
 ### NoStar
 
+- 项目来源：[AmintaCCCP/GithubStarsManager](https://github.com/AmintaCCCP/GithubStarsManager)。
 - 同步并管理 GitHub Stars，支持分类、自定义标签、描述、排序和批量操作。
 - 提供本地搜索、筛选、README 查看、相似项目和发现视图。
 - 跟踪仓库 Release、未读状态和下载资源。
