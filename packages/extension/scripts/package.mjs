@@ -4,10 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { ZipArchive } from 'archiver';
+import { packageOutputDirectory } from './package-output.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
-const artifacts = path.join(root, 'artifacts');
+const artifacts = packageOutputDirectory(process.argv.slice(2), root);
 const stableTimestamp = new Date('2026-01-01T00:00:00.000Z');
 
 const build = spawnSync(process.execPath, ['scripts/build.mjs'], { cwd: root, encoding: 'utf8' });
@@ -19,9 +20,9 @@ if (packageJson.version !== manifest.version) {
   throw new Error(`Extension version mismatch: package ${packageJson.version}, manifest ${manifest.version}`);
 }
 
-await fs.rm(artifacts, { recursive: true, force: true });
 await fs.mkdir(artifacts, { recursive: true });
 const unpackedPath = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}`);
+await fs.rm(unpackedPath, { recursive: true, force: true });
 await fs.cp(dist, unpackedPath, { recursive: true });
 const outputPath = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
 const files = await listFiles(dist);

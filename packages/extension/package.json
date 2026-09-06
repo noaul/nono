@@ -1,6 +1,6 @@
 {
   "name": "@nono/extension",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,8 +13,5 @@
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "vitest": "^4.0.14"
-  },
-  "dependencies": {
-    "defuddle": "^0.19.2"
   }
 }

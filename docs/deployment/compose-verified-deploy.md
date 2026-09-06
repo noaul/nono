@@ -1,24 +1,50 @@
-# Compose 验收与回滚部署
+# Compose 验收与数据回滚部署
 
-生产服务器使用带提交号的不可变镜像标签部署。脚本会记录当前容器镜像，拉取 `main`、构建新镜像、启动应用并验收以下路径：
-
-- `/healthz`
-- `/`
-- `/nodesk`
-- `/nomoney/api/health`
-- `/yumi/api/readyz`
-- `/yumi/`
-- `/nostar/`
-- NoStar 默认仓库页、README 和仓库编辑弹窗所需的 JavaScript 分块
+在 `/opt/nono` 执行；保留服务器本地 `.env`。生产入口为回环地址 `http://127.0.0.1:8188`。一次只运行一个部署或恢复操作，不要同时手动启动容器、运行迁移或写入数据卷。
 
 ## 自动部署
 
 ```bash
 cd /opt/nono
-npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
+flock /opt/nono/.compose-operation.lock npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
 ```
 
-镜像名默认为 `nono-app:<git-commit>`。新版本验收失败时，脚本会用部署前容器的镜像重新创建 `app`，再次执行验收，并以非零状态退出，便于人工或监控识别失败。该流程直接在生产服务器执行，不依赖 GitHub Actions。
+## 迁移批准与执行顺序
+
+脚本每次读取实际 `postgres` 服务内的 `_prisma_migrations`，与当前工作树的迁移目录比较，而不是比较两次 Git 提交。首次被阻止后再次运行、或使用 `--skip-pull`，都不能绕过未应用的破坏性迁移批准。数据库状态缺失、无效或存在未完成迁移时拒绝部署；应先人工调查，不要删除迁移记录。没有旧应用镜像但已有数据库时也拒绝升级。检测到遗留数据库卷且容器缺失时，应先恢复原 Compose 容器；不能将其当成全新安装。
+
+审核待执行 SQL 与回滚计划后，显式增加 `--allow-destructive-migrations`。该选项不会跳过快照或验证。
+
+1. 记录旧容器的不可变 `sha256` 镜像 ID，拉取代码并检查实际待执行迁移。
+2. 完成新镜像构建，再停止 `app`（此 Compose 架构中网关、API、NoDesk、NoMoney、Yumi 和所有应用后台任务均在该容器中）。PostgreSQL 保持运行。外部写入者必须由操作员提前停止。
+3. 使用旧镜像的临时容器、覆盖入口点为 Node，直接调用备份服务创建完整安全快照，再用 CLI 验证。跳过旧 CLI 的自动保留策略，避免创建安全快照时删除更早的备份。安全快照独立存储在 `/app/backups/deployment-safety`，不会被应用的常规自动保留策略扫描。此时应用写入者已停止。记录输出中的备份 ID；不得清理这些升级前备份。
+4. 在备份卷写入 `/app/backups/.deployment-maintenance.json`，启动候选版本，仅绑定备用回环端口 `18188`（主入口本身为 18188 时用 18189）。该端口必须空闲，不得配置公开代理。
+5. 使用随机维护令牌验收候选版本，同时检查无令牌请求返回 503。然后在正常端口重建，仍保持维护状态，再检查 503 并执行完整验收。
+6. 最后删除维护文件，开放公共入口。删除一旦开始，即视为可能已开放写入；若命令结果不确定，明确报错但不自动恢复旧数据，以免丢失已被接受的新写入。
+
+维护期间公共入口可能连接失败或返回 503。`/readyz` 仅用于容器只读健康检查；其他路由需 `x-nono-maintenance-token`。令牌不会写入普通部署日志。验收覆盖应用健康、主页、NoDesk、NoMoney、Yumi、NoStar 及其必要静态资源。
+
+## 自动失败恢复
+
+从尝试停止应用开始的故障均进入恢复流程。若候选版本尚未运行（例如快照创建或验证失败），只恢复旧镜像，不恢复未经验证的快照。若候选版本可能已经迁移或写入数据，先停止应用，再用旧镜像恢复已验证安全快照。
+
+历史镜像可能不支持维护文件：因此先在应用停止时清除维护文件，将旧镜像绑定备用回环端口并验收，通过后才重建到正常端口。这个最后的公开绑定之后不再自动回退数据。恢复失败时同时报告原故障与恢复故障，并尝试停止所有应用写入者；若停止也失败，会明确报告，需要立即人工处理。
+
+进程被杀死或主机断电无法执行自动恢复：保持停机/维护状态，先检查容器绑定端口、维护文件、快照 ID 和数据库迁移状态。不要未经调查删除维护文件。确认数据与镜像匹配后再恢复服务。不要使用 `docker compose down -v`。
+
+## 显式数据恢复
+
+恢复操作需要当前镜像支持维护门禁，且备份 ID 与确认值完全一致：
+
+```bash
+flock /opt/nono/.compose-operation.lock node scripts/restore-compose.mjs --dir /opt/nono --base-url http://127.0.0.1:8188 --id BACKUP_ID --confirm BACKUP_ID
+```
+
+恢复脚本先验证目标快照，停止应用，再创建并验证安全快照；目标恢复失败时恢复安全快照。离线与公开端口的维护验收均成功后才开放入口。
+
+正常恢复目标来自 `/app/backups`。部署安全快照在其 `deployment-safety` 子目录，不会出现在普通备份列表。自动失败恢复会使用正确目录；人工恢复安全快照时，需要在停止应用且保持入口隔离后，给临时备份 CLI 容器显式传入 `--env BACKUP_DIR=/app/backups/deployment-safety`，并使用配套的旧镜像，不要直接将安全快照 ID 当成普通目录中的备份。
+
+安全快照会回退 PostgreSQL 和受备份模块管理的应用数据卷，不仅是镜像。恢复会丢弃快照之后的数据变更；公共入口必须在恢复决定前保持隔离。外部系统收到的邮件/通知等副作用不在数据回滚范围内。备份存储卷自身不应被恢复覆盖。
 
 只验收当前版本：
 
@@ -26,7 +52,7 @@ npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
 npm run deploy:accept -- --base-url http://127.0.0.1:8188
 ```
 
-## 手动回滚
+## 仅镜像回滚
 
 先查看已有提交镜像：
 
@@ -40,4 +66,4 @@ docker image ls nono-app
 npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
 ```
 
-回滚只切换应用镜像，不修改 PostgreSQL、NoDesk、NoMoney 或 Yumi 数据卷，也不会改写 Git 历史。
+`deploy:rollback` 只切换应用镜像，不修改 PostgreSQL、NoDesk、NoMoney 或 Yumi 数据卷，也不会改写 Git 历史；不能作为破坏性数据库迁移后的完整回滚。必须使用部署记录中的不可变镜像 ID 和升级前快照进行配套恢复，保留事故证据与安全备份。

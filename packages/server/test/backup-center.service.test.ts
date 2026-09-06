@@ -115,11 +115,11 @@ describe('backup center service', () => {
   it('cleans up module uploads when a WebDAV backup fails before the manifest is committed', async () => {
     const center = service();
     await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
-    adapters.clipper.export = vi.fn(async () => { throw new Error('clipper export failed'); });
+    adapters.nodesk.export = vi.fn(async () => { throw new Error('nodesk export failed'); });
 
-    await expect(center.backupToWebDav(7, ['nono', 'clipper'])).rejects.toThrow('clipper export failed');
+    await expect(center.backupToWebDav(7, ['nono', 'nodesk'])).rejects.toThrow('nodesk export failed');
 
-    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/clipper/'))).toEqual([]);
+    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/nodesk/'))).toEqual([]);
     expect([...remote.keys()].filter((url) => url.includes('/nono/batches/'))).toEqual([]);
   });
 
@@ -128,16 +128,16 @@ describe('backup center service', () => {
     await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
     const baseRequest = request.getMockImplementation()!;
     request.mockImplementation(async (url: string, options: { method?: string; body?: string | Buffer } = {}) => {
-      if ((options.method || 'GET').toUpperCase() === 'PUT' && url.includes('/nono/clipper/')) {
+      if ((options.method || 'GET').toUpperCase() === 'PUT' && url.includes('/nono/nodesk/')) {
         remote.set(url, Buffer.isBuffer(options.body) ? options.body : Buffer.from(options.body || ''));
         return { statusCode: 500, headers: {}, body: Buffer.alloc(0) };
       }
       return baseRequest(url, options);
     });
 
-    await expect(center.backupToWebDav(7, ['nono', 'clipper'])).rejects.toThrow('upload failed');
+    await expect(center.backupToWebDav(7, ['nono', 'nodesk'])).rejects.toThrow('upload failed');
 
-    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/clipper/'))).toEqual([]);
+    expect([...remote.keys()].filter((url) => url.includes('/nono/nono/') || url.includes('/nono/nodesk/'))).toEqual([]);
   });
 
   it('verifies remote checksums before restore and leaves live data untouched when validation fails', async () => {

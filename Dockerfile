@@ -56,16 +56,6 @@ WORKDIR /app/nostar
 COPY apps/nostar/ ./
 RUN npm run build
 
-FROM node:22-alpine AS clipper-deps
-WORKDIR /app/clipper
-COPY apps/clipper/package.json apps/clipper/package-lock.json ./
-RUN npm ci
-
-FROM clipper-deps AS clipper-build
-WORKDIR /app/clipper
-COPY apps/clipper/ ./
-RUN npm run build
-
 FROM node:22-alpine AS nomoney-runtime-deps
 WORKDIR /app/nomoney
 COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
@@ -93,7 +83,6 @@ COPY --from=nono-build /app/nono/packages/server/dist ./nono/packages/server/dis
 COPY --from=nono-build /app/nono/packages/server/prisma ./nono/packages/server/prisma
 COPY --from=nono-build /app/nono/packages/web/dist ./nono/packages/web/dist
 COPY --from=nostar-build /app/nostar/dist ./nono/packages/web/dist/nostar
-COPY --from=clipper-build /app/clipper/dist ./nono/packages/web/dist/clipper
 COPY --from=blog-build /app/blog/public ./blog/public
 COPY --from=blog-build /app/blog/public ./nodesk-seed/public
 COPY --from=blog-build /app/blog/src ./nodesk-seed/src
@@ -109,5 +98,6 @@ COPY --from=nomoney-build /app/nomoney/backend/public-yumi ./nomoney/backend/pub
 COPY docker/gateway.mjs ./gateway.mjs
 COPY docker/gateway-headers.mjs ./gateway-headers.mjs
 COPY docker/gateway-routing.mjs ./gateway-routing.mjs
+COPY docker/gateway-maintenance.mjs ./gateway-maintenance.mjs
 EXPOSE 3000
 CMD ["sh", "-c", "set -eu; mkdir -p /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; if [ ! -e /app/nodesk-content/.nodesk-initialized ]; then if [ -z \"$(ls -A /app/nodesk-content 2>/dev/null)\" ]; then cp -a /app/nodesk-seed/. /app/nodesk-content/; fi; touch /app/nodesk-content/.nodesk-initialized; fi; mkdir -p /app/nodesk-content/public/images; cp /app/nodesk-seed/public/images/nodesk-ambient-wallpaper.png /app/nodesk-content/public/images/.nodesk-ambient-wallpaper.png.tmp; mv /app/nodesk-content/public/images/.nodesk-ambient-wallpaper.png.tmp /app/nodesk-content/public/images/nodesk-ambient-wallpaper.png; rm -rf /app/blog/public; ln -s /app/nodesk-content/public /app/blog/public; chown -R nono:nono /app/nodesk-content /app/nomoney-data /app/yumi-data /app/backups; su-exec nono:nono ./nono/node_modules/.bin/prisma migrate deploy --schema ./nono/packages/server/prisma/schema.prisma; exec su-exec nono:nono node ./gateway.mjs"]

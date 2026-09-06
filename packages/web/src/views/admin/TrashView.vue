@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, type Component } from 'vue';
 import type { MessageKey } from '@/locales';
-import { FileText, Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
+import { Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest } from '@/api/client';
 import type { TrashItem, TrashItemKind } from '@/api/types';
@@ -28,13 +28,11 @@ const filters: Array<{ id: TrashFilter; labelKey: MessageKey }> = [
   { id: 'bookmark', labelKey: 'nav.kindBookmark' },
   { id: 'folder', labelKey: 'nav.kindFolder' },
   { id: 'notab', labelKey: 'nav.kindNotab' },
-  { id: 'clip', labelKey: 'trash.kindClip' },
 ];
 const kindMeta: Record<TrashItemKind, { labelKey: MessageKey; icon: Component }> = {
   bookmark: { labelKey: 'nav.kindBookmark', icon: Link2 },
   folder: { labelKey: 'nav.kindFolder', icon: Folder },
   notab: { labelKey: 'nav.kindNotab', icon: Layers3 },
-  clip: { labelKey: 'trash.kindClip', icon: FileText },
 };
 const filteredItems = computed(() => filter.value === 'all' ? items.value : items.value.filter((item) => item.kind === filter.value));
 

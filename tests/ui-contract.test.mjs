@@ -5,7 +5,7 @@ import test from 'node:test';
 
 /**
  * The shared UI contract is duplicated into every operator-facing app because each of those apps is
- * an independent project: apps/nostar, apps/nomoney and apps/clipper sit outside the root npm
+ * an independent project: apps/nostar and apps/nomoney sit outside the root npm
  * workspaces and carry their own lockfiles, so none of them can reference a shared workspace
  * package, and each dev server resolves only from its own root.
  *
@@ -22,7 +22,6 @@ const CANONICAL = 'packages/web/src/styles/design-tokens.css';
 const COPIES = [
   'apps/nostar/src/design-tokens.css',
   'apps/nomoney/frontend/src/design-tokens.css',
-  'apps/clipper/src/design-tokens.css',
 ];
 
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8').replace(/\r\n/g, '\n');
@@ -108,7 +107,6 @@ test('every app imports the contract where it boots', () => {
     'packages/web/src/main.ts': "import './styles/design-tokens.css';",
     'apps/nostar/src/main.tsx': "import './design-tokens.css';",
     'apps/nomoney/frontend/src/main.tsx': "import './design-tokens.css';",
-    'apps/clipper/src/main.tsx': "import './design-tokens.css';",
   };
   for (const [entry, statement] of Object.entries(entries)) {
     assert.ok(read(entry).includes(statement), `${entry} must import its design tokens`);

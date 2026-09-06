@@ -12,7 +12,6 @@ import {
 	LoaderCircle,
 	RefreshCcw,
 	Save,
-	Scissors,
 	ServerCog,
 	Settings2,
 	ShieldCheck,
@@ -21,8 +20,9 @@ import {
 	WalletCards
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { runBackupJob, type BackupJob } from './backup-job-client'
 
-type BackupModule = 'nono' | 'clipper' | 'nodesk' | 'nostar' | 'nomoney' | 'yumi'
+type BackupModule = 'nono' | 'nodesk' | 'nostar' | 'nomoney' | 'yumi'
 type Destination = 'webdav' | 'local'
 type WebDavPage = 'operations' | 'automatic' | 'history' | 'connection'
 type LocalPage = 'download' | 'restore'
@@ -70,7 +70,6 @@ type BackupAutomationSnapshot = {
 
 const MODULES: Array<{ id: BackupModule; label: string; description: string; icon: typeof Archive }> = [
 	{ id: 'nono', label: 'Nono', description: '站点、文件夹与书签', icon: DatabaseBackup },
-	{ id: 'clipper', label: 'Clipper', description: '剪藏正文、标签与标注', icon: Scissors },
 	{ id: 'nodesk', label: 'NoDesk', description: '桌面内容与资源文件', icon: FolderArchive },
 	{ id: 'nostar', label: 'NoStar', description: '仓库、分类、Release 与设置', icon: Github },
 	{ id: 'nomoney', label: 'NoMoney', description: '资产、费用与账户', icon: WalletCards },
@@ -133,6 +132,7 @@ export function AmbientBackupCenter() {
 	const [busy, setBusy] = useState('')
 	const [message, setMessage] = useState('')
 	const [error, setError] = useState('')
+	const [jobs, setJobs] = useState<BackupJob[]>([])
 	const fileInputRef = useRef<HTMLInputElement>(null)
 
 	const fullBatches = useMemo(() => batches.filter(batch => MODULES.every(module => batch.modules[module.id])), [batches])
@@ -163,7 +163,19 @@ export function AmbientBackupCenter() {
 		}
 	}
 
-	useEffect(() => { void load() }, [])
+	useEffect(() => {
+		void load()
+		let active = true
+		const refresh = async () => {
+			try {
+				const data = await requestData<{ jobs: BackupJob[] }>('/api/admin/backup-center/jobs')
+				if (active) setJobs(data.jobs)
+			} catch { /* A disconnected poll must not turn a running job into a failure. */ }
+		}
+		void refresh()
+		const timer = setInterval(() => void refresh(), 3000)
+		return () => { active = false; clearInterval(timer) }
+	}, [])
 
 	const run = async (key: string, action: () => Promise<void>) => {
 		if (busy) return
@@ -180,12 +192,13 @@ export function AmbientBackupCenter() {
 	}
 
 	const backupWebDav = (modules?: BackupModule[]) => run(`backup-${modules?.join('-') || 'all'}`, async () => {
-		const batch = await requestData<BackupBatch>('/api/admin/backup-center/webdav/backups', {
+		const job = await runBackupJob('/api/admin/backup-center/webdav/backups', {
 			method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(modules ? { modules } : {})
-		})
+		}, setMessage)
+		const batch = job.result as BackupBatch
 		setBatches(current => [batch, ...current.filter(item => item.id !== batch.id)])
 		if (batch.scope === 'full') setFullRestoreId(batch.id)
-		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '六个模块已分别备份并写入同一批次清单。')
+		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '五个模块已分别备份并写入同一批次清单。')
 	})
 
 	const restoreWebDav = (batchId: string, modules?: BackupModule[]) => {
@@ -193,9 +206,9 @@ export function AmbientBackupCenter() {
 		const label = modules ? MODULES.find(item => item.id === modules[0])?.label : '当前账户完整数据'
 		if (!window.confirm(`从批次 ${batchId} 恢复${label}？系统会先制作安全快照，失败时自动回滚。`)) return
 		void run(`restore-${modules?.join('-') || 'all'}`, async () => {
-			await requestData('/api/admin/backup-center/webdav/restore', {
+			await runBackupJob('/api/admin/backup-center/webdav/restore', {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ batchId, ...(modules ? { modules } : {}) })
-			})
+			}, setMessage)
 			setMessage(`${label}恢复完成，校验与安全快照均已通过。`)
 		})
 	}
@@ -236,7 +249,8 @@ export function AmbientBackupCenter() {
 	}
 
 	const downloadLocalBackup = (module: BackupModule | 'all') => void run(`local-download-${module}`, async () => {
-		const response = await fetch(`/api/admin/backup-center/local/${module}`, { credentials: 'same-origin', cache: 'no-store' })
+		const job = await runBackupJob(`/api/admin/backup-center/local/${module}`, { method: 'POST' }, setMessage)
+		const response = await fetch(`/api/admin/backup-center/jobs/${job.id}/download`, { credentials: 'same-origin', cache: 'no-store' })
 		if (!response.ok) {
 			const payload = await response.json().catch(() => null) as { message?: string } | null
 			throw new Error(payload?.message || `下载失败（HTTP ${response.status}）`)
@@ -259,9 +273,9 @@ export function AmbientBackupCenter() {
 	const restoreLocalFile = async (file: File) => {
 		await run(`local-restore-${localRestoreModule}`, async () => {
 			const parsed = JSON.parse(await file.text())
-			await requestData(`/api/admin/backup-center/local/${localRestoreModule}/restore`, {
+			await runBackupJob(`/api/admin/backup-center/local/${localRestoreModule}/restore`, {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(parsed)
-			})
+			}, setMessage)
 			setMessage(`${localRestoreModule === 'all' ? '当前账户完整数据' : MODULES.find(item => item.id === localRestoreModule)?.label}本地备份已恢复。`)
 		})
 	}
@@ -284,9 +298,10 @@ export function AmbientBackupCenter() {
 
 		{message && <div className='ambient-settings-message is-success'>{message}</div>}
 		{error && <div className='ambient-settings-message is-error'>{error}</div>}
+		{jobs.length > 0 && <details className='ambient-backup-page'><summary>任务记录（关闭页面后仍可查看）</summary>{jobs.map(job => <div key={job.id} role='status'><code>{job.id}</code> · {job.kind} · {job.status}{job.error && <p>{job.error}</p>}{job.downloadAvailable && <a href={`/api/admin/backup-center/jobs/${job.id}/download`}>下载备份</a>}</div>)}</details>}
 		{loading ? <div className='ambient-backup-loading'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
 			{destination === 'webdav' && webDavPage === 'operations' && <div className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>备份与恢复</h3><p>完整操作覆盖当前账户的六个模块，也可以单独处理某个模块。</p></div>
+				<div className='ambient-backup-page-header'><h3>备份与恢复</h3><p>完整操作覆盖当前账户的五个模块，也可以单独处理某个模块。</p></div>
 				<section className='ambient-backup-hero'>
 					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>当前账户完整备份</strong><small>不包含其他账户、登录凭据或系统级配置。</small></span></div>
 					<div className='ambient-backup-actions'><button type='button' disabled={Boolean(busy) || !config.passwordConfigured} onClick={() => void backupWebDav()}>{busy === 'backup-all' ? <LoaderCircle className='is-spinning' size={16} /> : <Upload size={16} />}备份全部</button></div>
@@ -312,7 +327,7 @@ export function AmbientBackupCenter() {
 			</div>}
 
 			{destination === 'webdav' && webDavPage === 'automatic' && <section className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>自动备份</h3><p>按计划上传当前账户的六个模块；本地下载始终由你手动触发。</p></div>
+				<div className='ambient-backup-page-header'><h3>自动备份</h3><p>按计划上传当前账户的五个模块；本地下载始终由你手动触发。</p></div>
 				<div className='ambient-backup-policy-block'>
 					<div className='ambient-backup-policy-toolbar'>
 						<label className='ambient-policy-toggle'><input type='checkbox' checked={automation.settings.enabled} onChange={event => updateAutomation('enabled', event.target.checked)} /><span>启用自动备份</span></label>
@@ -340,7 +355,7 @@ export function AmbientBackupCenter() {
 			</section>}
 
 			{destination === 'webdav' && webDavPage === 'connection' && <section className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>连接设置</h3><p>完整备份与六个模块共用这一套 WebDAV 凭据。</p></div>
+				<div className='ambient-backup-page-header'><h3>连接设置</h3><p>完整备份与五个模块共用这一套 WebDAV 凭据。</p></div>
 				<div className='ambient-webdav-grid'>
 					<label className='is-wide'><span>WebDAV 地址</span><input type='url' value={connectionForm.url} onChange={event => setConnectionForm(current => ({ ...current, url: event.target.value }))} placeholder='https://dav.example.com/remote.php/dav/files/user/' /></label>
 					<label><span>用户名</span><input value={connectionForm.username} onChange={event => setConnectionForm(current => ({ ...current, username: event.target.value }))} /></label>
@@ -352,7 +367,7 @@ export function AmbientBackupCenter() {
 
 			{destination === 'local' && localPage === 'download' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header'><h3>下载备份</h3><p>本地备份不会自动执行，也不占用服务器保留份数。</p></div>
-				<button type='button' className='ambient-local-all-download' disabled={Boolean(busy)} onClick={() => downloadLocalBackup('all')}>{busy === 'local-download-all' ? <LoaderCircle className='is-spinning' size={20} /> : <Archive size={20} />}<span><strong>下载当前账户完整备份</strong><small>一个文件内按六个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></button>
+				<button type='button' className='ambient-local-all-download' disabled={Boolean(busy)} onClick={() => downloadLocalBackup('all')}>{busy === 'local-download-all' ? <LoaderCircle className='is-spinning' size={20} /> : <Archive size={20} />}<span><strong>下载当前账户完整备份</strong><small>一个文件内按五个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></button>
 				<div className='ambient-module-backups'>{MODULES.map(module => {
 					const Icon = module.icon
 					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><button type='button' disabled={Boolean(busy)} onClick={() => downloadLocalBackup(module.id)} title={`下载 ${module.label}`}>{busy === `local-download-${module.id}` ? <LoaderCircle className='is-spinning' size={16} /> : <Download size={16} />}</button></div>

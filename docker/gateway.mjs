@@ -2,6 +2,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { isPublicInternalPath, targetFor } from './gateway-routing.mjs';
 import { forwardedHeaders } from './gateway-headers.mjs';
+import { maintenanceAllowed } from './gateway-maintenance.mjs';
 
 const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
@@ -48,6 +49,12 @@ function startService(name, cwd, entrypoint, port, extraEnv = {}) {
 }
 
 function proxyRequest(request, response) {
+  if (!maintenanceAllowed(request)) {
+    response.writeHead(503, { 'content-type': 'application/json', 'retry-after': '60', 'cache-control': 'no-store' });
+    response.end(JSON.stringify({ error: 'maintenance' }));
+    return;
+  }
+  delete request.headers['x-nono-maintenance-token'];
   const url = request.url || '/';
   if (isPublicInternalPath(url)) {
     response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
@@ -106,6 +113,11 @@ function proxyRequest(request, response) {
 }
 
 function proxyUpgrade(request, socket, head) {
+  if (!maintenanceAllowed(request)) {
+    socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+    return;
+  }
+  delete request.headers['x-nono-maintenance-token'];
   if (isPublicInternalPath(request.url || '/')) {
     socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
     return;

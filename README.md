@@ -14,7 +14,7 @@
   <a href="https://noaul.com/privacy">隐私政策</a>
 </p>
 
-Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和同一部署链路中的个人服务集合。核心 Nono 提供公开导航、管理后台、认证和公共 API；NoDesk、NoMoney、Yumi、NoStar、Clipper 与 Chrome 扩展分别承担内容、资产、基础设施、GitHub 收藏、网页剪藏和浏览器采集工作。
+Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和同一部署链路中的个人服务集合。核心 Nono 提供公开导航、管理后台、认证和公共 API；NoDesk、NoMoney、Yumi、NoStar 与 Chrome 扩展分别承担内容、资产、基础设施、GitHub 收藏和浏览器书签采集工作。
 
 > 本项目面向个人或小规模可信用户的自托管场景。默认生产形态是一个业务容器加一个 PostgreSQL 容器，不是多节点高可用架构。
 
@@ -52,7 +52,6 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 | **NoMoney** | `/nomoney/*` | 电话卡、订阅、账号、支出和到期提醒 | 独立 HttpOnly Cookie Session | `nomoney_data/app.db` |
 | **Yumi** | `/yumi/*` | VPS、域名、续费、费用和运行状态 | 独立 HttpOnly Cookie Session | `yumi_data/app.db` |
 | **NoStar** | `/nostar/*` | GitHub Stars、分类、搜索、Release、AI 分析与备份 | 复用 Nono Session | PostgreSQL |
-| **Clipper** | `/clipper/*` | 网页剪藏、阅读器、全文检索、标签与标注 | 复用 Nono Session | PostgreSQL |
 | **Chrome 扩展** | 浏览器弹窗/右键菜单/快捷键 | 提取当前网页并快速保存到 Nono | 专用 Bearer API Token | `chrome.storage.local` |
 
 生产环境由 `docker/gateway.mjs` 统一监听外部端口。它负责路径分发和业务子进程生命周期；任一关键子进程退出时，业务容器会退出并交由 Docker Compose 重启。
@@ -113,27 +112,6 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - 服务端访问权限按用户配置的精确 Origin 动态申请，不使用常驻内容脚本。
 - 弹窗采用 HyperOS 风格的雾面玻璃视觉，并内置版本、GitHub、Issue 和隐私政策入口。
 
-### Clipper
-
-- 通过 Chrome 扩展剪藏整页正文或选区,保存为净化后的 HTML 与 Markdown。
-- 提供阅读器、列表/紧凑双视图、状态与星标筛选、标签和划词标注。
-- 支持重新抓取原文;抓取走服务端安全出站层,并限流 10 次 / 10 分钟。
-- 剪藏与书签可选关联;删除书签只会解除关联,不会删除剪藏。
-
-**边界与已知限制:**
-
-- 单条剪藏的 `contentHtml` 与 `contentMd` 各自上限 2 MiB,`sourceMeta` 上限 256 KiB,
-  上传请求体上限 6 MiB。扩展会按 UTF-8 边界截断并标记 `contentTruncated`,服务端不信任该标记,
-  仍会拒绝任何超限字段。
-- 检索使用 PostgreSQL `pg_trgm` 三元组索引。PostgreSQL 内置无中文分词器,三元组可匹配任意语种子串,
-  但**少于 3 个字符的查询无法命中索引**,会退化为顺序扫描——两字中文查询正是常见情形。
-- 生成列 `searchText` 会复制一份 `contentMd`,叠加 GIN 索引后单条剪藏约占 3 倍存储。
-- 阅读器在 `srcdoc` 沙箱 iframe 中渲染,**不授予 `allow-scripts`**;这是服务端净化之后的第二道防线。
-- 首版**不含**:公开分享、图片本地化、AI 摘要与自动打标、转 NoDesk 文章、同一书签关联多条剪藏。
-
-扩展隐私行为未变:不注册常驻内容脚本,不申请 host 权限,提取器仅在你主动剪藏时按需注入,
-数据只发送到你配置的 Nono 服务。第三方依赖许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
 ## 系统架构
 
 ```mermaid
@@ -156,7 +134,6 @@ flowchart LR
     N --> YS
 
     NS["NoStar React 静态资源"] --> N
-    CL["Clipper React 静态资源"] --> N
 ```
 
 ### 请求路由
@@ -171,7 +148,6 @@ flowchart LR
 | `/nomoney`、`/nomoney/*` | NoMoney | 个人资产费用工作台 |
 | `/yumi`、`/yumi/*` | Yumi | 服务器与域名工作台 |
 | `/nostar`、`/nostar/*` | Nono / NoStar | Nono 提供 NoStar 静态资源和同源 API |
-| `/clipper`、`/clipper/*` | Nono / Clipper | Nono 提供 Clipper 静态资源和同源 API |
 | `/healthz`、`/livez` | Nono | 进程存活检查 |
 | `/readyz` | Nono | PostgreSQL、NoDesk、NoMoney、Yumi 联合就绪检查 |
 
@@ -186,12 +162,11 @@ flowchart LR
 | NoDesk | Next.js 16、React 19、Markdown/Unified、KaTeX、Shiki、Zustand |
 | NoMoney / Yumi | Express 4、React 18、Vite 6、sql.js/SQLite、Recharts、JWT Cookie |
 | NoStar | React 18、Vite 8、Zustand、Tailwind CSS |
-| Clipper | React 18、Vite 8、Zustand、Tailwind CSS；服务端 Defuddle + DOMPurify + jsdom |
 | Chrome 扩展 | Manifest V3、原生 JavaScript、Chrome Extension APIs |
 | 测试 | Vitest、Node Test Runner、Playwright、契约测试 |
 | 部署 | 多阶段 Dockerfile、Docker Compose、Node HTTP 网关 |
 
-仓库根 npm workspaces 只包含 `packages/server`、`packages/web`、`packages/extension`。`apps/blog`、`apps/nomoney`、`apps/nostar` 和 `apps/clipper` 保留各自的依赖与锁文件。
+仓库根 npm workspaces 只包含 `packages/server`、`packages/web`、`packages/extension`。`apps/blog`、`apps/nomoney`、`apps/nostar` 保留各自的依赖与锁文件。
 
 ## 仓库结构
 
@@ -205,7 +180,6 @@ nono/
 │  ├─ blog/            # NoDesk Next.js 内容站
 │  ├─ nomoney/         # NoMoney/Yumi 共用的 Express + React 源码
 │  ├─ nostar/          # NoStar React 前端
-│  └─ clipper/         # Clipper React 前端
 ├─ docker/             # 单端口网关、路径和代理头规则
 ├─ scripts/            # 部署、验收、回滚、备份、恢复和迁移脚本
 ├─ tests/              # 跨模块、Docker、网关和部署契约测试
@@ -326,7 +300,7 @@ corepack enable
 npm run install:all
 ```
 
-`install:all` 会严格使用五套锁文件：根 npm、NoDesk pnpm、NoMoney npm、NoStar npm、Clipper npm。不要用另一个包管理器重写这些锁文件。
+`install:all` 会严格使用四套锁文件：根 npm、NoDesk pnpm、NoMoney npm、NoStar npm npm。不要用另一个包管理器重写这些锁文件。
 
 ### 开发命令
 
@@ -337,7 +311,6 @@ npm run install:all
 | NoDesk | `npm run dev:blog` | Next.js Turbopack，端口 2025 |
 | NoMoney 后端 | `npm run dev:nomoney` | 共用后端的 NoMoney 模式，默认端口 3000 |
 | NoStar 前端 | `npm run dev:nostar` | Vite 前端开发服务器 |
-| Clipper 前端 | `npm run dev:clipper` | Vite 前端开发服务器，默认端口 4175 |
 | 全部生产构建 | `npm run build:all` | 构建所有产品和扩展 |
 
 这些独立开发服务器存在默认端口冲突，不应无配置地一次全部启动。跨产品登录、同源路由、NoDesk 写入和 NoStar API 联调优先使用 Docker Compose；只修改单个界面时再运行对应开发服务器。
@@ -440,7 +413,7 @@ npm run seed              # 显式写入演示数据
 
 | 卷 | 内容 | 主要读写者 |
 | --- | --- | --- |
-| `nono_pg_data` | Nono、NoStar、Clipper、用户、Session、Passkey、审计和配置 | PostgreSQL |
+| `nono_pg_data` | Nono、NoStar、用户、Session、Passkey、审计和配置 | PostgreSQL |
 | `nodesk_content` | NoDesk 文章、图片、站点配置和日程 | Nono + NoDesk |
 | `nomoney_data` | NoMoney `app.db` | NoMoney；Nono 只读到期信息 |
 | `yumi_data` | Yumi `app.db`、VPS 状态和续费数据 | Yumi；Nono 读取通知并调用受保护内部接口 |
@@ -478,11 +451,9 @@ API Token 支持以下作用域：
 | `bookmarks:read` | 读取文件夹和书签 |
 | `bookmarks:write` | 新建、更新、移动和删除书签 |
 | `ai:analyze` | 调用网页分析接口 |
-| `clips:read` | 读取剪藏、检索、标签与标注 |
-| `clips:write` | 新建、更新和删除剪藏、标签与标注 |
 | `*` | 完整 API Token 权限，应谨慎使用 |
 
-插件默认获得书签、AI 与剪藏共五个作用域。**升级说明:**已存在的 Token 不会被自动授予剪藏权限——静默扩大已签发凭据的权限是不可接受的。请在「API Token」页面为旧 Token 补齐 `clips:*` 作用域;该操作只修改作用域,不重新签发密钥,扩展无需重新配置。为每台设备创建单独 Token，设置合理的过期时间；设备丢失或停用扩展时立即撤销。
+插件默认获得书签读取、书签写入和 AI 分析三个作用域。剪藏已退役，升级迁移会移除历史剪藏数据与权限。为每台设备创建单独 Token，设置合理的过期时间；设备丢失或停用扩展时立即撤销。
 
 ### Passkey 注意事项
 
@@ -521,9 +492,10 @@ npm run verify:all
 1. Nono Server、Web、扩展、NoDesk、NoMoney、NoStar 和网关/部署契约测试。
 2. NoDesk 与 NoStar 类型检查，以及 NoStar ESLint。
 3. 所有产品的生产构建。
-4. NoStar bundle 预算检查。
-5. 四套依赖树的高危漏洞审计。
-6. Chrome 扩展发布包生成与内容校验。
+4. Playwright 端到端测试。
+5. NoStar bundle 预算检查。
+6. 四套依赖树的高危漏洞审计。
+7. Chrome 扩展发布包生成与内容校验。
 
 按范围运行：
 
@@ -532,7 +504,6 @@ npm test                       # Nono server、web、extension
 npm run test:blog              # NoDesk
 npm run test:nomoney           # NoMoney / Yumi
 npm run test:nostar            # NoStar
-npm run test:clipper           # Clipper
 npm run test:gateway           # 网关、Docker、部署、备份与恢复契约
 npm run test:e2e               # Playwright 端到端测试
 npm run build:all              # 全部构建
@@ -572,7 +543,7 @@ Compose 启动顺序是 PostgreSQL 健康后启动业务容器。业务容器会
 
 ```bash
 cd /opt/nono
-npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
+flock -n /var/lock/nono-deploy.lock node scripts/deploy-compose.mjs --dir /opt/nono --base-url http://127.0.0.1:8188
 ```
 
 只验收当前部署：
@@ -590,7 +561,9 @@ npm run deploy:rollback -- \
   --image nono-app:<git-commit>
 ```
 
-部署脚本会检查 Nono、NoDesk、NoMoney、Yumi、NoStar 及关键静态资源。新版本验收失败时会恢复原镜像并再次验收。镜像回滚不会自动倒退数据库迁移或修改数据卷，因此有数据结构变更时必须先完成备份和兼容性评估。
+部署脚本依据实际数据库的待执行迁移检查破坏性变更；确认后需显式传入 `--allow-destructive-migrations`。先构建镜像，再停止全部应用写入，用旧的不可变镜像创建并验证完整安全备份，保存至 `/app/backups/deployment-safety`，不参与日常保留清理。新版本在隔离端口和正常端口分别通过维护模式验收后才开放访问。开放前失败会恢复安全备份和旧镜像；开放结果不确定时不会覆盖已验收的数据。详见[部署手册](docs/deployment/compose-verified-deploy.md)。
+
+单独的 `deploy:rollback` 只切换镜像，不会还原数据库或数据卷；不可用它独自回退不兼容的数据库迁移。部署和恢复操作必须使用同一 `flock` 锁串行执行。
 
 ### 反向代理与 TLS
 
@@ -644,7 +617,9 @@ npm run backup:restore -- \
   --confirm <backup-id>
 ```
 
-恢复器会先深度校验归档和数据库完整性，再创建恢复前安全快照、停止业务写入、恢复四个组件、启动原镜像并验收；失败时尝试回滚到安全快照。
+恢复器会先深度校验归档和数据库完整性，再停止业务写入、创建并验证安全快照、恢复四个组件、在维护模式中启动原镜像并验收；开放访问前失败时恢复安全快照。恢复剪藏退役前的数据必须配合匹配的旧镜像，否则新版本启动时会再次执行退役迁移。
+
+NoDesk 设置中心的当前账户模块备份与恢复使用后台任务：立即接受请求，持久化任务状态，支持断线后查询。全站数据卷恢复仍需使用服务器命令。历史兼容接口 `POST /api/admin/backups` 仍同步响应，不是新界面的提交入口。
 
 重要边界：
 
@@ -745,8 +720,8 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
 ```
 
 发布前必须同步更新 `packages/extension/package.json` 与 `manifest.json` 版本，运行扩展测试和打包，检查 ZIP 中不含 `.env`、源码映射、测试、临时文件或个人数据，再使用 `store-assets/` 中的图标和宣传素材提交 Chrome Web Store。
@@ -759,7 +734,6 @@ packages/extension/artifacts/nono-quick-bookmark-chrome-v0.3.1.zip
 
 ## 第三方依赖
 
-Clipper 引入的第三方依赖及其许可证记录在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 该文件不为本仓库指定项目级开源许可证;仓库目前仍未附带 `LICENSE`,即保留所有权利。
 
 ## 安全与隐私
@@ -853,7 +827,7 @@ docker compose logs --tail=200 app postgres
 
 - 保持 `main` 可部署；行为修改应带回归测试，跨模块契约放在根 `tests/`。
 - Prisma schema 变更必须包含迁移，并验证向前迁移、备份恢复和旧镜像回滚边界。
-- 根 npm、NoDesk pnpm、NoMoney npm、NoStar npm、Clipper npm 的锁文件分别维护，升级依赖后运行对应测试和 `npm run audit:all`。
+- 根 npm、NoDesk pnpm、NoMoney npm、NoStar npm npm 的锁文件分别维护，升级依赖后运行对应测试和 `npm run audit:all`。
 - 共享 UI token 和跨产品视觉规则写入 `docs/design`，不要让各应用无说明地复制出不同规范。
 - 只提交源码、迁移、稳定文档、质量基线和明确需要版本控制的发布资产。
 - 不提交过程计划、临时输出、测试截图、数据库副本、解压后的扩展产物或本地诊断状态。

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { safetyContext } from '../scripts/compose-safety.mjs';
 
 const dockerfile = fs.readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
 const compose = fs.readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
-const deploy = fs.readFileSync(new URL('../scripts/deploy-compose.mjs', import.meta.url), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('packages database verification tools in the single application image', () => {
@@ -34,7 +34,9 @@ test('persists full backups outside the application lifecycle', () => {
 
 test('records the immutable deployment commit and exposes guarded backup commands', () => {
   assert.match(compose, /NONO_BUILD_COMMIT:\s*\$\{NONO_BUILD_COMMIT:-unknown\}/);
-  assert.match(deploy, /NONO_BUILD_COMMIT:\s*currentCommit/);
+  const context = safetyContext({ cwd: '/opt/nono', baseUrl: 'http://127.0.0.1:8188', image: 'sha256:old', commit: '0123456789abcdef' });
+  assert.equal(context.publicOptions.env.NONO_BUILD_COMMIT, '0123456789abcdef');
+  assert.equal(context.offlineOptions.env.NONO_BUILD_COMMIT, '0123456789abcdef');
   assert.equal(packageJson.scripts['backup:create'], 'node scripts/backup-compose.mjs create');
   assert.equal(packageJson.scripts['backup:list'], 'node scripts/backup-compose.mjs list');
   assert.equal(packageJson.scripts['backup:verify'], 'node scripts/backup-compose.mjs verify');

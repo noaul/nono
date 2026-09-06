@@ -635,7 +635,7 @@ describe('NoNo Fastify app', () => {
     expect(registered.json().data.user.role).toBe('user');
   });
 
-  it('limits extension tokens to bookmark and clip operations by default', async () => {
+  it('limits extension tokens to bookmark operations by default', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({
       method: 'POST',
@@ -652,7 +652,7 @@ describe('NoNo Fastify app', () => {
     const token = tokenResponse.json().data.token;
 
     expect(tokenResponse.json().data.scopes).toEqual([
-      'bookmarks:read', 'bookmarks:write', 'ai:analyze', 'clips:read', 'clips:write',
+      'bookmarks:read', 'bookmarks:write', 'ai:analyze',
     ]);
 
     const folders = await app.inject({
@@ -875,13 +875,13 @@ describe('NoNo Fastify app', () => {
     expect(current.json().data).toMatchObject({
       name: 'Extension token',
       expiresAt,
-      scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze', 'clips:read', 'clips:write'],
+      scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'],
     });
     expect(current.json().data.token).toContain('...');
   });
 
   /**
-   * Stored tokens are never silently widened. A token issued before Clipper existed keeps the
+   * Stored tokens are never silently widened. An existing token keeps the
    * scopes it was created with until its owner amends them deliberately.
    */
   it('amends the scopes of an existing token without reissuing it', async () => {
@@ -899,11 +899,11 @@ describe('NoNo Fastify app', () => {
       method: 'PATCH',
       url: `/api/admin/tokens/${id}`,
       headers: { cookie },
-      payload: { scopes: ['bookmarks:read', 'bookmarks:write', 'clips:read', 'clips:write'] },
+      payload: { scopes: ['bookmarks:read', 'bookmarks:write', 'ai:analyze'] },
     });
 
     expect(patched.statusCode).toBe(200);
-    expect(patched.json().data.scopes).toEqual(['bookmarks:read', 'bookmarks:write', 'clips:read', 'clips:write']);
+    expect(patched.json().data.scopes).toEqual(['bookmarks:read', 'bookmarks:write', 'ai:analyze']);
 
     // The secret itself is unchanged, so the extension does not have to be reconfigured.
     const current = await app.inject({
@@ -912,7 +912,7 @@ describe('NoNo Fastify app', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(current.statusCode).toBe(200);
-    expect(current.json().data.scopes).toContain('clips:write');
+    expect(current.json().data.scopes).toContain('ai:analyze');
   });
 
   it('refuses to amend token scopes from a bearer caller', async () => {
@@ -1950,7 +1950,7 @@ describe('NoNo Fastify app', () => {
 
   it('persists a custom LLM API base URL and passes it to bookmark analysis', async () => {
     const llmClient = {
-      complete: vi.fn().mockResolvedValue('{"suggestedName":"A complete long article title about dependable clipping","suggestedDescription":"Summary","suggestedKeywords":["AI","Reading"]}'),
+      complete: vi.fn().mockResolvedValue('{"suggestedName":"Example Article","suggestedDescription":"Summary","suggestedKeywords":["AI","Reading"]}'),
     };
     await app.close();
     app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
@@ -1983,12 +1983,12 @@ describe('NoNo Fastify app', () => {
       method: 'POST',
       url: '/api/ai/analyze',
       headers: { cookie },
-      payload: { url: 'https://example.com/article', title: 'Example', purpose: 'clip' },
+      payload: { url: 'https://example.com/article', title: 'Example', purpose: 'bookmark' },
     });
 
     expect(analysis.statusCode).toBe(200);
     expect(analysis.json().data).toMatchObject({
-      suggestedName: 'A complete long article title about dependable clipping',
+      suggestedName: 'Example Article',
       suggestedDescription: 'Summary',
       suggestedKeywords: ['AI', 'Reading'],
     });
@@ -2000,7 +2000,7 @@ describe('NoNo Fastify app', () => {
       prompt: expect.stringContaining('只收录深度阅读和长篇资料'),
     }));
     expect(llmClient.complete.mock.calls[0][0].prompt).toContain('suggestedKeywords');
-    expect(llmClient.complete.mock.calls[0][0].prompt).toContain('web clip');
+    expect(llmClient.complete.mock.calls[0][0].prompt).toContain('browser bookmarks');
   });
 
   it('tests an unsaved LLM connection with the selected reasoning depth', async () => {

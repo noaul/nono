@@ -9,7 +9,7 @@ export interface AnalyzeInput {
   title?: string;
   content?: string;
   meta?: Record<string, unknown>;
-  purpose?: 'bookmark' | 'clip';
+  purpose?: 'bookmark';
 }
 
 export async function analyzeBookmark(services: AppServices, user: AuthUser, input: AnalyzeInput) {
@@ -18,7 +18,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
   const fallback = {
     suggestedFolderId: folders[0]?.id || null,
     suggestedFolderName: folders[0]?.name || '未分类',
-    suggestedName: suggestedName(input.title, input.url, input.purpose),
+    suggestedName: suggestedName(input.title, input.url),
     suggestedDescription: String(input.content || '').slice(0, 120),
     suggestedKeywords: [] as string[],
     createFolder: false,
@@ -27,17 +27,13 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
   const apiKey = decryptSecret(account.llmApiKey, services.encryptionKey);
   if (!apiKey) throw Object.assign(new Error('LLM API key is not configured'), { statusCode: 400 });
   const prompt = [
-    input.purpose === 'clip'
-      ? 'You prepare metadata for a saved web clip in NoNo. Return JSON only.'
-      : 'You classify browser bookmarks for NoNo. Return JSON only.',
+    'You classify browser bookmarks for NoNo. Return JSON only.',
     'Choose suggestedFolderId only from the listed folder IDs. A folder prompt is a routing rule; a child folder inherits its category prompt and its own prompt has priority.',
     `Folders:\n${formatFoldersForPrompt(folders)}`,
     `URL: ${input.url}`,
     `Title: ${input.title || ''}`,
     `Content: ${String(input.content || '').slice(0, 1000)}`,
-    input.purpose === 'clip'
-      ? 'SuggestedName must be a concise, faithful article title. Preserve the subject and do not reduce it to a short site label.'
-      : 'SuggestedName must be a memorable bookmark label, preferably 2-20 characters. Keep the product, site, or page topic; remove articles, SEO suffixes, dates, and long taglines.',
+    'SuggestedName must be a memorable bookmark label, preferably 2-20 characters. Keep the product, site, or page topic; remove articles, SEO suffixes, dates, and long taglines.',
     'SuggestedKeywords must contain 2-6 concise topic tags with no duplicates.',
     'JSON shape: {"suggestedFolderId":number|null,"suggestedFolderName":string,"suggestedName":string,"suggestedDescription":string,"suggestedKeywords":string[],"createFolder":boolean}',
   ].join('\n');
@@ -55,7 +51,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
     return {
       ...fallback,
       ...result,
-      suggestedName: suggestedName(result.suggestedName || fallback.suggestedName, input.url, input.purpose),
+      suggestedName: suggestedName(result.suggestedName || fallback.suggestedName, input.url),
       suggestedKeywords: normalizeSuggestedKeywords(result.suggestedKeywords),
     };
   } catch {
@@ -63,11 +59,7 @@ export async function analyzeBookmark(services: AppServices, user: AuthUser, inp
   }
 }
 
-function suggestedName(value: unknown, url: string, purpose: AnalyzeInput['purpose']) {
-  if (purpose === 'clip') {
-    const title = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 500);
-    return title || url;
-  }
+function suggestedName(value: unknown, url: string) {
   return shortenBookmarkName(String(value || ''), url);
 }
 

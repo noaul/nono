@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import cookie from '@fastify/cookie';
@@ -23,7 +24,6 @@ import { metaRoutes } from './routes/admin/meta.js';
 import { aiRoutes } from './routes/ai.js';
 import { nodeskRoutes } from './routes/nodesk.js';
 import { nostarRoutes } from './routes/nostar.js';
-import { clipperRoutes } from './routes/clipper.js';
 import { passkeyRoutes } from './routes/passkeys.js';
 import { backupRoutes } from './routes/admin/backups.js';
 import { backupCenterRoutes } from './routes/admin/backup-center.js';
@@ -46,6 +46,7 @@ import { createAuditLogService } from './services/audit.service.js';
 import { createNoMoneyClient } from './services/nomoney-client.js';
 import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
 import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
+import { BackupOperationGate, createBackupJobService, gateBackupService } from './services/backup-jobs.service.js';
 import { createProductDueReader } from './services/product-due-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,19 +59,24 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');
   const encryptionKey = resolveEncryptionKey(overrides.encryptionKey);
   const privateOutboundHosts = overrides.privateOutboundHosts || parseHostList(process.env.PRIVATE_OUTBOUND_HOSTS);
-  const backupService = overrides.backupService || createBackupServiceFromEnv(nodeskContentDir);
-  const backupCenterService = overrides.backupCenterService || createBackupCenterService({
+  const backupOperationGate = overrides.backupOperationGate || new BackupOperationGate();
+  const backupJobService = overrides.backupJobService || await createBackupJobService({
+    directory: process.env.BACKUP_JOB_DIR || (overrides.repo ? fs.mkdtempSync(path.join(tmpdir(), 'nono-test-jobs-')) : path.join(process.env.BACKUP_DIR || path.resolve(process.cwd(), 'backups'), 'jobs')),
+    gate: backupOperationGate,
+  });
+  const backupService = gateBackupService(overrides.backupService || createBackupServiceFromEnv(nodeskContentDir), backupOperationGate, ['create', 'restore', 'remove', 'verify']);
+  const backupCenterService = gateBackupService(overrides.backupCenterService || createBackupCenterService({
     repo,
     encryptionKey,
     sourceCommit: process.env.NONO_BUILD_COMMIT || 'unknown',
     adapters: createBackupModuleAdapters({ prisma, encryptionKey, nodeskContentDir }),
     request: safeRequester,
     allowPrivateHosts: privateOutboundHosts,
-  });
-  const backupAutomationService = overrides.backupAutomationService || createBackupAutomationService({
+  }), backupOperationGate, ['backupToWebDav', 'restoreWebDavBatch', 'createLocalBackup', 'restoreLocalBackup', 'removeWebDavBatch', 'saveWebDavConfig', 'testWebDavConnection']);
+  const backupAutomationService = gateBackupService(overrides.backupAutomationService || createBackupAutomationService({
     repo,
     backupService: overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma),
-  });
+  }), backupOperationGate, ['runNow', 'runDue', 'update']);
   const auditLogService = overrides.auditLogService || createAuditLogService(repo);
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
@@ -108,6 +114,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupService,
     backupAutomationService,
     backupCenterService,
+    backupJobService,
+    backupOperationGate,
     auditLogService,
     notificationService,
     noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
@@ -204,29 +212,29 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await aiRoutes(app, services);
   await nodeskRoutes(app, services);
   await nostarRoutes(app, services);
-  await clipperRoutes(app, services);
   registerLinkHealthScheduler(app, services);
   registerBackupAutomationScheduler(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
+  // Deny before static handlers: stale files from a previous release must not remain public.
+  app.addHook('onRequest', async (request, reply) => {
+    let pathname = request.url.split('?', 1)[0];
+    try { pathname = decodeURIComponent(pathname); } catch { return sendError(reply, 400, 'Invalid path'); }
+    if (/^\/clipper(?:\/|$)/i.test(pathname)) return sendError(reply, 404, 'Not found');
+  });
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
     const noStarIndexPath = path.join(webDist, 'nostar/index.html');
-    const clipperIndexPath = path.join(webDist, 'clipper/index.html');
     // 构建产物在进程生命周期内不会变化，启动时读入内存，避免每个 SPA 请求都同步读盘。
     const indexHtml = fs.readFileSync(path.join(webDist, 'index.html'), 'utf8');
     const noStarHtml = fs.existsSync(noStarIndexPath) ? fs.readFileSync(noStarIndexPath, 'utf8') : null;
-    const clipperHtml = fs.existsSync(clipperIndexPath) ? fs.readFileSync(clipperIndexPath, 'utf8') : null;
     await app.register(fastifyStatic, { root: webDist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) return sendError(reply, 404, 'Not found');
       const pathname = request.url.split('?', 1)[0];
+      if (pathname === '/clipper' || pathname.startsWith('/clipper/')) return sendError(reply, 404, 'Not found');
       if (pathname === '/nostar') return reply.redirect('/nostar/');
       if (noStarHtml && request.url.startsWith('/nostar/')) {
         return reply.type('text/html; charset=utf-8').send(noStarHtml);
-      }
-      if (pathname === '/clipper') return reply.redirect('/clipper/');
-      if (clipperHtml && request.url.startsWith('/clipper/')) {
-        return reply.type('text/html; charset=utf-8').send(clipperHtml);
       }
       return reply.type('text/html; charset=utf-8').send(indexHtml);
     });

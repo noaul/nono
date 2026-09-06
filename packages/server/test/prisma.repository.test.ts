@@ -51,7 +51,7 @@ describe('Prisma repository batch deletion', () => {
     })).resolves.toBe(created);
 
     expect(events).toEqual(['lock', 'read', 'create', 'mark-initialized']);
-    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)');
+    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)::text');
     expect(transaction.appConfig.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { initializedAt: expect.any(Date) } });
   });
 
@@ -70,7 +70,7 @@ describe('Prisma repository batch deletion', () => {
     const repo = createPrismaRepository(prisma as never);
 
     await expect(repo.deleteUser(7)).rejects.toMatchObject({ statusCode: 409 });
-    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)');
+    expect(transaction.$queryRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(1313820239)::text');
     expect(transaction.user.delete).not.toHaveBeenCalled();
   });
 
@@ -118,7 +118,6 @@ describe('Prisma repository batch deletion', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       link: { findMany: vi.fn().mockResolvedValue([]) },
-      clip: { findMany: vi.fn().mockResolvedValue([]) },
       trashItem: { create: trashCreate },
     };
     const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
@@ -130,7 +129,7 @@ describe('Prisma repository batch deletion', () => {
     expect(transaction.folder.deleteMany).toHaveBeenCalledWith({ where: { userId: 7, id: { in: [12, 18] } } });
   });
 
-  it('snapshots clip associations before deleting a folder tree', async () => {
+  it('snapshots bookmarks before deleting a folder tree without retired tables', async () => {
     const transaction = {
       folder: {
         findMany: vi.fn().mockResolvedValue([
@@ -143,9 +142,6 @@ describe('Prisma repository batch deletion', () => {
           { id: 21, folderId: 12, name: 'Article', url: 'https://example.com/a' },
         ]),
       },
-      clip: {
-        findMany: vi.fn().mockResolvedValue([{ id: 11, linkId: 21 }]),
-      },
       trashItem: { create: vi.fn().mockResolvedValue({}) },
     };
     const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
@@ -153,12 +149,8 @@ describe('Prisma repository batch deletion', () => {
 
     await repo.deleteFolder(7, 12);
 
-    expect(transaction.clip.findMany).toHaveBeenCalledWith({
-      where: { userId: 7, linkId: { in: [21] } },
-      select: { id: true, linkId: true },
-    });
     expect(transaction.trashItem.create.mock.calls[0][0].data.payload).toMatchObject({
-      linkedClips: [{ id: 11, linkId: 21 }],
+      links: [{ id: 21, folderId: 12, name: 'Article', url: 'https://example.com/a' }],
     });
   });
 
@@ -172,18 +164,12 @@ describe('Prisma repository batch deletion', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       trashItem: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
-      // Deleting a bookmark detaches its clip, so the snapshot records the association first.
-      clip: { findMany: vi.fn().mockResolvedValue([{ id: 11, linkId: 21 }]) },
     };
     const prisma = { ...transaction, $transaction: vi.fn(async (operation: (client: typeof transaction) => unknown) => operation(transaction)) };
     const repo = createPrismaRepository(prisma as never);
 
     await repo.deleteLinks(7, [21, 34]);
 
-    expect(transaction.clip.findMany).toHaveBeenCalledWith({
-      where: { userId: 7, linkId: { in: [21, 34] } },
-      select: { id: true, linkId: true },
-    });
 
     expect(transaction.link.findMany).toHaveBeenCalledWith({ where: { id: { in: [21, 34] }, folder: { userId: 7 } } });
     // 一次 createMany 承载全部回收站记录，而不是每条链接一次 create。
@@ -193,203 +179,5 @@ describe('Prisma repository batch deletion', () => {
       { userId: 7, kind: 'bookmark', entityId: 34, label: 'Two' },
     ]);
     expect(transaction.link.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [21, 34] } } });
-  });
-});
-
-/**
- * Restoring used to branch on `bookmark` and treat everything else as a folder, so a Clipper trash
- * item would have been fed to the folder restore path. These cover the explicit branches.
- */
-describe('Clipper trash restore', () => {
-  const OWNER = 7;
-
-  function trashFixture(overrides: Record<string, any> = {}) {
-    const clipPayload = {
-      version: 1,
-      clip: {
-        id: 11,
-        userId: OWNER,
-        url: 'https://example.com/a',
-        canonicalUrl: 'https://example.com/a',
-        title: 'Kept',
-        domain: 'example.com',
-        excerpt: 'kept',
-        contentHtml: '<p>kept</p>',
-        contentMd: 'kept',
-        contentHash: 'hash',
-        contentVersion: 2,
-        extractor: 'defuddle',
-      },
-      tagNames: ['Reading', 'Later'],
-      highlights: [{ text: 'kept', anchor: { quote: 'kept' }, contentVersion: 2, color: 'yellow' }],
-      linkRef: { url: 'https://example.com/a', folderPath: ['Inbox'] },
-    };
-
-    const transaction = {
-      trashItem: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: 'trash-1', userId: OWNER, kind: 'clip', entityId: 11, label: 'Kept', payload: clipPayload,
-        }),
-        delete: vi.fn().mockResolvedValue({}),
-        createMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-      clip: {
-        findUnique: vi.fn().mockResolvedValue(null),
-        findMany: vi.fn().mockResolvedValue([]),
-        create: vi.fn().mockImplementation(async ({ data }: any) => ({ id: 11, ...data })),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-      clipTag: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockImplementation(async ({ data }: any) => ({ id: 3, ...data })),
-      },
-      clipTagOnClip: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
-      clipHighlight: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
-      link: { findMany: vi.fn().mockResolvedValue([{ id: 42, url: 'https://example.com/a', folderId: 5 }]) },
-      folder: { findFirst: vi.fn().mockResolvedValue({ id: 5, name: 'Inbox', parentId: null, userId: OWNER }), findMany: vi.fn().mockResolvedValue([{ id: 5, name: 'Inbox', parentId: null, userId: OWNER }]) },
-      ...overrides,
-    };
-
-    const prisma = { ...transaction, $transaction: vi.fn(async (op: any) => op(transaction)) };
-    return { prisma, transaction, clipPayload };
-  }
-
-  it('restores a clip with its tags and highlights', async () => {
-    const { prisma, transaction } = trashFixture();
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-1');
-
-    expect(transaction.clip.create).toHaveBeenCalled();
-    expect(transaction.clip.create.mock.calls[0][0].data).toMatchObject({ userId: OWNER, title: 'Kept' });
-    expect(transaction.clipTagOnClip.createMany).toHaveBeenCalled();
-    expect(transaction.clipHighlight.createMany).toHaveBeenCalled();
-    expect(transaction.trashItem.delete).toHaveBeenCalled();
-  });
-
-  it('reattaches the bookmark only when the reference resolves to exactly one link', async () => {
-    const { prisma, transaction } = trashFixture();
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-1');
-
-    expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBe(42);
-  });
-
-  it('leaves the clip detached when the bookmark reference is ambiguous', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.link.findMany.mockResolvedValue([
-      { id: 42, url: 'https://example.com/a', folderId: 5 },
-      { id: 43, url: 'https://example.com/a', folderId: 5 },
-    ]);
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-1');
-
-    expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBeNull();
-  });
-
-  it('leaves the clip detached when the bookmark is gone', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.link.findMany.mockResolvedValue([]);
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-1');
-
-    expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBeNull();
-  });
-
-  it('leaves the clip detached when the only URL match is in a different folder', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.folder.findFirst.mockResolvedValue({ id: 6, name: 'Archive', parentId: null, userId: OWNER });
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-1');
-
-    expect(transaction.clip.create.mock.calls[0][0].data.linkId).toBeNull();
-  });
-
-  it('rejects an unknown trash kind instead of restoring it as a folder', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.trashItem.findFirst.mockResolvedValue({
-      id: 'trash-9', userId: OWNER, kind: 'something-new', entityId: 1, label: 'x', payload: {},
-    });
-    const repo = createPrismaRepository(prisma as never);
-
-    await expect(repo.restoreTrashItem(OWNER, 'trash-9')).rejects.toThrow(/unsupported|unknown/i);
-    expect(transaction.folder.findFirst).not.toHaveBeenCalled();
-  });
-
-  it('does not read a trash item belonging to another user', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.trashItem.findFirst.mockResolvedValue(null);
-    const repo = createPrismaRepository(prisma as never);
-
-    await expect(repo.restoreTrashItem(8, 'trash-1')).rejects.toThrow();
-    expect(transaction.trashItem.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'trash-1', userId: 8 } }),
-    );
-  });
-
-  it('reattaches clips when the bookmark itself is restored', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.trashItem.findFirst.mockResolvedValue({
-      id: 'trash-2',
-      userId: OWNER,
-      kind: 'bookmark',
-      entityId: 42,
-      label: 'Example',
-      payload: {
-        link: { id: 42, folderId: 5, name: 'Example', url: 'https://example.com/a', sortOrder: 0 },
-        linkedClipIds: [11],
-      },
-    });
-    Object.assign(transaction, { link: { ...transaction.link, findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: 42 }) } });
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-2');
-
-    expect(transaction.clip.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: { in: [11] }, userId: OWNER },
-        data: { linkId: 42 },
-      }),
-    );
-  });
-
-  it('reattaches clips when their containing folder is restored', async () => {
-    const { prisma, transaction } = trashFixture();
-    transaction.trashItem.findFirst.mockResolvedValue({
-      id: 'trash-3',
-      userId: OWNER,
-      kind: 'folder',
-      entityId: 5,
-      label: 'Inbox',
-      payload: {
-        folders: [{ id: 5, userId: OWNER, parentId: null, name: 'Inbox', createdAt: new Date(), updatedAt: new Date() }],
-        links: [{ id: 42, folderId: 5, name: 'Example', url: 'https://example.com/a', sortOrder: 0, createdAt: new Date(), updatedAt: new Date() }],
-        linkedClips: [{ id: 11, linkId: 42 }],
-      },
-    });
-    Object.assign(transaction, {
-      folder: {
-        ...transaction.folder,
-        count: vi.fn().mockResolvedValue(0),
-        create: vi.fn().mockResolvedValue({ id: 5 }),
-      },
-      link: {
-        ...transaction.link,
-        count: vi.fn().mockResolvedValue(0),
-        createMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-    });
-    const repo = createPrismaRepository(prisma as never);
-
-    await repo.restoreTrashItem(OWNER, 'trash-3');
-
-    expect(transaction.clip.updateMany).toHaveBeenCalledWith({
-      where: { id: 11, userId: OWNER, linkId: null },
-      data: { linkId: 42 },
-    });
   });
 });

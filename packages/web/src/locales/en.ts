@@ -524,7 +524,6 @@ export const en: Messages = {
   },
   trash: {
     all: 'All',
-    kindClip: 'Clip',
     loadFailed: 'Could not load the trash',
     restore: 'Restore',
     restoreKind: 'Restore {kind}',
@@ -540,7 +539,7 @@ export const en: Messages = {
     emptyMessage: 'Permanently delete {count} items in the trash. This cannot be undone.',
     emptied: 'Trash emptied',
     emptyFailed: 'Could not empty the trash',
-    description: 'Deleted bookmarks, folders, NoTabs, and clips stay here until you empty the trash.',
+    description: 'Deleted bookmarks, folders, and NoTabs stay here until you empty the trash.',
     filters: 'Trash filters',
     itemCount: '{count} items',
     loading: 'Loading the trash',
@@ -850,7 +849,7 @@ export const en: Messages = {
   },
   audit: {
     rSite: 'Site', rUser: 'User', rToken: 'Token', rBackup: 'Backup', rAccount: 'Account',
-    rSession: 'Session', rPasskey: 'Passkey', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar', rClipper: 'Clipper',
+    rSession: 'Session', rPasskey: 'Passkey', rLlm: 'LLM', rNodesk: 'NoDesk', rNostar: 'NoStar',
     rSystem: 'System', rAudit: 'Audit settings',
     aCreate: 'Create', aUpdate: 'Update', aDelete: 'Delete', aReorder: 'Reorder',
     aBulkMove: 'Bulk move', aBulkDelete: 'Bulk delete', aImport: 'Import',

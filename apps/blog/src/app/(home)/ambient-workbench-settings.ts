@@ -15,7 +15,6 @@ export const DEFAULT_WORKBENCH_APP_ENTRIES: WorkbenchAppEntry[] = [
 	{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false },
 	{ id: 'nostar', label: 'NoStar', url: '/nostar/', icon: 'star', openInNewTab: false },
 	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false },
-	{ id: 'clipper', label: 'Clipper', url: '/clipper/', icon: 'scissors', openInNewTab: false }
 ]
 
 const WORKBENCH_NAVIGATION_VERSION = 5
@@ -60,7 +59,7 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 		const entry = record(value)
 		const label = typeof entry?.label === 'string' ? entry.label.trim().slice(0, 60) : ''
 		const url = safeLocation(entry?.url)
-		if (!label || !url || entry?.enabled === false) return []
+		if (!label || !url || entry?.enabled === false || /^\/clipper(?:[/?#]|$)/i.test(url)) return []
 		return [{
 			id: typeof entry?.id === 'string' && entry.id.trim() ? entry.id.trim().slice(0, 80) : `entry-${index + 1}`,
 			label,

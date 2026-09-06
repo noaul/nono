@@ -7,7 +7,6 @@ import {
 	formatFocusDuration,
 	getShanghaiClockParts,
 	nextFocusDuration,
-	normalizeClipSearchResults,
 	normalizeEvents,
 	normalizeTasks,
 	selectUpcomingItems,
@@ -69,29 +68,14 @@ test('selects a compact mix of incomplete tasks and upcoming schedules', () => {
 	])
 })
 
-test('filters workbench search results across tasks, bookmarks, repositories, and clip tags', () => {
+test('filters workbench search results across tasks, bookmarks, repositories', () => {
 	const results = filterWorkbenchItems('node', [
 		{ id: 'task:1', kind: 'task', title: 'Finish Nodesk', subtitle: 'Task' },
 		{ id: 'bookmark:1', kind: 'bookmark', title: 'React docs', subtitle: 'Bookmark', href: 'https://react.dev' },
 		{ id: 'repo:1', kind: 'repository', title: 'nodejs/node', subtitle: 'GitHub', href: 'https://github.com/nodejs/node' },
-		{ id: 'clip:1', kind: 'clip', title: 'AI reading notes', subtitle: '剪藏 · node · research', href: '/clipper/?clip=1' }
 	])
 
-	assert.deepEqual(results.map(result => result.id), ['task:1', 'repo:1', 'clip:1'])
-})
-
-test('normalizes Clipper search rows into safe deep-linked workbench results', () => {
-	assert.deepEqual(normalizeClipSearchResults({ items: [
-		{ id: 8, title: 'AI reading', domain: 'example.com', tags: ['Research', 'AI'] },
-		{ id: 'bad', title: 'Ignored' },
-		{ id: 9, title: '', tags: [] }
-	] }), [{
-		id: 'clip:8',
-		kind: 'clip',
-		title: 'AI reading',
-		subtitle: '剪藏 · example.com · Research, AI',
-		href: '/clipper/?clip=8'
-	}])
+	assert.deepEqual(results.map(result => result.id), ['task:1', 'repo:1'])
 })
 
 test('ranks common bookmarks by persisted usage and recent clicks', () => {
@@ -161,7 +145,7 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 	}).entries.map(entry => entry.id), ['nomoney', 'nostar', 'custom-home'])
 
 	assert.deepEqual(normalizeWorkbenchNavigation(null).entries.map(entry => entry.id), [
-		'nomoney', 'nostar', 'yumi', 'clipper'
+		'nomoney', 'nostar', 'yumi'
 	])
 })
 
@@ -174,8 +158,6 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 	assert.match(page, /AmbientWorkbench/)
 	assert.doesNotMatch(page, /HiCard|ArtCard|CalendarCard|ScheduleSummaryCard|SnowfallBackground/)
 	assert.match(workbench, /书签|GitHub|Yumi|日程|任务|专注/)
-	assert.match(workbench, /id: 'clipper', label: '剪藏', icon: Scissors, href: '\/clipper\/'/)
-	assert.match(workbench, /<a[^>]+href=\{item\.href\}/)
 	assert.match(workbench, /prefers-reduced-motion|useReducedMotion/)
 	assert.match(workbench, /requestFullscreen/)
 	assert.match(workbench, /localStorage/)
@@ -212,17 +194,6 @@ test('waits for the live session check before revealing the complete workbench i
 
 	assert.match(workbench, /data-session=\{initialized \? 'ready' : 'loading'\}/)
 	assert.match(styles, /\.ambient-workbench\[data-session='loading'\][\s\S]*\.ambient-topbar[\s\S]*\.ambient-center-stage/)
-})
-
-test('loads Clipper title and tag matches into NoDesk quick search', async () => {
-	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
-	const model = await read('src/app/(home)/ambient-workbench-model.ts')
-
-	assert.match(workbench, /\/api\/clipper\/search\?q=/)
-	assert.match(workbench, /normalizeClipSearchResults/)
-	assert.match(model, /kind:\s*'clip'/)
-	assert.match(model, /\/clipper\/\?clip=/)
-	assert.match(workbench, /搜索任务、日程、书签、仓库与剪藏/)
 })
 
 test('keeps browser-local time copy from causing hydration mismatches', async () => {

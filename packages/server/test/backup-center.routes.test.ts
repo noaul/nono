@@ -48,21 +48,23 @@ describe('backup center routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/admin/backup-center/webdav/restore',
-      headers: { cookie: adminCookie },
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_webdav-restore` },
       payload: { batchId, modules: ['nomoney', 'yumi'] },
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json().data).toEqual({ batchId, restored: ['nomoney', 'yumi'] });
+    expect(response.statusCode).toBe(202);
+    await new Promise(resolve => setImmediate(resolve));
+    const polled = await app.inject({ url: `/api/admin/backup-center/jobs/${response.json().data.id}`, headers: { cookie: adminCookie } });
+    expect(polled.json().data.result).toEqual({ batchId, restored: ['nomoney', 'yumi'] });
     expect(center.restoreWebDavBatch).toHaveBeenCalledWith(expect.any(Number), batchId, ['nomoney', 'yumi']);
   });
 
   it('does not impose a small route-level quota on manual WebDAV backups', async () => {
-    vi.mocked(center.backupToWebDav).mockImplementation(async (_userId, modules = ['nono', 'clipper', 'nodesk', 'nostar', 'nomoney', 'yumi']) => ({
+    vi.mocked(center.backupToWebDav).mockImplementation(async (_userId, modules = ['nono', 'nodesk', 'nostar', 'nomoney', 'yumi']) => ({
       kind: 'nono.webdav-backup-batch',
       version: 1,
       id: `20260824T12000${vi.mocked(center.backupToWebDav).mock.calls.length}Z-a1b2c3`,
-      scope: modules.length === 6 ? 'full' : 'module',
+      scope: modules.length === 5 ? 'full' : 'module',
       createdAt: '2026-08-24T12:00:00.000Z',
       sourceCommit: 'test',
       modules: {},
@@ -73,12 +75,13 @@ describe('backup center routes', () => {
       responses.push(await app.inject({
         method: 'POST',
         url: '/api/admin/backup-center/webdav/backups',
-        headers: { cookie: adminCookie },
+        headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_webdav-${index}` },
         payload: { modules: ['nono'] },
       }));
+      await new Promise(resolve => setImmediate(resolve));
     }
 
-    expect(responses.map(response => response.statusCode)).toEqual([200, 200, 200, 200]);
+    expect(responses.map(response => response.statusCode)).toEqual([202, 202, 202, 202]);
   });
 
   it('passes the uploaded local JSON body to the selected restore adapter', async () => {
@@ -86,11 +89,12 @@ describe('backup center routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/admin/backup-center/local/nostar/restore',
-      headers: { cookie: adminCookie },
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_local-restore` },
       payload,
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(202);
+    await new Promise(resolve => setImmediate(resolve));
     const call = vi.mocked(center.restoreLocalBackup).mock.calls[0];
     expect(call[1]).toBe('nostar');
     expect(JSON.parse(call[2].toString())).toEqual(payload);
@@ -130,7 +134,7 @@ describe('backup center credentials', () => {
 
   it('refuses a full local export presented with an API token', async () => {
     const response = await app.inject({
-      method: 'GET',
+      method: 'POST',
       url: '/api/admin/backup-center/local/all',
       headers: { authorization: `Bearer ${adminToken}` },
     });
@@ -152,18 +156,20 @@ describe('backup center credentials', () => {
 
   it('still serves both to an administrator session', async () => {
     const exported = await app.inject({
-      method: 'GET',
+      method: 'POST',
       url: '/api/admin/backup-center/local/all',
-      headers: { cookie: adminCookie },
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_export` },
     });
+    await new Promise(resolve => setImmediate(resolve));
     const restored = await app.inject({
       method: 'POST',
       url: '/api/admin/backup-center/local/nono/restore',
-      headers: { cookie: adminCookie, origin: 'http://localhost:3000' },
+      headers: { cookie: adminCookie, origin: 'http://localhost:3000', 'idempotency-key': `${Date.now()}_restore` },
       payload: { kind: 'nono.module-backup' },
     });
 
-    expect(exported.statusCode).toBe(200);
-    expect(restored.statusCode).toBe(200);
+    expect(exported.statusCode).toBe(202);
+    expect(restored.statusCode).toBe(202);
+    await new Promise(resolve => setImmediate(resolve));
   });
 });

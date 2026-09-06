@@ -137,7 +137,7 @@ export interface LinkHealthSummary {
   invalid: number;
 }
 
-export type TrashItemKind = 'bookmark' | 'folder' | 'notab' | 'clip';
+export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
 
 export interface TrashItem {
   id: string;

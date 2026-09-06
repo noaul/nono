@@ -6,12 +6,10 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppServices } from '../types.js';
 import { exportNoStarData, importNoStarData } from '../routes/nostar/sync-service.js';
 import { removeBackupDirectory, runBackupCommand, type BackupCommandRunner } from './backup.service.js';
-import { normalizeClipTagName } from './prisma.repository.js';
 import type { BackupModule, BackupModuleAdapter } from './backup-center.service.js';
 
 const NONO_KIND = 'nono.core-backup';
 const NOSTAR_KIND = 'nono.nostar-backup';
-const CLIPPER_KIND = 'nono.clipper-backup';
 const PRODUCT_KIND = 'nono.product-backup';
 const MAX_NODESK_ARCHIVE_ENTRIES = 10_000;
 const MAX_NODESK_EXPANDED_BYTES = 512 * 1024 * 1024;
@@ -32,7 +30,6 @@ export function createBackupModuleAdapters(options: {
   const now = options.now || (() => new Date());
   return {
     nono: createNonoAdapter(options.prisma, now),
-    clipper: createClipperAdapter(options.prisma, now),
     nodesk: createNoDeskAdapter(options.nodeskContentDir, run),
     nostar: createNoStarAdapter(options.prisma, options.encryptionKey, now),
     nomoney: createProductAdapter('nomoney', options.noMoneyPort || Number(process.env.NOMONEY_INTERNAL_PORT || 2030), options.internalToken ?? process.env.NOMONEY_INTERNAL_TOKEN ?? '', request, now),
@@ -444,198 +441,4 @@ function dateOrNull(value: unknown) {
 
 function httpError(statusCode: number, message: string) {
   return Object.assign(new Error(message), { statusCode });
-}
-
-/**
- * Clipper artifacts never carry a raw linkId.
- *
- * A full restore recreates bookmarks with fresh autoincrement ids, so an id captured at backup time
- * points at whatever row happens to occupy it afterwards — silently attaching a clip to an
- * unrelated bookmark. The reference travels as a normalized URL plus folder ancestry instead, and a
- * clip that cannot be matched to exactly one owned bookmark is restored detached.
- */
-function createClipperAdapter(prisma: PrismaClient, now: () => Date): BackupModuleAdapter {
-  return {
-    module: 'clipper',
-    extension: 'json',
-    contentType: 'application/json',
-
-    async export(userId) {
-      const clips = await prisma.clip.findMany({
-        where: { userId },
-        include: { tags: { include: { tag: true } }, highlights: true, link: true },
-        orderBy: { id: 'asc' },
-      }) as any[];
-
-      const serialized = [];
-      for (const clip of clips) {
-        const { tags, highlights, link, id, userId: _owner, linkId, ...fields } = clip;
-        serialized.push({
-          ...fields,
-          clippedAt: clip.clippedAt?.toISOString?.() ?? null,
-          publishedAt: clip.publishedAt?.toISOString?.() ?? null,
-          updatedAt: clip.updatedAt?.toISOString?.() ?? null,
-          tagNames: (tags || []).map((entry: any) => entry.tag?.name).filter(Boolean),
-          tagDefinitions: (tags || []).flatMap((entry: any) => entry.tag?.name
-            ? [{ name: entry.tag.name, color: entry.tag.color ?? null }]
-            : []),
-          highlights: (highlights || []).map((highlight: any) => ({
-            text: highlight.text,
-            note: highlight.note,
-            color: highlight.color,
-            anchor: highlight.anchor,
-            contentVersion: highlight.contentVersion,
-          })),
-          linkRef: link
-            ? { normalizedUrl: link.url, folderPath: await clipFolderPath(prisma, userId, link.folderId) }
-            : null,
-        });
-      }
-
-      return jsonBuffer({
-        kind: CLIPPER_KIND,
-        version: 1,
-        module: 'clipper',
-        exportedAt: now().toISOString(),
-        clips: serialized,
-      });
-    },
-
-    async validate(body) {
-      parseClipperBackup(body);
-    },
-
-    async restore(userId, body) {
-      // Parsed before anything is deleted: a malformed artifact must not cost the user their clips.
-      const backup = parseClipperBackup(body);
-
-      await prisma.$transaction(async (tx: any) => {
-        await tx.clip.deleteMany({ where: { userId } });
-        await tx.clipTag.deleteMany({ where: { userId } });
-
-        for (const entry of backup.clips) {
-          const clip = record(entry);
-          const { tagNames, tagDefinitions, highlights, linkRef, ...fields } = clip as any;
-
-          const created = await tx.clip.create({
-            data: {
-              ...reviveClipFields(fields),
-              userId,
-              linkId: await resolveBackupBookmark(tx, userId, linkRef),
-            },
-          });
-
-          const definitions = array(tagDefinitions).length
-            ? array(tagDefinitions).map((value) => record(value))
-            : array(tagNames).map((name) => ({ name, color: null }));
-          const tagIds: number[] = [];
-          for (const definition of definitions) {
-            const display = text(definition.name);
-            const normalizedName = normalizeClipTagName(display);
-            if (!normalizedName) continue;
-            const existing = await tx.clipTag.findFirst({ where: { userId, normalizedName } });
-            const color = nullableClipTagColor(definition.color);
-            const tag = existing || await tx.clipTag.create({ data: { userId, name: display, normalizedName, color } });
-            tagIds.push(tag.id);
-          }
-          if (tagIds.length) {
-            await tx.clipTagOnClip.createMany({
-              data: tagIds.map((tagId) => ({ clipId: created.id, tagId, userId })),
-              skipDuplicates: true,
-            });
-          }
-
-          const annotations = array(highlights).map((value) => {
-            const highlight = record(value);
-            return {
-              clipId: created.id,
-              userId,
-              text: text(highlight.text),
-              note: nullableText(highlight.note),
-              color: text(highlight.color) || 'yellow',
-              anchor: (highlight.anchor ?? {}) as never,
-              contentVersion: Number(highlight.contentVersion) || 1,
-            };
-          });
-          if (annotations.length) await tx.clipHighlight.createMany({ data: annotations });
-        }
-      });
-    },
-  };
-}
-
-function parseClipperBackup(body: Buffer) {
-  let value: any;
-  try {
-    value = JSON.parse(body.toString('utf8'));
-  } catch {
-    throw new Error('Clipper backup is not valid JSON');
-  }
-  if (value?.kind !== CLIPPER_KIND || value.version !== 1 || value.module !== 'clipper' || !Array.isArray(value.clips)) {
-    throw new Error('Clipper backup artifact is not recognized');
-  }
-  return value as { clips: unknown[] };
-}
-
-async function resolveBackupBookmark(tx: any, userId: number, linkRef: unknown): Promise<number | null> {
-  const reference = record(linkRef);
-  const normalizedUrl = text(reference.normalizedUrl);
-  if (!normalizedUrl) return null;
-
-  const candidates = await tx.link.findMany({
-    where: { url: normalizedUrl, folder: { userId } },
-    select: { id: true, folderId: true },
-  });
-  if (candidates.length === 0) return null;
-
-  if (!Array.isArray(reference.folderPath)) return candidates.length === 1 ? candidates[0].id : null;
-
-  const wanted = array(reference.folderPath).map((value) => text(value)).join('\u0000');
-  const matched: number[] = [];
-  for (const candidate of candidates) {
-    const path = await clipFolderPath(tx, userId, candidate.folderId);
-    if (path.join('\u0000') === wanted) matched.push(candidate.id);
-  }
-  // Still ambiguous: detached beats wrong.
-  return matched.length === 1 ? matched[0] : null;
-}
-
-async function clipFolderPath(client: any, userId: number, folderId: number | null): Promise<string[]> {
-  const path: string[] = [];
-  let current = folderId;
-  const seen = new Set<number>();
-  while (current) {
-    if (seen.has(current)) break;
-    seen.add(current);
-    const folder = await client.folder.findFirst({ where: { id: current, userId }, select: { name: true, parentId: true } });
-    if (!folder) break;
-    path.unshift(folder.name);
-    current = folder.parentId;
-  }
-  return path;
-}
-
-function reviveClipFields(fields: Record<string, any>) {
-  const revived: Record<string, any> = { ...fields };
-  const clipKind = revived.clipKind === 'selection' || (!revived.clipKind && revived.extractor === 'selection')
-    ? 'selection'
-    : 'page';
-  revived.clipKind = clipKind;
-  revived.selectionFingerprint = clipKind === 'selection'
-    ? text(revived.selectionFingerprint) || text(revived.contentHash)
-    : '';
-  for (const key of ['clippedAt', 'publishedAt', 'updatedAt']) {
-    if (revived[key]) {
-      const parsed = new Date(revived[key]);
-      revived[key] = Number.isNaN(parsed.getTime()) ? null : parsed;
-    } else {
-      delete revived[key];
-    }
-  }
-  return revived;
-}
-
-function nullableClipTagColor(value: unknown) {
-  const color = nullableText(value);
-  return color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : null;
 }

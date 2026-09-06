@@ -2,8 +2,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
 import { runCommand, waitForAcceptance } from './deploy-compose.mjs';
+import { inspectImage, backup, snapshot, safetyContext, assertMaintenance } from './compose-safety.mjs';
 
-const BACKUP_CLI = '/app/nono/packages/server/dist/cli/backup.js';
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 
 export function parseRestoreArgs(argv) {
@@ -35,35 +35,49 @@ export async function restoreCompose({
   wait = sleep,
   acceptanceAttempts = 24,
   log = console.log,
+  fetchImpl = fetch,
 }) {
   validateConfirmation(backupId, confirmation);
   const commandOptions = { cwd };
-  const image = await inspectCurrentImage(run, commandOptions);
+  const image = await inspectImage(run, commandOptions);
   if (!image) throw new Error('The running app image could not be determined');
-  const composeOptions = { ...commandOptions, env: { ...process.env, NONO_APP_IMAGE: image } };
-
-  await runBackupInContainer(run, ['exec', '-T', 'app'], ['verify', '--id', backupId], composeOptions);
-  const safetyOutput = await runBackupInContainer(run, ['exec', '-T', 'app'], ['create'], { ...composeOptions, capture: true });
-  const safetyBackupId = parseBackupOutput(safetyOutput.stdout).id;
-  if (!BACKUP_ID_PATTERN.test(safetyBackupId)) throw new Error('Safety backup did not return a valid identifier');
-  log(`safety backup created: ${safetyBackupId}`);
-
-  let appStopped = false;
+  const context = safetyContext({ cwd, baseUrl, run, image });
+  const composeOptions = context.publicOptions;
+  await backup(run, composeOptions, ['verify', '--id', backupId]);
+  let safetyBackupId = '';
+  let dataMayHaveChanged = false;
+  let releaseStarted = false;
   try {
-    await run('docker', ['compose', 'stop', 'app'], composeOptions);
-    appStopped = true;
-    await runBackupInContainer(run, ['run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'app'], ['restore', '--id', backupId], composeOptions);
-    await run('docker', ['compose', 'start', 'app'], composeOptions);
-    appStopped = false;
-    await waitForAcceptance({ baseUrl, accept, wait, attempts: acceptanceAttempts, log });
+    await context.stop();
+    safetyBackupId = await snapshot(run, composeOptions);
+    log(`verified offline safety backup: ${safetyBackupId}`);
+    await context.file(false);
+    dataMayHaveChanged = true;
+    await backup(run, composeOptions, ['restore', '--id', backupId]);
+    await context.start(context.offlineOptions);
+    await waitForAcceptance({ baseUrl: context.candidateUrl, headers: context.headers, accept, wait, attempts: acceptanceAttempts, log });
+    await assertMaintenance(context.candidateUrl, fetchImpl);
+    await context.start(composeOptions);
+    await assertMaintenance(baseUrl, fetchImpl, { wait, attempts: acceptanceAttempts });
+    await waitForAcceptance({ baseUrl, headers: context.headers, accept, wait, attempts: acceptanceAttempts, log });
+    releaseStarted = true;
+    await context.file(true);
     return { backupId, safetyBackupId, image, rolledBack: false };
   } catch (restoreFailure) {
+    if (releaseStarted) throw new Error(`Ingress release uncertain; accepted data was NOT rolled back: ${errorText(restoreFailure)}`);
     log(`restore failed; rolling data back to ${safetyBackupId}`);
     try {
-      if (!appStopped) await run('docker', ['compose', 'stop', 'app'], composeOptions);
-      await runBackupInContainer(run, ['run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'app'], ['restore', '--id', safetyBackupId], composeOptions);
-      await run('docker', ['compose', 'start', 'app'], composeOptions);
-      await waitForAcceptance({ baseUrl, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
+      await context.stop();
+      if (dataMayHaveChanged) await backup(run, composeOptions, ['restore', '--id', safetyBackupId], true);
+      await context.file(false);
+      await context.start(context.offlineOptions);
+      await waitForAcceptance({ baseUrl: context.candidateUrl, headers: context.headers, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
+      await assertMaintenance(context.candidateUrl, fetchImpl);
+      await context.start(composeOptions);
+      await assertMaintenance(baseUrl, fetchImpl, { wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)) });
+      await waitForAcceptance({ baseUrl, headers: context.headers, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
+      releaseStarted = true;
+      await context.file(true);
       return {
         backupId,
         safetyBackupId,
@@ -72,28 +86,12 @@ export async function restoreCompose({
         restoreError: errorText(restoreFailure),
       };
     } catch (rollbackFailure) {
+      if (releaseStarted) throw new Error(`Restore failed (${errorText(restoreFailure)}); rollback ingress release uncertain (${errorText(rollbackFailure)}); data retained`);
+      try { await context.stop(); } catch (stopError) {
+        throw new Error(`Restore failed (${errorText(restoreFailure)}) and safety rollback failed (${errorText(rollbackFailure)}); writer shutdown also failed (${errorText(stopError)})`);
+      }
       throw new Error(`Restore failed (${errorText(restoreFailure)}) and safety rollback failed (${errorText(rollbackFailure)})`);
     }
-  }
-}
-
-async function runBackupInContainer(run, composePrefix, backupArgs, options) {
-  return run('docker', ['compose', ...composePrefix, ...(composePrefix[0] === 'exec' ? ['node', BACKUP_CLI] : [BACKUP_CLI]), ...backupArgs], options);
-}
-
-async function inspectCurrentImage(run, commandOptions) {
-  const containerId = (await run('docker', ['compose', 'ps', '-q', 'app'], { ...commandOptions, capture: true })).stdout.trim();
-  if (!containerId) return '';
-  return (await run('docker', ['inspect', '--format', '{{.Config.Image}}', containerId], { ...commandOptions, capture: true })).stdout.trim();
-}
-
-function parseBackupOutput(output) {
-  const line = String(output).trim().split(/\r?\n/).filter(Boolean).at(-1);
-  if (!line) throw new Error('Backup command returned no output');
-  try {
-    return JSON.parse(line);
-  } catch {
-    throw new Error('Backup command returned invalid JSON');
   }
 }
 

@@ -25,14 +25,6 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     enabled: true,
     openInNewTab: true,
   },
-  {
-    id: 'clipper',
-    label: 'Clipper',
-    url: '/clipper',
-    icon: 'scissors',
-    enabled: true,
-    openInNewTab: true,
-  },
 ];
 
 // Version 5 drops the legacy `home` shortcut. The public navigation already is the bookmark page,
@@ -87,7 +79,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
     if (!isRecord(value)) return [];
     const label = typeof value.label === 'string' ? value.label.trim().slice(0, 60) : '';
     const url = safeLocation(value.url);
-    if (!label || !url) return [];
+    if (!label || !url || /^\/clipper(?:[/?#]|$)/i.test(url)) return [];
     const baseId = normalizeId(value.id, index);
     let id = baseId;
     let suffix = 2;
@@ -99,7 +91,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
       url,
       icon: typeof value.icon === 'string' ? value.icon.trim().slice(0, 40) : 'link',
       enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
-      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar' || id === 'clipper'
+      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar'
         ? true
         : typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
     }];

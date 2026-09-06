@@ -63,7 +63,7 @@ describe('numeric route params over the wire', () => {
     await app.close();
   });
 
-  it('rejects an unparsable clip id with 400 without touching the repository', async () => {
+  it('rejects an unparsable bookmark id with 400 without touching the repository', async () => {
     const login = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
@@ -72,7 +72,7 @@ describe('numeric route params over the wire', () => {
     const setCookie = login.headers['set-cookie'];
     const cookie = Array.isArray(setCookie) ? setCookie[0] : String(setCookie);
 
-    const response = await app.inject({ method: 'GET', url: '/api/clipper/clips/abc', headers: { cookie } });
+    const response = await app.inject({ method: 'DELETE', url: '/api/admin/links/abc', headers: { cookie } });
 
     expect(response.statusCode).toBe(400);
     expect(response.json().message).toBe('Invalid id parameter');

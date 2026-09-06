@@ -153,13 +153,12 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.text()).toContain('站内命中 1 个链接');
   });
 
-  it('places NoMoney, Yumi, NoStar and Clipper after the NoTab buttons', async () => {
+  it('places NoMoney, Yumi and NoStar after the NoTab buttons', async () => {
     const wrapper = await mountNavigationPage();
     const tabs = wrapper.get('.folder-tabs');
     const noMoney = tabs.get('[data-testid="navigation-entry-nomoney"]');
     const noStar = tabs.get('[data-testid="navigation-entry-nostar"]');
     const yumi = tabs.get('[data-testid="navigation-entry-yumi"]');
-    const clipper = tabs.get('[data-testid="navigation-entry-clipper"]');
 
     expect(noMoney.attributes('href')).toBe('/nomoney');
     expect(noStar.attributes('href')).toBe('/nostar');
@@ -171,10 +170,7 @@ describe('NavigationPage public workflow', () => {
     expect(noMoney.element.previousElementSibling?.classList.contains('tab-service-separator')).toBe(true);
     expect(noMoney.element.nextElementSibling).toBe(yumi.element);
     expect(yumi.element.nextElementSibling).toBe(noStar.element);
-    expect(noStar.element.nextElementSibling).toBe(clipper.element);
-    expect(clipper.attributes('href')).toBe('/clipper');
-    expect(clipper.attributes('target')).toBe('_blank');
-    expect(tabs.element.lastElementChild).toBe(clipper.element);
+    expect(tabs.element.lastElementChild).toBe(noStar.element);
     expect(tabs.findAll('button.active')).toHaveLength(1);
   });
 
@@ -206,7 +202,7 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage();
     const entries = wrapper.findAll('[data-testid^="navigation-entry-"]');
 
-    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status', 'Yumi', 'NoStar', 'Clipper']);
+    expect(entries.map((entry) => entry.text())).toEqual(['NoMoney', 'Status', 'Yumi', 'NoStar']);
     expect(wrapper.get('[data-testid="navigation-entry-status"]').attributes('href')).toBe('/status');
     expect(wrapper.find('[data-testid="navigation-entry-hidden"]').exists()).toBe(false);
   });

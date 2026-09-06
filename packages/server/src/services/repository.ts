@@ -70,7 +70,7 @@ export interface LinkRecord {
   updatedAt: Date;
 }
 
-export type TrashItemKind = 'bookmark' | 'folder' | 'notab' | 'clip';
+export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
 
 export interface TrashItemRecord {
   id: string;
@@ -263,7 +263,7 @@ export interface Repository {
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
-  // Amends scopes in place. The stored secret is untouched, so a token that gains clip scopes does
+  // Amends scopes in place. The stored secret is untouched, so a token with amended scopes does
   // not have to be reissued and reconfigured in the extension.
   updateTokenScopes(userId: number, id: number, scopes: string[]): Promise<ApiTokenRecord | null>;
   deleteToken(userId: number, id: number): Promise<void>;

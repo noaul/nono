@@ -3,9 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
-
-const BACKUP_CLI = '/app/nono/packages/server/dist/cli/backup.js';
-const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
+import { inspectImage, backup, snapshot, safetyContext, assertMaintenance } from './compose-safety.mjs';
 
 export function imageTagForCommit(repository, commit) {
   const normalized = String(commit).trim().replace(/[^a-fA-F0-9]/g, '');
@@ -70,10 +68,11 @@ export async function deployCompose({
   wait = sleep,
   acceptanceAttempts = 24,
   log = console.log,
+  fetchImpl = fetch,
 }) {
   const commandOptions = { cwd };
   const previousCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();
-  const previousImage = await inspectCurrentImage(run, commandOptions);
+  const previousImage = await inspectImage(run, commandOptions);
 
   if (!skipPull) await run('git', ['pull', '--ff-only', 'origin', 'main'], commandOptions);
   const currentCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();
@@ -83,48 +82,52 @@ export async function deployCompose({
     currentCommit,
     allowDestructiveMigrations,
     run,
-    log
+    log,
+    existing: Boolean(previousImage)
   });
   const imageTag = imageTagForCommit(imageRepository, currentCommit);
-  const deployEnv = { ...process.env, NONO_APP_IMAGE: imageTag, NONO_BUILD_COMMIT: currentCommit };
+  const context = safetyContext({ cwd, baseUrl, run, image: imageTag, commit: currentCommit });
+  const old = safetyContext({ cwd, baseUrl, run, image: previousImage || imageTag, commit: previousCommit });
 
   log(`deploying ${previousCommit.slice(0, 12)} -> ${currentCommit.slice(0, 12)} as ${imageTag}`);
-  await run('docker', ['compose', 'up', '-d', 'postgres'], { ...commandOptions, env: deployEnv });
+  await run('docker', ['compose', 'build', 'app'], context.publicOptions);
+  await run('docker', ['compose', 'up', '-d', 'postgres'], context.publicOptions);
   let safetyBackupId = '';
-  if (previousImage.id) {
-    const backup = await run('docker', [
-      'compose', 'exec', '-T', 'app', 'node',
-      BACKUP_CLI, 'create'
-    ], { ...commandOptions, env: deployEnv, capture: true });
-    safetyBackupId = parseBackupId(backup.stdout);
-    log(`safety backup created: ${safetyBackupId}`);
-  } else {
-    log('initial deployment detected; no existing application data to back up');
-  }
-  await run('docker', ['compose', 'build', 'app'], { ...commandOptions, env: deployEnv });
-
+  let dataMayHaveChanged = false;
+  let releaseStarted = false;
   try {
-    await run('docker', ['compose', 'up', '-d', '--no-deps', 'app'], { ...commandOptions, env: deployEnv });
-    await waitForAcceptance({ baseUrl, accept, wait, attempts: acceptanceAttempts, log });
-    return { previousCommit, currentCommit, imageTag, rolledBack: false };
+    await context.stop();
+    if (previousImage) {
+      safetyBackupId = await snapshot(run, old.publicOptions);
+      log(`verified offline safety backup: ${safetyBackupId}`);
+    }
+    await context.file(false, old.publicOptions);
+    dataMayHaveChanged = true;
+    await context.start(context.offlineOptions);
+    await waitForAcceptance({ baseUrl: context.candidateUrl, headers: context.headers, accept, wait, attempts: acceptanceAttempts, log });
+    await assertMaintenance(context.candidateUrl, fetchImpl);
+    await context.start(context.publicOptions);
+    await assertMaintenance(baseUrl, fetchImpl, { wait, attempts: acceptanceAttempts });
+    await waitForAcceptance({ baseUrl, headers: context.headers, accept, wait, attempts: acceptanceAttempts, log });
+    releaseStarted = true;
+    await context.file(true);
+    return { previousCommit, currentCommit, imageTag, safetyBackupId, rolledBack: false };
   } catch (deploymentError) {
-    if (!previousImage.reference) {
-      throw new Error(`Deployment acceptance failed and no previous image is available: ${errorText(deploymentError)}`);
-    }
-
-    log(`deployment acceptance failed; restoring data ${safetyBackupId} and image ${previousImage.reference}`);
-    const rollbackEnv = { ...process.env, NONO_APP_IMAGE: previousImage.reference, NONO_BUILD_COMMIT: previousCommit };
-    await run('docker', ['compose', 'stop', 'app'], { ...commandOptions, env: rollbackEnv });
-    if (safetyBackupId) {
-      await run('docker', [
-        'compose', 'run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'app',
-        BACKUP_CLI, 'restore', '--id', safetyBackupId,
-      ], { ...commandOptions, env: rollbackEnv });
-    }
-    await run('docker', ['compose', 'up', '-d', '--no-deps', '--force-recreate', 'app'], { ...commandOptions, env: rollbackEnv });
+    if (releaseStarted) throw new Error(`Ingress release uncertain; accepted data was NOT rolled back: ${errorText(deploymentError)}`);
     try {
-      await waitForAcceptance({ baseUrl, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
+      await context.stop();
+      if (!previousImage) throw new Error('No previous image is available; application left stopped');
+      if (dataMayHaveChanged) await backup(run, old.publicOptions, ['restore', '--id', safetyBackupId], true);
+      // Historical images do not implement maintenance. Accept offline first;
+      // public rebind is the final commit point, with no later data rollback.
+      await run('docker', ['compose', 'run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'app', '-e', "require('node:fs').rmSync('/app/backups/.deployment-maintenance.json',{force:true})"], old.publicOptions);
+      await old.start(old.offlineOptions);
+      await waitForAcceptance({ baseUrl: old.candidateUrl, accept, wait, attempts: Math.max(3, Math.ceil(acceptanceAttempts / 2)), log });
+      await old.start(old.publicOptions);
     } catch (rollbackError) {
+      try { await context.stop(); } catch (stopError) {
+        throw new Error(`Deployment failed (${errorText(deploymentError)}) and rollback failed (${errorText(rollbackError)}); writer shutdown also failed (${errorText(stopError)})`);
+      }
       throw new Error(`Deployment failed (${errorText(deploymentError)}) and rollback failed (${errorText(rollbackError)})`);
     }
     return {
@@ -132,39 +135,34 @@ export async function deployCompose({
       currentCommit,
       imageTag,
       rolledBack: true,
-      rollbackImage: previousImage.reference,
+      rollbackImage: previousImage,
       safetyBackupId,
       deploymentError: errorText(deploymentError),
     };
   }
 }
 
-function parseBackupId(output) {
-  const line = String(output).trim().split(/\r?\n/).filter(Boolean).at(-1);
-  if (!line) throw new Error('Safety backup did not return an identifier');
-  let id;
-  try {
-    id = JSON.parse(line).id;
-  } catch {
-    throw new Error('Safety backup returned invalid JSON');
+async function enforceMigrationGate({ cwd, existing, allowDestructiveMigrations, run, log }) {
+  const database = (await run('docker', ['compose', 'ps', '-a', '-q', 'postgres'], { cwd, capture: true })).stdout.trim();
+  if (!existing && database) throw new Error('Existing database requires a previous immutable app image for rollback');
+  if (!existing && !database) {
+    const volumes = await run('docker', ['volume', 'ls', '--filter', 'label=com.docker.compose.volume=nono_pg_data', '--format', '{{.Name}}'], { cwd, capture: true });
+    if (volumes.stdout.trim()) throw new Error('Existing database volume found without a database container; restore its Compose container before deployment');
+    return;
   }
-  if (!BACKUP_ID_PATTERN.test(id || '')) throw new Error('Safety backup returned an invalid identifier');
-  return id;
-}
-
-async function enforceMigrationGate({ cwd, previousCommit, currentCommit, allowDestructiveMigrations, run, log }) {
-  if (previousCommit === currentCommit) return;
-  const result = await run('git', [
-    'diff', '--name-only', `${previousCommit}..${currentCommit}`, '--',
-    'packages/server/prisma/migrations/*/migration.sql'
-  ], { cwd, capture: true });
+  let rows;
+  try {
+    const result = await run('docker', ['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "$1"', 'sh', 'SELECT COALESCE(json_agg(t), \'[]\'::json) FROM (SELECT migration_name, finished_at, rolled_back_at FROM "_prisma_migrations") t'], { cwd, capture: true });
+    rows = JSON.parse(result.stdout);
+    if (!Array.isArray(rows) || !rows.length || rows.some((row) => typeof row.migration_name !== 'string' || (!row.finished_at && !row.rolled_back_at))) throw new Error('missing or unfinished migration records');
+  } catch (error) { throw new Error(`Cannot determine database migration state: ${errorText(error)}`); }
+  const applied = new Set(rows.filter((row) => row.finished_at && !row.rolled_back_at).map((row) => row.migration_name));
   const migrationRoot = path.resolve(cwd, 'packages/server/prisma/migrations');
   const findings = [];
-  for (const relativePath of result.stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
-    const absolutePath = path.resolve(cwd, relativePath);
-    if (!absolutePath.startsWith(`${migrationRoot}${path.sep}`) || path.basename(absolutePath) !== 'migration.sql') {
-      throw new Error(`Unexpected migration path: ${relativePath}`);
-    }
+  for (const directory of fs.readdirSync(migrationRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (applied.has(directory.name)) continue;
+    const absolutePath = path.join(migrationRoot, directory.name, 'migration.sql');
+    const relativePath = path.relative(cwd, absolutePath);
     for (const statement of destructiveMigrationStatements(fs.readFileSync(absolutePath, 'utf8'))) {
       findings.push(`${relativePath}: ${statement}`);
     }
@@ -183,11 +181,11 @@ function stripSqlCommentsAndStrings(sql) {
     .replace(/'(?:''|[^'])*'/g, "''");
 }
 
-export async function waitForAcceptance({ baseUrl, accept, wait, attempts, log }) {
+export async function waitForAcceptance({ baseUrl, headers, accept, wait, attempts, log }) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await accept({ baseUrl, log });
+      return await accept({ baseUrl, headers, log });
     } catch (error) {
       lastError = error;
       if (attempt === attempts) break;
@@ -221,20 +219,6 @@ export async function runCommand(command, args, { cwd = process.cwd(), env = pro
       else reject(new Error(`${command} ${args.join(' ')} exited with ${code}${stderr ? `: ${stderr.trim()}` : ''}`));
     });
   });
-}
-
-async function inspectCurrentImage(run, commandOptions) {
-  try {
-    const containerId = (await run('docker', ['compose', 'ps', '-q', 'app'], { ...commandOptions, capture: true })).stdout.trim();
-    if (!containerId) return { id: '', reference: '' };
-    const [idResult, referenceResult] = await Promise.all([
-      run('docker', ['inspect', '--format', '{{.Image}}', containerId], { ...commandOptions, capture: true }),
-      run('docker', ['inspect', '--format', '{{.Config.Image}}', containerId], { ...commandOptions, capture: true }),
-    ]);
-    return { id: idResult.stdout.trim(), reference: referenceResult.stdout.trim() };
-  } catch {
-    return { id: '', reference: '' };
-  }
 }
 
 function errorText(error) {

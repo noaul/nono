@@ -18,9 +18,8 @@ test('provides one documented command for every independent lockfile', () => {
   assert.match(bootstrap, /pnpm --dir apps\/blog install --frozen-lockfile/);
   assert.match(bootstrap, /npm --prefix apps\/nomoney ci/);
   assert.match(bootstrap, /npm --prefix apps\/nostar ci/);
-  assert.match(bootstrap, /npm --prefix apps\/clipper ci/);
   assert.match(readme, /npm run install:all/);
-  assert.match(readme, /Clipper npm/);
+  assert.match(readme, /NoStar npm/);
 });
 
 test('delegates CI verification to the canonical repository command', () => {

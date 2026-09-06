@@ -13,8 +13,5 @@
   },
   "commandQuickSave": {
     "message": "Save to the last used folder"
-  },
-  "commandClipPage": {
-    "message": "Clip the current page"
   }
 }

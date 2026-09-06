@@ -1,14 +1,17 @@
-import { readFile, rm, stat } from 'node:fs/promises';
+import { readFile, rm, stat, mkdtemp } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
-const archive = path.join(root, 'artifacts', `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
-const unpacked = path.join(root, 'artifacts', `nono-quick-bookmark-chrome-v${manifest.version}`);
+const artifacts = await mkdtemp(path.join(os.tmpdir(), 'nono-extension-package-'));
+const archive = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}.zip`);
+const unpacked = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.version}`);
+afterAll(() => rm(artifacts, { recursive: true, force: true }));
 
 describe('extension release package', () => {
   it('keeps background context menus in sync with the saved locale', async () => {
@@ -65,7 +68,7 @@ describe('extension release package', () => {
     expect(popup).not.toContain('config = { ...config, ...draft }');
   });
 
-  it('keeps bookmark and clip modes compact and structurally aligned', async () => {
+  it('keeps bookmark capture compact', async () => {
     const [html, popup, styles] = await Promise.all([
       readFile(path.join(root, 'popup', 'popup.html'), 'utf8'),
       readFile(path.join(root, 'popup', 'popup.js'), 'utf8'),
@@ -73,10 +76,7 @@ describe('extension release package', () => {
     ]);
 
     expect(html).not.toContain('data-i18n="saveTo"');
-    expect(html).toContain('id="clipPreviewMeta"');
-    expect(html).toContain('id="clipSummaryInput" maxlength="2000" rows="2"');
     expect(html).toContain('id="bookmarkPanel" class="mode-panel"');
-    expect(html).toContain('id="clipPanel" class="clip-panel mode-panel hidden"');
     expect(popup).not.toContain("t('pickThenSave')");
     expect(popup).not.toContain("pagePreview.classList.toggle('hidden', clipping)");
     expect(styles).toContain('.mode-panel');
@@ -95,8 +95,7 @@ describe('extension release package', () => {
   });
 
   it('builds a Chrome Web Store ZIP archive', async () => {
-    await rm(path.join(root, 'artifacts'), { recursive: true, force: true });
-    const result = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, ['scripts/package.mjs', '--output-dir', artifacts], { cwd: root, encoding: 'utf8' });
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
     const content = await readFile(archive);
@@ -106,11 +105,11 @@ describe('extension release package', () => {
   });
 
   it('produces the same archive bytes on repeated builds', async () => {
-    const first = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });
+    const first = spawnSync(process.execPath, ['scripts/package.mjs', '--output-dir', artifacts], { cwd: root, encoding: 'utf8' });
     expect(first.status, first.stderr || first.stdout).toBe(0);
     const firstContent = await readFile(archive);
 
-    const second = spawnSync(process.execPath, ['scripts/package.mjs'], { cwd: root, encoding: 'utf8' });
+    const second = spawnSync(process.execPath, ['scripts/package.mjs', '--output-dir', artifacts], { cwd: root, encoding: 'utf8' });
     expect(second.status, second.stderr || second.stdout).toBe(0);
     expect(await readFile(archive)).toEqual(firstContent);
   });
@@ -134,12 +133,11 @@ describe('extension bundle formats', () => {
     expect(content).not.toMatch(/\bfrom\s+['"]defuddle/);
   });
 
-  it('bundles the article extractor into the content script', async () => {
+  it('keeps the injected bookmark extractor lightweight', async () => {
     const content = await readFile(path.join(dist, 'content.js'), 'utf8');
 
-    // defuddle/full is the only entry point that can produce Markdown; the core bundle cannot.
-    expect(content).toContain('contentMarkdown');
-    expect(content.length).toBeGreaterThan(100_000);
+    expect(content).not.toContain('contentMarkdown');
+    expect(content.length).toBeLessThan(100_000);
   });
 
   it('leaves no unresolved imports in the module bundles', async () => {

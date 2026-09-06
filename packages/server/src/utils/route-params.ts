@@ -2,7 +2,7 @@ import type { FastifyRequest } from 'fastify';
 
 /**
  * Autoincrement ids arrive as path segments and are handed straight to Prisma, which rejects a NaN
- * id with a validation error that carries no status code — so `/api/clipper/clips/abc` would come
+ * id with a validation error that carries no status code — so `/api/admin/links/abc` would come
  * back as an opaque 500 rather than a 400. Parsing at the edge keeps the failure honest.
  *
  * Only for numeric ids. Routes keyed by a uuid (sessions, passkeys, trash, backups) read the

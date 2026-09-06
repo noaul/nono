@@ -17,6 +17,18 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nono_integration
+          POSTGRES_PASSWORD: nono-integration-only
+          POSTGRES_DB: nono_integration_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nono_integration -d nono_integration_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       NEXT_TELEMETRY_DISABLED: 1
       NODE_OPTIONS: --max-old-space-size=2048
@@ -38,7 +50,6 @@ jobs:
             package-lock.json
             apps/nomoney/package-lock.json
             apps/nostar/package-lock.json
-            apps/clipper/package-lock.json
 
       - name: Install all dependencies
         run: npm run install:all
@@ -48,6 +59,12 @@ jobs:
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Verify real PostgreSQL migrations and API isolation
+        env:
+          NONO_INTEGRATION_DATABASE_URL: postgresql://nono_integration:nono-integration-only@127.0.0.1:5432/nono_integration_ci
+          NONO_INTEGRATION_ALLOW_RESET: 1
+        run: npm run test:integration
 
       - name: Verify repository
         run: npm run verify:all

@@ -13,8 +13,5 @@
   },
   "commandQuickSave": {
     "message": "保存到上次使用的文件夹"
-  },
-  "commandClipPage": {
-    "message": "剪藏当前页面"
   }
 }

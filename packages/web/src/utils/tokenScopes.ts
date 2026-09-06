@@ -11,8 +11,6 @@ export const EXTENSION_TOKEN_SCOPES = [
   'bookmarks:read',
   'bookmarks:write',
   'ai:analyze',
-  'clips:read',
-  'clips:write',
 ] as const;
 
 export const FULL_TOKEN_SCOPES = ['*'] as const;

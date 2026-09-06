@@ -130,7 +130,7 @@ Recommended certifications:
 **Package**
 
 ```text
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.1.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
 ```
 
 **Store icon**
@@ -160,5 +160,5 @@ packages/extension/store-assets/promo-marquee-1400x560.png
 ## Release Notes
 
 ```text
-Version 0.4.1 preserves the server URL and API token draft before requesting host permission, so configuration survives the browser permission prompt even when the connection has not been validated. It also makes bookmark and clip modes denser with smaller typography, controls, and aligned preview areas. Version 0.4.0 added clip mode for saving a full article or selection as HTML and Markdown to the self-hosted Clipper module.
+Version 0.4.2 retires web clipping and preserves bookmark capture, AI assistance, and configured-origin permissions.
 ```

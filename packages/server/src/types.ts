@@ -8,6 +8,7 @@ import type { BackupAutomationService } from './services/backup-automation.servi
 import type { AuditLogService } from './services/audit.service.js';
 import type { NoMoneyClient } from './services/nomoney-client.js';
 import type { BackupCenterService } from './services/backup-center.service.js';
+import type { BackupJobService, BackupOperationGate } from './services/backup-jobs.service.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
@@ -41,6 +42,8 @@ export interface AppServices {
   backupService: BackupService;
   backupAutomationService: BackupAutomationService;
   backupCenterService: BackupCenterService;
+  backupJobService: BackupJobService;
+  backupOperationGate: BackupOperationGate;
   auditLogService: AuditLogService;
   notificationService: NotificationService;
   noMoneyClient: NoMoneyClient;

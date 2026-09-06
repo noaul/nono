@@ -1,5 +1,7 @@
 .git
 .github
+.superpowers
+backups
 node_modules
 **/node_modules
 **/.next
