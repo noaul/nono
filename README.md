@@ -564,7 +564,7 @@ npm run deploy:accept -- --base-url http://127.0.0.1:8188
 指定已有镜像回滚：
 
 ```bash
-npm run deploy:rollback -- \
+flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- \
   --dir /opt/nono \
   --base-url http://127.0.0.1:8188 \
   --image nono-app:<git-commit>
@@ -572,7 +572,7 @@ npm run deploy:rollback -- \
 
 部署脚本依据实际数据库的待执行迁移检查破坏性变更；确认后需显式传入 `--allow-destructive-migrations`。先构建镜像，再停止全部应用写入，用旧的不可变镜像创建并验证完整安全备份，保存至 `/app/backups/deployment-safety`，不参与日常保留清理。新版本在隔离端口和正常端口分别通过维护模式验收后才开放访问。开放前失败会恢复安全备份和旧镜像；开放结果不确定时不会覆盖已验收的数据。详见[部署手册](docs/deployment/compose-verified-deploy.md)。
 
-单独的 `deploy:rollback` 只切换镜像，不会还原数据库或数据卷；不可用它独自回退不兼容的数据库迁移。部署和恢复操作必须使用同一 `flock` 锁串行执行。
+单独的 `deploy:rollback` 只切换镜像，不会还原数据库或数据卷；不可用它独自回退不兼容的数据库迁移。部署、恢复和仅镜像回滚操作必须使用同一 `flock -n /var/lock/nono-deploy.lock` 锁串行执行；锁被占用时会立即失败。
 
 ### 反向代理与 TLS
 
@@ -621,7 +621,7 @@ npm run backup:drill -- --id <backup-id>
 恢复会覆盖生产数据，必须显式重复确认备份 ID：
 
 ```bash
-npm run backup:restore -- \
+flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
   --id <backup-id> \
   --confirm <backup-id>
 ```

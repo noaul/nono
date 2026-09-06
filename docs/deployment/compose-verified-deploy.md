@@ -6,7 +6,7 @@
 
 ```bash
 cd /opt/nono
-flock /opt/nono/.compose-operation.lock npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
+flock -n /var/lock/nono-deploy.lock npm run deploy:compose -- --dir /opt/nono --base-url http://127.0.0.1:8188
 ```
 
 ## 迁移批准与执行顺序
@@ -37,7 +37,7 @@ flock /opt/nono/.compose-operation.lock npm run deploy:compose -- --dir /opt/non
 恢复操作需要当前镜像支持维护门禁，且备份 ID 与确认值完全一致：
 
 ```bash
-flock /opt/nono/.compose-operation.lock node scripts/restore-compose.mjs --dir /opt/nono --base-url http://127.0.0.1:8188 --id BACKUP_ID --confirm BACKUP_ID
+flock -n /var/lock/nono-deploy.lock node scripts/restore-compose.mjs --dir /opt/nono --base-url http://127.0.0.1:8188 --id BACKUP_ID --confirm BACKUP_ID
 ```
 
 恢复脚本先验证目标快照，停止应用，再创建并验证安全快照；目标恢复失败时恢复安全快照。离线与公开端口的维护验收均成功后才开放入口。
@@ -63,7 +63,7 @@ docker image ls nono-app
 指定镜像回滚并重新验收：
 
 ```bash
-npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
+flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
 ```
 
 `deploy:rollback` 只切换应用镜像，不修改 PostgreSQL、NoDesk、NoMoney 或 Yumi 数据卷，也不会改写 Git 历史；不能作为破坏性数据库迁移后的完整回滚。必须使用部署记录中的不可变镜像 ID 和升级前快照进行配套恢复，保留事故证据与安全备份。

@@ -18,13 +18,13 @@ Quiet, practical, and trustworthy. The interface should feel compact and work-fo
 
 ## Anti-references
 
-Avoid oversized typography, decorative glass effects, marketing-style layouts, excessive cards, loose spacing, and controls that force important fields below the fold. Do not turn the clipping workflow into a preview-heavy form or hide source provenance.
+Avoid oversized typography, decorative glass effects, marketing-style layouts, excessive cards, loose spacing, and controls that force important fields below the fold. Do not turn bookmark capture into a preview-heavy form or hide source metadata.
 
 ## Design Principles
 
 1. Keep the primary task visible and editable without unnecessary navigation.
 2. Preserve user control over AI-generated metadata.
-3. Make provenance explicit through the original URL and clipping timestamp.
+3. Make provenance explicit through the original URL and source metadata.
 4. Reuse the established NoMoney visual and interaction vocabulary across Nono tools.
 5. Prefer readable Markdown and standard web affordances for long-form review.
 

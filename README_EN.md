@@ -519,12 +519,12 @@ Acceptance-based deployment:
 ```bash
 flock -n /var/lock/nono-deploy.lock node scripts/deploy-compose.mjs --dir /opt/nono --base-url http://127.0.0.1:8188
 npm run deploy:accept -- --base-url http://127.0.0.1:8188
-npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
+flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
 ```
 
 Use the loopback URL matching `PORT`. Deployment checks pending migrations against the live database and requires explicit `--allow-destructive-migrations` for destructive changes. It builds first, stops all app writers, then creates and verifies a complete snapshot using the old immutable image. Safety archives live in `/app/backups/deployment-safety`, outside ordinary retention. The candidate passes acceptance on an isolated port and again on the normal port under maintenance before ingress is released. Failure before release restores the snapshot and old image; an uncertain release never rolls back accepted data.
 
-Serialize deployment and restore operations with the same `flock` lock. The standalone `deploy:rollback` command only switches images, not database or volume data, and cannot alone reverse an incompatible migration. See the [deployment runbook](docs/deployment/compose-verified-deploy.md).
+Serialize deployment, restore, and image-rollback operations with `flock -n /var/lock/nono-deploy.lock`; a busy operation fails immediately. The standalone `deploy:rollback` command only switches images, not database or volume data, and cannot alone reverse an incompatible migration. See the [deployment runbook](docs/deployment/compose-verified-deploy.md).
 
 Minimal Nginx forwarding:
 
@@ -571,7 +571,7 @@ npm run backup:drill -- --id <backup-id>
 Restore overwrites production data and requires the backup ID twice:
 
 ```bash
-npm run backup:restore -- --id <backup-id> --confirm <backup-id>
+flock -n /var/lock/nono-deploy.lock npm run backup:restore -- --id <backup-id> --confirm <backup-id>
 ```
 
 The restore process validates paths, checksums, PostgreSQL TOC, and SQLite integrity; stops all app writers; creates and verifies an offline safety snapshot; restores all components; and accepts the original immutable image under maintenance before releasing ingress. Failure before release restores the safety snapshot. Restoring pre-retirement clipping data requires the matching old image, or the new image will apply the retirement migration again.

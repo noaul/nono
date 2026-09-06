@@ -48,7 +48,7 @@ NoDesk 的 WebDAV/本地导出与恢复通过后台任务执行，接口立即�
 
 ```bash
 cd /opt/nono
-npm run backup:restore -- \
+flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
   --dir /opt/nono \
   --base-url http://127.0.0.1:8188 \
   --id 20260718T140000Z \
@@ -64,7 +64,7 @@ npm run backup:restore -- \
 5. 在隔离端口启动，使用维护凭证验收；重新绑定正常端口后仍保持维护模式，再次验收后才开放访问。
 6. 开放访问前失败时停止应用，恢复步骤 3 的安全快照并再次验收。开放操作结果不确定时不覆盖数据，应先人工确认现场。
 
-部署/恢复时用 `flock` 串行执行（详见 [部署手册](compose-verified-deploy.md)）。恢复剪藏退役前的完整数据库必须同时使用匹配的旧镜像；新版本启动会执行删除剪藏表的迁移。旧安全备份保留，可用于人工恢复。
+部署、恢复和仅镜像回滚时用同一 `flock -n /var/lock/nono-deploy.lock` 串行执行；锁被占用时会立即失败（详见 [部署手册](compose-verified-deploy.md)）。恢复剪藏退役前的完整数据库必须同时使用匹配的旧镜像；新版本启动会执行删除剪藏表的迁移。旧安全备份保留，可用于人工恢复。
 
 恢复 PostgreSQL 会同时恢复备份时的账号、Passkey、API Token 和设备会话。恢复完成后应使用备份时有效的账号登录。
 

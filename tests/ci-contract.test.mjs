@@ -34,6 +34,28 @@ test('runs the shared UI contract from the root gateway test command', () => {
   assert.match(packageJson.scripts['test:gateway'], /tests\/ui-contract\.test\.mjs/);
 });
 
+test('documents one non-blocking lock for production mutations', () => {
+  const documents = [
+    'README.md',
+    'README_EN.md',
+    'docs/deployment/compose-verified-deploy.md',
+    'docs/deployment/full-backup-restore.md',
+  ].map((path) => fs.readFileSync(path, 'utf8'));
+  const lock = String.raw`flock -n \/var\/lock\/nono-deploy\.lock`;
+
+  for (const document of documents) {
+    assert.doesNotMatch(document, /\/opt\/nono\/\.compose-operation\.lock/);
+  }
+  assert.match(documents[0], new RegExp(`${lock} npm run deploy:rollback`));
+  assert.match(documents[0], new RegExp(`${lock} npm run backup:restore`));
+  assert.match(documents[1], new RegExp(`${lock} npm run deploy:rollback`));
+  assert.match(documents[1], new RegExp(`${lock} npm run backup:restore`));
+  assert.match(documents[2], new RegExp(`${lock} npm run deploy:compose`));
+  assert.match(documents[2], new RegExp(`${lock} node scripts/restore-compose\\.mjs`));
+  assert.match(documents[2], new RegExp(`${lock} npm run deploy:rollback`));
+  assert.match(documents[3], new RegExp(`${lock} npm run backup:restore`));
+});
+
 test('runs browser smoke tests from the unified verification command', () => {
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const verifyAll = packageJson.scripts['verify:all'];
