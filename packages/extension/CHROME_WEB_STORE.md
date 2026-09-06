@@ -130,7 +130,7 @@ Recommended certifications:
 **Package**
 
 ```text
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
 ```
 
 **Store icon**
@@ -160,5 +160,5 @@ packages/extension/store-assets/promo-marquee-1400x560.png
 ## Release Notes
 
 ```text
-Version 0.4.2 retires web clipping and preserves bookmark capture, AI assistance, and configured-origin permissions.
+Version 0.4.3 completes the bookmark-only transition by removing remaining clipping references while preserving bookmark capture, AI assistance, and configured-origin permissions.
 ```

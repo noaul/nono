@@ -24,7 +24,7 @@ describe('bookmark-only extension', () => {
   it('renders bookmark capture and AI assist without a clipping mode', async () => {
     document.documentElement.innerHTML = await readFile(path.resolve('popup/popup.html'), 'utf8');
     vi.stubGlobal('chrome', {
-      runtime: { getManifest: () => ({ version: '0.4.2' }) },
+      runtime: { getManifest: () => ({ version: '0.4.3' }) },
       storage: { local: { get: async () => ({}) } },
       i18n: { getUILanguage: () => 'en' },
     });

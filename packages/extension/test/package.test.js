@@ -14,6 +14,11 @@ const unpacked = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.ve
 afterAll(() => rm(artifacts, { recursive: true, force: true }));
 
 describe('extension release package', () => {
+  it('builds the requested 0.4.3 release instead of republishing the retired 0.4.2 package', () => {
+    expect(packageJson.version).toBe('0.4.3');
+    expect(manifest.version).toBe('0.4.3');
+  });
+
   it('keeps background context menus in sync with the saved locale', async () => {
     const background = await readFile(path.join(root, 'background.js'), 'utf8');
 

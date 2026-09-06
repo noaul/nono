@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  A self-hosted personal workspace for bookmarks, publishing, personal finance, infrastructure, GitHub Stars, and web clipping.
+  A self-hosted personal workspace for bookmarks, publishing, personal finance, infrastructure, GitHub Stars, and browser capture.
 </p>
 
 <p align="center">
@@ -623,7 +623,7 @@ Always back up, verify, rehearse on a copy, record the rollback point, and only 
 
 ## Chrome Extension
 
-The extension is under `packages/extension`; the current version is **0.4.2**.
+The extension is under `packages/extension`; the current version is **0.4.3**.
 
 ```bash
 npm ci
@@ -637,7 +637,7 @@ Open `chrome://extensions/`, enable Developer mode, load `packages/extension/dis
 | `activeTab` | Read the active tab after an explicit user action |
 | `scripting` | Inject packaged extraction code on demand |
 | `storage` | Store origin, Token, language, and recent folder |
-| `contextMenus` | Bookmark and clipping context-menu commands |
+| `contextMenus` | Bookmark quick-save and folder-selection commands |
 | Optional host permission | Access only the configured Nono origin |
 
 Package a release:
@@ -650,8 +650,8 @@ Outputs:
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
 ```
 
 Before release, synchronize `packages/extension/package.json` and `manifest.json`, run extension tests and packaging, and confirm the ZIP contains no secrets, source maps, tests, temporary files, or personal data.

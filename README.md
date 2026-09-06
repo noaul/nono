@@ -688,7 +688,7 @@ npm run migrate:nostar -- --sqlite /path/to/data.db --username admin
 
 ## Chrome 扩展
 
-扩展位于 `packages/extension`，当前版本为 **0.4.2**。
+扩展位于 `packages/extension`，当前版本为 **0.4.3**。
 
 ### 开发安装
 
@@ -729,8 +729,8 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
 ```
 
 发布前必须同步更新 `packages/extension/package.json` 与 `manifest.json` 版本，运行扩展测试和打包，检查 ZIP 中不含 `.env`、源码映射、测试、临时文件或个人数据，再使用 `store-assets/` 中的图标和宣传素材提交 Chrome Web Store。

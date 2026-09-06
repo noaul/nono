@@ -2,7 +2,7 @@
 
 NoNo Smart Bookmark 是 [NoNo](https://github.com/noaul/nono) 的 Chrome Manifest V3 扩展。它把用户主动选择的当前网页保存到自托管 NoNo，并提供分类、重复处理和 AI 整理能力。
 
-当前版本：`0.4.2`
+当前版本：`0.4.3`
 
 ## 功能
 
@@ -67,8 +67,8 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
 ```
 
 在 `chrome://extensions/` 开启开发者模式，选择“加载已解压的扩展程序”，然后加载 `packages/extension/dist`。
