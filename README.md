@@ -1,6 +1,10 @@
 # Nono
 
 <p align="center">
+  <strong>简体中文</strong> | <a href="README_EN.md">English</a>
+</p>
+
+<p align="center">
   <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="Nono 图标">
 </p>
 
@@ -42,6 +46,8 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - [常见问题](#常见问题)
 - [维护约定](#维护约定)
 - [文档索引](#文档索引)
+- [项目链接与许可](#项目链接与许可)
+- [社区](#社区)
 
 ## 项目组成
 
@@ -96,6 +102,7 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 
 ### NoStar
 
+- NoStar 基于 [AmintaCCCP/GithubStarsManager](https://github.com/AmintaCCCP/GithubStarsManager) 集成与演进。
 - 同步并管理 GitHub Stars，支持分类、自定义标签、描述、排序和批量操作。
 - 提供本地搜索、筛选、README 查看、相似项目和发现视图。
 - 跟踪仓库 Release、未读状态和下载资源。
@@ -281,7 +288,7 @@ NoMoney 和 Yumi 都有自己的 `/setup`，需要使用同一个 `BOOTSTRAP_TOK
 
 ### NoDesk 与 NoStar
 
-NoDesk 的公开内容无需登录；编辑内容需要 Nono 管理员 Session。NoStar 直接复用 Nono Session，未登录访问会跳转到 `/login?next=/nostar`。
+NoDesk 的公开内容无需登录；编辑内容需要 Nono 管理员 Session。NoStar 直接复用 Nono Session，未登录访问时跳转到带原目标路径的 Nono 登录页。
 
 ## 本地开发
 
@@ -337,7 +344,9 @@ npm run seed              # 显式写入演示数据
 
 ## 环境变量
 
-以 [`.env.example`](.env.example) 为唯一模板。`.env` 不进入 Git；生产密钥应由密码管理器、容器 Secret 或受控部署系统提供。
+以 [`.env.example`](.env.example) 为配置起点。`.env` 不进入 Git；生产密钥应由密码管理器、容器 Secret 或受控部署系统提供。
+
+`docker-compose.yml` 只会把 `app.environment` 中显式映射的变量传入业务容器。直接启动 Nono 服务时可用、但 Compose 未映射的变量（例如 `CORS_ORIGIN` 和 `LOG_LEVEL`）如需在容器中覆盖，必须同时加入 Compose 的 `app.environment`。
 
 ### PostgreSQL 与 Nono
 
@@ -679,7 +688,7 @@ npm run migrate:nostar -- --sqlite /path/to/data.db --username admin
 
 ## Chrome 扩展
 
-扩展位于 `packages/extension`，当前版本为 **0.3.1**。
+扩展位于 `packages/extension`，当前版本为 **0.4.2**。
 
 ### 开发安装
 
@@ -734,7 +743,7 @@ packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.2.zip
 
 ## 第三方依赖
 
-该文件不为本仓库指定项目级开源许可证;仓库目前仍未附带 `LICENSE`,即保留所有权利。
+第三方声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。该文件不为本仓库指定项目级开源许可证；仓库目前仍未附带根级 `LICENSE`，即保留所有权利。
 
 ## 安全与隐私
 
@@ -864,7 +873,7 @@ git status --short
 - [Chrome 扩展](packages/extension/README.md)
 - [Chrome Web Store 提交资料](packages/extension/CHROME_WEB_STORE.md)
 - [NoMoney](apps/nomoney/README.md)
-- [NoStar](apps/nostar/README.md)
+- [NoStar](apps/nostar/README_zh.md)
 
 ## 项目链接与许可
 
@@ -873,3 +882,7 @@ git status --short
 - 隐私政策：[noaul.com/privacy](https://noaul.com/privacy)
 
 仓库根目录目前没有声明统一开源许可证。在获得明确授权前，不应假定整个仓库可按某种开源许可证复制、修改或再分发。`apps/nostar` 保留其导入项目的 MIT 许可证，详见 [NoStar LICENSE](apps/nostar/LICENSE)。
+
+## 社区
+
+讨论与交流：**[LINUX DO 社区](https://linux.do/)**
