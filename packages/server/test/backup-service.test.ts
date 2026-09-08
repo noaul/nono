@@ -101,6 +101,14 @@ describe('backup service', () => {
     expect(records[0]).toMatchObject({ id: '20260718T123456Z', status: 'verified' });
   });
 
+  it('allows retry after the backup directory initialization fails', async () => {
+    fs.writeFileSync(backupDir, 'blocking file');
+    const service = await makeService();
+    await expect(service.create()).rejects.toMatchObject({ code: 'EEXIST' });
+    fs.unlinkSync(backupDir);
+    await expect(service.create()).resolves.toMatchObject({ status: 'verified' });
+  });
+
   it('refuses to download a backup whose archive checksum changed', async () => {
     const service = await makeService();
     const backup = await service.create();

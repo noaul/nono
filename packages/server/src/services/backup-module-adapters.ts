@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import type { AppServices } from '../types.js';
 import { exportNoStarData, importNoStarData } from '../routes/nostar/sync-service.js';
-import { removeBackupDirectory, runBackupCommand, type BackupCommandRunner } from './backup.service.js';
+import { removeBackupDirectory, replaceBackupDirectoryContents, runBackupCommand, type BackupCommandRunner } from './backup.service.js';
 import type { BackupModule, BackupModuleAdapter } from './backup-center.service.js';
 
 const NONO_KIND = 'nono.core-backup';
@@ -293,20 +292,7 @@ function createNoDeskAdapter(contentDir: string, run: BackupCommandRunner): Back
         const extracted = path.join(workspace, 'content');
         await fs.promises.mkdir(extracted, { recursive: true });
         await run('tar', ['-xzf', archivePath, '-C', extracted]);
-        const parent = path.dirname(contentDir);
-        const previous = path.join(parent, `.nodesk-previous-${process.pid}-${randomBytes(3).toString('hex')}`);
-        let movedCurrent = false;
-        try {
-          if (fs.existsSync(contentDir)) {
-            await fs.promises.rename(contentDir, previous);
-            movedCurrent = true;
-          }
-          await fs.promises.rename(extracted, contentDir);
-          if (movedCurrent) await removeBackupDirectory(previous);
-        } catch (error) {
-          if (!fs.existsSync(contentDir) && movedCurrent && fs.existsSync(previous)) await fs.promises.rename(previous, contentDir);
-          throw error;
-        }
+        await replaceBackupDirectoryContents(extracted, contentDir);
       });
     },
   };

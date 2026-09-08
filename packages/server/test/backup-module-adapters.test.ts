@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBackupModuleAdapters } from '../src/services/backup-module-adapters.js';
 
 describe('backup module adapters', () => {
@@ -108,5 +111,84 @@ describe('backup module adapters', () => {
     });
 
     await expect(adapters.nodesk.validate(Buffer.from('archive'))).resolves.toBeUndefined();
+  });
+});
+
+describe('NoDesk archive restoration', () => {
+  let root: string;
+  let content: string;
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nodesk-restore-test-'));
+    content = path.join(root, 'content');
+    fs.mkdirSync(content);
+    fs.writeFileSync(path.join(content, 'old.md'), 'old content');
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  function adapter() {
+    return createBackupModuleAdapters({ prisma: {} as never, encryptionKey: '1'.repeat(64), nodeskContentDir: content }).nodesk;
+  }
+  async function archive() {
+    const source = path.join(root, 'source');
+    fs.mkdirSync(source);
+    fs.mkdirSync(path.join(source, 'posts'));
+    fs.writeFileSync(path.join(source, 'posts', 'new.md'), 'new content');
+    fs.utimesSync(path.join(source, 'posts', 'new.md'), new Date('2026-01-02T03:04:05Z'), new Date('2026-01-02T03:04:05Z'));
+    fs.writeFileSync(path.join(source, '.settings'), 'hidden content');
+    return createBackupModuleAdapters({ prisma: {} as never, encryptionKey: '1'.repeat(64), nodeskContentDir: source }).nodesk.export(1);
+  }
+
+  it('restores a mounted directory when temporary archives are on another filesystem', async () => {
+    const body = await archive();
+    const rename = fs.promises.rename.bind(fs.promises);
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (String(from) === content || String(to) === content) throw Object.assign(new Error('mount point busy'), { code: 'EBUSY' });
+      if (String(from).startsWith(content + path.sep) !== String(to).startsWith(content + path.sep)) {
+        throw Object.assign(new Error('cross-device rename'), { code: 'EXDEV' });
+      }
+      return rename(from, to);
+    });
+    await expect(adapter().restore(1, body)).resolves.toBeUndefined();
+    expect(fs.readdirSync(content).sort()).toEqual(['.settings', 'posts']);
+    expect(fs.readFileSync(path.join(content, 'posts', 'new.md'), 'utf8')).toBe('new content');
+    expect(fs.statSync(path.join(content, 'posts', 'new.md')).mtime.toISOString()).toBe('2026-01-02T03:04:05.000Z');
+    expect(fs.readFileSync(path.join(content, '.settings'), 'utf8')).toBe('hidden content');
+  });
+
+  it('rolls back original content if installing the restored entries fails', async () => {
+    const body = await archive();
+    const rename = fs.promises.rename.bind(fs.promises);
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (String(to) === path.join(content, 'posts')) throw new Error('simulated install failure');
+      return rename(from, to);
+    });
+    await expect(adapter().restore(1, body)).rejects.toThrow('simulated install failure');
+    expect(fs.readdirSync(content)).toEqual(['old.md']);
+    expect(fs.readFileSync(path.join(content, 'old.md'), 'utf8')).toBe('old content');
+  });
+
+  it('keeps current content intact when staging runs out of disk space', async () => {
+    const body = await archive();
+    vi.spyOn(fs.promises, 'cp').mockRejectedValue(Object.assign(new Error('disk full'), { code: 'ENOSPC' }));
+    await expect(adapter().restore(1, body)).rejects.toMatchObject({ code: 'ENOSPC' });
+    expect(fs.readdirSync(content)).toEqual(['old.md']);
+    expect(fs.readFileSync(path.join(content, 'old.md'), 'utf8')).toBe('old content');
+  });
+
+  it('retains recovery files if rollback also fails', async () => {
+    const body = await archive();
+    const rename = fs.promises.rename.bind(fs.promises);
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if ([path.join(content, 'posts'), path.join(content, 'old.md')].includes(String(to))) {
+        throw new Error('simulated write failure');
+      }
+      return rename(from, to);
+    });
+    await expect(adapter().restore(1, body)).rejects.toThrow('recovery files retained');
+    const retained = fs.readdirSync(content);
+    expect(retained).toHaveLength(1);
+    expect(fs.readFileSync(path.join(content, retained[0], 'previous', 'old.md'), 'utf8')).toBe('old content');
   });
 });

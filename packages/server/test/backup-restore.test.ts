@@ -90,6 +90,7 @@ describe('backup restoration', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     fs.rmSync(root, { recursive: true, force: true });
   });
 
@@ -144,5 +145,16 @@ describe('backup restoration', () => {
     expect(fs.readFileSync(path.join(nodeskContentDir, 'old.md'), 'utf8')).toBe('old nodesk');
     expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('old sqlite');
     expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('old yumi sqlite');
+  });
+
+  it('restores content without removing the mounted NoDesk directory', async () => {
+    const remove = fs.promises.rm.bind(fs.promises);
+    vi.spyOn(fs.promises, 'rm').mockImplementation(async (target, options) => {
+      if (String(target) === nodeskContentDir) throw Object.assign(new Error('mount point busy'), { code: 'EBUSY' });
+      return remove(target, options);
+    });
+    await expect(makeService().restore(backupId)).resolves.toMatchObject({ id: backupId });
+    expect(fs.readdirSync(nodeskContentDir)).toEqual(['restored.md']);
+    expect(fs.readFileSync(path.join(nodeskContentDir, 'restored.md'), 'utf8')).toBe('restored nodesk');
   });
 });

@@ -107,6 +107,14 @@ class FileBackupService implements BackupService {
   async create() {
     if (this.creating) throw httpError(409, 'A backup is already running');
     this.creating = true;
+    try {
+      return await this.createArchive();
+    } finally {
+      this.creating = false;
+    }
+  }
+
+  private async createArchive() {
     const createdAt = this.options.now().toISOString();
     await fs.promises.mkdir(this.options.backupDir, { recursive: true });
     const id = await this.availableId(formatBackupId(new Date(createdAt)));
@@ -176,7 +184,6 @@ class FileBackupService implements BackupService {
       ]);
       throw error;
     } finally {
-      this.creating = false;
       await removeBackupDirectory(workspace);
     }
   }
@@ -236,12 +243,13 @@ class FileBackupService implements BackupService {
         path.join(workspace, 'postgres.dump'),
       ], { env: { ...process.env, ...postgresEnv } });
 
-      await removeBackupDirectory(this.options.nodeskContentDir);
-      await fs.promises.mkdir(this.options.nodeskContentDir, { recursive: true });
       const nodeskArchive = path.join(workspace, 'nodesk.tar.gz');
       const nodeskListing = await this.options.run('tar', ['-tzf', nodeskArchive]);
       validateTarEntries(nodeskListing.stdout);
-      await this.options.run('tar', ['-xzf', nodeskArchive, '-C', this.options.nodeskContentDir]);
+      const nodeskTarget = path.join(workspace, 'nodesk-restore');
+      await fs.promises.mkdir(nodeskTarget);
+      await this.options.run('tar', ['-xzf', nodeskArchive, '-C', nodeskTarget]);
+      await replaceBackupDirectoryContents(nodeskTarget, this.options.nodeskContentDir);
 
       await fs.promises.mkdir(this.options.nomoneyDataDir, { recursive: true });
       await fs.promises.mkdir(this.options.yumiDataDir, { recursive: true });
@@ -325,6 +333,50 @@ export async function removeBackupDirectory(
   remove: (target: string, options: { recursive: boolean; force: boolean; maxRetries: number; retryDelay: number }) => Promise<void> = fs.promises.rm,
 ) {
   await remove(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
+/** Keep the mount point intact and perform all renames within its filesystem. */
+export async function replaceBackupDirectoryContents(source: string, target: string) {
+  await fs.promises.mkdir(target, { recursive: true });
+  const staging = await fs.promises.mkdtemp(path.join(target, '.nono-restore-'));
+  const incoming = path.join(staging, 'incoming');
+  const previous = path.join(staging, 'previous');
+  const moved: string[] = [];
+  const installed: string[] = [];
+  let preserveStaging = false;
+  try {
+    // Finish copying across filesystems before touching the current content.
+    await fs.promises.cp(source, incoming, { recursive: true, verbatimSymlinks: true, preserveTimestamps: true });
+    await fs.promises.mkdir(previous);
+    const entries = await fs.promises.readdir(incoming);
+    if (entries.includes(path.basename(staging))) throw new Error('Backup content conflicts with restore staging directory');
+    try {
+      for (const name of await fs.promises.readdir(target)) {
+        if (name === path.basename(staging)) continue;
+        await fs.promises.rename(path.join(target, name), path.join(previous, name));
+        moved.push(name);
+      }
+      for (const name of entries) {
+        await fs.promises.rename(path.join(incoming, name), path.join(target, name));
+        installed.push(name);
+      }
+    } catch (error) {
+      const rollbackErrors: unknown[] = [];
+      for (const name of installed.reverse()) {
+        try { await removeBackupDirectory(path.join(target, name)); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+      }
+      for (const name of moved.reverse()) {
+        try { await fs.promises.rename(path.join(previous, name), path.join(target, name)); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+      }
+      if (rollbackErrors.length) {
+        preserveStaging = true;
+        throw new AggregateError([error, ...rollbackErrors], `Content restore and rollback failed; recovery files retained at ${staging}`);
+      }
+      throw error;
+    }
+  } finally {
+    if (!preserveStaging) await removeBackupDirectory(staging);
+  }
 }
 
 async function copyVerifiedSqlite(dataDir: string, destination: string, run: BackupCommandRunner, label: 'NoMoney' | 'Yumi') {
