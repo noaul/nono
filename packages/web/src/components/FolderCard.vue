@@ -338,7 +338,7 @@ onUnmounted(() => {
   height: auto;
   min-width: 0;
   contain: layout paint style;
-  contain-intrinsic-size: 398px 264px;
+  contain-intrinsic-size: 398px 283px;
   content-visibility: auto;
   position: relative;
   transition: transform 0.24s ease-out;
@@ -458,8 +458,13 @@ h2 {
   grid-auto-rows: var(--public-bookmark-row-height, 38px);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
-  height: 214px;
-  max-height: 214px;
+  /*
+   * Exactly 5 bookmark rows fit before scrolling: row height * 5 + row gap * 4, plus the 10px/15px
+   * padding below and this box's own top+bottom border — box-sizing is border-box, so the border
+   * must be budgeted too or a 5-row folder falls 1-2px short and scrolls anyway.
+   */
+  height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 25px + var(--public-glass-border-width, 1px) * 2);
+  max-height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 25px + var(--public-glass-border-width, 1px) * 2);
   overflow-x: hidden;
   /*
    * Always allow the inner list to scroll. The previous `hidden` relied on the `is-scrollable`
@@ -467,7 +472,7 @@ h2 {
    * fewer columns silently cut the overflowing links off. `auto` is inert when content fits.
    */
   overflow-y: auto;
-  padding: 15px 4px 15px 16px;
+  padding: 10px 4px 15px 16px;
   scrollbar-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.32) transparent;
   scrollbar-width: thin;
   box-shadow:
@@ -680,7 +685,7 @@ mark {
   color: rgba(var(--public-bookmark-text-rgb, 255, 255, 255), 0.48);
   font-size: 13.5px;
   font-weight: 500;
-  height: 214px;
+  height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 25px + var(--public-glass-border-width, 1px) * 2);
   padding: 24px;
   text-align: center;
 }
@@ -762,7 +767,7 @@ mark {
 
 @media (max-width: 640px) {
   .large-folder {
-    contain-intrinsic-size: auto 264px;
+    contain-intrinsic-size: auto 246px;
     grid-template-rows: 38px auto;
     height: auto;
   }
@@ -782,8 +787,9 @@ mark {
     --public-bookmark-row-height: 32px;
     --public-bookmark-text-size: 9px;
     --public-bookmark-icon-size: 12px;
-    height: 214px;
-    padding: 10px 3px 10px 8px;
+    height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
+    max-height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
+    padding: 8px 3px 10px 8px;
   }
 
   .large-link {

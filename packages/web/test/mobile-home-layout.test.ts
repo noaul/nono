@@ -101,8 +101,8 @@ describe('mobile folder cards', () => {
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-y: 4px;/);
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;/);
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-icon-size: 12px;/);
-    // A tighter cell padding than the desktop `15px 4px 15px 16px` claws room back for the label.
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?padding: 10px 3px 10px 8px;/);
+    // A tighter cell padding than the desktop `10px 4px 15px 16px` claws room back for the label.
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?padding: 8px 3px 10px 8px;/);
     // At a ~264px card / 3 columns / these tokens, each cell has roughly 80px, of which about
     // 63-65px is left for the label after the icon and paddings — enough for ~7-8 full-width CJK
     // glyphs (~1em advance each) at a 9px font before the ellipsis kicks in.

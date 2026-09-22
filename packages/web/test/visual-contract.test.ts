@@ -198,11 +198,11 @@ describe('visual contracts', () => {
     // Desktop card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     // Narrow viewports derive their own column count; see the mobile assertions below.
     expect(source).toContain('grid-template-rows: 38px auto');
-    expect(source).toContain('contain-intrinsic-size: 398px 264px');
+    expect(source).toContain('contain-intrinsic-size: 398px 283px');
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(source).toContain('grid-auto-rows: var(--public-bookmark-row-height, 38px)');
     expect(source).toMatch(/\.large-folder \{[\s\S]*?gap:\s*12px;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*var\(--public-bookmark-gap-y, 4px\) var\(--public-bookmark-gap-x, 8px\);[\s\S]*?padding:\s*15px 4px 15px 16px;/);
+    expect(source).toMatch(/\.large-links \{[\s\S]*?gap:\s*var\(--public-bookmark-gap-y, 4px\) var\(--public-bookmark-gap-x, 8px\);[\s\S]*?padding:\s*10px 4px 15px 16px;/);
     expect(source).toMatch(/\.large-link \{[\s\S]*?gap:\s*2px;[\s\S]*?min-height:\s*var\(--public-bookmark-row-height, 38px\);[\s\S]*?padding:\s*2px 0 2px 5px;/);
     expect(source).toMatch(/\.large-link span \{[\s\S]*?font-size:\s*var\(--public-bookmark-text-size, 14px\);/);
     // Ellipsis replaced `clip`, which cut labels mid-glyph with no cue that text was missing.
@@ -212,7 +212,11 @@ describe('visual contracts', () => {
     // rule only has to keep them square and unstretched.
     expect(source).toMatch(/\.large-link-icon \{[\s\S]*?height:\s*var\(--public-bookmark-icon-size, 20px\);[\s\S]*?width:\s*var\(--public-bookmark-icon-size, 20px\);/);
     expect(source).toMatch(/\.link-favicon \{[\s\S]*?object-fit:\s*contain;/);
-    expect(source).toMatch(/\.large-links \{[\s\S]*?height: 214px;[\s\S]*?max-height: 214px;/);
+    // Height is derived so exactly 5 bookmark rows fit before the inner list needs to scroll
+    // (row height * 5 + gap * 4 + padding + this box's own border, since box-sizing is border-box).
+    expect(source).toMatch(
+      /\.large-links \{[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 25px \+ var\(--public-glass-border-width, 1px\) \* 2\);[\s\S]*?max-height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 25px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
+    );
     expect(source).toContain("'is-scrollable': (folder.links || []).length > 15");
     // The inner list always scrolls when it overflows. It used to be `hidden` unless the link count
     // cleared a threshold tuned for three columns, which silently dropped links in any narrower
@@ -241,7 +245,7 @@ describe('visual contracts', () => {
     // shrink the cell padding, gap, icon and type so a ~80px column stays legible at 320px.
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;[\s\S]*?height: 214px;/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 18px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
     );
 
     const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
