@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
-import { runCommand, waitForAcceptance } from './deploy-compose.mjs';
+import { runCli, runCommand, waitForAcceptance } from './deploy-compose.mjs';
 
 export async function rollbackCompose({ cwd, baseUrl, image, run = runCommand, accept = acceptDeployment, log = console.log }) {
   if (!image) throw new Error('--image is required');
@@ -28,10 +28,8 @@ function sleep(milliseconds) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  rollbackCompose(parseArgs(process.argv.slice(2)))
-    .then((result) => console.log(`rollback accepted: ${result.image}`))
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    });
+  process.exitCode = await runCli(
+    () => rollbackCompose(parseArgs(process.argv.slice(2))),
+    { onSuccess: (result) => console.log(`rollback accepted: ${result.image}`) },
+  );
 }

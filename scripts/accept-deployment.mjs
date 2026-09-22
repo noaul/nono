@@ -117,7 +117,7 @@ function parseCliArgs(argv) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  acceptDeployment(parseCliArgs(process.argv.slice(2)))
+  await acceptDeployment(parseCliArgs(process.argv.slice(2)))
     .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets`))
     .catch((error) => {
       console.error(error instanceof Error ? error.message : String(error));

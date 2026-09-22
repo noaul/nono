@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createBackupServiceFromEnv } from '../services/backup.service.js';
 import { enforceBackupRetention } from '../services/backup-automation.service.js';
 import { createPrismaRepository } from '../services/prisma.repository.js';
@@ -39,9 +40,12 @@ export async function runBackupCli(options: BackupCliOptions) {
   return { ok: true, id: options.id };
 }
 
-runBackupCli(parseBackupCliArgs(process.argv.slice(2)))
-  .then((result) => console.log(JSON.stringify(result)))
-  .catch((error) => {
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  try {
+    const result = await runBackupCli(parseBackupCliArgs(process.argv.slice(2)));
+    console.log(JSON.stringify(result));
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  });
+  }
+}

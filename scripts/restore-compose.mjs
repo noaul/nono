@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
-import { runCommand, waitForAcceptance } from './deploy-compose.mjs';
+import { runCli, runCommand, waitForAcceptance } from './deploy-compose.mjs';
 import { inspectImage, backup, snapshot, safetyContext, assertMaintenance } from './compose-safety.mjs';
 
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
@@ -110,17 +110,16 @@ function sleep(milliseconds) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  restoreCompose(parseRestoreArgs(process.argv.slice(2)))
-    .then((result) => {
+  process.exitCode = await runCli(
+    () => restoreCompose(parseRestoreArgs(process.argv.slice(2))),
+    { onSuccess: (result) => {
       if (result.rolledBack) {
         console.error(`restore rolled back to ${result.safetyBackupId}: ${result.restoreError}`);
-        process.exitCode = 1;
+        return 1;
       } else {
         console.log(`backup ${result.backupId} restored and accepted`);
+        return 0;
       }
-    })
-    .catch((error) => {
-      console.error(errorText(error));
-      process.exitCode = 1;
-    });
+    } },
+  );
 }

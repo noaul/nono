@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { runCommand } from './deploy-compose.mjs';
+import { runCli, runCommand } from './deploy-compose.mjs';
 
 const BACKUP_CLI = '/app/nono/packages/server/dist/cli/backup.js';
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
@@ -31,8 +31,5 @@ export function runBackupCompose({ command, cwd, backupId, run = runCommand }) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  runBackupCompose(parseBackupArgs(process.argv.slice(2))).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  });
+  process.exitCode = await runCli(() => runBackupCompose(parseBackupArgs(process.argv.slice(2))));
 }

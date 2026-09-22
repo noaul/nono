@@ -9,6 +9,39 @@ import { inspectImage, snapshot } from '../scripts/compose-safety.mjs';
 const OLD_IMAGE_ID = `sha256:${'b'.repeat(64)}`;
 const OLD_ROLLBACK_IMAGE = 'nono-app:rollback-bbbbbbbbbbbb';
 
+test('CLI runner waits for asynchronous deployment completion', async () => {
+  const { runCli } = await import('../scripts/deploy-compose.mjs');
+  assert.equal(typeof runCli, 'function');
+
+  let finish;
+  const messages = [];
+  const execution = runCli(
+    () => new Promise((resolve) => { finish = resolve; }),
+    { onSuccess: (result) => { messages.push(result); return 0; }, onError: (error) => messages.push(error) },
+  );
+  await Promise.resolve();
+  assert.deepEqual(messages, []);
+
+  finish('accepted');
+  assert.equal(await execution, 0);
+  assert.deepEqual(messages, ['accepted']);
+});
+
+test('CLI runner reports asynchronous success-handler failures', async () => {
+  const { runCli } = await import('../scripts/deploy-compose.mjs');
+  const errors = [];
+  const exitCode = await runCli(
+    async () => 'accepted',
+    {
+      onSuccess: async () => { throw new Error('report failed'); },
+      onError: (error) => errors.push(error),
+    },
+  );
+
+  assert.equal(exitCode, 1);
+  assert.deepEqual(errors, ['report failed']);
+});
+
 test('running image gets a Compose-safe local rollback tag', async () => {
   const imageId = `sha256:${'a'.repeat(64)}`;
   const calls = [];
@@ -219,6 +252,8 @@ test('safety snapshot bypasses CLI retention so pre-upgrade backups cannot be pr
   }, {});
   assert.equal(calls[0].includes('/app/nono/packages/server/dist/cli/backup.js'), false);
   assert.ok(calls[0].includes('-e'));
+  assert.ok(calls[0].includes('--input-type=module'));
+  assert.match(calls[0].at(-1), /await import/);
   assert.match(calls[0].at(-1), /createBackupServiceFromEnv/);
   assert.ok(calls[0].includes('BACKUP_DIR=/app/backups/deployment-safety'));
   assert.ok(calls[1].includes('BACKUP_DIR=/app/backups/deployment-safety'));

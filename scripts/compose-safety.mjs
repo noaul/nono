@@ -21,8 +21,8 @@ export function backup(run, options, args, safety = false) {
 export async function snapshot(run, options) {
   // The historical CLI's create command runs retention. Call the stable service
   // directly so producing a rollback snapshot never deletes older backups.
-  const script = "import('/app/nono/packages/server/dist/services/backup.service.js').then(async ({createBackupServiceFromEnv}) => { const backup = await createBackupServiceFromEnv(process.env.NODESK_CONTENT_DIR || '/app/nodesk-content').create(); console.log(JSON.stringify(backup)); }).catch(error => { console.error(error); process.exitCode = 1; })";
-  const output = await run('docker', ['compose', 'run', '--rm', '--no-deps', '-T', '--env', 'BACKUP_DIR=/app/backups/deployment-safety', '--entrypoint', 'node', 'app', '-e', script], { ...options, capture: true });
+  const script = "try { const {createBackupServiceFromEnv} = await import('/app/nono/packages/server/dist/services/backup.service.js'); const backup = await createBackupServiceFromEnv(process.env.NODESK_CONTENT_DIR || '/app/nodesk-content').create(); console.log(JSON.stringify(backup)); } catch (error) { console.error(error); process.exitCode = 1; }";
+  const output = await run('docker', ['compose', 'run', '--rm', '--no-deps', '-T', '--env', 'BACKUP_DIR=/app/backups/deployment-safety', '--entrypoint', 'node', 'app', '--input-type=module', '-e', script], { ...options, capture: true });
   let id;
   try { id = JSON.parse(output.stdout.trim().split(/\r?\n/).at(-1)).id; }
   catch { throw new Error('Safety backup returned invalid JSON'); }

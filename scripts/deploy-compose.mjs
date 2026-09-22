@@ -57,6 +57,15 @@ export function parseDeployArgs(argv) {
   return options;
 }
 
+export async function runCli(operation, { onSuccess = () => 0, onError = console.error } = {}) {
+  try {
+    return (await onSuccess(await operation())) ?? 0;
+  } catch (error) {
+    onError(errorText(error));
+    return 1;
+  }
+}
+
 export async function deployCompose({
   cwd,
   baseUrl,
@@ -230,17 +239,16 @@ function sleep(milliseconds) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  deployCompose(parseDeployArgs(process.argv.slice(2)))
-    .then((result) => {
+  process.exitCode = await runCli(
+    () => deployCompose(parseDeployArgs(process.argv.slice(2))),
+    { onSuccess: (result) => {
       if (result.rolledBack) {
         console.error(`deployment rolled back to ${result.rollbackImage}: ${result.deploymentError}`);
-        process.exitCode = 1;
+        return 1;
       } else {
         console.log(`deployment accepted at ${result.currentCommit.slice(0, 12)} (${result.imageTag})`);
+        return 0;
       }
-    })
-    .catch((error) => {
-      console.error(errorText(error));
-      process.exitCode = 1;
-    });
+    } },
+  );
 }
