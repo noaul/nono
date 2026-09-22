@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { runCli } from './run-cli.mjs';
 
 const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/'];
 const REQUIRED_ASSETS = ['/nodesk/images/nodesk-ambient-wallpaper.png'];
@@ -117,10 +118,8 @@ function parseCliArgs(argv) {
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  await acceptDeployment(parseCliArgs(process.argv.slice(2)))
-    .then((result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets`))
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    });
+  process.exitCode = await runCli(
+    () => acceptDeployment(parseCliArgs(process.argv.slice(2))),
+    { onSuccess: (result) => console.log(`deployment accepted: ${result.routes.length} routes, ${result.assets.length} required assets, ${result.nostarAssets.length} NoStar assets`) },
+  );
 }

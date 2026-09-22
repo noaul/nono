@@ -4,6 +4,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
 import { inspectImage, backup, snapshot, safetyContext, assertMaintenance } from './compose-safety.mjs';
+import { runCli } from './run-cli.mjs';
+
+export { runCli } from './run-cli.mjs';
 
 export function imageTagForCommit(repository, commit) {
   const normalized = String(commit).trim().replace(/[^a-fA-F0-9]/g, '');
@@ -55,15 +58,6 @@ export function parseDeployArgs(argv) {
     else throw new Error(`Unknown argument: ${argument}`);
   }
   return options;
-}
-
-export async function runCli(operation, { onSuccess = () => 0, onError = console.error } = {}) {
-  try {
-    return (await onSuccess(await operation())) ?? 0;
-  } catch (error) {
-    onError(errorText(error));
-    return 1;
-  }
 }
 
 export async function deployCompose({

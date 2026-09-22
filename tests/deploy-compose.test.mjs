@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { deployCompose, destructiveMigrationStatements, imageTagForCommit, parseDeployArgs } from '../scripts/deploy-compose.mjs';
 import { inspectImage, snapshot } from '../scripts/compose-safety.mjs';
@@ -25,6 +27,28 @@ test('CLI runner waits for asynchronous deployment completion', async () => {
   finish('accepted');
   assert.equal(await execution, 0);
   assert.deepEqual(messages, ['accepted']);
+});
+
+test('CLI runner keeps a real process alive for promises backed only by unref handles', () => {
+  const moduleUrl = pathToFileURL(path.resolve('scripts/deploy-compose.mjs')).href;
+  const script = `
+    import { runCli } from ${JSON.stringify(moduleUrl)};
+    process.exitCode = await runCli(
+      () => new Promise((resolve) => {
+        const timer = setTimeout(() => resolve('accepted'), 25);
+        timer.unref();
+      }),
+      { onSuccess: (result) => console.log(result) },
+    );
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    timeout: 2_000,
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'accepted');
 });
 
 test('CLI runner reports asynchronous success-handler failures', async () => {
