@@ -4,7 +4,26 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { deployCompose, destructiveMigrationStatements, imageTagForCommit, parseDeployArgs } from '../scripts/deploy-compose.mjs';
-import { snapshot } from '../scripts/compose-safety.mjs';
+import { inspectImage, snapshot } from '../scripts/compose-safety.mjs';
+
+const OLD_IMAGE_ID = `sha256:${'b'.repeat(64)}`;
+const OLD_ROLLBACK_IMAGE = 'nono-app:rollback-bbbbbbbbbbbb';
+
+test('running image gets a Compose-safe local rollback tag', async () => {
+  const imageId = `sha256:${'a'.repeat(64)}`;
+  const calls = [];
+  const image = await inspectImage(async (command, args) => {
+    calls.push([command, ...args]);
+    if (args.includes('ps')) return { stdout: 'app-container\n' };
+    if (args.includes('{{.Image}}')) return { stdout: `${imageId}\n` };
+    return { stdout: '' };
+  }, { cwd: '/opt/nono' }, 'nono-app');
+
+  assert.equal(image, 'nono-app:rollback-aaaaaaaaaaaa');
+  assert.deepEqual(calls.at(-1), [
+    'docker', 'image', 'tag', imageId, 'nono-app:rollback-aaaaaaaaaaaa',
+  ]);
+});
 
 export function deploymentFixture(t, { initial = false, fail = '', state = '[{"migration_name":"001_initial","finished_at":"2026-01-01","rolled_back_at":null}]' } = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-deploy-test-'));
@@ -24,7 +43,7 @@ export function deploymentFixture(t, { initial = false, fail = '', state = '[{"m
     if (text === 'git rev-parse HEAD') return { stdout: head };
     if (text.includes('git pull')) { head = 'abcdef1234567890'; return { stdout: '' }; }
     if (text.includes('compose ps')) return { stdout: initial ? '' : 'existing-container' };
-    if (text.includes('{{.Image}}')) return { stdout: 'sha256:old-immutable' };
+    if (text.includes('{{.Image}}')) return { stdout: OLD_IMAGE_ID };
     if (text.includes('{{.Config.Image}}')) return { stdout: 'nono-app:mutable' };
     if (text.includes('psql')) return { stdout: state };
     if (text.includes('.create()')) return { stdout: '{"id":"20260905T120000Z"}' };
@@ -73,7 +92,7 @@ test('build then stop all writers then create and verify snapshot using immutabl
   assert.ok(index('.create()') < index('backup.js verify --id 20260905T120000Z'));
   const backup = calls[index('.create()')];
   assert.ok(backup.args.includes('run') && backup.args.includes('--entrypoint'));
-  assert.equal(backup.image, 'sha256:old-immutable');
+  assert.equal(backup.image, OLD_ROLLBACK_IMAGE);
   assert.equal(result.safetyBackupId, '20260905T120000Z');
   const accepted = calls.filter((c) => c.text === 'accept');
   assert.ok(accepted.some((c) => c.baseUrl !== options.baseUrl && c.headers?.['x-nono-maintenance-token']));
@@ -87,7 +106,7 @@ for (const fail of ['compose stop app', '.create()', 'backup.js verify', 'writeF
     assert.equal(result.rolledBack, true);
     assert.match(result.deploymentError, /injected/);
     const restart = calls.findLast((c) => c.text.includes('compose up') && c.args.includes('app'));
-    assert.equal(restart.image, 'sha256:old-immutable');
+    assert.equal(restart.image, OLD_ROLLBACK_IMAGE);
     if (fail.includes('backup.js') || fail === '.create()' || fail === 'compose stop app') {
       assert.equal(calls.some((c) => c.text.includes('backup.js restore')), false);
     }
@@ -103,7 +122,7 @@ test('failed acceptance restores verified snapshot before reopening old app', as
   assert.equal(result.rolledBack, true);
   assert.equal(attempts, 1);
   const restore = calls.findIndex((c) => c.text.includes('backup.js restore'));
-  const oldStart = calls.findLastIndex((c) => c.text.includes('compose up') && c.image === 'sha256:old-immutable');
+  const oldStart = calls.findLastIndex((c) => c.text.includes('compose up') && c.image === OLD_ROLLBACK_IMAGE);
   assert.ok(restore > 0 && oldStart > restore);
 });
 
@@ -120,7 +139,7 @@ test('rollback errors preserve both causes and leave writers stopped', async (t)
     if (args[1].includes('restore')) throw new Error('snapshot restore failed');
     return run(...args);
   }, accept: async () => { throw new Error('candidate failed'); } }), /candidate failed.*rollback failed.*snapshot restore failed/i);
-  assert.equal(calls.some((c) => c.text.includes('compose up') && c.image === 'sha256:old-immutable'), false);
+  assert.equal(calls.some((c) => c.text.includes('compose up') && c.image === OLD_ROLLBACK_IMAGE), false);
 });
 
 test('existing database volume without containers is not mistaken for fresh install', async (t) => {
@@ -144,7 +163,7 @@ test('rollback removes maintenance while stopped before accepting old gateway of
   const { options, calls } = deploymentFixture(t, { fail: 'compose up -d --no-deps --force-recreate app' });
   await deployCompose(options);
   const clear = calls.findIndex((call) => call.text.includes('rmSync'));
-  const oldStart = calls.findIndex((call) => call.text.includes('compose up') && call.image === 'sha256:old-immutable');
+  const oldStart = calls.findIndex((call) => call.text.includes('compose up') && call.image === OLD_ROLLBACK_IMAGE);
   assert.ok(clear > 0 && clear < oldStart);
 });
 
@@ -166,7 +185,7 @@ test('missing maintenance gate fails offline before candidate public binding', a
   const { options, calls } = deploymentFixture(t);
   const result = await deployCompose({ ...options, fetchImpl: async () => ({ status: 200 }) });
   assert.equal(result.rolledBack, true);
-  const candidateStarts = calls.filter((call) => call.text.includes('compose up') && call.image?.startsWith('nono-app:') && call.args.includes('app'));
+  const candidateStarts = calls.filter((call) => call.text.includes('compose up') && call.image === 'nono-app:abcdef123456' && call.args.includes('app'));
   assert.equal(candidateStarts.length, 1);
   assert.equal(candidateStarts[0].port, '127.0.0.1:18188');
 });

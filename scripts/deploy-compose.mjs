@@ -72,7 +72,7 @@ export async function deployCompose({
 }) {
   const commandOptions = { cwd };
   const previousCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();
-  const previousImage = await inspectImage(run, commandOptions);
+  const previousImage = await inspectImage(run, commandOptions, imageRepository);
 
   if (!skipPull) await run('git', ['pull', '--ff-only', 'origin', 'main'], commandOptions);
   const currentCommit = (await run('git', ['rev-parse', 'HEAD'], { ...commandOptions, capture: true })).stdout.trim();

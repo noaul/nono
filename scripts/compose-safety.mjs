@@ -4,12 +4,14 @@ export const BACKUP_CLI = '/app/nono/packages/server/dist/cli/backup.js';
 export const MAINTENANCE_FILE = '/app/backups/.deployment-maintenance.json';
 export const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 
-export async function inspectImage(run, options) {
+export async function inspectImage(run, options, imageRepository = 'nono-app') {
   const id = (await run('docker', ['compose', 'ps', '-a', '-q', 'app'], { ...options, capture: true })).stdout.trim();
   if (!id) return '';
   const image = (await run('docker', ['inspect', '--format', '{{.Image}}', id], { ...options, capture: true })).stdout.trim();
-  if (!image.startsWith('sha256:')) throw new Error('Cannot determine immutable application image');
-  return image;
+  if (!/^sha256:[a-f0-9]{64}$/i.test(image)) throw new Error('Cannot determine immutable application image');
+  const rollbackImage = `${imageRepository}:rollback-${image.slice('sha256:'.length, 'sha256:'.length + 12).toLowerCase()}`;
+  await run('docker', ['image', 'tag', image, rollbackImage], options);
+  return rollbackImage;
 }
 
 export function backup(run, options, args, safety = false) {

@@ -15,7 +15,7 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:compose -- --dir /opt/nono --
 
 审核待执行 SQL 与回滚计划后，显式增加 `--allow-destructive-migrations`。该选项不会跳过快照或验证。
 
-1. 记录旧容器的不可变 `sha256` 镜像 ID，拉取代码并检查实际待执行迁移。
+1. 记录旧容器的不可变 `sha256` 镜像 ID，并为它创建 `nono-app:rollback-<镜像 ID 前缀>` 本地标签；后续 Compose 操作只使用该标签，避免把内容 ID 误解析成远端仓库。然后拉取代码并检查实际待执行迁移。
 2. 完成新镜像构建，再停止 `app`（此 Compose 架构中网关、API、NoDesk、NoMoney、Yumi 和所有应用后台任务均在该容器中）。PostgreSQL 保持运行。外部写入者必须由操作员提前停止。
 3. 使用旧镜像的临时容器、覆盖入口点为 Node，直接调用备份服务创建完整安全快照，再用 CLI 验证。跳过旧 CLI 的自动保留策略，避免创建安全快照时删除更早的备份。安全快照独立存储在 `/app/backups/deployment-safety`，不会被应用的常规自动保留策略扫描。此时应用写入者已停止。记录输出中的备份 ID；不得清理这些升级前备份。
 4. 在备份卷写入 `/app/backups/.deployment-maintenance.json`，启动候选版本，仅绑定备用回环端口 `18188`（主入口本身为 18188 时用 18189）。该端口必须空闲，不得配置公开代理。
