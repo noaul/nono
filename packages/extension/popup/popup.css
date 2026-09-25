@@ -1,15 +1,63 @@
+/* Shared NoNo UI contract (docs/design/ui-contract.md), mirrored here because the extension
+ * ships on its own and cannot import the apps' design-tokens.css. Dark mode follows the OS
+ * scheme: the popup cannot read the website's stored theme. */
 :root {
-  color-scheme: light;
-  font-family: "Segoe UI Variable", "MiSans", "HarmonyOS Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --accent: #167d86;
-  --accent-strong: #0f6870;
-  --ink: #1f2a2e;
-  --muted: #657278;
-  --line: rgba(255, 255, 255, 0.82);
-  --glass: rgba(255, 255, 255, 0.64);
-  --glass-strong: rgba(255, 255, 255, 0.84);
-  --field: rgba(250, 252, 252, 0.9);
-  --shadow: 0 10px 28px rgba(45, 63, 67, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  color-scheme: light dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "MiSans", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+
+  --ui-canvas: #f8fafc;
+  --ui-surface: #ffffff;
+  --ui-surface-sunken: #f1f5f9;
+  --ui-border: #e2e8f0;
+  --ui-border-strong: #cbd5e1;
+  --ui-text: #0f172a;
+  --ui-text-muted: #475569;
+  --ui-text-subtle: #64748b;
+  --ui-accent: #0d9488;
+  --ui-accent-hover: #0f766e;
+  --ui-accent-ink: #ffffff;
+  --ui-accent-soft: rgba(13, 148, 136, 0.1);
+  --ui-accent-ring: rgba(13, 148, 136, 0.38);
+  --ui-success: #059669;
+  --ui-warning: #d97706;
+  --ui-warning-soft: rgba(217, 119, 6, 0.1);
+  --ui-danger: #e11d48;
+  --ui-focus-ring: 0 0 0 2px var(--ui-accent-ring);
+  --ui-dur-fast: 120ms;
+  --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Popup-local aliases onto the contract. Accent-coloured small text uses the deeper teal in
+     light mode so it keeps 4.5:1 on white. */
+  --link: var(--ui-accent-hover);
+  --warning-line: rgba(217, 119, 6, 0.28);
+  --radius-control: 8px;
+  --radius-panel: 10px;
+  --control-h: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-canvas: #07080a;
+    --ui-surface: #0f1216;
+    --ui-surface-sunken: rgba(255, 255, 255, 0.03);
+    --ui-border: rgba(255, 255, 255, 0.1);
+    --ui-border-strong: rgba(255, 255, 255, 0.18);
+    --ui-text: #f1f5f9;
+    --ui-text-muted: #94a3b8;
+    --ui-text-subtle: #7c8899;
+    --ui-accent: #2dd4bf;
+    --ui-accent-hover: #5eead4;
+    --ui-accent-ink: #042f2e;
+    --ui-accent-soft: rgba(45, 212, 191, 0.14);
+    --ui-accent-ring: rgba(45, 212, 191, 0.42);
+    --ui-success: #34d399;
+    --ui-warning: #fbbf24;
+    --ui-warning-soft: rgba(251, 191, 36, 0.14);
+    --ui-danger: #fb7185;
+
+    --link: var(--ui-accent);
+    --warning-line: rgba(251, 191, 36, 0.3);
+  }
 }
 
 * {
@@ -18,21 +66,17 @@
 }
 
 html {
-	background: transparent;
-	border-radius: 18px;
-	overflow: hidden;
+  background: var(--ui-canvas);
 }
 
 body {
-	-webkit-backdrop-filter: blur(28px) saturate(135%);
-	backdrop-filter: blur(28px) saturate(135%);
-	background: rgba(255, 255, 255, 0.76);
-	border: 1px solid rgba(255, 255, 255, 0.92);
-	border-radius: 18px;
-	color: var(--ink);
-	margin: 0;
-	overflow: hidden;
-	width: 340px;
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+  overflow: hidden;
+  width: 340px;
 }
 
 button,
@@ -52,28 +96,26 @@ select {
 
 button {
   align-items: center;
-  background: var(--accent);
+  background: var(--ui-accent);
   border: 1px solid transparent;
-  border-radius: 8px;
-  color: #fff;
+  border-radius: var(--radius-control);
+  color: var(--ui-accent-ink);
   cursor: pointer;
   display: inline-flex;
-  font-size: 10px;
-  font-weight: 720;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
   justify-content: center;
-  min-height: 26px;
-  padding: 0 9px;
+  line-height: 1.2;
+  min-height: var(--control-h);
+  padding: 0 12px;
   touch-action: manipulation;
-  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, transform 150ms ease;
+  transition: background-color var(--ui-dur-fast) var(--ui-ease), border-color var(--ui-dur-fast) var(--ui-ease), color var(--ui-dur-fast) var(--ui-ease);
   white-space: nowrap;
 }
 
 button:hover {
-  background: var(--accent-strong);
-}
-
-button:active {
-  transform: translateY(1px);
+  background: var(--ui-accent-hover);
 }
 
 button:focus-visible,
@@ -81,22 +123,29 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgba(22, 125, 134, 0.22);
+  box-shadow: var(--ui-focus-ring);
+  outline: 2px solid var(--ui-accent-ring);
   outline-offset: 2px;
 }
 
 button:disabled {
   cursor: wait;
-  opacity: 0.58;
-  transform: none;
+  opacity: 0.6;
+}
+
+.icon {
+  display: block;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
 }
 
 .popup {
-	display: grid;
-	gap: 5px;
-	max-height: 600px;
-	overflow: hidden;
-	padding: 7px 8px 6px;
+  display: grid;
+  gap: 8px;
+  max-height: 600px;
+  overflow: hidden;
+  padding: 12px;
 }
 
 .popup-header,
@@ -117,83 +166,84 @@ button:disabled {
 }
 
 .popup-header {
-	min-height: 30px;
-	padding: 0 2px;
+  min-height: var(--control-h);
 }
 
 .brand {
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
 .brand-copy {
   align-items: flex-start;
   flex-direction: column;
-  line-height: 1.05;
+  gap: 2px;
+  line-height: 1.15;
 }
 
 .brand-copy strong {
-  color: #203438;
+  color: var(--ui-text);
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 700;
 }
 
 .brand-copy span {
-  color: #7a878b;
-  font-size: 7px;
-  margin-top: 3px;
+  color: var(--ui-text-subtle);
+  font-size: 11px;
 }
 
 .brand-mark {
-	display: block;
-	height: 25px;
-	width: 25px;
+  display: block;
+  height: 24px;
+  width: 24px;
 }
 
 .icon-button {
-  background: rgba(255, 255, 255, 0.68);
-  border-color: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 4px 14px rgba(50, 68, 72, 0.08), inset 0 1px 0 #fff;
-  color: #4f6166;
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
   flex: 0 0 auto;
-  font-size: 15px;
-	min-height: 25px;
+  min-height: var(--control-h);
   padding: 0;
-	width: 25px;
+  width: var(--control-h);
 }
 
 .icon-button:hover {
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--accent-strong);
+  background: var(--ui-surface-sunken);
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
 }
 
 .icon-button.quiet {
   background: transparent;
   border-color: transparent;
-  box-shadow: none;
 }
 
-.glass-panel {
-  backdrop-filter: blur(24px) saturate(135%);
-  -webkit-backdrop-filter: blur(24px) saturate(135%);
-  background: var(--glass);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
+.icon-button.quiet:hover {
+  background: var(--ui-surface-sunken);
+}
+
+.panel {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-panel);
 }
 
 .settings,
-.name-editor,
-.destination,
+.bookmark-form,
 .details {
-	display: grid;
-	gap: 5px;
-	padding: 7px 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.bookmark-form {
+  gap: 12px;
 }
 
 .workflow {
-	display: grid;
-	gap: 6px;
+  display: grid;
+  gap: 8px;
 }
 
 .hidden {
@@ -203,9 +253,8 @@ button:disabled {
 .page-preview {
   align-items: center;
   display: flex;
-	gap: 8px;
-	min-height: 42px;
-	padding: 6px 8px;
+  gap: 12px;
+  padding: 8px 12px;
 }
 
 .page-copy {
@@ -214,17 +263,16 @@ button:disabled {
 
 .site-initial {
   align-items: center;
-  background: rgba(22, 125, 134, 0.12);
-  border: 1px solid rgba(22, 125, 134, 0.13);
-  border-radius: 8px;
-  color: var(--accent-strong);
+  background: var(--ui-accent-soft);
+  border-radius: var(--radius-control);
+  color: var(--link);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 14px;
-  font-weight: 780;
-	height: 28px;
+  font-size: 13px;
+  font-weight: 600;
+  height: 32px;
   justify-content: center;
-	width: 28px;
+  width: 32px;
 }
 
 .page-preview h1,
@@ -235,9 +283,10 @@ p {
 }
 
 .page-preview h1 {
-  font-size: 11px;
-  font-weight: 680;
-  line-height: 1.35;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -245,13 +294,13 @@ p {
 
 .page-domain,
 .eyebrow {
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 700;
+  color: var(--ui-text-subtle);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .page-domain {
-  margin-bottom: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -259,29 +308,66 @@ p {
 
 .eyebrow {
   display: block;
-  text-transform: uppercase;
 }
 
 .section-heading h1 {
-  font-size: 16px;
-  line-height: 1.25;
+  color: var(--ui-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
   margin-top: 2px;
 }
 
 .section-heading h2 {
+  color: var(--ui-text);
   font-size: 13px;
-  margin-top: 2px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .section-heading.compact {
-	min-height: 19px;
+  min-height: 20px;
 }
 
-label {
-  color: #59676b;
+/* "Optional" sits on the same line as its heading instead of stacking above it. */
+.details .section-heading > div {
+  align-items: baseline;
+  display: flex;
+  flex: 1;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+.name-editor {
   display: grid;
-  font-size: 9px;
-  font-weight: 680;
+  gap: 4px;
+}
+
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.name-row button {
+  flex: 0 0 auto;
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.field-label,
+label {
+  color: var(--ui-text-muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 600;
   gap: 4px;
   min-width: 0;
 }
@@ -289,203 +375,210 @@ label {
 input,
 textarea,
 select {
-  background: var(--field);
-  border: 1px solid rgba(107, 127, 132, 0.2);
-  border-radius: 8px;
-  color: var(--ink);
-	font-size: 10px;
-	min-height: 27px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 400;
+  min-height: var(--control-h);
   min-width: 0;
-  padding: 5px 7px;
-  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  padding: 6px 10px;
+  transition: border-color var(--ui-dur-fast) var(--ui-ease), box-shadow var(--ui-dur-fast) var(--ui-ease);
   width: 100%;
+}
+
+select {
+  padding-block: 0;
+  padding-inline: 8px 4px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ui-text-subtle);
 }
 
 input:hover,
 textarea:hover,
 select:hover {
-  border-color: rgba(22, 125, 134, 0.32);
+  border-color: var(--ui-text-subtle);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--ui-accent);
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 textarea {
-	line-height: 1.5;
-	min-height: 44px;
-	resize: vertical;
+  line-height: 1.45;
+  min-height: 52px;
+  resize: vertical;
 }
 
 .field-grid {
+  align-items: end;
   display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 }
 
 .language-row {
   align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr 132px;
-}
-
-.language-row select {
-	min-height: 28px;
+  gap: 12px;
+  grid-template-columns: 1fr 136px;
 }
 
 .button-row {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.secondary-button {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(92, 112, 117, 0.18);
-  color: #4a5b60;
+.secondary-button,
+.warning-button {
+  background: var(--ui-surface);
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
 }
 
-.secondary-button:hover {
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--accent-strong);
-}
-
-.text-button {
-  background: transparent;
-  color: var(--accent-strong);
-  font-size: 9px;
-  min-height: 22px;
-  padding: 0 4px;
-}
-
-.text-button:hover {
-  background: rgba(22, 125, 134, 0.08);
-  color: #0a5960;
+.secondary-button:hover,
+.warning-button:hover {
+  background: var(--ui-surface-sunken);
+  border-color: var(--ui-text-subtle);
 }
 
 .connection-note,
 .status-line {
-	gap: 6px;
-	min-height: 17px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .connection-note {
-  background: rgba(255, 255, 255, 0.45);
-  border-radius: 8px;
-  color: #5e6e72;
-  font-size: 9px;
+  background: var(--ui-surface-sunken);
+  border-radius: var(--radius-control);
+  color: var(--ui-text-muted);
+  font-size: 12px;
   line-height: 1.45;
-	padding: 5px 7px;
+  padding: 8px 12px;
 }
 
 .status-dot {
-  background: #8c999d;
-  border: 2px solid rgba(255, 255, 255, 0.82);
+  background: var(--ui-text-subtle);
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(70, 88, 93, 0.1);
   flex: 0 0 auto;
   height: 8px;
+  margin-top: 5px;
   width: 8px;
 }
 
 .privacy-note {
-  color: #788489;
-  font-size: 8px;
-	line-height: 1.4;
+  color: var(--ui-text-subtle);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
+/* Title and action share the first row; the message gets the full width underneath. */
 .duplicate-callout {
   align-items: center;
-  background: rgba(255, 247, 228, 0.86);
-  border: 1px solid rgba(207, 144, 56, 0.3);
-  border-radius: 8px;
+  background: var(--ui-warning-soft);
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-panel);
   display: grid;
-	gap: 8px;
+  gap: 4px 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-	padding: 8px 9px;
+  padding: 8px 12px 12px;
+}
+
+.duplicate-callout > div {
+  display: contents;
 }
 
 .duplicate-callout strong {
-  color: #865318;
-  display: block;
-  font-size: 11px;
-  margin-bottom: 2px;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  grid-column: 1;
+  grid-row: 1;
 }
 
+/* The message quotes the existing bookmark name (up to 180 characters); cap it so a long name
+   cannot push the footer out of the 600px popup. */
 .duplicate-callout p {
-  color: #8b6a42;
-  font-size: 10px;
+  -webkit-box-orient: vertical;
+  color: var(--ui-text-muted);
+  display: -webkit-box;
+  font-size: 12px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   line-height: 1.45;
+  overflow: hidden;
   overflow-wrap: anywhere;
 }
 
-.warning-button {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(177, 111, 28, 0.25);
-  color: #8b5718;
-	min-height: 26px;
-  padding-inline: 10px;
-}
-
-.warning-button:hover {
-  background: #fff;
-  color: #70420d;
+.duplicate-callout button {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .status-line {
-  color: var(--muted);
-  padding: 0 2px;
+  color: var(--ui-text-muted);
+  padding: 0 4px;
 }
 
 .status {
-  font-size: 9px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
   min-width: 0;
 }
 
+/* Status colour lives in the dot; the message stays in ink so it keeps AA contrast. */
 .status-line.success .status-dot,
 .connection-note.success .status-dot {
-  background: #26956e;
-}
-
-.status-line.success .status,
-.connection-note.success {
-  color: #217556;
+  background: var(--ui-success);
 }
 
 .status-line.error .status-dot,
 .connection-note.error .status-dot {
-  background: #b94c5d;
+  background: var(--ui-danger);
 }
 
+.status-line.success .status,
 .status-line.error .status,
+.connection-note.success,
 .connection-note.error {
-  color: #a13c4d;
+  color: var(--ui-text);
 }
 
 .save-actions {
-  gap: 6px;
+  gap: 8px;
 }
 
 .primary-save {
-	flex: 1;
-	min-height: 28px;
+  flex: 1;
 }
 
 .edit-button {
-  min-width: 58px;
-}
-
-.details {
-	gap: 7px;
+  min-width: 64px;
 }
 
 .project-footer {
-  color: #778388;
+  color: var(--ui-text-subtle);
   display: grid;
-  font-size: 8px;
-  gap: 5px 8px;
+  font-size: 11px;
+  gap: 4px 8px;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  line-height: 1.35;
-	min-height: 18px;
-  padding: 0 3px;
+  line-height: 1.4;
+  min-height: 20px;
+  padding: 0 4px;
 }
 
 .project-footer > div {
@@ -493,18 +586,19 @@ textarea {
 }
 
 .project-footer a {
-  color: #496166;
+  border-radius: 4px;
+  color: var(--ui-text-muted);
   text-decoration: none;
 }
 
 .project-footer a:hover {
-  color: var(--accent-strong);
+  color: var(--link);
   text-decoration: underline;
 }
 
 .project-footer > div a {
   display: inline-block;
-  margin-left: 3px;
+  margin-left: 4px;
 }
 
 .issue-link,
@@ -513,17 +607,7 @@ textarea {
 }
 
 .version-label {
-  color: #8a9598;
   font-variant-numeric: tabular-nums;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-	body,
-	.glass-panel {
-		backdrop-filter: none;
-		-webkit-backdrop-filter: none;
-		background: #f8faf9;
-	}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -536,19 +620,15 @@ textarea {
 }
 
 .mode-panel {
-  min-height: 248px;
+  min-height: 212px;
 }
 
 #bookmarkPanel.mode-panel {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
 .mode-panel > .save-actions:last-of-type {
   margin-top: auto;
-}
-
-.destination-heading {
-  justify-content: flex-end;
 }

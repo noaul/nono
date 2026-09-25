@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title data-i18n="popupTitle">NoNo 快速收藏</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
@@ -16,16 +17,20 @@
             <span data-i18n="quickBookmark">快速收藏</span>
           </div>
         </div>
-        <button id="settingsButton" class="icon-button" type="button" data-i18n-title="connectionSettings" data-i18n-aria="connectionSettings" title="连接设置" aria-label="连接设置">&#9881;</button>
+        <button id="settingsButton" class="icon-button" type="button" data-i18n-title="connectionSettings" data-i18n-aria="connectionSettings" title="连接设置" aria-label="连接设置">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>
+        </button>
       </header>
 
-      <section id="settings" class="settings glass-panel hidden">
+      <section id="settings" class="settings panel hidden">
         <div class="section-heading">
           <div>
             <span class="eyebrow" data-i18n="connect">连接</span>
             <h1 data-i18n="connectTitle">连接 NoNo</h1>
           </div>
-          <button id="closeSettings" class="icon-button quiet" type="button" data-i18n-title="closeSettings" data-i18n-aria="closeSettings" title="关闭设置" aria-label="关闭设置">&#215;</button>
+          <button id="closeSettings" class="icon-button quiet" type="button" data-i18n-title="closeSettings" data-i18n-aria="closeSettings" title="关闭设置" aria-label="关闭设置">
+            <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          </button>
         </div>
 
         <label>
@@ -58,7 +63,7 @@
       </section>
 
       <section id="workflow" class="workflow hidden">
-        <section id="pagePreview" class="page-preview glass-panel" aria-live="polite">
+        <section id="pagePreview" class="page-preview panel" aria-live="polite">
           <span id="siteInitial" class="site-initial">N</span>
           <div class="page-copy">
             <p id="pageDomain" class="page-domain" data-i18n="readingPage">读取当前网页...</p>
@@ -67,21 +72,21 @@
         </section>
 
         <div id="bookmarkPanel" class="mode-panel">
-          <section class="name-editor glass-panel">
-            <div class="section-heading compact">
-              <span class="eyebrow" data-i18n="bookmarkName">书签名称</span>
-              <button id="analyzeBookmark" class="text-button" type="button" data-i18n="aiTidy">AI 整理</button>
+          <section class="bookmark-form panel">
+            <div class="name-editor">
+              <span class="field-label" data-i18n="bookmarkName">书签名称</span>
+              <div class="name-row">
+                <input id="name" maxlength="180" data-i18n-aria="bookmarkName" aria-label="书签名称" />
+                <button id="analyzeBookmark" class="secondary-button" type="button" data-i18n="aiTidy">AI 整理</button>
+              </div>
             </div>
-            <input id="name" maxlength="180" data-i18n-aria="bookmarkName" aria-label="书签名称" />
-          </section>
 
-          <section class="destination glass-panel">
-            <div class="section-heading compact destination-heading">
-              <button id="refreshFolders" class="icon-button quiet" type="button" data-i18n-title="refreshFolders" data-i18n-aria="refreshFolders" title="刷新文件夹" aria-label="刷新文件夹">&#8635;</button>
-            </div>
-            <div class="field-grid">
+            <div class="destination field-grid">
               <label>NoTab<select id="categorySelect"></select></label>
               <label><span data-i18n="folder">文件夹</span><select id="folderSelect"></select></label>
+              <button id="refreshFolders" class="icon-button" type="button" data-i18n-title="refreshFolders" data-i18n-aria="refreshFolders" title="刷新文件夹" aria-label="刷新文件夹">
+                <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
+              </button>
             </div>
           </section>
 
@@ -103,14 +108,14 @@
             <button id="toggleDetails" class="secondary-button edit-button" type="button" aria-expanded="false" data-i18n="edit">编辑</button>
           </div>
 
-          <section id="details" class="details glass-panel hidden">
+          <section id="details" class="details panel hidden">
             <div class="section-heading compact">
               <div>
                 <span class="eyebrow" data-i18n="optional">可选</span>
                 <h2 data-i18n="extraInfo">补充信息</h2>
               </div>
             </div>
-            <label><span data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
+            <label><span class="visually-hidden" data-i18n="description">描述</span><textarea id="description" maxlength="1000"></textarea></label>
           </section>
         </div>
       </section>

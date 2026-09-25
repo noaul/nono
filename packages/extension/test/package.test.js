@@ -59,8 +59,42 @@ describe('extension release package', () => {
     expect(styles).toContain('touch-action: manipulation');
     expect(styles).toContain('button:disabled');
     expect(styles).toContain('width: 340px');
-    expect(styles).toContain('backdrop-filter: blur(24px) saturate(135%)');
-    expect(styles).toContain('@media (prefers-reduced-transparency: reduce)');
+    expect(styles).toMatch(/:focus-visible\s*\{[^}]*box-shadow:\s*var\(--ui-focus-ring\)/s);
+    expect(styles).toMatch(/:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--ui-accent-ring\)/s);
+    expect(styles).not.toMatch(/outline:\s*(none|0)\b/);
+    expect(styles).toContain('--control-h: 32px');
+  });
+
+  it('follows the shared NoNo UI contract instead of a bespoke glass palette', async () => {
+    const [html, styles] = await Promise.all([
+      readFile(path.join(root, 'popup', 'popup.html'), 'utf8'),
+      readFile(path.join(root, 'popup', 'popup.css'), 'utf8'),
+    ]);
+
+    // Contract accent in light mode and the OS-driven dark values (docs/design/ui-contract.md).
+    expect(styles).toContain('--ui-accent: #0d9488');
+    expect(styles).toContain('--ui-accent-ink: #ffffff');
+    expect(styles).toMatch(/@media \(prefers-color-scheme: dark\)\s*\{[^@]*--ui-accent: #2dd4bf[^@]*--ui-accent-ink: #042f2e/s);
+    expect(styles).not.toContain('#167d86');
+    expect(styles).not.toMatch(/backdrop-filter|gradient\(/);
+    expect(styles).not.toMatch(/font-weight:\s*(8|9)\d\d/);
+
+    // Legibility floor: nothing below 11px.
+    const sizes = [...styles.matchAll(/font-size:\s*(\d+)px/g)].map((match) => Number(match[1]));
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
+
+    // Colours come from the custom properties declared in the two :root blocks, nowhere else.
+    const rules = styles.slice(styles.indexOf('* {'));
+    expect(rules).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
+
+    // Icon buttons use inline lucide-style SVGs and keep their accessible names.
+    expect(html).not.toMatch(/&#9881;|&#215;|&#8635;|[⚙×↻]/);
+    for (const id of ['settingsButton', 'closeSettings', 'refreshFolders']) {
+      const button = html.match(new RegExp(`<button id="${id}"[^>]*>([\\s\\S]*?)</button>`));
+      expect(button, id).not.toBeNull();
+      expect(button[0], id).toMatch(/aria-label="[^"]+"/);
+      expect(button[1], id).toMatch(/<svg class="icon" viewBox="0 0 24 24"[^>]*stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/);
+    }
   });
 
   it('saves connection drafts before requesting optional host permission', async () => {
@@ -85,14 +119,16 @@ describe('extension release package', () => {
     expect(popup).not.toContain("t('pickThenSave')");
     expect(popup).not.toContain("pagePreview.classList.toggle('hidden', clipping)");
     expect(styles).toContain('.mode-panel');
-    expect(styles).toContain('min-height: 26px');
+    expect(styles).toContain('min-height: var(--control-h)');
   });
 
-  it('keeps the popup inside one rounded frosted viewport without an inner scrollbar', async () => {
+  it('keeps the popup inside one solid viewport without an inner scrollbar', async () => {
     const styles = await readFile(path.join(root, 'popup', 'popup.css'), 'utf8');
 
-    expect(styles).toMatch(/html\s*\{[^}]*border-radius:\s*18px/s);
-    expect(styles).toMatch(/body\s*\{[^}]*background:\s*rgba\(255,\s*255,\s*255,/s);
+    // The popup is the whole browser window, so the shell is square and opaque: a rounded body
+    // would show the window's own background in its corners, most visibly in dark mode.
+    expect(styles).not.toMatch(/(html|body)\s*\{[^}]*border-radius/s);
+    expect(styles).toMatch(/body\s*\{[^}]*background:\s*var\(--ui-canvas\)/s);
     expect(styles).toMatch(/body\s*\{[^}]*overflow:\s*hidden/s);
     expect(styles).toMatch(/\.popup\s*\{[^}]*max-height:\s*600px/s);
     expect(styles).toMatch(/\.popup\s*\{[^}]*overflow:\s*hidden/s);
