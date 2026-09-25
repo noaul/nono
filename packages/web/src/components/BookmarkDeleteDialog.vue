@@ -79,9 +79,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .bookmark-delete-backdrop {
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  background: rgba(var(--public-overlay-rgb, 8, 12, 18), 0.36);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(var(--public-overlay-rgb, 8, 12, 18), 0.48);
   display: grid;
   inset: 0;
   place-items: center;
@@ -92,8 +92,6 @@ onBeforeUnmount(() => {
 }
 
 .bookmark-delete-dialog {
-  backdrop-filter: blur(calc(var(--public-card-blur, 18px) + 8px)) saturate(1.2);
-  -webkit-backdrop-filter: blur(calc(var(--public-card-blur, 18px) + 8px)) saturate(1.2);
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.36));
   border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.48);
   border-radius: var(--public-card-radius, 8px);
@@ -106,7 +104,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 40px minmax(0, 1fr) 32px;
   padding: 20px;
   width: min(100%, 420px);
-  animation: bookmark-delete-pop 0.3s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1)) both;
+  animation: bookmark-delete-pop 0.28s var(--ui-ease) both;
 }
 
 .bookmark-delete-icon {
@@ -129,7 +127,7 @@ onBeforeUnmount(() => {
 .bookmark-delete-copy h2 {
   color: var(--public-page-text, #f3f4f6);
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -143,7 +141,7 @@ onBeforeUnmount(() => {
 
 .bookmark-delete-copy strong {
   color: var(--public-page-text, #f3f4f6);
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .bookmark-delete-close {
@@ -189,7 +187,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   font: inherit;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 7px;
   height: 40px;
   justify-content: center;

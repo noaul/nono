@@ -472,6 +472,9 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.get('[data-testid="public-folder-card-2"]').classes()).toContain('is-organizing');
 
     await wrapper.get('[data-testid="delete-bookmark-10"]').trigger('click');
+    // The dialog is loaded on demand, so the first open waits for its chunk.
+    await vi.dynamicImportSettled();
+    await wrapper.vm.$nextTick();
     expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('Vue');
     expect(wrapper.get('[data-testid="bookmark-delete-dialog"]').text()).toContain('回收站');
 
@@ -698,7 +701,7 @@ describe('NavigationPage public workflow', () => {
   it('switches notabs without enter and leave transitions on the folder grid', () => {
     const source = readNavigationPageSource();
 
-    expect(source).toContain('<div class="adaptive-folder-grid">');
+    expect(source).toContain('<div class="adaptive-folder-grid" :class="{ \'cards-settled\': cardsSettled }">');
     expect(source).not.toContain('<TransitionGroup tag="div" name="folder-card" class="adaptive-folder-grid">');
     expect(source).not.toContain('.folder-card-enter-active');
     expect(source).not.toContain('.folder-card-leave-active');

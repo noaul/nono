@@ -79,7 +79,6 @@ defineEmits<{
 .home-urgent-item:focus-visible {
   background: rgba(var(--public-notification-hover-rgb, 255, 255, 255), 0.1);
   outline: none;
-  transform: translateY(-1px);
 }
 
 .home-urgent-icon {
@@ -116,12 +115,12 @@ defineEmits<{
 .home-urgent-copy small {
   color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.62);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .home-urgent-copy strong {
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,7 +132,7 @@ defineEmits<{
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0 10px;
   text-decoration: none;
 }

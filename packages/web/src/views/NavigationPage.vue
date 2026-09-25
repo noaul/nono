@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import '@/styles/public.css';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
-import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
-import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import FolderCard from '@/components/FolderCard.vue';
-import FolderExpandModal from '@/components/FolderExpandModal.vue';
-import FolderUnlockModal from '@/components/FolderUnlockModal.vue';
 import HomeNotificationBell from '@/components/HomeNotificationBell.vue';
 import HomeUrgentNoticeBar from '@/components/HomeUrgentNoticeBar.vue';
 import SearchBar from '@/components/SearchBar.vue';
-import ThemeScene from '@/components/ThemeScene.vue';
 import { buildSearchUrl } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 import { useHomeAppearance } from '@/composables/useHomeAppearance';
@@ -25,6 +20,14 @@ import { getNavigationEntries } from '@/utils/navigationEntries';
 import { getEngine, getSearchEngineSettings, getSelectedEngineId, resolveSearchTemplate } from '@/utils/searchEngines';
 import { getSiteDefaultLocale } from '@/utils/locale';
 import { useI18n } from '@/composables/useI18n';
+
+// Only the owner opens the drawer, the dialogs wait for an interaction, and the scene is decoration:
+// none of them belongs in the bundle every visitor downloads before the bookmarks appear.
+const AppearanceSettingsDrawer = defineAsyncComponent(() => import('@/components/AppearanceSettingsDrawer.vue'));
+const BookmarkDeleteDialog = defineAsyncComponent(() => import('@/components/BookmarkDeleteDialog.vue'));
+const FolderExpandModal = defineAsyncComponent(() => import('@/components/FolderExpandModal.vue'));
+const FolderUnlockModal = defineAsyncComponent(() => import('@/components/FolderUnlockModal.vue'));
+const ThemeScene = defineAsyncComponent(() => import('@/components/ThemeScene.vue'));
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -41,6 +44,8 @@ const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
 const appearancePreview = ref<Site | null>(null);
 const unlocking = ref(false);
+// Cards animate in once, on arrival; switching NoTabs or searching afterwards just swaps them.
+const cardsSettled = ref(false);
 
 /**
  * Brings the active notab back into view after a switch. On phones the strip scrolls horizontally
@@ -183,6 +188,7 @@ const searchEngineSettings = computed(() => getSearchEngineSettings(
   payload.value?.site.searchUrlTemplate,
 ));
 function selectCategory(id: string) {
+  cardsSettled.value = true;
   selectedCategoryId.value = id;
   resetFolderBatch();
 }
@@ -298,6 +304,7 @@ watch(canEditAppearance, (allowed) => {
   }
 });
 watch(normalizedQuery, () => {
+  cardsSettled.value = true;
   if (normalizedQuery.value) exitOrganizeMode();
 });
 watch(
@@ -467,7 +474,7 @@ onUnmounted(() => {
             </a>
           </nav>
 
-          <div class="adaptive-folder-grid">
+          <div class="adaptive-folder-grid" :class="{ 'cards-settled': cardsSettled }">
             <FolderCard
               :username="username"
               v-for="(folder, index) in renderedFolders"

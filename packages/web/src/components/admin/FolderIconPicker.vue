@@ -205,7 +205,7 @@ useModalBehavior({
 
 .folder-icon-trigger-label {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -246,7 +246,7 @@ useModalBehavior({
 
 .folder-icon-dialog-head h2 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0;
   margin: 0;
 }
@@ -290,7 +290,7 @@ useModalBehavior({
   background: transparent;
   border-bottom: 2px solid transparent;
   color: var(--admin-text-muted);
-  font-weight: 750;
+  font-weight: 600;
   min-height: 46px;
 }
 
@@ -311,7 +311,7 @@ useModalBehavior({
 .folder-icon-section-title {
   color: var(--admin-text-muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   margin: 0 0 12px;
 }
 
@@ -339,7 +339,7 @@ useModalBehavior({
 
 .folder-icon-option span {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .folder-icon-option:hover,

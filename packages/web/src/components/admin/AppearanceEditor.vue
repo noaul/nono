@@ -432,7 +432,7 @@ function fieldKind(key: AppearanceKey) {
 .group-toggle strong {
   color: var(--ae-text);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .chevron {
@@ -450,7 +450,7 @@ function fieldKind(key: AppearanceKey) {
   color: var(--ae-accent);
   flex: 0 0 auto;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px 7px;
 }
 
@@ -533,7 +533,7 @@ function fieldKind(key: AppearanceKey) {
   color: var(--ae-accent);
   font-size: 9.5px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
   padding: 1px 5px;
 }
 

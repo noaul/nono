@@ -177,40 +177,7 @@ function onFolderPointerDown(event: PointerEvent) {
   emit('folder-drag-start', { folder: folder.value, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
 }
 
-// Pointer spotlight only earns its keep on precise hover devices with motion allowed.
-const spotlightEnabled =
-  typeof window !== 'undefined' &&
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
-  !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const spotStyle = ref<Record<string, string>>({});
-let spotFrame = 0;
-let pendingSpot: { x: number; y: number } | null = null;
-
-function onCardPointermove(event: PointerEvent) {
-  if (!spotlightEnabled || !(event.currentTarget instanceof HTMLElement)) return;
-  const rect = event.currentTarget.getBoundingClientRect();
-  pendingSpot = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  if (spotFrame) return;
-  spotFrame = requestAnimationFrame(() => {
-    spotFrame = 0;
-    if (!pendingSpot) return;
-    spotStyle.value = {
-      '--spot-x': `${Math.round(pendingSpot.x)}px`,
-      '--spot-y': `${Math.round(pendingSpot.y)}px`,
-      '--spot-alpha': '1',
-    };
-  });
-}
-
-function onCardPointerleave() {
-  if (!spotlightEnabled) return;
-  pendingSpot = null;
-  spotStyle.value = { ...spotStyle.value, '--spot-alpha': '0' };
-}
-
 onUnmounted(() => {
-  if (spotFrame) cancelAnimationFrame(spotFrame);
   resetPress();
   clearTimeout(suppressClickTimer);
 });
@@ -227,9 +194,7 @@ onUnmounted(() => {
     }"
     :id="`folder-${folder.id}`"
     :data-folder-card-id="folder.id"
-    :style="[{ '--public-folder-depth': props.depth }, spotStyle]"
-    @pointermove="onCardPointermove"
-    @pointerleave="onCardPointerleave"
+    :style="{ '--public-folder-depth': props.depth }"
   >
     <header class="large-folder-title" :data-testid="`folder-drag-handle-${folder.id}`" @pointerdown="onFolderPointerDown">
       <button
@@ -330,7 +295,7 @@ onUnmounted(() => {
 
 <style scoped>
 .large-folder {
-  animation: folder-card-enter 0.45s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1)) both;
+  animation: folder-card-enter 0.32s var(--ui-ease) both;
   animation-delay: var(--enter-delay, 0ms);
   display: grid;
   gap: var(--public-folder-title-gap, 12px);
@@ -341,34 +306,11 @@ onUnmounted(() => {
   contain-intrinsic-size: 398px 283px;
   content-visibility: auto;
   position: relative;
-  transition: transform 0.24s ease-out;
 }
 
 @keyframes folder-card-enter {
-  from { opacity: 0; transform: translateY(12px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Pointer spotlight follows --spot-x/--spot-y from script; sits above the glass, below clicks. */
-.large-folder::after {
-  background: radial-gradient(
-    220px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-    rgba(var(--accent-bright-rgb, 52, 211, 153), 0.15),
-    transparent 65%
-  );
-  border-radius: var(--public-card-radius, 8px);
-  content: '';
-  inset: 0;
-  opacity: var(--spot-alpha, 0);
-  pointer-events: none;
-  position: absolute;
-  transition: opacity 0.35s ease;
-  z-index: 1;
-}
-
-.large-folder:hover {
-  transform: translateY(calc(-2px * var(--public-hover-animation, 1))) scale(var(--public-hover-scale, 1));
-  transition: transform var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1);
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .large-folder.is-organizing {
@@ -415,7 +357,7 @@ onUnmounted(() => {
 h2 {
   color: var(--public-folder-text, #ffffff);
   font-size: var(--public-folder-text-size, 18px);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.2;
   margin: 0;
@@ -703,7 +645,6 @@ mark {
 }
 
 .locked:hover .lock-illustration {
-  transform: scale(1.05);
   color: var(--accent);
   background: rgba(var(--accent-rgb), 0.06);
   border-color: rgba(var(--accent-rgb), 0.2);
@@ -743,7 +684,6 @@ mark {
   border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.48);
   color: var(--public-folder-text, #ffffff);
   outline: none;
-  transform: translateY(-1px) scale(1.03);
 }
 
 .folder-expand:active,
@@ -775,18 +715,17 @@ mark {
   /*
    * Three columns stays the default all the way down to a 320px CSS px phone — the grid keeps the
    * base `repeat(3, minmax(0, 1fr))` track. At a ~264px card that puts each column around 80px, so
-   * the padding, gap, icon and type shrink to match: full-width CJK glyphs run roughly 1em wide, and
-   * this budget (~80px column minus padding/icon/gap) still fits about 7-8 of them before the label
-   * hits its ellipsis. These are plain overrides of the same tokens the appearance settings drive
-   * (see appearance.ts bookmarkTextSize/bookmarkIconSize/bookmarkGapX/bookmarkGapY), scoped to
+   * the padding, gap and icon shrink to match. Type stops at 11px: 9px fitted two more CJK glyphs
+   * before the ellipsis but was too small to read, and a label that can be read beats one that is
+   * merely longer. These are plain overrides of the same tokens the desktop uses, scoped to
    * `.large-links` so mobile gets a legible 3-column grid regardless of the desktop values chosen.
    */
   .large-links {
     --public-bookmark-gap-x: 4px;
     --public-bookmark-gap-y: 4px;
-    --public-bookmark-row-height: 32px;
-    --public-bookmark-text-size: 9px;
-    --public-bookmark-icon-size: 12px;
+    --public-bookmark-row-height: 34px;
+    --public-bookmark-text-size: 11px;
+    --public-bookmark-icon-size: 14px;
     height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
     max-height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
     padding: 8px 3px 10px 8px;

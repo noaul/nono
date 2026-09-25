@@ -246,7 +246,7 @@ describe('visual contracts', () => {
     // shrink the cell padding, gap, icon and type so a ~80px column stays legible at 320px.
     expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
     expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 18px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
+      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 11px;[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 18px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
     );
 
     const navigationSource = readNavigationPageSource();
@@ -308,7 +308,9 @@ describe('visual contracts', () => {
     expect(expandModalSource).toContain('<FolderGlyph class="expand-folder-icon"');
     expect(expandModalSource).toContain('getFaviconUrl(link.url, link.icon)');
     expect(expandModalSource).toContain('background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26))');
-    expect(expandModalSource).toContain('backdrop-filter: blur(var(--public-card-blur, 18px))');
+    // One frosting, on the backdrop: a blur on the panel inside it could only ever see the backdrop.
+    expect(expandModalSource).toContain('backdrop-filter: blur(16px)');
+    expect(expandModalSource).not.toContain('backdrop-filter: blur(var(--public-card-blur');
     expect(expandModalSource).toContain('var(--public-folder-text');
     expect(expandModalSource).toContain('var(--public-bookmark-text-size');
     expect(folderCardSource).toContain('large-link:hover');
@@ -645,14 +647,15 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--enter-delay');
     expect(folderCardSource).toContain('folder-card-enter');
     expect(folderCardSource).toContain('animation-delay: var(--enter-delay, 0ms)');
-    expect(folderCardSource).toContain('--spot-x');
-    expect(folderCardSource).toContain("matchMedia('(hover: hover) and (pointer: fine)')");
-    expect(folderCardSource).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
-
-    // Search glow and springy modals stay inside the shared motion tokens.
-    expect(searchBarSource).toContain('search-breathe');
-    expect(read('src/components/FolderExpandModal.vue')).toContain('modal-pop');
-    expect(read('src/components/FolderUnlockModal.vue')).toContain('modal-pop');
+    // No cursor spotlight: it re-rendered the whole card on every pointer frame.
+    expect(folderCardSource).not.toContain('--spot-x');
+    // Focus is a steady ring, not a pulse, and dialogs ease in on the shared curve without overshoot.
+    expect(searchBarSource).not.toContain('search-breathe');
+    for (const dialog of ['FolderExpandModal', 'FolderUnlockModal', 'BookmarkDeleteDialog']) {
+      const source = read(`src/components/${dialog}.vue`);
+      expect(source).toContain('var(--ui-ease)');
+      expect(source).not.toContain('cubic-bezier(0.34, 1.36');
+    }
 
     // The four per-scene preview animations in the drawer theme wall.
     for (const kind of ['bubbles', 'snow', 'leaves', 'rain']) {

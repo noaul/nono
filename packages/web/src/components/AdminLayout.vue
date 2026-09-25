@@ -105,10 +105,25 @@ function closeMobileNavigationAtDesktop() {
   if (window.innerWidth >= 768) mobileNavOpen.value = false;
 }
 
+/**
+ * Each admin page is its own chunk, so the first visit to one used to leave the stage blank while
+ * it downloaded. Once the shell is idle, fetch them all; later navigation then renders at once.
+ */
+function prefetchAdminPages() {
+  for (const record of router?.getRoutes?.() ?? []) {
+    const load = record.components?.default;
+    if (record.path.startsWith('/admin/') && typeof load === 'function') {
+      void (load as () => Promise<unknown>)().catch(() => undefined);
+    }
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onDocumentKeydown);
   window.addEventListener('resize', closeMobileNavigationAtDesktop);
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(prefetchAdminPages, { timeout: 3000 });
+  else window.setTimeout(prefetchAdminPages, 2000);
 });
 
 onBeforeUnmount(() => {

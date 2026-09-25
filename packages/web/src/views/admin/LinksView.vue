@@ -1005,7 +1005,7 @@ onMounted(load);
 .folder-editor-field > span {
   color: var(--admin-text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .folder-editor-field input,
@@ -1215,7 +1215,7 @@ onMounted(load);
 .management-filter-label {
   color: var(--admin-text-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 34px;
 }
 

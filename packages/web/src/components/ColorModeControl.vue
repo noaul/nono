@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
   color: inherit;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   gap: 4px;
   justify-content: center;
   min-height: 36px;

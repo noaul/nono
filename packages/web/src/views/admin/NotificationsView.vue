@@ -525,7 +525,7 @@ onMounted(load);
 
 .notification-copy { display: grid; gap: 4px; min-width: 0; }
 .notification-copy a { color: var(--admin-text); font-size: 14px; font-weight: 500; line-height: 1.35; text-decoration: none; }
-.notification-row.is-unread .notification-copy a { font-weight: 650; }
+.notification-row.is-unread .notification-copy a { font-weight: 600; }
 .notification-copy a:hover { text-decoration: underline; }
 .notification-copy p { color: var(--admin-text-muted); font-size: 12px; line-height: 1.45; margin: 0; overflow-wrap: anywhere; }
 .notification-copy small { color: var(--admin-text-muted); font-size: 11px; }

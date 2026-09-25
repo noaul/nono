@@ -86,7 +86,7 @@ const updatedAt = '2026-08-14';
 .privacy-brand {
   color: var(--admin-link);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .privacy-kicker,

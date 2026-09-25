@@ -41,7 +41,7 @@
 
 .bookmark-drag-preview span {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -56,7 +56,7 @@
   bottom: 24px;
   color: var(--public-page-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   left: 50%;
   margin: 0;
   max-width: min(420px, calc(100vw - 32px));
@@ -180,7 +180,7 @@
   color: var(--public-page-text);
   display: flex;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 600;
   justify-content: space-between;
   margin: 0 auto -12px;
   min-height: 44px;
@@ -254,7 +254,7 @@
   display: inline-flex;
   font-size: 13px;
   font-family: inherit;
-  font-weight: 750;
+  font-weight: 600;
   gap: 8px;
   max-width: min(280px, calc(100vw - 32px));
   min-height: 42px;
@@ -280,7 +280,6 @@
   border-color: rgba(var(--accent-soft-rgb), 0.56);
   box-shadow: 0 16px 40px rgba(var(--public-shadow-rgb), 0.22), 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   outline: none;
-  transform: translateY(-2px);
 }
 
 .portal-corner-link:active {
@@ -291,12 +290,11 @@
   display: grid;
   justify-items: center;
   gap: 14px;
-  min-height: 140px;
   text-align: center;
 }
 
 .header-vibe {
-  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideDown 0.4s var(--ui-ease);
   color: inherit;
   display: grid;
   justify-items: center;
@@ -319,7 +317,6 @@
 .header-vibe-link:focus-visible {
   background: rgba(var(--public-hover-rgb), 0.14);
   box-shadow: inset 0 0 0 1px rgba(var(--public-border-rgb), 0.2);
-  transform: translateY(-2px);
 }
 
 .portal-center-image {
@@ -353,13 +350,13 @@
   right: -2px;
 }
 
+/* A name, not a hero: large enough to anchor the page, quiet enough that the search bar leads. */
 h1 {
-  /* The setting is the base; the heading is still the largest thing on the page. */
-  font-size: calc(var(--public-title-text-size, 30px) * 1.86);
-  line-height: 1.1;
+  font-size: 34px;
+  line-height: 1.15;
   margin: 0;
-  font-weight: calc(var(--public-font-weight, 400) + 400);
-  letter-spacing: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--public-title-text, var(--public-page-text, #f3f4f6));
 }
 
@@ -370,7 +367,7 @@ h1 {
 
 @media (max-width: 768px) {
   h1 {
-    font-size: calc(var(--public-title-text-size, 30px) * 1.2);
+    font-size: 28px;
   }
 }
 
@@ -390,7 +387,7 @@ h1 {
 .search-result-summary {
   color: rgba(var(--public-page-text-rgb), 0.72);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   justify-self: center;
   margin: -10px 0 0;
 }
@@ -661,6 +658,10 @@ h1 {
   grid-template-columns: repeat(var(--public-folder-columns, 4), minmax(0, 1fr));
 }
 
+.cards-settled :deep(.large-folder) {
+  animation: none;
+}
+
 @media (max-width: 1800px) {
   .nav-content {
     padding: 0 min(24px, var(--public-page-padding-x, 32px));
@@ -691,7 +692,7 @@ h1 {
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   justify-self: center;
   min-height: 42px;
   padding: 0 18px;
@@ -706,7 +707,6 @@ h1 {
   background: rgba(var(--accent-rgb), 0.26);
   border-color: rgba(var(--accent-soft-rgb), 0.5);
   outline: none;
-  transform: translateY(-1px);
 }
 
 @keyframes slideDown {

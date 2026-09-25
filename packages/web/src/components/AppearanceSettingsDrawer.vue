@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
   color: var(--drawer-subtle);
   display: inline-flex;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   gap: 6px;
 }
 
@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
   color: var(--drawer-muted);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   gap: 6px;
   justify-content: center;
   min-height: 34px;
@@ -845,7 +845,7 @@ onBeforeUnmount(() => {
 
 .theme-card strong {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .theme-card small {
@@ -868,7 +868,7 @@ onBeforeUnmount(() => {
   color: var(--drawer-muted);
   display: flex;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   justify-content: space-between;
 }
 
@@ -920,7 +920,7 @@ onBeforeUnmount(() => {
   color: var(--drawer-accent);
   display: inline-flex;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 6px;
   padding: 0 10px;
 }
@@ -1015,7 +1015,7 @@ onBeforeUnmount(() => {
 
 .save-state {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   min-width: 0;
   text-align: right;
 }
@@ -1034,7 +1034,7 @@ onBeforeUnmount(() => {
 .mobile-save-state {
   display: none;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .mobile-save-state .state-saved { color: var(--drawer-success); }
@@ -1048,7 +1048,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 5px;
   justify-content: center;
   min-height: 34px;

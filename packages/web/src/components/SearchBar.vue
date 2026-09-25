@@ -227,7 +227,6 @@ defineExpose({
 }
 
 .search-bar:focus-within {
-  animation: search-breathe 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.08));
   border-color: rgba(var(--accent-rgb), 0.55);
   box-shadow:
@@ -235,27 +234,6 @@ defineExpose({
       rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-glass-shadow-strength, 0.32) * 0.6)),
     0 0 0 3px rgba(var(--accent-rgb), 0.16),
     inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.34));
-}
-
-/* One soft ripple as focus lands, settling into the static ring; it does not keep pulsing while typing. */
-@keyframes search-breathe {
-  from {
-    box-shadow:
-      0 10px var(--public-glass-shadow-spread, 24px)
-        rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-glass-shadow-strength, 0.32) * 0.6)),
-      0 0 0 0 rgba(var(--accent-rgb), 0.16),
-      0 0 0 0 rgba(var(--accent-rgb), 0.3),
-      inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.34));
-  }
-
-  to {
-    box-shadow:
-      0 10px var(--public-glass-shadow-spread, 24px)
-        rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-glass-shadow-strength, 0.32) * 0.6)),
-      0 0 0 3px rgba(var(--accent-rgb), 0.16),
-      0 0 0 10px rgba(var(--accent-rgb), 0),
-      inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.34));
-  }
 }
 
 .engine-picker {
@@ -307,7 +285,7 @@ defineExpose({
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   height: 26px;
   justify-content: center;
   line-height: 1;
@@ -484,7 +462,7 @@ defineExpose({
   flex: 0 0 auto;
   font-family: inherit;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   margin-right: 4px;
   min-width: 22px;
@@ -553,10 +531,6 @@ defineExpose({
   .engine-menu-enter-active,
   .engine-menu-leave-active {
     transition: none;
-  }
-
-  .search-bar:focus-within {
-    animation: none;
   }
 }
 </style>

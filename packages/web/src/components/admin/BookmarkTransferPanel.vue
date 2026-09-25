@@ -282,7 +282,7 @@ watch(html, () => {
   color: var(--admin-text);
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   margin-right: 12px;
   min-height: 34px;
   padding: 0 12px;

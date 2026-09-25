@@ -97,26 +97,27 @@ describe('mobile folder cards', () => {
     expect(folderMobile).not.toMatch(/\.large-links[^{]*\{[^}]*grid-template-columns/);
   });
 
-  it('shrinks the bookmark padding, gap, icon and type to keep a three-column cell usable', () => {
+  it('tightens the bookmark padding, gap and icon but keeps the type readable in three columns', () => {
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-x: 4px;/);
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-y: 4px;/);
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;/);
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-icon-size: 12px;/);
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-text-size: 11px;/);
+    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-icon-size: 14px;/);
     // A tighter cell padding than the desktop `10px 4px 15px 16px` claws room back for the label.
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?padding: 8px 3px 10px 8px;/);
     // At a ~264px card / 3 columns / these tokens, each cell has roughly 80px, of which about
-    // 63-65px is left for the label after the icon and paddings — enough for ~7-8 full-width CJK
-    // glyphs (~1em advance each) at a 9px font before the ellipsis kicks in.
+    // 62px is left for the label after the icon and paddings — five full-width CJK glyphs at the
+    // 11px floor. Fewer than 9px managed, but these can actually be read.
     const cardWidth = 264;
     const linksPadding = 3 + 8;
     const gaps = 4 * 2;
     const columnWidth = (cardWidth - linksPadding - gaps) / 3;
     const linkPadding = 3;
-    const iconSize = 12;
+    const iconSize = 14;
     const iconGap = 2;
     const textBudget = columnWidth - linkPadding - iconSize - iconGap;
-    const fontSize = 9;
-    expect(Math.floor(textBudget / fontSize)).toBeGreaterThanOrEqual(7);
+    const fontSize = 11;
+    expect(fontSize).toBeGreaterThanOrEqual(11);
+    expect(Math.floor(textBudget / fontSize)).toBeGreaterThanOrEqual(5);
   });
 
   it('declares no device-specific breakpoint for the bookmark grid', () => {

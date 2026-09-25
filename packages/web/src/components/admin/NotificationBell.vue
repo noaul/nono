@@ -143,7 +143,7 @@ onBeforeUnmount(() => {
   color: var(--admin-surface-elevated);
   display: inline-flex;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   height: 17px;
   justify-content: center;
   min-width: 17px;
@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
 .notification-preview-item > i.severity-info { background: var(--admin-status-ok-dot); }
 .notification-preview-item > span { display: grid; gap: 3px; min-width: 0; }
 .notification-preview-item strong { font-size: 13px; font-weight: 500; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.notification-preview-item.is-unread strong { font-weight: 650; }
+.notification-preview-item.is-unread strong { font-weight: 600; }
 .notification-preview-item small { color: var(--admin-text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notification-popover-empty { color: var(--admin-text-muted); font-size: 13px; padding: 34px 14px; text-align: center; }
 

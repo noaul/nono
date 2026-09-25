@@ -488,7 +488,7 @@ onMounted(() => {
   color: var(--admin-text-muted);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 8px;
 }
 
@@ -513,7 +513,7 @@ onMounted(() => {
   color: var(--admin-text-muted);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   min-height: 40px;
   padding: 0 12px;
 }

@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
@@ -26,17 +27,24 @@ const searchEngines = reactive<SearchEngineSettings>({ defaultId: 'default', ite
 const message = ref('');
 const error = ref('');
 const saving = ref(false);
+// The form waits for the saved site rather than flashing its empty defaults first.
+const loaded = ref(false);
 
 onMounted(async () => {
-  const site = await apiRequest<Site>('/api/admin/site');
-  Object.assign(form, site, { settings: { ...(site.settings || {}) } });
-  Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
-  const savedSearchEngines = getSearchEngineSettings(site.settings, site.searchUrlTemplate);
-  searchEngines.defaultId = savedSearchEngines.defaultId;
-  searchEngines.items = savedSearchEngines.items.map((item) => ({
-    ...item,
-    template: item.template || site.searchUrlTemplate,
-  }));
+  try {
+    const site = await apiRequest<Site>('/api/admin/site');
+    Object.assign(form, site, { settings: { ...(site.settings || {}) } });
+    Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
+    const savedSearchEngines = getSearchEngineSettings(site.settings, site.searchUrlTemplate);
+    searchEngines.defaultId = savedSearchEngines.defaultId;
+    searchEngines.items = savedSearchEngines.items.map((item) => ({
+      ...item,
+      template: item.template || site.searchUrlTemplate,
+    }));
+    loaded.value = true;
+  } catch (loadError) {
+    error.value = loadError instanceof Error ? loadError.message : t('common.loadFailed');
+  }
 });
 
 async function save() {
@@ -118,7 +126,8 @@ function setDefaultSearchEngine(id: string) {
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <form id="site-config-form" class="site-config-form" @submit.prevent="save">
+    <LoadingOverlay v-if="!loaded && !error" />
+    <form v-if="loaded" id="site-config-form" class="site-config-form" @submit.prevent="save">
 
       <section class="admin-card site-basics">
         <header class="admin-card-head">
@@ -303,7 +312,7 @@ function setDefaultSearchEngine(id: string) {
   color: var(--admin-text-muted);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 6px;
   min-height: 40px;
 }
@@ -363,7 +372,7 @@ function setDefaultSearchEngine(id: string) {
   color: var(--admin-text-muted);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   gap: 8px;
 }
 
@@ -397,7 +406,7 @@ function setDefaultSearchEngine(id: string) {
   color: var(--nono-accent);
   display: inline-flex;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   gap: 5px;
 }
 

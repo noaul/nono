@@ -74,9 +74,9 @@ useModalBehavior({
 <style scoped>
 .folder-expand-backdrop {
   align-items: center;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(var(--public-overlay-rgb, 8, 16, 18), 0.42);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(var(--public-overlay-rgb, 8, 12, 18), 0.48);
   display: grid;
   inset: 0;
   padding: 40px 36px;
@@ -88,8 +88,6 @@ useModalBehavior({
 
 .folder-expand-modal {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
-  backdrop-filter: blur(var(--public-card-blur, 18px));
-  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px));
   border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.52);
   border-radius: var(--public-card-radius, 8px);
   box-shadow:
@@ -105,7 +103,7 @@ useModalBehavior({
   overscroll-behavior: contain;
   padding: 24px 32px;
   width: min(100%, 1200px);
-  animation: modal-pop 0.36s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1));
+  animation: modal-pop 0.28s var(--ui-ease);
 }
 
 .folder-expand-head {
@@ -131,7 +129,7 @@ useModalBehavior({
 
 .folder-expand-head h2 {
   font-size: var(--public-folder-text-size, 18px);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   margin: 0;
   color: var(--public-folder-text, #ffffff);
@@ -162,7 +160,6 @@ useModalBehavior({
   background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.54);
   border-color: rgba(var(--accent-rgb), 0.34);
   color: var(--accent);
-  transform: translateY(-1px) scale(1.03);
 }
 
 .folder-expand-close:active {
@@ -215,7 +212,6 @@ useModalBehavior({
   border-color: rgba(var(--accent-rgb), 0.25);
   color: var(--accent);
   outline: none;
-  transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.12);
 }
 
@@ -257,7 +253,6 @@ useModalBehavior({
   background: rgba(var(--accent-rgb), 0.1);
   border-color: rgba(var(--accent-rgb), 0.2);
   color: var(--accent);
-  transform: scale(1.04);
 }
 
 .expanded-link-copy {
@@ -275,7 +270,7 @@ useModalBehavior({
 
 .expanded-link strong {
   font-size: var(--public-bookmark-text-size, 14px);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0;
 }
 

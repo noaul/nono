@@ -250,7 +250,6 @@ onBeforeUnmount(() => {
   background: rgba(var(--accent-rgb), 0.28);
   border-color: rgba(var(--accent-soft-rgb), 0.56);
   outline: none;
-  transform: translateY(-2px);
 }
 
 .home-notification-badge {
@@ -261,7 +260,7 @@ onBeforeUnmount(() => {
   color: #ffffff;
   display: inline-flex;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   height: 18px;
   justify-content: center;
   min-width: 18px;
@@ -327,8 +326,8 @@ onBeforeUnmount(() => {
 .severity-warning .home-notification-source { background: rgba(217, 119, 6, 0.16); border-color: rgba(251, 191, 36, 0.3); color: #fbbf24; }
 
 .home-notification-copy { color: inherit; display: grid; gap: 3px; min-width: 0; text-decoration: none; }
-.home-notification-copy strong { font-size: 12.5px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
-.is-unread .home-notification-copy strong { font-weight: 800; }
+.home-notification-copy strong { font-size: 12.5px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.is-unread .home-notification-copy strong { font-weight: 600; }
 .home-notification-copy span { color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.7); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .home-notification-copy small { color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.5); font-size: 10px; }
 .home-notification-actions { display: flex; gap: 3px; }
@@ -367,7 +366,7 @@ onBeforeUnmount(() => {
   color: rgba(var(--public-notification-text-rgb, 243, 244, 246), 0.76);
   display: flex;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   justify-content: center;
   min-height: 42px;
   text-decoration: none;

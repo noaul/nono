@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
   align-items: center;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(var(--public-overlay-rgb, 8, 10, 14), 0.62);
+  background: rgba(var(--public-overlay-rgb, 8, 12, 18), 0.48);
   display: grid;
   inset: 0;
   padding: 24px;
@@ -116,8 +116,6 @@ onBeforeUnmount(() => {
 
 .modal {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
-  backdrop-filter: blur(var(--public-card-blur, 18px));
-  -webkit-backdrop-filter: blur(var(--public-card-blur, 18px));
   border: 1px solid rgba(var(--public-border-rgb, 51, 65, 61), 0.38);
   border-radius: var(--public-card-radius, 8px);
   color: var(--public-bookmark-text, #ffffff);
@@ -128,7 +126,7 @@ onBeforeUnmount(() => {
   padding: 28px;
   width: 100%;
   box-shadow: 0 24px 60px rgba(var(--public-shadow-rgb, 5, 15, 18), 0.28), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.58);
-  animation: modal-pop 0.32s var(--nono-ease-spring, cubic-bezier(0.34, 1.36, 0.44, 1));
+  animation: modal-pop 0.28s var(--ui-ease);
 }
 
 .modal-head {
@@ -150,7 +148,7 @@ onBeforeUnmount(() => {
 
 .modal h2 {
   font-size: var(--public-folder-text-size, 18px);
-  font-weight: 800;
+  font-weight: 600;
   margin: 0;
   color: var(--public-folder-text, #ffffff);
 }

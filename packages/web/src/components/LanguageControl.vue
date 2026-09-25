@@ -143,7 +143,7 @@ onBeforeUnmount(() => {
 /* The contract sets letter-spacing to 0; this control renders inside the unified admin shell. */
 .language-tag {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
   color: inherit;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   gap: 4px;
   justify-content: center;
   min-height: 36px;
