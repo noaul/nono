@@ -1,11 +1,11 @@
-# Nono
+# NoNo
 
 <p align="center">
   <a href="README.md">简体中文</a> | <strong>English</strong>
 </p>
 
 <p align="center">
-  <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="Nono icon">
+  <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="NoNo icon">
 </p>
 
 <p align="center">
@@ -18,9 +18,9 @@
   <a href="https://noaul.com/privacy">Privacy Policy</a>
 </p>
 
-Nono is not a single-page application. It is a collection of personal services that share one repository, one origin, and one deployment pipeline. The core Nono service provides public navigation pages, administration, authentication, and APIs. NoDesk, NoMoney, Yumi, NoStar, and the Chrome extension cover publishing, expenses, infrastructure, GitHub Stars, and browser bookmark capture.
+NoNo is not a single-page application. It is a collection of personal services that share one repository, one origin, and one deployment pipeline. The core NoNo service provides public navigation pages, administration, authentication, and APIs. NoDesk, NoMoney, Yumi, NoStar, and the Chrome extension cover publishing, expenses, infrastructure, GitHub Stars, and browser bookmark capture.
 
-> Nono targets personal or small trusted-user self-hosting. The default production topology is one application container plus one PostgreSQL container, not a multi-node high-availability system.
+> NoNo targets personal or small trusted-user self-hosting. The default production topology is one application container plus one PostgreSQL container, not a multi-node high-availability system.
 
 ## Table of Contents
 
@@ -53,18 +53,18 @@ Nono is not a single-page application. It is a collection of personal services t
 
 | Product | Default path | Purpose | Authentication | Primary storage |
 | --- | --- | --- | --- | --- |
-| **Nono** | `/`, `/:username`, `/admin/*` | Public navigation, bookmarks, folders, site settings, users, and system administration | Nono Session / Passkey / API Token | PostgreSQL |
-| **NoDesk** | `/nodesk/*` | Articles, images, projects, links, snippets, schedules, and a personal content site | Public reads; Nono administrator Session for writes | `nodesk_content` volume |
+| **NoNo** | `/`, `/:username`, `/admin/*` | Public navigation, bookmarks, folders, site settings, users, and system administration | NoNo Session / Passkey / API Token | PostgreSQL |
+| **NoDesk** | `/nodesk/*` | Articles, images, projects, links, snippets, schedules, and a personal content site | Public reads; NoNo administrator Session for writes | `nodesk_content` volume |
 | **NoMoney** | `/nomoney/*` | Phone cards, subscriptions, accounts, expenses, and expiry reminders | Independent HttpOnly cookie Session | `nomoney_data/app.db` |
 | **Yumi** | `/yumi/*` | VPS and domain inventory, renewals, costs, and status | Independent HttpOnly cookie Session | `yumi_data/app.db` |
-| **NoStar** | `/nostar/*` | GitHub Stars, categories, search, releases, AI analysis, and backup | Nono Session | PostgreSQL |
+| **NoStar** | `/nostar/*` | GitHub Stars, categories, search, releases, AI analysis, and backup | NoNo Session | PostgreSQL |
 | **Chrome extension** | Popup / context menu / shortcuts | Extract the current page and save a bookmark | Scoped Bearer API Token | `chrome.storage.local` |
 
 In production, `docker/gateway.mjs` listens on the external application port, routes requests, and manages the business subprocesses. If a critical subprocess exits, the application container exits so Docker Compose can restart it.
 
 ## Feature Overview
 
-### Nono
+### NoNo
 
 - Public navigation pages for each user, with configurable branding, search engines, themes, backgrounds, and display options.
 - Tree-structured folders and bookmarks with sorting, moving, bulk actions, duplicate detection, import/export, and trash.
@@ -80,7 +80,7 @@ In production, `docker/gateway.mjs` listens on the external application port, ro
 - Home workspace, article lists and detail pages, about, projects, images, links, authors, and snippets.
 - Markdown, syntax highlighting, KaTeX, table of contents, RSS, Sitemap, and site metadata.
 - Writing, image upload, site configuration, and home-layout editing.
-- Same-origin Nono administrator Session for write operations; no separate browser-side write secret.
+- Same-origin NoNo administrator Session for write operations; no separate browser-side write secret.
 - Content, images, site configuration, and schedules persist in a dedicated volume.
 
 ### NoMoney
@@ -95,7 +95,7 @@ In production, `docker/gateway.mjs` listens on the external application port, ro
 ### Yumi
 
 - VPS and domain inventory with providers, regions, specifications, billing cycles, expiry dates, and renewals.
-- Renewal records linked to actual expenses and upcoming-expiry notifications in Nono.
+- Renewal records linked to actual expenses and upcoming-expiry notifications in NoNo.
 - Scheduled VPS status collection with availability, capacity, and history.
 - Encrypted infrastructure credentials, explicit private outbound host allowlists, and encrypted JSON backups.
 - Shared code and components with NoMoney, but separate processes, accounts, cookies, keys, and SQLite files.
@@ -116,7 +116,7 @@ In production, `docker/gateway.mjs` listens on the external application port, ro
 - Bookmark analysis with confirmation, manual folder selection, and quick save to the most recent folder.
 - Duplicate URL handling that can update an existing bookmark or save another copy.
 - Toolbar popup, context menus, and `Alt+Shift+S` and `Alt+Shift+B` shortcuts.
-- Requests access only to the exact configured Nono origin and does not register a persistent content script.
+- Requests access only to the exact configured NoNo origin and does not register a persistent content script.
 - Chinese and English UI with connection testing, Token expiry status, and direct project links.
 
 ## Architecture
@@ -126,7 +126,7 @@ flowchart LR
     U["Browser"] --> G["Node gateway :3000"]
     E["Chrome extension"] -->|"Bearer API Token"| G
 
-    G --> N["Nono Fastify API + Vue assets"]
+    G --> N["NoNo Fastify API + Vue assets"]
     G --> D["NoDesk Next.js"]
     G --> M["NoMoney Express"]
     G --> Y["Yumi Express"]
@@ -147,16 +147,16 @@ flowchart LR
 
 | External path | Target | Notes |
 | --- | --- | --- |
-| `/`, `/:username` | Nono | Default or named public navigation page |
-| `/login`, `/setup`, `/admin/*` | Nono | Login, bootstrap, and administration |
-| `/api/*` | Nono | Nono API, including NoStar APIs |
+| `/`, `/:username` | NoNo | Default or named public navigation page |
+| `/login`, `/setup`, `/admin/*` | NoNo | Login, bootstrap, and administration |
+| `/api/*` | NoNo | NoNo API, including NoStar APIs |
 | `/nodesk`, `/nodesk/*` | NoDesk | Content site and editor |
 | `/blog/*` | NoDesk | Compatibility route; redirects to `/nodesk/*` |
 | `/nomoney`, `/nomoney/*` | NoMoney | Personal finance workspace |
 | `/yumi`, `/yumi/*` | Yumi | VPS and domain workspace |
-| `/nostar`, `/nostar/*` | Nono / NoStar | NoStar assets and same-origin APIs |
-| `/healthz`, `/livez` | Nono | Process liveness |
-| `/readyz` | Nono | PostgreSQL, NoDesk content, NoMoney, and Yumi readiness |
+| `/nostar`, `/nostar/*` | NoNo / NoStar | NoStar assets and same-origin APIs |
+| `/healthz`, `/livez` | NoNo | Process liveness |
+| `/readyz` | NoNo | PostgreSQL, NoDesk content, NoMoney, and Yumi readiness |
 
 `GATEWAY_TRUST_FORWARDED_HEADERS` is disabled by default. When enabled, `GATEWAY_TRUSTED_PROXY_ADDRESSES` must identify the proxy IPs or CIDRs allowed to provide forwarded headers.
 
@@ -164,8 +164,8 @@ flowchart LR
 
 | Layer | Technology |
 | --- | --- |
-| Nono API | Node.js 22, TypeScript, Fastify 5, Prisma 6, PostgreSQL 16, Zod |
-| Nono Web | Vue 3, Vite 7, Pinia, Vue Router, SortableJS, Lucide |
+| NoNo API | Node.js 22, TypeScript, Fastify 5, Prisma 6, PostgreSQL 16, Zod |
+| NoNo Web | Vue 3, Vite 7, Pinia, Vue Router, SortableJS, Lucide |
 | NoDesk | Next.js 16, React 19, Markdown/Unified, KaTeX, Shiki, Zustand |
 | NoMoney / Yumi | Express 4, React 18, Vite 6, sql.js/SQLite, Recharts, JWT cookies |
 | NoStar | React 18, Vite 8, Zustand, Tailwind CSS |
@@ -180,8 +180,8 @@ The root npm workspaces contain only `packages/server`, `packages/web`, and `pac
 ```text
 nono/
 |- packages/
-|  |- server/          # Nono, NoStar APIs, Prisma, auth, backup, jobs
-|  |- web/             # Nono Vue frontend
+|  |- server/          # NoNo, NoStar APIs, Prisma, auth, backup, jobs
+|  |- web/             # NoNo Vue frontend
 |  `- extension/       # Chrome extension, store assets, release docs
 |- apps/
 |  |- blog/            # NoDesk Next.js content site
@@ -234,8 +234,8 @@ Default pages:
 
 | Page | URL |
 | --- | --- |
-| Nono | `http://localhost:3000/` |
-| Nono administration | `http://localhost:3000/admin/` |
+| NoNo | `http://localhost:3000/` |
+| NoNo administration | `http://localhost:3000/admin/` |
 | NoDesk | `http://localhost:3000/nodesk/` |
 | NoMoney | `http://localhost:3000/nomoney/` |
 | Yumi | `http://localhost:3000/yumi/` |
@@ -243,7 +243,7 @@ Default pages:
 
 Use `docker compose down` to stop the stack. Do not add `-v` during routine stops or upgrades because it deletes persistent volumes.
 
-### Nono-Only Development
+### NoNo-Only Development
 
 ```bash
 npm run install:all
@@ -266,7 +266,7 @@ npm run dev:web
 
 ## First-Time Setup
 
-### Nono
+### NoNo
 
 The first browser visit redirects to `/setup`. The first administrator can be created only with the shared `BOOTSTRAP_TOKEN`. PostgreSQL locking and `AppConfig.initializedAt` prevent concurrent initialization.
 
@@ -282,11 +282,11 @@ With `ALLOW_REGISTRATION=false`, later self-registration is disabled. Administra
 
 ### NoMoney and Yumi
 
-NoMoney and Yumi each have an independent `/setup` and use the same `BOOTSTRAP_TOKEN` to create their separate accounts. They do not reuse the Nono Session or each other's cookies. A fresh production Yumi database waits for NoMoney during the one-time split of legacy VPS and domain data.
+NoMoney and Yumi each have an independent `/setup` and use the same `BOOTSTRAP_TOKEN` to create their separate accounts. They do not reuse the NoNo Session or each other's cookies. A fresh production Yumi database waits for NoMoney during the one-time split of legacy VPS and domain data.
 
 ### NoDesk and NoStar
 
-NoDesk content is public; editing requires a Nono administrator Session. NoStar reuses the Nono Session and redirect unauthenticated users to the Nono login page with the original destination preserved.
+NoDesk content is public; editing requires a NoNo administrator Session. NoStar reuses the NoNo Session and redirect unauthenticated users to the NoNo login page with the original destination preserved.
 
 ## Local Development
 
@@ -307,8 +307,8 @@ npm run install:all
 
 | Target | Command | Notes |
 | --- | --- | --- |
-| Nono API | `npm run dev` | Fastify watch mode, port 3000 |
-| Nono Web | `npm run dev:web` | Vite, port 5173 |
+| NoNo API | `npm run dev` | Fastify watch mode, port 3000 |
+| NoNo Web | `npm run dev:web` | Vite, port 5173 |
 | NoDesk | `npm run dev:blog` | Next.js Turbopack, port 2025 |
 | NoMoney backend | `npm run dev:nomoney` | Shared backend in NoMoney mode, port 3000 |
 | NoStar frontend | `npm run dev:nostar` | Vite development server |
@@ -336,9 +336,9 @@ npm run seed
 
 Use [`.env.example`](.env.example) as the starting point. Do not commit `.env`. Production secrets should come from a password manager, container secret, or controlled deployment system.
 
-`docker-compose.yml` passes only variables explicitly mapped under `app.environment`. Variables supported by a directly started Nono server but not mapped there, such as `CORS_ORIGIN` or `LOG_LEVEL`, must also be added to the Compose environment when overridden in a container.
+`docker-compose.yml` passes only variables explicitly mapped under `app.environment`. Variables supported by a directly started NoNo server but not mapped there, such as `CORS_ORIGIN` or `LOG_LEVEL`, must also be added to the Compose environment when overridden in a container.
 
-### PostgreSQL and Nono
+### PostgreSQL and NoNo
 
 | Variable | Default or requirement | Purpose |
 | --- | --- | --- |
@@ -348,11 +348,11 @@ Use [`.env.example`](.env.example) as the starting point. Do not commit `.env`. 
 | `POSTGRES_BIND_ADDRESS` | `127.0.0.1` | Host bind address |
 | `POSTGRES_PORT` | `5433` | Host database port |
 | `DATABASE_URL` | Required locally; generated by Compose | Prisma connection string |
-| `SESSION_SECRET` | Required, at least 32 characters | Nono Session signing |
+| `SESSION_SECRET` | Required, at least 32 characters | NoNo Session signing |
 | `ENCRYPTION_KEY` | Required, 64 hexadecimal characters | Server-side integration secret encryption |
 | `ALLOW_REGISTRATION` | `false` | Initial self-registration setting |
 | `CORS_ORIGIN` | Empty | Additional allowed browser origins |
-| `LOG_LEVEL` | `info` | Nono log level |
+| `LOG_LEVEL` | `info` | NoNo log level |
 
 ### URLs, Gateway, and WebAuthn
 
@@ -362,9 +362,9 @@ Use [`.env.example`](.env.example) as the starting point. Do not commit `.env`. 
 | `BOOTSTRAP_TOKEN` | Required in production | Shared one-time setup credential |
 | `NONO_PUBLIC_URL` | Required in production | Browser-visible root URL and origin checks |
 | `BLOG_PUBLIC_URL` | Required in production | Full NoDesk URL, normally `<root>/nodesk` |
-| `NONO_NAVIGATION_URL` | `/` | NoDesk link back to Nono |
-| `BLOG_NAVIGATION_URL` | `/nodesk` | Nono link to NoDesk |
-| `WEBAUTHN_RP_NAME` | `Nono` | Passkey display name |
+| `NONO_NAVIGATION_URL` | `/` | NoDesk link back to NoNo |
+| `BLOG_NAVIGATION_URL` | `/nodesk` | NoNo link to NoDesk |
+| `WEBAUTHN_RP_NAME` | `NoNo` | Passkey display name |
 | `WEBAUTHN_RP_ID` | Derived from public URL | Optional RP ID override |
 | `WEBAUTHN_ORIGIN` | Derived from public URL | Optional exact origin override |
 | `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | Trust forwarded headers |
@@ -392,7 +392,7 @@ Use [`.env.example`](.env.example) as the starting point. Do not commit `.env`. 
 | --- | --- | --- |
 | `NOMONEY_JWT_SECRET` | Required | Independent NoMoney Session key |
 | `YUMI_JWT_SECRET` | Required | Independent Yumi Session key |
-| `NOMONEY_INTERNAL_TOKEN` | Required | Protected Nono/Yumi renewal calls |
+| `NOMONEY_INTERNAL_TOKEN` | Required | Protected NoNo/Yumi renewal calls |
 | `NOMONEY_ENCRYPTION_KEY` | Falls back to `ENCRYPTION_KEY` | NoMoney sensitive fields |
 | `YUMI_ENCRYPTION_KEY` | Required by Compose | Yumi sensitive fields |
 | `NOMONEY_COOKIE_SECURE` | `true` | HTTPS-only NoMoney cookie |
@@ -405,15 +405,15 @@ Changing encryption keys makes existing encrypted fields unreadable. Changing Se
 
 | Compose volume | Contents | Primary readers and writers |
 | --- | --- | --- |
-| `nono_pg_data` | Nono, NoStar, users, Sessions, Passkeys, audit, settings | PostgreSQL |
-| `nodesk_content` | NoDesk articles, images, site settings, schedules | Nono and NoDesk |
-| `nomoney_data` | NoMoney `app.db` | NoMoney; Nono reads due information |
-| `yumi_data` | Yumi `app.db`, VPS status, renewals | Yumi; Nono reads notifications and calls protected APIs |
-| `nono_backups` | Full-stack `.tar.gz` archives and JSON manifests | Nono and maintenance scripts |
+| `nono_pg_data` | NoNo, NoStar, users, Sessions, Passkeys, audit, settings | PostgreSQL |
+| `nodesk_content` | NoDesk articles, images, site settings, schedules | NoNo and NoDesk |
+| `nomoney_data` | NoMoney `app.db` | NoMoney; NoNo reads due information |
+| `yumi_data` | Yumi `app.db`, VPS status, renewals | Yumi; NoNo reads notifications and calls protected APIs |
+| `nono_backups` | Full-stack `.tar.gz` archives and JSON manifests | NoNo and maintenance scripts |
 
 NoMoney and Yumi persist SQLite files through `sql.js`. Do not run multiple writers against either SQLite volume.
 
-- Deleted Nono folders and bookmarks enter trash before permanent deletion.
+- Deleted NoNo folders and bookmarks enter trash before permanent deletion.
 - Session and API Token plaintext is shown only at creation; only hashes are stored.
 - Integration credentials remain sensitive even when encrypted in a backup.
 - A fresh NoDesk content volume is initialized from image seed content; upgrades do not overwrite initialized content.
@@ -423,14 +423,14 @@ NoMoney and Yumi persist SQLite files through `sql.js`. Do not run multiple writ
 
 | Scenario | Authentication | Boundary |
 | --- | --- | --- |
-| Nono browser | `nono_session` HttpOnly cookie | User resource isolation; administrators manage system resources |
+| NoNo browser | `nono_session` HttpOnly cookie | User resource isolation; administrators manage system resources |
 | Passkey | WebAuthn | Bound to HTTPS origin and RP ID |
 | Extension / automation | `Authorization: Bearer <token>` | Token scopes and expiry |
-| NoDesk editing | Nono administrator Session | Public reads, administrator writes |
-| NoStar | Nono Session | Per-user PostgreSQL data |
+| NoDesk editing | NoNo administrator Session | Public reads, administrator writes |
+| NoStar | NoNo Session | Per-user PostgreSQL data |
 | NoMoney | Independent HttpOnly JWT cookie | NoMoney SQLite only |
 | Yumi | Independent HttpOnly JWT cookie | Yumi SQLite only |
-| Nono to Yumi | `NOMONEY_INTERNAL_TOKEN` | Protected renewal operations only |
+| NoNo to Yumi | `NOMONEY_INTERNAL_TOKEN` | Protected renewal operations only |
 
 API Token scopes:
 
@@ -447,7 +447,7 @@ Passkeys require HTTPS or a browser-recognized localhost secure context. Changin
 
 ## AI Integrations
 
-Nono supports:
+NoNo supports:
 
 - OpenAI-compatible APIs, default base URL `https://api.openai.com/v1`, using `chat/completions`.
 - Claude-compatible APIs, default base URL `https://api.anthropic.com/v1`, using `messages`.
@@ -468,7 +468,7 @@ npm run verify:all
 
 It runs:
 
-1. Nono Server, Web, extension, NoDesk, NoMoney, NoStar, and gateway/deployment tests.
+1. NoNo Server, Web, extension, NoDesk, NoMoney, NoStar, and gateway/deployment tests.
 2. NoDesk and NoStar type checks, plus NoStar ESLint.
 3. All production builds.
 4. Playwright end-to-end tests.
@@ -512,7 +512,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/readyz
 ```
 
-After PostgreSQL becomes healthy, the application container initializes volume ownership, runs `prisma migrate deploy`, and starts the gateway plus Nono, NoDesk, NoMoney, and Yumi processes.
+After PostgreSQL becomes healthy, the application container initializes volume ownership, runs `prisma migrate deploy`, and starts the gateway plus NoNo, NoDesk, NoMoney, and Yumi processes.
 
 Acceptance-based deployment:
 
@@ -557,7 +557,7 @@ Do not expose PostgreSQL or the unencrypted application port publicly. Enable fo
 
 ## Backup and Restore
 
-Unified backups cover PostgreSQL, NoDesk files, NoMoney SQLite, and Yumi SQLite. PostgreSQL includes Nono, NoStar, users, Passkeys, Sessions, and encrypted integration settings. Each backup creates a `.tar.gz` archive and a JSON manifest with build identity, sizes, and SHA-256 checksums.
+Unified backups cover PostgreSQL, NoDesk files, NoMoney SQLite, and Yumi SQLite. PostgreSQL includes NoNo, NoStar, users, Passkeys, Sessions, and encrypted integration settings. Each backup creates a `.tar.gz` archive and a JSON manifest with build identity, sizes, and SHA-256 checksums.
 
 ```bash
 npm run backup:create
@@ -597,7 +597,7 @@ npm run prisma:migrate
 npm run prisma:deploy
 ```
 
-Legacy Nono JSON:
+Legacy NoNo JSON:
 
 ```bash
 npm run migrate:json -- data/nono.json
@@ -630,7 +630,7 @@ npm ci
 npm run build -w packages/extension
 ```
 
-Open `chrome://extensions/`, enable Developer mode, load `packages/extension/dist/`, create a dedicated Nono API Token, and configure the exact Nono origin. Public origins must use HTTPS; HTTP is accepted only for localhost development.
+Open `chrome://extensions/`, enable Developer mode, load `packages/extension/dist/`, create a dedicated NoNo API Token, and configure the exact NoNo origin. Public origins must use HTTPS; HTTP is accepted only for localhost development.
 
 | Permission | Purpose |
 | --- | --- |
@@ -638,7 +638,7 @@ Open `chrome://extensions/`, enable Developer mode, load `packages/extension/dis
 | `scripting` | Inject packaged extraction code on demand |
 | `storage` | Store origin, Token, language, and recent folder |
 | `contextMenus` | Bookmark quick-save and folder-selection commands |
-| Optional host permission | Access only the configured Nono origin |
+| Optional host permission | Access only the configured NoNo origin |
 
 Package a release:
 
@@ -683,7 +683,7 @@ Implemented controls include:
 Operators remain responsible for:
 
 - TLS at the public edge and network restrictions on database and management ports.
-- Independent random secrets for PostgreSQL, Nono, NoMoney, Yumi, and internal calls.
+- Independent random secrets for PostgreSQL, NoNo, NoMoney, Yumi, and internal calls.
 - Access controls for `.env`, backups, logs, and the Docker socket.
 - Dependency updates, `npm run audit:all`, Token rotation, and Session cleanup.
 - Encrypted off-host backups and periodic full restore drills.
@@ -712,7 +712,7 @@ Never disable secure cookies in production.
 
 ### `/readyz` returns 503
 
-`/healthz` proves only that the Nono process is alive. `/readyz` also checks PostgreSQL, NoDesk content, NoMoney, and Yumi.
+`/healthz` proves only that the NoNo process is alive. `/readyz` also checks PostgreSQL, NoDesk content, NoMoney, and Yumi.
 
 ```bash
 curl http://127.0.0.1:3000/readyz
@@ -742,7 +742,7 @@ A new Yumi volume waits for NoMoney during the legacy VPS/domain split. Check th
 
 ### Development ports conflict
 
-The Nono API and NoMoney backend both default to port 3000, and several Vite applications may use port 5173. Start only the current target, configure separate ports, or use Compose for integrated work.
+The NoNo API and NoMoney backend both default to port 3000, and several Vite applications may use port 5173. Start only the current target, configure separate ports, or use Compose for integrated work.
 
 ## Maintenance Conventions
 

@@ -48,7 +48,7 @@ function createNonoAdapter(prisma: PrismaClient, now: () => Date): BackupModuleA
         prisma.folder.findMany({ where: { userId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
         prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
       ]);
-      if (!user) throw httpError(404, 'Nono user not found');
+      if (!user) throw httpError(404, 'NoNo user not found');
       return jsonBuffer({
         kind: NONO_KIND,
         version: 1,
@@ -94,7 +94,7 @@ function createNonoAdapter(prisma: PrismaClient, now: () => Date): BackupModuleA
         let pending = backup.folders.map(record);
         while (pending.length) {
           const ready = pending.filter((folder) => folder.parentId == null || folderIds.has(Number(folder.parentId)));
-          if (!ready.length) throw httpError(400, 'Nono folder hierarchy is invalid');
+          if (!ready.length) throw httpError(400, 'NoNo folder hierarchy is invalid');
           for (const folder of ready) {
             const created = await transaction.folder.create({ data: {
               userId,
@@ -114,7 +114,7 @@ function createNonoAdapter(prisma: PrismaClient, now: () => Date): BackupModuleA
         for (const raw of backup.links) {
           const link = record(raw);
           const folderId = folderIds.get(Number(link.folderId));
-          if (!folderId) throw httpError(400, 'Nono link references an unknown folder');
+          if (!folderId) throw httpError(400, 'NoNo link references an unknown folder');
           await transaction.link.create({ data: {
             folderId,
             name: text(link.name),
@@ -354,9 +354,9 @@ function createProductAdapter(
 }
 
 function parseNonoBackup(body: Buffer) {
-  const value = parseJsonDocument(body, 'Nono backup');
+  const value = parseJsonDocument(body, 'NoNo backup');
   if (value.kind !== NONO_KIND || value.version !== 1 || value.module !== 'nono' || !Array.isArray(value.sites) || !Array.isArray(value.folders) || !Array.isArray(value.links)) {
-    throw httpError(400, 'Nono backup is invalid');
+    throw httpError(400, 'NoNo backup is invalid');
   }
   return value as Record<string, unknown> & { user?: Record<string, unknown>; sites: unknown[]; folders: unknown[]; links: unknown[] };
 }

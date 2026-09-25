@@ -43,7 +43,7 @@ docker build \
 docker run --rm -p 2025:2025 nono-blog
 ```
 
-本项目源码已经位于 Nono 仓库的 `apps/blog`。推荐从仓库根目录运行 `docker compose up -d --build`。该方案会把 Nono 和博客构建进同一个业务镜像、运行在同一个容器，通过 `http://localhost:3000/` 与 `http://localhost:3000/blog` 访问；PostgreSQL 仍保持独立容器。`NEXT_PUBLIC_NONO_URL` 是博客返回导航的初始地址；后台保存的“网址导航联动”设置会优先使用。
+本项目源码已经位于 NoNo 仓库的 `apps/blog`。推荐从仓库根目录运行 `docker compose up -d --build`。该方案会把 NoNo 和博客构建进同一个业务镜像、运行在同一个容器，通过 `http://localhost:3000/` 与 `http://localhost:3000/blog` 访问；PostgreSQL 仍保持独立容器。`NEXT_PUBLIC_NONO_URL` 是博客返回导航的初始地址；后台保存的“网址导航联动”设置会优先使用。
 
 ### Vercel
 

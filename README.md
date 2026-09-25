@@ -1,11 +1,11 @@
-# Nono
+# NoNo
 
 <p align="center">
   <strong>简体中文</strong> | <a href="README_EN.md">English</a>
 </p>
 
 <p align="center">
-  <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="Nono 图标">
+  <img src="design/icons/nono-duo-512.png" width="96" height="96" alt="NoNo 图标">
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <a href="https://noaul.com/privacy">隐私政策</a>
 </p>
 
-Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和同一部署链路中的个人服务集合。核心 Nono 提供公开导航、管理后台、认证和公共 API；NoDesk、NoMoney、Yumi、NoStar 与 Chrome 扩展分别承担内容、资产、基础设施、GitHub 收藏和浏览器书签采集工作。
+NoNo 不是单一页面应用，而是一套放在同一仓库、同一域名和同一部署链路中的个人服务集合。核心 NoNo 提供公开导航、管理后台、认证和公共 API；NoDesk、NoMoney、Yumi、NoStar 与 Chrome 扩展分别承担内容、资产、基础设施、GitHub 收藏和浏览器书签采集工作。
 
 > 本项目面向个人或小规模可信用户的自托管场景。默认生产形态是一个业务容器加一个 PostgreSQL 容器，不是多节点高可用架构。
 
@@ -53,18 +53,18 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 
 | 产品 | 默认路径 | 主要用途 | 认证 | 主要存储 |
 | --- | --- | --- | --- | --- |
-| **Nono** | `/`、`/:username`、`/admin/*` | 公开网址导航、书签与文件夹管理、站点配置、用户和系统管理 | Nono Session / Passkey / API Token | PostgreSQL |
-| **NoDesk** | `/nodesk/*` | 文章、图片、项目、友链、片段、日程和个人内容站 | 公开读取；写入复用 Nono 管理员 Session | `nodesk_content` 文件卷 |
+| **NoNo** | `/`、`/:username`、`/admin/*` | 公开网址导航、书签与文件夹管理、站点配置、用户和系统管理 | NoNo Session / Passkey / API Token | PostgreSQL |
+| **NoDesk** | `/nodesk/*` | 文章、图片、项目、友链、片段、日程和个人内容站 | 公开读取；写入复用 NoNo 管理员 Session | `nodesk_content` 文件卷 |
 | **NoMoney** | `/nomoney/*` | 电话卡、订阅、账号、支出和到期提醒 | 独立 HttpOnly Cookie Session | `nomoney_data/app.db` |
 | **Yumi** | `/yumi/*` | VPS、域名、续费、费用和运行状态 | 独立 HttpOnly Cookie Session | `yumi_data/app.db` |
-| **NoStar** | `/nostar/*` | GitHub Stars、分类、搜索、Release、AI 分析与备份 | 复用 Nono Session | PostgreSQL |
-| **Chrome 扩展** | 浏览器弹窗/右键菜单/快捷键 | 提取当前网页并快速保存到 Nono | 专用 Bearer API Token | `chrome.storage.local` |
+| **NoStar** | `/nostar/*` | GitHub Stars、分类、搜索、Release、AI 分析与备份 | 复用 NoNo Session | PostgreSQL |
+| **Chrome 扩展** | 浏览器弹窗/右键菜单/快捷键 | 提取当前网页并快速保存到 NoNo | 专用 Bearer API Token | `chrome.storage.local` |
 
 生产环境由 `docker/gateway.mjs` 统一监听外部端口。它负责路径分发和业务子进程生命周期；任一关键子进程退出时，业务容器会退出并交由 Docker Compose 重启。
 
 ## 功能概览
 
-### Nono
+### NoNo
 
 - 为每个用户提供公开导航页，支持自定义站点信息、搜索引擎、主题、背景和展示设置。
 - 以树形文件夹组织书签，支持排序、移动、批量操作、重复项识别、导入导出和回收站。
@@ -80,7 +80,7 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - 提供首页工作台、文章列表与详情、关于页、项目、图片、友链、博主、片段等内容页面。
 - 支持 Markdown、代码高亮、KaTeX、目录、RSS、Sitemap 和站点元数据。
 - 提供写作、图片上传、站点配置和首页布局编辑能力。
-- 编辑操作通过同源 Nono 管理员 Session 鉴权，浏览器中不保存单独的写入密钥。
+- 编辑操作通过同源 NoNo 管理员 Session 鉴权，浏览器中不保存单独的写入密钥。
 - 内容、图片、站点配置和日程保存在独立文件卷，部署新镜像不会覆盖已有内容。
 
 ### NoMoney
@@ -90,12 +90,12 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - 展示资产数量、到期项目、费用趋势和提醒状态。
 - 支持 CNY、USD、GBP、EUR；不同币种分别展示，不自动进行汇率换算。
 - 支持每日到期扫描、SMTP 邮件提醒、回收站和加密 JSON 备份。
-- 使用独立账号、Session、加密密钥和 SQLite 数据库，不与 Nono 账号自动互通。
+- 使用独立账号、Session、加密密钥和 SQLite 数据库，不与 NoNo 账号自动互通。
 
 ### Yumi
 
 - 管理 VPS 与域名，包括服务商、地区、规格、账期、到期日和续费记录。
-- 将续费记录与实际费用关联，并向 Nono 通知中心提供临期提醒。
+- 将续费记录与实际费用关联，并向 NoNo 通知中心提供临期提醒。
 - 定时采集 VPS 状态，展示在线情况、资源容量和历史状态。
 - 支持基础设施凭据加密、私网出站主机白名单和加密 JSON 备份。
 - 与 NoMoney 共用代码和组件，但使用独立进程、账号、Cookie、密钥和 SQLite 文件。
@@ -108,7 +108,7 @@ Nono 不是单一页面应用，而是一套放在同一仓库、同一域名和
 - 跟踪仓库 Release、未读状态和下载资源。
 - 支持 OpenAI/Claude 兼容 AI 配置、仓库分析、自动分类和向量检索配置。
 - 支持 GitHub、AI、WebDAV、网络代理、aria2 RPC 和诊断日志设置。
-- 数据按 Nono 用户隔离；GitHub Token、AI Key、WebDAV 密码等敏感配置由服务端加密保存。
+- 数据按 NoNo 用户隔离；GitHub Token、AI Key、WebDAV 密码等敏感配置由服务端加密保存。
 
 ### Chrome 扩展
 
@@ -126,7 +126,7 @@ flowchart LR
     U["浏览器"] --> G["Node 网关 :3000"]
     E["Chrome 扩展"] -->|"Bearer API Token"| G
 
-    G --> N["Nono Fastify API + Vue 静态资源"]
+    G --> N["NoNo Fastify API + Vue 静态资源"]
     G --> D["NoDesk Next.js"]
     G --> M["NoMoney Express"]
     G --> Y["Yumi Express"]
@@ -147,16 +147,16 @@ flowchart LR
 
 | 外部路径 | 目标服务 | 说明 |
 | --- | --- | --- |
-| `/`、`/:username` | Nono | 默认/指定用户的公开导航页 |
-| `/login`、`/setup`、`/admin/*` | Nono | 登录、首次初始化和管理后台 |
-| `/api/*` | Nono | Nono API；`/api/nostar/*` 也由 Nono 提供 |
+| `/`、`/:username` | NoNo | 默认/指定用户的公开导航页 |
+| `/login`、`/setup`、`/admin/*` | NoNo | 登录、首次初始化和管理后台 |
+| `/api/*` | NoNo | NoNo API；`/api/nostar/*` 也由 NoNo 提供 |
 | `/nodesk`、`/nodesk/*` | NoDesk | 内容站与编辑界面 |
 | `/blog/*` | NoDesk | 兼容入口，308 重定向到 `/nodesk/*` |
 | `/nomoney`、`/nomoney/*` | NoMoney | 个人资产费用工作台 |
 | `/yumi`、`/yumi/*` | Yumi | 服务器与域名工作台 |
-| `/nostar`、`/nostar/*` | Nono / NoStar | Nono 提供 NoStar 静态资源和同源 API |
-| `/healthz`、`/livez` | Nono | 进程存活检查 |
-| `/readyz` | Nono | PostgreSQL、NoDesk、NoMoney、Yumi 联合就绪检查 |
+| `/nostar`、`/nostar/*` | NoNo / NoStar | NoNo 提供 NoStar 静态资源和同源 API |
+| `/healthz`、`/livez` | NoNo | 进程存活检查 |
+| `/readyz` | NoNo | PostgreSQL、NoDesk、NoMoney、Yumi 联合就绪检查 |
 
 `GATEWAY_TRUST_FORWARDED_HEADERS` 默认关闭。启用时还必须通过 `GATEWAY_TRUSTED_PROXY_ADDRESSES` 配置允许提交转发头的代理 IP 或 CIDR；未命中的连接仍按直连请求处理。
 
@@ -164,8 +164,8 @@ flowchart LR
 
 | 层 | 技术 |
 | --- | --- |
-| Nono API | Node.js 22、TypeScript、Fastify 5、Prisma 6、PostgreSQL 16、Zod |
-| Nono Web | Vue 3、Vite 7、Pinia、Vue Router、SortableJS、Lucide |
+| NoNo API | Node.js 22、TypeScript、Fastify 5、Prisma 6、PostgreSQL 16、Zod |
+| NoNo Web | Vue 3、Vite 7、Pinia、Vue Router、SortableJS、Lucide |
 | NoDesk | Next.js 16、React 19、Markdown/Unified、KaTeX、Shiki、Zustand |
 | NoMoney / Yumi | Express 4、React 18、Vite 6、sql.js/SQLite、Recharts、JWT Cookie |
 | NoStar | React 18、Vite 8、Zustand、Tailwind CSS |
@@ -180,8 +180,8 @@ flowchart LR
 ```text
 nono/
 ├─ packages/
-│  ├─ server/          # Nono/NoStar API、Prisma、认证、备份与后台任务
-│  ├─ web/             # Nono Vue 前端
+│  ├─ server/          # NoNo/NoStar API、Prisma、认证、备份与后台任务
+│  ├─ web/             # NoNo Vue 前端
 │  └─ extension/       # Chrome 扩展、商店素材和发布文档
 ├─ apps/
 │  ├─ blog/            # NoDesk Next.js 内容站
@@ -219,7 +219,7 @@ Windows PowerShell 可使用 `Copy-Item .env.example .env`。编辑 `.env`，至
 - `SESSION_SECRET`：至少 32 个字符的随机值。
 - `ENCRYPTION_KEY`：64 位十六进制随机值。
 - `NOMONEY_JWT_SECRET`、`YUMI_JWT_SECRET`：两份互不相同的随机长密钥。
-- `NOMONEY_INTERNAL_TOKEN`：Nono 与 Yumi 内部接口使用的独立随机 Token。
+- `NOMONEY_INTERNAL_TOKEN`：NoNo 与 Yumi 内部接口使用的独立随机 Token。
 - `NOMONEY_ENCRYPTION_KEY`、`YUMI_ENCRYPTION_KEY`：建议使用两份互不相同的 64 位十六进制密钥。
 - `NONO_PUBLIC_URL`、`BLOG_PUBLIC_URL`：浏览器实际访问的完整地址。
 
@@ -236,8 +236,8 @@ curl --fail http://127.0.0.1:3000/readyz
 
 | 页面 | 地址 |
 | --- | --- |
-| Nono | `http://localhost:3000/` |
-| Nono 管理后台 | `http://localhost:3000/admin/` |
+| NoNo | `http://localhost:3000/` |
+| NoNo 管理后台 | `http://localhost:3000/admin/` |
 | NoDesk | `http://localhost:3000/nodesk/` |
 | NoMoney | `http://localhost:3000/nomoney/` |
 | Yumi | `http://localhost:3000/yumi/` |
@@ -245,7 +245,7 @@ curl --fail http://127.0.0.1:3000/readyz
 
 停止容器时使用 `docker compose down`。普通停止或升级不要附加 `-v`，否则会删除数据库和内容卷。
 
-### 方式二：只开发 Nono
+### 方式二：只开发 NoNo
 
 ```bash
 npm run install:all
@@ -268,9 +268,9 @@ npm run dev:web
 
 ## 首次初始化
 
-### Nono
+### NoNo
 
-首次访问 Nono 时，前端会跳转到 `/setup`。填写 `.env` 中统一的 `BOOTSTRAP_TOKEN` 后才能创建第一个管理员；服务端使用 PostgreSQL 事务锁和 `AppConfig.initializedAt` 防止并发请求重复初始化。
+首次访问 NoNo 时，前端会跳转到 `/setup`。填写 `.env` 中统一的 `BOOTSTRAP_TOKEN` 后才能创建第一个管理员；服务端使用 PostgreSQL 事务锁和 `AppConfig.initializedAt` 防止并发请求重复初始化。
 
 初始化完成后：
 
@@ -284,11 +284,11 @@ npm run dev:web
 
 ### NoMoney 与 Yumi
 
-NoMoney 和 Yumi 都有自己的 `/setup`，需要使用同一个 `BOOTSTRAP_TOKEN` 分别创建账号。它们不复用 Nono Session，也不彼此复用 Cookie；注销会立即撤销当前 JWT 会话，重放旧 Cookie 无法恢复登录。生产部署中 Yumi 首次创建独立数据库时，会等待 NoMoney 数据库初始化并迁移旧版 VPS/域名相关数据；之后两套数据独立写入。
+NoMoney 和 Yumi 都有自己的 `/setup`，需要使用同一个 `BOOTSTRAP_TOKEN` 分别创建账号。它们不复用 NoNo Session，也不彼此复用 Cookie；注销会立即撤销当前 JWT 会话，重放旧 Cookie 无法恢复登录。生产部署中 Yumi 首次创建独立数据库时，会等待 NoMoney 数据库初始化并迁移旧版 VPS/域名相关数据；之后两套数据独立写入。
 
 ### NoDesk 与 NoStar
 
-NoDesk 的公开内容无需登录；编辑内容需要 Nono 管理员 Session。NoStar 直接复用 Nono Session，未登录访问时跳转到带原目标路径的 Nono 登录页。
+NoDesk 的公开内容无需登录；编辑内容需要 NoNo 管理员 Session。NoStar 直接复用 NoNo Session，未登录访问时跳转到带原目标路径的 NoNo 登录页。
 
 ## 本地开发
 
@@ -313,8 +313,8 @@ npm run install:all
 
 | 目标 | 命令 | 说明 |
 | --- | --- | --- |
-| Nono API | `npm run dev` | Fastify watch 模式，默认端口 3000 |
-| Nono Web | `npm run dev:web` | Vite，默认端口 5173 |
+| NoNo API | `npm run dev` | Fastify watch 模式，默认端口 3000 |
+| NoNo Web | `npm run dev:web` | Vite，默认端口 5173 |
 | NoDesk | `npm run dev:blog` | Next.js Turbopack，端口 2025 |
 | NoMoney 后端 | `npm run dev:nomoney` | 共用后端的 NoMoney 模式，默认端口 3000 |
 | NoStar 前端 | `npm run dev:nostar` | Vite 前端开发服务器 |
@@ -346,9 +346,9 @@ npm run seed              # 显式写入演示数据
 
 以 [`.env.example`](.env.example) 为配置起点。`.env` 不进入 Git；生产密钥应由密码管理器、容器 Secret 或受控部署系统提供。
 
-`docker-compose.yml` 只会把 `app.environment` 中显式映射的变量传入业务容器。直接启动 Nono 服务时可用、但 Compose 未映射的变量（例如 `CORS_ORIGIN` 和 `LOG_LEVEL`）如需在容器中覆盖，必须同时加入 Compose 的 `app.environment`。
+`docker-compose.yml` 只会把 `app.environment` 中显式映射的变量传入业务容器。直接启动 NoNo 服务时可用、但 Compose 未映射的变量（例如 `CORS_ORIGIN` 和 `LOG_LEVEL`）如需在容器中覆盖，必须同时加入 Compose 的 `app.environment`。
 
-### PostgreSQL 与 Nono
+### PostgreSQL 与 NoNo
 
 | 变量 | 默认/要求 | 用途 |
 | --- | --- | --- |
@@ -358,23 +358,23 @@ npm run seed              # 显式写入演示数据
 | `POSTGRES_BIND_ADDRESS` | `127.0.0.1` | 主机端数据库监听地址 |
 | `POSTGRES_PORT` | `5433` | 主机端数据库端口 |
 | `DATABASE_URL` | 本地必填；Compose 自动生成 | Prisma PostgreSQL 连接串 |
-| `SESSION_SECRET` | **生产必填，至少 32 字符** | Nono Session 签名密钥 |
+| `SESSION_SECRET` | **生产必填，至少 32 字符** | NoNo Session 签名密钥 |
 | `ENCRYPTION_KEY` | **生产必填，64 位十六进制** | 加密 LLM、GitHub、WebDAV 等服务端凭据 |
 | `ALLOW_REGISTRATION` | `false` | 首次创建配置时的自助注册开关 |
 | `CORS_ORIGIN` | 空 | 额外允许的网页 Origin，逗号分隔 |
-| `LOG_LEVEL` | `info` | Nono 服务日志级别 |
+| `LOG_LEVEL` | `info` | NoNo 服务日志级别 |
 
 ### 地址、网关与 WebAuthn
 
 | 变量 | 默认/要求 | 用途 |
 | --- | --- | --- |
 | `PORT` | `127.0.0.1:3000` | Compose 应用端口映射 |
-| `BOOTSTRAP_TOKEN` | **生产必填** | Nono、NoMoney、Yumi 首次初始化共同使用的一次性部署凭据 |
+| `BOOTSTRAP_TOKEN` | **生产必填** | NoNo、NoMoney、Yumi 首次初始化共同使用的一次性部署凭据 |
 | `NONO_PUBLIC_URL` | **生产必填** | 浏览器实际访问的根地址和同源校验依据 |
 | `BLOG_PUBLIC_URL` | **生产必填** | NoDesk 完整公开地址，通常是 `<root>/nodesk` |
-| `NONO_NAVIGATION_URL` | `/` | NoDesk 返回 Nono 的导航地址 |
-| `BLOG_NAVIGATION_URL` | `/nodesk` | Nono 进入 NoDesk 的导航地址 |
-| `WEBAUTHN_RP_NAME` | `Nono` | Passkey 显示名称 |
+| `NONO_NAVIGATION_URL` | `/` | NoDesk 返回 NoNo 的导航地址 |
+| `BLOG_NAVIGATION_URL` | `/nodesk` | NoNo 进入 NoDesk 的导航地址 |
+| `WEBAUTHN_RP_NAME` | `NoNo` | Passkey 显示名称 |
 | `WEBAUTHN_RP_ID` | 从公开 URL 推导 | Passkey RP ID；特殊域名场景覆盖 |
 | `WEBAUTHN_ORIGIN` | 从公开 URL 推导 | Passkey 允许的精确 Origin |
 | `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | 是否信任网关入口收到的转发头 |
@@ -402,7 +402,7 @@ npm run seed              # 显式写入演示数据
 | --- | --- | --- |
 | `NOMONEY_JWT_SECRET` | **生产必填** | NoMoney 独立 Session 密钥 |
 | `YUMI_JWT_SECRET` | **生产必填** | Yumi 独立 Session 密钥 |
-| `NOMONEY_INTERNAL_TOKEN` | **生产必填** | Nono/Yumi 内部续费接口认证 |
+| `NOMONEY_INTERNAL_TOKEN` | **生产必填** | NoNo/Yumi 内部续费接口认证 |
 | `NOMONEY_ENCRYPTION_KEY` | 默认回退到 `ENCRYPTION_KEY` | NoMoney 敏感字段加密；生产建议独立 64 位十六进制值 |
 | `YUMI_ENCRYPTION_KEY` | **Compose 必填** | Yumi 敏感字段加密，64 位十六进制值 |
 | `NOMONEY_COOKIE_SECURE` | `true` | NoMoney Cookie 是否仅通过 HTTPS 发送 |
@@ -422,11 +422,11 @@ npm run seed              # 显式写入演示数据
 
 | 卷 | 内容 | 主要读写者 |
 | --- | --- | --- |
-| `nono_pg_data` | Nono、NoStar、用户、Session、Passkey、审计和配置 | PostgreSQL |
-| `nodesk_content` | NoDesk 文章、图片、站点配置和日程 | Nono + NoDesk |
-| `nomoney_data` | NoMoney `app.db` | NoMoney；Nono 只读到期信息 |
-| `yumi_data` | Yumi `app.db`、VPS 状态和续费数据 | Yumi；Nono 读取通知并调用受保护内部接口 |
-| `nono_backups` | 全站 `.tar.gz` 归档和 `.json` 清单 | Nono/运维脚本 |
+| `nono_pg_data` | NoNo、NoStar、用户、Session、Passkey、审计和配置 | PostgreSQL |
+| `nodesk_content` | NoDesk 文章、图片、站点配置和日程 | NoNo + NoDesk |
+| `nomoney_data` | NoMoney `app.db` | NoMoney；NoNo 只读到期信息 |
+| `yumi_data` | Yumi `app.db`、VPS 状态和续费数据 | Yumi；NoNo 读取通知并调用受保护内部接口 |
+| `nono_backups` | 全站 `.tar.gz` 归档和 `.json` 清单 | NoNo/运维脚本 |
 
 PostgreSQL 中的核心模型包括用户、站点、文件夹、链接、回收站、API Token、设备 Session、Passkey、通知状态、备份自动化、审计日志，以及按用户隔离的 NoStar 仓库、Release、分类和集成配置。
 
@@ -434,8 +434,8 @@ NoMoney 与 Yumi 使用 `sql.js` 持久化 SQLite 文件。每个产品只允许
 
 ### 数据生命周期
 
-- 删除文件夹或书签时先进入 Nono 回收站，之后可恢复或永久删除。
-- Nono Session 和 API Token 只在数据库中保存哈希；明文 Token 仅在创建时返回一次。
+- 删除文件夹或书签时先进入 NoNo 回收站，之后可恢复或永久删除。
+- NoNo Session 和 API Token 只在数据库中保存哈希；明文 Token 仅在创建时返回一次。
 - 集成凭据使用应用加密密钥加密后保存，备份时仍属于敏感数据。
 - NoDesk 首次启动会从镜像种子内容初始化空卷；已初始化的内容卷不会被新镜像覆盖。
 - 统一备份不包含 `.env`、TLS 证书和反向代理配置，必须单独加密备份。
@@ -444,14 +444,14 @@ NoMoney 与 Yumi 使用 `sql.js` 持久化 SQLite 文件。每个产品只允许
 
 | 场景 | 认证方式 | 权限边界 |
 | --- | --- | --- |
-| Nono 浏览器 | `nono_session` HttpOnly Cookie | 用户资源隔离；管理员可管理系统级配置和用户 |
-| Passkey | WebAuthn | 绑定 HTTPS Origin 和 RP ID，用于 Nono 登录 |
+| NoNo 浏览器 | `nono_session` HttpOnly Cookie | 用户资源隔离；管理员可管理系统级配置和用户 |
+| Passkey | WebAuthn | 绑定 HTTPS Origin 和 RP ID，用于 NoNo 登录 |
 | Chrome 扩展/自动化 | `Authorization: Bearer <token>` | 按 Token scope 和过期时间限制 |
-| NoDesk 编辑 | Nono 管理员 Session | 公开读取，管理员写入内容卷 |
-| NoStar | Nono Session | PostgreSQL 数据按 Nono 用户隔离 |
+| NoDesk 编辑 | NoNo 管理员 Session | 公开读取，管理员写入内容卷 |
+| NoStar | NoNo Session | PostgreSQL 数据按 NoNo 用户隔离 |
 | NoMoney | 独立 HttpOnly JWT Cookie | 仅访问 NoMoney SQLite 数据 |
 | Yumi | 独立 HttpOnly JWT Cookie | 仅访问 Yumi SQLite 数据 |
-| Nono ↔ Yumi 内部调用 | `NOMONEY_INTERNAL_TOKEN` | 只用于受保护的内部续费操作 |
+| NoNo ↔ Yumi 内部调用 | `NOMONEY_INTERNAL_TOKEN` | 只用于受保护的内部续费操作 |
 
 API Token 支持以下作用域：
 
@@ -470,14 +470,14 @@ Passkey 只能在 HTTPS 或浏览器认可的 `localhost` 安全上下文中工�
 
 ## AI 集成
 
-Nono 支持两类请求格式：
+NoNo 支持两类请求格式：
 
 - OpenAI 兼容：默认基址 `https://api.openai.com/v1`，调用 `chat/completions`。
 - Claude 兼容：默认基址 `https://api.anthropic.com/v1`，调用 `messages`。
 
-可在 Nono 后台为当前用户配置 Provider、Base URL、API Key、模型和推理强度。NoStar 还支持多个 AI Profile、Embedding 配置和外部向量搜索服务。
+可在 NoNo 后台为当前用户配置 Provider、Base URL、API Key、模型和推理强度。NoStar 还支持多个 AI Profile、Embedding 配置和外部向量搜索服务。
 
-网页收藏分析会把 URL、页面标题、截断后的正文摘要和当前文件夹规则发送给配置的模型。未配置模型或模型调用失败时，Nono 会使用本地回退逻辑生成名称、描述和默认文件夹，不阻塞基本收藏功能。
+网页收藏分析会把 URL、页面标题、截断后的正文摘要和当前文件夹规则发送给配置的模型。未配置模型或模型调用失败时，NoNo 会使用本地回退逻辑生成名称、描述和默认文件夹，不阻塞基本收藏功能。
 
 所有 LLM 和集成请求都经过服务端安全出站请求层：
 
@@ -498,7 +498,7 @@ npm run verify:all
 
 它依次执行：
 
-1. Nono Server、Web、扩展、NoDesk、NoMoney、NoStar 和网关/部署契约测试。
+1. NoNo Server、Web、扩展、NoDesk、NoMoney、NoStar 和网关/部署契约测试。
 2. NoDesk 与 NoStar 类型检查，以及 NoStar ESLint。
 3. 所有产品的生产构建。
 4. Playwright 端到端测试。
@@ -509,7 +509,7 @@ npm run verify:all
 按范围运行：
 
 ```bash
-npm test                       # Nono server、web、extension
+npm test                       # NoNo server、web、extension
 npm run test:blog              # NoDesk
 npm run test:nomoney           # NoMoney / Yumi
 npm run test:nostar            # NoStar
@@ -544,7 +544,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/readyz
 ```
 
-Compose 启动顺序是 PostgreSQL 健康后启动业务容器。业务容器会先初始化卷权限、执行 `prisma migrate deploy`，再启动网关及 Nono、NoDesk、NoMoney、Yumi 子进程。
+Compose 启动顺序是 PostgreSQL 健康后启动业务容器。业务容器会先初始化卷权限、执行 `prisma migrate deploy`，再启动网关及 NoNo、NoDesk、NoMoney、Yumi 子进程。
 
 ### 验收式更新与回滚
 
@@ -576,7 +576,7 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- \
 
 ### 反向代理与 TLS
 
-Nono 自身不签发公网证书。建议用 Caddy、Nginx 或同等级反向代理终止 TLS，并将请求转发到回环地址：
+NoNo 自身不签发公网证书。建议用 Caddy、Nginx 或同等级反向代理终止 TLS，并将请求转发到回环地址：
 
 ```nginx
 server {
@@ -658,7 +658,7 @@ npm run prisma:deploy
 
 `initializedAt` 迁移会回填既有管理员初始化状态，因此部署脚本的数据重写门禁会要求首次上线时显式确认 `--allow-destructive-migrations`。完成该迁移后，没有新的受控数据迁移时不需要长期保留此参数。
 
-### 旧版 Nono JSON
+### 旧版 NoNo JSON
 
 ```bash
 npm run migrate:json -- data/nono.json
@@ -668,7 +668,7 @@ npm run migrate:json -- data/nono.json
 
 ### 旧版 NoStar SQLite
 
-先演练，再正式导入指定 Nono 用户：
+先演练，再正式导入指定 NoNo 用户：
 
 ```bash
 npm run migrate:nostar -- --sqlite /path/to/data.db --username admin --dry-run
@@ -702,8 +702,8 @@ npm run build -w packages/extension
 1. 开启“开发者模式”。
 2. 点击“加载已解压的扩展程序”。
 3. 选择 `packages/extension/dist/`。
-4. 在 Nono 后台创建专用 API Token。
-5. 在扩展中填写 Nono HTTPS 地址和 Token，测试连接后选择默认文件夹。
+4. 在 NoNo 后台创建专用 API Token。
+5. 在扩展中填写 NoNo HTTPS 地址和 Token，测试连接后选择默认文件夹。
 
 公网服务地址必须使用 HTTPS；HTTP 仅允许 `localhost`、`127.0.0.1` 和 `::1` 本地开发地址。
 
@@ -715,9 +715,9 @@ npm run build -w packages/extension
 | `scripting` | 按需执行页面元数据提取脚本 |
 | `storage` | 保存服务器地址、Token、语言和上次文件夹 |
 | `contextMenus` | 提供右键快速收藏入口 |
-| 可选 Host 权限 | 仅访问用户配置的精确 Nono Origin |
+| 可选 Host 权限 | 仅访问用户配置的精确 NoNo Origin |
 
-扩展不注册常驻内容脚本，不持续监控浏览历史，也不把数据发送给 Nono 地址之外的服务。AI 分析由用户配置的 Nono 服务端完成；是否进一步发送给第三方模型取决于该 Nono 账号的 LLM 配置。
+扩展不注册常驻内容脚本，不持续监控浏览历史，也不把数据发送给 NoNo 地址之外的服务。AI 分析由用户配置的 NoNo 服务端完成；是否进一步发送给第三方模型取决于该 NoNo 账号的 LLM 配置。
 
 ### 打包发布
 
@@ -764,7 +764,7 @@ packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
 ### 运维责任
 
 - 在公网入口启用 TLS，限制数据库和管理端口的网络访问。
-- 为 PostgreSQL、Nono、NoMoney、Yumi 和内部接口使用不同的随机密钥。
+- 为 PostgreSQL、NoNo、NoMoney、Yumi 和内部接口使用不同的随机密钥。
 - 限制 `.env`、备份、日志和 Docker Socket 的文件访问权限。
 - 定期更新依赖、执行 `npm run audit:all`、轮换 Token 并清理失效 Session。
 - 将备份加密复制到异机，并定期执行完整恢复演练。
@@ -800,7 +800,7 @@ YUMI_COOKIE_SECURE=false
 
 ### `/readyz` 返回 503
 
-`/healthz` 只说明 Nono 进程存活；`/readyz` 还检查 PostgreSQL、NoDesk 内容、NoMoney 和 Yumi。查看具体检查结果及容器日志：
+`/healthz` 只说明 NoNo 进程存活；`/readyz` 还检查 PostgreSQL、NoDesk 内容、NoMoney 和 Yumi。查看具体检查结果及容器日志：
 
 ```bash
 curl http://127.0.0.1:3000/readyz
@@ -816,7 +816,7 @@ docker compose logs --tail=200 app postgres
 
 已有 Docker 卷不会因为 `.env` 改动自动修改数据库角色密码。先在 PostgreSQL 中更新角色密码，再同步更新 `.env` 和依赖该连接串的服务。
 
-### 扩展无法连接 Nono
+### 扩展无法连接 NoNo
 
 检查服务地址是否是完整 Origin、是否使用 HTTPS、可选 Host 权限是否已授予、Token 是否过期，以及 Token 是否包含 `bookmarks:read`、`bookmarks:write`、`ai:analyze`。
 
@@ -830,7 +830,7 @@ docker compose logs --tail=200 app postgres
 
 ### 端口被占用
 
-根开发命令中 Nono API 和 NoMoney 后端默认都使用 3000，多个 Vite 应用也可能争用 5173。只启动当前开发目标，或为各服务显式设置不同端口；完整联调使用 Compose 的内部端口分配。
+根开发命令中 NoNo API 和 NoMoney 后端默认都使用 3000，多个 Vite 应用也可能争用 5173。只启动当前开发目标，或为各服务显式设置不同端口；完整联调使用 Compose 的内部端口分配。
 
 ## 维护约定
 

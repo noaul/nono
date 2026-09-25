@@ -2,7 +2,7 @@
 
 统一备份覆盖以下持久化数据：
 
-- PostgreSQL：Nono、NoStar、用户、Passkey、设备会话和加密配置。
+- PostgreSQL：NoNo、NoStar、用户、Passkey、设备会话和加密配置。
 - Nodesk：文章、图片、站点配置与日程内容。
 - NoMoney：`app.db` SQLite 数据库。
 - Yumi：独立的 `app.db` SQLite 数据库，包括 VPS Status 历史。

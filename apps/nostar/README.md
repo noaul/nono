@@ -1,17 +1,17 @@
 # NoStar
 
-NoStar is the GitHub Stars workspace integrated into Nono. It provides repository sync, AI analysis, categories, semantic search, release tracking, discovery, WebDAV backup, network proxy settings, and optional aria2 downloads.
+NoStar is the GitHub Stars workspace integrated into NoNo. It provides repository sync, AI analysis, categories, semantic search, release tracking, discovery, WebDAV backup, network proxy settings, and optional aria2 downloads.
 
 [中文说明](README_zh.md)
 
 ## Integrated Architecture
 
 - Served from the same origin at `/nostar`.
-- Uses the existing Nono Session; unauthenticated users are redirected to `/login?next=/nostar`.
-- Repository and configuration data is isolated by Nono user and stored in PostgreSQL through Prisma.
-- GitHub, AI, WebDAV, proxy, and aria2 secrets are encrypted with Nono's `ENCRYPTION_KEY`.
-- AI profiles can also be managed from the Nono admin LLM page.
-- The production Docker image contains Nono, Nodesk, NoMoney, and NoStar. No separate NoStar container or SQLite runtime is required.
+- Uses the existing NoNo Session; unauthenticated users are redirected to `/login?next=/nostar`.
+- Repository and configuration data is isolated by NoNo user and stored in PostgreSQL through Prisma.
+- GitHub, AI, WebDAV, proxy, and aria2 secrets are encrypted with NoNo's `ENCRYPTION_KEY`.
+- AI profiles can also be managed from the NoNo admin LLM page.
+- The production Docker image contains NoNo, Nodesk, NoMoney, and NoStar. No separate NoStar container or SQLite runtime is required.
 
 ## Development
 
@@ -23,7 +23,7 @@ npm run dev
 npm run dev:nostar
 ```
 
-The Vite development server uses `/api/nostar` for backend requests. A valid Nono login session is required for user data APIs.
+The Vite development server uses `/api/nostar` for backend requests. A valid NoNo login session is required for user data APIs.
 
 Tests and build:
 
@@ -34,7 +34,7 @@ npm run build:nostar
 
 ## Docker
 
-Build and run the complete Nono stack from the repository root:
+Build and run the complete NoNo stack from the repository root:
 
 ```bash
 docker compose up -d --build
@@ -46,11 +46,11 @@ Open:
 http://127.0.0.1:3000/nostar
 ```
 
-The application container runs Prisma migrations before startup. NoStar uses the same PostgreSQL database and Nono encryption key as the main application.
+The application container runs Prisma migrations before startup. NoStar uses the same PostgreSQL database and NoNo encryption key as the main application.
 
 ## Legacy SQLite Migration
 
-Migrate an existing GithubStars `data.db` into one Nono user:
+Migrate an existing GithubStars `data.db` into one NoNo user:
 
 ```bash
 npm run migrate:nostar -- --sqlite /path/to/data.db --username admin --dry-run
@@ -63,7 +63,7 @@ The migration automatically reads `.encryption-key` beside the SQLite database, 
 
 - React, TypeScript, Vite, Tailwind CSS, Zustand
 - Fastify, Prisma, PostgreSQL
-- Nono Cookie Session SSO
+- NoNo Cookie Session SSO
 - Single-image Docker deployment
 
 The imported upstream project remains MIT licensed; see [LICENSE](LICENSE).

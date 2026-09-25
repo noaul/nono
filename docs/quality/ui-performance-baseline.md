@@ -102,7 +102,7 @@ Capture at least one desktop screenshot for every route and a mobile screenshot 
 | --- | --- | --- | ---: | ---: | --- | --- | --- |
 | `/admin/folders` | authenticated administrator | Passed on desktop and mobile | 1705.8 ms desktop; 1771 ms mobile | 3332 ms desktop; 3520 ms mobile | none | `docs/quality/screenshots/day1-live-admin-folders-{desktop,mobile}-chromium.png` | 100-folder fixture loaded; loading overlay cleared before capture |
 | `/admin/links` | authenticated administrator | Passed on desktop and mobile | 1919.7 ms desktop; 1730.6 ms mobile | 3724 ms desktop; 3488 ms mobile | none | `docs/quality/screenshots/day1-live-admin-links-{desktop,mobile}-chromium.png` | Folder selector loaded; loading overlay cleared before capture |
-| `/blog` | public | Passed on desktop and mobile | 1486.2 ms desktop; 1395.4 ms mobile | 1520 ms desktop; 1416 ms mobile | none | `docs/quality/screenshots/day1-live-blog-{desktop,mobile}-chromium.png` | Main region and portal shortcut back to Nono were visible |
+| `/blog` | public | Passed on desktop and mobile | 1486.2 ms desktop; 1395.4 ms mobile | 1520 ms desktop; 1416 ms mobile | none | `docs/quality/screenshots/day1-live-blog-{desktop,mobile}-chromium.png` | Main region and portal shortcut back to NoNo were visible |
 
 ### Sorting Performance
 
@@ -129,7 +129,7 @@ The displacement values include Playwright's stepped pointer movement and theref
 
 ## Day 2 RN 8188 Acceptance
 
-Measured on July 12, 2026 after deploying commit `e551f7edcbe8414a4cf19ed46a7230467c2cf4d1` in the single Nono + Blog application image.
+Measured on July 12, 2026 after deploying commit `e551f7edcbe8414a4cf19ed46a7230467c2cf4d1` in the single NoNo + Blog application image.
 
 ### Page Acceptance
 

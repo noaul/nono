@@ -69,7 +69,7 @@ type BackupAutomationSnapshot = {
 }
 
 const MODULES: Array<{ id: BackupModule; label: string; description: string; icon: typeof Archive }> = [
-	{ id: 'nono', label: 'Nono', description: '站点、文件夹与书签', icon: DatabaseBackup },
+	{ id: 'nono', label: 'NoNo', description: '站点、文件夹与书签', icon: DatabaseBackup },
 	{ id: 'nodesk', label: 'NoDesk', description: '桌面内容与资源文件', icon: FolderArchive },
 	{ id: 'nostar', label: 'NoStar', description: '仓库、分类、Release 与设置', icon: Github },
 	{ id: 'nomoney', label: 'NoMoney', description: '资产、费用与账户', icon: WalletCards },

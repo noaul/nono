@@ -6,7 +6,7 @@ const navigationPayload = {
     site: {
       id: 1,
       userId: 1,
-      name: 'Nono Baseline',
+      name: 'NoNo Baseline',
       description: 'Deterministic browser smoke fixture',
       slug: 'admin',
       backgroundImage: null,
@@ -56,10 +56,10 @@ test.beforeEach(async ({ page }) => {
 test('renders the public navigation shell without overflow and records timing', async ({ page }, testInfo) => {
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole('heading', { name: '登录 Nono' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '登录 NoNo' })).toBeVisible();
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Nono Baseline' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'NoNo Baseline' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'notab' })).toBeVisible();
   await expect(page.getByTestId('public-folder-card-2')).toBeVisible();
 

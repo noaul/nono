@@ -6,11 +6,11 @@ product
 
 ## Users
 
-Nono is used by individuals and small trusted groups who self-host a personal digital workspace. They use the browser extension while reading the web, then return to review, search, tag, and edit saved material without leaving their own service.
+NoNo is used by individuals and small trusted groups who self-host a personal digital workspace. They use the browser extension while reading the web, then return to review, search, tag, and edit saved material without leaving their own service.
 
 ## Product Purpose
 
-Nono brings bookmarks, published content, personal assets, infrastructure, and GitHub stars into one self-hosted system. Bookmark capture should remain fast, with user-controlled titles, folders, and descriptions.
+NoNo brings bookmarks, published content, personal assets, infrastructure, and GitHub stars into one self-hosted system. Bookmark capture should remain fast, with user-controlled titles, folders, and descriptions.
 
 ## Brand Personality
 
@@ -25,7 +25,7 @@ Avoid oversized typography, decorative glass effects, marketing-style layouts, e
 1. Keep the primary task visible and editable without unnecessary navigation.
 2. Preserve user control over AI-generated metadata.
 3. Make provenance explicit through the original URL and source metadata.
-4. Reuse the established NoMoney visual and interaction vocabulary across Nono tools.
+4. Reuse the established NoMoney visual and interaction vocabulary across NoNo tools.
 5. Prefer readable Markdown and standard web affordances for long-form review.
 
 ## Accessibility & Inclusion

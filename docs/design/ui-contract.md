@@ -1,6 +1,6 @@
 # Shared UI contract
 
-One visual language across the three operator-facing apps: **Nono admin** (`packages/web`),
+One visual language across the three operator-facing apps: **NoNo admin** (`packages/web`),
 **NoStar** (`apps/nostar`) and **NoMoney** (`apps/nomoney/frontend`). NoMoney is the approved
 reference for structure and density; this document is the canonical definition of the tokens the
 other two adopt.
@@ -136,7 +136,7 @@ navigation, and per-app hard-coded palettes. A page has exactly one visible `h1`
 
 Each app imports its `design-tokens.css` copy at boot, before its own stylesheet.
 
-**Nono admin** (`packages/web`) — `admin.css` is one layer of primitives reading `--ui-*`
+**NoNo admin** (`packages/web`) — `admin.css` is one layer of primitives reading `--ui-*`
 directly. The older `--admin-*` names survive as aliases declared once in `tokens.css`, pointing
 at the contract; they hold no values of their own, so there is no second source of truth. View
 scoped styles keep only page-specific grid, column and responsive rules.
@@ -149,16 +149,25 @@ app from one place and keeps `bg-brand-indigo/20`-style opacity modifiers workin
 (`brand.indigo`, `panel-dark`, `marketing-black`, `text-primary`, …) remain as aliases so no call
 site had to change.
 
-**NoMoney** (`apps/nomoney/frontend`) — imports the tokens and nothing else. The file declares
-custom properties only, so it cannot alter a single Tailwind-generated rule; the app is byte-for-
-byte the approved design. Its own `Layout.tsx`, `ui.tsx` and `styles.css` were not touched.
+**NoMoney** (`apps/nomoney/frontend`) — imports the tokens, and its Tailwind `brand` scale is the
+contract teal, so every `brand-*` class follows the one accent. The topbar, sidebar, page header
+and drawers are solid token surfaces; backdrops dim without blurring.
 
-## Notes
+## Shared preferences
 
-**NoMoney's `brand` scale is still blue (`#2563eb`).** Its `Layout.tsx`, `ui.tsx` and
-`styles.css` were deliberately left untouched, because the brief marked the app approved and
-functionally unchanged. Its global `:focus-visible` outline and tap highlight already use teal, so
-the app is internally inconsistent today. Nono admin and NoStar are both on the teal accent above;
-aligning NoMoney is a one-line change to `brand` in its `tailwind.config.js` and the last step to
-a genuinely single accent across all three — flagged rather than taken unilaterally, since it
-would visibly restyle an app the brief froze.
+All NoNo apps are served from one origin, so they share two localStorage keys instead of each
+keeping its own:
+
+- `nono:color-mode` — `'system' | 'light' | 'dark'`, default `'system'` (follow the OS). Apply it by
+  setting `data-color-mode` on `<html>` (and `html.dark` for Tailwind apps) and dispatching
+  `nono-color-mode-change`.
+- `nono:locale` — `'zh' | 'en'`; absent means Chinese or, in NoNo itself, the site default. When
+  migrating an app's older key, carry over only an explicit English choice: writing `'zh'` would
+  turn NoNo's site default into a visitor override everywhere.
+
+The browser extension cannot read the site's storage, so it follows `prefers-color-scheme`.
+
+## Moving between apps
+
+NoNo's NoTab strip links out to NoMoney, Yumi and NoStar, and NoDesk has a portal back to NoNo.
+NoMoney and NoStar carry a quiet Apps group at the foot of the sidebar linking to the others.

@@ -772,15 +772,15 @@ export default function AmbientWorkbench() {
 						</div>
 
 						<div className='ambient-panel-body'>
-							{activePanel === 'bookmarks' && <IntegrationList state={integrationState.bookmarks} empty='还没有可显示的书签。' unavailable='登录 Nono 后即可在这里查看书签。'>
+							{activePanel === 'bookmarks' && <IntegrationList state={integrationState.bookmarks} empty='还没有可显示的书签。' unavailable='登录 NoNo 后即可在这里查看书签。'>
 								{bookmarks.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.name} subtitle={item.clickCount ? `${item.clickCount} 次打开 · ${item.description || new URL(item.url).hostname}` : item.description || new URL(item.url).hostname} href={item.url} icon={<Bookmark size={17} />} onActivate={() => recordBookmarkClick(item.id)} />)}
 							</IntegrationList>}
 
-							{activePanel === 'github' && <IntegrationList state={integrationState.github} empty='NoStar 中还没有仓库。' unavailable='登录 Nono 后即可读取 NoStar 仓库。'>
+							{activePanel === 'github' && <IntegrationList state={integrationState.github} empty='NoStar 中还没有仓库。' unavailable='登录 NoNo 后即可读取 NoStar 仓库。'>
 								{repositories.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.full_name} subtitle={[item.language, `${item.stargazers_count || 0} stars`].filter(Boolean).join(' · ')} href={item.html_url} icon={<Github size={17} />} />)}
 							</IntegrationList>}
 
-							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 Nono 后即可读取 Yumi 状态。'>
+							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 NoNo 后即可读取 Yumi 状态。'>
 								{yumiItems.slice(0, 7).map(item => <ExternalRow key={item.key} title={item.title} subtitle={item.description} href={item.href} icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Circle size={11} fill='currentColor' /></span>} />)}
 								<a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>
 							</IntegrationList>}
@@ -862,7 +862,7 @@ export default function AmbientWorkbench() {
 					</header>
 					{notificationRailExpanded && <>
 						<div className='ambient-notification-list'>
-							<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 Nono 后即可同步主页通知。'>
+							<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 NoNo 后即可同步主页通知。'>
 								{notifications.slice(0, 6).map(item => <ExternalRow
 									key={item.key}
 									title={item.title}
