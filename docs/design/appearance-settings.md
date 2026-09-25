@@ -20,35 +20,37 @@ union gets `options`. Its conditionals are wrapped in tuples (`[Value] extends [
 them distributing — without that an enum like `'left' | 'center'` would demand
 `EnumField<'left'> | EnumField<'center'>` and reject an options array holding both.
 
-The mirrored legacy keys (`tabOpacity`, `modalRadius`, `admin*` and friends) are gone. Old payloads
-that still carry them are simply ignored on read and dropped on the next save; the one exception is
-`categoryTextColor`, which is still read as the fallback NoTab and folder text colour for sites saved
-before those two were split.
+## A short list on purpose
+
+There are 23 settings, and the server stores exactly those (`packages/server/src/utils/site-settings.ts`
+mirrors the table, and an API test round-trips the web defaults to prove the two agree). Keys that
+used to exist — the mirrored `tab*`/`modal*`/`admin*` values, the glass rim controls, per-element
+text sizes and colours, scene physics — are ignored on read and dropped on the next save.
+
+What they used to control is now derived rather than set:
+
+- **Spacing follows density.** `DENSITY_SPACING` maps Compact, Balanced and Spacious straight to the
+  gap, padding, row-height, NoTab-height and line-height variables. Density is a setting, not a
+  preset that seeds other sliders.
+- **Secondary colours follow the main ones.** The text colour also drives NoTab, folder, search and
+  placeholder text; the title colour also drives the description.
+- **The search bar and NoTab strip share the panel blur.**
+- **Everything else is the stylesheet default**: rims, shadows, icon sizes, hover effects, font
+  weight, and the scene's wind, depth, collision and splash.
 
 ## Groups
 
-Seven groups, each a section in the editor: `layout`, `folders`, `search`, `glass`, `background`,
-`scene`, `typography`. A field marked `advanced: true` sits inside that section's collapsible block
-so the common set is not buried.
-
-Presets seed a group and nothing more. `DENSITY_PRESETS` writes the layout values for Compact,
-Balanced or Spacious; `GLASS_PRESETS` does the same for Performance, Balanced and Transparent. Every
-value stays individually adjustable afterwards.
-
-## Scene applicability
-
-A field can carry a `scenes` list, and `fieldAppliesToScene` hides it when the selected theme's
-scene is not in it. This is not cosmetic: after the snow rework, **rain is the only scene that
-touches the interface**, so collision and splash are rain-only. Leaves and snow are purely airborne,
-and stars hold position, so wind means nothing to them either.
+Six groups, each a section in the editor: `layout`, `folders` (panels), `search`, `background`,
+`scene`, `typography`. The scene group only appears for a theme that has a scene; static themes hide
+it.
 
 ## The editor
 
-`AppearanceEditor.vue` walks the table. Per group it renders the common controls, then an advanced
-block, a per-group reset, and a count of how many settings in it differ from the default. A modified
-control carries `data-changed` and a quiet "Changed" chip. Search matches against the *translated*
-label and expands the advanced blocks while it is active, so a control can be found without knowing
-which group owns it. `Reset all` confirms first.
+`AppearanceEditor.vue` walks the table. Per group it renders every control, a per-group reset, and a
+count of how many settings in it differ from the default. Enums with up to three options (density,
+NoTab alignment) render as a segmented control; longer ones as a select. A modified control carries
+`data-changed` and a quiet "Changed" chip. Search matches against the *translated* label, so a
+control can be found without knowing which group owns it. `Reset all` confirms first.
 
 Every edit writes straight into the reactive draft the drawer holds, which is the same object the
 page previews from — that is what makes the preview live rather than something that needs applying.
@@ -88,7 +90,5 @@ three on a mid-size screen.
 
 ## Translations
 
-Every label, group name, option and piece of editor chrome has a zh and an en entry.
-`scripts/gen-appearance-catalog.py` writes both blocks from one table: `en` is typed against
-`typeof zh`, so the two have to stay identically shaped, and generating them together is what keeps
-them that way.
+Every label, group name, option and piece of editor chrome has a zh and an en entry. `en` is typed
+against `typeof zh`, so a missing or extra key on either side fails the build.

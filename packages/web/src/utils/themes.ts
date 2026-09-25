@@ -68,12 +68,8 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 58,
       cardBlur: 18,
       searchColor: '#f6fffd',
-      searchRadius: 28,
       searchOpacity: 70,
-      searchBlur: 20,
       bookmarkTextColor: '#17383d',
-      notabTextColor: '#16454b',
-      folderTextColor: '#0f3d42',
     },
   },
   {
@@ -105,12 +101,8 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 74,
       cardBlur: 18,
       searchColor: '#fffdf8',
-      searchRadius: 28,
       searchOpacity: 80,
-      searchBlur: 18,
       bookmarkTextColor: '#3f352f',
-      notabTextColor: '#4a3f38',
-      folderTextColor: '#493a32',
     },
   },
   {
@@ -142,12 +134,8 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 64,
       cardBlur: 20,
       searchColor: '#f7fcf7',
-      searchRadius: 28,
       searchOpacity: 72,
-      searchBlur: 22,
       bookmarkTextColor: '#1f4030',
-      notabTextColor: '#244e36',
-      folderTextColor: '#173b2a',
     },
   },
   {
@@ -173,12 +161,8 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 20,
       cardBlur: 22,
       searchColor: '#d9e6ef',
-      searchRadius: 28,
       searchOpacity: 24,
-      searchBlur: 24,
       bookmarkTextColor: '#f6f4ee',
-      notabTextColor: '#f8dcae',
-      folderTextColor: '#d8e8f2',
     },
   },
   {
@@ -204,12 +188,8 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 72,
       cardBlur: 16,
       searchColor: '#fffef6',
-      searchRadius: 28,
       searchOpacity: 80,
-      searchBlur: 18,
       bookmarkTextColor: '#26383c',
-      notabTextColor: '#2e4c50',
-      folderTextColor: '#23433f',
     },
   },
   {
@@ -241,27 +221,17 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       cardOpacity: 52,
       cardBlur: 22,
       searchColor: '#eef5f4',
-      searchRadius: 28,
       searchOpacity: 60,
-      searchBlur: 24,
       bookmarkTextColor: '#1f3438',
-      notabTextColor: '#234c52',
-      folderTextColor: '#173b40',
     },
   },
 ];
 
-// Theme text follows the theme palette rather than the global white defaults. Keeping this
-// derivation here means a new light theme cannot accidentally ship white text on pale surfaces.
+// The title follows the theme's page colour rather than the global white default, so a light theme
+// cannot ship white headings on a pale background.
 export const PUBLIC_THEMES: PublicTheme[] = THEME_DEFINITIONS.map((theme) => ({
   ...theme,
-  appearance: {
-    ...theme.appearance,
-    pageTitleColor: theme.fontColor,
-    descriptionColor: theme.fontColor,
-    searchTextColor: theme.appearance.bookmarkTextColor,
-    placeholderColor: theme.appearance.notabTextColor,
-  },
+  appearance: { ...theme.appearance, pageTitleColor: theme.fontColor },
 }));
 
 const LEGACY_THEME_ALIASES: Record<string, string> = {

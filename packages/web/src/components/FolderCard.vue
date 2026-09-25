@@ -451,7 +451,7 @@ h2 {
   backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
   border: var(--public-glass-border-width, 1px) solid
-    rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.34));
+    rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.28));
   border-radius: var(--public-card-radius, 8px);
   display: grid;
   gap: var(--public-bookmark-gap-y, 4px) var(--public-bookmark-gap-x, 8px);
@@ -476,9 +476,9 @@ h2 {
   scrollbar-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.32) transparent;
   scrollbar-width: thin;
   box-shadow:
-    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.42)),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), var(--public-glass-highlight, 0.34)),
     inset 0 -1px 0 rgba(var(--public-border-rgb, 255, 255, 255), 0.1),
-    0 14px var(--public-glass-shadow-spread, 34px)
+    0 14px var(--public-glass-shadow-spread, 24px)
       rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-folder-shadow, 0.3) * 0.34));
   transition:
     background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),

@@ -500,9 +500,8 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--public-overlay-rgb');
     expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 8, 12, 18)');
     expect(navigationSource).toContain('backgroundOverlayTotal');
-    // Light and dark carry their own strength on top of the shared one.
-    expect(navigationSource).toContain('overlayDark');
-    expect(navigationSource).toContain('overlayLight');
+    // Dark mode dims the background image a fixed step harder than the chosen strength.
+    expect(navigationSource).toContain('darkModeExtra');
     expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
     expect(navigationSource).toMatch(/\.notab-select \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');

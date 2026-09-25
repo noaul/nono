@@ -694,14 +694,11 @@ describe('NoNo Fastify app', () => {
             searchColor: '#A1B2C3',
             bookmarkTextColor: '#112233',
             bookmarkTextSize: 99,
+            density: 'cramped',
             notabTextColor: '#223344',
-            notabTextSize: '16',
-            folderTextColor: '#334455',
-            folderTextSize: 8,
+            folderGapX: 40,
             categoryTextColor: null,
             tabColor: '#DDEEFF',
-            modalOpacity: '38',
-            tabBlur: -12,
             adminBlur: {},
           },
         },
@@ -717,15 +714,14 @@ describe('NoNo Fastify app', () => {
         searchColor: '#a1b2c3',
         bookmarkTextColor: '#112233',
         bookmarkTextSize: 18,
-        notabTextColor: '#223344',
-        notabTextSize: 16,
-        folderTextColor: '#334455',
-        folderTextSize: 12,
+        density: 'balanced',
       },
     });
-    // Retired mirror keys are dropped on save rather than stored back.
-    for (const retired of ['categoryTextColor', 'tabColor', 'modalOpacity', 'tabBlur', 'adminBlur']) {
-      expect(updated.json().data.settings.appearance).not.toHaveProperty(retired);
+    // Only the editable set is stored; retired and derived keys are dropped on save.
+    const saved = updated.json().data.settings.appearance;
+    expect(Object.keys(saved)).toHaveLength(23);
+    for (const retired of ['notabTextColor', 'folderGapX', 'categoryTextColor', 'tabColor', 'adminBlur']) {
+      expect(saved).not.toHaveProperty(retired);
     }
 
     const unsafe = await app.inject({

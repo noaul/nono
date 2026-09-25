@@ -219,8 +219,7 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     };
   }
   return {
-    // The dark-mode overlay strength is a setting; 0.38 is what the default 42 works out to.
-    '--public-mode-scrim': `rgba(5, 8, 14, ${(appearance.value.glassDarkOverlay * 0.009).toFixed(3)})`,
+    '--public-mode-scrim': 'rgba(5, 8, 14, 0.378)',
     '--public-card-color-rgb': '22, 25, 33',
     '--public-card-opacity': '0.52',
     '--public-search-color-rgb': '20, 23, 31',
@@ -257,13 +256,10 @@ const activeBackgroundImage = computed(() => (
   appearance.value.backgroundImageEnabled ? visibleBackgroundImage.value : ''
 ));
 
-/**
- * Scrim over the background image: the shared strength plus whichever mode-specific strength
- * applies, so a photo can be dimmed harder in dark mode than in light.
- */
+/** Scrim over the background image: the chosen strength, plus a fixed extra 30% in dark mode. */
 const backgroundOverlayTotal = computed(() => {
-  const perMode = resolvedMode.value === 'dark' ? appearance.value.overlayDark : appearance.value.overlayLight;
-  return Math.min(1, (appearance.value.backgroundOverlay + perMode) / 100);
+  const darkModeExtra = resolvedMode.value === 'dark' ? 30 : 0;
+  return Math.min(1, (appearance.value.backgroundOverlay + darkModeExtra) / 100);
 });
 
 const backgroundScrim = computed(() => (
@@ -1192,7 +1188,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing, 'notab-wraps': appearance.notabOverflow === 'wrap' }" aria-label="NoTab">
+          <nav ref="tabsRef" data-scene-collider-id="folder-tabs" class="folder-tabs" :class="{ 'tabs-scrollable': tabsScrollable, 'is-organizing': organizing }" aria-label="NoTab">
             <span class="tab-indicator" aria-hidden="true" :style="tabIndicatorStyle"></span>
             <span
               v-for="tab in categoryTabs"
@@ -1762,25 +1758,25 @@ h1 {
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: var(--public-glass-border-width, 1px) solid
-    rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.3));
+    rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.28));
   border-radius: var(--public-search-radius, 28px);
   display: flex;
-  flex-wrap: var(--public-notab-wrap, nowrap);
+  flex-wrap: nowrap;
   gap: var(--public-notab-gap, 4px);
   justify-content: var(--public-notab-justify, safe center);
   margin: 8px auto;
   max-width: min(100%, 1200px);
   min-height: var(--public-notab-height, 38px);
   min-width: 0;
-  overflow-x: var(--public-notab-overflow-x, auto);
+  overflow-x: auto;
   padding: 5px;
   /* Centred strips hug their tabs instead of stretching a mostly empty bar under the search box;
      once the tabs outgrow it the strip reaches max-width and scrolls (or wraps) as before. */
   width: var(--public-notab-strip-width, fit-content);
   box-shadow:
-    0 8px var(--public-glass-shadow-spread, 30px)
+    0 8px var(--public-glass-shadow-spread, 24px)
       rgba(var(--public-shadow-rgb), calc(var(--public-glass-shadow-strength, 0.32) * 0.44)),
-    inset 0 1px 0 rgba(var(--public-highlight-rgb), var(--public-glass-highlight, 0.26));
+    inset 0 1px 0 rgba(var(--public-highlight-rgb), var(--public-glass-highlight, 0.34));
   position: sticky;
   top: 12px;
   z-index: 10;
@@ -1799,12 +1795,6 @@ h1 {
   -webkit-overflow-scrolling: touch;
   /* Leaves room so a scrolled-into-view tab never sits flush against the edge. */
   scroll-padding-inline: var(--public-notab-scroll-padding, 12px);
-}
-
-/* Wrapped tabs have nothing to scroll, so the edge fade would just clip the first and last. */
-.folder-tabs.tabs-scrollable.notab-wraps {
-  -webkit-mask-image: none;
-  mask-image: none;
 }
 
 /*

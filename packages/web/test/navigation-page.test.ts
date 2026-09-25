@@ -220,7 +220,7 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="navigation-entry-clipper"]').exists()).toBe(false);
   });
 
-  it('ignores the retired modal, tab, and admin glass keys in saved payloads', async () => {
+  it('ignores retired and no-longer-editable keys in saved payloads', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {
         cardRadius: 16,
@@ -243,7 +243,9 @@ describe('NavigationPage public workflow', () => {
     const style = wrapper.get('.nav-page').attributes('style');
 
     expect(style).toContain('--public-card-radius: 16px');
-    expect(style).toContain('--public-search-radius: 18px');
+    // The search bar keeps the stylesheet radius and follows the panel blur now.
+    expect(style).not.toContain('--public-search-radius');
+    expect(style).toContain('--public-search-blur: 20px');
     expect(style).not.toContain('--public-modal-');
     expect(style).not.toContain('--public-tab-');
     expect(style).not.toContain('--admin-surface-radius');

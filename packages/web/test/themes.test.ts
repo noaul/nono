@@ -71,13 +71,9 @@ describe('public themes', () => {
       expect(theme.appearance.cardColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.searchColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(theme.appearance.notabTextColor).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(theme.appearance.folderTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
       expect(theme.appearance.pageTitleColor).toBe(theme.fontColor);
-      expect(theme.appearance.descriptionColor).toBe(theme.fontColor);
-      expect(theme.appearance.searchTextColor).toBe(theme.appearance.bookmarkTextColor);
-      expect(theme.appearance.placeholderColor).toBe(theme.appearance.notabTextColor);
+      expect(Object.keys(theme.appearance)).toHaveLength(23);
     }
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.searchColor)).size).toBeGreaterThan(3);

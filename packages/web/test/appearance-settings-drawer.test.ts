@@ -85,9 +85,9 @@ describe('AppearanceSettingsDrawer', () => {
       cardColor: '#fffaf3',
       searchColor: '#fffdf8',
       bookmarkTextColor: '#3f352f',
-      notabTextColor: '#4a3f38',
-      folderTextColor: '#493a32',
+      pageTitleColor: '#3a3029',
     });
+    expect(Object.keys(payload.settings.appearance)).toHaveLength(23);
     expect(wrapper.emitted('saved')).toHaveLength(1);
   });
 
@@ -273,12 +273,13 @@ describe('schema-driven appearance editor', () => {
   const rangeValue = (wrapper: ReturnType<typeof mountDrawer>, key: string) =>
     (rangeOf(wrapper, key).element as HTMLInputElement).value;
 
-  it('renders a section per group with the advanced controls folded away', async () => {
+  it('renders one flat section per group with every control in view', async () => {
     const wrapper = await openEditor();
 
-    for (const group of ['layout', 'folders', 'search', 'glass', 'background', 'typography']) {
+    for (const group of ['layout', 'folders', 'search', 'background', 'typography']) {
       expect(wrapper.find('[data-testid="appearance-group-' + group + '"]').exists(), group).toBe(true);
     }
+    expect(wrapper.find('[data-testid="appearance-group-glass"]').exists()).toBe(false);
     // Without a scene theme there is nothing for the scene controls to act on.
     expect(wrapper.find('[data-testid="appearance-group-scene"]').exists()).toBe(false);
     const withScene = mount(AppearanceSettingsDrawer, {
@@ -286,16 +287,10 @@ describe('schema-driven appearance editor', () => {
     });
     await withScene.get('[data-testid="drawer-tab-texture"]').trigger('click');
     expect(withScene.find('[data-testid="appearance-group-scene"]').exists()).toBe(true);
-    // A common control is visible; an advanced one is rendered but hidden until expanded.
-    expect(wrapper.get('[data-testid="control-folderColumns"]').isVisible()).toBe(true);
-    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(false);
-  });
-
-  it('expands an advanced block on demand', async () => {
-    const wrapper = await openEditor();
-
-    await wrapper.get('[data-testid="appearance-advanced-folders"]').trigger('click');
-    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(true);
+    expect(withScene.findAll('[data-testid^="control-"]')).toHaveLength(23);
+    // No advanced drawer: everything that is left is worth showing.
+    expect(wrapper.find('.advanced-block').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid^="control-"]').every((control) => control.isVisible())).toBe(true);
   });
 
   it('filters controls by search and reports when nothing matches', async () => {
@@ -305,9 +300,8 @@ describe('schema-driven appearance editor', () => {
     expect(wrapper.find('[data-testid="control-folderColumns"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="control-cardBlur"]').exists()).toBe(false);
 
-    // Search reaches advanced controls too, without needing them expanded first.
-    await wrapper.get('[data-testid="appearance-search"]').setValue('悬停放大');
-    expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(true);
+    await wrapper.get('[data-testid="appearance-search"]').setValue('文字颜色');
+    expect(wrapper.get('[data-testid="control-bookmarkTextColor"]').isVisible()).toBe(true);
 
     await wrapper.get('[data-testid="appearance-search"]').setValue('zzzz');
     expect(wrapper.find('[data-testid="appearance-search-empty"]').exists()).toBe(true);
@@ -349,49 +343,40 @@ describe('schema-driven appearance editor', () => {
     confirmSpy.mockRestore();
   });
 
-  it('applies a density preset while leaving the values adjustable', async () => {
+  it('switches short choices such as density with a segmented control', async () => {
     const wrapper = mountDrawer();
 
+    expect(wrapper.get('[data-testid="density-balanced"]').attributes('aria-pressed')).toBe('true');
     await wrapper.get('[data-testid="density-compact"]').trigger('click');
-    expect(rangeValue(wrapper, 'folderGapX')).toBe('12');
-
-    // A preset is a starting point, not a lock.
-    await rangeOf(wrapper, 'folderGapX').setValue('40');
-    expect(rangeValue(wrapper, 'folderGapX')).toBe('40');
+    expect(wrapper.get('[data-testid="density-compact"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[data-testid="density-balanced"]').attributes('aria-pressed')).toBe('false');
+    // Density is the spacing now: there are no separate gap sliders left to fall out of step.
+    expect(wrapper.find('[data-testid="control-folderGapX"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="control-notabAlign"] select').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="control-fontFamily"] select').exists()).toBe(true);
   });
 
-  it('only offers the scene controls the selected scene uses', async () => {
+  it('offers size and speed for every scene and hides the group for static themes', async () => {
     const wrapper = mountDrawer();
 
-    // Verdant Leaves: leaves neither collide nor splash.
-    await wrapper.get('[data-testid="theme-verdant-leaves"]').trigger('click');
-    await wrapper.get('[data-testid="appearance-advanced-scene"]').trigger('click');
-    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="control-sceneSplash"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="control-sceneWind"]').exists()).toBe(true);
+    for (const id of ['summer-breeze', 'verdant-leaves', 'rainy-world']) {
+      await wrapper.get(`[data-testid="theme-${id}"]`).trigger('click');
+      expect(wrapper.find('[data-testid="control-sceneSpeed"]').exists(), id).toBe(true);
+      expect(wrapper.find('[data-testid="control-sceneParticleSize"]').exists(), id).toBe(true);
+      expect(wrapper.find('[data-testid="control-sceneCollision"]').exists(), id).toBe(false);
+    }
 
-    // Starlit Night: stars hold position, so wind is meaningless too.
     await wrapper.get('[data-testid="theme-starlit-night"]').trigger('click');
-    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="control-sceneWind"]').exists()).toBe(false);
-
-    // Rainy World is the one scene that collides.
-    await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
-    expect(wrapper.find('[data-testid="control-sceneCollision"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="control-sceneSplash"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="appearance-group-scene"]').exists()).toBe(false);
   });
 
-  it('resets hidden scene-specific values when resetting the scene group', async () => {
+  it('resets the scene group back to the shipped speed', async () => {
     const wrapper = mountDrawer();
     await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
-    await wrapper.get('[data-testid="appearance-advanced-scene"]').trigger('click');
-    await rangeOf(wrapper, 'sceneCollision').setValue('50');
+    await rangeOf(wrapper, 'sceneSpeed').setValue('150');
 
-    await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
     await wrapper.get('[data-testid="appearance-reset-scene"]').trigger('click');
-    await wrapper.get('[data-testid="theme-rainy-world"]').trigger('click');
-
-    expect(rangeValue(wrapper, 'sceneCollision')).toBe('100');
+    expect(rangeValue(wrapper, 'sceneSpeed')).toBe('100');
   });
 
   it('wires the folder title gap setting to the folder component', () => {

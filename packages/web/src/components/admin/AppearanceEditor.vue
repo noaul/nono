@@ -1,37 +1,32 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { ChevronRight, Gauge, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-vue-next';
+import { ChevronRight, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-vue-next';
 import { useI18n } from '@/composables/useI18n';
 import type { MessageKey } from '@/locales';
 import {
   APPEARANCE_FIELDS,
   APPEARANCE_GROUPS,
-  DENSITY_PRESETS,
   EDITABLE_APPEARANCE_KEYS,
-  GLASS_PRESETS,
   appearanceDefaults,
   fieldAppliesToScene,
   type AppearanceGroup,
   type AppearanceKey,
   type AppearanceSettings,
-  type DensityPreset,
-  type GlassPreset,
 } from '@/utils/appearance';
 import type { SceneKind } from '@/utils/sceneParticles';
 
 const props = defineProps<{
   appearance: AppearanceSettings;
-  /** Narrows the scene group to the controls the selected theme's scene actually uses. */
+  /** Without a scene there is nothing for the scene controls to act on, so that group hides. */
   sceneKind?: SceneKind;
 }>();
 
 const { t } = useI18n();
 
-/** Groups start open; the advanced block inside each one starts closed. */
+/** Groups start open. */
 const openGroups = reactive<Record<string, boolean>>(
   Object.fromEntries(APPEARANCE_GROUPS.map((group) => [group, true])),
 );
-const openAdvanced = reactive<Record<string, boolean>>({});
 const query = ref('');
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase());
@@ -49,16 +44,6 @@ function optionLabel(key: AppearanceKey, option: string) {
   return t(`appearance.options.${key}.${option}` as MessageKey);
 }
 
-/** Keys in a group that apply to the current scene, split into the always-open and advanced sets. */
-function groupKeys(group: AppearanceGroup, advanced: boolean) {
-  return EDITABLE_APPEARANCE_KEYS.filter((key) => {
-    const field = APPEARANCE_FIELDS[key];
-    if (field.group !== group) return false;
-    if (Boolean(field.advanced) !== advanced) return false;
-    return fieldAppliesToScene(key, props.sceneKind);
-  });
-}
-
 function allGroupKeys(group: AppearanceGroup) {
   return EDITABLE_APPEARANCE_KEYS.filter((key) => APPEARANCE_FIELDS[key].group === group);
 }
@@ -69,14 +54,13 @@ function matchesQuery(key: AppearanceKey) {
   return fieldLabel(key).toLowerCase().includes(normalizedQuery.value);
 }
 
-function visibleKeys(group: AppearanceGroup, advanced: boolean) {
-  return groupKeys(group, advanced).filter(matchesQuery);
+/** Keys in a group that apply to the current scene and survive the current search. */
+function visibleKeys(group: AppearanceGroup) {
+  return allGroupKeys(group).filter((key) => fieldAppliesToScene(key, props.sceneKind) && matchesQuery(key));
 }
 
 /** A group is rendered when it still has something to show under the current search. */
-const visibleGroups = computed(() => APPEARANCE_GROUPS.filter((group) => (
-  visibleKeys(group, false).length > 0 || visibleKeys(group, true).length > 0
-)));
+const visibleGroups = computed(() => APPEARANCE_GROUPS.filter((group) => visibleKeys(group).length > 0));
 
 const changedKeys = computed(() => new Set(
   EDITABLE_APPEARANCE_KEYS.filter((key) => props.appearance[key] !== appearanceDefaults[key]),
@@ -98,15 +82,6 @@ function resetGroup(group: AppearanceGroup) {
 function resetAll() {
   if (!window.confirm(t('appearance.editor.resetAllConfirm'))) return;
   Object.assign(props.appearance, appearanceDefaults);
-}
-
-function applyDensity(preset: DensityPreset) {
-  props.appearance.density = preset;
-  Object.assign(props.appearance, DENSITY_PRESETS[preset]);
-}
-
-function applyGlassPreset(preset: GlassPreset) {
-  Object.assign(props.appearance, GLASS_PRESETS[preset]);
 }
 
 /** Shows the value the way the control means it, rather than the raw stored number. */
@@ -139,6 +114,16 @@ function numberField(key: AppearanceKey) {
 function enumOptions(key: AppearanceKey): readonly string[] {
   const field = APPEARANCE_FIELDS[key];
   return field.kind === 'enum' ? field.options : [];
+}
+
+function setOption(key: AppearanceKey, option: string) {
+  Object.assign(props.appearance, { [key]: option });
+}
+
+/** Short choices read better as a segmented control than behind a dropdown. */
+function isSegmented(key: AppearanceKey) {
+  const field = APPEARANCE_FIELDS[key];
+  return field.kind === 'enum' && field.options.length <= 3;
 }
 
 function fieldKind(key: AppearanceKey) {
@@ -220,50 +205,16 @@ function fieldKind(key: AppearanceKey) {
         </header>
 
         <div v-show="openGroups[group] || searching" class="group-body">
-          <!-- Quick presets seed a group's values; every one stays adjustable afterwards. -->
-          <div v-if="group === 'layout' && !searching" class="preset-row">
-            <div class="preset-group" :aria-label="t('appearance.fields.density')">
-              <button
-                v-for="preset in (['compact', 'balanced', 'spacious'] as DensityPreset[])"
-                :key="preset"
-                type="button"
-                :class="{ active: appearance.density === preset }"
-                :data-testid="`density-${preset}`"
-                @click="applyDensity(preset)"
-              >
-                {{ optionLabel('density', preset) }}
-              </button>
-            </div>
-            <small>{{ t('appearance.editor.densityHint') }}</small>
-          </div>
-
-          <div v-if="group === 'glass' && !searching" class="preset-row">
-            <div class="preset-group" :aria-label="t('appearance.presetsAria')">
-              <button type="button" data-testid="glass-performance" @click="applyGlassPreset('performance')">
-                <Gauge :size="13" /> {{ t('appearance.glassPerformance') }}
-              </button>
-              <button type="button" data-testid="glass-balanced" @click="applyGlassPreset('balanced')">
-                {{ t('appearance.glassBalanced') }}
-              </button>
-              <button type="button" data-testid="glass-clear" @click="applyGlassPreset('clear')">
-                {{ t('appearance.glassClear') }}
-              </button>
-            </div>
-            <small>{{ t('appearance.editor.densityHint') }}</small>
-          </div>
-
-          <small v-if="group === 'scene' && !searching" class="group-note">
-            {{ t('appearance.editor.sceneHint') }}
-          </small>
           <small v-if="group === 'background' && !searching" class="group-note">
             {{ t('appearance.editor.backgroundHint') }}
           </small>
 
           <div class="control-grid">
-            <template v-for="key in visibleKeys(group, false)" :key="key">
-              <label
+            <template v-for="key in visibleKeys(group)" :key="key">
+              <component
+                :is="isSegmented(key) ? 'div' : 'label'"
                 class="control"
-                :class="`control-${fieldKind(key)}`"
+                :class="`control-${isSegmented(key) ? 'segmented' : fieldKind(key)}`"
                 :data-testid="`control-${key}`"
                 :data-changed="changedKeys.has(key) ? 'true' : undefined"
               >
@@ -294,72 +245,26 @@ function fieldKind(key: AppearanceKey) {
                   type="checkbox"
                   class="control-switch"
                 />
+                <span v-else-if="isSegmented(key)" class="segmented" role="group" :aria-label="fieldLabel(key)">
+                  <button
+                    v-for="option in enumOptions(key)"
+                    :key="option"
+                    type="button"
+                    :class="{ active: appearance[key] === option }"
+                    :aria-pressed="appearance[key] === option"
+                    :data-testid="`${key}-${option}`"
+                    @click="setOption(key, option)"
+                  >
+                    {{ optionLabel(key, option) }}
+                  </button>
+                </span>
                 <select v-else v-model="appearance[key] as string">
                   <option v-for="option in enumOptions(key)" :key="option" :value="option">
                     {{ optionLabel(key, option) }}
                   </option>
                 </select>
-              </label>
+              </component>
             </template>
-          </div>
-
-          <!-- Advanced controls stay folded away so the common set is not buried. -->
-          <div v-if="visibleKeys(group, true).length" class="advanced-block">
-            <button
-              type="button"
-              class="advanced-toggle"
-              :data-testid="`appearance-advanced-${group}`"
-              :aria-expanded="openAdvanced[group] || searching"
-              @click="openAdvanced[group] = !openAdvanced[group]"
-            >
-              <ChevronRight class="chevron" :class="{ open: openAdvanced[group] || searching }" :size="13" />
-              {{ t('appearance.editor.advanced') }}
-              <span class="advanced-count">{{ visibleKeys(group, true).length }}</span>
-            </button>
-
-            <div v-show="openAdvanced[group] || searching" class="control-grid">
-              <template v-for="key in visibleKeys(group, true)" :key="key">
-                <label
-                  class="control"
-                  :class="`control-${fieldKind(key)}`"
-                  :data-testid="`control-${key}`"
-                  :data-changed="changedKeys.has(key) ? 'true' : undefined"
-                >
-                  <span class="control-label">
-                    {{ fieldLabel(key) }}
-                    <em v-if="changedKeys.has(key)" class="changed-dot" :title="t('appearance.editor.changed')">
-                      {{ t('appearance.editor.changed') }}
-                    </em>
-                    <output v-if="fieldKind(key) === 'number'">{{ displayValue(key) }}</output>
-                  </span>
-
-                  <input
-                    v-if="fieldKind(key) === 'number'"
-                    v-model.number="appearance[key] as number"
-                    type="range"
-                    :min="numberField(key)?.min"
-                    :max="numberField(key)?.max"
-                    :step="numberField(key)?.step ?? 1"
-                    :style="rangeStyle(key)"
-                  />
-                  <span v-else-if="fieldKind(key) === 'color'" class="color-control">
-                    <input v-model="appearance[key] as string" type="color" />
-                    <code>{{ appearance[key] }}</code>
-                  </span>
-                  <input
-                    v-else-if="fieldKind(key) === 'toggle'"
-                    v-model="appearance[key] as boolean"
-                    type="checkbox"
-                    class="control-switch"
-                  />
-                  <select v-else v-model="appearance[key] as string">
-                    <option v-for="option in enumOptions(key)" :key="option" :value="option">
-                      {{ optionLabel(key, option) }}
-                    </option>
-                  </select>
-                </label>
-              </template>
-            </div>
           </div>
         </div>
       </section>
@@ -457,7 +362,6 @@ function fieldKind(key: AppearanceKey) {
 .search-clear,
 .reset-all,
 .group-reset,
-.advanced-toggle,
 .group-toggle {
   background: transparent;
   border: 0;
@@ -556,22 +460,11 @@ function fieldKind(key: AppearanceKey) {
   padding-top: 9px;
 }
 
-.preset-row {
-  display: grid;
-  gap: 4px;
-}
-
-.preset-row small {
-  color: var(--ae-subtle);
-  font-size: 10.5px;
-}
-
-.preset-group {
+.segmented {
   display: flex;
-  gap: 3px;
 }
 
-.preset-group button {
+.segmented button {
   align-items: center;
   background: transparent;
   border: 1px solid var(--ae-line);
@@ -585,20 +478,20 @@ function fieldKind(key: AppearanceKey) {
   padding: 0 9px;
 }
 
-.preset-group button:first-child {
+.segmented button:first-child {
   border-radius: 7px 0 0 7px;
 }
 
-.preset-group button:last-child {
+.segmented button:last-child {
   border-radius: 0 7px 7px 0;
 }
 
-.preset-group button + button {
-  margin-left: -4px;
+.segmented button + button {
+  margin-left: -1px;
 }
 
-.preset-group button:hover,
-.preset-group button.active {
+.segmented button:hover,
+.segmented button.active {
   background: var(--ae-hover);
   color: var(--nono-accent);
   position: relative;
@@ -695,34 +588,6 @@ function fieldKind(key: AppearanceKey) {
   min-height: 28px;
   min-width: 0;
   padding: 0 6px;
-}
-
-.advanced-block {
-  border-top: 1px solid var(--ae-line);
-  display: grid;
-  gap: 8px;
-  padding-top: 8px;
-}
-
-.advanced-toggle {
-  align-items: center;
-  display: inline-flex;
-  font-size: 11px;
-  font-weight: 700;
-  gap: 5px;
-  justify-self: start;
-}
-
-.advanced-toggle:hover {
-  color: var(--nono-accent);
-}
-
-.advanced-count {
-  background: var(--ae-hover);
-  border-radius: 999px;
-  color: var(--ae-subtle);
-  font-size: 10px;
-  padding: 1px 6px;
 }
 
 .control input[type='range'] {

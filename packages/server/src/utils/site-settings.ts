@@ -7,44 +7,24 @@ type AppearanceSettings = Record<string, AppearanceValue>;
 // The cross-workspace API test round-trips the Web defaults so a future catalogue change cannot
 // silently turn into another successful-looking save that is discarded here.
 const numericAppearanceFields: Record<string, readonly [number, number, number]> = {
-  maxContentWidth: [2600, 960, 3200], folderColumns: [4, 1, 6], folderGapX: [20, 4, 64],
-  folderGapY: [24, 4, 64], pagePaddingX: [32, 0, 96], searchMaxWidth: [760, 360, 1200],
-  searchGridGap: [28, 0, 96], cardRadius: [8, 0, 24], cardOpacity: [26, 12, 90],
-  cardBlur: [18, 0, 32], folderTitleGap: [10, 0, 40], folderIconSize: [18, 12, 34],
-  bookmarkIconSize: [20, 12, 36], bookmarkRowHeight: [38, 26, 64], bookmarkGapX: [8, 0, 32],
-  bookmarkGapY: [4, 0, 24], folderShadow: [30, 0, 100], hoverScale: [100, 100, 108],
-  hoverHighlight: [40, 0, 100], searchRadius: [28, 8, 40], searchOpacity: [34, 12, 90],
-  searchBlur: [20, 0, 32], searchHeight: [52, 38, 76], searchIconSize: [18, 12, 28],
-  searchTextSize: [15, 12, 20], notabHeight: [38, 28, 60], notabGap: [4, 0, 24],
-  notabIndicator: [2, 0, 6], glassBorderOpacity: [28, 0, 100], glassBorderWidth: [1, 0, 4],
-  glassShadowStrength: [32, 0, 100], glassShadowSpread: [24, 0, 72], glassSaturation: [120, 60, 200],
-  glassHighlight: [34, 0, 100], glassDarkOverlay: [42, 0, 100], backgroundBrightness: [100, 40, 140],
-  backgroundBlur: [0, 0, 40], backgroundOverlay: [0, 0, 100], overlayLight: [0, 0, 100],
-  overlayDark: [30, 0, 100], sceneParticleSize: [100, 50, 200], sceneSpeed: [100, 25, 200],
-  sceneWind: [100, 0, 200], sceneWindDirection: [0, -100, 100], sceneDepth: [100, 0, 150],
-  sceneForegroundBlur: [100, 0, 200], sceneCollision: [100, 0, 150], sceneSplash: [100, 0, 150],
-  pageTitleSize: [30, 18, 52], descriptionSize: [14, 11, 22], fontWeight: [400, 300, 800],
-  lineHeight: [150, 110, 210], bookmarkTextSize: [14, 12, 18], notabTextSize: [15, 12, 18],
-  folderTextSize: [18, 12, 22],
+  maxContentWidth: [2600, 960, 3200], folderColumns: [4, 1, 6], searchMaxWidth: [760, 360, 1200],
+  cardRadius: [8, 0, 24], cardOpacity: [26, 12, 90], cardBlur: [18, 0, 32],
+  searchOpacity: [34, 12, 90], searchHeight: [52, 38, 76],
+  backgroundBrightness: [100, 40, 140], backgroundBlur: [0, 0, 40], backgroundOverlay: [0, 0, 100],
+  sceneParticleSize: [100, 50, 200], sceneSpeed: [100, 25, 200], bookmarkTextSize: [14, 12, 18],
 };
 
 const colorAppearanceFields: Record<string, string> = {
-  cardColor: '#f7f8fb', searchColor: '#f7f8fb', pageTitleColor: '#ffffff',
-  descriptionColor: '#ffffff', searchTextColor: '#ffffff', placeholderColor: '#ffffff',
-  bookmarkTextColor: '#ffffff', notabTextColor: '#ffffff', folderTextColor: '#ffffff',
+  cardColor: '#f7f8fb', searchColor: '#f7f8fb', pageTitleColor: '#ffffff', bookmarkTextColor: '#ffffff',
 };
 
 const booleanAppearanceFields: Record<string, boolean> = {
-  hoverAnimation: true, backgroundImageEnabled: true, sceneEnabled: true,
-  sceneReducedMotion: true, sceneLowPerformance: false,
+  backgroundImageEnabled: true, sceneEnabled: true,
 };
 
 const enumAppearanceFields: Record<string, readonly [string, ...string[]]> = {
   density: ['balanced', 'compact', 'spacious'], notabAlign: ['center', 'left'],
-  notabOverflow: ['scroll', 'wrap'], backgroundPosition: ['center', 'top', 'bottom'],
-  backgroundSize: ['cover', 'contain', 'auto'], fontFamily: ['system', 'sans', 'serif', 'rounded', 'mono'],
-  fontFamilyZh: ['inherit', 'heiti', 'songti', 'kaiti', 'yuanti'],
-  fontFamilyEn: ['inherit', 'inter', 'georgia', 'jetbrains'],
+  fontFamily: ['system', 'sans', 'serif', 'rounded', 'mono'],
 };
 
 export const appearanceDefaults: AppearanceSettings = {
@@ -89,10 +69,6 @@ function normalizeAppearance(input: unknown) {
   for (const [key, options] of Object.entries(enumAppearanceFields)) {
     result[key] = typeof source[key] === 'string' && options.includes(source[key]) ? source[key] : options[0];
   }
-  // Payloads saved before the NoTab and folder colours split only carry `categoryTextColor`.
-  const legacyText = normalizeHex(source.categoryTextColor, colorAppearanceFields.folderTextColor);
-  result.notabTextColor = normalizeHex(source.notabTextColor, legacyText);
-  result.folderTextColor = normalizeHex(source.folderTextColor, legacyText);
   return result;
 }
 
