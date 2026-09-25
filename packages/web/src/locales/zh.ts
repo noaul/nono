@@ -288,6 +288,8 @@ export const zh = {
     passwordAria: '主页访问密码',
     unlock: '解锁主页',
     siteDefaultEngine: '站点默认',
+    engineMenu: '选择搜索引擎',
+    clear: '清空搜索',
   },
   folder: {
     deleteFolder: '删除文件夹',

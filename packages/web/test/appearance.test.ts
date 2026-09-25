@@ -106,6 +106,11 @@ describe('appearance settings', () => {
     expect(toAppearanceCssVars({ ...appearanceDefaults, notabAlign: 'left' })['--public-notab-justify']).toBe('flex-start');
   });
 
+  it('lets a centred NoTab strip hug its tabs while a left-aligned one keeps the full row', () => {
+    expect(toAppearanceCssVars(appearanceDefaults)['--public-notab-strip-width']).toBe('fit-content');
+    expect(toAppearanceCssVars({ ...appearanceDefaults, notabAlign: 'left' })['--public-notab-strip-width']).toBe('min(100%, 1200px)');
+  });
+
   it('places an explicitly selected Chinese font before the generic fallback', () => {
     const stack = fontStack({
       ...appearanceDefaults,

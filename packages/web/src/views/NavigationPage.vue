@@ -126,10 +126,13 @@ function updateTabIndicator() {
     tabIndicatorStyle.value = { opacity: '0' };
     return;
   }
+  const shell = active.parentElement?.classList.contains('notab-shell') ? active.parentElement : null;
+  // Tracks the row as well as the column, so a wrapped strip highlights the right line.
   tabIndicatorStyle.value = {
     opacity: '1',
-    transform: `translateX(${(active.parentElement?.classList.contains('notab-shell') ? active.parentElement.offsetLeft : 0) + active.offsetLeft}px)`,
+    transform: `translate(${(shell?.offsetLeft || 0) + active.offsetLeft}px, ${(shell?.offsetTop || 0) + active.offsetTop}px)`,
     width: `${active.offsetWidth}px`,
+    height: `${active.offsetHeight}px`,
   };
   keepActiveTabVisible(nav, active);
 }
@@ -214,6 +217,11 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     '--public-bookmark-text-rgb': '255, 255, 255',
     '--public-notab-text': '#ffffff',
     '--public-notab-text-rgb': '255, 255, 255',
+    // Light themes ship dark search text, which vanished on the dark-mode search bar.
+    '--public-search-text': '#ffffff',
+    '--public-search-text-rgb': '255, 255, 255',
+    '--public-placeholder-text': '#ffffff',
+    '--public-placeholder-text-rgb': '255, 255, 255',
     '--public-folder-text': '#ffffff',
     '--public-folder-text-rgb': '255, 255, 255',
     '--public-category-text': '#ffffff',
@@ -1952,12 +1960,14 @@ h1 {
   gap: var(--public-notab-gap, 4px);
   justify-content: var(--public-notab-justify, safe center);
   margin: 8px auto;
-  max-width: 100%;
+  max-width: min(100%, 1200px);
   min-height: var(--public-notab-height, 38px);
   min-width: 0;
   overflow-x: var(--public-notab-overflow-x, auto);
   padding: 5px;
-  width: min(100%, 1200px);
+  /* Centred strips hug their tabs instead of stretching a mostly empty bar under the search box;
+     once the tabs outgrow it the strip reaches max-width and scrolls (or wraps) as before. */
+  width: var(--public-notab-strip-width, fit-content);
   box-shadow:
     0 8px var(--public-glass-shadow-spread, 30px)
       rgba(var(--public-shadow-rgb), calc(var(--public-glass-shadow-strength, 0.32) * 0.44)),
@@ -1988,22 +1998,36 @@ h1 {
   mask-image: none;
 }
 
+/*
+ * A tinted pill with a short accent bar under the label. The old full-width bottom border bent
+ * round the pill's corners into a crescent, and its glow bled into the neighbouring tabs.
+ */
 .tab-indicator {
-  background: rgba(var(--accent-rgb), 0.22);
-  border-bottom: var(--public-notab-indicator, 2px) solid rgba(var(--accent-rgb), 0.85);
-  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
-  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
-  height: calc(100% - 10px);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.28);
   left: 0;
   pointer-events: none;
   position: absolute;
-  top: 5px;
+  top: 0;
   transition:
     transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.2s ease;
   width: 0;
   will-change: transform, width;
+}
+
+.tab-indicator::after {
+  background: var(--accent);
+  border-radius: 999px;
+  bottom: 3px;
+  content: '';
+  height: var(--public-notab-indicator, 2px);
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+  width: min(18px, 40%);
 }
 
 .notab-shell {
@@ -2017,14 +2041,14 @@ h1 {
 .notab-select {
   -webkit-touch-callout: none;
   align-items: center;
-  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
   display: inline-flex;
   flex: 0 0 auto;
   min-height: calc(var(--public-notab-height, 38px) - 10px);
   padding: 6px 14px;
   font-size: var(--public-notab-text-size, 15px);
   font-weight: 600;
-  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.8);
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.76);
   position: relative;
   transform: translateZ(0);
   transition:
@@ -2035,9 +2059,13 @@ h1 {
 }
 
 .notab-select:hover {
-  background: rgba(var(--public-hover-rgb), 0.28);
+  background: rgba(var(--public-hover-rgb), 0.22);
   color: var(--public-notab-text, #ffffff);
-  transform: translateY(-1px);
+}
+
+.notab-select:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.75);
+  outline-offset: -2px;
 }
 
 .notab-select:active {
@@ -2099,22 +2127,23 @@ h1 {
 
 .tab-service-separator {
   align-self: center;
-  background: rgba(var(--public-border-rgb), 0.42);
+  /* Drawn in the tab ink rather than the border colour, which is white on the light themes. */
+  background: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.2);
   flex: 0 0 1px;
-  height: 20px;
-  margin: 0 5px;
+  height: 18px;
+  margin: 0 6px;
   position: relative;
   z-index: 1;
 }
 
 .tab-service-link {
   align-items: center;
-  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 4px));
-  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.84);
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.76);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: var(--public-notab-text-size, 15px);
-  font-weight: 650;
+  font-weight: 600;
   gap: 6px;
   padding: 6px 12px;
   position: relative;
@@ -2128,10 +2157,13 @@ h1 {
 
 .tab-service-link:hover,
 .tab-service-link:focus-visible {
-  background: rgba(var(--public-hover-rgb), 0.28);
+  background: rgba(var(--public-hover-rgb), 0.22);
   color: var(--public-notab-text, #ffffff);
-  outline: none;
-  transform: translateY(-1px);
+}
+
+.tab-service-link:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.75);
+  outline-offset: -2px;
 }
 
 .tab-service-link:active {
@@ -2140,7 +2172,6 @@ h1 {
 
 .notab-select.active {
   color: var(--public-notab-text, #ffffff);
-  text-shadow: 0 1px 8px rgba(var(--public-shadow-rgb), 0.16);
 }
 
 .public-empty-state {

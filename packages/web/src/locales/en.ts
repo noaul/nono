@@ -286,6 +286,8 @@ export const en: Messages = {
     passwordAria: 'Home page access password',
     unlock: 'Unlock',
     siteDefaultEngine: 'Site default',
+    engineMenu: 'Choose a search engine',
+    clear: 'Clear search',
   },
   folder: {
     deleteFolder: 'Delete folder',

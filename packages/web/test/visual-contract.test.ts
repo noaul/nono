@@ -541,9 +541,12 @@ describe('visual contracts', () => {
     expect(searchBarSource).toContain('var(--public-search-opacity');
     expect(searchBarSource).toContain('var(--public-search-blur');
     expect(searchBarSource).toMatch(/\.search-bar \{[\s\S]*?z-index:\s*40/);
-    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?rgba\(var\(--public-card-color-rgb/);
-    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?blur\(var\(--public-card-blur/);
-    expect(searchBarSource).toMatch(/\.engine-menu \{[\s\S]*?var\(--public-card-radius/);
+    // The menu lives inside the bar's backdrop root, so a blur would never reach the page behind
+    // it: it has to be an opaque overlay popover rather than translucent glass.
+    const engineMenuRule = searchBarSource.match(/\.engine-menu \{[^}]*\}/)?.[0] || '';
+    expect(engineMenuRule).toContain('background: rgb(var(--public-overlay-rgb');
+    expect(engineMenuRule).not.toContain('backdrop-filter');
+    expect(engineMenuRule).toContain('var(--public-card-radius');
     expect(appearanceDrawerSource).toMatch(/\.theme-swatch-tab \{[\s\S]*?var\(--theme-tab/);
     expect(searchBarSource).toContain('translateY(1px) scale(0.94)');
     expect(publicStyles).not.toMatch(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\.search-bar,/);

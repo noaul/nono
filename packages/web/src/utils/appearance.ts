@@ -526,6 +526,9 @@ export function toAppearanceCssVars(appearance: AppearanceSettings): Record<stri
   // falls back to start alignment exactly when that overflow would occur, so scrollLeft 0 always
   // shows the first tab in full while still centering short, non-overflowing tab strips.
   vars['--public-notab-justify'] = appearance.notabAlign === 'left' ? 'flex-start' : 'safe center';
+  // A centred strip hugs its tabs; a left-aligned one keeps the full row so "left" still means
+  // something.
+  vars['--public-notab-strip-width'] = appearance.notabAlign === 'left' ? 'min(100%, 1200px)' : 'fit-content';
   vars['--public-notab-wrap'] = appearance.notabOverflow === 'wrap' ? 'wrap' : 'nowrap';
   vars['--public-notab-overflow-x'] = appearance.notabOverflow === 'wrap' ? 'visible' : 'auto';
 
