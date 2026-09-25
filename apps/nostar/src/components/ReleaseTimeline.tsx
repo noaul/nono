@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { GitHubApiService } from '../services/githubApi';
 import { forceSyncToBackend } from '../services/autoSync';
 import { backend } from '../services/backendAdapter';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../utils/dateTime';
 import { AssetFilterManager } from './AssetFilterManager';
 import { PRESET_FILTERS } from '../constants/presetFilters';
 import ReleaseCard from './ReleaseCard';
@@ -745,7 +745,7 @@ export const ReleaseTimeline: React.FC = () => {
              </div>
             {lastRefreshTime && (
               <p className="text-sm text-gray-500 dark:text-text-tertiary">
-                {t('上次刷新:', 'Last refresh:')} {formatDistanceToNow(new Date(lastRefreshTime), { addSuffix: true })}
+                {t('上次刷新:', 'Last refresh:')} {formatRelativeTime(lastRefreshTime, language)}
               </p>
             )}
           </div>
@@ -817,7 +817,7 @@ export const ReleaseTimeline: React.FC = () => {
             {/* Last Refresh Time */}
             {lastRefreshTime && (
               <span className="w-full text-sm text-gray-500 dark:text-text-tertiary lg:w-auto">
-                {t('上次刷新:', 'Last refresh:')} {formatDistanceToNow(new Date(lastRefreshTime), { addSuffix: true })}
+                {t('上次刷新:', 'Last refresh:')} {formatRelativeTime(lastRefreshTime, language)}
               </span>
             )}
 

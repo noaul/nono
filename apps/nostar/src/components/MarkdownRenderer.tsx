@@ -649,7 +649,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   e.stopPropagation();
                   setZoomScale(prev => Math.min(5, prev + 0.5));
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-bold"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-semibold"
                 title={language === 'zh' ? '放大' : 'Zoom in'}
               >
                 +
@@ -662,7 +662,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   e.stopPropagation();
                   setZoomScale(prev => Math.max(0.5, prev - 0.5));
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-bold"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm font-semibold"
                 title={language === 'zh' ? '缩小' : 'Zoom out'}
               >
                 −

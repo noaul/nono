@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, FileCode2, GitFork, LogOut, Menu, Moon, Search, Settings, Sun, TrendingUp, X } from 'lucide-react';
+import {
+  BookOpen, Calendar, CircleDollarSign, FileCode2, GitFork, Home, LogOut, Menu, Moon, Search, Settings, Sun,
+  TrendingUp, X,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
 import { HeaderMenuId, AppState } from '../types';
@@ -23,6 +27,13 @@ const MENU_META: Record<HeaderMenuId, {
   subscription: { icon: TrendingUp, labelZh: '趋势', labelEn: 'Trending' },
   settings: { icon: Settings, labelZh: '设置', labelEn: 'Settings' },
 };
+
+/** The rest of the NoNo family. They share this origin, so plain links are enough. */
+const NONO_APPS: Array<{ href: string; icon: LucideIcon; labelZh: string; labelEn: string }> = [
+  { href: '/', icon: Home, labelZh: 'NoNo 主页', labelEn: 'NoNo Home' },
+  { href: '/nodesk', icon: BookOpen, labelZh: 'NoDesk', labelEn: 'NoDesk' },
+  { href: '/nomoney', icon: CircleDollarSign, labelZh: 'NoMoney', labelEn: 'NoMoney' },
+];
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -171,6 +182,14 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
           <X className="h-[18px] w-[18px]" />
         </button>
         {nav}
+        <nav className="nostar-apps" data-testid="nostar-apps" aria-label={t('NoNo 应用', 'NoNo apps')}>
+          {NONO_APPS.map(({ href, icon: Icon, labelZh, labelEn }) => (
+            <a key={href} href={href} className="nostar-apps-link">
+              <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
+              <span className="nostar-nav-label">{t(labelZh, labelEn)}</span>
+            </a>
+          ))}
+        </nav>
         {user && (
           <div className="nostar-operator">
             <img src={user.avatar_url} alt="" aria-hidden="true" className="nostar-operator-avatar" />

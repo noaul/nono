@@ -8,12 +8,11 @@ import { getAICategory, getDefaultCategory } from '../utils/categoryUtils';
 import { analyzeRepository, createFailedAnalysisResult } from '../services/aiAnalysisHelper';
 import { forceSyncToBackend } from '../services/autoSync';
 import { GitHubApiService } from '../services/githubApi';
-import { formatDistanceToNow } from 'date-fns';
 import { FloatingTooltip } from './FloatingTooltip';
 import { shallow } from 'zustand/shallow';
 import { useDialog } from '../hooks/useDialog';
 import { logger } from '../services/logger';
-import { formatShanghaiDateTime } from '../utils/dateTime';
+import { formatRelativeTime, formatShanghaiDateTime } from '../utils/dateTime';
 
 const RepositoryEditModal = React.lazy(() => import('./RepositoryEditModal').then((module) => ({ default: module.RepositoryEditModal })));
 const ReadmeModal = React.lazy(() => import('./ReadmeModal').then((module) => ({ default: module.ReadmeModal })));
@@ -1157,7 +1156,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
           <div className="relative flex items-center space-x-1 min-w-0">
             <Calendar className={`w-4 h-4 flex-shrink-0 transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`} />
             <span className={`truncate transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`}>
-              {language === 'zh' ? '最近提交' : 'Last pushed'} {formatDistanceToNow(new Date(repository.pushed_at || repository.updated_at), { addSuffix: true })}
+              {language === 'zh' ? '最近提交' : 'Last pushed'} {formatRelativeTime(repository.pushed_at || repository.updated_at, language)}
             </span>
 
             {vectorSearchAvailable && !selectionMode && (

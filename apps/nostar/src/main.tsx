@@ -55,7 +55,7 @@ try {
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--ui-canvas); color: var(--ui-text); font-family: system-ui, -apple-system, sans-serif;">
       <div style="max-width: 400px; text-align: center;">
         <div style="font-size: 48px; margin-bottom: 16px;">😵</div>
-        <h1 style="font-size: 20px; font-weight: 650; letter-spacing: 0; margin-bottom: 8px; color: var(--ui-text);">${strings.title}</h1>
+        <h1 style="font-size: 20px; font-weight: 600; letter-spacing: 0; margin-bottom: 8px; color: var(--ui-text);">${strings.title}</h1>
         <p style="color: var(--ui-text-muted); margin-bottom: 16px;">${strings.desc}</p>
         <button onclick="window.location.reload()" style="padding: 8px 16px; background: var(--ui-accent); color: var(--ui-accent-ink); border: none; border-radius: var(--ui-radius-sm); cursor: pointer;">${strings.button}</button>
       </div>

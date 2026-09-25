@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { ExternalLink, GitBranch, Calendar, Download, ChevronDown, ChevronUp, BookOpen, ArrowUpRight, FolderOpen, Folder, BellOff, FileArchive, Code2, Loader2, CheckCircle2, Sparkles } from 'lucide-react';
 import { Release } from '../types';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../utils/dateTime';
 import MarkdownRenderer from './MarkdownRenderer';
 import { useAppStore } from '../store/useAppStore';
 import { useDialog } from '../hooks/useDialog';
@@ -221,7 +221,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
             <div className="hidden md:flex min-w-[140px] flex-col justify-center gap-2 text-xs text-gray-500 dark:text-text-tertiary">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
-                <span>{formatDistanceToNow(new Date(release.published_at), { addSuffix: true })}</span>
+                <span>{formatRelativeTime(release.published_at, language)}</span>
               </div>
               {downloadLinks.length > 0 && (
                 <div className="flex items-center gap-1.5">

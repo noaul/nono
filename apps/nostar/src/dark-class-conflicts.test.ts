@@ -123,8 +123,8 @@ describe('dark-mode class conflicts', () => {
   });
 
   it('never hovers dark text toward the light-mode ink', () => {
-    // The gray scale is not remapped, so hovering dark text toward gray-900 really lands on
-    // #111827 against the #07080a canvas and the label vanishes. Primary ink is the shared token.
+    // `gray` is slate now, so hovering dark text toward gray-900 lands on #0f172a against the
+    // #07080a canvas and the label vanishes. Primary ink is the shared token.
     // (Written without the literal class name: Tailwind scans this file and would emit the rule.)
     const offenders: string[] = [];
     for (const branch of branches) {

@@ -673,11 +673,12 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
           useAppStore.setState({ searchFilters: importedData.searchFilters });
         }
         if (selectedTypes.includes('uiSettings')) {
+          // Through the setters, so the shared `nono:*` preference keys follow the import.
           if (importedData.theme === 'light' || importedData.theme === 'dark') {
-            useAppStore.setState({ theme: importedData.theme });
+            useAppStore.getState().setTheme(importedData.theme);
           }
-          if (importedData.language) {
-            useAppStore.setState({ language: importedData.language });
+          if (importedData.language === 'zh' || importedData.language === 'en') {
+            useAppStore.getState().setLanguage(importedData.language);
           }
           if (typeof importedData.isSidebarCollapsed === 'boolean') {
             useAppStore.setState({ isSidebarCollapsed: importedData.isSidebarCollapsed });

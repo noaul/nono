@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import resolveConfig from 'tailwindcss/resolveConfig';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -156,6 +158,47 @@ describe('NoStar palette and typography contract', () => {
     }
     expect(css).toMatch(/\.dark \.bg-brand-indigo\.text-white[\s\S]*?color:\s*var\(--ui-accent-ink\)/);
     expect(css).toMatch(/\.dark \.bg-status-emerald\.text-white[\s\S]*?color:\s*var\(--ui-canvas\)/);
+  });
+});
+
+describe('NoStar neutral, weight and breakpoint scales', () => {
+  const loadTheme = async () => {
+    const url = pathToFileURL(path.resolve(process.cwd(), 'tailwind.config.js')).href;
+    const { default: config } = await import(/* @vite-ignore */ url);
+    return resolveConfig(config).theme as unknown as {
+      colors: Record<string, Record<string, string> | string>;
+      fontWeight: Record<string, string>;
+      screens: Record<string, string>;
+    };
+  };
+
+  it('resolves every gray-* utility to the contract slate, not Tailwind cool grey', async () => {
+    const { colors } = await loadTheme();
+    const gray = colors.gray as Record<string, string>;
+    // slate-50 / 200 / 500 / 900 are the contract's canvas, border, subtle ink and text.
+    expect([gray['50'], gray['200'], gray['500'], gray['900']])
+      .toEqual(['#f8fafc', '#e2e8f0', '#64748b', '#0f172a']);
+  });
+
+  it('gives warnings a warning colour and drops the unused accent scale', async () => {
+    const { colors } = await loadTheme();
+    expect(colors).not.toHaveProperty('accent');
+    expect(colors).toHaveProperty('status-amber');
+  });
+
+  it('only offers the contract weights, so nothing renders at 800 or 900', async () => {
+    const { fontWeight } = await loadTheme();
+    expect(fontWeight).toEqual({ light: '300', normal: '400', medium: '500', semibold: '600', bold: '700' });
+
+    const offenders = files
+      .filter(({ text }) => /\bfont-(?:extrabold|black)\b/.test(text))
+      .map(({ file }) => file);
+    expect(offenders).toEqual([]);
+  });
+
+  it('uses the contract breakpoints', async () => {
+    const { screens } = await loadTheme();
+    expect(screens).toMatchObject({ sm: '640px', md: '768px', lg: '1024px', xl: '1280px' });
   });
 });
 

@@ -4,7 +4,7 @@ import { ForkRepo, GitHubOrganization, WorkflowDefinition } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { GitHubApiService } from '../services/githubApi';
 import { logger } from '../services/logger';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../utils/dateTime';
 import ForkCard from './ForkCard';
 import { useDialog } from '../hooks/useDialog';
 import { Modal } from './Modal';
@@ -580,7 +580,7 @@ export const ForkTimeline: React.FC = () => {
             {/* Last Refresh Time */}
             {lastRefreshTime && (
               <span className="w-full text-sm text-gray-500 dark:text-text-tertiary lg:w-auto">
-                {t('上次刷新:', 'Last refresh:')} {formatDistanceToNow(new Date(lastRefreshTime), { addSuffix: true })}
+                {t('上次刷新:', 'Last refresh:')} {formatRelativeTime(lastRefreshTime, language)}
               </span>
             )}
 

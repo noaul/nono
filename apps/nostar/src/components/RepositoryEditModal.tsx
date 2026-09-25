@@ -725,7 +725,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
             </div>
           ) : editIntent.description === 'keep-custom' && (formData.description || '').trim() === '' ? (
             <div className={infoBoxClass}>
-              <p className={`${infoTextClass} text-status-amber`}>
+              <p className="flex items-start text-status-amber">
                 <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                 <span>
                   {repository?.ai_summary

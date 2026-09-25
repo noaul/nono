@@ -49,6 +49,8 @@ import {
   normalizeRepoKey,
 } from '../utils/releaseSources';
 import { logger } from '../services/logger';
+import { adoptColorMode, currentColorMode, writeColorModePreference } from '../utils/colorMode';
+import { adoptLocale, currentLocale, writeStoredLocale } from '../utils/locale';
 import { PRESET_FILTERS } from '../constants/presetFilters';
 import {
   mergeRepositoryAnalysisSnapshotsSync,
@@ -721,10 +723,8 @@ export const normalizePersistedState = (
   return {
     ...currentState,
     ...safePersisted,
-    theme:
-      safePersisted.theme === 'light' || safePersisted.theme === 'dark'
-        ? safePersisted.theme
-        : 'dark',
+    // Both live in the shared `nono:*` keys; an older persisted value is migrated in once.
+    theme: adoptColorMode(safePersisted.theme),
     repositories: migratedRepositories,
     gists,
     starredGists,
@@ -783,7 +783,7 @@ export const normalizePersistedState = (
     categoryOrder: Array.isArray(safePersisted.categoryOrder) ? safePersisted.categoryOrder.filter((id: unknown): id is string => typeof id === 'string') : [],
     collapsedSidebarCategoryCount: typeof safePersisted.collapsedSidebarCategoryCount === 'number' && safePersisted.collapsedSidebarCategoryCount > 0 ? safePersisted.collapsedSidebarCategoryCount : 20,
     assetFilters: Array.isArray(safePersisted.assetFilters) && safePersisted.assetFilters.length > 0 ? safePersisted.assetFilters : defaultPresetFilters,
-    language: safePersisted.language || 'zh',
+    language: adoptLocale(safePersisted.language),
     isAuthenticated: !!(safePersisted.user && safePersisted.githubToken),
     releaseViewMode: safePersisted.releaseViewMode || 'timeline',
     releaseShowMode: safePersisted.releaseShowMode === 'unread' ? 'unread' : 'all',
@@ -1181,11 +1181,11 @@ export const useAppStore = create<AppState & AppActions>()(
       categoryOrder: [],
       collapsedSidebarCategoryCount: 20,
       assetFilters: defaultPresetFilters,
-      theme: 'dark',
+      theme: currentColorMode(),
       hasHydrated: false,
       currentView: 'repositories',
       selectedCategory: 'all',
-      language: 'zh',
+      language: currentLocale(),
       updateNotification: null,
       analysisProgress: { current: 0, total: 0 },
       backendApiSecret: readSessionBackendSecret(),
@@ -2033,10 +2033,16 @@ export const useAppStore = create<AppState & AppActions>()(
       })),
 
       // UI actions
-      setTheme: (theme) => set({ theme }),
+      setTheme: (theme) => {
+        writeColorModePreference(theme);
+        set({ theme });
+      },
       setCurrentView: (currentView) => set({ currentView }),
       setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
-      setLanguage: (language) => set({ language }),
+      setLanguage: (language) => {
+        writeStoredLocale(language);
+        set({ language });
+      },
       setSidebarCollapsed: (isSidebarCollapsed) => set({ isSidebarCollapsed }),
       setReadmeModalOpen: (readmeModalOpen) => set({ readmeModalOpen }),
       setHeaderMenuConfig: (config) => set({
@@ -2281,10 +2287,10 @@ export const useAppStore = create<AppState & AppActions>()(
         assetFilters: state.assetFilters,
 
         // 持久化UI设置
-        theme: state.theme,
+        // theme and language are not persisted here: they live in the shared `nono:color-mode`
+        // and `nono:locale` keys so every NoNo app agrees on them.
         currentView: state.currentView,
         selectedCategory: state.selectedCategory,
-        language: state.language,
         isSidebarCollapsed: state.isSidebarCollapsed,
         headerMenuConfig: state.headerMenuConfig,
 

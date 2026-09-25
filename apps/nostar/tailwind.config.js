@@ -1,4 +1,5 @@
 import typography from '@tailwindcss/typography';
+import colors from 'tailwindcss/colors';
 
 /**
  * Resolves a shared UI contract token as a Tailwind colour.
@@ -28,12 +29,22 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
+    // The contract's breakpoints (sm 640 · md 768 · lg 1024 · xl 1280), plus Tailwind's own 2xl.
     screens: {
       'sm': '640px',
       'md': '768px',
       'lg': '1024px',
-      'xl': '1300px',
+      'xl': '1280px',
       '2xl': '1536px',
+    },
+    // Only the contract's weights exist, so `font-extrabold` / `font-black` cannot creep back in:
+    // headings top out at 700, buttons and labels sit at 600.
+    fontWeight: {
+      light: '300',
+      normal: '400',
+      medium: '500',
+      semibold: '600',
+      bold: '700',
     },
     extend: {
       fontFamily: {
@@ -41,6 +52,10 @@ export default {
         mono: ['Berkeley Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
       colors: {
+        // Tailwind's default `gray` is a cool grey, not the contract's slate neutral. Remapping the
+        // scale here moves every `gray-*` utility in the app onto slate in one place.
+        gray: colors.slate,
+
         // Every themed colour resolves to the shared UI contract (design-tokens.css).
         // The old Linear palette — purple brand, marketing-black, Linear text ramp — is gone;
         // these names survive only so the existing class usage across the app keeps working.
@@ -65,6 +80,7 @@ export default {
         'status-green': ui('success'),
         'status-emerald': ui('success'),
         'status-red': ui('danger'),
+        'status-amber': ui('warning'),
 
         'border-primary': ui('border'),
         'border-secondary': ui('border-strong'),
@@ -88,17 +104,6 @@ export default {
           300: ui('border-strong'), 400: ui('text-subtle'), 500: ui('text-muted'),
           600: ui('text-muted'), 700: ui('text'), 800: ui('text'), 900: ui('text'),
         },
-        accent: {
-          50: ui('warning'), 100: ui('warning'), 200: ui('warning'),
-          300: ui('warning'), 400: ui('warning'), 500: ui('warning'),
-          600: ui('warning'), 700: ui('warning'), 800: ui('warning'), 900: ui('warning'),
-        }
-      },
-      fontWeight: {
-        'light': '300',
-        'normal': '400',
-        'medium': '510',
-        'semibold': '590',
       },
       // The contract sets letter-spacing to 0 everywhere; these names are kept so the existing
       // `tracking-*` call sites keep resolving, but they no longer tighten anything.

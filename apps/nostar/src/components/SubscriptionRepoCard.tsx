@@ -349,7 +349,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
     >
       <div className="flex items-start gap-3 sm:gap-4">
         {/* Rank badge */}
-        <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-lg ${rankBadgeClass}`}>
+        <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-sm sm:text-lg ${rankBadgeClass}`}>
           {repo.rank}
         </div>
 

@@ -217,6 +217,24 @@ describe('NoStar application shell', () => {
     }
   });
 
+  it('links back to the rest of NoNo from the sidebar, in the UI language', () => {
+    render(<AppShell><div /></AppShell>);
+    const apps = screen.getByTestId('nostar-apps');
+    const links = Array.from(apps.querySelectorAll('a')).map((a) => [a.getAttribute('href'), a.textContent]);
+
+    expect(apps.getAttribute('aria-label')).toBe('NoNo 应用');
+    expect(links).toEqual([['/', 'NoNo 主页'], ['/nodesk', 'NoDesk'], ['/nomoney', 'NoMoney']]);
+    // It sits between the app's own navigation and the user card.
+    expect(apps.previousElementSibling?.classList.contains('nostar-nav')).toBe(true);
+    expect(apps.nextElementSibling?.classList.contains('nostar-operator')).toBe(true);
+  });
+
+  it('labels the NoNo home link in English when the UI is English', () => {
+    seedStore({ language: 'en' });
+    render(<AppShell><div /></AppShell>);
+    expect(screen.getByTestId('nostar-apps').querySelector('a[href="/"]')?.textContent).toBe('NoNo Home');
+  });
+
   it('keeps the theme toggle and logout in the topbar', () => {
     render(<AppShell><div /></AppShell>);
     const actions = document.querySelector('.nostar-topbar-actions');
@@ -275,9 +293,23 @@ describe('NoStar visual contract', () => {
     }
   });
 
-  it('keeps the NoStar identity', () => {
+  it('keeps the NoStar mark but at a size that fits where it is shown', () => {
     const shell = read('src/components/AppShell.tsx');
     expect(shell).toContain('./icon.png');
     expect(shell).toContain('NoStar');
+    // The same artwork was a 1.1MB 1024px raster while only ever shown at 30px.
+    expect(fs.statSync(path.resolve(process.cwd(), 'public/icon.png')).size).toBeLessThan(32 * 1024);
+    expect(fs.existsSync(path.resolve(process.cwd(), 'public/icon.svg'))).toBe(false);
+  });
+
+  it('boots in Chinese, titled NoStar, with its favicon and the shared colour mode', () => {
+    const html = read('index.html');
+    expect(html).toContain('<html lang="zh-CN">');
+    expect(html).toContain('<title>NoStar</title>');
+    expect(html).toContain('<link rel="icon" type="image/png" href="/icon.png" />');
+    expect(html).not.toContain('icon.svg');
+    // External, not inline: the NoNo CSP only allows same-origin scripts.
+    expect(html).toContain('<script src="/color-mode-bootstrap.js"></script>');
+    expect(read('public/color-mode-bootstrap.js')).toContain("'nono:color-mode'");
   });
 });

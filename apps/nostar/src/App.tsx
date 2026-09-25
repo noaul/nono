@@ -11,6 +11,8 @@ import { UpdateNotificationBanner } from './components/UpdateNotificationBanner'
 import { backend } from './services/backendAdapter';
 import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
 import { getStorageScope, setStorageScope } from './services/storageScope';
+import { applyColorMode, watchColorMode } from './utils/colorMode';
+import { htmlLang, watchLocale } from './utils/locale';
 
 const LoginScreen = React.lazy(() => import('./components/LoginScreen').then((module) => ({ default: module.LoginScreen })));
 const RepositoriesView = React.lazy(() => import('./views/RepositoriesView'));
@@ -35,6 +37,7 @@ function App() {
     currentView,
     selectedCategory,
     theme,
+    language,
     hasHydrated,
     searchResults,
     searchFilters,
@@ -87,13 +90,19 @@ function App() {
     }
   }, []);
 
+  // Colour mode and language are shared with the other NoNo apps (`nono:color-mode`,
+  // `nono:locale`). The store mirrors them; these effects apply them and follow outside changes.
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    applyColorMode(theme);
   }, [theme]);
+
+  useEffect(() => watchColorMode((mode) => useAppStore.setState({ theme: mode })), []);
+
+  useEffect(() => {
+    document.documentElement.lang = htmlLang(language);
+  }, [language]);
+
+  useEffect(() => watchLocale((locale) => useAppStore.setState({ language: locale })), []);
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;

@@ -394,3 +394,63 @@ describe('useAppStore repository performance guards', () => {
     expect(useAppStore.getState().analyzingRepositoryIds).toBe(previousAnalyzingIds);
   });
 });
+
+describe('useAppStore shared NoNo preferences', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem('nono:color-mode');
+    window.localStorage.removeItem('nono:locale');
+  });
+
+  it('migrates a persisted theme into nono:color-mode once, then lets the shared key win', () => {
+    const state = useAppStore.getState();
+
+    expect(normalizePersistedState({ theme: 'light' }, state).theme).toBe('light');
+    expect(window.localStorage.getItem('nono:color-mode')).toBe('light');
+
+    // Another NoNo app switched to dark: the stale store value must not override it.
+    window.localStorage.setItem('nono:color-mode', 'dark');
+    expect(normalizePersistedState({ theme: 'light' }, state).theme).toBe('dark');
+  });
+
+  it('follows the OS rather than defaulting to dark when nothing is stored', () => {
+    // The test environment's matchMedia reports a light OS preference.
+    expect(normalizePersistedState(undefined, useAppStore.getState()).theme).toBe('light');
+    expect(window.localStorage.getItem('nono:color-mode')).toBeNull();
+  });
+
+  it('writes the theme toggle to the shared key', () => {
+    useAppStore.getState().setTheme('dark');
+
+    expect(useAppStore.getState().theme).toBe('dark');
+    expect(window.localStorage.getItem('nono:color-mode')).toBe('dark');
+  });
+
+  it('migrates a persisted English choice into nono:locale and otherwise defaults to Chinese', () => {
+    const state = useAppStore.getState();
+
+    expect(normalizePersistedState({ language: 'zh' }, state).language).toBe('zh');
+    expect(window.localStorage.getItem('nono:locale')).toBeNull();
+
+    expect(normalizePersistedState({ language: 'en' }, state).language).toBe('en');
+    expect(window.localStorage.getItem('nono:locale')).toBe('en');
+
+    window.localStorage.setItem('nono:locale', 'zh');
+    expect(normalizePersistedState({ language: 'en' }, state).language).toBe('zh');
+  });
+
+  it('writes language changes to the shared key', () => {
+    useAppStore.getState().setLanguage('en');
+    expect(window.localStorage.getItem('nono:locale')).toBe('en');
+    useAppStore.getState().setLanguage('zh');
+    expect(window.localStorage.getItem('nono:locale')).toBe('zh');
+    expect(useAppStore.getState().language).toBe('zh');
+  });
+
+  it('keeps theme and language out of the store snapshot, so the migration cannot repeat', () => {
+    const partialize = useAppStore.persist.getOptions().partialize!;
+    const snapshot = partialize(useAppStore.getState()) as Record<string, unknown>;
+
+    expect(snapshot).not.toHaveProperty('theme');
+    expect(snapshot).not.toHaveProperty('language');
+  });
+});
