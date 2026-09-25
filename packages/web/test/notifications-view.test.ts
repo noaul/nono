@@ -32,7 +32,7 @@ function bookmarkNotification() {
 
 async function mountView(items = [bookmarkNotification()]) {
   apiRequest.mockResolvedValueOnce({ items, unreadCount: items.length, urgentUnreadCount: items.length, generatedAt: '2026-07-18T08:00:00.000Z' });
-  const wrapper = mount(NotificationsView, { global: { stubs: { RouterLink: RouterLinkStub, AdminPageHeader: { template: '<header><slot name="actions" /></header>' } } } });
+  const wrapper = mount(NotificationsView, { global: { stubs: { RouterLink: RouterLinkStub } } });
   await vi.dynamicImportSettled();
   await wrapper.vm.$nextTick();
   return wrapper;

@@ -2,8 +2,8 @@ import type { MessageKey } from '@/locales';
 import { appearanceDefaults, type AppearanceSettings } from '@/utils/appearance';
 
 export type ThemeTone = 'light' | 'dark';
-export type ThemeSceneKind = 'bubbles' | 'snow' | 'leaves' | 'stars' | 'sunbeams' | 'rain';
-export type ThemeSceneMotion = 'float' | 'fall' | 'drift' | 'shimmer' | 'breathe' | 'rain';
+export type ThemeSceneKind = 'bubbles' | 'snow' | 'leaves' | 'rain';
+export type ThemeSceneMotion = 'float' | 'fall' | 'drift' | 'rain';
 
 export type ThemeScene = {
   kind: ThemeSceneKind;
@@ -33,7 +33,8 @@ export type PublicTheme = {
   fontColor: string;
   accent: string;
   surface: ThemeSurface;
-  scene: ThemeScene;
+  /** Omitted for static themes, which draw no particles at all. */
+  scene?: ThemeScene;
   appearance: AppearanceSettings;
 };
 
@@ -73,12 +74,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#17383d',
       notabTextColor: '#16454b',
       folderTextColor: '#0f3d42',
-      categoryTextColor: '#0f3d42',
-      tabColor: '#f6fffd',
-      tabOpacity: 70,
-      tabBlur: 20,
-      modalOpacity: 58,
-      modalBlur: 18,
     },
   },
   {
@@ -116,12 +111,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#3f352f',
       notabTextColor: '#4a3f38',
       folderTextColor: '#493a32',
-      categoryTextColor: '#493a32',
-      tabColor: '#fffdf8',
-      tabOpacity: 80,
-      tabBlur: 18,
-      modalOpacity: 74,
-      modalBlur: 18,
     },
   },
   {
@@ -159,12 +148,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#1f4030',
       notabTextColor: '#244e36',
       folderTextColor: '#173b2a',
-      categoryTextColor: '#173b2a',
-      tabColor: '#f7fcf7',
-      tabOpacity: 72,
-      tabBlur: 22,
-      modalOpacity: 64,
-      modalBlur: 20,
     },
   },
   {
@@ -183,12 +166,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       overlay: '#050713',
       accentInk: '#24180d',
     },
-    scene: {
-      kind: 'stars',
-      labelKey: 'themes.starlitNight.scene',
-      motion: 'shimmer',
-      opacity: 0.4,
-    },
     appearance: {
       ...appearanceDefaults,
       cardColor: '#d6d1ea',
@@ -202,12 +179,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#f6f4ee',
       notabTextColor: '#f8dcae',
       folderTextColor: '#d8e8f2',
-      categoryTextColor: '#d8e8f2',
-      tabColor: '#d9e6ef',
-      tabOpacity: 24,
-      tabBlur: 24,
-      modalOpacity: 20,
-      modalBlur: 22,
     },
   },
   {
@@ -226,12 +197,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       overlay: '#273b39',
       accentInk: '#fffdf5',
     },
-    scene: {
-      kind: 'sunbeams',
-      labelKey: 'themes.clearDay.scene',
-      motion: 'breathe',
-      opacity: 0.34,
-    },
     appearance: {
       ...appearanceDefaults,
       cardColor: '#fbfff7',
@@ -245,12 +210,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#26383c',
       notabTextColor: '#2e4c50',
       folderTextColor: '#23433f',
-      categoryTextColor: '#23433f',
-      tabColor: '#fffef6',
-      tabOpacity: 80,
-      tabBlur: 18,
-      modalOpacity: 72,
-      modalBlur: 16,
     },
   },
   {
@@ -288,12 +247,6 @@ const THEME_DEFINITIONS: PublicTheme[] = [
       bookmarkTextColor: '#1f3438',
       notabTextColor: '#234c52',
       folderTextColor: '#173b40',
-      categoryTextColor: '#173b40',
-      tabColor: '#eef5f4',
-      tabOpacity: 60,
-      tabBlur: 24,
-      modalOpacity: 52,
-      modalBlur: 22,
     },
   },
 ];
@@ -364,7 +317,7 @@ export function themeCssVars(theme: PublicTheme): Record<string, string> {
     '--public-shadow-rgb': rgbString(theme.surface.shadow),
     '--public-overlay-rgb': rgbString(theme.surface.overlay),
     '--public-accent-ink': theme.surface.accentInk,
-    '--public-scene-opacity': String(theme.scene.opacity),
+    '--public-scene-opacity': String(theme.scene?.opacity ?? 0),
   };
 }
 

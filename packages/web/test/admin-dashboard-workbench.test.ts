@@ -50,7 +50,7 @@ describe('admin dashboard workbench', () => {
     await flushPromises();
 
     const overview = wrapper.findAll('.nav-button').find((link) => link.text().includes('总览'));
-    const contentManagement = wrapper.findAll('.nav-button').find((link) => link.text().includes('书签管理'));
+    const contentManagement = wrapper.findAll('.nav-button').find((link) => link.text().includes('内容管理'));
     expect(overview?.classes()).not.toContain('router-link-active');
     expect(contentManagement?.classes()).toContain('router-link-active');
     wrapper.unmount();
@@ -92,11 +92,11 @@ describe('admin dashboard workbench', () => {
     const destinations = wrapper.findAll('.dashboard-primary-action, .dashboard-tool-link').map((link) => link.attributes('href'));
     expect(destinations).toEqual(expect.arrayContaining([
       '/admin/links#new-bookmark',
-      '/admin/automation',
+      '/admin/import',
       '/admin/notabs',
       '/admin/links#folder-management',
       '/admin/links#bookmark-tools',
-      '/admin/llm',
+      '/admin/account#llm',
       '/admin/account#api-tokens',
       '/admin/notifications',
       '/nodesk',

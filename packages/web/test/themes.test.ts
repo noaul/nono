@@ -10,6 +10,7 @@ import {
   getThemeAccentVars,
   themeCssVars,
 } from '../src/utils/themes';
+import { APPEARANCE_FIELDS, fieldAppliesToScene, type AppearanceKey } from '../src/utils/appearance';
 
 describe('public themes', () => {
   it('does not ship or reference the removed photographic scene backgrounds', () => {
@@ -55,23 +56,23 @@ describe('public themes', () => {
       expect(theme.surface.shadow).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.surface.overlay).toMatch(/^#[0-9a-f]{6}$/i);
       // Scenes carry no background imagery any more: particles are the whole effect.
-      expect(theme.scene).not.toHaveProperty('asset');
+      if (theme.scene) expect(theme.scene).not.toHaveProperty('asset');
       // Every catalogue key must resolve in both locales, never echo back as the key itself.
       for (const locale of ['zh', 'en'] as const) {
-        for (const key of [theme.nameKey, theme.descriptionKey, theme.scene.labelKey]) {
+        for (const key of [theme.nameKey, theme.descriptionKey, ...(theme.scene ? [theme.scene.labelKey] : [])]) {
           expect(translate(locale, key)).not.toBe(key);
           expect(translate(locale, key).length).toBeGreaterThan(0);
         }
       }
-      expect(theme.scene.opacity).toBeGreaterThan(0);
-      expect(theme.scene.opacity).toBeLessThanOrEqual(1);
+      if (theme.scene) {
+        expect(theme.scene.opacity).toBeGreaterThan(0);
+        expect(theme.scene.opacity).toBeLessThanOrEqual(1);
+      }
       expect(theme.appearance.cardColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.searchColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.notabTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.folderTextColor).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(theme.appearance.categoryTextColor).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(theme.appearance.tabColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
       expect(theme.appearance.pageTitleColor).toBe(theme.fontColor);
       expect(theme.appearance.descriptionColor).toBe(theme.fontColor);
@@ -79,7 +80,7 @@ describe('public themes', () => {
       expect(theme.appearance.placeholderColor).toBe(theme.appearance.notabTextColor);
     }
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
-    expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.tabColor)).size).toBeGreaterThan(3);
+    expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.searchColor)).size).toBeGreaterThan(3);
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.bookmarkTextColor)).size).toBeGreaterThan(1);
   });
 
@@ -102,7 +103,7 @@ describe('public themes', () => {
     expect(vars['--public-hover-rgb']).toMatch(/^\d+, \d+, \d+$/);
     expect(vars['--public-shadow-rgb']).toMatch(/^\d+, \d+, \d+$/);
     expect(vars['--public-overlay-rgb']).toMatch(/^\d+, \d+, \d+$/);
-    expect(vars['--public-scene-opacity']).toBe(String(theme!.scene.opacity));
+    expect(vars['--public-scene-opacity']).toBe(String(theme!.scene!.opacity));
   });
 
   it('derives the full accent variable family from one hex', () => {
@@ -128,5 +129,19 @@ describe('public themes', () => {
     expect(getSceneIntensity({ theme: { sceneIntensity: 180 } })).toBe(100);
     expect(getSceneIntensity({ theme: { sceneIntensity: -20 } })).toBe(0);
     expect(getSceneIntensity({ theme: { sceneIntensity: 'nope' } })).toBe(100);
+  });
+
+  it('keeps only the rain, snow, leaves, and bubbles scenes; the rest are static themes', () => {
+    const scenes = Object.fromEntries(PUBLIC_THEMES.map((theme) => [theme.id, theme.scene?.kind ?? null]));
+    expect(new Set(Object.values(scenes).filter(Boolean))).toEqual(new Set(['rain', 'snow', 'leaves', 'bubbles']));
+    expect(scenes['starlit-night']).toBeNull();
+    expect(scenes['clear-day']).toBeNull();
+    expect(themeCssVars(getTheme('clear-day')!)['--public-scene-opacity']).toBe('0');
+  });
+
+  it('drops the scene controls from the editor for a static theme', () => {
+    const sceneKeys = (Object.keys(APPEARANCE_FIELDS) as AppearanceKey[]).filter((key) => APPEARANCE_FIELDS[key].group === 'scene');
+    expect(sceneKeys.filter((key) => fieldAppliesToScene(key, undefined))).toEqual([]);
+    expect(fieldAppliesToScene('sceneSpeed', 'snow')).toBe(true);
   });
 });

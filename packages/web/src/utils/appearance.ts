@@ -107,19 +107,6 @@ export interface AppearanceSettings {
   notabTextSize: number;
   folderTextColor: string;
   folderTextSize: number;
-
-  // -- Mirrored for older payloads. Not editable; kept so saved sites keep working. ----------
-  categoryTextColor: string;
-  tabColor: string;
-  modalRadius: number;
-  modalOpacity: number;
-  modalBlur: number;
-  tabRadius: number;
-  tabOpacity: number;
-  tabBlur: number;
-  adminRadius: number;
-  adminOpacity: number;
-  adminBlur: number;
 }
 
 export type AppearanceKey = keyof AppearanceSettings;
@@ -147,8 +134,6 @@ type CommonField = {
   advanced?: boolean;
   /** Only offered when the active theme uses one of these scenes. */
   scenes?: SceneKind[];
-  /** Mirrored legacy value: normalized and saved, but never shown in the editor. */
-  legacy?: boolean;
   /** Base custom property name; omitted when the value is applied some other way. */
   cssVar?: string;
 };
@@ -251,7 +236,7 @@ export const APPEARANCE_FIELDS: { [K in AppearanceKey]: FieldFor<AppearanceSetti
 
   // -- Dynamic scenes ------------------------------------------------------------------------
   // `scenes` narrows a control to the kinds it means anything for: leaves never accumulate and
-  // never collide, stars and sunbeams do not touch the interface at all.
+  // never collide. Static themes have no scene, so the whole group drops out of the editor.
   sceneEnabled: { kind: 'toggle', group: 'scene', default: true },
   sceneParticleSize: { kind: 'number', group: 'scene', default: 100, min: 50, max: 200, format: 'scale' },
   sceneSpeed: { kind: 'number', group: 'scene', default: 100, min: 25, max: 200, format: 'scale' },
@@ -260,7 +245,7 @@ export const APPEARANCE_FIELDS: { [K in AppearanceKey]: FieldFor<AppearanceSetti
   sceneDepth: { kind: 'number', group: 'scene', default: 100, min: 0, max: 150, advanced: true, format: 'scale' },
   sceneForegroundBlur: { kind: 'number', group: 'scene', default: 100, min: 0, max: 200, advanced: true, format: 'scale', scenes: ['leaves', 'snow', 'bubbles'] },
   // Rain-only: it is the one scene that touches the interface. Snow and leaves are purely
-  // airborne, and stars, bubbles and sunbeams never collide either.
+  // airborne, and bubbles never collide either.
   sceneCollision: { kind: 'number', group: 'scene', default: 100, min: 0, max: 150, advanced: true, format: 'scale', scenes: ['rain'] },
   sceneSplash: { kind: 'number', group: 'scene', default: 100, min: 0, max: 150, advanced: true, format: 'scale', scenes: ['rain'] },
   sceneReducedMotion: { kind: 'toggle', group: 'scene', default: true, advanced: true },
@@ -285,32 +270,16 @@ export const APPEARANCE_FIELDS: { [K in AppearanceKey]: FieldFor<AppearanceSetti
   folderTextColor: { kind: 'color', group: 'typography', default: '#ffffff', cssVar: '--public-folder-text' },
   folderTextSize: { kind: 'number', group: 'typography', default: 18, min: 12, max: 22, format: 'px', cssVar: '--public-folder-text-size' },
 
-  // -- Mirrored legacy values ----------------------------------------------------------------
-  categoryTextColor: { kind: 'color', group: 'typography', default: '#ffffff', legacy: true, cssVar: '--public-category-text' },
-  tabColor: { kind: 'color', group: 'search', default: '#f7f8fb', legacy: true, cssVar: '--public-tab-color' },
-  modalRadius: { kind: 'number', group: 'folders', default: 8, min: 0, max: 32, legacy: true, format: 'px', cssVar: '--public-modal-radius' },
-  modalOpacity: { kind: 'number', group: 'folders', default: 85, min: 20, max: 96, legacy: true, format: 'ratio', cssVar: '--public-modal-opacity' },
-  modalBlur: { kind: 'number', group: 'folders', default: 24, min: 0, max: 40, legacy: true, format: 'px', cssVar: '--public-modal-blur' },
-  tabRadius: { kind: 'number', group: 'search', default: 28, min: 0, max: 28, legacy: true, format: 'px', cssVar: '--public-tab-radius' },
-  tabOpacity: { kind: 'number', group: 'search', default: 26, min: 12, max: 96, legacy: true, format: 'ratio', cssVar: '--public-tab-opacity' },
-  tabBlur: { kind: 'number', group: 'search', default: 10, min: 0, max: 32, legacy: true, format: 'px', cssVar: '--public-tab-blur' },
-  adminRadius: { kind: 'number', group: 'glass', default: 8, min: 0, max: 20, legacy: true },
-  adminOpacity: { kind: 'number', group: 'glass', default: 72, min: 40, max: 100, legacy: true },
-  adminBlur: { kind: 'number', group: 'glass', default: 10, min: 0, max: 24, legacy: true },
 };
 
 const FIELD_KEYS = Object.keys(APPEARANCE_FIELDS) as AppearanceKey[];
 
-/** Editable fields in editor order: the mirrored legacy values are skipped. */
-export const EDITABLE_APPEARANCE_KEYS = FIELD_KEYS.filter((key) => !APPEARANCE_FIELDS[key].legacy);
+/** Every field, in editor order. */
+export const EDITABLE_APPEARANCE_KEYS = FIELD_KEYS;
 
-// Mirrored so the shipped defaults are internally consistent: `tabOpacity` and friends must
-// never disagree with the settings that replaced them, not even before a site has been saved.
-export const appearanceDefaults: AppearanceSettings = applyAppearanceMirrors(
-  Object.fromEntries(
-    FIELD_KEYS.map((key) => [key, APPEARANCE_FIELDS[key].default]),
-  ) as unknown as AppearanceSettings,
-);
+export const appearanceDefaults = Object.fromEntries(
+  FIELD_KEYS.map((key) => [key, APPEARANCE_FIELDS[key].default]),
+) as unknown as AppearanceSettings;
 
 /**
  * Density presets are quick defaults, not a lock: they write the layout values once and every
@@ -458,28 +427,11 @@ export function getAppearanceSettings(settings?: Record<string, unknown> | null)
   }
 
   const typed = result as unknown as AppearanceSettings;
-  // Older payloads only carried `categoryTextColor`; treat it as the folder and NoTab colour
-  // when the newer keys are absent, then re-establish the mirrors.
-  typed.notabTextColor = normalizedHex(saved.notabTextColor, typed.categoryTextColor);
-  typed.folderTextColor = normalizedHex(saved.folderTextColor, typed.categoryTextColor);
-  return applyAppearanceMirrors(typed);
-}
-
-/** Keeps the mirrored legacy values in step with the settings that replaced them. */
-function applyAppearanceMirrors(appearance: AppearanceSettings): AppearanceSettings {
-  appearance.categoryTextColor = appearance.folderTextColor;
-  appearance.tabColor = appearance.searchColor;
-  appearance.tabRadius = appearance.searchRadius;
-  appearance.tabOpacity = appearance.searchOpacity;
-  appearance.tabBlur = appearance.searchBlur;
-  appearance.modalRadius = appearance.cardRadius;
-  appearance.modalOpacity = appearance.cardOpacity;
-  appearance.modalBlur = appearance.cardBlur;
-  return appearance;
-}
-
-export function appearanceSettingsForSave(appearance: AppearanceSettings): AppearanceSettings {
-  return applyAppearanceMirrors({ ...appearance });
+  // Payloads saved before the NoTab and folder colours split only carry `categoryTextColor`.
+  const legacyText = normalizedHex(saved.categoryTextColor, APPEARANCE_FIELDS.folderTextColor.default);
+  typed.notabTextColor = normalizedHex(saved.notabTextColor, legacyText);
+  typed.folderTextColor = normalizedHex(saved.folderTextColor, legacyText);
+  return typed;
 }
 
 function formatNumber(value: number, format: NumberFormat = 'raw') {
@@ -568,7 +520,8 @@ export function toSceneTuning(appearance: AppearanceSettings): SceneTuning {
 
 /** True when the control means anything for the given scene. */
 export function fieldAppliesToScene(key: AppearanceKey, kind: SceneKind | undefined): boolean {
-  const scenes = APPEARANCE_FIELDS[key].scenes;
+  const { group, scenes } = APPEARANCE_FIELDS[key];
+  if (group === 'scene' && !kind) return false;
   if (!scenes) return true;
   return Boolean(kind) && scenes.includes(kind as SceneKind);
 }

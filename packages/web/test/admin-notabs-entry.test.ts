@@ -11,8 +11,8 @@ describe('NoTab management entry', () => {
     const viewPath = path.resolve(process.cwd(), 'src/views/admin/NotabsView.vue');
 
     expect(layoutSource).toContain("labelKey: 'admin.navContentManagement'");
-    expect(layoutSource).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links']");
-    expect(translate('zh', 'admin.navContentManagement')).toBe('文件夹及书签管理');
+    expect(layoutSource).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/import', '/admin/trash']");
+    expect(translate('zh', 'admin.navContentManagement')).toBe('内容管理');
     expect(translate('zh', 'admin.navNotabs')).toBe('NoTab 管理');
     expect(routerSource).toContain("path: '/admin/notabs'");
     expect(fs.existsSync(viewPath)).toBe(true);

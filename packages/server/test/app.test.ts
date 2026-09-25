@@ -721,13 +721,12 @@ describe('NoNo Fastify app', () => {
         notabTextSize: 16,
         folderTextColor: '#334455',
         folderTextSize: 12,
-        categoryTextColor: '#334455',
-        tabColor: '#a1b2c3',
-        modalOpacity: 26,
-        tabBlur: 20,
-        adminBlur: 10,
       },
     });
+    // Retired mirror keys are dropped on save rather than stored back.
+    for (const retired of ['categoryTextColor', 'tabColor', 'modalOpacity', 'tabBlur', 'adminBlur']) {
+      expect(updated.json().data.settings.appearance).not.toHaveProperty(retired);
+    }
 
     const unsafe = await app.inject({
       method: 'PUT',

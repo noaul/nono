@@ -54,7 +54,7 @@ const stepTuning = computed(() => ({
 
 const modeMultiplier = computed(() => {
   if (props.mode !== 'dark') return 1;
-  return props.theme?.scene.kind === 'stars' || props.theme?.scene.kind === 'snow' ? 0.92 : 0.72;
+  return props.theme?.scene?.kind === 'snow' ? 0.92 : 0.72;
 });
 
 // The particle field is sized by the dial as well; `visibleParticles` is what actually renders.
@@ -62,7 +62,7 @@ const visibleParticles = ref(0);
 
 const sceneStyle = computed<Record<string, string>>(() => {
   const enabled = props.tuning?.enabled === false ? 0 : 1;
-  const opacity = (props.theme?.scene.opacity ?? 0) * intensityRatio.value * modeMultiplier.value * enabled;
+  const opacity = (props.theme?.scene?.opacity ?? 0) * intensityRatio.value * modeMultiplier.value * enabled;
   return {
     '--theme-scene-opacity': String(opacity),
     '--theme-scene-mobile-opacity': String(opacity * 0.72),
@@ -108,13 +108,11 @@ const PALETTE: Record<SceneKind, { body: string; accent: string; glow: string }>
   snow: { body: '#ffffff', accent: 'rgba(226, 240, 255, 0.95)', glow: 'rgba(44, 72, 110, 0.35)' },
   leaves: { body: '#6cb075', accent: '#c07a48', glow: 'rgba(31, 82, 52, 0.28)' },
   bubbles: { body: 'rgba(255, 255, 255, 0.9)', accent: 'rgba(11, 125, 128, 0.35)', glow: 'rgba(11, 125, 128, 0.22)' },
-  stars: { body: '#fff8e2', accent: '#dce8ff', glow: 'rgba(255, 231, 164, 0.9)' },
-  sunbeams: { body: 'rgba(255, 226, 150, 0.95)', accent: 'rgba(248, 190, 92, 0.85)', glow: 'rgba(248, 190, 92, 0.6)' },
 };
 
 function measureLedges() {
   if (typeof document === 'undefined') return;
-  const kind = props.theme?.scene.kind;
+  const kind = props.theme?.scene?.kind;
   // Rain is the only scene that collides, so no other scene pays to sample the page.
   if (kind !== 'rain') {
     ledges = [];
@@ -229,7 +227,7 @@ function drawLedgeWater(ctx: CanvasRenderingContext2D, kind: SceneKind) {
 
 }
 
-function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: Field['particles'][number], time: number) {
+function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: Field['particles'][number]) {
   const palette = PALETTE[kind];
   const fade = 0.3 + 0.7 * particle.depth;
 
@@ -281,36 +279,13 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: SceneKind, particle: 
     ctx.beginPath();
     ctx.arc(particle.x - particle.size * 0.3, particle.y - particle.size * 0.34, particle.size * 0.18, 0, Math.PI * 2);
     ctx.fill();
-    return;
   }
-
-  if (kind === 'stars') {
-    const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(time * (0.5 + particle.depth) + particle.rotation));
-    ctx.globalAlpha = fade * twinkle;
-    ctx.fillStyle = particle.variant === 2 ? palette.accent : palette.body;
-    ctx.beginPath();
-    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-    ctx.fill();
-    if (particle.depth > 0.82) {
-      ctx.globalAlpha = fade * twinkle * 0.5;
-      ctx.fillRect(particle.x - particle.size * 4, particle.y - 0.4, particle.size * 8, 0.8);
-    }
-    return;
-  }
-
-  // sunbeams: dust motes catching the light
-  const shimmer = 0.4 + 0.6 * Math.abs(Math.sin(time * 0.8 + particle.rotation));
-  ctx.globalAlpha = fade * shimmer;
-  ctx.fillStyle = palette.body;
-  ctx.beginPath();
-  ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-  ctx.fill();
 }
 
 function render(time: number) {
   frame = requestAnimationFrame(render);
   const ctx = context;
-  const kind = props.theme?.scene.kind;
+  const kind = props.theme?.scene?.kind;
   if (!ctx || !field || !kind || paused.value) {
     lastTime = time;
     return;
@@ -333,7 +308,7 @@ function render(time: number) {
   ctx.clearRect(0, 0, field.width, field.height);
   ctx.globalAlpha = 1;
   drawLedgeWater(ctx, kind);
-  for (const particle of field.particles) drawParticle(ctx, kind, particle, field.time);
+  for (const particle of field.particles) drawParticle(ctx, kind, particle);
 
   if (field.bursts.length) {
     const palette = PALETTE[kind];
@@ -365,7 +340,7 @@ function render(time: number) {
 }
 
 function startField() {
-  const kind = props.theme?.scene.kind;
+  const kind = props.theme?.scene?.kind;
   if (!kind || typeof window === 'undefined') return;
   field = createField(kind, window.innerWidth, window.innerHeight, 1);
   random = createRandom(0x9e3779b9);
@@ -455,7 +430,7 @@ onBeforeUnmount(() => {
   if (ledgeMeasureFrame) cancelAnimationFrame(ledgeMeasureFrame);
 });
 
-watch(() => props.theme?.scene.kind, () => {
+watch(() => props.theme?.scene?.kind, () => {
   resize();
   startField();
 }, { flush: 'post' });
@@ -467,7 +442,7 @@ defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
 
 <template>
   <div
-    v-if="theme"
+    v-if="theme?.scene"
     class="theme-scene"
     :class="[`scene-${theme.scene.kind}`, { 'is-paused': paused, 'is-reduced-motion': reducedMotion }]"
     :data-scene="theme.scene.kind"
@@ -537,14 +512,6 @@ defineExpose({ intensityRatio, visibleParticles, intensityEnvelope });
 
 [data-scene='leaves'] .scene-atmosphere {
   background: linear-gradient(180deg, rgba(245, 255, 210, 0.36) 0%, transparent 56%);
-}
-
-[data-scene='stars'] .scene-atmosphere {
-  background: linear-gradient(180deg, rgba(92, 119, 214, 0.26) 0%, transparent 62%);
-}
-
-[data-scene='sunbeams'] .scene-atmosphere {
-  background: linear-gradient(180deg, rgba(255, 233, 163, 0.36) 0%, transparent 60%);
 }
 
 [data-scene='rain'] .scene-atmosphere {

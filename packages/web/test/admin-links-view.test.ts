@@ -170,7 +170,7 @@ describe('LinksView admin workflow', () => {
     const wrapper = mountLinksView();
     await settle(wrapper);
 
-    expect(wrapper.findAll('.content-management-tab').map((tab) => tab.text())).toEqual(['NoTab 管理', '文件夹及书签管理']);
+    expect(wrapper.findAll('.content-management-tab').map((tab) => tab.text())).toEqual(['NoTab 管理', '文件夹及书签管理', '导入导出', '回收站']);
     await wrapper.get('[data-testid="create-folder"]').trigger('click');
     await wrapper.get('[data-testid="folder-editor-name"]').setValue('资料');
     await wrapper.get('[data-testid="save-folder-editor"]').trigger('click');

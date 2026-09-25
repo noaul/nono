@@ -25,17 +25,13 @@ const numericAppearanceFields: Record<string, readonly [number, number, number]>
   sceneForegroundBlur: [100, 0, 200], sceneCollision: [100, 0, 150], sceneSplash: [100, 0, 150],
   pageTitleSize: [30, 18, 52], descriptionSize: [14, 11, 22], fontWeight: [400, 300, 800],
   lineHeight: [150, 110, 210], bookmarkTextSize: [14, 12, 18], notabTextSize: [15, 12, 18],
-  folderTextSize: [18, 12, 22], modalRadius: [8, 0, 32], modalOpacity: [85, 20, 96],
-  modalBlur: [24, 0, 40], tabRadius: [28, 0, 28], tabOpacity: [26, 12, 96],
-  tabBlur: [10, 0, 32], adminRadius: [8, 0, 20], adminOpacity: [72, 40, 100],
-  adminBlur: [10, 0, 24],
+  folderTextSize: [18, 12, 22],
 };
 
 const colorAppearanceFields: Record<string, string> = {
   cardColor: '#f7f8fb', searchColor: '#f7f8fb', pageTitleColor: '#ffffff',
   descriptionColor: '#ffffff', searchTextColor: '#ffffff', placeholderColor: '#ffffff',
   bookmarkTextColor: '#ffffff', notabTextColor: '#ffffff', folderTextColor: '#ffffff',
-  categoryTextColor: '#ffffff', tabColor: '#f7f8fb',
 };
 
 const booleanAppearanceFields: Record<string, boolean> = {
@@ -51,12 +47,12 @@ const enumAppearanceFields: Record<string, readonly [string, ...string[]]> = {
   fontFamilyEn: ['inherit', 'inter', 'georgia', 'jetbrains'],
 };
 
-export const appearanceDefaults: AppearanceSettings = applyAppearanceMirrors({
+export const appearanceDefaults: AppearanceSettings = {
   ...Object.fromEntries(Object.entries(numericAppearanceFields).map(([key, [fallback]]) => [key, fallback])),
   ...colorAppearanceFields,
   ...booleanAppearanceFields,
   ...Object.fromEntries(Object.entries(enumAppearanceFields).map(([key, [fallback]]) => [key, fallback])),
-});
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -93,21 +89,10 @@ function normalizeAppearance(input: unknown) {
   for (const [key, options] of Object.entries(enumAppearanceFields)) {
     result[key] = typeof source[key] === 'string' && options.includes(source[key]) ? source[key] : options[0];
   }
-  const legacyText = normalizeHex(source.categoryTextColor, colorAppearanceFields.categoryTextColor);
+  // Payloads saved before the NoTab and folder colours split only carry `categoryTextColor`.
+  const legacyText = normalizeHex(source.categoryTextColor, colorAppearanceFields.folderTextColor);
   result.notabTextColor = normalizeHex(source.notabTextColor, legacyText);
   result.folderTextColor = normalizeHex(source.folderTextColor, legacyText);
-  return applyAppearanceMirrors(result);
-}
-
-function applyAppearanceMirrors(result: AppearanceSettings) {
-  result.categoryTextColor = result.folderTextColor;
-  result.tabColor = result.searchColor;
-  result.tabRadius = result.searchRadius;
-  result.tabOpacity = result.searchOpacity;
-  result.tabBlur = result.searchBlur;
-  result.modalRadius = result.cardRadius;
-  result.modalOpacity = result.cardOpacity;
-  result.modalBlur = result.cardBlur;
   return result;
 }
 

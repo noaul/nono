@@ -7,7 +7,7 @@ import LanguageControl from '@/components/LanguageControl.vue';
 import { useI18n } from '@/composables/useI18n';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
-import { appearanceDefaults, appearanceSettingsForSave, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
+import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
 import { PUBLIC_THEMES, accentCssVars, getSceneIntensity, getTheme, type PublicTheme } from '@/utils/themes';
 
 const props = defineProps<{ open: boolean; site: Site }>();
@@ -57,7 +57,7 @@ const presetsFull = computed(() => userPresets.value.length >= 3);
 /** Everything the Save button would send, in a stable shape for comparison. */
 function draftSignature() {
   return JSON.stringify({
-    appearance: appearanceSettingsForSave(appearance),
+    appearance: { ...appearance },
     theme: { ...theme },
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
@@ -124,7 +124,7 @@ function themePreviewStyle(preset: PublicTheme) {
     '--theme-bg': preset.backgroundColor,
     '--theme-font': preset.fontColor,
     '--theme-card': preset.appearance.cardColor,
-    '--theme-tab': preset.appearance.tabColor,
+    '--theme-tab': preset.appearance.searchColor,
     '--theme-border': preset.surface.border,
   };
 }
@@ -160,7 +160,7 @@ async function persist(successMessage = t('appearance.saved')) {
         fontColor: fontColor.value,
         settings: {
           ...(props.site.settings || {}),
-          appearance: appearanceSettingsForSave(appearance),
+          appearance: { ...appearance },
           theme: { ...theme },
           appearancePresets: userPresets.value,
         },
@@ -192,7 +192,7 @@ async function saveUserPreset() {
   const preset: UserAppearancePreset = {
     id: `preset-${Date.now()}-${userPresets.value.length + 1}`,
     name,
-    appearance: appearanceSettingsForSave({ ...appearance }),
+    appearance: { ...appearance },
     theme: { ...theme },
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
@@ -239,7 +239,7 @@ watch(draftSignature, () => {
     fontColor: fontColor.value,
     settings: {
       ...(props.site.settings || {}),
-      appearance: appearanceSettingsForSave(appearance),
+      appearance: { ...appearance },
       theme: { ...theme },
       appearancePresets: userPresets.value,
     },
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
                   :key="preset.id"
                   type="button"
                   class="theme-card"
-                  :class="[`theme-${preset.scene.kind}`, { active: theme.id === preset.id }]"
+                  :class="[preset.scene ? `theme-${preset.scene.kind}` : 'theme-static', { active: theme.id === preset.id }]"
                   :style="themePreviewStyle(preset)"
                   :data-testid="`theme-${preset.id}`"
                   @click="applyTheme(preset)"
@@ -443,7 +443,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-show="activeTab === 'texture'" class="drawer-panel" role="tabpanel">
-            <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene.kind" />
+            <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene?.kind" />
           </div>
         </div>
 
@@ -792,33 +792,6 @@ onBeforeUnmount(() => {
   width: 7px;
 }
 
-.theme-stars .theme-motion::before,
-.theme-stars .theme-motion::after {
-  background: #fff7dc;
-  border-radius: 50%;
-  box-shadow: 0 0 6px rgba(255, 231, 164, 0.9);
-  height: 3px;
-  width: 3px;
-}
-
-.theme-stars .theme-motion::before {
-  animation: preview-twinkle 2.2s ease-in-out infinite alternate;
-  left: 30%;
-  top: 34%;
-}
-
-.theme-stars .theme-motion::after {
-  animation: preview-twinkle 2.8s ease-in-out 0.9s infinite alternate;
-  right: 26%;
-  top: 20%;
-}
-
-.theme-sunbeams .theme-motion::before {
-  animation: preview-sweep 5s ease-in-out infinite alternate;
-  background: linear-gradient(115deg, transparent 32%, rgba(255, 250, 198, 0.5) 50%, transparent 68%);
-  inset: -30%;
-}
-
 .theme-rain .theme-motion::before,
 .theme-rain .theme-motion::after {
   background: linear-gradient(180deg, transparent, rgba(226, 248, 250, 0.85));
@@ -1150,16 +1123,6 @@ onBeforeUnmount(() => {
   0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
   14% { opacity: 0.92; }
   100% { opacity: 0; transform: translate3d(8px, 100px, 0) rotate(160deg); }
-}
-
-@keyframes preview-twinkle {
-  from { opacity: 0.2; transform: scale(0.7); }
-  to { opacity: 1; transform: scale(1.35); }
-}
-
-@keyframes preview-sweep {
-  from { transform: translate3d(-16%, 0, 0); }
-  to { transform: translate3d(16%, 0, 0); }
 }
 
 @keyframes preview-rain {

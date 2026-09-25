@@ -368,45 +368,6 @@
   color: var(--ui-text);
 }
 
-.admin-page-header {
-  align-items: flex-start;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ui-space-3);
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.admin-page-eyebrow {
-  color: var(--ui-text-subtle);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  margin: 0 0 2px;
-  text-transform: uppercase;
-}
-
-.admin-page-heading {
-  min-width: 0;
-}
-
-/* The topbar owns the page's h1, so this h2 is a quiet section heading. */
-.admin-page-title {
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: 0;
-  margin: 0;
-}
-
-.admin-page-description {
-  color: var(--ui-text-muted);
-  font-size: 13px;
-  margin: var(--ui-space-1) 0 0;
-  max-width: 68ch;
-}
-
-.admin-page-actions,
-.admin-page-toolbar,
 .admin-section-actions {
   align-items: center;
   display: flex;
@@ -456,7 +417,6 @@
 .panel,
 .section,
 .duplicate-panel,
-.health-check-panel,
 .import-preview-panel {
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
@@ -467,7 +427,6 @@
 
 .admin-card-head,
 .duplicate-panel-head,
-.health-check-head,
 .import-preview-head {
   align-items: center;
   display: flex;
@@ -660,9 +619,7 @@
 }
 
 .grid,
-.admin-settings-grid,
-.admin-form-grid,
-.bookmark-create-grid {
+.admin-settings-grid {
   display: grid;
   gap: var(--ui-space-3);
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -677,7 +634,6 @@
    Tables
    ========================================================================== */
 .admin-table,
-.folder-table,
 .bookmark-table,
 .mobile-card-table {
   background: var(--ui-surface);
@@ -686,10 +642,6 @@
   font-size: 13px;
   overflow-x: auto;
   width: 100%;
-}
-
-.admin-page-toolbar {
-  justify-content: flex-end;
 }
 
 .admin-table-head,
@@ -734,28 +686,10 @@
   min-width: 760px;
 }
 
-.folder-table .admin-table-head,
-.folder-table .admin-table-row {
-  grid-template-columns: 48px 52px minmax(150px, 1fr) minmax(120px, 0.8fr) 110px minmax(180px, 1.2fr) 104px;
-  min-width: 880px;
-}
-
 .bookmark-table .admin-table-head,
 .bookmark-table .admin-table-row {
   grid-template-columns: 44px 40px minmax(130px, 0.8fr) minmax(220px, 1.5fr) 130px 120px 104px 124px;
   min-width: 1040px;
-}
-
-.admin-table-wrap,
-.workbench-stage .table-scroll {
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.row-title {
-  color: var(--ui-text);
-  font-weight: 600;
 }
 
 .row-subtitle {
@@ -763,8 +697,7 @@
   font-size: 12px;
 }
 
-.row-actions,
-.health-check-actions {
+.row-actions {
   align-items: center;
   display: flex;
   gap: var(--ui-space-1);
@@ -772,8 +705,7 @@
 }
 
 /* Row actions run at the dense control height so a table row stays compact. */
-.row-actions .icon-button,
-.health-check-actions .icon-button {
+.row-actions .icon-button {
   height: var(--ui-control-h-sm);
   width: var(--ui-control-h-sm);
 }
@@ -785,9 +717,7 @@
   width: 1%;
 }
 
-.url-cell,
-.health-final-url,
-.health-url-stack {
+.url-cell {
   color: var(--ui-text-muted);
   font-size: 12px;
   max-width: 26ch;
@@ -799,8 +729,7 @@
 .sortable-list,
 .list,
 .preview-list,
-.duplicate-list,
-.health-result-list {
+.duplicate-list {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-2);
@@ -812,7 +741,6 @@
 
 .row,
 .preview-row,
-.health-result-row,
 .duplicate-group {
   align-items: center;
   background: var(--ui-surface);
@@ -863,11 +791,7 @@
   color: var(--ui-canvas);
 }
 
-.status-new,
-.tone-green,
-.tone-amber,
-.tone-rose,
-.tone-blue {
+.status-new {
   border: 1px solid transparent;
   border-radius: var(--ui-radius-sm);
   display: inline-flex;
@@ -876,7 +800,6 @@
   padding: 2px var(--ui-space-2);
 }
 
-.tone-green,
 .status-new,
 .success {
   background: var(--ui-success-soft);
@@ -884,28 +807,13 @@
   color: var(--ui-success);
 }
 
-.tone-amber {
-  background: var(--ui-warning-soft);
-  border-color: color-mix(in srgb, var(--ui-warning) 25%, transparent);
-  color: var(--ui-warning);
-}
-
-.tone-rose,
 .error {
   background: var(--ui-danger-soft);
   border-color: color-mix(in srgb, var(--ui-danger) 25%, transparent);
   color: var(--ui-danger);
 }
 
-.tone-blue {
-  background: var(--ui-info-soft);
-  border-color: color-mix(in srgb, var(--ui-info) 25%, transparent);
-  color: var(--ui-info);
-}
-
-.token-summary-grid,
-.preview-stats,
-.health-summary {
+.preview-stats {
   display: grid;
   gap: var(--ui-space-3);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1410,16 +1318,6 @@
   }
 }
 
-.token-created-secret {
-  background: var(--ui-surface-sunken);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-  padding: var(--ui-space-2) var(--ui-space-3);
-}
-
 /* ==========================================================================
    Drag performance and nesting
    Carried over from the previous stylesheet: these are behaviour, not skin.
@@ -1461,12 +1359,6 @@
 
 .admin-shell .sortable-row-ghost > * {
   opacity: 0.35;
-}
-
-/* Nested folder rows indent by their depth rather than by a wrapper element. */
-.sortable-admin-row .row-title,
-.folder-table .row-title {
-  padding-left: calc(var(--folder-depth, 0) * 18px);
 }
 
 /* ==========================================================================
@@ -1596,7 +1488,6 @@
 
   /* Wide simulated tables become stacked cards rather than a horizontal scroll trap. */
   .admin-table,
-  .folder-table,
   .bookmark-table,
   .admin-table.mobile-card-table {
     background: transparent;

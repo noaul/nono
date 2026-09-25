@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
 import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import LlmSettings from '@/components/admin/LlmSettings.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, Site } from '@/api/types';
@@ -363,6 +364,8 @@ onMounted(() => {
         </article>
       </div>
     </section>
+
+    <LlmSettings />
 
     <section class="admin-section security-section" data-testid="login-devices-section">
       <header class="admin-section-head">

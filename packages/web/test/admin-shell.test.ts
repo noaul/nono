@@ -1,11 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { h } from 'vue';
 import { mount, RouterLinkStub } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it } from 'vitest';
 import AdminLayout from '../src/components/AdminLayout.vue';
-import AdminPageHeader from '../src/components/admin/AdminPageHeader.vue';
 
 /**
  * The admin shell used to be five stacked skins on one element (workbench, glass, figma,
@@ -47,7 +45,7 @@ describe('admin shell', () => {
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
-    expect(wrapper.findAll('.nav-section')).toHaveLength(3);
+    expect(wrapper.findAll('.nav-section')).toHaveLength(2);
     expect(wrapper.find('.operator-card').exists()).toBe(true);
   });
 
@@ -59,35 +57,6 @@ describe('admin shell', () => {
     expect(headings).toHaveLength(1);
     expect(wrapper.find('.page-title h1').exists()).toBe(true);
     expect(wrapper.get('.sidebar-brand').find('h1').exists()).toBe(false);
-  });
-
-  it('keeps a single h1 when a real page header is rendered into the slot', () => {
-    setActivePinia(createPinia());
-    const wrapper = mount(AdminLayout, {
-      global: {
-        stubs: { RouterLink: RouterLinkStub, RouterView: true, ToastHost: true, ConfirmDialog: true, NotificationBell: true },
-        mocks: { $route: { path: '/admin/links' } },
-      },
-      slots: {
-        default: h(AdminPageHeader, { eyebrow: '内容管理', title: '书签管理', description: '按 NoTab 整理书签。' }),
-      },
-    });
-
-    // The topbar owns the only h1; the in-page header is an h2 beneath it.
-    expect(wrapper.findAll('h1')).toHaveLength(1);
-    expect(wrapper.find('.workbench-topbar h1').exists()).toBe(true);
-    expect(wrapper.findAll('h2.admin-page-title')).toHaveLength(1);
-    expect(wrapper.get('h2.admin-page-title').text()).toBe('书签管理');
-    // Descriptions and actions survive the demotion.
-    expect(wrapper.get('.admin-page-description').text()).toContain('按 NoTab');
-    expect(wrapper.get('.admin-page-eyebrow').text()).toBe('内容管理');
-  });
-
-  it('styles the in-page heading as a quiet section heading', () => {
-    const css = readAdminCss();
-
-    expect(css).toMatch(/\.admin-page-title \{[\s\S]*?font-size:\s*15px/);
-    expect(css).toMatch(/\.admin-page-title \{[\s\S]*?letter-spacing:\s*0;/);
   });
 
   it('sets every letter-spacing in the unified admin surface to exactly 0', () => {
@@ -182,12 +151,11 @@ describe('admin shell', () => {
     expect(css).toMatch(/\.nav-button\.router-link-active[\s\S]*?color:\s*var\(--ui-canvas\)/);
   });
 
-  it('keeps drag performance and folder nesting behaviour', () => {
+  it('keeps drag performance behaviour', () => {
     const css = readAdminCss();
 
     expect(css).toContain(".sortable-list[data-dragging='true'] .sortable-admin-row");
     expect(css).toMatch(/sortable-row-dragging[\s\S]*?backdrop-filter:\s*none/);
-    expect(css).toContain('var(--folder-depth, 0)');
     expect(css).toMatch(/\.workbench-stage > \* \{[\s\S]*?width:\s*100%/);
   });
 

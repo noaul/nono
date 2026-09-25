@@ -220,7 +220,7 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="navigation-entry-clipper"]').exists()).toBe(false);
   });
 
-  it('uses card and search settings as the shared content and navigation glass variables', async () => {
+  it('ignores the retired modal, tab, and admin glass keys in saved payloads', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {
         cardRadius: 16,
@@ -242,10 +242,10 @@ describe('NavigationPage public workflow', () => {
     const wrapper = await mountNavigationPage();
     const style = wrapper.get('.nav-page').attributes('style');
 
-    expect(style).toContain('--public-modal-radius: 16px');
-    expect(style).toContain('--public-modal-opacity: 0.78');
-    expect(style).toContain('--public-tab-radius: 18px');
-    expect(style).toContain('--public-tab-opacity: 0.36');
+    expect(style).toContain('--public-card-radius: 16px');
+    expect(style).toContain('--public-search-radius: 18px');
+    expect(style).not.toContain('--public-modal-');
+    expect(style).not.toContain('--public-tab-');
     expect(style).not.toContain('--admin-surface-radius');
   });
 
@@ -273,24 +273,31 @@ describe('NavigationPage public workflow', () => {
 
   it('scales the scene by the persisted intensity dial and hides it entirely at zero', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 50 },
+      theme: { id: 'winter-glow', sceneIntensity: 50 },
     }));
 
     const wrapper = await mountNavigationPage();
     const scene = wrapper.get('[data-testid="theme-scene"]');
 
-    // starlit-night ships opacity 0.4; a 50% dial halves it and thins the particle field.
-    expect(scene.attributes('style')).toContain('--theme-scene-opacity: 0.2');
+    // winter-glow ships opacity 0.44; a 50% dial halves it and thins the particle field.
+    expect(scene.attributes('style')).toContain('--theme-scene-opacity: 0.22');
     expect(scene.attributes('style')).toContain('--theme-particle-alpha: 0.68');
     // Particles live on a canvas now; the dial's effect on field size is covered by the
     // sceneParticles unit tests, so here we only assert the canvas is mounted and scaled.
     expect(scene.find('[data-testid="scene-canvas"]').exists()).toBe(true);
 
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 0 },
+      theme: { id: 'winter-glow', sceneIntensity: 0 },
     }));
     const offWrapper = await mountNavigationPage();
     expect(offWrapper.find('[data-testid="theme-scene"]').exists()).toBe(false);
+
+    // Static themes draw nothing whatever the dial says.
+    apiRequest.mockResolvedValue(navigationPayload(undefined, {
+      theme: { id: 'starlit-night', sceneIntensity: 100 },
+    }));
+    const staticWrapper = await mountNavigationPage();
+    expect(staticWrapper.find('[data-testid="theme-scene"]').exists()).toBe(false);
   });
 
   it('keeps scene decoration out of the interaction and reduced-motion paths', () => {
@@ -444,7 +451,8 @@ describe('NavigationPage public workflow', () => {
     await wrapper.vm.$nextTick();
     style = wrapper.get('.nav-page').attributes('style');
     expect(style).toContain('--public-bookmark-text-rgb: 255, 255, 255');
-    expect(style).toContain('--public-category-text-rgb: 255, 255, 255');
+    expect(style).toContain('--public-folder-text-rgb: 255, 255, 255');
+    expect(style).toContain('--public-notab-text-rgb: 255, 255, 255');
     wrapper.unmount();
   });
 

@@ -354,21 +354,23 @@ describe('visual contracts', () => {
     expect(layoutSource).not.toContain("to: '/admin/nodesk'");
     expect(layoutSource).toContain('<RouterLink class="sidebar-brand" to="/">');
     expect(routerSource).toContain("path: '/admin/bookmarks', redirect: '/admin/links'");
-    expect(layoutSource).toContain("to: '/admin/automation', labelKey: 'admin.navAutomation'");
-    expect(routerSource).toContain("path: '/admin/automation'");
+    expect(layoutSource).not.toContain("to: '/admin/automation'");
+    expect(routerSource).toContain("path: '/admin/import', component: ImportView");
+    expect(routerSource).toContain("{ path: '/admin/automation', redirect: '/admin/import' }");
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/views/admin/NodeskView.vue'))).toBe(false);
   });
 
-  it('keeps browser import and export in the automation page', async () => {
+  it('keeps browser import and export in the content import tab', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
-    const automationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AutomationView.vue'), 'utf8');
+    const importSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/ImportView.vue'), 'utf8');
     const transferSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/BookmarkTransferPanel.vue'), 'utf8');
 
     expect(linksSource).not.toContain('BookmarkTransferPanel');
     expect(linksSource).not.toContain('to="/admin/bookmarks"');
-    expect(automationSource).toContain('<BookmarkTransferPanel id="bookmark-import" />');
+    expect(importSource).toContain('<ContentManagementTabs active="import" />');
+    expect(importSource).toContain('<BookmarkTransferPanel id="bookmark-import" />');
     expect(transferSource).toContain('/api/admin/bookmarks/preview');
     expect(transferSource).toContain('/api/admin/bookmarks/import');
     expect(transferSource).toContain('/api/admin/bookmarks/export');
@@ -408,7 +410,7 @@ describe('visual contracts', () => {
     expect(wrapper.find('.workbench-sidebar').exists()).toBe(true);
     expect(wrapper.find('.workbench-topbar').exists()).toBe(true);
     expect(wrapper.find('.workbench-stage').exists()).toBe(true);
-    expect(wrapper.findAll('.nav-section')).toHaveLength(3);
+    expect(wrapper.findAll('.nav-section')).toHaveLength(2);
     expect(wrapper.find('.operator-card').exists()).toBe(true);
     // Reduced-noise shell: no redundant section chip strip, no command card, avatar menu instead of button row.
     expect(wrapper.find('.figma-control-strip').exists()).toBe(false);
@@ -460,16 +462,6 @@ describe('visual contracts', () => {
     expect(css).toContain('.bulk-action-bar');
     expect(css).toContain('.duplicate-panel');
     expect(css).toContain('.import-preview-panel');
-    expect(css).toContain('--folder-depth');
-  });
-
-  it('defines link health operation styles', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const css = readStyle('admin');
-
-    expect(css).toContain('.health-check-panel');
-    expect(css).toContain('.health-result-row');
   });
 
   it('sets distinct public and admin browser favicons', async () => {
@@ -491,15 +483,6 @@ describe('visual contracts', () => {
     expect(app).toContain("const variant = isAdmin ? '-admin' : ''");
     expect(app).toContain("`/favicon${variant}-${size}.png${isAdmin ? '' : '?v=20260717b'}`");
     expect(app).toContain("`/apple-touch-icon${variant}.png${isAdmin ? '' : '?v=20260717b'}`");
-  });
-
-  it('defines token governance styles', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const css = readStyle('admin');
-
-    expect(css).toContain('.token-summary-grid');
-    expect(css).toContain('.token-created-secret');
   });
 
   it('defines public navigation tree and search polish contracts', async () => {
@@ -577,11 +560,10 @@ describe('visual contracts', () => {
   it('provides a compact searchable folder icon modal in admin folder management', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const foldersSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
+    const linksSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
     const pickerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/FolderIconPicker.vue'), 'utf8');
 
-    expect(foldersSource).toContain('<FolderIconPicker v-model="form.icon"');
-    expect(foldersSource).toContain('<FolderIconPicker v-model="inlineForm.icon"');
+    expect(linksSource).toContain('<FolderIconPicker v-model="folderEditor.icon"');
     expect(pickerSource).toContain('folder-icon-dialog');
     expect(pickerSource).toContain('folder-icon-search');
     expect(pickerSource).toContain("['recommended', 'recent', 'all']");
@@ -592,11 +574,9 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const dashboard = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/AdminDashboard.vue'), 'utf8');
-    const folders = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/FoldersView.vue'), 'utf8');
     const links = fs.readFileSync(path.resolve(process.cwd(), 'src/views/admin/LinksView.vue'), 'utf8');
 
     expect(dashboard).toContain('<FolderIcon :size="20"');
-    expect(folders).toContain('<FolderGlyph :icon="folder.icon"');
     expect(links).toContain('<FolderGlyph :icon="folder.icon"');
   });
 
@@ -622,13 +602,12 @@ describe('visual contracts', () => {
     expect(baselineDoc).toContain('mobile-chromium');
   });
 
-  it('keeps folder and bookmark tables within the admin stage at scaled desktop widths', async () => {
+  it('keeps bookmark tables within the admin stage at scaled desktop widths', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/admin.css'), 'utf8');
 
     expect(source).toContain('@media (max-width: 767px)');
-    expect(source).toContain('.folder-table .admin-table-head');
     expect(source).toContain('.bookmark-table .admin-table-row');
     expect(source).toContain('.admin-table-row:hover');
     expect(source).toContain('min-width: 760px');
@@ -675,8 +654,8 @@ describe('visual contracts', () => {
     expect(read('src/components/FolderExpandModal.vue')).toContain('modal-pop');
     expect(read('src/components/FolderUnlockModal.vue')).toContain('modal-pop');
 
-    // The six per-theme preview animations in the drawer theme wall.
-    for (const kind of ['bubbles', 'snow', 'leaves', 'stars', 'sunbeams', 'rain']) {
+    // The four per-scene preview animations in the drawer theme wall.
+    for (const kind of ['bubbles', 'snow', 'leaves', 'rain']) {
       expect(drawerSource).toContain(`.theme-${kind} .theme-motion`);
     }
   });

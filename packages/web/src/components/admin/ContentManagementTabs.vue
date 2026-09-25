@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { Layers, Link2 } from 'lucide-vue-next';
+import { ArrowUpDown, Layers, Link2, Trash2 } from 'lucide-vue-next';
 import { inject } from 'vue';
 import { routerKey } from 'vue-router';
 import { useI18n } from '@/composables/useI18n';
 
-defineProps<{ active: 'notabs' | 'folders' | 'links' }>();
+defineProps<{ active: 'notabs' | 'links' | 'import' | 'trash' }>();
 
 const { t } = useI18n();
 const router = inject(routerKey, null);
@@ -12,6 +12,8 @@ const router = inject(routerKey, null);
 const items = [
   { id: 'notabs' as const, to: '/admin/notabs', labelKey: 'admin.navNotabs' as const, icon: Layers },
   { id: 'links' as const, to: '/admin/links', labelKey: 'admin.navLinks' as const, icon: Link2 },
+  { id: 'import' as const, to: '/admin/import', labelKey: 'admin.navImport' as const, icon: ArrowUpDown },
+  { id: 'trash' as const, to: '/admin/trash', labelKey: 'admin.navTrash' as const, icon: Trash2 },
 ];
 
 function navigate(event: MouseEvent, to: string) {

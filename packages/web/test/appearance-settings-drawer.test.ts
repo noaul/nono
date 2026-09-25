@@ -276,9 +276,16 @@ describe('schema-driven appearance editor', () => {
   it('renders a section per group with the advanced controls folded away', async () => {
     const wrapper = await openEditor();
 
-    for (const group of ['layout', 'folders', 'search', 'glass', 'background', 'scene', 'typography']) {
+    for (const group of ['layout', 'folders', 'search', 'glass', 'background', 'typography']) {
       expect(wrapper.find('[data-testid="appearance-group-' + group + '"]').exists(), group).toBe(true);
     }
+    // Without a scene theme there is nothing for the scene controls to act on.
+    expect(wrapper.find('[data-testid="appearance-group-scene"]').exists()).toBe(false);
+    const withScene = mount(AppearanceSettingsDrawer, {
+      props: { open: true, site: { ...site, settings: { ...site.settings, theme: { id: 'summer-breeze' } } } },
+    });
+    await withScene.get('[data-testid="drawer-tab-texture"]').trigger('click');
+    expect(withScene.find('[data-testid="appearance-group-scene"]').exists()).toBe(true);
     // A common control is visible; an advanced one is rendered but hidden until expanded.
     expect(wrapper.get('[data-testid="control-folderColumns"]').isVisible()).toBe(true);
     expect(wrapper.get('[data-testid="control-hoverScale"]').isVisible()).toBe(false);

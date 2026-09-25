@@ -25,13 +25,15 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('renders bookmark transfer under automation in the neutral admin shell', async ({ page }) => {
+test('renders bookmark transfer as a content tab and redirects the old automation URL', async ({ page }) => {
   await page.goto('/admin/automation');
+  await expect(page).toHaveURL(/\/admin\/import$/);
 
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.locator('.bookmark-transfer-panel h2')).toHaveText('书签导入导出');
   await expect(page.getByTestId('preview-bookmarks')).toBeVisible();
-  await expect(page.locator('a[href="/admin/automation"]')).toHaveCount(1);
+  await expect(page.locator('.content-management-tab.active')).toHaveText('导入导出');
+  await expect(page.locator('a[href="/admin/automation"]')).toHaveCount(0);
 
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

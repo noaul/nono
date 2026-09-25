@@ -36,12 +36,13 @@ describe('AdminLayout appearance settings', () => {
     expect(mockedApiRequest).toHaveBeenCalledWith('/api/admin/notifications?limit=5');
     expect(wrapper.get('.admin-shell').attributes('style')).toBeUndefined();
     expect(wrapper.findAllComponents(RouterLinkStub)[0].props('to')).toBe('/');
-    expect(wrapper.get('.admin-nav').text()).toContain('书签管理');
+    expect(wrapper.get('.admin-nav').text()).toContain('内容管理');
     expect(wrapper.get('.admin-nav').text()).not.toContain('NoTab 管理');
-    expect(wrapper.get('.admin-nav').findAll('.nav-button').filter((item) => item.text() === '文件夹及书签管理')).toHaveLength(1);
+    expect(wrapper.get('.admin-nav').findAll('.nav-button').filter((item) => item.text() === '内容管理')).toHaveLength(1);
     expect(wrapper.get('.admin-nav').text()).not.toContain('新增书签');
     expect(wrapper.get('.admin-nav').text()).not.toContain('NoDesk');
-    expect(wrapper.get('.admin-nav').text()).toContain('导入导出');
+    // Import and trash are content tabs now, and LLM lives in Account, so none get a nav row.
+    for (const merged of ['导入导出', '回收站', 'LLM']) expect(wrapper.get('.admin-nav').text()).not.toContain(merged);
     expect(wrapper.get('.admin-nav').text()).toContain('通知中心');
     // One shell class only: the admin surface no longer stacks skins.
     expect(wrapper.get('.admin-shell').classes()).toEqual(['admin-shell']);

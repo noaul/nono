@@ -20,13 +20,10 @@ describe('persistent admin shell', () => {
     const views = [
       'AccountView.vue',
       'AdminDashboard.vue',
-      'FoldersView.vue',
       'LinksView.vue',
-      'LlmView.vue',
+      'ImportView.vue',
       'NotabsView.vue',
       'SiteConfigView.vue',
-      'TokensView.vue',
-      'UsersView.vue',
     ];
 
     for (const view of views) {

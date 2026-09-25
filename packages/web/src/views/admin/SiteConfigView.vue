@@ -130,10 +130,6 @@ function setDefaultSearchEngine(id: string) {
           <div class="field"><label>{{ t('site.slug') }}</label><input v-model="form.slug" /></div>
           <div class="field wide"><label>{{ t('site.description') }}</label><textarea v-model="form.description" /></div>
           <div class="field wide"><label>{{ t('site.backgroundImage') }}</label><input v-model="form.backgroundImage" /></div>
-          <div class="field color-field">
-            <label>{{ t('appearance.backgroundColor') }}</label>
-            <div class="color-control"><input v-model="form.backgroundColor" type="color" /><code>{{ form.backgroundColor }}</code></div>
-          </div>
           <div class="field wide"><label>{{ t('site.legacyTemplate') }}</label><input v-model="form.searchUrlTemplate" /></div>
           <label class="switch-row wide">
             <input v-model="form.localSearchFirst" type="checkbox" />
@@ -321,29 +317,6 @@ function setDefaultSearchEngine(id: string) {
 
 .wide {
   grid-column: 1 / -1;
-}
-
-.color-control {
-  align-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  display: flex;
-  gap: 10px;
-  min-height: 40px;
-  padding: 5px 10px 5px 6px;
-}
-
-.color-control input {
-  border: 0;
-  height: 28px;
-  min-height: 28px;
-  padding: 0;
-  width: 36px;
-}
-
-.color-control code {
-  color: var(--admin-text-muted);
-  font-size: 12px;
 }
 
 .switch-row {

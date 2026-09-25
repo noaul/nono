@@ -47,18 +47,20 @@ describe('appearance settings', () => {
       notabTextSize: 16,
       folderTextColor: '#334455',
       folderTextSize: 12,
-      categoryTextColor: '#334455',
-      tabColor: '#a1b2c3',
-      modalRadius: 24,
-      modalOpacity: 12,
-      modalBlur: 32,
-      tabRadius: 30,
-      tabOpacity: 38,
-      tabBlur: 18,
-      adminRadius: appearanceDefaults.adminRadius,
-      adminOpacity: 40,
-      adminBlur: appearanceDefaults.adminBlur,
     });
+  });
+
+  it('drops the retired mirrored keys and still reads the pre-split text colour', () => {
+    const settings = getAppearanceSettings({
+      appearance: { categoryTextColor: '#334455', tabColor: '#a1b2c3', modalRadius: 24, adminBlur: 6 },
+    });
+
+    expect(settings).not.toHaveProperty('tabColor');
+    expect(settings).not.toHaveProperty('modalRadius');
+    expect(settings).not.toHaveProperty('adminBlur');
+    expect(settings).not.toHaveProperty('categoryTextColor');
+    expect(settings.notabTextColor).toBe('#334455');
+    expect(settings.folderTextColor).toBe('#334455');
   });
 
   it('converts appearance values into stable CSS custom properties', () => {
@@ -82,18 +84,10 @@ describe('appearance settings', () => {
       '--public-folder-text': '#ffffff',
       '--public-folder-text-rgb': '255, 255, 255',
       '--public-folder-text-size': '18px',
-      '--public-category-text': '#ffffff',
-      '--public-category-text-rgb': '255, 255, 255',
-      '--public-tab-color': '#f7f8fb',
-      '--public-tab-color-rgb': '247, 248, 251',
-      '--public-modal-radius': '8px',
-      '--public-modal-opacity': '0.26',
-      '--public-modal-blur': '18px',
-      '--public-tab-radius': '28px',
-      '--public-tab-opacity': '0.34',
-      '--public-tab-blur': '20px',
     });
-    expect(toAppearanceCssVars(appearanceDefaults)).not.toHaveProperty('--admin-surface-radius');
+    const names = Object.keys(toAppearanceCssVars(appearanceDefaults));
+    expect(names.filter((name) => /^--public-(category|tab|modal)-/.test(name))).toEqual([]);
+    expect(names).not.toContain('--admin-surface-radius');
   });
 
   it('keeps the default centered notab strip reachable when it overflows on mobile', () => {

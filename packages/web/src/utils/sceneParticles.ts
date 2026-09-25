@@ -4,7 +4,7 @@
  * Keeping it pure is what makes the physics testable.
  */
 
-export type SceneKind = 'bubbles' | 'snow' | 'leaves' | 'stars' | 'sunbeams' | 'rain';
+export type SceneKind = 'bubbles' | 'snow' | 'leaves' | 'rain';
 
 /**
  * A bead of water sitting on a panel's top border. It slides slowly along the border, can
@@ -66,7 +66,7 @@ export type Particle = {
   spin: number;
   /** Seconds lived; drives twinkle phase and fade-in. */
   age: number;
-  /** Seconds before the particle is recycled. Infinity for endless fields like stars. */
+  /** Seconds before the particle is recycled. */
   life: number;
   variant: number;
   /** Layers already passed through; drives energy loss for rain. */
@@ -110,8 +110,6 @@ const GRAVITY: Record<SceneKind, number> = {
   snow: 42,
   leaves: 58,
   bubbles: -95,
-  sunbeams: -12,
-  stars: 0,
 };
 
 /**
@@ -193,8 +191,6 @@ const SIZE_RANGE: Record<SceneKind, [number, number]> = {
   snow: [2.4, 11],
   leaves: [7, 15],
   bubbles: [3, 17],
-  stars: [0.7, 2.1],
-  sunbeams: [0.7, 2.2],
 };
 
 /**
@@ -223,8 +219,6 @@ export function targetCount(kind: SceneKind, width: number, height: number, inte
     snow: 108,
     leaves: 40,
     bubbles: 46,
-    stars: 130,
-    sunbeams: 60,
   };
   return Math.round(base[kind] * area * intensity);
 }
@@ -240,26 +234,24 @@ export function spawnParticle(
   const [minSize, maxSize] = SIZE_RANGE[kind];
   const size = lerp(minSize, maxSize, depth) * sizeEnvelope(field.time) * (tuning?.particleSize ?? 1);
 
-  // Stars and dust live in place; everything else enters from off-screen.
-  const startY = kind === 'stars'
-    ? random() * height
-    : kind === 'bubbles' || kind === 'sunbeams'
-      ? (initial ? random() * height : height + size * 2)
-      : (initial ? random() * height : -size * 2 - random() * height * 0.35);
+  // Bubbles rise from below; everything else falls in from above.
+  const startY = kind === 'bubbles'
+    ? (initial ? random() * height : height + size * 2)
+    : (initial ? random() * height : -size * 2 - random() * height * 0.35);
 
   const wind = kind === 'rain' ? -60 - depth * 90 : kind === 'snow' ? -14 + random() * 28 : -8 + random() * 16;
 
   return {
     x: random() * (width + 240) - 120,
     y: startY,
-    vx: kind === 'stars' ? 0 : wind,
-    vy: kind === 'stars' ? 0 : GRAVITY[kind] * (0.45 + depth * 0.55),
+    vx: wind,
+    vy: GRAVITY[kind] * (0.45 + depth * 0.55),
     size,
     depth,
     rotation: random() * Math.PI * 2,
     spin: kind === 'leaves' ? (random() - 0.5) * 2.4 : (random() - 0.5) * 0.6,
     age: initial ? random() * 4 : 0,
-    life: kind === 'stars' ? Infinity : 60,
+    life: 60,
     variant: Math.floor(random() * 4),
     passes: 0,
     phase: random() * Math.PI * 2,
@@ -412,13 +404,7 @@ export function stepField(field: Field, options: StepOptions): Field {
 
   const survivors: Particle[] = [];
   for (const particle of field.particles) {
-    particle.age += kind === 'bubbles' || kind === 'sunbeams' || kind === 'stars' ? ambientDelta : delta;
-
-    if (kind === 'stars') {
-      // Stars hold position; only their twinkle phase advances.
-      survivors.push(particle);
-      continue;
-    }
+    particle.age += kind === 'bubbles' ? ambientDelta : delta;
 
     const previousY = particle.y;
     const previousX = particle.x;
@@ -470,7 +456,7 @@ export function stepField(field: Field, options: StepOptions): Field {
       particle.vy = Math.min(RAIN_TERMINAL * tuning.speed, particle.vy + 2600 * tuning.speed * delta);
     }
 
-    const motionDelta = kind === 'bubbles' || kind === 'sunbeams' ? ambientDelta : delta;
+    const motionDelta = kind === 'bubbles' ? ambientDelta : delta;
     particle.x += particle.vx * motionDelta;
     particle.y += particle.vy * motionDelta;
 

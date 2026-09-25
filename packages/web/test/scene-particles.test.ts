@@ -39,7 +39,7 @@ import {
   type SceneKind,
 } from '../src/utils/sceneParticles';
 
-const KINDS: SceneKind[] = ['rain', 'snow', 'leaves', 'bubbles', 'stars', 'sunbeams'];
+const KINDS: SceneKind[] = ['rain', 'snow', 'leaves', 'bubbles'];
 
 function run(field: ReturnType<typeof createField>, ledges: Ledge[], seconds: number, intensity = 1) {
   const random = createRandom(7);
@@ -214,13 +214,10 @@ describe('scene particle simulation', () => {
     }
   });
 
-  it('drives rain by wind so streaks are slanted, and holds stars in place', () => {
+  it('drives rain by wind so streaks are slanted', () => {
     const rain = run(createField('rain', 1280, 800), [], 1);
     expect(rain.particles.some((particle) => particle.vx < 0)).toBe(true);
     expect(rain.particles.every((particle) => particle.vy > 0)).toBe(true);
-
-    const stars = run(createField('stars', 1280, 800), [], 2);
-    expect(stars.particles.every((particle) => particle.vx === 0 && particle.vy === 0)).toBe(true);
   });
 
   it('deflects a particle that clips the side of a card', () => {
@@ -871,15 +868,11 @@ describe('per-site scene tuning', () => {
     expect(meanFall(fast)).toBeGreaterThan(meanFall(slow) * 1.5);
   });
 
-  it('applies the speed dial to bubbles, dust, and star animation time', () => {
-    for (const kind of ['bubbles', 'sunbeams'] as const) {
-      const slow = drift(kind, { speed: 0.25, wind: 0 }, 3);
-      const fast = drift(kind, { speed: 2, wind: 0 }, 3);
-      expect(fast.particles[0].y).not.toBeCloseTo(slow.particles[0].y, 4);
-    }
-    expect(drift('stars', { speed: 2 }, 3).time).toBeGreaterThan(
-      drift('stars', { speed: 0.25 }, 3).time * 4,
-    );
+  it('applies the speed dial to bubbles and their animation time', () => {
+    const slow = drift('bubbles', { speed: 0.25, wind: 0 }, 3);
+    const fast = drift('bubbles', { speed: 2, wind: 0 }, 3);
+    expect(fast.particles[0].y).not.toBeCloseTo(slow.particles[0].y, 4);
+    expect(fast.time).toBeGreaterThan(slow.time * 4);
   });
 
   it('applies wind strength and direction to rain and bubbles', () => {

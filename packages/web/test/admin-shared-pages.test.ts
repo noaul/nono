@@ -11,17 +11,12 @@ describe('shared admin page structure', () => {
     'AdminDashboard',
     'SiteConfigView',
     'NotabsView',
-    'FoldersView',
     'LinksView',
-    'AutomationView',
-    'LlmView',
+    'ImportView',
     'AccountView',
-    'TokensView',
     'NotificationsView',
     'TrashView',
-    'BackupsView',
     'AuditLogsView',
-    'UsersView',
   ])('%s relies on the shell title without rendering a duplicate page header', (name) => {
     const source = readView(name);
 
@@ -29,7 +24,7 @@ describe('shared admin page structure', () => {
     expect(source).not.toContain('<AdminPageHeader');
   });
 
-  it.each(['SiteConfigView', 'LlmView', 'AccountView', 'UsersView'])('%s uses accessible shared feedback banners', (name) => {
+  it.each(['SiteConfigView', 'AccountView'])('%s uses accessible shared feedback banners', (name) => {
     const source = readView(name);
 
     expect(source).toContain("@/components/admin/AdminStateBanner.vue");
@@ -38,7 +33,7 @@ describe('shared admin page structure', () => {
     expect(source).not.toContain('class="error"');
   });
 
-  it.each(['LlmView', 'AccountView', 'TokensView', 'UsersView'])('%s no longer uses legacy panel form wrappers', (name) => {
+  it.each(['AccountView'])('%s no longer uses legacy panel form wrappers', (name) => {
     const source = readView(name);
 
     expect(source).not.toContain('class="panel grid"');
@@ -67,7 +62,7 @@ describe('shared admin page structure', () => {
     expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.workbench-sidebar \{[\s\S]*?transform:\s*translateX\(-100%\)/);
   });
 
-  it.each(['FoldersView', 'LinksView', 'NotabsView'])('%s uses the same management page hierarchy', (name) => {
+  it.each(['LinksView', 'NotabsView'])('%s uses the same management page hierarchy', (name) => {
     const source = readView(name);
 
     expect(source).toContain("@/components/admin/ContentManagementTabs.vue");
@@ -81,7 +76,7 @@ describe('shared admin page structure', () => {
     const source = readLayout();
 
     expect(source).toContain("labelKey: 'admin.navContentManagement'");
-    expect(source).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links']");
+    expect(source).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/import', '/admin/trash']");
     expect(source).not.toContain("labelKey: 'admin.navFolders'");
     expect(source).not.toContain("labelKey: 'admin.navLinks'");
   });
@@ -91,7 +86,6 @@ describe('shared admin page structure', () => {
 
     expect(css).toMatch(/\.admin-table-head,\s*\n\.admin-table-row \{[\s\S]*?display:\s*grid/);
     expect(css).toMatch(/\.notab-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
-    expect(css).toMatch(/\.folder-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
     expect(css).toMatch(/\.bookmark-table \.admin-table-head,[\s\S]*?grid-template-columns:/);
   });
 
@@ -106,7 +100,7 @@ describe('shared admin page structure', () => {
     expect(mobile).not.toContain('.mobile-card-table td');
   });
 
-  it.each(['FoldersView', 'LinksView'])('%s uses shared success and error banners', (name) => {
+  it.each(['LinksView'])('%s uses shared success and error banners', (name) => {
     const source = readView(name);
 
     expect(source).toContain("@/components/admin/AdminStateBanner.vue");

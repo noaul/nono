@@ -20,9 +20,10 @@ union gets `options`. Its conditionals are wrapped in tuples (`[Value] extends [
 them distributing — without that an enum like `'left' | 'center'` would demand
 `EnumField<'left'> | EnumField<'center'>` and reject an options array holding both.
 
-`appearanceDefaults` has `applyAppearanceMirrors` applied to it, so the legacy mirrored keys
-(`tabOpacity`, `modalRadius`, and friends) can never disagree with the settings that replaced them,
-not even before a site has been saved once.
+The mirrored legacy keys (`tabOpacity`, `modalRadius`, `admin*` and friends) are gone. Old payloads
+that still carry them are simply ignored on read and dropped on the next save; the one exception is
+`categoryTextColor`, which is still read as the fallback NoTab and folder text colour for sites saved
+before those two were split.
 
 ## Groups
 

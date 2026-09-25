@@ -3,6 +3,7 @@ import { computed, onMounted, ref, type Component } from 'vue';
 import type { MessageKey } from '@/locales';
 import { Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import { apiRequest } from '@/api/client';
 import type { TrashItem, TrashItemKind } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
@@ -119,6 +120,7 @@ onMounted(load);
 
 <template>
   <div class="admin-page-stack trash-page">
+    <ContentManagementTabs active="trash" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <section class="admin-section trash-section">

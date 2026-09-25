@@ -39,7 +39,7 @@ type Shortcut = { labelKey: MessageKey; detailKey: MessageKey; to: string; icon:
 
 const primaryShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aNewBookmark', detailKey: 'dashboard.aNewBookmarkHint', to: '/admin/links#new-bookmark', icon: Plus },
-  { labelKey: 'dashboard.aImport', detailKey: 'dashboard.aImportHint', to: '/admin/automation', icon: Upload },
+  { labelKey: 'dashboard.aImport', detailKey: 'dashboard.aImportHint', to: '/admin/import', icon: Upload },
   { labelKey: 'dashboard.aNotabs', detailKey: 'dashboard.aNotabsHint', to: '/admin/notabs', icon: Layers },
   { labelKey: 'dashboard.aFolders', detailKey: 'dashboard.aFoldersHint', to: '/admin/links#folder-management', icon: FolderIcon },
 ];
@@ -47,7 +47,7 @@ const primaryShortcuts: Shortcut[] = [
 const toolShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aDuplicates', detailKey: 'dashboard.aDuplicatesHint', to: '/admin/links#bookmark-tools', icon: ListChecks },
   { labelKey: 'dashboard.aHealth', detailKey: 'dashboard.aHealthHint', to: '/admin/links#bookmark-tools', icon: Activity },
-  { labelKey: 'dashboard.aLlm', detailKey: 'dashboard.aLlmHint', to: '/admin/llm', icon: Bot },
+  { labelKey: 'dashboard.aLlm', detailKey: 'dashboard.aLlmHint', to: '/admin/account#llm', icon: Bot },
   { labelKey: 'dashboard.aTokens', detailKey: 'dashboard.aTokensHint', to: '/admin/account#api-tokens', icon: KeyRound },
   { labelKey: 'dashboard.aNotifications', detailKey: 'dashboard.aNotificationsHint', to: '/admin/notifications', icon: Bell },
 ];

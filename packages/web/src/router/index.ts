@@ -12,9 +12,8 @@ const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
 const SiteConfigView = () => import('@/views/admin/SiteConfigView.vue');
 const NotabsView = () => import('@/views/admin/NotabsView.vue');
 const LinksView = () => import('@/views/admin/LinksView.vue');
-const AutomationView = () => import('@/views/admin/AutomationView.vue');
+const ImportView = () => import('@/views/admin/ImportView.vue');
 const AccountView = () => import('@/views/admin/AccountView.vue');
-const LlmView = () => import('@/views/admin/LlmView.vue');
 const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
 const TrashView = () => import('@/views/admin/TrashView.vue');
@@ -42,11 +41,12 @@ export const router = createRouter({
         { path: '/admin/add-bookmark', redirect: '/admin/links' },
         { path: '/admin/links', component: LinksView, meta: { titleKey: 'admin.titleLinks' } },
         { path: '/admin/bookmarks', redirect: '/admin/links' },
-        { path: '/admin/automation', component: AutomationView, meta: { titleKey: 'admin.titleAutomation' } },
+        { path: '/admin/import', component: ImportView, meta: { titleKey: 'admin.titleImport' } },
+        { path: '/admin/automation', redirect: '/admin/import' },
         { path: '/admin/users', redirect: '/admin/account' },
         { path: '/admin/account', component: AccountView, meta: { titleKey: 'admin.titleAccount' } },
         { path: '/admin/trash', component: TrashView, meta: { titleKey: 'admin.titleTrash' } },
-        { path: '/admin/llm', component: LlmView, meta: { titleKey: 'admin.titleLlm' } },
+        { path: '/admin/llm', redirect: '/admin/account#llm' },
         { path: '/admin/tokens', redirect: '/admin/account#api-tokens' },
         { path: '/admin/notifications', component: NotificationsView, meta: { titleKey: 'admin.titleNotifications' } },
         { path: '/admin/audit', component: AuditLogsView, meta: { titleKey: 'admin.titleAudit', requiresAdmin: true } },

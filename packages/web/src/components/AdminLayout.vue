@@ -2,9 +2,7 @@
 import '@/styles/admin.css';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
-  ArrowUpDown,
   Bell,
-  Bot,
   Compass,
   Home,
   Layers,
@@ -12,7 +10,6 @@ import {
   Menu,
   Settings,
   ScrollText,
-  Trash2,
   User,
   X,
 } from 'lucide-vue-next';
@@ -59,15 +56,8 @@ const navSections: NavSection[] = [
         labelKey: 'admin.navContentManagement',
         titleKey: 'admin.titleNotabs',
         icon: Layers,
-        matches: ['/admin/notabs', '/admin/folders', '/admin/links'],
+        matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/import', '/admin/trash'],
       },
-    ],
-  },
-  {
-    labelKey: 'admin.sectionAutomation',
-    items: [
-      { to: '/admin/automation', labelKey: 'admin.navAutomation', titleKey: 'admin.titleAutomation', icon: ArrowUpDown },
-      { to: '/admin/llm', labelKey: 'admin.navLlm', titleKey: 'admin.titleLlm', icon: Bot },
     ],
   },
   {
@@ -75,7 +65,6 @@ const navSections: NavSection[] = [
     items: [
       { to: '/admin/notifications', labelKey: 'admin.navNotifications', titleKey: 'admin.titleNotifications', icon: Bell },
       { to: '/admin/account', labelKey: 'admin.navAccount', titleKey: 'admin.titleAccount', icon: User },
-      { to: '/admin/trash', labelKey: 'admin.navTrash', titleKey: 'admin.titleTrash', icon: Trash2 },
       { to: '/admin/audit', labelKey: 'admin.navAudit', titleKey: 'admin.titleAudit', icon: ScrollText, adminOnly: true },
     ],
   },

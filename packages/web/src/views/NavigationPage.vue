@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, Scissors, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
 import AppearanceSettingsDrawer from '@/components/AppearanceSettingsDrawer.vue';
 import BookmarkDeleteDialog from '@/components/BookmarkDeleteDialog.vue';
 import FolderCard from '@/components/FolderCard.vue';
@@ -15,6 +15,7 @@ import ThemeScene from '@/components/ThemeScene.vue';
 import { apiRequest, buildSearchUrl, jsonBody } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 import { useHomeNotifications } from '@/composables/useHomeNotifications';
+import { applySortOrder, insertionIndex, sameOrder, usePointerDrag, type DropSide, type PointerDragState } from '@/composables/usePointerDrag';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
 import { getAppearanceSettings, toAppearanceCssVars, toSceneTuning } from '@/utils/appearance';
@@ -63,34 +64,48 @@ const movingNotab = ref(false);
 const organizing = ref(false);
 const organizeArming = ref(false);
 const bookmarkMessage = ref<{ kind: 'error' | 'success'; text: string } | null>(null);
-const bookmarkDrag = ref<{
+type BookmarkDragState = PointerDragState & {
   link: Link;
   sourceFolderId: number;
-  pointerId: number;
-  clientX: number;
-  clientY: number;
   targetFolderId: number | null;
   targetLinkId: number | null;
-  targetSide: 'before' | 'after' | '';
-} | null>(null);
-const folderDrag = ref<{
+  targetSide: DropSide;
+};
+type FolderDragState = PointerDragState & {
   folder: Folder;
   sourceParentId: number | null;
-  pointerId: number;
-  clientX: number;
-  clientY: number;
   targetParentId: number | null;
   targetFolderId: number | null;
-  targetSide: 'before' | 'after' | '';
-} | null>(null);
-const notabDrag = ref<{
+  targetSide: DropSide;
+};
+type NotabDragState = PointerDragState & {
   folder: Folder;
-  pointerId: number;
-  clientX: number;
-  clientY: number;
   targetNotabId: number | null;
-  targetSide: 'before' | 'after' | '';
-} | null>(null);
+  targetSide: DropSide;
+};
+const {
+  drag: bookmarkDrag,
+  start: startBookmarkDrag,
+  cancel: cancelBookmarkDrag,
+  retarget: retargetBookmarkDrag,
+} = usePointerDrag<BookmarkDragState>({
+  resolve: resolveBookmarkTarget,
+  drop: (drag) => {
+    suppressPostDragClick();
+    return persistBookmarkDrop(drag);
+  },
+  onFinish: clearNotabHover,
+});
+const {
+  drag: folderDrag,
+  start: startFolderDrag,
+  cancel: cancelFolderDrag,
+  retarget: retargetFolderDrag,
+} = usePointerDrag<FolderDragState>({ resolve: resolveFolderTarget, drop: persistFolderDrop, onFinish: clearNotabHover });
+const { drag: notabDrag, start: startNotabDrag, cancel: cancelNotabDrag } = usePointerDrag<NotabDragState>({
+  resolve: resolveNotabTarget,
+  drop: persistNotabDrop,
+});
 let organizePressTimer: ReturnType<typeof setTimeout> | undefined;
 let organizePress: { pointerId: number; startX: number; startY: number; element: HTMLElement } | null = null;
 let suppressTabClick = false;
@@ -210,7 +225,6 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     '--public-card-opacity': '0.52',
     '--public-search-color-rgb': '20, 23, 31',
     '--public-search-opacity': '0.58',
-    '--public-tab-color-rgb': '20, 23, 31',
     '--public-page-text': '#f4f6f8',
     '--public-page-text-rgb': '244, 246, 248',
     '--public-bookmark-text': '#ffffff',
@@ -224,8 +238,6 @@ const modeCssVars = computed<Record<string, string>>((): Record<string, string> 
     '--public-placeholder-text-rgb': '255, 255, 255',
     '--public-folder-text': '#ffffff',
     '--public-folder-text-rgb': '255, 255, 255',
-    '--public-category-text': '#ffffff',
-    '--public-category-text-rgb': '255, 255, 255',
     '--public-border-rgb': '226, 231, 238',
     '--public-highlight-rgb': '241, 244, 248',
     '--public-hover-rgb': '226, 231, 238',
@@ -308,7 +320,6 @@ const navigationEntryIcons = {
   star: Star,
   'wallet-cards': WalletCards,
   'server-cog': ServerCog,
-  scissors: Scissors,
 };
 
 function navigationEntryIcon(icon: string) {
@@ -563,62 +574,51 @@ function scheduleNotabSwitch(notabId: string) {
       clearNotabHover();
       await nextTick();
       updateTabIndicator();
-      if (bookmarkDrag.value) resolveDropTarget(bookmarkDrag.value.clientX, bookmarkDrag.value.clientY);
-      if (folderDrag.value) resolveFolderDropTarget(folderDrag.value.clientX, folderDrag.value.clientY);
+      retargetBookmarkDrag();
+      retargetFolderDrag();
     }, 600);
   }
   return true;
 }
 
-function resolveDropTarget(clientX: number, clientY: number) {
-  const drag = bookmarkDrag.value;
-  if (!drag || typeof document === 'undefined') return;
-  drag.clientX = clientX;
-  drag.clientY = clientY;
-
-  const element = document.elementFromPoint(clientX, clientY);
-  const notab = element?.closest<HTMLElement>('[data-notab-id]');
-  const notabId = notab?.dataset.notabId || null;
-  if (notabId && scheduleNotabSwitch(notabId)) {
-    drag.targetFolderId = null;
-    drag.targetLinkId = null;
-    drag.targetSide = '';
-    return;
-  }
+/** Holding a drag over another NoTab switches to it after a pause; until then nothing is a target. */
+function hoverNotab(element: Element | null) {
+  const notabId = element?.closest<HTMLElement>('[data-notab-id]')?.dataset.notabId;
+  if (notabId && scheduleNotabSwitch(notabId)) return true;
   clearNotabHover();
+  return false;
+}
+
+function sideOf(rect: DOMRect, clientX: number): DropSide {
+  return clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+}
+
+function resolveBookmarkTarget(drag: BookmarkDragState, clientX: number, clientY: number) {
+  const target = findBookmarkTarget(drag.link.id, clientX, clientY);
+  drag.targetFolderId = target?.folderId ?? null;
+  drag.targetLinkId = target?.linkId ?? null;
+  drag.targetSide = target?.side ?? '';
+}
+
+function findBookmarkTarget(linkId: number, clientX: number, clientY: number) {
+  const element = document.elementFromPoint(clientX, clientY);
+  if (hoverNotab(element)) return null;
 
   const folderPanel = element?.closest<HTMLElement>('[data-drop-folder-id]');
   const folderId = Number(folderPanel?.dataset.dropFolderId);
-  const targetFolder = Number.isInteger(folderId) ? findFolder(folderId) : null;
-  if (!folderPanel || !targetFolder || targetFolder.locked) {
-    drag.targetFolderId = null;
-    drag.targetLinkId = null;
-    drag.targetSide = '';
-    return;
-  }
+  const folder = Number.isInteger(folderId) ? findFolder(folderId) : null;
+  if (!folderPanel || !folder || folder.locked) return null;
 
   const bookmark = element?.closest<HTMLElement>('[data-bookmark-id]');
   const bookmarkId = Number(bookmark?.dataset.bookmarkId);
-  if (bookmarkId === drag.link.id) {
-    drag.targetFolderId = null;
-    drag.targetLinkId = null;
-    drag.targetSide = '';
-    return;
-  }
-  drag.targetFolderId = folderId;
-  if (bookmark && Number.isInteger(bookmarkId)) {
-    const rect = bookmark.getBoundingClientRect();
-    drag.targetLinkId = bookmarkId;
-    drag.targetSide = clientX < rect.left + rect.width / 2 ? 'before' : 'after';
-  } else {
-    drag.targetLinkId = null;
-    drag.targetSide = '';
-  }
+  if (bookmarkId === linkId) return null;
+  if (!bookmark || !Number.isInteger(bookmarkId)) return { folderId, linkId: null, side: '' as DropSide };
+  return { folderId, linkId: bookmarkId, side: sideOf(bookmark.getBoundingClientRect(), clientX) };
 }
 
 function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId: number; clientX: number; clientY: number }) {
   if (!canOrganize.value || anyModalOpen.value || anyDragActive.value || movingBookmark.value) return;
-  bookmarkDrag.value = {
+  startBookmarkDrag({
     link: request.link,
     sourceFolderId: request.folderId,
     pointerId: request.pointerId,
@@ -627,38 +627,10 @@ function onBookmarkDragStart(request: { link: Link; folderId: number; pointerId:
     targetFolderId: null,
     targetLinkId: null,
     targetSide: '',
-  };
-  document.body.classList.add('organize-dragging');
-  window.addEventListener('pointermove', onBookmarkDragMove);
-  window.addEventListener('pointerup', onBookmarkDragEnd);
-  window.addEventListener('pointercancel', cancelBookmarkDrag);
-  resolveDropTarget(request.clientX, request.clientY);
-}
-
-function onBookmarkDragMove(event: PointerEvent) {
-  if (!bookmarkDrag.value || event.pointerId !== bookmarkDrag.value.pointerId) return;
-  event.preventDefault();
-  resolveDropTarget(event.clientX, event.clientY);
-}
-
-function insertionIndex(links: Link[], targetLinkId: number | null, side: 'before' | 'after' | '') {
-  if (!targetLinkId) return links.length;
-  const targetIndex = links.findIndex((link) => link.id === targetLinkId);
-  if (targetIndex < 0) return links.length;
-  return Math.min(links.length, targetIndex + (side === 'after' ? 1 : 0));
-}
-
-function applySortOrder(links: Link[]) {
-  links.forEach((link, index) => {
-    link.sortOrder = (links.length - index) * 10;
   });
 }
 
-function sameOrder(left: Link[], right: Link[]) {
-  return left.length === right.length && left.every((link, index) => link.id === right[index]?.id);
-}
-
-async function persistBookmarkDrop(drag: NonNullable<typeof bookmarkDrag.value>) {
+async function persistBookmarkDrop(drag: BookmarkDragState) {
   const sourceFolder = findFolder(drag.sourceFolderId);
   const targetFolder = drag.targetFolderId ? findFolder(drag.targetFolderId) : null;
   if (!sourceFolder || !targetFolder || targetFolder.locked) return;
@@ -730,44 +702,8 @@ function suppressPostDragClick() {
   }, 700);
 }
 
-function finishBookmarkDrag() {
-  clearNotabHover();
-  window.removeEventListener('pointermove', onBookmarkDragMove);
-  window.removeEventListener('pointerup', onBookmarkDragEnd);
-  window.removeEventListener('pointercancel', cancelBookmarkDrag);
-  document.body.classList.remove('organize-dragging');
-  bookmarkDrag.value = null;
-}
-
-function onBookmarkDragEnd(event: PointerEvent) {
-  const drag = bookmarkDrag.value;
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  resolveDropTarget(event.clientX, event.clientY);
-  const completedDrag = { ...drag };
-  suppressPostDragClick();
-  finishBookmarkDrag();
-  void persistBookmarkDrop(completedDrag);
-}
-
-function cancelBookmarkDrag() {
-  if (bookmarkDrag.value) finishBookmarkDrag();
-}
-
 function foldersWithParent(parentId: number | null) {
   return (payload.value?.folders || []).filter((folder) => (folder.parentId ?? null) === parentId);
-}
-
-function folderInsertionIndex(folders: Folder[], targetFolderId: number | null, side: 'before' | 'after' | '') {
-  if (!targetFolderId) return folders.length;
-  const targetIndex = folders.findIndex((folder) => folder.id === targetFolderId);
-  if (targetIndex < 0) return folders.length;
-  return Math.min(folders.length, targetIndex + (side === 'after' ? 1 : 0));
-}
-
-function applyFolderSortOrder(folders: Folder[]) {
-  folders.forEach((folder, index) => {
-    folder.sortOrder = (folders.length - index) * 10;
-  });
 }
 
 function replaceFolderSubsetOrder(folders: Folder[]) {
@@ -788,53 +724,35 @@ function isInvalidFolderParent(sourceId: number, parentId: number | null) {
   return false;
 }
 
-function resolveFolderDropTarget(clientX: number, clientY: number) {
-  const drag = folderDrag.value;
-  if (!drag || typeof document === 'undefined') return;
-  drag.clientX = clientX;
-  drag.clientY = clientY;
+function resolveFolderTarget(drag: FolderDragState, clientX: number, clientY: number) {
+  const target = findFolderTarget(drag.folder.id, clientX, clientY);
+  drag.targetParentId = target?.parentId ?? null;
+  drag.targetFolderId = target?.folderId ?? null;
+  drag.targetSide = target?.side ?? '';
+}
+
+function findFolderTarget(sourceId: number, clientX: number, clientY: number) {
   const element = document.elementFromPoint(clientX, clientY);
-  const notabId = element?.closest<HTMLElement>('[data-notab-id]')?.dataset.notabId;
-  if (notabId && scheduleNotabSwitch(notabId)) {
-    drag.targetParentId = null;
-    drag.targetFolderId = null;
-    drag.targetSide = '';
-    return;
-  }
-  clearNotabHover();
+  if (hoverNotab(element)) return null;
 
   const targetElement = element?.closest<HTMLElement>('[data-folder-card-id]');
   const targetId = Number(targetElement?.dataset.folderCardId);
   const target = Number.isInteger(targetId) ? findFolder(targetId) : null;
-  if (target?.id === drag.folder.id) {
-    drag.targetParentId = null;
-    drag.targetFolderId = null;
-    drag.targetSide = '';
-    return;
-  }
+  if (target?.id === sourceId) return null;
 
-  const targetParentId = target
+  const parentId = target
     ? (target.parentId ? target.parentId : target.id)
     : (selectedCategoryId.value === 'all' ? null : Number(selectedCategoryId.value));
-  if (!targetParentId || isInvalidFolderParent(drag.folder.id, targetParentId)) {
-    drag.targetParentId = null;
-    drag.targetFolderId = null;
-    drag.targetSide = '';
-    return;
-  }
-  drag.targetParentId = targetParentId;
-  drag.targetFolderId = target?.parentId ? target.id : null;
-  if (targetElement && drag.targetFolderId) {
-    const rect = targetElement.getBoundingClientRect();
-    drag.targetSide = clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-  } else {
-    drag.targetSide = '';
-  }
+  if (!parentId || isInvalidFolderParent(sourceId, parentId)) return null;
+  const folderId = target?.parentId ? target.id : null;
+  if (!targetElement || !folderId) return { parentId, folderId, side: '' as DropSide };
+  const rect = targetElement.getBoundingClientRect();
+  return { parentId, folderId, side: (clientY < rect.top + rect.height / 2 ? 'before' : 'after') as DropSide };
 }
 
 function onFolderDragStart(request: { folder: Folder; pointerId: number; clientX: number; clientY: number }) {
   if (!organizing.value || !canOrganize.value || !request.folder.parentId || anyModalOpen.value || anyDragActive.value || movingFolder.value) return;
-  folderDrag.value = {
+  startFolderDrag({
     folder: request.folder,
     sourceParentId: request.folder.parentId,
     pointerId: request.pointerId,
@@ -843,21 +761,10 @@ function onFolderDragStart(request: { folder: Folder; pointerId: number; clientX
     targetParentId: null,
     targetFolderId: null,
     targetSide: '',
-  };
-  document.body.classList.add('organize-dragging');
-  window.addEventListener('pointermove', onFolderDragMove);
-  window.addEventListener('pointerup', onFolderDragEnd);
-  window.addEventListener('pointercancel', cancelFolderDrag);
-  resolveFolderDropTarget(request.clientX, request.clientY);
+  });
 }
 
-function onFolderDragMove(event: PointerEvent) {
-  if (!folderDrag.value || event.pointerId !== folderDrag.value.pointerId) return;
-  event.preventDefault();
-  resolveFolderDropTarget(event.clientX, event.clientY);
-}
-
-async function persistFolderDrop(drag: NonNullable<typeof folderDrag.value>) {
+async function persistFolderDrop(drag: FolderDragState) {
   if (!drag.targetParentId) return;
   const sourceBefore = foldersWithParent(drag.sourceParentId);
   const targetBefore = drag.sourceParentId === drag.targetParentId ? sourceBefore : foldersWithParent(drag.targetParentId);
@@ -866,11 +773,11 @@ async function persistFolderDrop(drag: NonNullable<typeof folderDrag.value>) {
     ? sourceNext
     : targetBefore.filter((folder) => folder.id !== drag.folder.id);
   const targetNext = [...targetBase];
-  targetNext.splice(folderInsertionIndex(targetBase, drag.targetFolderId, drag.targetSide), 0, drag.folder);
-  if (drag.sourceParentId === drag.targetParentId && sourceBefore.every((folder, index) => folder.id === targetNext[index]?.id)) return;
+  targetNext.splice(insertionIndex(targetBase, drag.targetFolderId, drag.targetSide), 0, drag.folder);
+  if (drag.sourceParentId === drag.targetParentId && sameOrder(sourceBefore, targetNext)) return;
 
   drag.folder.parentId = drag.targetParentId;
-  applyFolderSortOrder(targetNext);
+  applySortOrder(targetNext);
   replaceFolderSubsetOrder(targetNext);
   movingFolder.value = true;
   try {
@@ -892,43 +799,12 @@ async function persistFolderDrop(drag: NonNullable<typeof folderDrag.value>) {
   }
 }
 
-function finishFolderDrag() {
-  clearNotabHover();
-  window.removeEventListener('pointermove', onFolderDragMove);
-  window.removeEventListener('pointerup', onFolderDragEnd);
-  window.removeEventListener('pointercancel', cancelFolderDrag);
-  document.body.classList.remove('organize-dragging');
-  folderDrag.value = null;
-}
-
-function onFolderDragEnd(event: PointerEvent) {
-  const drag = folderDrag.value;
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  resolveFolderDropTarget(event.clientX, event.clientY);
-  const completed = { ...drag };
-  finishFolderDrag();
-  void persistFolderDrop(completed);
-}
-
-function cancelFolderDrag() {
-  if (folderDrag.value) finishFolderDrag();
-}
-
-function resolveNotabDropTarget(clientX: number, clientY: number) {
-  const drag = notabDrag.value;
-  if (!drag || typeof document === 'undefined') return;
-  drag.clientX = clientX;
-  drag.clientY = clientY;
+function resolveNotabTarget(drag: NotabDragState, clientX: number, clientY: number) {
   const targetElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-notab-id]');
   const targetId = Number(targetElement?.dataset.notabId);
-  if (!targetElement || !Number.isInteger(targetId) || targetId === drag.folder.id) {
-    drag.targetNotabId = null;
-    drag.targetSide = '';
-    return;
-  }
-  const rect = targetElement.getBoundingClientRect();
-  drag.targetNotabId = targetId;
-  drag.targetSide = clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+  const valid = targetElement && Number.isInteger(targetId) && targetId !== drag.folder.id;
+  drag.targetNotabId = valid ? targetId : null;
+  drag.targetSide = valid ? sideOf(targetElement.getBoundingClientRect(), clientX) : '';
 }
 
 function onNotabDragStart(folderId: number, event: PointerEvent) {
@@ -936,35 +812,24 @@ function onNotabDragStart(folderId: number, event: PointerEvent) {
   if (!folder || folder.parentId || !organizing.value || !canOrganize.value || anyModalOpen.value || anyDragActive.value || movingNotab.value) return;
   event.preventDefault();
   suppressTabClick = true;
-  notabDrag.value = {
+  startNotabDrag({
     folder,
     pointerId: event.pointerId,
     clientX: event.clientX,
     clientY: event.clientY,
     targetNotabId: null,
     targetSide: '',
-  };
-  document.body.classList.add('organize-dragging');
-  window.addEventListener('pointermove', onNotabDragMove);
-  window.addEventListener('pointerup', onNotabDragEnd);
-  window.addEventListener('pointercancel', cancelNotabDrag);
-  resolveNotabDropTarget(event.clientX, event.clientY);
+  });
 }
 
-function onNotabDragMove(event: PointerEvent) {
-  if (!notabDrag.value || event.pointerId !== notabDrag.value.pointerId) return;
-  event.preventDefault();
-  resolveNotabDropTarget(event.clientX, event.clientY);
-}
-
-async function persistNotabDrop(drag: NonNullable<typeof notabDrag.value>) {
+async function persistNotabDrop(drag: NotabDragState) {
   if (!drag.targetNotabId) return;
   const before = [...categoryFolders.value];
   const base = before.filter((folder) => folder.id !== drag.folder.id);
   const next = [...base];
-  next.splice(folderInsertionIndex(base, drag.targetNotabId, drag.targetSide), 0, drag.folder);
-  if (before.every((folder, index) => folder.id === next[index]?.id)) return;
-  applyFolderSortOrder(next);
+  next.splice(insertionIndex(base, drag.targetNotabId, drag.targetSide), 0, drag.folder);
+  if (sameOrder(before, next)) return;
+  applySortOrder(next);
   replaceFolderSubsetOrder(next);
   movingNotab.value = true;
   try {
@@ -978,27 +843,6 @@ async function persistNotabDrop(drag: NonNullable<typeof notabDrag.value>) {
   } finally {
     movingNotab.value = false;
   }
-}
-
-function finishNotabDrag() {
-  window.removeEventListener('pointermove', onNotabDragMove);
-  window.removeEventListener('pointerup', onNotabDragEnd);
-  window.removeEventListener('pointercancel', cancelNotabDrag);
-  document.body.classList.remove('organize-dragging');
-  notabDrag.value = null;
-}
-
-function onNotabDragEnd(event: PointerEvent) {
-  const drag = notabDrag.value;
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  resolveNotabDropTarget(event.clientX, event.clientY);
-  const completed = { ...drag };
-  finishNotabDrag();
-  void persistNotabDrop(completed);
-}
-
-function cancelNotabDrag() {
-  if (notabDrag.value) finishNotabDrag();
 }
 
 function cancelAllDrags() {
@@ -1584,7 +1428,6 @@ onUnmounted(() => {
   --public-card-opacity: 0.26;
   --public-search-color-rgb: 247, 248, 251;
   --public-search-blur: 20px;
-  --public-tab-color-rgb: 247, 248, 251;
   --public-bookmark-text: #ffffff;
   --public-bookmark-text-size: 14px;
   --public-notab-text: #ffffff;
@@ -1593,7 +1436,6 @@ onUnmounted(() => {
   --public-folder-text: #ffffff;
   --public-folder-text-rgb: 255, 255, 255;
   --public-folder-text-size: 18px;
-  --public-category-text: #ffffff;
   --public-page-text: #f3f4f6;
   --public-page-text-rgb: 243, 244, 246;
   --public-border-rgb: 255, 255, 255;
@@ -1894,31 +1736,9 @@ h1 {
   margin: -10px 0 0;
 }
 
-.public-loading,
 .public-load-error {
   justify-self: center;
   width: min(100%, 680px);
-}
-
-.public-loading {
-  display: grid;
-  gap: 10px;
-}
-
-.public-loading-bar {
-  animation: public-loading-pulse 1.2s ease-in-out infinite alternate;
-  background: rgba(var(--public-highlight-rgb), 0.2);
-  border-radius: 6px;
-  display: block;
-  height: 12px;
-}
-
-.public-loading-bar:nth-child(2) {
-  width: 82%;
-}
-
-.public-loading-bar:nth-child(3) {
-  width: 64%;
 }
 
 .public-load-error {
@@ -1935,17 +1755,6 @@ h1 {
 .public-load-error p {
   color: #fecdd3;
   margin: 0;
-}
-
-.sr-only {
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  padding: 0;
-  position: absolute;
-  width: 1px;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
 }
 
 .folder-tabs {
@@ -2191,13 +2000,6 @@ h1 {
   min-height: 34px;
 }
 
-mark {
-  background: rgba(var(--accent-rgb), 0.28);
-  border-radius: 3px;
-  color: inherit;
-  padding: 0 1px;
-}
-
 .adaptive-folder-grid {
   align-items: start;
   display: grid;
@@ -2257,11 +2059,6 @@ mark {
 @keyframes slideDown {
   from { transform: translateY(-12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes public-loading-pulse {
-  from { opacity: 0.45; }
-  to { opacity: 0.9; }
 }
 
 @media (max-width: 640px) {
@@ -2370,7 +2167,6 @@ mark {
 
   .header-vibe,
   .portal-corner-link,
-  .public-loading-bar,
   .notab-shell,
   .notab-select.is-organize-arming {
     animation: none;
