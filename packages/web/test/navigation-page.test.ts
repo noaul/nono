@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { navigationEntriesVersion } from '../src/utils/navigationEntries';
 import NavigationPage from '../src/views/NavigationPage.vue';
 import { useAuthStore } from '../src/stores/auth';
+import { readNavigationPageSource } from './support/navigation-source';
 
 const apiRequest = vi.fn();
 const originalElementFromPoint = document.elementFromPoint;
@@ -695,7 +696,7 @@ describe('NavigationPage public workflow', () => {
   });
 
   it('switches notabs without enter and leave transitions on the folder grid', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const source = readNavigationPageSource();
 
     expect(source).toContain('<div class="adaptive-folder-grid">');
     expect(source).not.toContain('<TransitionGroup tag="div" name="folder-card" class="adaptive-folder-grid">');

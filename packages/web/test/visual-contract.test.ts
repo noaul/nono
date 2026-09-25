@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import FolderCard from '../src/components/FolderCard.vue';
 import AdminLayout from '../src/components/AdminLayout.vue';
 import { translate } from '../src/locales';
+import { readNavigationPageSource } from './support/navigation-source';
 
 const readSource = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 const readStyle = (name: string) => readSource(`src/styles/${name}.css`);
@@ -13,7 +14,7 @@ const readStyle = (name: string) => readSource(`src/styles/${name}.css`);
 describe('visual contracts', () => {
   it('loads shared foundations globally and route-specific styles at their boundaries', () => {
     const mainSource = readSource('src/main.ts');
-    const navigationSource = readSource('src/views/NavigationPage.vue');
+    const navigationSource = readNavigationPageSource();
     const adminLayoutSource = readSource('src/components/AdminLayout.vue');
     const tokens = readStyle('tokens');
     const base = readStyle('base');
@@ -133,7 +134,7 @@ describe('visual contracts', () => {
   it('keeps the public background image on its own layer with color as fallback only', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const source = readNavigationPageSource();
 
     expect(source).toContain('backgroundStyle');
     expect(source).toContain("'--nav-bg-image'");
@@ -166,7 +167,7 @@ describe('visual contracts', () => {
   it('keeps folder columns stable across viewport and zoom changes', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const css = readNavigationPageSource();
 
     expect(css).toContain('adaptive-folder-grid');
     // Content width, side padding, column count and both gaps are settings now; the old
@@ -248,7 +249,7 @@ describe('visual contracts', () => {
       /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 9px;[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 18px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
     );
 
-    const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const navigationSource = readNavigationPageSource();
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
     expect(navigationSource).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.nav-header,[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/,
@@ -296,7 +297,7 @@ describe('visual contracts', () => {
   it('renders an expanded folder link panel from the navigation page', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const source = readNavigationPageSource();
     const expandModalSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderExpandModal.vue'), 'utf8');
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
@@ -488,7 +489,7 @@ describe('visual contracts', () => {
   it('defines public navigation tree and search polish contracts', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const navigationSource = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const navigationSource = readNavigationPageSource();
     const folderCardSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
     const appearanceDrawerSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AppearanceSettingsDrawer.vue'), 'utf8');
@@ -617,7 +618,7 @@ describe('visual contracts', () => {
     const path = await import('node:path');
     const read = (relative: string) => fs.readFileSync(path.resolve(process.cwd(), relative), 'utf8');
     const sceneSource = read('src/components/ThemeScene.vue');
-    const navigationSource = read('src/views/NavigationPage.vue');
+    const navigationSource = readNavigationPageSource();
     const folderCardSource = read('src/components/FolderCard.vue');
     const searchBarSource = read('src/components/SearchBar.vue');
     const drawerSource = read('src/components/AppearanceSettingsDrawer.vue');
@@ -663,7 +664,7 @@ describe('visual contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const root = path.resolve(process.cwd(), '../..');
-    const navigation = fs.readFileSync(path.resolve(process.cwd(), 'src/views/NavigationPage.vue'), 'utf8');
+    const navigation = readNavigationPageSource();
     const adminLayout = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
     const tokens = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
     const blogLayout = fs.readFileSync(path.join(root, 'apps/blog/src/app/layout.tsx'), 'utf8');

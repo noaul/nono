@@ -1,0 +1,833 @@
+.nav-page {
+  background: var(--nav-bg-color, #090a0f);
+  font-family: var(--public-font-family, inherit);
+  isolation: isolate;
+  line-height: var(--public-line-height, 1.5);
+  min-height: 100dvh;
+  padding: 48px 0 80px;
+  position: relative;
+}
+
+.navigation-load-error-page {
+  display: grid;
+  padding: 24px;
+  place-items: center;
+}
+
+.bookmark-drag-preview {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.42));
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.56);
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(var(--public-shadow-rgb), 0.28);
+  color: var(--public-bookmark-text, var(--public-page-text));
+  display: flex;
+  gap: 8px;
+  left: 0;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 9px 12px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  z-index: 170;
+}
+
+:global(body.organize-dragging) {
+  cursor: default;
+  user-select: none;
+}
+
+.bookmark-drag-preview span {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-message {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(var(--public-overlay-rgb), 0.9);
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.42);
+  border-radius: 8px;
+  bottom: 24px;
+  color: var(--public-page-text);
+  font-size: 13px;
+  font-weight: 700;
+  left: 50%;
+  margin: 0;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 190;
+}
+
+.bookmark-message.error {
+  border-color: rgba(244, 63, 94, 0.58);
+}
+
+.bookmark-message-enter-active,
+.bookmark-message-leave-active {
+  transition: opacity 0.2s ease, transform 0.24s ease;
+}
+
+.bookmark-message-enter-from,
+.bookmark-message-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+.public-glass-page {
+  --public-mode-scrim: rgba(8, 12, 18, 0.02);
+  --public-card-color-rgb: 247, 248, 251;
+  --public-card-opacity: 0.26;
+  --public-search-color-rgb: 247, 248, 251;
+  --public-search-blur: 20px;
+  --public-bookmark-text: #ffffff;
+  --public-bookmark-text-size: 14px;
+  --public-notab-text: #ffffff;
+  --public-notab-text-rgb: 255, 255, 255;
+  --public-notab-text-size: 15px;
+  --public-folder-text: #ffffff;
+  --public-folder-text-rgb: 255, 255, 255;
+  --public-folder-text-size: 18px;
+  --public-page-text: #f3f4f6;
+  --public-page-text-rgb: 243, 244, 246;
+  --public-border-rgb: 255, 255, 255;
+  --public-highlight-rgb: 255, 255, 255;
+  --public-hover-rgb: 255, 255, 255;
+  --public-shadow-rgb: 0, 0, 0;
+  --public-overlay-rgb: 8, 12, 18;
+  --public-accent-ink: #052e2b;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.14), transparent 28%),
+    linear-gradient(135deg, rgba(var(--public-highlight-rgb), 0.08), transparent 42%, rgba(var(--accent-rgb), 0.08)),
+    var(--nav-bg-color, #090a0f);
+}
+
+.nav-page::before {
+  background-image: var(--nav-bg-image, none);
+  background-position: var(--public-bg-position, center);
+  background-repeat: no-repeat;
+  background-size: var(--public-bg-size, cover);
+  content: '';
+  /* Only the user's own homepage background is filtered here; the themes ship no imagery. */
+  filter: brightness(var(--public-bg-brightness, 100%)) blur(var(--public-bg-blur, 0px));
+  /* Overhangs the viewport by the blur radius, or the blur would feather the page through
+     around the edges. */
+  inset: calc(-2 * var(--public-bg-blur, 0px));
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 0.45s ease;
+  z-index: 0;
+}
+
+.nav-page.nav-bg-visible::before {
+  opacity: 1;
+}
+
+.public-glass-page::after {
+  background-color: var(--public-mode-scrim);
+  background-image: linear-gradient(180deg, rgba(var(--public-highlight-rgb), 0.05), transparent 34%, rgba(var(--public-overlay-rgb), 0.05));
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: background-color 0.32s ease;
+  z-index: 0;
+}
+
+.nav-content {
+  display: grid;
+  gap: var(--public-search-grid-gap, 28px);
+  margin: 0 auto;
+  max-width: var(--public-content-max, 2600px);
+  min-width: 0;
+  padding: 0 var(--public-page-padding-x, 32px);
+  position: relative;
+  z-index: 2;
+}
+
+.navigation-locked .nav-content {
+  align-content: center;
+  min-height: calc(100dvh - 128px);
+  width: min(100%, 1280px);
+}
+
+.navigation-locked .nav-header {
+  min-height: 0;
+}
+
+.navigation-reveal-content {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+
+.organize-toolbar {
+  align-items: center;
+  backdrop-filter: blur(var(--public-search-blur, 20px));
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.14));
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.48);
+  border-radius: var(--public-card-radius, 8px);
+  box-shadow: 0 10px 28px rgba(var(--public-shadow-rgb), 0.14);
+  color: var(--public-page-text);
+  display: flex;
+  font-size: 13px;
+  font-weight: 750;
+  justify-content: space-between;
+  margin: 0 auto -12px;
+  min-height: 44px;
+  padding: 5px 6px 5px 14px;
+  width: min(100%, 1200px);
+}
+
+.organize-toolbar > div { display: flex; gap: 6px; }
+.organize-icon-button,
+.organize-done-button {
+  align-items: center;
+  background: rgba(var(--public-hover-rgb, 255, 255, 255), 0.18);
+  border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.3);
+  border-radius: 8px;
+  color: var(--public-page-text);
+  display: inline-flex;
+  font: inherit;
+  gap: 6px;
+  height: 34px;
+  justify-content: center;
+  text-decoration: none;
+}
+.organize-icon-button { width: 34px; }
+.organize-done-button { padding: 0 12px; }
+.organize-icon-button:hover,
+.organize-done-button:hover { background: rgba(var(--accent-rgb), 0.24); border-color: rgba(var(--accent-bright-rgb), 0.5); }
+
+.navigation-reveal-enter-active {
+  transition: opacity 0.55s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), filter 0.55s ease;
+}
+
+.navigation-reveal-enter-from {
+  filter: blur(8px);
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.navigation-reveal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.navigation-reveal-leave-to {
+  opacity: 0;
+}
+
+.public-corner-actions {
+  --color-mode-border: rgba(var(--public-border-rgb), 0.3);
+  --color-mode-hover: rgba(var(--accent-rgb), 0.28);
+  --color-mode-popover: rgba(var(--public-overlay-rgb), 0.92);
+  --color-mode-surface: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  --color-mode-text: rgba(var(--public-page-text-rgb), 0.92);
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 20;
+}
+
+.portal-corner-link {
+  align-items: center;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: 1px solid rgba(var(--public-border-rgb), 0.3);
+  border-radius: 8px;
+  box-shadow: 0 12px 34px rgba(var(--public-shadow-rgb), 0.18), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.24);
+  color: rgba(var(--public-page-text-rgb), 0.92);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 750;
+  gap: 8px;
+  max-width: min(280px, calc(100vw - 32px));
+  min-height: 42px;
+  padding: 0 14px;
+  position: relative;
+  transform: translateZ(0);
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+}
+
+.portal-corner-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-corner-link:hover,
+.portal-corner-link:focus-visible {
+  background: rgba(var(--accent-rgb), 0.28);
+  border-color: rgba(var(--accent-soft-rgb), 0.56);
+  box-shadow: 0 16px 40px rgba(var(--public-shadow-rgb), 0.22), 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.portal-corner-link:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.nav-header {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  min-height: 140px;
+  text-align: center;
+}
+
+.header-vibe {
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: inherit;
+  display: grid;
+  justify-items: center;
+  max-width: min(760px, 100%);
+  padding: 8px 20px 14px;
+}
+
+.header-vibe-link {
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transform: translateZ(0);
+  transition:
+    background-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+}
+
+.header-vibe-link:hover,
+.header-vibe-link:focus-visible {
+  background: rgba(var(--public-hover-rgb), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--public-border-rgb), 0.2);
+  transform: translateY(-2px);
+}
+
+.portal-center-image {
+  background: rgba(var(--public-highlight-rgb), 0.28);
+  border: 1px solid rgba(var(--public-border-rgb), 0.48);
+  border-radius: 50%;
+  box-shadow: 0 16px 38px rgba(var(--public-shadow-rgb), 0.22), inset 0 1px 0 rgba(var(--public-highlight-rgb), 0.34);
+  display: inline-flex;
+  height: 86px;
+  margin-bottom: 12px;
+  padding: 5px;
+  position: relative;
+  width: 86px;
+}
+
+.portal-center-image img {
+  border-radius: 50%;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.portal-center-arrow {
+  background: var(--accent);
+  border: 2px solid rgba(var(--public-border-rgb), 0.92);
+  border-radius: 50%;
+  bottom: 0;
+  color: var(--public-accent-ink, #052e2b);
+  padding: 4px;
+  position: absolute;
+  right: -2px;
+}
+
+h1 {
+  /* The setting is the base; the heading is still the largest thing on the page. */
+  font-size: calc(var(--public-title-text-size, 30px) * 1.86);
+  line-height: 1.1;
+  margin: 0;
+  font-weight: calc(var(--public-font-weight, 400) + 400);
+  letter-spacing: 0;
+  color: var(--public-title-text, var(--public-page-text, #f3f4f6));
+}
+
+/* Text shadows only earn their keep over a background image; on flat color they just blur. */
+.nav-bg-visible h1 {
+  text-shadow: 0 4px 16px rgba(var(--public-shadow-rgb), 0.4);
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: calc(var(--public-title-text-size, 30px) * 1.2);
+  }
+}
+
+.nav-header p {
+  color: rgba(var(--public-description-text-rgb, var(--public-page-text-rgb)), 0.8);
+  font-size: var(--public-description-text-size, 14px);
+  line-height: var(--public-line-height, 1.5);
+  margin: 12px 0 0;
+  max-width: 600px;
+  font-weight: calc(var(--public-font-weight, 400) + 100);
+}
+
+.nav-bg-visible .nav-header p {
+  text-shadow: 0 2px 8px rgba(var(--public-shadow-rgb), 0.3);
+}
+
+.search-result-summary {
+  color: rgba(var(--public-page-text-rgb), 0.72);
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: center;
+  margin: -10px 0 0;
+}
+
+.public-load-error {
+  justify-self: center;
+  width: min(100%, 680px);
+}
+
+.public-load-error {
+  align-items: center;
+  background: rgba(20, 22, 28, 0.84);
+  border: 1px solid rgba(244, 63, 94, 0.32);
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.public-load-error p {
+  color: #fecdd3;
+  margin: 0;
+}
+
+.folder-tabs {
+  backdrop-filter: blur(var(--public-search-blur, 20px));
+  -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: var(--public-glass-border-width, 1px) solid
+    rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.28));
+  border-radius: var(--public-search-radius, 28px);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--public-notab-gap, 4px);
+  justify-content: var(--public-notab-justify, safe center);
+  margin: 8px auto;
+  max-width: min(100%, 1200px);
+  min-height: var(--public-notab-height, 38px);
+  min-width: 0;
+  overflow-x: auto;
+  padding: 5px;
+  /* Centred strips hug their tabs instead of stretching a mostly empty bar under the search box;
+     once the tabs outgrow it the strip reaches max-width and scrolls (or wraps) as before. */
+  width: var(--public-notab-strip-width, fit-content);
+  box-shadow:
+    0 8px var(--public-glass-shadow-spread, 24px)
+      rgba(var(--public-shadow-rgb), calc(var(--public-glass-shadow-strength, 0.32) * 0.44)),
+    inset 0 1px 0 rgba(var(--public-highlight-rgb), var(--public-glass-highlight, 0.34));
+  position: sticky;
+  top: 12px;
+  z-index: 10;
+}
+
+.folder-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Edge fade hints that more tabs are reachable by horizontal scroll */
+.folder-tabs.tabs-scrollable {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  /* Keep a swipe past the last tab from being read as a browser back gesture. */
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Leaves room so a scrolled-into-view tab never sits flush against the edge. */
+  scroll-padding-inline: var(--public-notab-scroll-padding, 12px);
+}
+
+/*
+ * A tinted pill with a short accent bar under the label. The old full-width bottom border bent
+ * round the pill's corners into a crescent, and its glow bled into the neighbouring tabs.
+ */
+.tab-indicator {
+  background: rgba(var(--accent-rgb), 0.16);
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.28);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.2s ease;
+  width: 0;
+  will-change: transform, width;
+}
+
+.tab-indicator::after {
+  background: var(--accent);
+  border-radius: 999px;
+  bottom: 3px;
+  content: '';
+  height: var(--public-notab-indicator, 2px);
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+  width: min(18px, 40%);
+}
+
+.notab-shell {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.notab-select {
+  -webkit-touch-callout: none;
+  align-items: center;
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: calc(var(--public-notab-height, 38px) - 10px);
+  padding: 6px 14px;
+  font-size: var(--public-notab-text-size, 15px);
+  font-weight: 600;
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.76);
+  position: relative;
+  transform: translateZ(0);
+  transition:
+    background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 1;
+}
+
+.notab-select:hover {
+  background: rgba(var(--public-hover-rgb), 0.22);
+  color: var(--public-notab-text, #ffffff);
+}
+
+.notab-select:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.75);
+  outline-offset: -2px;
+}
+
+.notab-select:active {
+  transform: translateY(1px) scale(0.97);
+  transition-duration: 0.12s;
+}
+
+.notab-select.is-organize-arming {
+  animation: organize-arm 3s linear both;
+}
+
+@keyframes organize-arm {
+  from { box-shadow: inset 0 0 0 0 rgba(var(--accent-rgb), 0.1); }
+  to { box-shadow: inset 0 -36px 0 0 rgba(var(--accent-rgb), 0.34); }
+}
+
+.notab-shell.is-organizing {
+  animation: notab-wiggle 0.32s ease-in-out infinite alternate;
+}
+
+.notab-shell.is-dragging-source { opacity: 0.24; }
+.notab-shell.drop-before::before,
+.notab-shell.drop-after::after {
+  background: var(--accent-bright, #34d399);
+  border-radius: 2px;
+  content: '';
+  height: 24px;
+  position: absolute;
+  top: 5px;
+  width: 3px;
+  z-index: 4;
+}
+.notab-shell.drop-before::before { left: -2px; }
+.notab-shell.drop-after::after { right: -2px; }
+
+.notab-delete-button {
+  align-items: center;
+  background: rgba(225, 29, 72, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  color: #ffffff;
+  display: inline-flex;
+  height: 18px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  width: 18px;
+  z-index: 5;
+}
+
+@keyframes notab-wiggle {
+  from { transform: rotate(-0.7deg) translateY(-1px); }
+  to { transform: rotate(0.7deg) translateY(1px); }
+}
+
+.folder-tabs.is-organizing .tab-service-link { opacity: 0.48; pointer-events: none; }
+
+.tab-service-separator {
+  align-self: center;
+  /* Drawn in the tab ink rather than the border colour, which is white on the light themes. */
+  background: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.2);
+  flex: 0 0 1px;
+  height: 18px;
+  margin: 0 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-service-link {
+  align-items: center;
+  border-radius: max(0px, calc(var(--public-search-radius, 28px) - 5px));
+  color: rgba(var(--public-notab-text-rgb, 255, 255, 255), 0.76);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--public-notab-text-size, 15px);
+  font-weight: 600;
+  gap: 6px;
+  padding: 6px 12px;
+  position: relative;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  z-index: 1;
+}
+
+.tab-service-link:hover,
+.tab-service-link:focus-visible {
+  background: rgba(var(--public-hover-rgb), 0.22);
+  color: var(--public-notab-text, #ffffff);
+}
+
+.tab-service-link:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.75);
+  outline-offset: -2px;
+}
+
+.tab-service-link:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+.notab-select.active {
+  color: var(--public-notab-text, #ffffff);
+}
+
+.public-empty-state {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.public-empty-state p {
+  margin: 0;
+}
+
+.external-search-cta {
+  font-size: 13.5px;
+  min-height: 34px;
+}
+
+.adaptive-folder-grid {
+  align-items: start;
+  display: grid;
+  gap: var(--public-folder-gap-y, 24px) var(--public-folder-gap-x, 20px);
+  /* The configured count is the ceiling; narrower viewports still step down below. */
+  grid-template-columns: repeat(var(--public-folder-columns, 4), minmax(0, 1fr));
+}
+
+@media (max-width: 1800px) {
+  .nav-content {
+    padding: 0 min(24px, var(--public-page-padding-x, 32px));
+  }
+
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(min(3, var(--public-folder-columns, 4)), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .nav-content {
+    padding: 0 min(20px, var(--public-page-padding-x, 32px));
+  }
+
+  .adaptive-folder-grid {
+    grid-template-columns: repeat(min(2, var(--public-folder-columns, 4)), minmax(0, 1fr));
+  }
+}
+
+.folder-load-more {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
+  border: 1px solid rgba(var(--public-border-rgb), 0.28);
+  border-radius: 8px;
+  color: rgba(var(--public-page-text-rgb), 0.88);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: center;
+  min-height: 42px;
+  padding: 0 18px;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    transform 0.24s ease;
+}
+
+.folder-load-more:hover,
+.folder-load-more:focus-visible {
+  background: rgba(var(--accent-rgb), 0.26);
+  border-color: rgba(var(--accent-soft-rgb), 0.5);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .nav-page {
+    padding: 32px 12px 64px;
+  }
+
+  .nav-content {
+    padding: 0 16px;
+    gap: 20px;
+  }
+
+  .nav-header,
+  .adaptive-folder-grid {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .adaptive-folder-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .nav-header {
+    justify-items: center;
+    min-height: auto;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .portal-corner-link {
+    min-height: 40px;
+    width: fit-content;
+  }
+
+  .public-corner-actions {
+    justify-content: center;
+    margin: 0 auto 18px;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: fit-content;
+    z-index: 30;
+  }
+
+  .portal-corner-link span {
+    max-width: 140px;
+  }
+
+  .header-vibe {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .portal-center-image {
+    height: 72px;
+    width: 72px;
+  }
+
+  /*
+   * The strip still breaks out of the content padding for extra width (it stays well short of the
+   * actual viewport edge), so it keeps the theme's own pill radius from the base rule below instead
+   * of forcing 0 — a straight-cornered strip on phones read as broken against the rounded search
+   * bar and folder cards right above and below it.
+   */
+  .folder-tabs {
+    margin: 4px -8px;
+    max-width: calc(100% + 16px);
+    width: calc(100% + 16px);
+    border-left: 0;
+    border-right: 0;
+    top: 0;
+  }
+
+  /*
+   * The 28px edge fade costs a fifth of a 280px strip and renders the first and last tab
+   * unreadable while still leaving them tappable, so a phone shows a target it has hidden.
+   * Native scrolling plus the indicator is enough of a hint at this width.
+   */
+  .folder-tabs.tabs-scrollable {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Long labels stay on one line and stay scrollable rather than being clipped away. */
+  .notab-select {
+    white-space: nowrap;
+  }
+
+  .organize-toolbar {
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-reveal-enter-active,
+  .navigation-reveal-leave-active {
+    transition: none;
+  }
+
+  .navigation-locked .nav-content {
+    min-height: calc(100dvh - 96px);
+  }
+
+  .header-vibe,
+  .portal-corner-link,
+  .notab-shell,
+  .notab-select.is-organize-arming {
+    animation: none;
+  }
+
+  .nav-page::before,
+  .public-glass-page::after,
+  .tab-indicator {
+    transition: none;
+  }
+}

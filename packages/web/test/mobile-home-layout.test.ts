@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readNavigationPageCss, readNavigationPageSource } from './support/navigation-source';
 
 /**
  * Responsive contracts for the phone homepage. Measured at 320/360/390/430 against the real scoped
@@ -38,9 +39,9 @@ function mediaBlock(css: string, width: number): string {
   throw new Error(`unterminated @media (max-width: ${width}px)`);
 }
 
-const navigationCss = scopedStyle('src/views/NavigationPage.vue');
+const navigationCss = readNavigationPageCss();
 const folderCss = scopedStyle('src/components/FolderCard.vue');
-const navigationSource = source('src/views/NavigationPage.vue');
+const navigationSource = readNavigationPageSource();
 const navigationMobile = mediaBlock(navigationCss, 640);
 const folderMobile = mediaBlock(folderCss, 640);
 
