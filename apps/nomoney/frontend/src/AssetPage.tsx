@@ -1368,7 +1368,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium backdrop-blur" style={{ background: visualStyle.chip, borderColor: visualStyle.border, color: visualAccent.primary }}>
+            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ background: visualStyle.chip, borderColor: visualStyle.border, color: visualAccent.primary }}>
               <Sparkles size={14} />
               {copy('可视化电话号码管理系统', 'Visual phone number command center')}
             </div>
@@ -1396,7 +1396,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
         </div>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.6fr_0.9fr]">
-          <div className="rounded-2xl border p-4 backdrop-blur transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
+          <div className="rounded-2xl border p-4 transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium" style={{ color: visualStyle.text }}>{copy('国内号码月花费分布', 'Domestic monthly cost map')}</p>
@@ -1420,7 +1420,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-2xl border p-4 backdrop-blur transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
+            <div className="rounded-2xl border p-4 transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
               <p className="text-sm font-medium" style={{ color: visualStyle.text }}>{copy('本人运营商', 'Carrier mix')}</p>
               <div className="mt-3 h-40">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1440,7 +1440,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl border p-4 backdrop-blur transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
+            <div className="rounded-2xl border p-4 transition-colors duration-300" style={{ background: visualStyle.cardStrong, borderColor: visualStyle.border }}>
               <p className="text-sm font-medium" style={{ color: visualStyle.text }}>{copy('国家分布', 'Country spread')}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {countryChart.length === 0 ? <span className="text-sm" style={{ color: visualStyle.soft }}>-</span> : countryChart.map((entry, index) => (
@@ -1454,7 +1454,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded-2xl border p-4 backdrop-blur transition-colors duration-300" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+          <div className="rounded-2xl border p-4 transition-colors duration-300" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
             <p className="text-sm font-medium" style={{ color: visualStyle.text }}>{copy('实际使用人分布', 'Actual user split')}</p>
             <div className="mt-4 space-y-3">
               {userChart.map((entry, index) => (
@@ -1470,7 +1470,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border p-4 backdrop-blur transition-colors duration-300" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+          <div className="rounded-2xl border p-4 transition-colors duration-300" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
             <p className="text-sm font-medium" style={{ color: visualStyle.text }}>{copy('保号与关注', 'Keepalive watch')}</p>
             <div className="mt-4 space-y-2">
               {keepaliveItems.length === 0 ? <p className="text-sm" style={{ color: visualStyle.soft }}>{copy('暂无国外卡保号记录。', 'No foreign keepalive records yet.')}</p> : keepaliveItems.map((item) => (
@@ -1491,7 +1491,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {showcase.map((item) => (
-            <div key={item.id} className="rounded-2xl border p-4 backdrop-blur transition-all duration-200 hover:-translate-y-0.5" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+            <div key={item.id} className="rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
               <p className="font-mono text-base font-semibold" style={{ color: visualStyle.text }}>{getPhoneDisplayNumber(item)}</p>
               <div className="mt-2 flex items-center justify-between gap-2 text-xs">
                 <span className="rounded-md px-1.5 py-0.5" style={{ background: hexToRgba(visualAccent.secondary, 0.15), color: visualAccent.secondary }}>{stringValue(item.userName) || stringValue(item.realNamePerson) || '-'}</span>
@@ -1521,7 +1521,7 @@ function PhoneAppearanceControl({
   visualStyle: PhoneVisualStyle;
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-2xl border px-2.5 py-2 backdrop-blur" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+    <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-2xl border px-2.5 py-2" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
       <span className="px-1 text-xs font-medium" style={{ color: visualStyle.soft }}>{copy('外观', 'Look')}</span>
       <select
         value={styleKey}
@@ -1559,7 +1559,7 @@ function PhoneAppearanceControl({
 
 function PhoneHeroMetric({ label, value, color, visualStyle }: { label: string; value: number; color: string; visualStyle: PhoneVisualStyle }) {
   return (
-    <div className="rounded-2xl border px-3 py-3 backdrop-blur" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+    <div className="rounded-2xl border px-3 py-3" style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
       <p className="text-xs" style={{ color: visualStyle.muted }}>{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold" style={{ color }}>{value}</p>
     </div>
@@ -1568,7 +1568,7 @@ function PhoneHeroMetric({ label, value, color, visualStyle }: { label: string; 
 
 function VisualGlassCard({ label, value, detail, icon, color, visualStyle, compact = false }: { label: string; value: React.ReactNode; detail: string; icon: React.ReactNode; color: string; visualStyle: PhoneVisualStyle; compact?: boolean }) {
   return (
-    <div className={`${compact ? 'p-3' : 'p-4'} rounded-2xl border backdrop-blur transition-colors duration-300`} style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
+    <div className={`${compact ? 'p-3' : 'p-4'} rounded-2xl border transition-colors duration-300`} style={{ background: visualStyle.card, borderColor: visualStyle.border }}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm" style={{ color: visualStyle.muted }}>{label}</p>

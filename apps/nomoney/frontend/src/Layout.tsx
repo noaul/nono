@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ContactRound, Globe2, Languages, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, Trash2, X } from 'lucide-react';
+import { ContactRound, Globe2, House, Languages, LayoutDashboard, LogOut, Menu, Moon, NotebookPen, ReceiptText, Repeat2, Server, Settings, Smartphone, Star, Sun, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
@@ -7,6 +7,7 @@ import { api } from './api';
 import { IconButton } from './ui';
 import { useI18n } from './i18n';
 import { product, productMeta } from './product';
+import { COLOR_MODE_CHANGE_EVENT, currentColorMode, setColorModePreference, type ResolvedColorMode } from './color-mode';
 
 const navItems = [
   { to: '/dashboard', labelZh: product === 'yumi' ? '总览' : '控制台', labelEn: product === 'yumi' ? 'Overview' : 'Dashboard', icon: LayoutDashboard, hint: 'Overview' },
@@ -24,6 +25,13 @@ const yumiNavOrder = ['/dashboard', '/expenses', '/vps', '/domains', '/trash', '
 const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/accounts', '/trash', '/settings'];
 const activeNavOrder = product === 'yumi' ? yumiNavOrder : noMoneyNavOrder;
 const productNavItems = activeNavOrder.map((path) => navItems.find((item) => item.to === path)!);
+
+// The rest of the NoNo family lives on the same origin, outside this app's router base.
+const nonoApps = [
+  { href: '/', labelZh: 'NoNo 主页', labelEn: 'NoNo home', icon: House },
+  { href: '/nodesk', labelZh: 'NoDesk', labelEn: 'NoDesk', icon: NotebookPen },
+  { href: '/nostar/', labelZh: 'NoStar', labelEn: 'NoStar', icon: Star }
+];
 
 export type LayoutOutletContext = {
   setTopbarActions: (actions: ReactNode | null) => void;
@@ -44,9 +52,15 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
   const mobileDrawerRef = useRef<HTMLElement | null>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
-  const [theme, setTheme] = useState(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
+  const [theme, setTheme] = useState<ResolvedColorMode>(currentColorMode);
   const current = useMemo(() => productNavItems.find((item) => location.startsWith(item.to)), [location]);
   const outletContext = useMemo<LayoutOutletContext>(() => ({ setTopbarActions }), []);
+
+  useEffect(() => {
+    const syncTheme = (event: Event) => setTheme((event as CustomEvent<ResolvedColorMode>).detail);
+    window.addEventListener(COLOR_MODE_CHANGE_EVENT, syncTheme);
+    return () => window.removeEventListener(COLOR_MODE_CHANGE_EVENT, syncTheme);
+  }, []);
 
   useEffect(() => {
     const closeMobileNavigationAtDesktop = () => {
@@ -101,10 +115,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
   }, [mobileOpen]);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.classList.toggle('dark', next === 'dark');
-    localStorage.setItem(`${product}-theme`, next);
-    setTheme(next);
+    setTheme(setColorModePreference(theme === 'dark' ? 'light' : 'dark'));
   };
 
   const logout = async () => {
@@ -137,10 +148,29 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
     </nav>
   );
 
+  const appLinks = (
+    <nav aria-label={copy('NoNo 应用', 'NoNo apps')} className="px-3 py-2">
+      <p className="px-3 pb-1 text-[11px] font-medium text-[color:var(--ui-text-subtle)]">{copy('应用', 'Apps')}</p>
+      {nonoApps.map((app) => {
+        const Icon = app.icon;
+        return (
+          <a
+            key={app.href}
+            href={app.href}
+            className="flex h-8 items-center gap-2.5 rounded-lg px-3 text-[13px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-sunken)] hover:text-[color:var(--ui-text)]"
+          >
+            <Icon size={15} aria-hidden="true" />
+            <span className="truncate">{copy(app.labelZh, app.labelEn)}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-ink-950">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white dark:border-white/10 dark:bg-ink-900 md:block">
-        <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5 dark:border-white/10">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[color:var(--ui-border)] bg-[var(--ui-surface)] md:flex">
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-white/10">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-xs font-semibold text-white dark:border-white/10 dark:bg-white dark:text-slate-950">
             {productMeta.initials}
           </div>
@@ -149,8 +179,9 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
             <div className="font-mono text-[11px] text-slate-400">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</div>
           </div>
         </div>
-        {navContent}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 p-3 dark:border-white/10">
+        <div className="min-h-0 flex-1 overflow-y-auto">{navContent}</div>
+        {appLinks}
+        <div className="shrink-0 border-t border-slate-200 p-3 dark:border-white/10">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="text-xs text-slate-500 dark:text-slate-400">{copy('当前登录', 'Signed in as')}</div>
             <div className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-white">{user.username}</div>
@@ -161,9 +192,9 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
 
       {mobileOpen && (
         <div className="nomoney-mobile-overlay fixed inset-0 z-50 md:hidden">
-          <button aria-label={copy('关闭', 'Close')} className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 w-72 border-r border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900" role="dialog" aria-modal="true" aria-label={copy('主导航', 'Main navigation')} tabIndex={-1}>
-            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
+          <button aria-label={copy('关闭', 'Close')} className="absolute inset-0 bg-slate-950/65" onClick={() => setMobileOpen(false)} />
+          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 flex w-72 flex-col border-r border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-2xl" role="dialog" aria-modal="true" aria-label={copy('主导航', 'Main navigation')} tabIndex={-1}>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
                   {productMeta.initials}
@@ -174,13 +205,14 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
                 <X size={16} />
               </IconButton>
             </div>
-            {navContent}
+            <div className="min-h-0 flex-1 overflow-y-auto">{navContent}</div>
+            <div className="shrink-0 border-t border-slate-200 dark:border-white/10">{appLinks}</div>
           </aside>
         </div>
       )}
 
       <div className="min-w-0 md:pl-64">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/85 px-4 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-ink-950/85 sm:px-6">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 py-2 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button ref={mobileTriggerRef} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label={copy('菜单', 'Menu')}>
               <Menu size={20} />

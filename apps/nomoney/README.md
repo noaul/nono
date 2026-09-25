@@ -11,7 +11,7 @@ Moneypulse is a single-user asset and recurring cost manager for phone cards, VP
 - Multi-currency support: CNY, USD, GBP, EUR.
 - Dashboard with predicted monthly/yearly costs, actual yearly expenses, active asset counts, charts, and due items.
 - Daily digest email reminders with reminder logs.
-- Geist Minimalist UI: dark-first, compact tables, mono data typography, low-noise borders.
+- Shared NoNo UI contract: teal accent, compact tables, mono data typography, low-noise borders; colour mode (`nono:color-mode`, system by default) and language (`nono:locale`) are shared with the other NoNo apps.
 - SQLite file persistence through `sql.js`.
 - Docker and Docker Compose packaging.
 

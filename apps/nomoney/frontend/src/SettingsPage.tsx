@@ -4,7 +4,7 @@ import type { ListResponse, ReminderLogItem, SettingsValue } from './types';
 import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
 import { Button, DataTable, Field, PageHeader, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
-import { useI18n } from './i18n';
+import { readStoredLanguage, useI18n } from './i18n';
 import { product } from './product';
 import { formatShanghaiDateTime } from './format';
 
@@ -44,10 +44,7 @@ export function SettingsPage() {
       api.get<{ settings: SettingsValue }>('/api/settings'),
       api.get<ListResponse<ReminderLogItem>>('/api/reminders/logs?limit=8')
     ]);
-    const storedLanguage = localStorage.getItem('moneypulse-language');
-    const nextLanguage = storedLanguage === 'en' || storedLanguage === 'zh'
-      ? storedLanguage
-      : settingsResponse.settings.language ?? language;
+    const nextLanguage = readStoredLanguage() ?? settingsResponse.settings.language ?? language;
     setSettings({ ...settingsResponse.settings, language: nextLanguage });
     setLanguage(nextLanguage);
     setLogs(logResponse.items);

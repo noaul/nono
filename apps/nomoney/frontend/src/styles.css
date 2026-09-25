@@ -5,6 +5,12 @@
 @layer base {
   :root { color-scheme: light; }
   html.dark { color-scheme: dark; }
+  /* Before main.tsx resolves the shared nono:color-mode preference, follow the OS so a dark
+     system does not flash a light canvas. */
+  @media (prefers-color-scheme: dark) {
+    html:not([data-color-mode]) { color-scheme: dark; }
+    html:not([data-color-mode]) body { background-color: #07080a; }
+  }
   html { scrollbar-gutter: stable; }
   body {
     @apply bg-slate-50 text-slate-950 antialiased dark:bg-ink-950 dark:text-slate-100;
@@ -154,9 +160,9 @@ button { @apply active:translate-y-px; }
 /* Yumi availability overview */
 .yumi-overall-banner {
   overflow: hidden;
-  border: 1px solid rgb(var(--ui-border-rgb));
+  border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-lg);
-  background: rgb(var(--ui-surface-rgb));
+  background: var(--ui-surface);
 }
 
 .yumi-overall-title {

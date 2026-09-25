@@ -21,7 +21,7 @@ export function Button({
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium outline-none transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-brand-500/45 disabled:cursor-not-allowed disabled:opacity-50',
         size === 'md' && 'h-10 px-4 text-sm',
         size === 'sm' && 'h-8 px-3 text-xs',
-        variant === 'primary' && 'border border-brand-500 bg-brand-600 text-white shadow-sm shadow-brand-950/20 hover:bg-brand-500',
+        variant === 'primary' && 'border border-[color:var(--ui-accent)] bg-[var(--ui-accent)] text-[color:var(--ui-accent-ink)] shadow-sm hover:border-[color:var(--ui-accent-hover)] hover:bg-[var(--ui-accent-hover)]',
         variant === 'secondary' && 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.07]',
         variant === 'ghost' && 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.06]',
         variant === 'danger' && 'border border-danger-500/25 bg-danger-500/10 text-danger-600 hover:bg-danger-500/15 dark:text-danger-400',
@@ -60,7 +60,7 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/70 bg-white/55 px-4 py-3 shadow-sm shadow-slate-200/40 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.035] dark:shadow-none sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <p className="mb-1 text-xs font-medium text-brand-600 dark:text-brand-400">{eyebrow}</p>}
         <h2 className="truncate text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">{title}</h2>
@@ -164,7 +164,7 @@ export function Drawer({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={onClose} />
+      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65" onClick={onClose} />
       <aside className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
           <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
@@ -213,7 +213,7 @@ export function StateBanner({
   children: React.ReactNode;
 }) {
   const map = {
-    info: 'border-brand-500/20 bg-brand-500/10 text-brand-700 dark:text-brand-300',
+    info: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     danger: 'border-danger-500/20 bg-danger-500/10 text-danger-700 dark:text-danger-300',
     success: 'border-success-500/20 bg-success-500/10 text-success-700 dark:text-success-300',
     warning: 'border-warning-500/20 bg-warning-500/10 text-warning-700 dark:text-warning-300'

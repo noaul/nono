@@ -2,6 +2,13 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 export type Language = 'zh' | 'en';
 
+/** Shared with every NoNo app on this origin; absent means Chinese. */
+export const LOCALE_STORAGE_KEY = 'nono:locale';
+/** The per-app key used before the shared one existed. */
+export const LEGACY_LANGUAGE_KEY = 'moneypulse-language';
+
+type LanguageStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
 type I18nContextValue = {
   language: Language;
   setLanguage: (language: Language) => void;
@@ -19,7 +26,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [language]);
 
   const setLanguage = (next: Language) => {
-    localStorage.setItem('moneypulse-language', next);
+    localStorage.setItem(LOCALE_STORAGE_KEY, next);
     setLanguageState(next);
   };
 
@@ -41,8 +48,26 @@ export function useI18n(): I18nContextValue {
   return context;
 }
 
+function isLanguage(value: unknown): value is Language {
+  return value === 'zh' || value === 'en';
+}
+
+/**
+ * The explicit language choice, if any, carrying the retired per-app key over once. Only English
+ * is carried: Chinese is already the default, and writing it would turn NoNo's site default into
+ * a visitor override on every app.
+ */
+export function readStoredLanguage(storage: LanguageStorage = localStorage): Language | null {
+  const stored = storage.getItem(LOCALE_STORAGE_KEY);
+  if (stored !== null) return isLanguage(stored) ? stored : null;
+
+  if (storage.getItem(LEGACY_LANGUAGE_KEY) !== 'en') return null;
+  storage.setItem(LOCALE_STORAGE_KEY, 'en');
+  return 'en';
+}
+
 export function getStoredLanguage(): Language {
-  return localStorage.getItem('moneypulse-language') === 'en' ? 'en' : 'zh';
+  return readStoredLanguage() ?? 'zh';
 }
 
 export function localize(language: Language, zh: string, en: string): string {
