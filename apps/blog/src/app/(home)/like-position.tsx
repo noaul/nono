@@ -11,7 +11,6 @@ export default function LikePosition() {
 	const styles = cardStyles.likePosition
 	const hiCardStyles = cardStyles.hiCard
 	const socialButtonsStyles = cardStyles.socialButtons
-	const musicCardStyles = cardStyles.musicCard
 	const shareCardStyles = cardStyles.shareCard
 
 	const x =
@@ -19,7 +18,7 @@ export default function LikePosition() {
 	const y =
 		styles.offsetY !== null
 			? center.y + styles.offsetY
-			: center.y + hiCardStyles.height / 2 + CARD_SPACING + socialButtonsStyles.height + CARD_SPACING + musicCardStyles.height + CARD_SPACING
+			: center.y + hiCardStyles.height / 2 + CARD_SPACING + socialButtonsStyles.height + CARD_SPACING
 
 	return (
 		<HomeDraggableLayer cardKey='likePosition' x={x} y={y} width={styles.width} height={styles.height}>

@@ -181,13 +181,14 @@ test('supports persisted calendar schedules and cache-safe avatar assets', async
 	assert.match(sitePush, /meta\.avatarUrl/)
 })
 
-test('places music on the lower left and summarizes the next three days beside it', async () => {
-	const music = await read('src/components/music-card.tsx')
+test('drops the retired music card and summarizes the next three days', async () => {
 	const styles = await read('src/config/card-styles.json')
+	const layout = await read('src/layout/index.tsx')
 	const summary = await read('src/components/schedule-summary-card.tsx')
 
-	assert.match(music, /navCardStyles/)
-	assert.match(music, /cardKey='musicCard'/)
+	await assert.rejects(read('src/components/music-card.tsx'))
+	assert.doesNotMatch(styles, /"musicCard"/)
+	assert.doesNotMatch(layout, /MusicCard/)
 	assert.match(styles, /"scheduleCard"/)
 	assert.match(summary, /最近日程/)
 	assert.match(summary, /未来三天/)

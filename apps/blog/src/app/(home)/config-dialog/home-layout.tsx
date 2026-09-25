@@ -13,7 +13,6 @@ const CARD_LABELS: Record<string, [string, string]> = {
 	clockCard: ['时钟', 'Clock'],
 	calendarCard: ['日历', 'Calendar'],
 	scheduleCard: ['近期日程', 'Schedule'],
-	musicCard: ['音乐', 'Music'],
 	socialButtons: ['联系', 'Contact'],
 	shareCard: ['分享', 'Shares'],
 	articleCard: ['文章', 'Posts'],

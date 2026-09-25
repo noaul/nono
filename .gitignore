@@ -16,5 +16,3 @@ apps/nomoney/data/
 apps/nomoney/.env
 apps/nomoney/node_modules/
 packages/extension/artifacts/
-# Licensed audio stays on the deploy host; the Docker build still copies it from the working tree.
-apps/blog/public/music/
