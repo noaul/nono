@@ -14,6 +14,11 @@ export const portalDefaults: PortalSettings = {
 	openInNewTab: false
 }
 
+/** The default label is chrome and follows the language; a label the owner typed is shown as typed. */
+export function portalLabel(label: string, copy: (zh: string, en: string) => string) {
+	return label === portalDefaults.label ? copy(portalDefaults.label, 'Back to NoNo') : label
+}
+
 export function getPortalSettings(value: unknown, fallbackUrl = process.env.NEXT_PUBLIC_NONO_URL || portalDefaults.url): PortalSettings {
 	const record = isRecord(value) ? value : {}
 

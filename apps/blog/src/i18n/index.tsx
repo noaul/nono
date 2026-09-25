@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 export { LANGUAGE_STORAGE_KEY, localeCopy, readStoredLanguage, type Language } from './language'
-import { readStoredLanguage, type Language } from './language'
+import { LANGUAGE_STORAGE_KEY, readStoredLanguage, type Language } from './language'
 
 type I18nContextValue = {
 	language: Language
@@ -32,7 +32,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 	const setLanguage = useCallback((next: Language) => {
 		setLanguageState(next)
 		try {
-			window.localStorage.setItem('nono-blog-language', next)
+			window.localStorage.setItem(LANGUAGE_STORAGE_KEY, next)
 		} catch {
 			// The tab still switches when storage is unavailable.
 		}

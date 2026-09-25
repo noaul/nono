@@ -227,3 +227,15 @@ test('keeps Nodesk locale state and visible article actions bilingual', async ()
 	assert.match(projects, /confirm\(copy\(`/)
 	assert.doesNotMatch(parser, /useI18n\(/)
 })
+
+test('shares the NoNo language choice and localises the default portal label', async () => {
+	const language = await read('src/i18n/language.ts')
+	const provider = await read('src/i18n/index.tsx')
+	const portal = await read('src/lib/portal.ts')
+	const shortcut = await read('src/app/(home)/portal-shortcut.tsx')
+
+	assert.match(language, /LANGUAGE_STORAGE_KEY = 'nono:locale'/)
+	assert.doesNotMatch(provider, /'nono-blog-language'/)
+	assert.match(portal, /copy\(portalDefaults\.label, 'Back to NoNo'\)/)
+	assert.match(shortcut, /portalLabel\(portal\.label, copy\)/)
+})
