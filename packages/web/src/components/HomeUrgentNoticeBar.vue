@@ -87,7 +87,7 @@ defineEmits<{
   background: rgba(var(--accent-rgb), 0.24);
   border: 1px solid rgba(var(--accent-bright-rgb), 0.32);
   border-radius: 7px;
-  color: var(--accent-bright, #34d399);
+  color: var(--accent-bright, #2fa399);
   display: inline-flex;
   flex: 0 0 auto;
   height: 34px;

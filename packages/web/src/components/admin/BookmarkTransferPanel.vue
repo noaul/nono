@@ -314,7 +314,7 @@ watch(html, () => {
 }
 
 .preview-row input {
-  accent-color: var(--accent);
+  accent-color: var(--ui-accent);
   height: 17px;
   width: 17px;
 }

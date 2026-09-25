@@ -510,7 +510,7 @@ defineExpose({
   box-shadow:
     0 1px 2px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  color: var(--public-accent-ink, #052016);
+  color: var(--public-accent-ink, #ffffff);
   cursor: pointer;
   display: grid;
   flex: 0 0 auto;

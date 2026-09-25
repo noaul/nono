@@ -478,7 +478,7 @@ describe('visual contracts', () => {
     expect(html).toContain('/favicon-32.png');
     expect(html).toContain('/favicon-192.png');
     expect(html).toContain('/apple-touch-icon.png');
-    expect(html).toContain('name="theme-color" content="#5b5ce2"');
+    expect(html).toContain('name="theme-color" content="#0d9488"');
     expect(favicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
     expect(adminFavicon.subarray(0, pngSignature.length)).toEqual(pngSignature);
     expect(app).toContain("const variant = isAdmin ? '-admin' : ''");

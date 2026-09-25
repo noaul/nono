@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
 }
 
 .mode-check {
-  color: var(--accent, #10b981);
+  color: var(--accent, #0d9488);
 }
 
 .color-mode-segments {

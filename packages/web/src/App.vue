@@ -27,7 +27,11 @@ watch(
 </script>
 
 <template>
-  <ColorModeControl v-if="showStandaloneModeControl" class="standalone-color-mode" />
+  <!-- A wrapper owns the fixed position: on the component root it lost to the control's own
+       scoped `position: relative`, which slid the button half off the left edge. -->
+  <div v-if="showStandaloneModeControl" class="standalone-color-mode">
+    <ColorModeControl />
+  </div>
   <router-view v-slot="{ Component }">
     <component v-if="isAdminRoute" :is="Component" />
     <transition v-else name="page" mode="out-in">
@@ -38,11 +42,13 @@ watch(
 
 <style>
 .standalone-color-mode {
-  --color-mode-border: var(--line);
-  --color-mode-hover: var(--panel-2);
-  --color-mode-popover: var(--panel);
-  --color-mode-surface: var(--panel);
-  --color-mode-text: var(--text);
+  --color-mode-border: var(--ui-border);
+  --color-mode-hover: var(--ui-surface-sunken);
+  --color-mode-popover: var(--ui-surface-raised);
+  --color-mode-popover-text: var(--ui-text);
+  --color-mode-popover-hover: var(--ui-surface-sunken);
+  --color-mode-surface: var(--ui-surface);
+  --color-mode-text: var(--ui-text);
   position: fixed;
   right: 20px;
   top: 20px;

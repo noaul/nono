@@ -508,7 +508,7 @@ onMounted(load);
 .source-links { --source-color: var(--admin-status-danger); --source-soft: color-mix(in srgb, var(--admin-status-danger) 16%, transparent); }
 .source-nodesk { --source-color: var(--admin-link); --source-soft: color-mix(in srgb, var(--admin-link) 16%, transparent); }
 .source-nomoney { --source-color: var(--admin-status-ok); --source-soft: color-mix(in srgb, var(--admin-status-ok) 16%, transparent); }
-.source-yumi { --source-color: var(--admin-status-info); --source-soft: color-mix(in srgb, var(--admin-status-info) 16%, transparent); }
+.source-yumi { --source-color: var(--ui-info); --source-soft: color-mix(in srgb, var(--ui-info) 16%, transparent); }
 .source-nostar { --source-color: var(--admin-status-alt); --source-soft: color-mix(in srgb, var(--admin-status-alt) 16%, transparent); }
 .source-backup { --source-color: var(--admin-status-warn); --source-soft: color-mix(in srgb, var(--admin-status-warn) 16%, transparent); }
 

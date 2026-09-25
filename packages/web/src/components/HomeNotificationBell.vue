@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
   background: rgba(var(--accent-rgb), 0.2);
   border: 1px solid rgba(var(--accent-bright-rgb), 0.24);
   border-radius: 7px;
-  color: var(--accent-bright, #34d399);
+  color: var(--accent-bright, #2fa399);
   display: inline-flex;
   height: 34px;
   justify-content: center;

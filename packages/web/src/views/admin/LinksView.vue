@@ -1025,8 +1025,8 @@ onMounted(load);
 .folder-editor-field input:focus,
 .folder-editor-field select:focus,
 .folder-editor-field textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
   outline: none;
 }
 
@@ -1255,8 +1255,8 @@ onMounted(load);
 
 .inline-link-input:focus,
 .inline-link-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
   outline: none;
 }
 

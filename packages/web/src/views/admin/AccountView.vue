@@ -567,11 +567,10 @@ onMounted(() => {
 }
 
 .token-dialog {
-  backdrop-filter: blur(28px) saturate(1.15);
-  background: color-mix(in srgb, var(--admin-surface-elevated) 94%, transparent);
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  box-shadow: var(--admin-shadow-lg);
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-md);
   display: grid;
   gap: 16px;
   max-width: 560px;

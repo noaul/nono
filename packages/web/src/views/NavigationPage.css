@@ -102,7 +102,7 @@
   --public-hover-rgb: 255, 255, 255;
   --public-shadow-rgb: 0, 0, 0;
   --public-overlay-rgb: 8, 12, 18;
-  --public-accent-ink: #052e2b;
+  --public-accent-ink: var(--accent-ink);
   background:
     radial-gradient(circle at 14% 10%, rgba(var(--accent-bright-rgb), 0.14), transparent 28%),
     linear-gradient(135deg, rgba(var(--public-highlight-rgb), 0.08), transparent 42%, rgba(var(--accent-rgb), 0.08)),
@@ -347,7 +347,7 @@
   border: 2px solid rgba(var(--public-border-rgb), 0.92);
   border-radius: 50%;
   bottom: 0;
-  color: var(--public-accent-ink, #052e2b);
+  color: var(--public-accent-ink, #ffffff);
   padding: 4px;
   position: absolute;
   right: -2px;
@@ -551,7 +551,7 @@ h1 {
 .notab-shell.is-dragging-source { opacity: 0.24; }
 .notab-shell.drop-before::before,
 .notab-shell.drop-after::after {
-  background: var(--accent-bright, #34d399);
+  background: var(--accent-bright, #2fa399);
   border-radius: 2px;
   content: '';
   height: 24px;

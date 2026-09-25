@@ -317,6 +317,13 @@ onMounted(() => {
 .audit-header-actions { align-items: center; display: flex; flex-wrap: nowrap; gap: 8px; }
 .audit-workspace-actions { border-bottom: 1px solid var(--admin-border); justify-content: flex-end; min-height: 50px; padding: 8px 12px; }
 
+/* Without this the flex row squeezed "保留" into one character per line. */
+.audit-retention-label,
+.audit-retention-unit {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .audit-retention-control input {
   height: 34px;
   min-height: 34px !important;

@@ -68,66 +68,59 @@ a {
   text-decoration: none;
 }
 
-/* Base interactive elements */
+/* Base interactive elements, drawn from the shared UI contract so the sign-in pages match the
+   admin and the other NoNo apps in both colour modes. */
 .button,
 .icon-button {
   align-items: center;
-  background: var(--accent);
+  background: var(--ui-accent);
   border: 1px solid transparent;
-  border-radius: 8px;
-  color: #041d14;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-accent-ink);
   display: inline-flex;
   font-weight: 600;
   gap: 8px;
   justify-content: center;
-  min-height: 38px;
+  min-height: var(--ui-control-h);
   padding: 0 16px;
-  transition: var(--transition-smooth);
 }
 
 .button:hover,
 .icon-button:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-
-.button:active,
-.icon-button:active {
-  transform: translateY(0);
+  background: var(--ui-accent-hover);
 }
 
 .button.secondary,
 .icon-button.secondary {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  color: var(--text);
+  background: var(--ui-surface);
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
 }
 
 .button.secondary:hover,
 .icon-button.secondary:hover {
-  background: var(--line);
-  border-color: var(--muted);
+  background: var(--ui-surface-sunken);
 }
 
 .button.danger,
 .icon-button.danger {
-  background: rgba(244, 63, 94, 0.15);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  color: #fda4af;
+  background: var(--ui-danger-soft);
+  border-color: color-mix(in srgb, var(--ui-danger) 30%, transparent);
+  color: var(--ui-danger);
 }
 
 .button.danger:hover,
 .icon-button.danger:hover {
-  background: var(--danger);
-  color: #ffffff;
+  background: var(--ui-danger);
   border-color: transparent;
+  color: #ffffff;
 }
 
 .icon-button {
   aspect-ratio: 1;
   padding: 0;
-  width: 38px;
-  height: 38px;
+  width: var(--ui-control-h);
+  height: var(--ui-control-h);
 }
 
 /* Fields & Form elements */
@@ -137,29 +130,29 @@ a {
 }
 
 .field label {
-  color: var(--muted);
+  color: var(--ui-text-muted);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .field input,
 .field textarea,
 .field select {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--text);
-  min-height: 40px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  min-height: var(--ui-control-h);
   padding: 9px 12px;
   width: 100%;
-  transition: var(--transition-smooth);
+  transition: border-color var(--ui-dur-fast) var(--ui-ease), box-shadow var(--ui-dur-fast) var(--ui-ease);
 }
 
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .field textarea {
@@ -168,22 +161,24 @@ a {
 }
 
 /* Feedback blocks */
+.notice,
+.error {
+  border: 1px solid;
+  border-radius: var(--ui-radius-sm);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
 .notice {
-  background: rgba(var(--accent-rgb), 0.08);
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
-  border-radius: 8px;
-  color: var(--accent-soft);
-  padding: 12px 14px;
-  font-size: 14px;
+  background: var(--ui-accent-soft);
+  border-color: color-mix(in srgb, var(--ui-accent) 25%, transparent);
+  color: var(--ui-text);
 }
 
 .error {
-  background: rgba(244, 63, 94, 0.08);
-  border: 1px solid rgba(244, 63, 94, 0.25);
-  border-radius: 8px;
-  color: #fecdd3;
-  padding: 12px 14px;
-  font-size: 14px;
+  background: var(--ui-danger-soft);
+  border-color: color-mix(in srgb, var(--ui-danger) 25%, transparent);
+  color: var(--ui-danger);
 }
 
 .toolbar {
@@ -195,30 +190,29 @@ a {
 
 .auth-page {
   align-items: center;
-  background: var(--bg);
+  background: var(--ui-canvas);
   display: grid;
   min-height: 100vh;
   padding: 24px;
 }
 
 .auth-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-md);
   display: grid;
   gap: 16px;
   margin: 0 auto;
-  max-width: 420px;
+  max-width: 400px;
   padding: 32px;
   width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease;
 }
 
 .auth-card h1 {
-  font-size: 26px;
-  font-weight: 800;
-  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 4px;
   letter-spacing: 0;
 }
 
@@ -242,20 +236,17 @@ a {
   }
 }
 
-/* Shared interaction rhythm */
+/* Shared interaction rhythm: colour changes only, and a small press. */
 .button,
 .icon-button {
   transition:
-    background-color 0.28s var(--nono-ease-standard),
-    border-color 0.28s var(--nono-ease-standard),
-    box-shadow 0.28s var(--nono-ease-standard),
-    color 0.28s var(--nono-ease-standard),
-    opacity 0.28s var(--nono-ease-standard),
-    transform 0.34s var(--nono-ease-standard);
+    background-color var(--ui-dur-base) var(--ui-ease),
+    border-color var(--ui-dur-base) var(--ui-ease),
+    color var(--ui-dur-base) var(--ui-ease),
+    transform var(--ui-dur-fast) var(--ui-ease);
 }
 
 .button:active,
 .icon-button:active {
-  transform: translateY(1px) scale(0.975);
-  transition-duration: 0.12s;
+  transform: scale(0.98);
 }

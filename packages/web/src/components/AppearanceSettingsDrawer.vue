@@ -705,8 +705,8 @@ onBeforeUnmount(() => {
 }
 
 .theme-card.active {
-  border-color: var(--accent, #10b981);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 16, 185, 129), 0.2);
+  border-color: var(--accent, #0d9488);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 13, 148, 136), 0.2);
 }
 
 .theme-motion {
@@ -836,7 +836,7 @@ onBeforeUnmount(() => {
 }
 
 .theme-swatch-accent {
-  background: var(--accent, #10b981);
+  background: var(--accent, #0d9488);
   border-radius: 50%;
   display: inline-block;
   height: 10px;

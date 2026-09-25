@@ -382,7 +382,7 @@ onUnmounted(() => {
 
 .large-folder.folder-drop-before::before,
 .large-folder.folder-drop-after::before {
-  background: var(--accent-bright, #34d399);
+  background: var(--accent-bright, #2fa399);
   border-radius: 3px;
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.16);
   content: '';
@@ -606,7 +606,7 @@ h2 {
 
 .bookmark-cell.drop-before::before,
 .bookmark-cell.drop-after::after {
-  background: var(--accent-bright, #34d399);
+  background: var(--accent-bright, #2fa399);
   border-radius: 2px;
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
   content: '';
