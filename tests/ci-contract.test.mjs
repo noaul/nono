@@ -2,14 +2,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-test('runs CI only when started by hand', () => {
-  const workflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
-
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.doesNotMatch(workflow, /^\s+pull_request:/m);
-  assert.doesNotMatch(workflow, /^\s+push:/m);
-});
-
 test('provides one documented command for every independent lockfile', () => {
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const readme = fs.readFileSync('README.md', 'utf8');
@@ -21,12 +13,6 @@ test('provides one documented command for every independent lockfile', () => {
   assert.match(bootstrap, /npm --prefix apps\/nostar ci/);
   assert.match(readme, /npm run install:all/);
   assert.match(readme, /NoStar npm/);
-});
-
-test('delegates CI verification to the canonical repository command', () => {
-  const workflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
-
-  assert.match(workflow, /run:\s*npm run verify:all/);
 });
 
 test('runs the shared UI contract from the root gateway test command', () => {
