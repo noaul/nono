@@ -92,7 +92,7 @@ test('runs the repository quality gate in GitHub Actions', async () => {
 test('uses patched mutually compatible deployment dependencies', async () => {
 	const packageJson = JSON.parse(await read('package.json'))
 
-	assert.ok(isAtLeast(packageJson.dependencies.next, '16.2.11'))
+	assert.ok(isAtLeast(packageJson.dependencies.next, '16.3.3'))
 	assert.ok(isAtLeast(packageJson.dependencies['@opennextjs/cloudflare'], '1.20.1'))
 	assert.ok(isAtLeast(packageJson.dependencies.jsrsasign, '11.1.1'))
 	assert.ok(isAtLeast(packageJson.devDependencies.wrangler, '4.86.0'))
@@ -102,6 +102,7 @@ test('pins patched transitive build dependencies', async () => {
 	const workspace = await read('pnpm-workspace.yaml')
 
 	for (const override of [
+		'"baseline-browser-mapping@<2.11.0": 2.11.21',
 		'"@babel/core@>=7.0.0 <7.29.1": 7.29.7',
 		'"@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4',
 		'"body-parser@>=2.0.0 <2.3.0": 2.3.0',
@@ -109,7 +110,7 @@ test('pins patched transitive build dependencies', async () => {
 		'"js-yaml@>=4.0.0 <=4.3.0": 4.3.1',
 		'"picomatch@<2.3.2": 2.3.2',
 		'"postcss@<=8.5.22": 8.5.26',
-		'"sharp@<0.35.0": 0.35.0',
+		'"sharp@<0.35.4": 0.35.4',
 		'"svgo@>=3.0.0 <3.3.4": 3.3.4',
 		'"undici@>=7.0.0 <7.29.0": 7.29.0'
 	]) {

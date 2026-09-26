@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LlmSettings from '../src/components/admin/LlmSettings.vue';
 
@@ -17,6 +17,20 @@ async function settle(wrapper: ReturnType<typeof mount>) {
 describe('LlmSettings', () => {
   beforeEach(() => {
     apiRequest.mockReset();
+  });
+
+  it('reports load failures and prevents saving defaults until retry succeeds', async () => {
+    apiRequest.mockRejectedValueOnce(new Error('Account unavailable'));
+    const wrapper = mount(LlmSettings, { global: { config: { errorHandler: () => {} } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain('Account unavailable');
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined();
+    apiRequest.mockResolvedValueOnce({ llmProvider: 'claude', llmModel: 'saved-model', hasLlmApiKey: true });
+    await wrapper.get('[data-testid="retry-llm-load"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper.text()).not.toContain('Account unavailable');
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('saved-model');
   });
 
   it('loads and saves a custom API base URL', async () => {

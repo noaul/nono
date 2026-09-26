@@ -14,16 +14,32 @@ const message = ref('');
 const error = ref('');
 const isTesting = ref(false);
 
-onMounted(async () => {
-  const account = await apiRequest<User>('/api/admin/account');
-  form.provider = (account.llmProvider as 'openai' | 'claude') || 'openai';
-  form.model = account.llmModel || (form.provider === 'claude' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
-  form.baseUrl = account.llmBaseUrl || '';
-  form.reasoningEffort = account.llmReasoningEffort || 'none';
-  hasKey.value = Boolean(account.hasLlmApiKey);
-});
+const isLoading = ref(false);
+const loaded = ref(false);
+
+async function load() {
+  if (isLoading.value) return;
+  isLoading.value = true;
+  error.value = '';
+  try {
+    const account = await apiRequest<User>('/api/admin/account');
+    form.provider = (account.llmProvider as 'openai' | 'claude') || 'openai';
+    form.model = account.llmModel || (form.provider === 'claude' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
+    form.baseUrl = account.llmBaseUrl || '';
+    form.reasoningEffort = account.llmReasoningEffort || 'none';
+    hasKey.value = Boolean(account.hasLlmApiKey);
+    loaded.value = true;
+  } catch (event) {
+    error.value = event instanceof Error ? event.message : t('llm.loadFailed');
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+onMounted(load);
 
 async function save() {
+  if (!loaded.value) return;
   error.value = '';
   message.value = '';
   try {
@@ -37,6 +53,7 @@ async function save() {
 }
 
 async function testConnection() {
+  if (!loaded.value) return;
   error.value = '';
   message.value = '';
   isTesting.value = true;
@@ -60,14 +77,15 @@ function reasoningLabel(value: string) {
   <div id="llm" class="admin-page-stack llm-settings">
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
-    <AdminStateBanner :message="t('llm.keyNotice', { state: hasKey ? t('llm.keyConfigured') : t('llm.keyMissing') })" tone="info" />
+    <AdminStateBanner v-if="loaded" :message="t('llm.keyNotice', { state: hasKey ? t('llm.keyConfigured') : t('llm.keyMissing') })" tone="info" />
 
+    <button v-if="!loaded" class="button secondary" data-testid="retry-llm-load" type="button" :disabled="isLoading" @click="load">{{ isLoading ? t('common.loading') : t('common.retry') }}</button>
     <form id="llm-settings-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
         <h2><Bot :size="18" /> {{ t('llm.connection') }}</h2>
         <div class="admin-section-actions">
-          <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
-          <button class="button" type="submit"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>
+          <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="!loaded || isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
+          <button class="button" type="submit" :disabled="!loaded"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>
         </div>
       </header>
       <div class="admin-settings-grid">

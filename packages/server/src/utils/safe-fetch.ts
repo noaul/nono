@@ -227,6 +227,10 @@ function redirectedOptions(options: SafeRequestOptions, statusCode: number, prev
     }
     return { ...options, method: 'GET', body: undefined, headers };
   }
+  // A redirected upstream must not forward prompts or backups to a different origin.
+  if (previousUrl.origin !== nextUrl.origin && options.body != null) {
+    throw new Error('Cross-origin redirect cannot replay a request body');
+  }
   return { ...options, headers };
 }
 

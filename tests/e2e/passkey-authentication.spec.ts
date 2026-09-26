@@ -25,10 +25,15 @@ test.beforeEach(async () => {
   appURL = address.replace('127.0.0.1', 'localhost');
 });
 
-test.afterEach(async () => {
-  await app.close();
-  if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-  else process.env.NODE_ENV = previousNodeEnv;
+test.afterEach(async ({ context }) => {
+  try {
+    // Release browser connections before Fastify waits for active clients to drain.
+    await context.close();
+    await app.close();
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
 });
 
 test('registers a platform passkey and signs in without a password', async ({ page, context }) => {

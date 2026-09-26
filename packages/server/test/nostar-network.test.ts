@@ -140,6 +140,37 @@ describe('proxy target guard', () => {
     }
   });
 
+  it.each([307, 308])('blocks cross-origin body replay through a proxy on HTTP %i', async (status) => {
+    const requests: Array<{ url: string; authorization?: string }> = [];
+    const proxy = http.createServer((request, response) => {
+      requests.push({ url: request.url || '', authorization: request.headers.authorization });
+      if (requests.length === 1) {
+        response.writeHead(status, { location: 'http://second.example/final' });
+        response.end();
+        return;
+      }
+      response.end('ok');
+    });
+    await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+    const address = proxy.address();
+    if (!address || typeof address === 'string') throw new Error('Proxy did not bind a TCP port');
+
+    try {
+      await expect(outboundRequest(
+        { privateOutboundHosts: [] } as never,
+        { id: 1, username: 'admin', email: 'admin@nono.test', displayName: 'Admin', role: 'admin' },
+        'http://first.example/start',
+        { method: 'POST', data: 'private prompt', timeout: 2000 },
+        { enabled: true, type: 'http', host: '127.0.0.1', port: address.port },
+      )).rejects.toThrow('Cross-origin redirect cannot replay a request body');
+      expect(requests).toEqual([
+        { url: 'http://first.example/start', authorization: undefined },
+      ]);
+    } finally {
+      await new Promise<void>((resolve, reject) => proxy.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
   it('stops after three followed proxy redirects', async () => {
     const targets: string[] = [];
     const proxy = http.createServer((request, response) => {

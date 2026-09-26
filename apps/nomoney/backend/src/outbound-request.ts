@@ -60,7 +60,7 @@ export async function requestSafeResource(
     if (!isRedirect(response.statusCode) || !location) return { ...response, finalUrl: url.href };
     if (redirectCount >= maxRedirects) throw new Error('Too many redirects');
     const nextUrl = parsePublicUrl(new URL(location, url).href);
-    requestOptions = redirectOptions(requestOptions, url, nextUrl);
+    requestOptions = redirectOptions(requestOptions, response.statusCode, url, nextUrl);
     url = nextUrl;
   }
 }
@@ -192,7 +192,7 @@ async function requestWithInjectedFetch(
     }
     if (redirectCount >= maxRedirects) throw new Error('Too many redirects');
     const nextUrl = parsePublicUrl(new URL(location, url).href);
-    requestOptions = redirectOptions(requestOptions, url, nextUrl);
+    requestOptions = redirectOptions(requestOptions, response.status, url, nextUrl);
     url = nextUrl;
   }
 }
@@ -251,7 +251,7 @@ function toArrayBuffer(body: Buffer): ArrayBuffer {
   return copy.buffer;
 }
 
-function redirectOptions(options: SafeRequestOptions, previousUrl: URL, nextUrl: URL): SafeRequestOptions {
+function redirectOptions(options: SafeRequestOptions, statusCode: number, previousUrl: URL, nextUrl: URL): SafeRequestOptions {
   const headers = { ...(options.headers ?? {}) };
   if (previousUrl.origin !== nextUrl.origin) {
     for (const name of Object.keys(headers)) {
@@ -259,6 +259,16 @@ function redirectOptions(options: SafeRequestOptions, previousUrl: URL, nextUrl:
         delete headers[name];
       }
     }
+  }
+  const method = (options.method ?? 'GET').toUpperCase();
+  if (statusCode === 303 || ((statusCode === 301 || statusCode === 302) && method === 'POST')) {
+    for (const name of Object.keys(headers)) {
+      if (['content-length', 'content-type'].includes(name.toLowerCase())) delete headers[name];
+    }
+    return { ...options, method: 'GET', body: undefined, headers };
+  }
+  if (previousUrl.origin !== nextUrl.origin && options.body != null) {
+    throw new Error('Cross-origin redirect cannot replay a request body');
   }
   return { ...options, headers };
 }

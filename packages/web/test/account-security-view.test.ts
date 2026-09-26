@@ -1,5 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
+import { useAuthStore } from '../src/stores/auth';
+import { useConfirm, clearConfirmState } from '../src/composables/useConfirm';
 import AccountView from '../src/views/admin/AccountView.vue';
 
 const apiRequest = vi.fn();
@@ -37,6 +40,7 @@ const security = {
 
 function installDefaultApiMock() {
   apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+    if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'saved-model', hasLlmApiKey: false };
     if (url === '/api/admin/account/security') return security;
     if (url === '/api/admin/site' && !options?.method) return { guestAccessEnabled: false, guestAccessPasswordSet: false };
     if (url === '/api/admin/tokens' && !options?.method) return [];
@@ -50,11 +54,70 @@ async function settle() {
 
 describe('AccountView security controls', () => {
   beforeEach(() => {
+    setActivePinia(createPinia());
+    clearConfirmState();
     apiRequest.mockReset();
     startRegistration.mockReset();
     writeText.mockReset();
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     installDefaultApiMock();
+  });
+
+  it('lets an administrator close registration and update a member role', async () => {
+    const admin = { id: 1, username: 'admin', displayName: 'Admin', email: 'admin@example.com', role: 'admin' as const };
+    useAuthStore().user = admin;
+    const original = apiRequest.getMockImplementation()!;
+    const member = { id: 2, username: 'member', displayName: 'Member', email: 'member@example.com', role: 'user' };
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string; body?: string }) => {
+      if (url === '/api/admin/users') return [admin, member];
+      if (url === '/api/admin/config') return options?.method ? { allowRegistration: false } : { allowRegistration: true };
+      if (url === '/api/admin/users/2') return { ...member, role: 'admin' };
+      return original(url, options);
+    });
+    const wrapper = mount(AccountView);
+    await settle();
+    await wrapper.get('[data-testid="allow-registration"]').setValue(false);
+    await wrapper.get('[data-testid="registration-form"]').trigger('submit');
+    await settle();
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration: false }) });
+    await wrapper.get('[data-testid="user-role-2"]').setValue('admin');
+    await wrapper.get('[data-testid="user-form-2"]').trigger('submit');
+    await settle();
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/users/2', expect.objectContaining({ method: 'PUT', body: JSON.stringify({ role: 'admin', displayName: 'Member', email: 'member@example.com' }) }));
+  });
+
+  it('requires confirmation to delete a member and retains them when deletion fails', async () => {
+    const admin = { id: 1, username: 'admin', displayName: 'Admin', email: 'admin@example.com', role: 'admin' as const };
+    useAuthStore().user = admin;
+    const original = apiRequest.getMockImplementation()!;
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/users') return [admin, { ...admin, id: 2, username: 'member', role: 'user' }];
+      if (url === '/api/admin/config') return { allowRegistration: false };
+      if (url === '/api/admin/users/2' && options?.method === 'DELETE') throw new Error('Deletion unavailable');
+      return original(url, options);
+    });
+    const wrapper = mount(AccountView);
+    await settle();
+    expect(wrapper.get('[data-testid="user-form-1"]').find('button.danger').exists()).toBe(false);
+    const remove = wrapper.get('[data-testid="user-form-2"] button.danger');
+    await remove.trigger('click');
+    useConfirm().cancel();
+    await settle();
+    expect(apiRequest.mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
+    await remove.trigger('click');
+    useConfirm().accept();
+    await settle();
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/users/2', { method: 'DELETE' });
+    expect(wrapper.text()).toContain('Deletion unavailable');
+    expect(wrapper.find('[data-testid="user-form-2"]').exists()).toBe(true);
+  });
+
+  it('does not expose user administration or request its data for a regular member', async () => {
+    useAuthStore().user = { id: 2, username: 'member', displayName: 'Member', email: 'member@example.com', role: 'user' };
+    const wrapper = mount(AccountView);
+    await settle();
+    expect(wrapper.find('[data-testid="registration-form"]').exists()).toBe(false);
+    expect(apiRequest.mock.calls.some(([url]) => url === '/api/admin/users' || url === '/api/admin/config')).toBe(false);
   });
 
   it('shows passkeys and keeps login devices at the bottom of the account page', async () => {
@@ -73,6 +136,7 @@ describe('AccountView security controls', () => {
 
   it('registers a passkey with the browser and adds it to the list', async () => {
     apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'saved-model', hasLlmApiKey: false };
       if (url === '/api/admin/account/security') return { passkeys: [], sessions: [] };
       if (url === '/api/admin/site' && !options?.method) return { guestAccessEnabled: false, guestAccessPasswordSet: false };
       if (url === '/api/admin/tokens' && !options?.method) return [];
@@ -98,6 +162,7 @@ describe('AccountView security controls', () => {
 
   it('configures the guest homepage password beside the login password', async () => {
     apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'saved-model', hasLlmApiKey: false };
       if (url === '/api/admin/account/security') return { passkeys: [], sessions: [] };
       if (url === '/api/admin/tokens') return [];
       if (url === '/api/admin/site' && options?.method === 'PUT') return { guestAccessEnabled: true, guestAccessPasswordSet: true };
@@ -120,6 +185,7 @@ describe('AccountView security controls', () => {
 
   it('creates a compact API token and opens a one-time copy dialog', async () => {
     apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'saved-model', hasLlmApiKey: false };
       if (url === '/api/admin/account/security') return { passkeys: [], sessions: [] };
       if (url === '/api/admin/site') return { guestAccessEnabled: false, guestAccessPasswordSet: false };
       if (url === '/api/admin/tokens' && options?.method === 'POST') {

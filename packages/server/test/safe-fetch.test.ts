@@ -2,6 +2,30 @@ import { describe, expect, it, vi } from 'vitest';
 import { fetchPublicResource, isPublicAddress, requestSafeResource, resolvePublicAddress } from '../src/utils/safe-fetch.js';
 
 describe('safe public resource fetching', () => {
+
+  it.each([307, 308])('rejects cross-origin body replay on HTTP %i', async (statusCode) => {
+    const request = vi.fn()
+      .mockResolvedValueOnce({ statusCode, headers: { location: 'https://other.example/collect' }, body: Buffer.alloc(0) })
+      .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.alloc(0) });
+    await expect(requestSafeResource('https://service.example/start', {
+      method: 'PUT', body: 'private backup',
+    }, { lookup: async () => [{ address: '8.8.8.8', family: 4 }], request })).rejects.toThrow('Cross-origin redirect cannot replay a request body');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [301, 'POST', 'GET', undefined], [302, 'POST', 'GET', undefined],
+    [303, 'PUT', 'GET', undefined], [307, 'PUT', 'PUT', 'payload'], [308, 'POST', 'POST', 'payload'],
+  ])('preserves HTTP %i redirect semantics for %s', async (statusCode, method, expectedMethod, expectedBody) => {
+    const request = vi.fn()
+      .mockResolvedValueOnce({ statusCode, headers: { location: '/final' }, body: Buffer.alloc(0) })
+      .mockResolvedValueOnce({ statusCode: 200, headers: {}, body: Buffer.alloc(0) });
+    await requestSafeResource('https://service.example/start', {
+      method, body: 'payload', headers: { 'content-type': 'text/plain', 'content-length': '7' },
+    }, { lookup: async () => [{ address: '8.8.8.8', family: 4 }], request });
+    expect(request.mock.calls[1][2]).toMatchObject({ method: expectedMethod, body: expectedBody });
+    if (!expectedBody) expect(request.mock.calls[1][2].headers).not.toHaveProperty('content-length');
+  });
   it('rejects non-public IPv4 and IPv6 addresses', () => {
     for (const address of ['127.0.0.1', '10.0.0.1', '169.254.169.254', '192.168.1.1', '::1', 'fc00::1', 'fe80::1']) {
       expect(isPublicAddress(address), address).toBe(false);
@@ -101,7 +125,6 @@ describe('safe public resource fetching', () => {
         'x-api-key': 'secret',
         'x-github-token': 'secret',
       },
-      body: '{}',
     }, { lookup, request });
 
     expect(request.mock.calls[1][2].headers).not.toHaveProperty('authorization');

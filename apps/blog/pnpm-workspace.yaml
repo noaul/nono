@@ -13,6 +13,7 @@ minimumReleaseAgeExclude:
   - qs@6.16.0
 
 overrides:
+  "baseline-browser-mapping@<2.11.0": 2.11.21
   "@babel/core@>=7.0.0 <7.29.1": 7.29.7
   "@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4
   "@isaacs/brace-expansion@<=5.0.0": 5.0.1
@@ -29,7 +30,7 @@ overrides:
   "postcss@<=8.5.22": 8.5.26
   "qs@<6.16.0": 6.16.0
   "browserslist@<4.28.7": 4.28.7
-  "sharp@<0.35.0": 0.35.0
+  "sharp@<0.35.4": 0.35.4
   "svgo@>=3.0.0 <3.3.4": 3.3.4
   "undici@>=7.0.0 <7.29.0": 7.29.0
   "yaml@>=2.0.0 <2.8.3": 2.8.3

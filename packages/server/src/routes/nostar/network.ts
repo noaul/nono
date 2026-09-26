@@ -305,6 +305,10 @@ function redirectedProxyConfig(config: AxiosRequestConfig, status: number, previ
     }
     return { ...config, method: 'GET', data: undefined, headers, maxRedirects: 0 };
   }
+  // A redirected upstream must not forward prompts or backups to a different origin.
+  if (new URL(previousUrl).origin !== new URL(nextUrl).origin && config.data != null) {
+    throw new Error('Cross-origin redirect cannot replay a request body');
+  }
   return { ...config, headers, maxRedirects: 0 };
 }
 

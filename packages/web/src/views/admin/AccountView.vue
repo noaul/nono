@@ -3,6 +3,8 @@ import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
 import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import UserManagement from '@/components/admin/UserManagement.vue';
+import { useAuthStore } from '@/stores/auth';
 import LlmSettings from '@/components/admin/LlmSettings.vue';
 import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
@@ -14,6 +16,7 @@ import { formatShanghaiDateTime } from '@/utils/dateTime';
 import { scopesForProfile } from '@/utils/tokenScopes';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 
 interface PasskeyItem {
   id: string;
@@ -366,6 +369,7 @@ onMounted(() => {
     </section>
 
     <LlmSettings />
+    <UserManagement v-if="auth.isAdmin" />
 
     <section class="admin-section security-section" data-testid="login-devices-section">
       <header class="admin-section-head">
