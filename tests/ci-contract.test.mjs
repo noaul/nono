@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-test('runs CI for pull requests and main-branch pushes', () => {
+test('runs CI only when started by hand', () => {
   const workflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
 
-  assert.match(workflow, /pull_request:/);
-  assert.match(workflow, /push:\s*\n\s+branches:\s*\[main\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s+pull_request:/m);
+  assert.doesNotMatch(workflow, /^\s+push:/m);
 });
 
 test('provides one documented command for every independent lockfile', () => {

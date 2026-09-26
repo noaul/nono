@@ -1,9 +1,8 @@
 name: CI
 
+# Manual only: run it from the Actions tab when a full verification is wanted. Pushes and pull
+# requests no longer start it automatically.
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
