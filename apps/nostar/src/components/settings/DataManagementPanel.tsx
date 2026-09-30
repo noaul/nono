@@ -1,3 +1,4 @@
+import { normalizeAssetFilters } from '../../utils/assetFilters';
 import { Github } from '../BrandIcons';
 import React, { useState, useCallback, useMemo } from 'react';
 import { formatShanghaiDateTime, shanghaiDateKey } from '../../utils/dateTime';
@@ -637,7 +638,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
           }
         }
         if (selectedTypes.includes('assetFilters') && importedData.assetFilters) {
-          useAppStore.setState({ assetFilters: importedData.assetFilters });
+          useAppStore.setState({ assetFilters: normalizeAssetFilters(importedData.assetFilters) });
         }
         if (selectedTypes.includes('discoveryRepos')) {
           if (importedData.discoveryRepos) {
@@ -760,9 +761,9 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
           });
         }
         if (selectedTypes.includes('assetFilters') && importedData.assetFilters) {
-          const existingIds = new Set(store.assetFilters.map(f => f.id));
-          const newFilters = importedData.assetFilters.filter(f => !existingIds.has(f.id));
-          useAppStore.setState({ assetFilters: [...store.assetFilters, ...newFilters] });
+          const existingIds = new Set(normalizeAssetFilters(store.assetFilters).map(f => f.id));
+          const newFilters = normalizeAssetFilters(importedData.assetFilters).filter(f => !existingIds.has(f.id));
+          useAppStore.setState({ assetFilters: normalizeAssetFilters([...store.assetFilters, ...newFilters]) });
         }
         if (selectedTypes.includes('releaseSubscriptions')) {
           if (importedData.releaseSubscriptions) {

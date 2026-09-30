@@ -5,6 +5,7 @@ import { FilterModal } from './FilterModal';
 import { AssetFilter } from '../types';
 import { PRESET_FILTERS } from '../constants/presetFilters';
 import { useDialog } from '../hooks/useDialog';
+import { normalizeAssetFilters } from '../utils/assetFilters';
 
 // 图标映射
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -44,14 +45,14 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
 }) => {
   const { assetFilters, addAssetFilter, updateAssetFilter, deleteAssetFilter, language } = useAppStore();
 
-  const { toast, confirm } = useDialog();
+  const { confirm } = useDialog();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<AssetFilter | undefined>();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // 归一化 assetFilters：匹配预设标识的项设为 isPreset=true
-  const normalizedFilters = useMemo(() => assetFilters.map(f => {
+  const normalizedFilters = useMemo(() => normalizeAssetFilters(assetFilters).map(f => {
     const isPresetId = PRESET_ICON_MAP[f.id] !== undefined;
     if (isPresetId && !f.isPreset) {
       return { ...f, isPreset: true };
@@ -109,55 +110,19 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
 
     if (!confirmed) return;
 
-    const previousFilters = assetFilters.map(f => ({ ...f }));
-    const previousSelected = [...selectedFilters];
-    const addedFilterIds: string[] = [];
-
-    try {
-      const store = useAppStore.getState();
-      presetFilters.forEach(filter => {
-        if (store.assetFilters.find(f => f.id === filter.id)) {
-          deleteAssetFilter(filter.id);
-        }
-        if (selectedFilters.includes(filter.id)) {
-          onFilterToggle(filter.id);
-        }
-      });
-      DEFAULT_PRESET_FILTERS.forEach(filter => {
-        if (!store.assetFilters.find(f => f.id === filter.id)) {
-          addAssetFilter(filter);
-          addedFilterIds.push(filter.id);
-        }
-      });
-      // Restore previously active preset selections that still map to a known preset id.
-      previousSelected.forEach(id => {
-        if (DEFAULT_PRESET_FILTERS.some(f => f.id === id) && !selectedFilters.includes(id)) {
-          onFilterToggle(id);
-        }
-      });
-    } catch (error) {
-      console.error('Failed to reset presets:', error);
-      const store = useAppStore.getState();
-
-      addedFilterIds.forEach(id => {
-        if (store.assetFilters.find(f => f.id === id)) {
-          deleteAssetFilter(id);
-        }
-      });
-
-      previousFilters.forEach(filter => {
-        if (!store.assetFilters.find(f => f.id === filter.id)) {
-          addAssetFilter(filter);
-        }
-      });
-
-      // 清除当前所有选择
-      selectedFilters.forEach(id => onFilterToggle(id));
-      // 恢复之前的选择
-      previousSelected.forEach(id => onFilterToggle(id));
-
-      toast(language === 'zh' ? '重置预设筛选器失败，已恢复之前的状态。' : 'Failed to reset preset filters. Previous state has been restored.', 'error');
-    }
+    const presetIds = new Set(presetFilters.map(filter => filter.id));
+    useAppStore.setState(state => ({
+      assetFilters: [
+        ...normalizeAssetFilters(state.assetFilters).filter(filter => !presetIds.has(filter.id)),
+        ...DEFAULT_PRESET_FILTERS,
+      ],
+    }));
+    // Restoring a known preset preserves its active selection.
+    selectedFilters.forEach(id => {
+      if (presetIds.has(id) && !DEFAULT_PRESET_FILTERS.some(filter => filter.id === id)) {
+        onFilterToggle(id);
+      }
+    });
   };
 
   const t = (zh: string, en: string) => language === 'zh' ? zh : en;

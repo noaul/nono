@@ -1,3 +1,4 @@
+import { normalizeAssetFilters } from '../utils/assetFilters';
 import { backend } from './backendAdapter';
 import { useAppStore } from '../store/useAppStore';
 import { mergeRepositoriesPreservingLocalMetadata } from '../utils/repositoryMerge';
@@ -176,6 +177,7 @@ export async function syncFromBackend(): Promise<void> {
     }
     if (changed.releases && releasesResult.status === 'fulfilled') {
       state.setReleases(releasesResult.value.releases);
+      useAppStore.setState({ readReleases: new Set(releasesResult.value.releases.filter(release => release.is_read).map(release => release.id)) });
       _lastHash.releases = hashes.releases;
     }
     if (changed.ai && aiResult.status === 'fulfilled') {
@@ -290,8 +292,17 @@ export async function syncFromBackend(): Promise<void> {
       if (Array.isArray(settings.customCategories)) {
         useAppStore.setState({ customCategories: settings.customCategories });
       }
+      if (Array.isArray(settings.releaseSubscriptions)) {
+        useAppStore.setState({ releaseSubscriptions: new Set(settings.releaseSubscriptions.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id))) });
+      }
+      if (settings.defaultCategoryOverrides && typeof settings.defaultCategoryOverrides === 'object' && !Array.isArray(settings.defaultCategoryOverrides)) {
+        useAppStore.setState({ defaultCategoryOverrides: settings.defaultCategoryOverrides as typeof state.defaultCategoryOverrides });
+      }
+      if (settings.translationEngine === 'microsoft' || settings.translationEngine === 'google') {
+        useAppStore.setState({ translationEngine: settings.translationEngine });
+      }
       if (Array.isArray(settings.assetFilters)) {
-        useAppStore.setState({ assetFilters: settings.assetFilters });
+        useAppStore.setState({ assetFilters: normalizeAssetFilters(settings.assetFilters) });
       }
       if (settings.releaseSourceSettings && typeof settings.releaseSourceSettings === 'object') {
         state.setReleaseSourceSettings(settings.releaseSourceSettings as typeof state.releaseSourceSettings);
@@ -326,7 +337,7 @@ async function pushCurrentStateToBackend(): Promise<void> {
 
     const results = await Promise.allSettled([
       backend.syncRepositories(state.repositories),
-      backend.syncReleases(state.releases),
+      backend.syncReleases(state.releases.map(release => ({ ...release, is_read: state.readReleases.has(release.id) }))),
       backend.syncAIConfigs(state.aiConfigs),
       backend.syncWebDAVConfigs(state.webdavConfigs),
       backend.syncEmbeddingConfigs(state.embeddingConfigs),
@@ -339,6 +350,9 @@ async function pushCurrentStateToBackend(): Promise<void> {
         categoryOrder: state.categoryOrder,
         customCategories: state.customCategories,
         assetFilters: state.assetFilters,
+        translationEngine: state.translationEngine,
+        releaseSubscriptions: Array.from(state.releaseSubscriptions || []),
+        defaultCategoryOverrides: state.defaultCategoryOverrides,
         releaseSourceSettings: state.releaseSourceSettings,
         collapsedSidebarCategoryCount: state.collapsedSidebarCategoryCount,
       }),
@@ -361,7 +375,7 @@ async function pushCurrentStateToBackend(): Promise<void> {
 
     // Only update _lastHash for successfully synced slices
     if (reposSync.status === 'fulfilled') _lastHash.repos = quickHash(state.repositories);
-    if (releasesSync.status === 'fulfilled') _lastHash.releases = quickHash(state.releases);
+    if (releasesSync.status === 'fulfilled') _lastHash.releases = quickHash(state.releases.map(release => ({ ...release, is_read: state.readReleases.has(release.id) })));
     if (aiSync.status === 'fulfilled') _lastHash.ai = quickHash(state.aiConfigs);
     if (webdavSync.status === 'fulfilled') _lastHash.webdav = quickHash(state.webdavConfigs);
     if (embeddingSync.status === 'fulfilled') _lastHash.embedding = quickHash(state.embeddingConfigs);
@@ -375,6 +389,9 @@ async function pushCurrentStateToBackend(): Promise<void> {
         categoryOrder: state.categoryOrder,
         customCategories: state.customCategories,
         assetFilters: state.assetFilters,
+        translationEngine: state.translationEngine,
+        releaseSubscriptions: Array.from(state.releaseSubscriptions || []),
+        defaultCategoryOverrides: state.defaultCategoryOverrides,
         releaseSourceSettings: state.releaseSourceSettings,
         collapsedSidebarCategoryCount: state.collapsedSidebarCategoryCount,
       });
@@ -484,6 +501,10 @@ export function startAutoSync(): () => void {
       state.categoryOrder !== prevState.categoryOrder ||
       state.customCategories !== prevState.customCategories ||
       state.assetFilters !== prevState.assetFilters ||
+      state.translationEngine !== prevState.translationEngine ||
+      state.releaseSubscriptions !== prevState.releaseSubscriptions ||
+      state.readReleases !== prevState.readReleases ||
+      state.defaultCategoryOverrides !== prevState.defaultCategoryOverrides ||
       state.releaseSourceSettings !== prevState.releaseSourceSettings ||
       state.collapsedSidebarCategoryCount !== prevState.collapsedSidebarCategoryCount;
 

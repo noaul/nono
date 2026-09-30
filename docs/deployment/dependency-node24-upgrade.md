@@ -6,7 +6,7 @@
 
 - NoNo 使用 Prisma 7 的 PostgreSQL 驱动适配器和生成客户端。`prisma.config.ts` 保存迁移连接配置，Docker 启动命令显式传入该配置。适配器保留 5 秒连接超时，避免数据库不可达时就绪检查无限等待。
 - Prisma 7 不再自动加载 `.env`。本地迁移命令需显式加载环境文件，具体命令见 README。生成客户端之后才能测试或构建服务端。
-- 服务端、NoDesk、NoMoney 使用 TypeScript 7。NoNo Vue 前端保留 TypeScript 5.9.3，因为 `vue-tsc` 需要 TypeScript JavaScript 编译器 API；NoStar 保留 5.9.3，因为 `typescript-eslint` 明确不支持 TypeScript 7。根锁文件同时保留这些编译器，使用各工作区自身的构建命令，避免通过全局编译器覆盖它们。
+- 服务端、NoDesk、NoMoney 使用 TypeScript 7。NoNo Vue 前端保留 TypeScript 5.9.3，因为 `vue-tsc` 需要 TypeScript JavaScript 编译器 API；NoStar 使用 TypeScript 7.0.2 原生编译器执行类型检查，并通过 `typescript` 别名保留 TypeScript 6.0.3 的 JavaScript API 供 ESLint 使用。NoStar 的类型检查命令显式调用原生编译器，避免两个包的同名 `tsc` 安装顺序影响结果。根锁文件同时保留这些编译器，使用各工作区自身的构建命令，避免通过全局编译器覆盖它们。
 - Vue 图标包迁移为 `@lucide/vue`。Lucide 1 移除了品牌图标，应用保留原先使用的 GitHub 图形。
 - NoMoney 适配 Express 5、Zod 4、React 19 和 Recharts 3。NoMoney 和 NoStar 迁移至 Tailwind 4，并保留旧版页面使用的间距、颜色和边框行为。
 - NoDesk 的 `brace-expansion` 安全覆盖仅作用于 5.x，避免把 `minimatch` 所需的 2.x 强行替换成不兼容的 5.x。

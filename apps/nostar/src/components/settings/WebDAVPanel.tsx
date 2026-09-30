@@ -3,6 +3,7 @@ import { Cloud, Plus, Edit3, Trash2, Save, X, TestTube, RefreshCw } from 'lucide
 import { WebDAVConfig } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { WebDAVService } from '../../services/webdavService';
+import { backend } from '../../services/backendAdapter';
 import { useDialog } from '../../hooks/useDialog';
 
 interface WebDAVPanelProps {
@@ -97,6 +98,7 @@ export const WebDAVPanel: React.FC<WebDAVPanelProps> = ({ t }) => {
   const handleTest = async (config: WebDAVConfig) => {
     setTestingId(config.id);
     try {
+      if (backend.isAvailable) await backend.syncWebDAVConfigs(useAppStore.getState().webdavConfigs);
       const webdavService = new WebDAVService(config);
       const isConnected = await webdavService.testConnection();
 

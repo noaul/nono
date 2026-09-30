@@ -79,6 +79,7 @@ export interface ReleaseFetchOptions {
 
 export interface MultipleReleasesResult {
   releases: Release[];
+  latestReleases: Release[];
   failedRepos: { repoId: number; full_name: string; error: string }[];
 }
 
@@ -807,6 +808,7 @@ export class GitHubApiService {
     const startTime = Date.now();
     const { includePreRelease = true } = options;
     const allReleases: Release[] = [];
+    const latestReleases: Release[] = [];
     const failedRepos: { repoId: number; full_name: string; error: string }[] = [];
 
     // Controlled concurrency: process 3 repos at a time
@@ -823,10 +825,12 @@ export class GitHubApiService {
 
         try {
           let releases: Release[];
+          let latestBatch: Release[] = [];
 
           if (!repo.has_fetched_releases) {
             // New subscription: full sync (fetch up to 30)
             releases = await this.fetchAllReleasesForRepo(owner, name);
+            latestBatch = releases;
           } else {
             // Already synced: incremental sync with pagination until we cross the watermark
             const sinceTime = repo.last_release_fetch_time
@@ -837,6 +841,7 @@ export class GitHubApiService {
             releases = [];
             while (true) {
               const batch = await this.getRepositoryReleases(owner, name, page, 10);
+              if (page === 1) latestBatch = batch;
 
               if (batch.length === 0) break;
 
@@ -862,6 +867,8 @@ export class GitHubApiService {
           releases.forEach(release => {
             release.repository.id = repo.id;
           });
+          latestBatch.forEach(release => { release.repository.id = repo.id; });
+          latestReleases.push(...latestBatch.filter(release => includePreRelease || !release.prerelease));
 
           // Filter by pre-release setting
           if (!includePreRelease) {
@@ -892,7 +899,7 @@ export class GitHubApiService {
 
     logger.info('githubApi', 'Update releases completed', { repoCount: repositories.length, releaseCount: sortedReleases.length, durationMs: Date.now() - startTime });
 
-    return { releases: sortedReleases, failedRepos };
+    return { releases: sortedReleases, latestReleases, failedRepos };
   }
 
   // 新增：获取仓库的增量releases（基于时间戳）

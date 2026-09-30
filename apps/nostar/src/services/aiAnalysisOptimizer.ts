@@ -2,6 +2,7 @@ import { Repository } from '../types';
 import { AIService } from './aiService';
 import { GitHubApiService } from './githubApi';
 import { backend } from './backendAdapter';
+import { abortableDelay, type AIRequestError } from './aiRequestLimiter';
 
 export interface AnalysisTask {
   repo: Repository;
@@ -51,7 +52,7 @@ export class AIAnalysisOptimizer {
   private paused = false;
   private activeWorkers = 0;
   private shouldExitWorkers = false;
-  private abortController: AbortController | null = null;
+  private readonly abortController = new AbortController();
 
   constructor(config: Partial<OptimizerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -61,8 +62,7 @@ export class AIAnalysisOptimizer {
   abort(): void {
     this.aborted = true;
     this.shouldExitWorkers = true;
-    this.abortController?.abort();
-    this.abortController = null;
+    this.abortController.abort();
   }
 
   pause(): void {
@@ -121,7 +121,9 @@ export class AIAnalysisOptimizer {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return abortableDelay(ms, this.abortController.signal).catch(error => {
+      if (!this.aborted) throw error;
+    });
   }
 
   private async waitWhilePaused(): Promise<void> {
@@ -226,8 +228,7 @@ export class AIAnalysisOptimizer {
         };
       }
 
-      const controller = new AbortController();
-      this.abortController = controller;
+      const controller = this.abortController;
 
       try {
         const analysisStart = Date.now();
@@ -256,13 +257,13 @@ export class AIAnalysisOptimizer {
           };
         }
 
+        // AIService already exhausted its bounded provider 429 retries.
+        const requestError = lastError as AIRequestError;
+        if (requestError.status === 429 || requestError.statusCode === 429) break;
+
         if (attempt < this.config.maxRetries) {
           const delayMs = this.calculateRetryDelay(attempt);
           await this.delay(delayMs);
-        }
-      } finally {
-        if (this.abortController === controller) {
-          this.abortController = null;
         }
       }
     }

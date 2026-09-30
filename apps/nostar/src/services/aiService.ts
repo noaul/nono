@@ -2,6 +2,7 @@ import { Repository, Gist, AIConfig, AIApiType } from '../types';
 import { backend } from './backendAdapter';
 import { buildApiUrl, buildFinalApiUrl } from '../utils/apiUrlBuilder';
 import { logger } from './logger';
+import { aiResponseError, getAIRequestLimiter, type AIRequestError } from './aiRequestLimiter';
 
 interface OpenAIResponseContentPart {
   text?: string;
@@ -175,6 +176,33 @@ export class AIService {
     maxTokens: number;
     signal?: AbortSignal;
   }): Promise<string> {
+    const limiter = getAIRequestLimiter(this.config);
+    for (let attempt = 0; ; attempt++) {
+      const release = await limiter.acquire(options.signal);
+      try {
+        const text = await this.requestTextOnce(options);
+        limiter.notifySuccess();
+        return text;
+      } catch (error) {
+        const err = error as AIRequestError;
+        if (err.status === 429 || err.statusCode === 429) {
+          limiter.notifyRateLimit(err.retryAfterMs);
+          if (attempt < 2) continue;
+        }
+        throw error;
+      } finally {
+        release();
+      }
+    }
+  }
+
+  private async requestTextOnce(options: {
+    system: string;
+    user: string;
+    temperature: number;
+    maxTokens: number;
+    signal?: AbortSignal;
+  }): Promise<string> {
     const startTime = Date.now();
     const apiType = this.getApiType();
     const model = this.config.model;
@@ -254,7 +282,7 @@ export class AIService {
           this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {
             url: requestUrl, requestHeaders, requestBody, responseHeaders, responseBody: responseBodyPreview, status: responseStatus,
           });
-          throw new Error(`AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
+          throw aiResponseError(response, `AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
         }
         data = await response.json();
       }
@@ -364,7 +392,7 @@ export class AIService {
           this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {
             url: requestUrl, requestHeaders, requestBody, responseHeaders, responseBody: responseBodyPreview, status: responseStatus,
           });
-          throw new Error(`AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
+          throw aiResponseError(response, `AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
         }
         data = await response.json();
       }
@@ -456,7 +484,7 @@ ${options.user}` : options.user;
         this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {
           url: maskedUrl, requestHeaders, requestBody, responseHeaders, responseBody: responseBodyPreview, status: responseStatus,
         });
-        throw new Error(`AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
+        throw aiResponseError(response, `AI API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
       }
       data = await response.json();
     }

@@ -69,6 +69,10 @@ export async function proxyJson(
     responseType: 'text',
   }, proxy, allowPrivateHosts);
   const contentType = text(response.headers['content-type']) || 'application/json; charset=utf-8';
+  for (const name of ['retry-after', 'retry-after-ms']) {
+    const value = firstHeader(response.headers[name]);
+    if (value) reply.header(name, value);
+  }
   return reply.status(response.status).type(contentType).send(text(response.data));
 }
 

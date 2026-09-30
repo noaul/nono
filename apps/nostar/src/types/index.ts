@@ -1,3 +1,5 @@
+export type TranslationEngine = 'microsoft' | 'google';
+
 export interface Repository {
   id: number;
   name: string;
@@ -348,6 +350,9 @@ export interface AssetFilter {
   id: string;
   name: string;
   keywords: string[];
+  excludeKeywords?: string[];
+  includeRepos?: string[];
+  alwaysExcludeRepos?: string[];
   isPreset?: boolean;
   icon?: string;
 }
@@ -437,6 +442,7 @@ export interface AppState {
   currentView: 'repositories' | 'gists' | 'releases' | 'forks' | 'settings' | 'subscription';
   selectedCategory: string;
   language: 'zh' | 'en';
+  translationEngine: TranslationEngine;
   isSidebarCollapsed: boolean;
   readmeModalOpen: boolean;
   headerMenuConfig: HeaderMenuItem[];

@@ -6,6 +6,8 @@ import { GitHubApiService } from '../services/githubApi';
 import { forceSyncToBackend } from '../services/autoSync';
 import { backend } from '../services/backendAdapter';
 import { formatRelativeTime } from '../utils/dateTime';
+import { evaluateAssetFilter, normalizeAssetFilters, normalizeMatchedLinkName } from '../utils/assetFilters';
+import { findReleasesWithChangedAssets } from '../utils/releaseAssets';
 import { AssetFilterManager } from './AssetFilterManager';
 import { PRESET_FILTERS } from '../constants/presetFilters';
 import ReleaseCard from './ReleaseCard';
@@ -98,24 +100,13 @@ export const ReleaseTimeline: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // Helper function to check if a link matches any active filter
-  const matchesActiveFilters = useCallback((linkName: string): boolean => {
-    if (selectedFilters.length === 0) return true;
-    
-    const lowerLinkName = linkName.toLowerCase();
-    const activeCustomFilters = assetFilters.filter(filter => selectedFilters.includes(filter.id));
-    const activePresetFilters = PRESET_FILTERS.filter(filter => selectedFilters.includes(filter.id));
-    
-    const matchesCustom = activeCustomFilters.some(filter => 
-      filter.keywords.some(keyword => lowerLinkName.includes(keyword.toLowerCase()))
-    );
-    
-    const matchesPreset = activePresetFilters.some(filter => 
-      filter.keywords.some(keyword => lowerLinkName.includes(keyword.toLowerCase()))
-    );
-    
-    return matchesCustom || matchesPreset;
-  }, [selectedFilters, assetFilters]);
+  const activeFilters = useMemo(() => {
+    const stored = normalizeAssetFilters(assetFilters);
+    // An edited preset replaces its default rules.
+    const storedIds = new Set(stored.map(filter => filter.id));
+    return [...stored, ...PRESET_FILTERS.filter(filter => !storedIds.has(filter.id))]
+      .filter(filter => selectedFilters.includes(filter.id));
+  }, [assetFilters, selectedFilters]);
 
   // Toggle assets expansion for a specific release
   const toggleAssets = (releaseId: number) => {
@@ -242,17 +233,19 @@ export const ReleaseTimeline: React.FC = () => {
   const releasesWithLinks = useMemo(() => {
     return subscribedReleases.map(release => {
       const allLinks = getDownloadLinks(release);
-      const filteredLinks = selectedFilters.length > 0
-        ? allLinks.filter(link => matchesActiveFilters(link.name))
-        : allLinks;
+      const linkNames = allLinks.map(link => normalizeMatchedLinkName(link.name.toLowerCase(), !!link.isSourceCode));
+      const assetNames = (release.assets ?? []).map(asset => asset.name.toLowerCase());
+      const evaluations = activeFilters.map(filter => evaluateAssetFilter(filter, release.repository.full_name, linkNames, assetNames));
+      const matchedIndexes = new Set(evaluations.flatMap(result => [...result.matchedLinkIndexes]));
+      const filteredLinks = selectedFilters.length > 0 ? allLinks.filter((_, index) => matchedIndexes.has(index)) : allLinks;
       return {
         release,
         allLinks,
         filteredLinks,
-        hasMatchingAssets: filteredLinks.length > 0
+        hasMatchingAssets: selectedFilters.length === 0 || evaluations.some(result => result.matchesRelease)
       };
     });
-  }, [subscribedReleases, getDownloadLinks, selectedFilters, matchesActiveFilters]);
+  }, [subscribedReleases, getDownloadLinks, selectedFilters, activeFilters]);
 
   const preUnreadFilteredReleases = useMemo(() => {
     let filtered = releasesWithLinks;
@@ -399,7 +392,7 @@ export const ReleaseTimeline: React.FC = () => {
     try {
       const githubApi = new GitHubApiService(githubToken);
 
-      const { releases: newReleases, failedRepos } = await githubApi.getMultipleRepositoryReleases(
+      const { releases: newReleases, latestReleases, failedRepos } = await githubApi.getMultipleRepositoryReleases(
         subscribedRepos,
         { includePreRelease }
       );
@@ -436,13 +429,14 @@ export const ReleaseTimeline: React.FC = () => {
         }
       }
 
-      // Filter out existing releases and add new ones
+      // Add new releases and update changed content from the fetched first page
       const existingIds = new Set(useAppStore.getState().releases.map(r => r.id));
       const actuallyNewReleases = newReleases.filter(r => !existingIds.has(r.id));
       const actuallyNewCount = actuallyNewReleases.length;
+      const changedReleases = findReleasesWithChangedAssets(latestReleases, useAppStore.getState().releases);
 
-      if (actuallyNewReleases.length > 0) {
-        addReleases(actuallyNewReleases);
+      if (actuallyNewReleases.length > 0 || changedReleases.length > 0) {
+        addReleases([...actuallyNewReleases, ...changedReleases]);
       }
 
       setLastRefreshTime(now);
@@ -451,15 +445,15 @@ export const ReleaseTimeline: React.FC = () => {
       let message: string;
       if (failedRepos.length > 0) {
         message = language === 'zh'
-          ? `刷新完成！发现 ${actuallyNewCount} 个新Release，${failedRepos.length} 个仓库刷新失败。`
-          : `Refresh completed! Found ${actuallyNewCount} new releases, ${failedRepos.length} repos failed.`;
+          ? `刷新完成！发现 ${actuallyNewCount} 个新Release，更新 ${changedReleases.length} 个已有Release，${failedRepos.length} 个仓库刷新失败。`
+          : `Refresh completed! Found ${actuallyNewCount} new releases, updated ${changedReleases.length} existing releases, ${failedRepos.length} repos failed.`;
       } else {
         message = language === 'zh'
-          ? `刷新完成！发现 ${actuallyNewCount} 个新Release。`
-          : `Refresh completed! Found ${actuallyNewCount} new releases.`;
+          ? `刷新完成！发现 ${actuallyNewCount} 个新Release，更新 ${changedReleases.length} 个已有Release。`
+          : `Refresh completed! Found ${actuallyNewCount} new releases, updated ${changedReleases.length} existing releases.`;
       }
 
-      toast(message, actuallyNewCount > 0 ? 'success' : 'info');
+      toast(message, actuallyNewCount + changedReleases.length > 0 ? 'success' : 'info');
     } catch (error) {
       console.error('Refresh failed:', error);
       const errorMessage = language === 'zh'
@@ -1196,7 +1190,7 @@ export const ReleaseTimeline: React.FC = () => {
                 isReleaseNotesExpanded={isReleaseNotesExpanded}
                 isFullContent={isFullContent}
                 truncatedBody={truncatedBody}
-                matchesActiveFilters={matchesActiveFilters}
+                matchesActiveFilters={name => displayLinks.some(link => link.name === name)}
                 selectedFilters={selectedFilters}
                 onToggleAssets={() => toggleAssets(release.id)}
                 onToggleReleaseNotes={() => toggleReleaseNotes(release.id)}
@@ -1280,7 +1274,7 @@ export const ReleaseTimeline: React.FC = () => {
                             isReleaseNotesExpanded={isReleaseNotesExpanded}
                             isFullContent={isFullContent}
                             truncatedBody={truncatedBody}
-                            matchesActiveFilters={matchesActiveFilters}
+                            matchesActiveFilters={name => displayLinks.some(link => link.name === name)}
                             selectedFilters={selectedFilters}
                             onToggleAssets={() => toggleAssets(release.id)}
                             onToggleReleaseNotes={() => toggleReleaseNotes(release.id)}

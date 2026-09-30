@@ -1,11 +1,50 @@
 import { WebDAVConfig } from '../types';
 import { logger } from './logger';
+import { backend } from './backendAdapter';
 
 export class WebDAVService {
   private config: WebDAVConfig;
 
   constructor(config: WebDAVConfig) {
     this.config = config;
+  }
+
+  // Keep the deadline active through response consumption, including the proxy hop.
+  private async request(url: string, init: RequestInit, timeoutMs = 10000): Promise<Response> {
+    const target = new URL(url);
+    const base = new URL(this.config.url.endsWith('/') ? this.config.url : `${this.config.url}/`);
+    if (url === this.config.url) target.pathname = base.pathname;
+    if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) {
+      throw new Error('Invalid WebDAV path');
+    }
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (init.signal?.aborted) abort();
+    else init.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, timeoutMs);
+    try {
+      let response: Response;
+      if (backend.isAvailable) {
+        const headers = Object.fromEntries(new Headers(init.headers));
+        delete headers.authorization;
+        response = await backend.proxyWebDAV(
+          this.config.id, init.method || 'GET', (target.pathname.slice(base.pathname.length) || './') + target.search,
+          typeof init.body === 'string' ? init.body : undefined, headers, timeoutMs, controller.signal,
+        );
+      } else {
+        if (!this.config.password || this.config.password.startsWith('***')) {
+          throw new Error('请连接 NoNo 服务端后使用已保存的 WebDAV 凭据');
+        }
+        response = await fetch(url, { ...init, signal: controller.signal });
+      }
+      const content = await response.text();
+      return new Response([204, 205, 304].includes(response.status) ? null : content, {
+        status: response.status, statusText: response.statusText, headers: response.headers,
+      });
+    } finally {
+      clearTimeout(timer);
+      init.signal?.removeEventListener('abort', abort);
+    }
   }
 
   // 压缩JSON数据，减少传输大小
@@ -74,13 +113,14 @@ export class WebDAVService {
   }
 
   private getAuthHeader(): string {
+    if (backend.isAvailable) return '';
     const credentials = btoa(`${this.config.username}:${this.config.password}`);
     return `Basic ${credentials}`;
   }
 
   private getFullPath(filename: string): string {
     const basePath = this.config.path.endsWith('/') ? this.config.path : `${this.config.path}/`;
-    return `${this.config.url}${basePath}${filename}`;
+    return `${this.config.url}${basePath}${encodeURIComponent(filename)}`;
   }
 
   private handleNetworkError(error: unknown, operation: string): never {
@@ -142,7 +182,7 @@ export class WebDAVService {
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
       try {
-        const headResponse = await fetch(dirUrl, {
+        const headResponse = await this.request(dirUrl, {
           method: 'HEAD',
           headers: {
             'Authorization': this.getAuthHeader(),
@@ -155,7 +195,7 @@ export class WebDAVService {
         if (headResponse.ok) return true;
 
         // HEAD 不可用时，尝试 PROPFIND（不少服务器返回 207 Multi-Status 表示成功）
-        const propfindResponse = await fetch(dirUrl, {
+        const propfindResponse = await this.request(dirUrl, {
           method: 'PROPFIND',
           headers: {
             'Authorization': this.getAuthHeader(),
@@ -210,7 +250,7 @@ export class WebDAVService {
         const startTime = Date.now();
 
         try {
-          const response = await fetch(this.getFullPath(filename), {
+          const response = await this.request(this.getFullPath(filename), {
             method: 'PUT',
             headers: {
               'Authorization': this.getAuthHeader(),
@@ -218,7 +258,7 @@ export class WebDAVService {
             },
             body: compressedContent,
             signal: controller.signal,
-          });
+          }, dynamicTimeout);
 
           clearTimeout(timeoutId);
 
@@ -285,7 +325,7 @@ export class WebDAVService {
         currentPath += `/${seg}`;
         const full = `${this.config.url}${currentPath}`;
         try {
-          const res = await fetch(full, {
+          const res = await this.request(full, {
             method: 'MKCOL',
             headers: { 'Authorization': this.getAuthHeader() },
           });
@@ -317,13 +357,13 @@ export class WebDAVService {
       const startTime = Date.now();
 
       try {
-        const response = await fetch(this.getFullPath(filename), {
+        const response = await this.request(this.getFullPath(filename), {
           method: 'GET',
           headers: {
             'Authorization': this.getAuthHeader(),
           },
           signal: controller.signal,
-        });
+        }, 30000);
 
         clearTimeout(timeoutId);
 
@@ -371,7 +411,7 @@ export class WebDAVService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
-      const response = await fetch(this.getFullPath(filename), {
+      const response = await this.request(this.getFullPath(filename), {
         method: 'HEAD',
         headers: {
           'Authorization': this.getAuthHeader(),
@@ -397,7 +437,7 @@ export class WebDAVService {
         const basePath = this.config.path.endsWith('/') ? this.config.path : `${this.config.path}/`;
         const collectionUrl = `${this.config.url}${basePath}`;
 
-        const response = await fetch(collectionUrl, {
+        const response = await this.request(collectionUrl, {
           method: 'PROPFIND',
           headers: {
             'Authorization': this.getAuthHeader(),
@@ -413,7 +453,7 @@ export class WebDAVService {
               </D:prop>
             </D:propfind>`,
           signal: controller.signal,
-        });
+        }, 15000);
 
         clearTimeout(timeoutId);
 
@@ -528,7 +568,7 @@ export class WebDAVService {
   // 新增：获取服务器信息
   async getServerInfo(): Promise<{ server?: string; davLevel?: string }> {
     try {
-      const response = await fetch(this.config.url, {
+      const response = await this.request(this.config.url, {
         method: 'OPTIONS',
         headers: {
           'Authorization': this.getAuthHeader(),

@@ -1,202 +1,10 @@
-import queryString from 'query-string';
-
-class AuthExpiredError extends Error {
-  readonly isAuthExpired = true;
-  constructor() {
-    super('Auth expired');
-    this.name = 'AuthExpiredError';
-  }
-}
+import { useAppStore } from '../store/useAppStore';
+import type { TranslationEngine } from '../types';
 
 export interface TranslateResult {
   translatedText: string;
   detectedLanguage: string;
 }
-
-interface CachedToken {
-  token: string;
-  expiresAt: number;
-}
-
-let cachedToken: CachedToken | null = null;
-let tokenPromise: Promise<string> | null = null;
-
-const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-const TRANSLATE_API_URL = 'https://api-edge.cognitive.microsofttranslator.com/translate';
-const AUTH_URL = 'https://edge.microsoft.com/translate/auth';
-const FALLBACK_TOKEN_TTL_MS = 8 * 60 * 1000;
-
-const parseJwtExpiration = (token: string): number => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return 0;
-    
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64));
-    if (payload.exp) {
-      return payload.exp * 1000;
-    }
-    return 0;
-  } catch {
-    return 0;
-  }
-};
-
-const isTokenValid = (cached: CachedToken | null): cached is CachedToken => {
-  if (!cached) return false;
-  return Date.now() < cached.expiresAt - TOKEN_REFRESH_BUFFER_MS;
-};
-
-const getStoredToken = (): CachedToken | null => {
-  try {
-    const stored = localStorage.getItem('ms_translate_token');
-    if (!stored) return null;
-    
-    const parsed = JSON.parse(stored) as CachedToken;
-    if (isTokenValid(parsed)) {
-      return parsed;
-    }
-    localStorage.removeItem('ms_translate_token');
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-const storeToken = (token: string): void => {
-  try {
-    let expiresAt = parseJwtExpiration(token);
-    if (expiresAt <= 0) {
-      expiresAt = Date.now() + FALLBACK_TOKEN_TTL_MS;
-    }
-    cachedToken = { token, expiresAt };
-    localStorage.setItem('ms_translate_token', JSON.stringify(cachedToken));
-  } catch {
-    // ignore storage errors
-  }
-};
-
-const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
-  new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException('Aborted', 'AbortError'));
-      return;
-    }
-    const id = setTimeout(resolve, ms);
-    if (signal) {
-      const onAbort = () => {
-        clearTimeout(id);
-        reject(new DOMException('Aborted', 'AbortError'));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
-  });
-
-const extractHttpStatus = (err: unknown): number | null => {
-  const anyErr = err as Record<string, unknown>;
-  const response = anyErr?.response as Record<string, unknown> | undefined;
-  const status = response?.status ?? anyErr?.status;
-  if (typeof status === 'number') return status;
-
-  if (err instanceof Error) {
-    const match = err.message.match(/(?:status|failed)[:\s]*(\d{3})/i);
-    if (match) {
-      return parseInt(match[1], 10);
-    }
-  }
-
-  return null;
-};
-
-const isTransientError = (err: unknown): boolean => {
-  if ((err as { isAuthExpired?: boolean })?.isAuthExpired) return true;
-  const status = extractHttpStatus(err);
-  if (status === null) return true;
-  return status === 429 || status >= 500;
-};
-
-const withTranslateRetry = async <T>(
-  operation: (token: string) => Promise<T>,
-  signal?: AbortSignal,
-  maxRetries = 3,
-  baseDelay = 1000
-): Promise<T> => {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const token = await apiMsAuth(signal);
-      return await operation(token);
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-
-      const name = (err as { name?: string })?.name;
-      if (name === 'AbortError' || name === 'CanceledError') {
-        throw err;
-      }
-
-      if (attempt >= maxRetries) break;
-
-      if (!isTransientError(err)) {
-        throw err;
-      }
-
-      await sleep(baseDelay * Math.pow(2, attempt - 1), signal);
-    }
-  }
-
-  throw lastError!;
-};
-
-export const apiMsAuth = async (signal?: AbortSignal): Promise<string> => {
-  const storedToken = getStoredToken();
-  if (storedToken) {
-    cachedToken = storedToken;
-    return storedToken.token;
-  }
-
-  if (isTokenValid(cachedToken)) {
-    return cachedToken.token;
-  }
-
-  if (!tokenPromise) {
-    tokenPromise = (async () => {
-      try {
-        const response = await fetch(AUTH_URL, {
-          method: 'GET',
-          credentials: 'omit',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Auth failed: ${response.status}`);
-        }
-
-        const token = await response.text();
-        storeToken(token);
-        return token;
-      } finally {
-        tokenPromise = null;
-      }
-    })();
-  }
-
-  if (!signal) {
-    return tokenPromise;
-  }
-
-  return Promise.race([
-    tokenPromise,
-    new Promise<string>((_, reject) => {
-      if (signal.aborted) {
-        reject(new DOMException('Aborted', 'AbortError'));
-        return;
-      }
-      const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
-      signal.addEventListener('abort', onAbort, { once: true });
-    }),
-  ]);
-};
-
 export interface TranslateOptions {
   from?: string;
   to: string;
@@ -205,206 +13,194 @@ export interface TranslateOptions {
   textType?: 'html' | 'plain';
 }
 
-export const translateText = async (options: TranslateOptions): Promise<TranslateResult> => {
-  const { from, to, text, signal, textType } = options;
+// Endpoint contracts verified against NoStar upstream; authentication is no longer required.
+const MICROSOFT_URL = 'https://edge.microsoft.com/translate/translatetext';
+const GOOGLE_URL = 'https://clients5.google.com/translate_a/t';
+const REQUEST_TIMEOUT_MS = 20_000;
+const LANGUAGE_CODES = {
+  microsoft: { zh: 'zh-Hans', 'zh-TW': 'zh-Hant' },
+  google: { zh: 'zh-CN', 'zh-TW': 'zh-TW' },
+};
+class TranslationHttpError extends Error {
+  constructor(readonly status: number) { super(`Translation failed: ${status}`); }
+}
+const abortError = () => new DOMException('Aborted', 'AbortError');
+const checkAborted = (signal?: AbortSignal) => { if (signal?.aborted) throw abortError(); };
 
-  if (!text || text.trim() === '') {
-    return { translatedText: text, detectedLanguage: '' };
-  }
+const waitForRetry = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
+  checkAborted(signal);
+  const onAbort = () => { clearTimeout(timer); reject(abortError()); };
+  const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+  signal?.addEventListener('abort', onAbort, { once: true });
+});
 
-  return withTranslateRetry(async (token) => {
-    const params = queryString.stringify({
-      ...(from && { from }),
-      to,
-      'api-version': '3.0',
-      ...(textType === 'html' && { textType: 'html' }),
-    });
-
-    const url = `${TRANSLATE_API_URL}?${params}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify([{ Text: text }]),
-      signal,
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        cachedToken = null;
-        localStorage.removeItem('ms_translate_token');
-        throw new AuthExpiredError();
-      }
-      throw new Error(`Translation failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error('Invalid translation response');
-    }
-
-    const result = data[0];
-    const translatedText = result.translations?.[0]?.text || text;
-    const detectedLanguage = result.detectedLanguage?.language || '';
-
-    return {
-      translatedText,
-      detectedLanguage,
+// Race the complete operation so an unresponsive fetch/body also has a bounded lifetime.
+const requestJson = async (url: string, init: RequestInit, signal?: AbortSignal): Promise<unknown> => {
+  checkAborted(signal);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const stopped = new Promise<never>((_, reject) => {
+    onAbort = () => { reject(abortError()); controller.abort(); };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    timer = setTimeout(() => {
+      reject(new Error(`Translation request timed out after ${REQUEST_TIMEOUT_MS}ms`));
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+  });
+  try {
+    const operation = async () => {
+      const response = await fetch(url, { ...init, credentials: 'omit', signal: controller.signal });
+      if (!response.ok) throw new TranslationHttpError(response.status);
+      return await response.json() as unknown;
     };
-  }, signal, 3);
+    return await Promise.race([operation(), stopped]);
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal?.removeEventListener('abort', onAbort);
+  }
+};
+const withRetry = async <T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> => {
+  for (let attempt = 0; ; attempt++) {
+    checkAborted(signal);
+    try { return await operation(); } catch (error) {
+      checkAborted(signal);
+      const name = (error as { name?: string } | null)?.name;
+      if (name === 'AbortError' || name === 'CanceledError') throw error;
+      const permanent = error instanceof TranslationHttpError && error.status !== 429 && error.status < 500;
+      if (attempt === 2 || permanent) throw error;
+      await waitForRetry(1000 * 2 ** attempt, signal);
+    }
+  }
+};
+interface PreparedText { payload: string; restore: (translated: string) => string }
+const prepareText = (text: string, html: boolean): PreparedText => {
+  if (!html) return { payload: text, restore: (translated) => translated };
+  const fragments = new Map<string, string>();
+  let index = 0;
+  // Protect whole code spans and every tag, including quoted attributes containing >.
+  const payload = text.replace(/<code\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/code\s*>|<(?:[^>"']|"[^"]*"|'[^']*')*>/gi, (fragment) => {
+    while (text.includes(`{${index}}`)) index++;
+    const token = `{${index++}}`;
+    fragments.set(token, fragment);
+    return token;
+  });
+  return {
+    payload,
+    restore: (translated) => {
+      let previous = -1;
+      for (const token of fragments.keys()) {
+        const position = translated.indexOf(token);
+        // Dropped, duplicated or reordered tags can break nesting and link destinations.
+        if (position <= previous || translated.indexOf(token, position + token.length) !== -1) return text;
+        previous = position;
+      }
+      return translated.replace(/\{\d+\}/g, (token) => fragments.get(token) ?? token);
+    },
+  };
 };
 
-function splitTextIntoChunks(text: string, maxChars: number): string[] {
-  if (text.length <= maxChars) return [text];
-
+// Preserve every source character, surrogate pair, HTML tag and protected code token.
+const splitText = (text: string, limit: number, html: boolean): string[] => {
+  const atomic = html ? [...text.matchAll(/<[^>]*>|\{\d+\}/g)].map((match) => ({ start: match.index, end: match.index + match[0].length })) : [];
   const chunks: string[] = [];
-  const paragraphs = text.split('\n');
-  let current = '';
-
-  for (const para of paragraphs) {
-    if (current.length + para.length + 1 > maxChars && current.length > 0) {
-      chunks.push(current);
-      current = para;
-    } else if (current.length > 0) {
-      current += '\n' + para;
-    } else {
-      current = para;
+  let offset = 0;
+  while (offset < text.length) {
+    let end = Math.min(offset + limit, text.length);
+    if (end < text.length) {
+      const boundary = Math.max(text.lastIndexOf('\n', end - 1), text.lastIndexOf(' ', end - 1)) + 1;
+      if (boundary > offset + limit / 2) end = boundary;
+      const tag = atomic.find((part) => part.start < end && part.end > end);
+      if (tag) end = tag.start;
+      const previous = text.charCodeAt(end - 1);
+      if (previous >= 0xD800 && previous <= 0xDBFF) end--;
     }
-
-    while (current.length > maxChars) {
-      const splitPoint = current.lastIndexOf(' ', maxChars);
-      if (splitPoint <= 0) {
-        chunks.push(current.slice(0, maxChars));
-        current = current.slice(maxChars);
-      } else {
-        chunks.push(current.slice(0, splitPoint));
-        current = current.slice(splitPoint + 1);
-      }
-    }
+    // A single tag exceeding the engine limit cannot safely be translated.
+    if (end <= offset) return [];
+    chunks.push(text.slice(offset, end));
+    offset = end;
   }
-
-  if (current) chunks.push(current);
   return chunks;
-}
+};
+const mapLanguage = (engine: TranslationEngine, language: string) =>
+  (LANGUAGE_CODES[engine] as Record<string, string>)[language] ?? language;
+
+const translateRequest = async (
+  texts: string[], engine: TranslationEngine, to: string, from?: string, signal?: AbortSignal, textType?: 'html' | 'plain',
+): Promise<TranslateResult[]> => withRetry(async () => {
+  let url: string;
+  let init: RequestInit;
+  if (engine === 'google') {
+    const params = new URLSearchParams({ client: 'dict-chrome-ex', sl: from ? mapLanguage(engine, from) : 'auto', tl: mapLanguage(engine, to) });
+    url = `${GOOGLE_URL}?${params}`;
+    const body = new URLSearchParams();
+    texts.forEach((text) => body.append('q', text));
+    init = { method: 'POST', body };
+  } else {
+    const params = new URLSearchParams({ from: from ? mapLanguage(engine, from) : '', to: mapLanguage(engine, to), isEnterpriseClient: 'false' });
+    if (textType === 'html') params.set('textType', 'html');
+    url = `${MICROSOFT_URL}?${params}`;
+    init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(texts) };
+  }
+  const data = await requestJson(url, init, signal);
+  if (!Array.isArray(data) || data.length !== texts.length) throw new Error('Invalid translation response');
+  return data.map((item: unknown) => {
+    let translatedText: unknown;
+    let detectedLanguage: unknown;
+    if (engine === 'google') {
+      translatedText = Array.isArray(item) ? item[0] : item;
+      detectedLanguage = Array.isArray(item) ? item[1] : '';
+    } else {
+      const result = item as { translations?: { text?: unknown }[]; detectedLanguage?: { language?: unknown } } | null;
+      translatedText = result?.translations?.[0]?.text;
+      detectedLanguage = result?.detectedLanguage?.language;
+    }
+    if (typeof translatedText !== 'string') throw new Error('Invalid translation response');
+    return { translatedText, detectedLanguage: typeof detectedLanguage === 'string' ? detectedLanguage : '' };
+  });
+}, signal);
 
 export const translateBatch = async (
-  texts: string[],
-  to: string,
-  from?: string,
-  signal?: AbortSignal,
-  textType?: 'html' | 'plain'
+  texts: string[], to: string, from?: string, signal?: AbortSignal, textType?: 'html' | 'plain',
 ): Promise<TranslateResult[]> => {
-  if (texts.length === 0) return [];
-  
-  if (texts.length === 1) {
-    const result = await translateText({ text: texts[0], to, from, signal, textType });
-    return [result];
-  }
-
-  const results: TranslateResult[] = [];
-  const batchSize = 100;
-  const maxChars = 50000;
-
-  for (let i = 0; i < texts.length; i += batchSize) {
-    if (signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError');
-    }
-
-    const batch = texts.slice(i, i + batchSize);
-    let currentBatch: string[] = [];
-    let currentLength = 0;
-
-    for (const text of batch) {
-      // Always flush accumulated batch before handling an oversized item.
-      if (text.length > maxChars) {
-        if (currentBatch.length > 0) {
-          const batchResults = await translateBatchInternal(currentBatch, to, from, signal, textType);
-          results.push(...batchResults);
-          currentBatch = [];
-          currentLength = 0;
-        }
-        const chunks = splitTextIntoChunks(text, maxChars);
-        for (const chunk of chunks) {
-          const batchResults = await translateBatchInternal([chunk], to, from, signal, textType);
-          results.push(...batchResults);
-        }
+  checkAborted(signal);
+  // Snapshot settings so switching engines cannot mix them within a single input.
+  const engine = useAppStore.getState().translationEngine === 'google' ? 'google' : 'microsoft';
+  const limit = engine === 'google' ? 1800 : 50000;
+  const countLimit = engine === 'google' ? 20 : 100;
+  const prepared = texts.map((text) => prepareText(text, textType === 'html'));
+  const results: TranslateResult[] = texts.map(() => ({ translatedText: '', detectedLanguage: '' }));
+  let pending: { owner: number; text: string; prefix: string; suffix: string }[] = [];
+  let length = 0;
+  const flush = async () => {
+    if (!pending.length) return;
+    const translated = await translateRequest(pending.map((item) => item.text), engine, to, from, signal, textType);
+    pending.forEach((item, index) => {
+      results[item.owner].translatedText += item.prefix + translated[index].translatedText + item.suffix;
+      results[item.owner].detectedLanguage ||= translated[index].detectedLanguage;
+    });
+    pending = [];
+    length = 0;
+  };
+  for (let owner = 0; owner < texts.length; owner++) {
+    checkAborted(signal);
+    const chunks = splitText(prepared[owner].payload, limit, textType === 'html');
+    if (!texts[owner].trim() || !chunks.length) { results[owner].translatedText = texts[owner]; continue; }
+    for (const chunk of chunks) {
+      const text = chunk.trim();
+      if (!text) {
+        await flush();
+        results[owner].translatedText += chunk;
         continue;
       }
-
-      if (currentLength + text.length > maxChars && currentBatch.length > 0) {
-        // (this branch is now only reached for non-oversized items)
-        const batchResults = await translateBatchInternal(currentBatch, to, from, signal, textType);
-        results.push(...batchResults);
-        currentBatch = [];
-        currentLength = 0;
-      }
-      currentBatch.push(text);
-      currentLength += text.length;
-    }
-
-    if (currentBatch.length > 0) {
-      const batchResults = await translateBatchInternal(currentBatch, to, from, signal, textType);
-      results.push(...batchResults);
+      if (pending.length >= countLimit || length + text.length > limit) await flush();
+      const start = chunk.indexOf(text);
+      pending.push({ owner, text, prefix: chunk.slice(0, start), suffix: chunk.slice(start + text.length) });
+      length += text.length;
     }
   }
-
-  return results;
+  await flush();
+  return results.map((result, index) => ({ ...result, translatedText: prepared[index].restore(result.translatedText) }));
 };
-
-const translateBatchInternal = async (
-  texts: string[],
-  to: string,
-  from?: string,
-  signal?: AbortSignal,
-  textType?: 'html' | 'plain'
-): Promise<TranslateResult[]> => {
-  return withTranslateRetry(async (token) => {
-    const params = queryString.stringify({
-      ...(from && { from }),
-      to,
-      'api-version': '3.0',
-      ...(textType === 'html' && { textType: 'html' }),
-    });
-
-    const url = `${TRANSLATE_API_URL}?${params}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(texts.map(t => ({ Text: t }))),
-      signal,
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        cachedToken = null;
-        localStorage.removeItem('ms_translate_token');
-        throw new AuthExpiredError();
-      }
-      throw new Error(`Translation failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!Array.isArray(data) || data.length !== texts.length) {
-      throw new Error('Invalid translation response');
-    }
-
-    return data.map((result, index) => ({
-      translatedText: result.translations?.[0]?.text || texts[index],
-      detectedLanguage: result.detectedLanguage?.language || '',
-    }));
-  }, signal, 3);
-};
-
-export const clearTranslateCache = (): void => {
-  cachedToken = null;
-  localStorage.removeItem('ms_translate_token');
-};
+export const translateText = async ({ text, to, from, signal, textType }: TranslateOptions): Promise<TranslateResult> =>
+  (await translateBatch([text], to, from, signal, textType))[0];

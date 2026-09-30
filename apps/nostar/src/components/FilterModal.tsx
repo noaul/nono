@@ -3,6 +3,7 @@ import { X, Plus } from 'lucide-react';
 import { Modal } from './Modal';
 import { AssetFilter } from '../types';
 import { useCopy } from '../i18n';
+import { normalizeAssetFilters } from '../utils/assetFilters';
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -21,6 +22,11 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   const [name, setName] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState('');
+  const [excludeKeywords, setExcludeKeywords] = useState('');
+  const [includeRepos, setIncludeRepos] = useState('');
+  const [alwaysExcludeRepos, setAlwaysExcludeRepos] = useState('');
+  const splitRules = (value: string) => value.split(/[,\n]/).map(item => item.trim()).filter(Boolean);
+  const hasRules = keywords.length > 0 || [excludeKeywords, includeRepos, alwaysExcludeRepos].some(value => splitRules(value).length > 0);
 
   useEffect(() => {
     if (filter) {
@@ -31,6 +37,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       setKeywords([]);
     }
     setNewKeyword('');
+    setExcludeKeywords((filter?.excludeKeywords ?? []).join(', '));
+    setIncludeRepos((filter?.includeRepos ?? []).join(', '));
+    setAlwaysExcludeRepos((filter?.alwaysExcludeRepos ?? []).join(', '));
   }, [filter, isOpen]);
 
   const handleAddKeyword = () => {
@@ -46,15 +55,19 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const handleSave = () => {
-    if (!name.trim() || keywords.length === 0) {
+    if (!name.trim() || !hasRules) {
       return;
     }
 
-    const savedFilter: AssetFilter = {
+    const [savedFilter] = normalizeAssetFilters([{
+      ...filter,
       id: filter?.id || Date.now().toString(),
       name: name.trim(),
-      keywords: keywords.filter(k => k.trim())
-    };
+      keywords,
+      excludeKeywords: splitRules(excludeKeywords),
+      includeRepos: splitRules(includeRepos),
+      alwaysExcludeRepos: splitRules(alwaysExcludeRepos),
+    }]);
 
     onSave(savedFilter);
     onClose();
@@ -72,10 +85,11 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       <div className="space-y-4">
         {/* Filter Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-900 dark:text-text-primary mb-2">
+          <label htmlFor="asset-filter-name" className="block text-sm font-medium text-gray-900 dark:text-text-primary mb-2">
             {copy('过滤器名称', 'Filter name')}
           </label>
           <input
+            id="asset-filter-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -86,17 +100,18 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
         {/* Keywords */}
         <div>
-          <label className="block text-sm font-medium text-gray-900 dark:text-text-primary mb-2">
+          <label htmlFor="asset-filter-keywords" className="block text-sm font-medium text-gray-900 dark:text-text-primary mb-2">
             {copy('匹配关键词', 'Matching keywords')}
           </label>
           
           {/* Add keyword input */}
           <div className="flex space-x-2 mb-3">
             <input
+              id="asset-filter-keywords"
               type="text"
               value={newKeyword}
               onChange={(e) => setNewKeyword(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder={copy('输入关键词，如: mac, dmg', 'Enter keywords, e.g. mac, dmg')}
               className="flex-1 px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary"
             />
@@ -137,10 +152,23 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
           {keywords.length === 0 && (
             <p className="text-sm text-gray-500 dark:text-text-tertiary">
-              {copy('请添加至少一个关键词用于匹配文件名', 'Add at least one keyword to match file names')}
+              {copy('包含关键词可留空，仅使用排除或仓库规则。', 'Matching keywords can be empty when using blacklist or repository rules.')}
             </p>
           )}
         </div>
+
+        {[
+          { id: 'excluded-keywords', label: copy('排除关键词', 'Excluded keywords'), value: excludeKeywords, setValue: setExcludeKeywords, hint: copy('包含这些词的文件不会匹配，例如 debug, symbols。', 'Files containing these words are excluded, e.g. debug, symbols.') },
+          { id: 'include-repos', label: copy('始终包含仓库', 'Always include repositories'), value: includeRepos, setValue: setIncludeRepos, hint: copy('这些仓库展示全部资产，跳过关键词规则。例如 owner/repo。', 'Show all assets for these repositories, bypassing keyword rules. Use owner/repo.') },
+          { id: 'exclude-repos', label: copy('始终排除仓库', 'Always exclude repositories'), value: alwaysExcludeRepos, setValue: setAlwaysExcludeRepos, hint: copy('这些仓库不会匹配本过滤器；其他已选过滤器仍可包含它们。', 'These repositories never match this filter. Other selected filters can still include them.') },
+        ].map(field => (
+          <div key={field.id}>
+            <label htmlFor={`asset-filter-${field.id}`} className="block text-sm font-medium text-gray-900 dark:text-text-primary mb-2">{field.label}</label>
+            <textarea id={`asset-filter-${field.id}`} value={field.value} onChange={event => field.setValue(event.target.value)} rows={2}
+              className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary" />
+            <p className="text-xs text-gray-500 dark:text-text-tertiary mt-1">{field.hint} {copy('用逗号或换行分隔。', 'Separate with commas or new lines.')}</p>
+          </div>
+        ))}
 
         {/* Help text */}
         <div className="bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg p-3">
@@ -160,8 +188,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            disabled={!name.trim() || keywords.length === 0}
-            className={`px-4 py-2 rounded-lg transition-colors ${(!name.trim() || keywords.length === 0) ? 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed' : 'bg-brand-indigo text-white hover:bg-brand-hover'}`}
+            disabled={!name.trim() || !hasRules}
+            className={`px-4 py-2 rounded-lg transition-colors ${(!name.trim() || !hasRules) ? 'bg-gray-300 text-gray-500 dark:bg-white/5 dark:text-text-tertiary cursor-not-allowed' : 'bg-brand-indigo text-white hover:bg-brand-hover'}`}
           >
             {filter ? copy('保存', 'Save') : copy('创建', 'Create')}
           </button>

@@ -1,5 +1,6 @@
 import { translateBackendError } from '../utils/backendErrors';
 import { logger } from './logger';
+import { aiResponseError } from './aiRequestLimiter';
 
 import { Repository, Release, AIConfig, WebDAVConfig, EmbeddingConfig, VectorSearchConfig, type SecretStatus } from '../types';
 import { isReadmeCandidateItem, type GitHubReadmeCandidateItem } from '../utils/readmeVariants';
@@ -215,8 +216,7 @@ class BackendAdapter {
       }
     } catch { /* body not JSON */ }
     const translated = translateBackendError(code, `${fallbackPrefix}: ${res.status}`);
-    const error = new Error(detail ? `${translated} - ${detail}` : translated) as Error & { statusCode?: number; code?: string };
-    error.statusCode = res.status;
+    const error = aiResponseError(res, detail ? `${translated} - ${detail}` : translated) as Error & { statusCode?: number; code?: string };
     if (code) error.code = code;
     throw error;
   }
@@ -448,13 +448,15 @@ class BackendAdapter {
 
   // === WebDAV Proxy ===
 
-  async proxyWebDAV(configId: string, method: string, path: string, body?: string, headers?: Record<string, string>): Promise<Response> {
+  async proxyWebDAV(configId: string, method: string, path: string, body?: string, headers?: Record<string, string>, timeoutMs = 30000, signal?: AbortSignal): Promise<Response> {
     if (!this._backendUrl) throw new Error('Backend not available');
-
-    return this.fetchWithTimeout(`${this._backendUrl}/proxy/webdav`, {
+    // The caller keeps this signal alive while reading the raw XML/JSON response.
+    return fetch(`${this._backendUrl}/proxy/webdav`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ configId, method, path, body, headers })
+      body: JSON.stringify({ configId, method, path, body, headers, timeoutMs }),
+      signal: signal || AbortSignal.timeout(timeoutMs + 2000),
     });
   }
 

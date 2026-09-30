@@ -1,7 +1,9 @@
+import { normalizeAssetFilters } from '../../utils/assetFilters';
 import React, { useState } from 'react';
 import { Download, Upload, RefreshCw, Cloud, AlertCircle } from 'lucide-react';
 import { AIConfig, WebDAVConfig } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
+import { backend } from '../../services/backendAdapter';
 import { WebDAVService } from '../../services/webdavService';
 import { useDialog } from '../../hooks/useDialog';
 import { IncludeKeysToggle } from './IncludeKeysToggle';
@@ -58,11 +60,22 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
 
     setIsBackingUp(true);
     try {
+      if (backend.isAvailable) await backend.syncWebDAVConfigs(useAppStore.getState().webdavConfigs);
       const webdavService = new WebDAVService(activeConfig);
 
       const backupData = {
         repositories,
         releases,
+        releaseSubscriptions: Array.from(useAppStore.getState().releaseSubscriptions),
+        readReleases: Array.from(useAppStore.getState().readReleases),
+        releaseSourceSettings: useAppStore.getState().releaseSourceSettings,
+        includePreRelease: useAppStore.getState().includePreRelease,
+        defaultCategoryOverrides: useAppStore.getState().defaultCategoryOverrides,
+        categoryOrder: useAppStore.getState().categoryOrder,
+        assetFilters: useAppStore.getState().assetFilters,
+        activeAIConfig: useAppStore.getState().activeAIConfig,
+        activeWebDAVConfig,
+        translationEngine: useAppStore.getState().translationEngine,
         customCategories,
         hiddenDefaultCategoryIds,
         aiConfigs: aiConfigs.map(config => ({
@@ -84,7 +97,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         backendApiSecret: includeKeysInBackup ? backendApiSecret : (backendApiSecret ? '***' : null),
         includeKeysInBackup,
         exportedAt: new Date().toISOString(),
-        version: '1.0'
+        version: '1.1'
       };
 
       const filename = `github-stars-backup-${shanghaiDateKey()}.json`;
@@ -120,6 +133,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
 
     setIsRestoring(true);
     try {
+      if (backend.isAvailable) await backend.syncWebDAVConfigs(useAppStore.getState().webdavConfigs);
       const webdavService = new WebDAVService(activeConfig);
       const files = await webdavService.listFiles();
 
@@ -300,6 +314,22 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           console.warn('恢复后端 API 密钥时发生问题：', e);
         }
 
+        // Legacy backups omit these fields: retain existing preferences in that case.
+        const next: Partial<ReturnType<typeof useAppStore.getState>> = {};
+        const numberSet = (values: unknown[]) => new Set(values.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id)));
+        if (Array.isArray(backupData.releaseSubscriptions)) next.releaseSubscriptions = numberSet(backupData.releaseSubscriptions);
+        if (Array.isArray(backupData.readReleases)) next.readReleases = numberSet(backupData.readReleases);
+        if (Array.isArray(backupData.categoryOrder)) next.categoryOrder = backupData.categoryOrder.filter((id: unknown) => typeof id === 'string');
+        if (Array.isArray(backupData.assetFilters)) next.assetFilters = normalizeAssetFilters(backupData.assetFilters);
+        if (backupData.defaultCategoryOverrides && typeof backupData.defaultCategoryOverrides === 'object' && !Array.isArray(backupData.defaultCategoryOverrides)) next.defaultCategoryOverrides = backupData.defaultCategoryOverrides;
+        if (typeof backupData.includePreRelease === 'boolean') next.includePreRelease = backupData.includePreRelease;
+        if (backupData.translationEngine === 'microsoft' || backupData.translationEngine === 'google') next.translationEngine = backupData.translationEngine;
+        if (backupData.releaseSourceSettings && typeof backupData.releaseSourceSettings === 'object') useAppStore.getState().setReleaseSourceSettings(backupData.releaseSourceSettings);
+        const current = useAppStore.getState();
+        if (backupData.activeAIConfig === null || current.aiConfigs.some(config => config.id === backupData.activeAIConfig)) current.setActiveAIConfig(backupData.activeAIConfig);
+        if (backupData.activeWebDAVConfig === null || current.webdavConfigs.some(config => config.id === backupData.activeWebDAVConfig)) current.setActiveWebDAVConfig(backupData.activeWebDAVConfig);
+        useAppStore.setState(next);
+
         toast(t(
           `已从备份恢复数据：仓库 ${backupData.repositories?.length ?? 0}，发布 ${backupData.releases?.length ?? 0}，自定义分类 ${backupData.customCategories?.length ?? 0}。`,
           `Data restored from backup: repositories ${backupData.repositories?.length ?? 0}, releases ${backupData.releases?.length ?? 0}, custom categories ${backupData.customCategories?.length ?? 0}.`
@@ -412,7 +442,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         </h4>
         <ul className="text-sm text-gray-700 dark:text-text-tertiary space-y-1">
           <li>• {t('GitHub Stars 仓库列表', 'GitHub Stars repository list')}</li>
-          <li>• {t('Release 发布信息', 'Release information')}</li>
+          <li>• {t('Release 发布信息、订阅与已读状态', 'Releases, subscriptions and read state')}</li>
           <li>• {t('自定义分类', 'Custom categories')}</li>
           <li>• {t('AI 服务配置', 'AI service configurations')}</li>
           <li>• {t('WebDAV 配置', 'WebDAV configurations')}</li>

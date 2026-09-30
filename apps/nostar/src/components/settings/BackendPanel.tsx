@@ -1,3 +1,4 @@
+import { normalizeAssetFilters } from '../../utils/assetFilters';
 import React, { useState, useEffect } from 'react';
 import { Server, TestTube, RefreshCw, Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
@@ -100,7 +101,7 @@ export const BackendPanel: React.FC<BackendPanelProps> = ({ t }) => {
       // Use allSettled so that one failure doesn't block other syncs
       const results = await Promise.allSettled([
         backend.syncRepositories(repositories),
-        backend.syncReleases(releases),
+        backend.syncReleases(releases.map(release => ({...release, is_read: useAppStore.getState().readReleases.has(release.id)}))),
         backend.syncAIConfigs(aiConfigs),
         backend.syncWebDAVConfigs(webdavConfigs),
         backend.syncSettings({
@@ -110,6 +111,9 @@ export const BackendPanel: React.FC<BackendPanelProps> = ({ t }) => {
             categoryOrder,
             customCategories,
             assetFilters,
+            translationEngine: useAppStore.getState().translationEngine,
+            releaseSubscriptions: Array.from(useAppStore.getState().releaseSubscriptions),
+            defaultCategoryOverrides: useAppStore.getState().defaultCategoryOverrides,
             collapsedSidebarCategoryCount,
           }),
       ]);
@@ -164,6 +168,11 @@ export const BackendPanel: React.FC<BackendPanelProps> = ({ t }) => {
       // Always apply backend snapshot to state (empty array allowed)
       setRepositories(repoData.repositories);
       setReleases(releaseData.releases);
+      useAppStore.setState({readReleases: new Set(releaseData.releases.filter(release => release.is_read).map(release => release.id))});
+      if (settingsData.translationEngine === 'microsoft' || settingsData.translationEngine === 'google') useAppStore.getState().setTranslationEngine(settingsData.translationEngine);
+      if (Array.isArray(settingsData.releaseSubscriptions)) useAppStore.setState({releaseSubscriptions: new Set(settingsData.releaseSubscriptions.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id)))});
+      if (settingsData.defaultCategoryOverrides && typeof settingsData.defaultCategoryOverrides === 'object' && !Array.isArray(settingsData.defaultCategoryOverrides)) useAppStore.setState({defaultCategoryOverrides: settingsData.defaultCategoryOverrides as ReturnType<typeof useAppStore.getState>['defaultCategoryOverrides']});
+      if (Array.isArray(settingsData.assetFilters)) useAppStore.setState({assetFilters: normalizeAssetFilters(settingsData.assetFilters)});
       setAIConfigs(aiConfigData);
       setWebDAVConfigs(webdavConfigData);
       // 从服务端数据中隐藏所有应隐藏的分类

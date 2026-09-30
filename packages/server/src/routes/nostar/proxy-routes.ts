@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import { isBearerRequest, requireBrowserSession } from '../../plugins/auth.js';
 import { decryptSecret } from '../../utils/crypto.js';
-import { asRecord, authed, nullableText, text } from './common.js';
+import { asRecord, authed, boundedInt, nullableText, text } from './common.js';
 import {
   aiTarget,
   githubHeaders,
@@ -128,7 +128,7 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
     });
     if (!config) return reply.status(404).send({ error: 'WebDAV config not found', code: 'WEBDAV_CONFIG_NOT_FOUND' });
     const method = text(input.method).toUpperCase();
-    if (!['GET', 'PUT', 'DELETE', 'PROPFIND', 'MKCOL', 'MOVE', 'COPY', 'HEAD'].includes(method)) {
+    if (!['GET', 'PUT', 'DELETE', 'PROPFIND', 'MKCOL', 'MOVE', 'COPY', 'HEAD', 'OPTIONS'].includes(method)) {
       return reply.status(400).send({ error: 'Unsupported WebDAV method', code: 'INVALID_WEBDAV_METHOD' });
     }
     const rawPath = text(input.path);
@@ -140,6 +140,21 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
     if (targetUrl.origin !== configuredUrl.origin) {
       return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
     }
+    // Decode escaped separators/dot segments before checking collection containment.
+    let decodedTarget: URL;
+    let basePath: string;
+    try {
+      decodedTarget = new URL(targetUrl);
+      decodedTarget.pathname = decodeURIComponent(targetUrl.pathname);
+      const decodedBase = new URL(configuredUrl);
+      decodedBase.pathname = decodeURIComponent(configuredUrl.pathname);
+      basePath = decodedBase.pathname;
+    } catch {
+      return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
+    }
+    if (decodedTarget.origin !== configuredUrl.origin || !decodedTarget.pathname.startsWith(basePath)) {
+      return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
+    }
     const headers = asRecord(input.headers);
     delete headers.authorization;
     delete headers.Authorization;
@@ -148,9 +163,13 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
       method,
       headers: headers as Record<string, string>,
       data: ['GET', 'HEAD'].includes(method) ? undefined : typeof input.body === 'string' ? input.body : undefined,
-      timeout: 60000,
+      timeout: boundedInt(input.timeoutMs, 60000, 1000, 300000),
       responseType: 'text',
     }, proxy);
+    for (const name of ['server', 'dav']) {
+      const value = text(response.headers[name]);
+      if (value) reply.header(name, value);
+    }
     return reply.status(response.status).type(text(response.headers['content-type']) || 'text/plain; charset=utf-8').send(text(response.data));
   });
 }

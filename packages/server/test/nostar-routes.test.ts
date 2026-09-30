@@ -286,6 +286,18 @@ describe('NoStar routes', () => {
     );
   });
 
+  it('honors bounded WebDAV operation timeouts and preserves raw XML', async () => {
+    await setupAdmin();
+    const cookie = await loginSecondUser();
+    for (const [requested, expected] of [[15000, 15000], [900000, 300000], [-1, 1000]]) {
+      safeRequester.mockResolvedValueOnce({statusCode: 207, headers: {'content-type': 'application/xml'}, body: Buffer.from('<multistatus/>')});
+      const response = await app.inject({method: 'POST', url: '/api/nostar/proxy/webdav', headers: {cookie}, payload: {configId: 'webdav-1', method: 'PROPFIND', path: '/backup/', timeoutMs: requested}});
+      expect(response.statusCode).toBe(207);
+      expect(response.body).toBe('<multistatus/>');
+      expect(safeRequester).toHaveBeenLastCalledWith('https://dav.example/root/backup/', expect.objectContaining({timeoutMs: expected}));
+    }
+  });
+
   it('keeps WebDAV requests on the configured origin', async () => {
     await setupAdmin();
     const readerCookie = await loginSecondUser();
@@ -299,6 +311,40 @@ describe('NoStar routes', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().code).toBe('INVALID_WEBDAV_PATH');
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
+  it('accepts encoded collection names when reading DAV capabilities', async () => {
+    await setupAdmin();
+    const cookie = await loginSecondUser();
+    prisma.noStarWebDavConfig.findUnique = async () => ({url: 'https://dav.example/My%20Files/%E5%A4%87%E4%BB%BD/', username: 'reader', passwordEncrypted: encryptSecret('dav-password', encryptionKey)});
+    safeRequester.mockResolvedValueOnce({statusCode: 200, headers: {'content-type': 'text/plain', server: 'TestDAV', dav: '1, 2'}, body: Buffer.from('')});
+    const response = await app.inject({method: 'POST', url: '/api/nostar/proxy/webdav', headers: {cookie}, payload: {configId: 'webdav-1', method: 'OPTIONS', path: './'}});
+    expect(response.statusCode).toBe(200);
+    expect(response.headers.server).toBe('TestDAV');
+    expect(response.headers.dav).toBe('1, 2');
+  });
+
+  it('does not interpret escaped question marks or fragments as URL structure', async () => {
+    await setupAdmin();
+    const cookie = await loginSecondUser();
+    for (const base of ['https://dav.example/My%3FFiles/', 'https://dav.example/My%23Files/']) {
+      prisma.noStarWebDavConfig.findUnique = async () => ({url: base, username: 'reader', passwordEncrypted: encryptSecret('dav-password', encryptionKey)});
+      const response = await app.inject({method: 'POST', url: '/api/nostar/proxy/webdav', headers: {cookie}, payload: {configId: 'webdav-1', method: 'GET', path: 'backup%2F..%2F..%2Foutside'}});
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe('INVALID_WEBDAV_PATH');
+    }
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
+  it('rejects WebDAV paths escaping the configured collection', async () => {
+    await setupAdmin();
+    const cookie = await loginSecondUser();
+    for (const path of ['../other/', '%2e%2e/other/', '..%2fother/', '..%5cother/']) {
+      const response = await app.inject({method: 'POST', url: '/api/nostar/proxy/webdav', headers: {cookie}, payload: {configId: 'webdav-1', method: 'GET', path}});
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe('INVALID_WEBDAV_PATH');
+    }
     expect(safeRequester).not.toHaveBeenCalled();
   });
 

@@ -8,7 +8,7 @@
     "build": "vite build",
     "bundle:check": "node scripts/check-bundle-size.mjs",
     "build:check": "npm run build && npm run bundle:check",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "node node_modules/@typescript/native/bin/tsc -b --pretty false",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
@@ -48,10 +48,12 @@
     "jsdom": "^30.1.1",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
+    "typescript": "npm:@typescript/typescript6@6.0.3",
     "typescript-eslint": "^8.70.1",
     "vite": "^8.3.1",
     "vitest": "^5.0.2",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@types/node": "24.19.0"
   }
 }

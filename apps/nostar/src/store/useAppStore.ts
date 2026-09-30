@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { hasReleaseChanged } from '../utils/releaseAssets';
+import { normalizeAssetFilters } from '../utils/assetFilters';
 import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
 import {
   AppState,
@@ -394,6 +396,7 @@ interface AppActions {
   setCurrentView: (view: 'repositories' | 'gists' | 'releases' | 'forks' | 'settings' | 'subscription') => void;
   setSelectedCategory: (category: string) => void;
   setLanguage: (language: 'zh' | 'en') => void;
+  setTranslationEngine: (engine: 'microsoft' | 'google') => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setReadmeModalOpen: (open: boolean) => void;
   setHeaderMenuConfig: (config: HeaderMenuItem[]) => void;
@@ -521,6 +524,7 @@ type PersistedAppState = Partial<
     | 'currentView'
     | 'selectedCategory'
     | 'language'
+    | 'translationEngine'
     | 'searchFilters'
     | 'isSidebarCollapsed'
     | 'forks'
@@ -740,6 +744,7 @@ export const normalizePersistedState = (
     releaseSubscriptions: normalizeNumberSet(safePersisted.releaseSubscriptions),
     releaseSourceSettings: normalizeReleaseSourceSettings(safePersisted.releaseSourceSettings),
     readReleases: normalizeNumberSet(safePersisted.readReleases),
+    translationEngine: safePersisted.translationEngine === 'google' ? 'google' : 'microsoft',
     readForks: normalizeNumberSet(safePersisted.readForks),
     forks: Array.isArray(safePersisted.forks) ? safePersisted.forks : [],
     forkViewMode: safePersisted.forkViewMode || 'timeline',
@@ -782,7 +787,7 @@ export const normalizePersistedState = (
     })(),
     categoryOrder: Array.isArray(safePersisted.categoryOrder) ? safePersisted.categoryOrder.filter((id: unknown): id is string => typeof id === 'string') : [],
     collapsedSidebarCategoryCount: typeof safePersisted.collapsedSidebarCategoryCount === 'number' && safePersisted.collapsedSidebarCategoryCount > 0 ? safePersisted.collapsedSidebarCategoryCount : 20,
-    assetFilters: Array.isArray(safePersisted.assetFilters) && safePersisted.assetFilters.length > 0 ? safePersisted.assetFilters : defaultPresetFilters,
+    assetFilters: Array.isArray(safePersisted.assetFilters) ? normalizeAssetFilters(safePersisted.assetFilters) : defaultPresetFilters,
     language: adoptLocale(safePersisted.language),
     isAuthenticated: !!(safePersisted.user && safePersisted.githubToken),
     releaseViewMode: safePersisted.releaseViewMode || 'timeline',
@@ -1186,6 +1191,7 @@ export const useAppStore = create<AppState & AppActions>()(
       currentView: 'repositories',
       selectedCategory: 'all',
       language: currentLocale(),
+      translationEngine: 'microsoft',
       updateNotification: null,
       analysisProgress: { current: 0, total: 0 },
       backendApiSecret: readSessionBackendSecret(),
@@ -1618,9 +1624,23 @@ export const useAppStore = create<AppState & AppActions>()(
       // Release actions
       setReleases: (releases) => set({ releases }),
       addReleases: (newReleases) => set((state) => {
-        const existingIds = new Set(state.releases.map(r => r.id));
-        const uniqueReleases = newReleases.filter(r => !existingIds.has(r.id));
-        return { releases: [...state.releases, ...uniqueReleases] };
+        const byId = new Map(newReleases.map(release => [release.id, release]));
+        const nextRead = new Set(state.readReleases);
+        let changed = false;
+        const releases = state.releases.map(current => {
+          const incoming = byId.get(current.id);
+          byId.delete(current.id);
+          if (!incoming || !hasReleaseChanged(current, incoming)) return current;
+          changed = true;
+          nextRead.delete(current.id);
+          return { ...current, ...incoming, is_read: false };
+        });
+        for (const incoming of byId.values()) {
+          releases.push(incoming);
+          changed = true;
+        }
+        if (!changed) return state;
+        return { releases, readReleases: nextRead };
       }),
       toggleReleaseSubscription: (repoId) => set((state) => {
         const newSubscriptions = new Set(state.releaseSubscriptions);
@@ -2021,12 +2041,12 @@ export const useAppStore = create<AppState & AppActions>()(
 
       // Asset Filter actions
       addAssetFilter: (filter) => set((state) => ({
-        assetFilters: [...state.assetFilters, filter]
+        assetFilters: normalizeAssetFilters([...state.assetFilters, filter])
       })),
       updateAssetFilter: (id, updates) => set((state) => ({
-        assetFilters: state.assetFilters.map(filter => 
+        assetFilters: normalizeAssetFilters(state.assetFilters.map(filter =>
           filter.id === id ? { ...filter, ...updates } : filter
-        )
+        ))
       })),
       deleteAssetFilter: (id) => set((state) => ({
         assetFilters: state.assetFilters.filter(filter => filter.id !== id)
@@ -2043,6 +2063,7 @@ export const useAppStore = create<AppState & AppActions>()(
         writeStoredLocale(language);
         set({ language });
       },
+      setTranslationEngine: (translationEngine) => set({ translationEngine }),
       setSidebarCollapsed: (isSidebarCollapsed) => set({ isSidebarCollapsed }),
       setReadmeModalOpen: (readmeModalOpen) => set({ readmeModalOpen }),
       setHeaderMenuConfig: (config) => set({
@@ -2287,6 +2308,7 @@ export const useAppStore = create<AppState & AppActions>()(
         assetFilters: state.assetFilters,
 
         // 持久化UI设置
+        translationEngine: state.translationEngine,
         // theme and language are not persisted here: they live in the shared `nono:color-mode`
         // and `nono:locale` keys so every NoNo app agrees on them.
         currentView: state.currentView,

@@ -1,6 +1,6 @@
 import { Github, Twitter } from '../BrandIcons';
 import React from 'react';
-import { Globe, Package, Mail, ExternalLink } from 'lucide-react';
+import { Globe, Package, Mail, ExternalLink, Languages } from 'lucide-react';
 import { UpdateChecker } from '../UpdateChecker';
 import { useAppStore } from '../../store/useAppStore';
 import { version } from '../../../package.json';
@@ -11,7 +11,7 @@ interface GeneralPanelProps {
 }
 
 export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
-  const { language, setLanguage } = useAppStore();
+  const { language, setLanguage, translationEngine, setTranslationEngine } = useAppStore();
 
   return (
     <div className="space-y-6">
@@ -69,6 +69,36 @@ export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
           </label>
         </div>
       </div>
+
+      <fieldset className="p-6 bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04]">
+        <legend className="sr-only">{t('翻译引擎', 'Translation Engine')}</legend>
+        <div className="flex items-center space-x-3 mb-4">
+          <Languages className="w-5 h-5 text-gray-700 dark:text-text-secondary" />
+          <h4 className="font-medium text-gray-900 dark:text-text-primary">
+            {t('翻译引擎', 'Translation Engine')}
+          </h4>
+        </div>
+        <p className="text-sm text-gray-700 dark:text-text-tertiary mb-4">
+          {t('选择双语阅读使用的翻译服务。', 'Choose the translation service for bilingual reading.')}
+        </p>
+        <div className="grid grid-cols-2 gap-4 max-w-md">
+          {(['microsoft', 'google'] as const).map((engine) => (
+            <label key={engine} className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-black/[0.06] dark:border-white/[0.04] hover:bg-light-bg dark:hover:bg-white/10 transition-colors">
+              <input
+                type="radio"
+                name="translation-engine"
+                value={engine}
+                checked={translationEngine === engine}
+                onChange={() => setTranslationEngine(engine)}
+                className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+              />
+              <span className="text-base font-medium text-gray-900 dark:text-text-primary">
+                {engine === 'microsoft' ? 'Microsoft' : 'Google'}
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="p-6 bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04]">
         <div className="flex items-center space-x-3 mb-4">
