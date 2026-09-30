@@ -117,7 +117,7 @@ function AuthFrame({ title, subtitle, children }: { title: string; subtitle: str
       <section className="flex min-h-screen items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
           <div className="mb-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-brand-400">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-600 shadow-xs dark:border-white/10 dark:bg-white/[0.04] dark:text-brand-400">
               <LockKeyhole size={18} />
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

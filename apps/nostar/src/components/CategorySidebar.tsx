@@ -407,7 +407,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 {/* 展开按钮 - 放在折叠状态的顶部 */}
                 <button
                   onClick={toggleSidebar}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-violet"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/10 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-brand-violet"
                   title={t('展开侧栏 (Ctrl/Cmd+B)', 'Expand Sidebar (Ctrl/Cmd+B)')}
                   aria-label={t('展开侧栏', 'Expand Sidebar')}
                   aria-expanded="false"
@@ -501,7 +501,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                     {/* 折叠按钮 - 放在标题栏右侧 */}
                     <button
                       onClick={toggleSidebar}
-                      className="p-1.5 rounded-lg bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-violet"
+                      className="p-1.5 rounded-lg bg-light-surface dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-white/10 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-brand-violet"
                       title={t('折叠侧栏 (Ctrl/Cmd+B)', 'Collapse Sidebar (Ctrl/Cmd+B)')}
                       aria-label={t('折叠侧栏', 'Collapse Sidebar')}
                       aria-expanded="true"

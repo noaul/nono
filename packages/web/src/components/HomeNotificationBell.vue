@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Bell, CalendarDays, Check, CheckCheck, ServerCog, WalletCards, X } from 'lucide-vue-next';
+import { Bell, CalendarDays, Check, CheckCheck, ServerCog, WalletCards, X } from '@lucide/vue';
 import type { AdminNotification } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 import { formatShanghaiDateTime } from '@/utils/dateTime';

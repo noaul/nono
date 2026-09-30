@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { Lock } from 'lucide-vue-next';
+import { Lock } from '@lucide/vue';
 import type { Folder, Link } from '@/api/types';
 import { apiRequest, jsonBody } from '@/api/client';
 import { useI18n } from '@/composables/useI18n';

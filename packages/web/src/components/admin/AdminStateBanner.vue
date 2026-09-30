@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-vue-next';
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from '@lucide/vue';
 
 const props = withDefaults(defineProps<{
   message: string;

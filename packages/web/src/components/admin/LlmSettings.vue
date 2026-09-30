@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { Bot, FlaskConical, Save } from 'lucide-vue-next';
+import { Bot, FlaskConical, Save } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';

@@ -18,7 +18,7 @@ import {
   Plus,
   Settings,
   Upload,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import { apiRequest } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';

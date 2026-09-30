@@ -20,16 +20,22 @@ export default defineConfig({
     cssCodeSplit: true,
     reportCompressedSize: false,
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
-          if (/[\\/]node_modules[\\/](@vue[\\/]|vue[\\/]|vue-router[\\/]|pinia[\\/]|@vue[\\/]devtools)/.test(id)) {
-            return 'vendor-vue';
-          }
-          if (id.includes('node_modules/@simplewebauthn')) return 'vendor-webauthn';
-          if (id.includes('node_modules/sortablejs')) return 'vendor-sortable';
-          return undefined;
+        codeSplitting: {
+          groups: [
+            {
+              name(id) {
+                if (!id.includes('node_modules')) return null;
+                if (/[\\/]node_modules[\\/](@vue[\\/]|vue[\\/]|vue-router[\\/]|pinia[\\/]|@vue[\\/]devtools)/.test(id)) {
+                  return 'vendor-vue';
+                }
+                if (id.includes('node_modules/@simplewebauthn')) return 'vendor-webauthn';
+                if (id.includes('node_modules/sortablejs')) return 'vendor-sortable';
+                return null;
+              },
+            },
+          ],
         },
       },
     },

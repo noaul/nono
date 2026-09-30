@@ -1,5 +1,6 @@
+import { Github, Twitter } from '../BrandIcons';
 import React from 'react';
-import { Globe, Package, Mail, ExternalLink, Github, Twitter } from 'lucide-react';
+import { Globe, Package, Mail, ExternalLink } from 'lucide-react';
 import { UpdateChecker } from '../UpdateChecker';
 import { useAppStore } from '../../store/useAppStore';
 import { version } from '../../../package.json';

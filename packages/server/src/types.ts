@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from './generated/prisma/client.js';
 import type { Repository } from './services/repository.js';
 import type { WebAuthnService } from './services/webauthn.service.js';
 import type { BackupService } from './services/backup.service.js';

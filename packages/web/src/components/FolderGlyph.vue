@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Folder } from 'lucide-vue-next';
+import { Folder } from '@lucide/vue';
 import { getFolderIconOption } from '@/utils/folder-icons';
 
 const props = withDefaults(defineProps<{ icon?: string | null; size?: number }>(), {

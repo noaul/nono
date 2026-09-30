@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 import type { Folder } from '@/api/types';
 import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';

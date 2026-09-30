@@ -166,7 +166,7 @@ export const MenuManagementPanel: React.FC<MenuManagementPanelProps> = ({ t }) =
                   <button
                     onClick={() => handleMoveUp(index)}
                     disabled={index === 0}
-                    className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                    className="p-0.5 rounded-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
                     title={t('上移', 'Move up')}
                     aria-label={t(`${meta.labelZh}上移`, `Move ${meta.labelEn} up`)}
                   >
@@ -175,7 +175,7 @@ export const MenuManagementPanel: React.FC<MenuManagementPanelProps> = ({ t }) =
                   <button
                     onClick={() => handleMoveDown(index)}
                     disabled={index === sortedConfig.length - 1}
-                    className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                    className="p-0.5 rounded-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
                     title={t('下移', 'Move down')}
                     aria-label={t(`${meta.labelZh}下移`, `Move ${meta.labelEn} down`)}
                   >
@@ -187,7 +187,7 @@ export const MenuManagementPanel: React.FC<MenuManagementPanelProps> = ({ t }) =
                 <button
                   onClick={() => handleToggle(item.id)}
                   disabled={!meta.canHide}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-violet focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-brand-violet focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
                     !meta.canHide
                       ? 'bg-brand-violet cursor-not-allowed opacity-75'
                       : item.visible
@@ -200,7 +200,7 @@ export const MenuManagementPanel: React.FC<MenuManagementPanelProps> = ({ t }) =
                   aria-label={t(`切换${meta.labelZh}显示`, `Toggle ${meta.labelEn} visibility`)}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
                       item.visible ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />

@@ -590,9 +590,9 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
   if (!repository) return null;
 
   // Unified card styles with enhanced light mode optimization
-  const sectionClass = "p-5 bg-white dark:bg-panel-dark rounded-xl border border-gray-200/80 dark:border-white/[0.04] shadow-sm";
+  const sectionClass = "p-5 bg-white dark:bg-panel-dark rounded-xl border border-gray-200/80 dark:border-white/[0.04] shadow-xs";
   const labelClass = "flex items-center space-x-2 text-[13px] font-medium text-gray-900 dark:text-text-primary mb-3";
-  const inputClass = "w-full px-4 py-3 bg-gray-50/50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.04] rounded-xl text-gray-900 dark:text-text-primary placeholder-gray-400 dark:placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-violet/30 focus:border-brand-violet dark:focus:ring-brand-violet/50 dark:focus:border-brand-violet transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.08] text-[13px] leading-[1.625]";
+  const inputClass = "w-full px-4 py-3 bg-gray-50/50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.04] rounded-xl text-gray-900 dark:text-text-primary placeholder-gray-400 dark:placeholder-text-tertiary focus:outline-hidden focus:ring-2 focus:ring-brand-violet/30 focus:border-brand-violet dark:focus:ring-brand-violet/50 dark:focus:border-brand-violet transition-all duration-200 hover:bg-gray-100/50 dark:hover:bg-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.08] text-[13px] leading-[1.625]";
   const textareaClass = `${inputClass} resize-y min-h-[120px] max-h-[400px] overflow-y-auto scrollbar-auto`;
   const buttonSecondaryClass = "flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-200";
   const tagClass = "inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary rounded-md text-sm border border-gray-200/80 dark:border-white/[0.04]";
@@ -612,7 +612,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
           <img
             src={repository.owner.avatar_url}
             alt={repository.owner.login}
-            className="w-10 h-10 rounded-full border-2 border-white dark:border-white/[0.04] shadow-sm"
+            className="w-10 h-10 rounded-full border-2 border-white dark:border-white/[0.04] shadow-xs"
           />
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-gray-900 dark:text-text-primary truncate">
@@ -969,7 +969,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
           )}
 
           {/* Category Lock - Enhanced */}
-          <div className="mt-4 p-4 bg-light-surface dark:bg-white/[0.03] rounded-xl border border-gray-200/80 dark:border-white/[0.04] shadow-sm">
+          <div className="mt-4 p-4 bg-light-surface dark:bg-white/[0.03] rounded-xl border border-gray-200/80 dark:border-white/[0.04] shadow-xs">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-0.5">
                 {formData.categoryLocked && formData.category ? (
@@ -994,7 +994,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
                       disabled={!formData.category}
                       className="sr-only peer"
                     />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-violet rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/[0.06] after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-white/[0.04] peer-checked:bg-brand-violet peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-2 peer-focus:ring-brand-violet rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/[0.06] after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-white/[0.04] peer-checked:bg-brand-violet peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                   </label>
                 </div>
                 <p className="text-xs text-gray-700 dark:text-text-secondary">
@@ -1036,7 +1036,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
                       e.stopPropagation();
                       handleRemoveTag(tag);
                     }}
-                    className="ml-1.5 p-0.5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-text-primary rounded transition-colors"
+                    className="ml-1.5 p-0.5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-text-primary rounded-sm transition-colors"
                     title={t('移除', 'Remove')}
                   >
                     <X className="w-3 h-3" />
@@ -1170,7 +1170,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
               e.stopPropagation();
               handleCloseWithConfirm();
             }}
-            className="flex items-center space-x-2 px-4 py-2.5 text-gray-700 dark:text-text-primary bg-white dark:bg-white/[0.04] rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/[0.04] transition-all duration-200 shadow-sm"
+            className="flex items-center space-x-2 px-4 py-2.5 text-gray-700 dark:text-text-primary bg-white dark:bg-white/[0.04] rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/[0.04] transition-all duration-200 shadow-xs"
           >
             <X className="w-4 h-4" />
             <span className="font-medium">{t('取消', 'Cancel')}</span>
@@ -1181,7 +1181,7 @@ export const RepositoryEditModal: React.FC<RepositoryEditModalProps> = ({
               void handleSave();
             }}
             disabled={!hasChanges}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-brand-indigo text-white rounded-xl hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm font-medium"
+            className="flex items-center space-x-2 px-5 py-2.5 bg-brand-indigo text-white rounded-xl hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-xs font-medium"
           >
             <Save className="w-4 h-4" />
             <span>{t('保存', 'Save')}</span>

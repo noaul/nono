@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../generated/prisma/client.js';
+import { createPrismaClient } from '../services/prisma-client.js';
 import { encryptSecret } from '../utils/crypto.js';
 
 type Row = Record<string, any>;
@@ -42,7 +43,7 @@ export function decryptLegacySecret(value: string, keyHex: string): string {
   return Buffer.concat([decipher.update(Buffer.from(encryptedRaw, 'base64')), decipher.final()]).toString('utf8');
 }
 
-export async function migrateNoStarSqlite(args: MigrationArgs, prisma = new PrismaClient()) {
+export async function migrateNoStarSqlite(args: MigrationArgs, prisma: PrismaClient = createPrismaClient()) {
   if (!fs.existsSync(args.sqlitePath)) throw new Error(`SQLite database not found: ${args.sqlitePath}`);
   const targetKey = process.env.ENCRYPTION_KEY || '';
   if (!/^[0-9a-fA-F]{64}$/.test(targetKey)) throw new Error('ENCRYPTION_KEY must be configured with 64 hexadecimal characters');
@@ -320,7 +321,7 @@ function dateOrNull(value: unknown) {
 }
 
 async function main() {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   try {
     const result = await migrateNoStarSqlite(parseMigrationArgs(process.argv.slice(2)), prisma);
     console.log(JSON.stringify(result, null, 2));

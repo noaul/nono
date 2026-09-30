@@ -1054,7 +1054,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
                 key={option.value}
                 type="button"
                 onClick={() => setPhoneType(option.value)}
-                className={`h-9 rounded-lg px-3 text-sm font-medium transition-all ${phoneType === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`h-9 rounded-lg px-3 text-sm font-medium transition-all ${phoneType === option.value ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
               >
                 {option.label}
               </button>
@@ -1071,7 +1071,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
                 key={option.value}
                 type="button"
                 onClick={() => setPurchaseType(option.value)}
-                className={`h-9 rounded-lg px-3 text-sm font-medium transition-all ${purchaseType === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`h-9 rounded-lg px-3 text-sm font-medium transition-all ${purchaseType === option.value ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
               >
                 {option.label}
               </button>
@@ -1526,7 +1526,7 @@ function PhoneAppearanceControl({
       <select
         value={styleKey}
         onChange={(event) => onStyleChange(event.target.value as PhoneVisualStyleKey)}
-        className="h-8 rounded-xl border px-2.5 text-xs font-medium outline-none transition-colors"
+        className="h-8 rounded-xl border px-2.5 text-xs font-medium outline-hidden transition-colors"
         style={{ background: visualStyle.chip, borderColor: visualStyle.border, color: visualStyle.text }}
       >
         {phoneVisualStyles.map((style) => <option key={style.key} value={style.key}>{copy(style.labelZh, style.labelEn)}</option>)}
@@ -1605,7 +1605,7 @@ function PhoneFormSections({
               key={option.value}
               type="button"
               onClick={() => updateForm('phoneType', option.value)}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${phoneType === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${phoneType === option.value ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
               {option.label}
             </button>
@@ -1625,7 +1625,7 @@ function PhoneFormSections({
                   key={String(option.value)}
                   type="button"
                   onClick={() => updateForm('isEsim', option.value)}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${Boolean(form.isEsim) === option.value ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${Boolean(form.isEsim) === option.value ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                 >
                   {option.label}
                 </button>
@@ -1728,7 +1728,7 @@ function VpsCommandPanel({
       <VpsStat icon={<Server size={17} />} label={copy('在线节点', 'Online nodes')} value={`${stats.online}/${stats.total}`} detail={copy(`${stats.offline} 台离线或异常`, `${stats.offline} offline or failing`)} tone={stats.offline > 0 ? 'warning' : 'success'} />
       <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${stats.total}`} detail={copy('dstatus / neko 风格接口', 'dstatus / neko-style endpoints')} tone="brand" />
       <VpsStat icon={<Activity size={17} />} label={copy('平均负载', 'Average load')} value={formatPercent(stats.avgCpu)} detail={copy(`内存均值 ${formatPercent(stats.avgMemory)}`, `Memory average ${formatPercent(stats.avgMemory)}`)} tone={stats.avgCpu !== null && stats.avgCpu >= 80 ? 'danger' : 'brand'} />
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-850">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-slate-500 dark:text-slate-400">{copy('累计流量', 'Total transfer')}</p>
@@ -1759,7 +1759,7 @@ function VpsStat({ icon, label, value, detail, tone }: { icon: React.ReactNode; 
     danger: 'border-danger-500/20 bg-danger-500/10 text-danger-500'
   }[tone];
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-850">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
@@ -2001,7 +2001,7 @@ function MonitorDot({ status }: { status: string }) {
     : status === 'offline'
       ? 'bg-danger-500 shadow-danger-500/30'
       : 'bg-slate-300 dark:bg-slate-600';
-  return <span className={`h-2.5 w-2.5 shrink-0 rounded-full shadow ${cls}`} />;
+  return <span className={`h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ${cls}`} />;
 }
 
 function SubscriptionFormSections({
@@ -2252,21 +2252,21 @@ function DomainPeriodTotalCard({ totals, copy }: { totals?: RenewalTotals; copy:
   const currency = summary?.convertedTotal.currency ?? totals?.displayCurrency ?? 'CNY';
   const title = mode === 'yearly' ? copy('未来一年续费合计', 'Next 12 months renewals') : copy('下月续费合计', 'Next-month renewals');
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-850">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-slate-500 dark:text-slate-400">{title}</p>
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-[11px] dark:border-white/10 dark:bg-white/[0.04]">
           <button
             type="button"
             onClick={() => setMode('monthly')}
-            className={`rounded-md px-2 py-0.5 transition-all ${mode === 'monthly' ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+            className={`rounded-md px-2 py-0.5 transition-all ${mode === 'monthly' ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
           >
             {copy('按月', 'Month')}
           </button>
           <button
             type="button"
             onClick={() => setMode('yearly')}
-            className={`rounded-md px-2 py-0.5 transition-all ${mode === 'yearly' ? 'bg-white text-brand-600 shadow-sm dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+            className={`rounded-md px-2 py-0.5 transition-all ${mode === 'yearly' ? 'bg-white text-brand-600 shadow-xs dark:bg-white/10 dark:text-brand-300' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
           >
             {copy('按年', 'Year')}
           </button>
@@ -2296,7 +2296,7 @@ function DomainPeriodTotalCard({ totals, copy }: { totals?: RenewalTotals; copy:
 
 function DomainStat({ icon, label, value, detail, mono = false }: { icon: React.ReactNode; label: string; value: React.ReactNode; detail: string; mono?: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-850">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
@@ -2429,7 +2429,7 @@ function DomainMiniCardView({ item, copy }: { item: AssetItem; copy: (zh: string
   const left = daysLeft(dueDate || null);
 
   return (
-    <div className="motion-card rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/30 hover:shadow-soft dark:border-white/10 dark:bg-ink-850">
+    <div className="motion-card rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/30 hover:shadow-soft dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 truncate font-mono text-base font-semibold tracking-normal text-slate-950 dark:text-white">
           {getText(item, 'domainName')}
@@ -2452,7 +2452,7 @@ function PhoneMiniCardView({ item, copy }: { item: AssetItem; copy: (zh: string,
   const isForeign = stringValue(item.phoneType) === 'foreign';
 
   return (
-    <div className="motion-card rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/30 hover:shadow-soft dark:border-white/10 dark:bg-ink-850">
+    <div className="motion-card rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/30 hover:shadow-soft dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">

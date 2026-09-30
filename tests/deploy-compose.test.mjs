@@ -82,7 +82,7 @@ test('running image gets a Compose-safe local rollback tag', async () => {
   ]);
 });
 
-export function deploymentFixture(t, { initial = false, fail = '', state = '[{"migration_name":"001_initial","finished_at":"2026-01-01","rolled_back_at":null}]' } = {}) {
+export function deploymentFixture(t, { initial = false, fail = '', state = '[{"migration_name":"001_initial","finished_at":"2026-01-01","rolled_back_at":null}]', runningMajor = '18', configuredImage = 'postgres:18-alpine' } = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-deploy-test-'));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   for (const [name, sql] of [['001_initial', 'CREATE TABLE example(id INT);'], ['002_retire', 'DROP TABLE example;']]) {
@@ -102,6 +102,8 @@ export function deploymentFixture(t, { initial = false, fail = '', state = '[{"m
     if (text.includes('compose ps')) return { stdout: initial ? '' : 'existing-container' };
     if (text.includes('{{.Image}}')) return { stdout: OLD_IMAGE_ID };
     if (text.includes('{{.Config.Image}}')) return { stdout: 'nono-app:mutable' };
+    if (text.includes('.Config.Env')) return { stdout: `PATH=/usr/bin\nPG_MAJOR=${runningMajor}\n` };
+    if (text.includes('compose config --format json')) return { stdout: JSON.stringify({ services: { postgres: { image: configuredImage } } }) };
     if (text.includes('psql')) return { stdout: state };
     if (text.includes('.create()')) return { stdout: '{"id":"20260905T120000Z"}' };
     return { stdout: '' };
@@ -207,6 +209,32 @@ test('existing database volume without containers is not mistaken for fresh inst
     return run(command, args, settings);
   } }), /existing.*database|database.*existing/i);
 });
+
+test('a legacy PostgreSQL 16 volume without containers is not mistaken for fresh install', async (t) => {
+  const { options } = deploymentFixture(t, { initial: true });
+  const run = options.run;
+  await assert.rejects(deployCompose({ ...options, run: async (command, args, settings) => {
+    if (args.includes('volume') && args.includes('label=com.docker.compose.volume=nono_pg_data')) return { stdout: 'nono_nono_pg_data' };
+    return run(command, args, settings);
+  } }), /existing.*database|database.*existing/i);
+});
+
+test('a PostgreSQL major upgrade is refused before building or stopping anything', async (t) => {
+  const { options, calls } = deploymentFixture(t, { runningMajor: '16' });
+  await assert.rejects(deployCompose(options), /PostgreSQL 16 is running but Compose configures PostgreSQL 18.*postgres-18-upgrade/);
+  assert.equal(calls.some((c) => c.text.includes('compose build') || c.text.includes('compose stop') || c.text.includes('compose up')), false);
+});
+
+for (const [name, fixture] of [
+  ['unknown running major', { runningMajor: '' }],
+  ['unparseable configured image', { configuredImage: 'registry.example/db@sha256:abc' }],
+]) {
+  test(`PostgreSQL major guard fails closed: ${name}`, async (t) => {
+    const { options, calls } = deploymentFixture(t, fixture);
+    await assert.rejects(deployCompose(options), /PostgreSQL major version/);
+    assert.equal(calls.some((c) => c.text.includes('compose build')), false);
+  });
+}
 
 test('migration SQL is passed intact as a positional shell argument', async (t) => {
   const { options, calls } = deploymentFixture(t);

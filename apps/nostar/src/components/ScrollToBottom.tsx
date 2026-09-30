@@ -3,7 +3,7 @@ import { ArrowDown } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
 interface ScrollToBottomProps {
-  scrollContainerRef: React.RefObject<HTMLElement>;
+  scrollContainerRef: React.RefObject<HTMLElement | null>;
 }
 
 export const ScrollToBottom: React.FC<ScrollToBottomProps> = ({ 
@@ -87,7 +87,7 @@ export const ScrollToBottom: React.FC<ScrollToBottomProps> = ({
         border border-gray-200 dark:border-white/[0.08]
         transform transition-[opacity,transform,background-color] duration-300 ease-out
         hover:scale-110 hover:bg-gray-50 dark:hover:bg-white/[0.1]
-        focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2
+        focus:outline-hidden focus:ring-2 focus:ring-gray-300 focus:ring-offset-2
         dark:focus:ring-offset-gray-900
         ${isVisible && !readmeModalOpen
           ? 'opacity-100 translate-y-0 pointer-events-auto'

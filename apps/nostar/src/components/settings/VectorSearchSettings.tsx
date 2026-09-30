@@ -506,7 +506,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 1: Embedding Model Config */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">①</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">①</span>
           {t('Embedding 模型配置', 'Embedding Model Configuration')}
         </h3>
 
@@ -683,7 +683,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 2: Cloudflare Vectorize Connection */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">②</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">②</span>
           {t('Cloudflare Vectorize 连接', 'Cloudflare Vectorize Connection')}
         </h3>
 
@@ -756,7 +756,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 3: Status */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">③</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">③</span>
           {t('状态', 'Status')}
         </h3>
 
@@ -815,7 +815,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 4: Actions */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">④</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">④</span>
           {t('索引管理', 'Index Management')}
         </h3>
 
@@ -965,7 +965,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 5: Search Parameters */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">⑤</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">⑤</span>
           {t('搜索参数', 'Search Parameters')}
         </h3>
 
@@ -1083,7 +1083,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
       {/* Section 6: Delete Index */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
         <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">⑥</span>
+          <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">⑥</span>
           {t('删除索引', 'Delete Index')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1124,7 +1124,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
           className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
         >
           <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">⑦</span>
+            <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-sm">⑦</span>
             {t('部署指南', 'Deploy Guide')}
           </h3>
           {showDeployGuide ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
@@ -1139,23 +1139,23 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
               </p>
               <ol className="list-decimal list-inside space-y-1.5">
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">npm install -g wrangler</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">npm install -g wrangler</code>
                   {t(' 然后 ', ' then ')}
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">wrangler login</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">wrangler login</code>
                 </li>
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">
                     npx wrangler vectorize create github-stars --dimensions={formDimensions} --metric=cosine
                   </code>
                 </li>
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">cd cloudflare-worker && npm install</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">cd cloudflare-worker && npm install</code>
                 </li>
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">wrangler secret put AUTH_TOKEN</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">wrangler secret put AUTH_TOKEN</code>
                 </li>
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">npm run deploy</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">npm run deploy</code>
                 </li>
               </ol>
             </div>
@@ -1167,12 +1167,12 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
               </p>
               <ol className="list-decimal list-inside space-y-1.5">
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">cd cloudflare-worker</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">cd cloudflare-worker</code>
                 </li>
                 <li>
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">npm run deploy</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">npm run deploy</code>
                   {t('（如果依赖有变更，先执行 ', ' (if dependencies changed, run ')}
-                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">npm install</code>
+                  <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-sm text-xs">npm install</code>
                   {t('）', ')')}
                 </li>
               </ol>

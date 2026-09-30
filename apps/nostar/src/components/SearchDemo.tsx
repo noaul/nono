@@ -137,7 +137,7 @@ export const SearchDemo: React.FC = () => {
               >
                 <div className="flex items-center space-x-2 mb-1">
                   <Search className="w-4 h-4 text-brand-violet" />
-                  <code className="text-sm font-mono bg-light-surface dark:bg-white/[0.04] px-2 py-1 rounded">
+                  <code className="text-sm font-mono bg-light-surface dark:bg-white/[0.04] px-2 py-1 rounded-sm">
                     {example.query}
                   </code>
                 </div>
@@ -170,7 +170,7 @@ export const SearchDemo: React.FC = () => {
               >
                 <div className="flex items-center space-x-2 mb-1">
                   <Bot className="w-4 h-4 text-gray-700 dark:text-text-secondary" />
-                  <code className="text-sm font-mono bg-light-surface dark:bg-white/[0.04] px-2 py-1 rounded">
+                  <code className="text-sm font-mono bg-light-surface dark:bg-white/[0.04] px-2 py-1 rounded-sm">
                     {example.query}
                   </code>
                 </div>

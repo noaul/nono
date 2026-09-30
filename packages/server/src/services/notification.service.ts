@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../generated/prisma/client.js';
 import { DEFAULT_LOCALE, t, type Locale } from '../utils/i18n.js';
 import type { AuthUser } from '../types.js';
 import type { BackupService } from './backup.service.js';

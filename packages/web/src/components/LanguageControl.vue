@@ -5,7 +5,7 @@
  * wherever they sit side by side.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Check, Globe, Languages } from 'lucide-vue-next';
+import { Check, Globe, Languages } from '@lucide/vue';
 import { LOCALE_CHANGE_EVENT, useI18n } from '@/composables/useI18n';
 import type { LocalePreference } from '@/utils/locale';
 

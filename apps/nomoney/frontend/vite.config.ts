@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
   const product = mode === 'yumi' ? 'yumi' : 'nomoney';
@@ -8,6 +9,7 @@ export default defineConfig(({ mode }) => {
     base: `/${product}/`,
     plugins: [
       react(),
+      tailwindcss(),
       {
         name: 'product-html-branding',
         transformIndexHtml(html) {

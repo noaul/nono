@@ -12,7 +12,7 @@ import {
   ScrollText,
   User,
   X,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue';

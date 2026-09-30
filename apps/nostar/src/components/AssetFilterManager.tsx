@@ -270,7 +270,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ml-1">
                         <button
                           onClick={() => handleEditFilter(preset)}
-                          className="p-0.5 rounded hover:bg-white/20 dark:hover:bg-white/20 transition-colors"
+                          className="p-0.5 rounded-sm hover:bg-white/20 dark:hover:bg-white/20 transition-colors"
                           title={t('编辑', 'Edit')}
                           type="button"
                           aria-label={t('编辑', 'Edit')}
@@ -318,7 +318,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                     <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleEditFilter(filter)}
-                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
+                        className="p-1 rounded-sm hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
                         title={t('编辑', 'Edit')}
                         type="button"
                         aria-label={t('编辑', 'Edit')}
@@ -327,7 +327,7 @@ export const AssetFilterManager: React.FC<AssetFilterManagerProps> = ({
                       </button>
                       <button
                         onClick={() => handleDeleteFilter(filter.id)}
-                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-text-secondary transition-colors"
+                        className="p-1 rounded-sm hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-text-secondary transition-colors"
                         title={t('删除', 'Delete')}
                         type="button"
                         aria-label={t('删除', 'Delete')}

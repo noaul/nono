@@ -30,7 +30,7 @@ Separate user, LLM, Token, and folder screens have been consolidated. Music card
 
 ## Quick start
 
-Use Docker Compose for the integrated product. Install Docker Engine, Compose v2, and Git. Images use Node.js 22 and PostgreSQL 16.
+Use Docker Compose for the integrated product. Install Docker Engine, Compose v2, and Git. Images use Node.js 24 and PostgreSQL 18.
 
 ```bash
 git clone https://github.com/noaul/nono.git
@@ -73,7 +73,7 @@ One application container runs the gateway, NoNo API, NoDesk, NoMoney, and Yumi.
 
 | Volume | Contents |
 | --- | --- |
-| `nono_pg_data` | NoNo, NoStar, users, sessions, Passkeys, audit and system settings |
+| `nono_pg18_data` | NoNo, NoStar, users, sessions, Passkeys, audit and system settings (PostgreSQL 18) |
 | `nodesk_content` | NoDesk content, images and settings |
 | `nomoney_data` | NoMoney SQLite database |
 | `yumi_data` | Yumi SQLite database |
@@ -87,7 +87,7 @@ Keep encryption keys with your recovery materials: changing them makes existing 
 
 Keep the repository in a controlled directory such as `/opt/nono` and preserve the server's `.env`. Bind application and database ports to loopback and provide public HTTPS through a reverse proxy. Public URLs must match the actual domain; Passkeys also require the correct `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN`.
 
-Use the quick-start Compose command for the first installation. For upgrades, use the backup-and-acceptance deployment script. The host needs Node.js 22 and `flock`. This example assumes `PORT=127.0.0.1:8188`:
+Use the quick-start Compose command for the first installation. For upgrades, use the backup-and-acceptance deployment script. The host needs Node.js 22+ and `flock`. This example assumes `PORT=127.0.0.1:8188`:
 
 ```bash
 cd /opt/nono
@@ -97,7 +97,7 @@ flock -n /var/lock/nono-deploy.lock node scripts/deploy-compose.mjs \
 
 The script fast-forwards from `origin/main` by default. Add `--skip-pull` for an already verified local commit. Images are identified by Git commit; commit the source and confirm a clean working tree before deployment.
 
-The script checks pending migrations, builds the image, stops application writers, creates and verifies a full safety snapshot, accepts the candidate on an isolated port, switches to the normal port under maintenance, and then opens ingress. The old version stays available during the build; switching may briefly cause connection failures or HTTP 503. Destructive migrations are blocked until their SQL and recovery plan have been reviewed.
+The script checks pending migrations, builds the image, stops application writers, creates and verifies a full safety snapshot, accepts the candidate on an isolated port, switches to the normal port under maintenance, and then opens ingress. The old version stays available during the build; switching may briefly cause connection failures or HTTP 503. Destructive migrations are blocked until their SQL and recovery plan have been reviewed. The script also refuses a PostgreSQL major change; upgrade from 16 to 18 with `npm run deploy:postgres-18` as described in the [PostgreSQL 18 upgrade runbook](docs/deployment/postgres-18-upgrade.md).
 
 Validate a running deployment:
 
@@ -146,7 +146,7 @@ See [Full backup and restore](docs/deployment/full-backup-restore.md), [NoMoney 
 
 ## Development and verification
 
-Install Node.js 22+, npm, PostgreSQL, and the pnpm version declared in `apps/blog/package.json`. Root npm workspaces contain only `packages/*`; each `apps/*` project has its own lockfile.
+Install Node.js 24.15+, npm, PostgreSQL, and the pnpm version declared in `apps/blog/package.json`. Root npm workspaces contain only `packages/*`; each `apps/*` project has its own lockfile.
 
 ```bash
 npm run install:all
@@ -159,7 +159,7 @@ For NoNo-only development, `npm ci` is sufficient to install its dependencies. S
 
 ```bash
 docker compose up -d postgres
-npx prisma migrate dev --schema packages/server/prisma/schema.prisma
+node --env-file=.env node_modules/prisma/build/index.js migrate dev --config packages/server/prisma.config.ts
 PORT=3000 node --env-file=.env --import tsx packages/server/src/server.ts
 ```
 

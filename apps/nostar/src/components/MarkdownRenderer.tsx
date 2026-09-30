@@ -116,9 +116,9 @@ const CodeBlock: React.FC<{
       <div className="flex items-center justify-between px-4 py-2.5 bg-light-surface dark:bg-panel-dark/90 border-b border-black/[0.06] dark:border-white/[0.04]">
         <div className="flex items-center gap-2.5">
           <div className="flex gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[#ff5f56] dark:bg-[#ff5f56]/90 shadow-sm" />
-            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] dark:bg-[#ffbd2e]/90 shadow-sm" />
-            <span className="w-3 h-3 rounded-full bg-[#27c93f] dark:bg-[#27c93f]/90 shadow-sm" />
+            <span className="w-3 h-3 rounded-full bg-[#ff5f56] dark:bg-[#ff5f56]/90 shadow-xs" />
+            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] dark:bg-[#ffbd2e]/90 shadow-xs" />
+            <span className="w-3 h-3 rounded-full bg-[#27c93f] dark:bg-[#27c93f]/90 shadow-xs" />
           </div>
           {language && (
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
@@ -475,7 +475,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
 
   if (hasError) {
     return (
-      <span className="my-2 px-3 py-2 bg-gray-100 dark:bg-white/[0.04] rounded border border-black/[0.06] dark:border-white/[0.04] flex items-center gap-2 text-xs">
+      <span className="my-2 px-3 py-2 bg-gray-100 dark:bg-white/[0.04] rounded-sm border border-black/[0.06] dark:border-white/[0.04] flex items-center gap-2 text-xs">
         <svg className="w-4 h-4 text-gray-500 dark:text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -498,7 +498,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
       {isSmallImage ? (
         <span className="inline-flex items-center my-1">
           {isLoading && (
-            <span className="w-20 h-7 bg-light-surface dark:bg-white/[0.04] rounded animate-pulse inline-block" />
+            <span className="w-20 h-7 bg-light-surface dark:bg-white/[0.04] rounded-sm animate-pulse inline-block" />
           )}
           <span className="relative inline-block">
             <img
@@ -536,7 +536,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
             </span>
           )}
 
-          <span className={`relative inline-block rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 ${isLoading ? 'hidden' : ''}`}>
+          <span className={`relative inline-block rounded-xl overflow-hidden shadow-xs hover:shadow-lg transition-shadow duration-300 ${isLoading ? 'hidden' : ''}`}>
             <img
               ref={imgRef}
               src={imageUrl}
@@ -885,7 +885,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
       const language = match ? match[1] : '';
 
       return isInline ? (
-        <code className="px-1.5 py-0.5 bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-gray-200 rounded text-xs font-mono" {...props}>
+        <code className="px-1.5 py-0.5 bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-gray-200 rounded-sm text-xs font-mono" {...props}>
           {children}
         </code>
       ) : (
@@ -934,7 +934,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
           <input
             {...props}
             readOnly
-            className="mr-1.5 align-middle w-3.5 h-3.5 rounded border-gray-300 text-brand-violet focus:ring-brand-violet dark:border-white/[0.08] dark:bg-white/[0.04]"
+            className="mr-1.5 align-middle w-3.5 h-3.5 rounded-sm border-gray-300 text-brand-violet focus:ring-brand-violet dark:border-white/[0.08] dark:bg-white/[0.04]"
           />
         );
       }

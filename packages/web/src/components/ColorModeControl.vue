@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Check, Laptop, Moon, Sun } from 'lucide-vue-next';
+import { Check, Laptop, Moon, Sun } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import {
   normalizeColorMode,

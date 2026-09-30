@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../generated/prisma/client.js';
 import type { AppServices } from '../types.js';
 import { exportNoStarData, importNoStarData } from '../routes/nostar/sync-service.js';
 import { removeBackupDirectory, replaceBackupDirectoryContents, runBackupCommand, type BackupCommandRunner } from './backup.service.js';

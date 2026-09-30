@@ -1,5 +1,6 @@
+import { Github } from './BrandIcons';
 import React, { useState } from 'react';
-import { Github, Key, ArrowRight, AlertCircle, Moon, Sun } from 'lucide-react';
+import { Key, ArrowRight, AlertCircle, Moon, Sun } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GitHubApiService } from '../services/githubApi';
 import { backend } from '../services/backendAdapter';

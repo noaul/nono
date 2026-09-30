@@ -620,7 +620,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div
-        className="flex min-h-full items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity"
+        className="flex min-h-full items-center justify-center p-4 bg-black/50 transition-opacity"
         onClick={handleBackdropClick}
       >
         <div
@@ -819,7 +819,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
                         <button
                           key={item.id}
                           onClick={() => scrollToHeading(item.id, item.text)}
-                          className={`block w-full text-left text-sm py-1 px-2 rounded transition-colors truncate ${tocIndentClass(item.level)} ${tocTextClass(item.level)} ${
+                          className={`block w-full text-left text-sm py-1 px-2 rounded-sm transition-colors truncate ${tocIndentClass(item.level)} ${tocTextClass(item.level)} ${
                             activeHeadingId === item.id
                               ? 'bg-brand-indigo/10 text-brand-violet dark:bg-brand-indigo/10 dark:text-brand-violet font-medium'
                               : 'hover:bg-light-surface dark:hover:bg-white/5'

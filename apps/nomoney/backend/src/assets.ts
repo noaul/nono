@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type { AppContext, AssetType, BillingCycle, Currency, DbValue, SshAuthType, SshExecOptions } from './types.js';
-import { asyncHandler, HttpError, parseBody } from './http.js';
+import { asyncHandler, HttpError, parseBody, parsePatchBody } from './http.js';
 import { domainSchema, phoneSchema, subscriptionSchema, vpsSchema } from './schemas.js';
 import { daysBetween, parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
 import { billingCycleSchema, currencySchema, statusSchema } from './schemas.js';
@@ -131,7 +131,7 @@ export interface AssetConfig {
   route: string;
   table: string;
   type: AssetType;
-  schema: z.AnyZodObject;
+  schema: z.ZodObject;
   fields: Field[];
   searchable: string[];
   displayField: string;
@@ -605,7 +605,7 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
       `/${config.route}/:id`,
       asyncHandler(async (req, res) => {
         const current = getAssetOrThrow(context, config, Number(req.params.id), { includeSecrets: true });
-        const body = preserveBlankSecrets(config, enrichAssetBody(config, parseBody(config.schema.partial(), req.body) as Record<string, unknown>, current), current);
+        const body = preserveBlankSecrets(config, enrichAssetBody(config, parsePatchBody(config.schema.partial(), req.body), current), current);
         const entries = config.fields.filter((field) => Object.prototype.hasOwnProperty.call(body, field.api));
         if (entries.length > 0) {
           const assignments = entries.map((field) => `${field.db} = ?`);

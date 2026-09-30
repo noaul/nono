@@ -135,4 +135,26 @@ describe('expense APIs', () => {
       })
     ]);
   });
+
+  test('keeps unsent fields when an expense is partially updated', async () => {
+    const { agent } = await setupAgent();
+
+    await agent.post('/api/subscriptions').send({
+      name: 'ChatGPT',
+      amountMinorUnits: 2000,
+      currency: 'USD',
+      billingCycle: 'monthly'
+    });
+    await agent.post('/api/expenses').send({
+      assetType: 'subscription',
+      assetId: 1,
+      amountMinorUnits: 2000,
+      currency: 'USD',
+      paidAt: '2026-05-10',
+      category: 'monthly'
+    });
+
+    const updated = await agent.put('/api/expenses/1').send({ notes: 'Receipt filed' }).expect(200);
+    expect(updated.body.item).toMatchObject({ category: 'monthly', notes: 'Receipt filed' });
+  });
 });

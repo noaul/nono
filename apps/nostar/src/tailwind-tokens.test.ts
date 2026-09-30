@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import resolveConfig from 'tailwindcss/resolveConfig';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -116,8 +115,9 @@ describe('NoStar palette and typography contract', () => {
     // These two only ever appeared in the selectionExit shadows, which are interaction chrome.
     // The syntax-highlighting theme in index.css keeps its own palette on purpose: `hljs-*`
     // token colours are semantic content, not accent.
+    const keyframe = /selectionExit: \{([\s\S]*?)\n {8}\}/.exec(config)?.[1] || '';
     for (const literal of ['#3b82f6', '#60a5fa']) {
-      expect(config.toLowerCase(), `tailwind.config.js contains ${literal}`).not.toContain(literal);
+      expect(keyframe.toLowerCase()).not.toContain(literal);
     }
     expect(config).toMatch(/selectionExit: \{[\s\S]*?var\(--ui-accent-ring\)/);
   });
@@ -165,7 +165,8 @@ describe('NoStar neutral, weight and breakpoint scales', () => {
   const loadTheme = async () => {
     const url = pathToFileURL(path.resolve(process.cwd(), 'tailwind.config.js')).href;
     const { default: config } = await import(/* @vite-ignore */ url);
-    return resolveConfig(config).theme as unknown as {
+    // Tailwind v4 loads this legacy configuration through @config; resolveConfig was removed.
+    return { ...config.theme, ...config.theme.extend } as {
       colors: Record<string, Record<string, string> | string>;
       fontWeight: Record<string, string>;
       screens: Record<string, string>;

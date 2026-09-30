@@ -8,14 +8,14 @@ import {
   CheckCheck,
   DatabaseBackup,
   ExternalLink,
-  Github,
   RefreshCw,
   ServerCog,
   ShieldOff,
+  Star,
   Trash2,
   WalletCards,
   X,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed, AdminNotificationSource } from '@/api/types';
@@ -49,7 +49,7 @@ const sourceMeta = {
   nodesk: { labelKey: 'notifications.sourceNodesk', icon: CalendarDays },
   nomoney: { labelKey: 'notifications.sourceNomoney', icon: WalletCards },
   yumi: { labelKey: 'notifications.sourceYumi', icon: ServerCog },
-  nostar: { labelKey: 'notifications.sourceNostar', icon: Github },
+  nostar: { labelKey: 'notifications.sourceNostar', icon: Star },
   backup: { labelKey: 'notifications.sourceBackup', icon: DatabaseBackup },
 } satisfies Record<AdminNotificationSource, { labelKey: MessageKey; icon: Component }>;
 

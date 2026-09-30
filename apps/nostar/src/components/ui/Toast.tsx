@@ -73,7 +73,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration =
           onClick={onClose}
           aria-label={copy('关闭通知', 'Dismiss notification')}
           title={copy('关闭通知', 'Dismiss notification')}
-          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          className="p-1 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
         >
           <X className="w-4 h-4 text-gray-400 dark:text-text-tertiary" aria-hidden="true" />
         </button>

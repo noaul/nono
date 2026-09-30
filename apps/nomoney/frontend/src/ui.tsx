@@ -18,10 +18,10 @@ export function Button({
   return (
     <button
       className={clsx(
-        'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium outline-none transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-brand-500/45 disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium outline-hidden transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-brand-500/45 disabled:cursor-not-allowed disabled:opacity-50',
         size === 'md' && 'h-10 px-4 text-sm',
         size === 'sm' && 'h-8 px-3 text-xs',
-        variant === 'primary' && 'border border-[color:var(--ui-accent)] bg-[var(--ui-accent)] text-[color:var(--ui-accent-ink)] shadow-sm hover:border-[color:var(--ui-accent-hover)] hover:bg-[var(--ui-accent-hover)]',
+        variant === 'primary' && 'border border-[color:var(--ui-accent)] bg-[var(--ui-accent)] text-[color:var(--ui-accent-ink)] shadow-xs hover:border-[color:var(--ui-accent-hover)] hover:bg-[var(--ui-accent-hover)]',
         variant === 'secondary' && 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.07]',
         variant === 'ghost' && 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.06]',
         variant === 'danger' && 'border border-danger-500/25 bg-danger-500/10 text-danger-600 hover:bg-danger-500/15 dark:text-danger-400',
@@ -38,7 +38,7 @@ export function IconButton({ children, className, ...props }: React.ButtonHTMLAt
   return (
     <button
       className={clsx(
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 outline-none transition-all duration-200 ease-out hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-brand-500/45 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-100',
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 outline-hidden transition-all duration-200 ease-out hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-brand-500/45 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-100',
         className
       )}
       {...props}
@@ -93,7 +93,7 @@ export function Field({
 }
 
 export const inputClass =
-  'h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 outline-none transition-all duration-200 ease-out placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-brand-400 dark:focus:ring-brand-500/20';
+  'h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 outline-hidden transition-all duration-200 ease-out placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-brand-400 dark:focus:ring-brand-500/20';
 
 export function StatusBadge({ status }: { status: AssetStatus | string }) {
   const { copy } = useI18n();

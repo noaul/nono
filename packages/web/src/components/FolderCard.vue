@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
-import { GripVertical, Lock, Maximize2, Trash2 } from 'lucide-vue-next';
+import { GripVertical, Lock, Maximize2, Trash2 } from '@lucide/vue';
 import type { Folder } from '@/api/types';
 import FaviconBadge from '@/components/FaviconBadge.vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';

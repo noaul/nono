@@ -210,7 +210,7 @@ export function AccountPage() {
           <div className="hidden md:block"><DataTable columns={columns} data={items} /></div>
           <div className="motion-list grid gap-3 md:hidden">
             {items.map((item) => (
-              <article key={item.id} className="motion-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-900">
+              <article key={item.id} className="motion-card rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]"><AccountAppIcon type={item.accountType} /></span>

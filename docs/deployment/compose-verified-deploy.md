@@ -11,7 +11,7 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:compose -- --dir /opt/nono --
 
 ## 迁移批准与执行顺序
 
-脚本每次读取实际 `postgres` 服务内的 `_prisma_migrations`，与当前工作树的迁移目录比较，而不是比较两次 Git 提交。首次被阻止后再次运行、或使用 `--skip-pull`，都不能绕过未应用的破坏性迁移批准。数据库状态缺失、无效或存在未完成迁移时拒绝部署；应先人工调查，不要删除迁移记录。没有旧应用镜像但已有数据库时也拒绝升级。检测到遗留数据库卷且容器缺失时，应先恢复原 Compose 容器；不能将其当成全新安装。
+脚本每次读取实际 `postgres` 服务内的 `_prisma_migrations`，与当前工作树的迁移目录比较，而不是比较两次 Git 提交。首次被阻止后再次运行、或使用 `--skip-pull`，都不能绕过未应用的破坏性迁移批准。数据库状态缺失、无效或存在未完成迁移时拒绝部署；应先人工调查，不要删除迁移记录。没有旧应用镜像但已有数据库时也拒绝升级。检测到遗留数据库卷且容器缺失时，应先恢复原 Compose 容器；不能将其当成全新安装。运行中的 PostgreSQL 大版本与 Compose 配置不一致时同样拒绝部署，改按 [PostgreSQL 18 升级手册](postgres-18-upgrade.md) 迁移。
 
 审核待执行 SQL 与回滚计划后，显式增加 `--allow-destructive-migrations`。该选项不会跳过快照或验证。
 

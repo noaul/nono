@@ -29,7 +29,7 @@
     "test:blog": "pnpm --dir apps/blog test",
     "test:nomoney": "npm --prefix apps/nomoney test",
     "test:nostar": "npm --prefix apps/nostar test -- --run",
-    "test:gateway": "node --test tests/ci-contract.test.mjs tests/ui-contract.test.mjs tests/gateway-maintenance.test.mjs tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/yumi-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs tests/backup-docker-contract.test.mjs tests/backup-compose.test.mjs tests/restore-compose.test.mjs",
+    "test:gateway": "node --test tests/ci-contract.test.mjs tests/ui-contract.test.mjs tests/gateway-maintenance.test.mjs tests/gateway-routing.test.mjs tests/gateway-headers.test.mjs tests/api-token-migration.test.mjs tests/docker-database-security.test.mjs tests/nomoney-docker-contract.test.mjs tests/nomoney-migration-script.test.mjs tests/nostar-docker-contract.test.mjs tests/yumi-contract.test.mjs tests/deployment-acceptance.test.mjs tests/deploy-compose.test.mjs tests/migrate-postgres-18.test.mjs tests/backup-docker-contract.test.mjs tests/backup-compose.test.mjs tests/restore-compose.test.mjs",
     "test:all": "npm test && npm run test:blog && npm run test:nomoney && npm run test:nostar && npm run test:gateway",
     "typecheck:blog": "pnpm --dir apps/blog typecheck",
     "lint:nostar": "npm --prefix apps/nostar run lint",
@@ -52,6 +52,7 @@
     "deploy:accept": "node scripts/accept-deployment.mjs",
     "deploy:compose": "node scripts/deploy-compose.mjs",
     "deploy:rollback": "node scripts/rollback-compose.mjs",
+    "deploy:postgres-18": "node scripts/migrate-postgres-18.mjs",
     "backup:create": "node scripts/backup-compose.mjs create",
     "backup:list": "node scripts/backup-compose.mjs list",
     "backup:verify": "node scripts/backup-compose.mjs verify",
@@ -60,10 +61,11 @@
     "backup:restore": "node scripts/restore-compose.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24.15.0"
   },
   "overrides": {
     "deepmerge-ts": "8.0.1",
+    "mysql2": "3.24.4",
     "@vue/test-utils": {
       "js-beautify": "2.0.3"
     }

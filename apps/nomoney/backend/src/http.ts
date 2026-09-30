@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { ZodError, type ZodSchema } from 'zod';
+import { z, ZodError } from 'zod';
 
 export function asyncHandler(
   handler: (req: Request, res: Response, next: NextFunction) => Promise<void>
@@ -9,8 +9,19 @@ export function asyncHandler(
   };
 }
 
-export function parseBody<T>(schema: ZodSchema<T>, body: unknown): T {
+export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   return schema.parse(body);
+}
+
+/**
+ * Parses a partial update. Zod 4 applies `.default()` values even inside `.partial()`, so the
+ * parsed result is narrowed to the keys the client actually sent; otherwise an update would reset
+ * every omitted field that has a schema default.
+ */
+export function parsePatchBody<T extends Record<string, unknown>>(schema: z.ZodType<T>, body: unknown): T {
+  const parsed = schema.parse(body);
+  const sent = body !== null && typeof body === 'object' ? body : {};
+  return Object.fromEntries(Object.entries(parsed).filter(([key]) => Object.hasOwn(sent, key))) as T;
 }
 
 export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
@@ -24,7 +35,7 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid request body',
-        details: error.flatten()
+        details: z.flattenError(error)
       }
     });
     return;

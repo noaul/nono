@@ -10,7 +10,7 @@ import {
   RotateCcw,
   Save,
   Search,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AuditLogEntry, AuditLogPage, AuditSettings } from '@/api/types';

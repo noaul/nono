@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 import type { Link } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 

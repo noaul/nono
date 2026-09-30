@@ -209,12 +209,12 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       )}
 
       {/* While the drawer is open the rest of the app is inert and hidden from assistive tech,
-          matching the NoNo admin shell. React 18 does not type `inert`, so it is spread in. */}
+          matching the NoNo admin shell. */}
       <div
         className="nostar-main"
         data-testid="nostar-main"
         aria-hidden={mobileOpen || undefined}
-        {...(mobileOpen ? { inert: '' } : {})}
+        inert={mobileOpen || undefined}
       >
         {/* `hd-drag` is the Electron window drag region the retired header owned. Interactive
             children opt out with `hd-btns`; both classes are inert in a browser. */}

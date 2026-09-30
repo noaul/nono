@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';

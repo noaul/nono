@@ -29,7 +29,6 @@ describe('NoMoney branding', () => {
   });
 
   it('follows the shared NoNo UI contract: teal accent, solid chrome, a way back to the family', () => {
-    const tailwind = fs.readFileSync(path.resolve(process.cwd(), 'tailwind.config.js'), 'utf8');
     const layout = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
     const styles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
     const sources = fs.readdirSync(path.resolve(process.cwd(), 'src'))
@@ -37,8 +36,9 @@ describe('NoMoney branding', () => {
       .map((file) => fs.readFileSync(path.resolve(process.cwd(), 'src', file), 'utf8'))
       .join('\n');
 
-    expect(tailwind).toContain("600: '#0d9488'");
-    expect(tailwind.toLowerCase()).not.toContain('#2563eb');
+    // The Tailwind theme lives in the @theme block of styles.css.
+    expect(styles).toContain('--color-brand-600: #0d9488;');
+    expect(styles.toLowerCase()).not.toContain('#2563eb');
     expect(sources).not.toMatch(/backdrop-blur|backdrop-filter|bg-gradient-|font-extrabold|font-black/);
     expect(styles).not.toContain('rgb(var(--ui-border-rgb))');
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { ChevronRight, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-vue-next';
+import { ChevronRight, RotateCcw, Search, SlidersHorizontal, X } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import type { MessageKey } from '@/locales';
 import {

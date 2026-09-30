@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
-import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import { useAuthStore } from '@/stores/auth';

@@ -118,7 +118,7 @@ export const BulkRestoreModal: React.FC<BulkRestoreModalProps> = ({
   };
 
   const sectionClass = "p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700";
-  const checkboxClass = "w-4 h-4 text-teal-600 bg-gray-100 border-gray-300 rounded focus:ring-teal-500 dark:focus:ring-teal-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600";
+  const checkboxClass = "w-4 h-4 text-teal-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-teal-500 dark:focus:ring-teal-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600";
 
   return (
     <Modal

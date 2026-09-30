@@ -30,7 +30,7 @@ NoNo 支持密码、Passkey、设备会话管理、限权 API Token，以及站�
 
 ## 快速开始
 
-完整体验推荐 Docker Compose。需要 Docker Engine、Compose v2、Git；镜像内使用 Node.js 22 和 PostgreSQL 16。
+完整体验推荐 Docker Compose。需要 Docker Engine、Compose v2、Git；镜像内使用 Node.js 24 和 PostgreSQL 18。
 
 ```bash
 git clone https://github.com/noaul/nono.git
@@ -73,7 +73,7 @@ curl --fail http://127.0.0.1:3000/readyz
 
 | 数据卷 | 内容 |
 | --- | --- |
-| `nono_pg_data` | NoNo、NoStar、用户、会话、Passkey、审计与系统配置 |
+| `nono_pg18_data` | NoNo、NoStar、用户、会话、Passkey、审计与系统配置（PostgreSQL 18） |
 | `nodesk_content` | NoDesk 内容、图片与站点配置 |
 | `nomoney_data` | NoMoney SQLite 数据库 |
 | `yumi_data` | Yumi SQLite 数据库 |
@@ -87,7 +87,7 @@ NoMoney/Yumi 使用 `sql.js` 持久化 SQLite 文件，同一个数据卷不能�
 
 将仓库放在 `/opt/nono` 等受控目录，保留服务器本地 `.env`。应用和数据库绑定回环地址，由反向代理提供公网 HTTPS。确保公网 URL 与实际域名一致；Passkey 还依赖正确的 `WEBAUTHN_RP_ID` 和 `WEBAUTHN_ORIGIN`。
 
-首次部署可使用上面的 Compose 命令。后续升级推荐使用带备份和验收的脚本；宿主机需安装 Node.js 22 及 `flock`。以下例子对应 `.env` 中的 `PORT=127.0.0.1:8188`：
+首次部署可使用上面的 Compose 命令。后续升级推荐使用带备份和验收的脚本；宿主机需安装 Node.js 22+ 及 `flock`。以下例子对应 `.env` 中的 `PORT=127.0.0.1:8188`：
 
 ```bash
 cd /opt/nono
@@ -97,7 +97,7 @@ flock -n /var/lock/nono-deploy.lock node scripts/deploy-compose.mjs \
 
 脚本默认从 `origin/main` 快进拉取；部署已经核验的本地提交时使用 `--skip-pull`。镜像按 Git 提交标记，部署前应确认源码已提交且工作树干净。
 
-升级依次构建镜像、检查数据库迁移、停止应用写入、创建并验证完整安全快照、在隔离端口验收、在维护状态下切回正式端口，最后开放访问。构建期间旧版本继续服务，切换期间可能短暂连接失败或返回 503。破坏性迁移会被阻止，需先审核 SQL 和恢复方案。
+升级依次构建镜像、检查数据库迁移、停止应用写入、创建并验证完整安全快照、在隔离端口验收、在维护状态下切回正式端口，最后开放访问。构建期间旧版本继续服务，切换期间可能短暂连接失败或返回 503。破坏性迁移会被阻止，需先审核 SQL 和恢复方案。PostgreSQL 大版本变化时脚本拒绝部署；从 16 升级到 18 请按 [PostgreSQL 18 升级手册](docs/deployment/postgres-18-upgrade.md) 执行 `npm run deploy:postgres-18`。
 
 验收当前部署：
 
@@ -146,7 +146,7 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 ## 本地开发与测试
 
-需要 Node.js 22+、npm、NoDesk 使用的 pnpm（版本见 `apps/blog/package.json`），以及 PostgreSQL。根目录 npm workspaces 只包含 `packages/*`；三个 `apps/*` 项目分别保留锁文件。
+需要 Node.js 24.15+、npm、NoDesk 使用的 pnpm（版本见 `apps/blog/package.json`），以及 PostgreSQL。根目录 npm workspaces 只包含 `packages/*`；三个 `apps/*` 项目分别保留锁文件。
 
 ```bash
 npm run install:all
@@ -159,7 +159,7 @@ npm run prisma:generate
 
 ```bash
 docker compose up -d postgres
-npx prisma migrate dev --schema packages/server/prisma/schema.prisma
+node --env-file=.env node_modules/prisma/build/index.js migrate dev --config packages/server/prisma.config.ts
 PORT=3000 node --env-file=.env --import tsx packages/server/src/server.ts
 ```
 

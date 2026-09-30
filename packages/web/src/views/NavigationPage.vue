@@ -2,7 +2,7 @@
 import '@/styles/public.css';
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from 'lucide-vue-next';
+import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from '@lucide/vue';
 import FolderCard from '@/components/FolderCard.vue';
 import HomeNotificationBell from '@/components/HomeNotificationBell.vue';
 import HomeUrgentNoticeBar from '@/components/HomeUrgentNoticeBar.vue';

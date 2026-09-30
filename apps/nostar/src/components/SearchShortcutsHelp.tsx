@@ -13,7 +13,7 @@ export const SearchShortcutsHelp: React.FC = () => {
     return (
       <button
         onClick={() => setShowHelp(true)}
-        className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-500 dark:text-text-tertiary hover:text-gray-900 dark:hover:text-gray-300 transition-colors rounded"
+        className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-500 dark:text-text-tertiary hover:text-gray-900 dark:hover:text-gray-300 transition-colors rounded-sm"
         title={t('查看搜索快捷键', 'View search shortcuts')}
       >
         <Keyboard className="w-3 h-3" />
@@ -44,7 +44,7 @@ export const SearchShortcutsHelp: React.FC = () => {
           {searchShortcuts.map((shortcut, index) => (
             <div key={index} className="flex items-center justify-between py-2 px-3 bg-light-bg dark:bg-white/[0.04] rounded-lg">
               <div className="flex items-center space-x-3">
-                <kbd className="px-2 py-1 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded text-xs font-mono text-gray-900 dark:text-text-secondary">
+                <kbd className="px-2 py-1 bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] rounded-sm text-xs font-mono text-gray-900 dark:text-text-secondary">
                   {shortcut.key}
                 </kbd>
                 <span className="text-sm text-gray-900 dark:text-text-secondary">

@@ -174,7 +174,7 @@ export const SearchBar: React.FC = () => {
   const vectorScoreMapRef = useRef<{ query: string; scores: Map<string, number> } | null>(null);
   const [searchPhase, setSearchPhase] = useState<string | null>(null);
   const filterChipBaseClass = 'flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm border transition-colors';
-  const filterChipActiveClass = 'bg-brand-indigo text-white border-brand-indigo shadow-sm dark:bg-brand-indigo/80 dark:text-white dark:border-brand-indigo/70 font-medium';
+  const filterChipActiveClass = 'bg-brand-indigo text-white border-brand-indigo shadow-xs dark:bg-brand-indigo/80 dark:text-white dark:border-brand-indigo/70 font-medium';
   const filterChipInactiveClass = 'bg-white border-black/[0.06] text-gray-700 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary';
   const filterTagBaseClass = 'px-3 py-1.5 rounded-lg text-sm border transition-colors';
 
@@ -998,7 +998,7 @@ export const SearchBar: React.FC = () => {
           onBlur={handleInputBlur}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
-          className="w-full pl-10 pr-24 sm:pr-40 py-3 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary placeholder-gray-500 dark:placeholder-gray-400"
+          className="w-full pl-10 pr-24 sm:pr-40 py-3 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary placeholder:text-gray-500 dark:placeholder:text-gray-400"
         />
 
         {/* Search History Dropdown */}
@@ -1484,7 +1484,7 @@ export const SearchBar: React.FC = () => {
                   key={preset.label}
                   type="button"
                   onClick={() => setSearchFilters({ minStars: preset.value })}
-                  className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="px-2 py-0.5 text-xs rounded-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   ≥{preset.label}
                 </button>

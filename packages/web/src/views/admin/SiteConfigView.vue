@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from 'lucide-vue-next';
+import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import { apiRequest, jsonBody } from '@/api/client';

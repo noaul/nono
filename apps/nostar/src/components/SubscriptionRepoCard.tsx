@@ -426,7 +426,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
                 disabled={!githubToken || isStarring}
                 className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isStarred
-                    ? 'bg-brand-indigo text-white shadow-sm dark:bg-brand-indigo/80 dark:text-white'
+                    ? 'bg-brand-indigo text-white shadow-xs dark:bg-brand-indigo/80 dark:text-white'
                     : 'bg-light-surface text-gray-500 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-text-secondary'
                 }`}
                 title={isStarred ? t('取消Star', 'Unstar') : t('添加Star', 'Add Star')}
@@ -454,7 +454,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
               onTouchStart={() => setDescTooltip((v) => !v)}
               tabIndex={0}
             >
-              <p className="text-sm text-gray-700 dark:text-text-tertiary line-clamp-2 rounded px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-200">
+              <p className="text-sm text-gray-700 dark:text-text-tertiary line-clamp-2 rounded-sm px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-200">
                 {repo.description}
               </p>
               <FloatingTooltip
@@ -480,7 +480,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
               tabIndex={0}
             >
               <Bot className="w-4 h-4 text-gray-700 dark:text-text-secondary flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-700 dark:text-text-secondary line-clamp-2 rounded px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-200">
+              <p className="text-sm text-gray-700 dark:text-text-secondary line-clamp-2 rounded-sm px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-200">
                 {repo.ai_summary}
               </p>
               <FloatingTooltip

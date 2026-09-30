@@ -571,7 +571,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder={t('搜索模块或消息...', 'Search module or message...')}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-black/[0.06] dark:border-white/[0.04] bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-violet" />
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-black/[0.06] dark:border-white/[0.04] bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-violet" />
           </div>
 
           {/* Level pills — debug pill always clickable */}
@@ -607,7 +607,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-panel-dark rounded-lg border border-black/[0.06] dark:border-white/[0.04] shadow-lg z-10 p-2 max-h-48 overflow-y-auto min-w-[160px]">
                   {availableEventTypes.map(et => (
                     <button key={et} onClick={() => toggleEventType(et)}
-                      className={`w-full text-left px-2 py-1 text-sm rounded ${selectedEventTypes.has(et) ? 'bg-brand-indigo/10 text-brand-indigo dark:bg-brand-violet/20 dark:text-brand-violet' : 'text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:hover:bg-white/[0.06]'}`}>
+                      className={`w-full text-left px-2 py-1 text-sm rounded-sm ${selectedEventTypes.has(et) ? 'bg-brand-indigo/10 text-brand-indigo dark:bg-brand-violet/20 dark:text-brand-violet' : 'text-gray-700 dark:text-text-secondary hover:bg-gray-100 dark:hover:bg-white/[0.06]'}`}>
                       <span>{language === 'zh' ? EVENT_TYPE_LABELS[et].zh : EVENT_TYPE_LABELS[et].en}</span>
                     </button>
                   ))}
@@ -677,7 +677,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
                           {language === 'zh' ? EVENT_TYPE_LABELS[eventType].zh : EVENT_TYPE_LABELS[eventType].en}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-text-tertiary" title={entry.timestamp}>{formatRelativeTime(entry.timestamp)}</span>
-                        <span className="px-1.5 py-0.5 text-xs bg-brand-indigo/10 text-brand-indigo dark:bg-brand-violet/20 dark:text-brand-violet rounded font-mono">{entry.module}</span>
+                        <span className="px-1.5 py-0.5 text-xs bg-brand-indigo/10 text-brand-indigo dark:bg-brand-violet/20 dark:text-brand-violet rounded-sm font-mono">{entry.module}</span>
                         {hasHttpDetail && <ChevronRight className="w-3 h-3 text-gray-400 ml-auto shrink-0" />}
                       </div>
                       <p className="text-sm text-gray-900 dark:text-text-primary mt-1 break-words">{entry.message}</p>

@@ -122,7 +122,7 @@ const ForkCard: React.FC<ForkCardProps> = memo(({
                   onToggleWorkflows();
                   onMarkAsRead();
                 }}
-                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded transition-all duration-200 whitespace-nowrap ${
+                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded-sm transition-all duration-200 whitespace-nowrap ${
                   isWorkflowsExpanded
                     ? 'bg-brand-indigo/15 text-brand-indigo dark:bg-brand-indigo/20 dark:text-white'
                     : 'bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
@@ -144,7 +144,7 @@ const ForkCard: React.FC<ForkCardProps> = memo(({
                   onMarkAsRead();
                 }}
                 disabled={isSyncing || !needsSync}
-                className={`p-1 rounded transition-colors disabled:cursor-not-allowed ${
+                className={`p-1 rounded-sm transition-colors disabled:cursor-not-allowed ${
                   needsSync
                     ? 'bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary'
                     : 'bg-light-surface text-gray-300 dark:text-gray-600 cursor-not-allowed'
@@ -166,7 +166,7 @@ const ForkCard: React.FC<ForkCardProps> = memo(({
                 href={fork.html_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
+                className="p-1 rounded-sm bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
                 title={t('在GitHub上查看', 'View on GitHub')}
                 aria-label={t('在GitHub上查看', 'View on GitHub')}
                 onClick={(e) => {
@@ -211,7 +211,7 @@ const ForkCard: React.FC<ForkCardProps> = memo(({
                   </span>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-[#121314] rounded border border-black/[0.06] dark:border-white/[0.04] max-h-72 overflow-y-auto">
+                <div className="bg-gray-50 dark:bg-[#121314] rounded-sm border border-black/[0.06] dark:border-white/[0.04] max-h-72 overflow-y-auto">
                   {workflows.map((workflow) => (
                     <div
                       key={workflow.id}
@@ -240,7 +240,7 @@ const ForkCard: React.FC<ForkCardProps> = memo(({
                           onMarkAsRead();
                         }}
                         disabled={workflow.state === 'disabled' || isRunningWorkflow}
-                        className="ml-2 p-1.5 rounded bg-brand-indigo text-white hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                        className="ml-2 p-1.5 rounded-sm bg-brand-indigo text-white hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                         aria-label={workflow.state === 'disabled'
                           ? (language === 'zh' ? '工作流已禁用' : 'Workflow disabled')
                           : `${language === 'zh' ? '运行工作流' : 'Run workflow'}: ${workflow.name}`

@@ -1,0 +1,2 @@
+/* Keep the vendor theme in the same layer as the app's scoped code colours. */
+@import 'highlight.js/styles/github.min.css' layer(utilities);

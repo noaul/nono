@@ -358,7 +358,7 @@ export const ReleaseSourceSettingsModal: React.FC<ReleaseSourceSettingsModalProp
                     {source.count}
                   </span>
                   <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${checked ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
                   </span>
                 </div>
               </button>

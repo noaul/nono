@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Bell, CheckCheck } from 'lucide-vue-next';
+import { Bell, CheckCheck } from '@lucide/vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';

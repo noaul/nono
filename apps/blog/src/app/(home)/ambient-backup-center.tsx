@@ -7,7 +7,6 @@ import {
 	DatabaseBackup,
 	Download,
 	FolderArchive,
-	Github,
 	History,
 	LoaderCircle,
 	RefreshCcw,
@@ -19,6 +18,7 @@ import {
 	Upload,
 	WalletCards
 } from 'lucide-react'
+import { Github } from '@/components/github-icon'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { runBackupJob, type BackupJob } from './backup-job-client'
 

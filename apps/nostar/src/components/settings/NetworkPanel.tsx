@@ -297,7 +297,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.enabled ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${form.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
             />
           </button>
         </div>
@@ -346,7 +346,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   value={form.host}
                   onChange={(e) => setForm({ ...form, host: e.target.value })}
                   placeholder="127.0.0.1"
-                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                 />
               </div>
               <div>
@@ -360,7 +360,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   placeholder="7890"
                   min={1}
                   max={65535}
-                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                 />
               </div>
             </div>
@@ -386,7 +386,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                       value={form.username || ''}
                       onChange={(e) => setForm({ ...form, username: e.target.value || undefined })}
                       placeholder={t('可选', 'Optional')}
-                      className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                      className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                     />
                   </div>
                   <div>
@@ -399,7 +399,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                         value={form.password || ''}
                         onChange={(e) => setForm({ ...form, password: e.target.value || undefined })}
                         placeholder={t('可选', 'Optional')}
-                        className="w-full px-3 py-2 pr-10 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                        className="w-full px-3 py-2 pr-10 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                       />
                       <button
                         type="button"
@@ -490,7 +490,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${rpcForm.enabled ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${rpcForm.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${rpcForm.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
             />
           </button>
         </div>
@@ -508,7 +508,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   value={rpcForm.host}
                   onChange={(e) => setRpcForm({ ...rpcForm, host: e.target.value })}
                   placeholder="127.0.0.1"
-                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                 />
               </div>
               <div>
@@ -522,7 +522,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   placeholder="6800"
                   min={1}
                   max={65535}
-                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                 />
               </div>
             </div>
@@ -543,7 +543,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                   placeholder={hasStoredSecret
                     ? t('已保存密钥，留空则保留', 'Secret saved, leave blank to keep')
                     : t('可选，对应 aria2 的 --rpc-secret', 'Optional, aria2 --rpc-secret')}
-                  className="w-full px-3 py-2 pr-10 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 pr-10 bg-light-surface dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.04] rounded-lg text-gray-900 dark:text-text-primary text-sm focus:ring-2 focus:ring-brand-violet focus:border-transparent outline-hidden"
                 />
                 <button
                   type="button"

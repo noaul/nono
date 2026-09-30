@@ -1,9 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../generated/prisma/client.js';
+import { createPrismaClient } from './prisma-client.js';
 import type { Repository, SiteRecord } from './repository.js';
 import { defaultSite } from './repository.js';
 import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 
-export function createPrismaRepository(prisma = new PrismaClient()): Repository {
+export function createPrismaRepository(prisma: PrismaClient = createPrismaClient()): Repository {
   return {
     async getConfig() {
       return (await prisma.appConfig.upsert({

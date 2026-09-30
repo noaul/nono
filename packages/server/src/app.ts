@@ -9,7 +9,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from './generated/prisma/client.js';
 import { authRoutes } from './routes/auth.js';
 import { navigationRoutes } from './routes/navigation.js';
 import { faviconRoutes } from './routes/favicon.js';
@@ -33,6 +33,7 @@ import { trashRoutes } from './routes/admin/trash.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { registerAuditHooks } from './plugins/audit.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
+import { createPrismaClient } from './services/prisma-client.js';
 import type { AppServices, LlmClient, ReadinessChecks } from './types.js';
 import { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 import { defaultWebAuthnService } from './services/webauthn.service.js';
@@ -53,7 +54,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 export async function buildApp(overrides: Partial<AppServices> = {}) {
-  const prisma = overrides.prisma || new PrismaClient();
+  const prisma = overrides.prisma || createPrismaClient();
   const repo = overrides.repo || createPrismaRepository(prisma);
   const safeRequester = overrides.safeRequester || requestSafeResource;
   const nodeskContentDir = overrides.nodeskContentDir || process.env.NODESK_CONTENT_DIR || path.resolve(__dirname, '../../../apps/blog');

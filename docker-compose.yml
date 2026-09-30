@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: nono-postgres
     restart: unless-stopped
     environment:
@@ -12,7 +12,10 @@ services:
     ports:
       - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - nono_pg_data:/var/lib/postgresql/data
+      # PostgreSQL 18 images keep data in /var/lib/postgresql/18/docker. The
+      # PostgreSQL 16 volume (nono_pg_data) is left undeclared so `down -v`
+      # cannot delete it; see docs/deployment/postgres-18-upgrade.md.
+      - nono_pg18_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
@@ -90,7 +93,7 @@ services:
       start_period: 25s
 
 volumes:
-  nono_pg_data:
+  nono_pg18_data:
   nodesk_content:
   nomoney_data:
   yumi_data:

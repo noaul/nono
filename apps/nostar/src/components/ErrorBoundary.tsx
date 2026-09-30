@@ -103,14 +103,14 @@ export class ErrorBoundary extends Component<Props, State> {
               
               {/* 错误信息显示 */}
               {error && (
-                <div className="mb-4 p-3 bg-gray-100 dark:bg-white/[0.04] rounded text-left">
+                <div className="mb-4 p-3 bg-gray-100 dark:bg-white/[0.04] rounded-sm text-left">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-semibold text-gray-700 dark:text-text-secondary ">
                       {strings.errorDetails}
                     </span>
                     <button
                       onClick={this.handleCopyError}
-                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary rounded hover:bg-gray-100 dark:hover:bg-white/[0.08] transition-colors"
+                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary rounded-sm hover:bg-gray-100 dark:hover:bg-white/[0.08] transition-colors"
                     >
                       {strings.copyError}
                     </button>
@@ -130,7 +130,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   {strings.toggleDetails}
                 </button>
                 {showDetails && errorInfo && (
-                  <div className="mt-2 p-3 bg-light-surface dark:bg-white/[0.04] rounded text-left overflow-auto max-h-64">
+                  <div className="mt-2 p-3 bg-light-surface dark:bg-white/[0.04] rounded-sm text-left overflow-auto max-h-64">
                     <p className="text-xs font-semibold text-gray-900 dark:text-text-secondary mb-2">
                       {strings.stackTrace}:
                     </p>

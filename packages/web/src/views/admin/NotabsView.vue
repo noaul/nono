@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
-import { GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';

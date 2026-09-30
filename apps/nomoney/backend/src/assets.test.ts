@@ -176,6 +176,8 @@ describe('asset APIs', () => {
       notes: 'Updated price'
     });
     expect(updated.body.item.amountMinorUnits).toBe(2200);
+    // A partial update must not reset fields the client did not send to their schema defaults.
+    expect(updated.body.item.tags).toEqual(['ai', 'work']);
 
     await agent.delete('/api/subscriptions/1').expect(204);
 
@@ -331,7 +333,7 @@ describe('asset APIs', () => {
 
     await agent.put('/api/subscriptions/1').send({ licenseKey: '', deviceLimit: 5 }).expect(200);
     const updated = await agent.get('/api/subscriptions/1');
-    expect(updated.body.item).toMatchObject({ licenseKey: null, deviceLimit: 5 });
+    expect(updated.body.item).toMatchObject({ licenseKey: null, deviceLimit: 5, purchaseType: 'buyout' });
     expect(updated.body.item).not.toHaveProperty('hasLicenseKey');
   });
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Trash2, X } from 'lucide-vue-next';
+import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Trash2, X } from '@lucide/vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
 import ColorModeControl from '@/components/ColorModeControl.vue';
 import LanguageControl from '@/components/LanguageControl.vue';

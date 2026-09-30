@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import { z } from 'zod';
 import { expenseSchema } from './schemas.js';
 import type { AppContext, AssetType, DbValue } from './types.js';
-import { asyncHandler, HttpError, parseBody } from './http.js';
+import { asyncHandler, HttpError, parseBody, parsePatchBody } from './http.js';
 import { toIsoDateTime } from './utils.js';
 import { assetConfigs } from './assets.js';
 import { currencySchema } from './schemas.js';
@@ -102,7 +102,7 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
     '/expenses/:id',
     asyncHandler(async (req, res) => {
       getExpenseOrThrow(context, Number(req.params.id), allowedTypes);
-      const body = parseBody(expenseSchema.partial(), req.body);
+      const body = parsePatchBody(expenseSchema.partial(), req.body);
       if (body.assetType && allowedTypes && !allowedTypes.includes(body.assetType)) {
         throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
       }

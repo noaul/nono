@@ -1,8 +1,55 @@
-/* stylelint-disable */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-/* stylelint-enable */
+@import 'tailwindcss';
+@config '../tailwind.config.js';
+@plugin '@tailwindcss/typography';
+
+/* Match v3's accessible hidden outline and exclude weights outside the UI contract. */
+@utility outline-hidden {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+@theme {
+  --font-weight-extrabold: initial;
+  --font-weight-black: initial;
+}
+
+/*
+  Tailwind v4 compatibility: v4 changed these Preflight defaults. They are restored so the UI
+  renders exactly as it did on v3 (https://tailwindcss.com/docs/upgrade-guide#changes-from-v3).
+  - borders default to `currentcolor`; v3 used gray-200
+  - placeholders default to 50% of the text colour; v3 used gray-400
+  - buttons default to `cursor: default`; v3 used a pointer
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: --theme(--color-gray-200, currentcolor);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: --theme(--color-gray-400);
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: white;
+  }
+
+  th,
+  td {
+    padding: 1px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 @layer base {
   html {
@@ -37,6 +84,8 @@
   }
 }
 
+/* Keep custom rules beside utilities so v4 layer precedence retains v3 specificity. */
+@layer utilities {
 .nostar-toast-viewport {
   max-width: calc(100vw - max(2rem, env(safe-area-inset-left) + env(safe-area-inset-right)));
   right: max(1rem, env(safe-area-inset-right));
@@ -46,6 +95,8 @@
 .nostar-bulk-toolbar {
   overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
 }
 
 @layer utilities {
@@ -121,6 +172,7 @@
   }
 }
 
+@layer utilities {
 .hd-drag {
   -webkit-app-region: drag;
   -webkit-user-select: none;
@@ -233,8 +285,10 @@
   background: rgba(107, 114, 128, 0.8);
 }
 
+}
+
 /* ========== Markdown Prose Component Styles ========== */
-@layer components {
+@layer utilities {
   .prose pre {
     overflow-x: auto;
     white-space: pre;
@@ -406,6 +460,7 @@
   }
 }
 
+@layer utilities {
 /* ========== highlight.js Dark Mode Scope Isolation ========== */
 
 .dark .hljs {
@@ -860,6 +915,8 @@
   }
 }
 
+}
+
 @layer components {
   .linear-bg-base {
     @apply bg-marketing-black text-text-primary;
@@ -875,7 +932,7 @@
     @apply bg-white/5 border-white/[0.04];
   }
   .btn-ghost:focus {
-    @apply shadow-focus outline-none;
+    @apply shadow-focus outline-hidden;
   }
 
   .btn-subtle {
@@ -906,17 +963,18 @@
     @apply bg-status-emerald text-text-primary rounded-full text-[10px] font-medium;
   }
   .badge-subtle {
-    @apply bg-white/5 text-text-primary px-2 py-0 rounded-sm border border-white/[0.04] text-[10px] font-medium;
+    @apply bg-white/5 text-text-primary px-2 py-0 rounded-xs border border-white/[0.04] text-[10px] font-medium;
   }
 
   .input-base {
-    @apply bg-white/[0.02] text-text-secondary border border-white/[0.08] rounded-md px-[14px] py-[12px] focus:outline-none focus:border-white/20 focus:shadow-focus transition-all duration-200;
+    @apply bg-white/[0.02] text-text-secondary border border-white/[0.08] rounded-md px-[14px] py-[12px] focus:outline-hidden focus:border-white/20 focus:shadow-focus transition-all duration-200;
   }
   .input-search {
-    @apply bg-transparent text-text-primary focus:outline-none placeholder:text-text-tertiary;
+    @apply bg-transparent text-text-primary focus:outline-hidden placeholder:text-text-tertiary;
   }
 }
 
+@layer utilities {
 option {
   @apply bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary;
 }
@@ -1366,4 +1424,6 @@ textarea::-webkit-resizer {
 .dark .bg-status-red.text-white {
   /* Neutral near-black reads on emerald and rose alike. */
   color: var(--ui-canvas);
+}
+
 }

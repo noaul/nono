@@ -451,7 +451,7 @@ Repository information:
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
                 placeholder={t('例如: OpenAI GPT-4', 'e.g., OpenAI GPT-4')}
               />
             </div>
@@ -463,7 +463,7 @@ Repository information:
               <select
                 value={form.apiType}
                 onChange={(e) => setForm(prev => ({ ...prev, apiType: e.target.value as AIApiType }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
               >
                 <option value="openai">OpenAI (Chat Completions)</option>
                 <option value="openai-responses">OpenAI (Responses)</option>
@@ -483,7 +483,7 @@ Repository information:
                 <select
                   value={form.mimoPlan}
                   onChange={(e) => setForm(prev => ({ ...prev, mimoPlan: e.target.value as MiMoPlan }))}
-                  className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                  className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
                 >
                   <option value="api">{t('API（按量付费）', 'API (Pay-as-you-go)')}</option>
                   <option value="token-plan">{t('Token Plan（订阅制）', 'Token Plan (Subscription)')}</option>
@@ -504,7 +504,7 @@ Repository information:
                 type="url"
                 value={form.baseUrl}
                 onChange={(e) => setForm(prev => ({ ...prev, baseUrl: e.target.value }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
                 placeholder={getEndpointPlaceholder(form.apiType, form.mimoPlan)}
               />
               <p className="text-xs text-gray-500 dark:text-text-tertiary mt-1">
@@ -528,7 +528,7 @@ Repository information:
                 type="password"
                 value={form.apiKey}
                 onChange={(e) => setForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
                 placeholder={t('输入API密钥', 'Enter API key')}
               />
             </div>
@@ -541,7 +541,7 @@ Repository information:
                 type="text"
                 value={form.model}
                 onChange={(e) => setForm(prev => ({ ...prev, model: e.target.value }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
                 placeholder="gpt-4"
               />
             </div>
@@ -569,7 +569,7 @@ Repository information:
               <select
                 value={form.reasoningEffort}
                 onChange={(e) => setForm(prev => ({ ...prev, reasoningEffort: e.target.value as '' | AIReasoningEffort }))}
-                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-none"
+                className="w-full px-3 py-2 border border-black/[0.06] dark:border-white/[0.04] rounded-lg bg-white dark:bg-panel-dark text-gray-900 dark:text-text-primary focus:ring-2 focus:ring-brand-violet focus:border-transparent focus:outline-hidden"
               >
                 <option value="">{t('默认 / 不传', 'Default / Do not send')}</option>
                 <option value="none">{t('none — 不推理', 'none — No reasoning')}</option>
@@ -610,7 +610,7 @@ Repository information:
                     type="checkbox"
                     checked={form.useCustomPrompt}
                     onChange={(e) => handleUseCustomPromptChange(e.target.checked)}
-                    className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] rounded focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
+                    className="w-4 h-4 text-brand-violet bg-light-surface border-black/[0.06] rounded-sm focus:ring-brand-violet dark:focus:ring-brand-hover dark:ring-offset-gray-800 focus:ring-2 dark:bg-white/[0.04] dark:border-white/[0.04]"
                   />
                   <span className="text-sm font-medium text-gray-900 dark:text-text-secondary">
                     {t('使用自定义提示词', 'Use Custom Prompt')}
@@ -737,7 +737,7 @@ Repository information:
                   <h4 className="font-medium text-gray-900 dark:text-text-primary flex items-center">
                     {config.name}
                     {config.useCustomPrompt && (
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary">
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary">
                         <MessageSquare className="w-3 h-3 mr-1" />
                         {t('自定义提示词', 'Custom Prompt')}
                       </span>

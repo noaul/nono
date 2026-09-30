@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, type Component } from 'vue';
 import type { MessageKey } from '@/locales';
-import { Folder, Layers3, Link2, RotateCcw, Trash2 } from 'lucide-vue-next';
+import { Folder, Layers3, Link2, RotateCcw, Trash2 } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import { apiRequest } from '@/api/client';

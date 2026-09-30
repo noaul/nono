@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle2, Info, X, XCircle } from 'lucide-vue-next';
+import { CheckCircle2, Info, X, XCircle } from '@lucide/vue';
 import { useToasts, type AdminToast, type ToastAction } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
 

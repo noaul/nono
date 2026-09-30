@@ -270,9 +270,9 @@ describe('NoStar visual contract', () => {
     const config = read('tailwind.config.js');
 
     // Unmodified utilities must resolve to the token itself, so dark-mode tokens keep their
-    // built-in alpha; only an explicit modifier falls back to the channel triplet.
+    // built-in alpha; Tailwind v4 applies explicit opacity modifiers with color-mix.
     expect(config).toContain('`var(--ui-${name})`');
-    expect(config).toContain('`rgb(var(--ui-${name}-rgb) / ${opacityValue})`');
+    expect(config).toContain('color-mix(in oklab, var(--ui-accent) 20%, transparent)');
     expect(config).toContain("indigo: ui('accent')");
     // The Linear palette's literals must not come back.
     for (const banned of ['#5e6ad2', '#7170ff', '#828fff', '#08090a', '#0f1011']) {

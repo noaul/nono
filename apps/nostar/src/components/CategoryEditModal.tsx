@@ -1045,7 +1045,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                       icon: originalCategory.icon
                     }));
                   }}
-                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded-sm hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
                 >
                   {t('名字/图标', 'Name/Icon')}
                 </button>
@@ -1059,7 +1059,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                       keywords: originalCategory.keywords.join(', ')
                     }));
                   }}
-                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-amber/20 dark:text-status-amber rounded-sm hover:bg-gray-100 dark:hover:bg-status-amber/30 transition-colors"
                 >
                   {t('关键词', 'Keywords')}
                 </button>
@@ -1073,7 +1073,7 @@ export const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
                     keywords: originalCategory.keywords.join(', ')
                   });
                 }}
-                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-red/20 dark:text-status-red rounded hover:bg-gray-100 dark:hover:bg-status-red/30 transition-colors"
+                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-status-red/20 dark:text-status-red rounded-sm hover:bg-gray-100 dark:hover:bg-status-red/30 transition-colors"
               >
                 {t('全部', 'All')}
               </button>

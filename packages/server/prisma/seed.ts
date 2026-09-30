@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/utils/crypto.js';
 import { requiredEnv } from '../src/utils/required-env.js';
+import { createPrismaClient } from '../src/services/prisma-client.js';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function main() {
   await prisma.appConfig.upsert({

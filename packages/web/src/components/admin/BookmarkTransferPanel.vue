@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { CheckSquare, Download, Eye, Square, Upload } from 'lucide-vue-next';
+import { CheckSquare, Download, Eye, Square, Upload } from '@lucide/vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BookmarkImportPreview } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';

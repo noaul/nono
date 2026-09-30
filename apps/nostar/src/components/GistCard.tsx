@@ -167,7 +167,7 @@ export const GistCard: React.FC<GistCardProps> = ({
   return (
     <article
       onClick={() => onOpen(gist)}
-      className="group cursor-pointer rounded-lg border border-black/[0.06] bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-indigo/30 hover:shadow-md dark:border-white/[0.04] dark:bg-white/[0.03] dark:hover:border-brand-indigo/40"
+      className="group cursor-pointer rounded-lg border border-black/[0.06] bg-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-brand-indigo/30 hover:shadow-md dark:border-white/[0.04] dark:bg-white/[0.03] dark:hover:border-brand-indigo/40"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">

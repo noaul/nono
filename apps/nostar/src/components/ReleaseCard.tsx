@@ -241,7 +241,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                   e.stopPropagation();
                   onToggleAssets();
                 }}
-                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded transition-all duration-200 whitespace-nowrap ${
+                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded-sm transition-all duration-200 whitespace-nowrap ${
                   isAssetsExpanded
                     ? 'bg-brand-indigo/15 text-brand-indigo dark:bg-brand-indigo/20 dark:text-white'
                     : 'bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
@@ -262,7 +262,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                   e.stopPropagation();
                   onToggleReleaseNotes();
                 }}
-                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded transition-all duration-200 whitespace-nowrap ${
+                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded-sm transition-all duration-200 whitespace-nowrap ${
                   isReleaseNotesExpanded
                     ? 'bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-text-secondary '
                     : 'bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
@@ -281,7 +281,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
               <button
                 onClick={handleToggleSummary}
                 disabled={summary.status === 'loading'}
-                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded transition-all duration-200 whitespace-nowrap disabled:opacity-70 ${
+                className={`flex items-center space-x-0.5 px-1.5 py-1 rounded-sm transition-all duration-200 whitespace-nowrap disabled:opacity-70 ${
                   isSummaryExpanded
                     ? 'bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-text-secondary'
                     : 'bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/[0.08]'
@@ -305,7 +305,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                 e.stopPropagation();
                 onUnsubscribe();
               }}
-              className="p-1 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
+              className="p-1 rounded-sm bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
               title={t('取消订阅 Release', 'Unsubscribe from releases')}
               aria-label={t('取消订阅 Release', 'Unsubscribe from releases')}
             >
@@ -315,7 +315,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
               href={release.html_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1 rounded bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
+              className="p-1 rounded-sm bg-light-surface text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
               title={t('在GitHub上查看', 'View on GitHub')}
               aria-label={t('在GitHub上查看', 'View on GitHub')}
               onClick={(e) => {
@@ -349,7 +349,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                 </span>
               </div>
 
-              <div className="bg-gray-50 dark:bg-[#121314] rounded border border-black/[0.06] dark:border-white/[0.04] max-h-72 overflow-y-auto">
+              <div className="bg-gray-50 dark:bg-[#121314] rounded-sm border border-black/[0.06] dark:border-white/[0.04] max-h-72 overflow-y-auto">
                 {downloadLinks.map((link, index) => {
                   const isRpcEnabled = rpcDownloadConfig.enabled;
                   const isDownloading = downloadingRef.current[link.url];
@@ -452,7 +452,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                         e.stopPropagation();
                         onToggleFullContent(e);
                       }}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-brand-indigo text-white rounded hover:bg-brand-hover active:bg-brand-hover transition-all duration-200 text-xs font-medium min-w-[120px]"
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-brand-indigo text-white rounded-sm hover:bg-brand-hover active:bg-brand-hover transition-all duration-200 text-xs font-medium min-w-[120px]"
                     >
                       <BookOpen className="w-3 h-3" />
                       <span>{isFullContent ? t('收起', 'Collapse') : t('查看完整', 'View Full')}</span>
@@ -461,7 +461,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = memo(({
                       href={release.html_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary rounded hover:bg-gray-200 dark:hover:bg-white/[0.08] active:bg-gray-300 dark:active:bg-gray-500 transition-all duration-200 text-xs font-medium whitespace-nowrap"
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-light-surface text-gray-900 dark:bg-white/[0.04] dark:text-text-secondary rounded-sm hover:bg-gray-200 dark:hover:bg-white/[0.08] active:bg-gray-300 dark:active:bg-gray-500 transition-all duration-200 text-xs font-medium whitespace-nowrap"
                       onClick={(e) => {
                         e.stopPropagation();
                         onMarkAsRead();

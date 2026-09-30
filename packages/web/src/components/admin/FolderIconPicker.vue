@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { ChevronDown, Search, X } from 'lucide-vue-next';
+import { ChevronDown, Search, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import { folderIconOptions, getFolderIconOption, type FolderIconOption } from '@/utils/folder-icons';

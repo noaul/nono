@@ -650,7 +650,7 @@ export const ForkTimeline: React.FC = () => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-3 py-1 border border-black/[0.06] dark:border-white/[0.04] rounded bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm"
+                className="px-3 py-1 border border-black/[0.06] dark:border-white/[0.04] rounded-sm bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm"
               >
                 <option value={20}>20</option>
                 <option value={50}>50</option>
@@ -848,7 +848,7 @@ export const ForkTimeline: React.FC = () => {
               <select
                 value={syncModal.branch}
                 onChange={(e) => setSyncModal(prev => ({ ...prev, branch: e.target.value }))}
-                className="w-full px-3 py-2 bg-white dark:bg-panel-dark border border-gray-300 dark:border-white/[0.08] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-indigo focus:border-transparent dark:text-text-primary"
+                className="w-full px-3 py-2 bg-white dark:bg-panel-dark border border-gray-300 dark:border-white/[0.08] rounded-lg shadow-xs focus:outline-hidden focus:ring-2 focus:ring-brand-indigo focus:border-transparent dark:text-text-primary"
               >
                 {syncModalBranches.length > 0 ? (
                   syncModalBranches.map(b => (

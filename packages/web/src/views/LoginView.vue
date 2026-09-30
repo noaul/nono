@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Fingerprint } from 'lucide-vue-next';
+import { Fingerprint } from '@lucide/vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { requiresDocumentNavigation, resolveInternalRedirect } from '@/utils/redirect';

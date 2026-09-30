@@ -716,7 +716,7 @@ export const ReleaseTimeline: React.FC = () => {
                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${includePreRelease ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
                >
                  <span
-                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${includePreRelease ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
+                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${includePreRelease ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
                  />
                </button>
                <span className="text-sm text-gray-600 dark:text-text-secondary">
@@ -831,7 +831,7 @@ export const ReleaseTimeline: React.FC = () => {
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${includePreRelease ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${includePreRelease ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${includePreRelease ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
                 />
               </button>
               <span className="text-xs text-gray-600 dark:text-text-secondary hidden sm:inline">
@@ -1120,7 +1120,7 @@ export const ReleaseTimeline: React.FC = () => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-3 py-1 border border-black/[0.06] dark:border-white/[0.04] rounded bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm"
+                className="px-3 py-1 border border-black/[0.06] dark:border-white/[0.04] rounded-sm bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary text-sm"
               >
                 <option value={20}>20</option>
                 <option value={50}>50</option>
@@ -1226,7 +1226,7 @@ export const ReleaseTimeline: React.FC = () => {
                     {hasUnread && (
                       <div className="w-1.5 h-1.5 bg-brand-violet rounded-full flex-shrink-0 animate-pulse"></div>
                     )}
-                    <div className="flex items-center justify-center w-6 h-6 bg-brand-indigo/20 rounded flex-shrink-0">
+                    <div className="flex items-center justify-center w-6 h-6 bg-brand-indigo/20 rounded-sm flex-shrink-0">
                       <LayoutGrid className="w-3.5 h-3.5 text-brand-violet" />
                     </div>
                     <div className="text-left">

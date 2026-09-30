@@ -80,7 +80,7 @@ export function CountryFlag({ countryIso, className = '' }: { countryIso: string
   return (
     <span
       aria-label={countryIso.toUpperCase()}
-      className={`fi fi-${normalized} rounded-[2px] shadow-sm ring-1 ring-slate-950/10 ${className}`}
+      className={`fi fi-${normalized} rounded-[2px] shadow-xs ring-1 ring-slate-950/10 ${className}`}
       role="img"
     />
   );

@@ -100,7 +100,7 @@ test('pins patched transitive build dependencies', async () => {
 		'"@babel/core@>=7.0.0 <7.29.1": 7.29.7',
 		'"@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4',
 		'"body-parser@>=2.0.0 <2.3.0": 2.3.0',
-		'"brace-expansion@<5.0.12": 5.0.12',
+		'"brace-expansion@>=5.0.0 <5.0.12": 5.0.12',
 		'"js-yaml@>=4.0.0 <4.3.2": 4.3.2',
 		'"picomatch@<2.3.2": 2.3.2',
 		'"postcss@<=8.5.22": 8.5.26',

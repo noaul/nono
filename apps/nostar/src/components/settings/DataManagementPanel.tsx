@@ -1,10 +1,10 @@
+import { Github } from '../BrandIcons';
 import React, { useState, useCallback, useMemo } from 'react';
 import { formatShanghaiDateTime, shanghaiDateKey } from '../../utils/dateTime';
 import {
   Trash2,
   AlertTriangle,
   Database,
-  Github,
   Tag,
   Bot,
   Cloud,
@@ -1363,7 +1363,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="export-checkbox rounded border-black/[0.06] dark:border-white/[0.04] text-brand-violet focus:ring-brand-violet"
+                    className="export-checkbox rounded-sm border-black/[0.06] dark:border-white/[0.04] text-brand-violet focus:ring-brand-violet"
                     data-type={item.key}
                   />
                   <span>{item.label}</span>

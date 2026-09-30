@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Check, ChevronDown, Globe, KeyRound, Search, X } from 'lucide-vue-next';
+import { Check, ChevronDown, Globe, KeyRound, Search, X } from '@lucide/vue';
 import { getEngine, getSelectedEngineId, setSelectedEngineId, type SearchEngine, type SearchEngineSettings } from '@/utils/searchEngines';
 import { getFaviconUrl } from '@/utils/favicon';
 import { useI18n } from '@/composables/useI18n';

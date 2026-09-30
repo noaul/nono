@@ -90,7 +90,7 @@ migrateStoredSecrets(context);
 const app = createApp(context);
 const publicDir = path.resolve(dirname, product === 'yumi' ? '../public-yumi' : '../public');
 app.use(express.static(publicDir));
-app.get('*', (_req, res) => {
+app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 

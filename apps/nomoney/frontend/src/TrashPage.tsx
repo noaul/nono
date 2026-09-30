@@ -146,7 +146,7 @@ export default function TrashPage() {
             const pending = pendingKey === item.key;
             const confirming = confirmKey === item.key;
             return (
-              <article key={item.key} className="motion-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-ink-900">
+              <article key={item.key} className="motion-card rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-900">
                 <div className="flex items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
                     {item.accountType ? <AccountAppIcon type={item.accountType} size={18} /> : <Icon size={18} />}

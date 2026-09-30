@@ -127,7 +127,7 @@ export const GistEditorModal: React.FC<GistEditorModalProps> = ({ gist, isOpen, 
           <input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            className="w-full rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-gray-900 outline-none transition-colors focus:border-brand-indigo dark:border-white/[0.04] dark:bg-white/[0.04] dark:text-text-primary"
+            className="w-full rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-gray-900 outline-hidden transition-colors focus:border-brand-indigo dark:border-white/[0.04] dark:bg-white/[0.04] dark:text-text-primary"
             placeholder={t('这个 gist 是做什么的？', 'What is this gist for?')}
           />
         </div>
@@ -138,7 +138,7 @@ export const GistEditorModal: React.FC<GistEditorModalProps> = ({ gist, isOpen, 
               type="checkbox"
               checked={isPublic}
               onChange={(event) => setIsPublic(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-brand-indigo focus:ring-brand-indigo"
+              className="h-4 w-4 rounded-sm border-gray-300 text-brand-indigo focus:ring-brand-indigo"
             />
             {t('公开 Gist', 'Public gist')}
           </label>
@@ -168,7 +168,7 @@ export const GistEditorModal: React.FC<GistEditorModalProps> = ({ gist, isOpen, 
                 <input
                   value={file.filename}
                   onChange={(event) => updateFile(file.id, { filename: event.target.value })}
-                  className="min-w-0 flex-1 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
+                  className="min-w-0 flex-1 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-sm text-gray-900 outline-hidden focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
                   placeholder={`file-${index + 1}.txt`}
                 />
                 <button
@@ -185,7 +185,7 @@ export const GistEditorModal: React.FC<GistEditorModalProps> = ({ gist, isOpen, 
                 value={file.content}
                 onChange={(event) => updateFile(file.id, { content: event.target.value })}
                 rows={8}
-                className="w-full resize-y rounded-lg border border-black/[0.06] bg-white px-3 py-2 font-mono text-sm text-gray-900 outline-none focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
+                className="w-full resize-y rounded-lg border border-black/[0.06] bg-white px-3 py-2 font-mono text-sm text-gray-900 outline-hidden focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
                 placeholder={t('输入文件内容', 'Enter file content')}
               />
             </div>

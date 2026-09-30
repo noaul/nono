@@ -37,7 +37,7 @@ export const IncludeKeysToggle: React.FC<IncludeKeysToggleProps> = ({ t }) => {
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
               includeKeysInBackup ? 'translate-x-[18px]' : 'translate-x-[2px]'
             }`}
           />

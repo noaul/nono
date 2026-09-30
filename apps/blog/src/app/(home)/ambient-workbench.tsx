@@ -13,7 +13,6 @@ import {
 	Circle,
 	CloudSun,
 	ExternalLink,
-	Github,
 	Globe2,
 	Link2,
 	ListTodo,
@@ -35,6 +34,7 @@ import {
 	WalletCards,
 	X
 } from 'lucide-react'
+import { Github } from '@/components/github-icon'
 import { Children, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import {

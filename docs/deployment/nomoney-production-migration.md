@@ -6,7 +6,7 @@
 
 | 数据 | 容器路径 | 默认 Compose 卷 |
 | --- | --- | --- |
-| NoNo PostgreSQL | `/var/lib/postgresql/data` | `nono_nono_pg_data` |
+| NoNo PostgreSQL | `/var/lib/postgresql` | `nono_nono_pg18_data`（PostgreSQL 16 时期为 `nono_nono_pg_data`） |
 | Nodesk 内容 | `/app/nodesk-content` | `nono_nodesk_content` |
 | NoMoney SQLite | `/app/nomoney-data/app.db` | `nono_nomoney_data` |
 

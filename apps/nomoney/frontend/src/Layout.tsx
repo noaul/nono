@@ -135,7 +135,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
             className={clsx(
                 'group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition',
                 location.startsWith(item.to)
-                  ? 'bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950'
+                  ? 'bg-slate-950 text-white shadow-xs dark:bg-white dark:text-slate-950'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
               )}
           >

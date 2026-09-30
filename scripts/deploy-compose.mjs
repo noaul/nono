@@ -8,6 +8,9 @@ import { runCli } from './run-cli.mjs';
 
 export { runCli } from './run-cli.mjs';
 
+export const POSTGRES_VOLUME = 'nono_pg18_data';
+export const LEGACY_POSTGRES_VOLUME = 'nono_pg_data';
+
 export function imageTagForCommit(repository, commit) {
   const normalized = String(commit).trim().replace(/[^a-fA-F0-9]/g, '');
   if (normalized.length < 12) throw new Error('Git commit must contain at least 12 hexadecimal characters');
@@ -88,6 +91,7 @@ export async function deployCompose({
     log,
     existing: Boolean(previousImage)
   });
+  await enforcePostgresMajor({ cwd, run });
   const imageTag = imageTagForCommit(imageRepository, currentCommit);
   const context = safetyContext({ cwd, baseUrl, run, image: imageTag, commit: currentCommit });
   const old = safetyContext({ cwd, baseUrl, run, image: previousImage || imageTag, commit: previousCommit });
@@ -145,12 +149,14 @@ export async function deployCompose({
   }
 }
 
-async function enforceMigrationGate({ cwd, existing, allowDestructiveMigrations, run, log }) {
+export async function enforceMigrationGate({ cwd, existing, allowDestructiveMigrations, run, log }) {
   const database = (await run('docker', ['compose', 'ps', '-a', '-q', 'postgres'], { cwd, capture: true })).stdout.trim();
   if (!existing && database) throw new Error('Existing database requires a previous immutable app image for rollback');
   if (!existing && !database) {
-    const volumes = await run('docker', ['volume', 'ls', '--filter', 'label=com.docker.compose.volume=nono_pg_data', '--format', '{{.Name}}'], { cwd, capture: true });
-    if (volumes.stdout.trim()) throw new Error('Existing database volume found without a database container; restore its Compose container before deployment');
+    for (const volume of [POSTGRES_VOLUME, LEGACY_POSTGRES_VOLUME]) {
+      const volumes = await run('docker', ['volume', 'ls', '--filter', `label=com.docker.compose.volume=${volume}`, '--format', '{{.Name}}'], { cwd, capture: true });
+      if (volumes.stdout.trim()) throw new Error('Existing database volume found without a database container; restore its Compose container before deployment');
+    }
     return;
   }
   let rows;
@@ -175,6 +181,33 @@ async function enforceMigrationGate({ cwd, existing, allowDestructiveMigrations,
     throw new Error(`Destructive database migration blocked:\n${findings.join('\n')}\nReview it and rerun with --allow-destructive-migrations only after a rollback plan is ready.`);
   }
   log(`destructive migration override accepted:\n${findings.join('\n')}`);
+}
+
+export async function postgresMajors(run, cwd, options = {}) {
+  const commandOptions = { cwd, ...options, capture: true };
+  let configured = null;
+  try {
+    const config = JSON.parse((await run('docker', ['compose', 'config', '--format', 'json'], commandOptions)).stdout);
+    configured = Number(String(config?.services?.postgres?.image || '').match(/^(?:docker\.io\/)?(?:library\/)?postgres:(\d+)/)?.[1]) || null;
+  } catch { configured = null; }
+  const container = (await run('docker', ['compose', 'ps', '-a', '-q', 'postgres'], commandOptions)).stdout.trim();
+  if (!container) return { configured, running: null, container: '' };
+  // Official images export PG_MAJOR; unlike the tag it survives digest pinning.
+  const environment = (await run('docker', ['inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container], commandOptions)).stdout;
+  const running = Number(String(environment).match(/^PG_MAJOR=(\d+)$/m)?.[1]) || null;
+  return { configured, running, container };
+}
+
+// A new PostgreSQL major starts on an empty volume. Deploying through it would
+// migrate an empty schema, pass acceptance and release a blank database.
+async function enforcePostgresMajor({ cwd, run }) {
+  const { configured, running, container } = await postgresMajors(run, cwd);
+  if (!configured) throw new Error('Cannot determine the configured PostgreSQL major version');
+  if (!container) return;
+  if (!running) throw new Error('Cannot determine the running PostgreSQL major version');
+  if (running !== configured) {
+    throw new Error(`PostgreSQL ${running} is running but Compose configures PostgreSQL ${configured}; follow docs/deployment/postgres-18-upgrade.md instead of deploy:compose`);
+  }
 }
 
 function stripSqlCommentsAndStrings(sql) {

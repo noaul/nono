@@ -1,0 +1,11 @@
+# Reattaches the pre-upgrade PostgreSQL 16 volume. Used only by
+# scripts/migrate-postgres-18.mjs and docs/deployment/postgres-18-upgrade.md,
+# layered on docker-compose.yml through COMPOSE_FILE. Needs Compose 2.24+.
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes: !override
+      - nono_pg_data:/var/lib/postgresql/data
+
+volumes:
+  nono_pg_data:

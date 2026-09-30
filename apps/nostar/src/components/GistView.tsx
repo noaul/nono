@@ -270,7 +270,7 @@ export const GistView: React.FC = () => {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
       <aside className="lg:w-64 lg:flex-shrink-0">
-        <div className="sticky top-24 z-10 rounded-lg border border-black/[0.06] bg-white p-3 shadow-sm dark:border-white/[0.04] dark:bg-white/[0.03]">
+        <div className="sticky top-24 z-10 rounded-lg border border-black/[0.06] bg-white p-3 shadow-xs dark:border-white/[0.04] dark:bg-white/[0.03]">
           <div className="mb-3 flex items-center justify-between px-2">
             <div className="flex items-center gap-1">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-text-primary">Gist</h2>
@@ -303,7 +303,7 @@ export const GistView: React.FC = () => {
                   onClick={() => setSelectedGistCategory(category.id)}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
                     active
-                      ? 'bg-brand-indigo text-white shadow-sm'
+                      ? 'bg-brand-indigo text-white shadow-xs'
                       : 'text-gray-700 hover:bg-light-surface dark:text-text-secondary dark:hover:bg-white/[0.08]'
                   }`}
                 >
@@ -322,7 +322,7 @@ export const GistView: React.FC = () => {
       </aside>
 
       <section className="min-w-0 flex-1 space-y-5">
-        <div className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-sm dark:border-white/[0.04] dark:bg-white/[0.03]">
+        <div className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-xs dark:border-white/[0.04] dark:bg-white/[0.03]">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <div className="relative min-w-0 flex-1">
@@ -333,7 +333,7 @@ export const GistView: React.FC = () => {
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') basicSearch();
                   }}
-                  className="w-full rounded-lg border border-black/[0.06] bg-light-surface py-2 pl-9 pr-9 text-sm text-gray-900 outline-none focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
+                  className="w-full rounded-lg border border-black/[0.06] bg-light-surface py-2 pl-9 pr-9 text-sm text-gray-900 outline-hidden focus:border-brand-indigo dark:border-white/[0.04] dark:bg-black/20 dark:text-text-primary"
                   placeholder={t('搜索 gist、文件名、摘要...', 'Search gists, filenames, summaries...')}
                 />
                 {query && (
@@ -343,7 +343,7 @@ export const GistView: React.FC = () => {
                       setQuery('');
                       setGistSearchFilters({ query: '' });
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-text-primary"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-gray-400 hover:text-gray-700 dark:hover:text-text-primary"
                   >
                     <X className="h-4 w-4" />
                   </button>

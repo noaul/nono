@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpDown, Layers, Link2, Trash2 } from 'lucide-vue-next';
+import { ArrowUpDown, Layers, Link2, Trash2 } from '@lucide/vue';
 import { inject } from 'vue';
 import { routerKey } from 'vue-router';
 import { useI18n } from '@/composables/useI18n';

@@ -3,8 +3,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { PrismaClient } from '@prisma/client';
 import { buildApp } from '../../packages/server/src/app.ts';
+import { createPrismaClient } from '../../packages/server/src/services/prisma-client.ts';
 
 // Explicit disposable targets only. This suite resets public in the selected database.
 const connection = process.env.NONO_INTEGRATION_DATABASE_URL;
@@ -18,13 +18,13 @@ process.env.NODE_ENV = 'test';
 const root = path.resolve(import.meta.dirname, '../..');
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'nono-postgres-integration-'));
 const schema = path.join(root, 'packages/server/prisma/schema.prisma');
-const prisma = new PrismaClient({ datasources: { db: { url: connection } } });
+const prisma = createPrismaClient(connection);
 function command(executable: string, args: string[], env = process.env) {
   const result = spawnSync(executable, args, { cwd: root, env, encoding: 'utf8', timeout: 120_000 });
   assert.equal(result.status, 0, result.stderr || result.stdout || String(result.error));
 }
 function migrate(file = schema) {
-  command(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', file]);
+  command(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--config', 'packages/server/prisma.config.ts', '--schema', file]);
 }
 async function reset() {
   await prisma.$executeRawUnsafe('DROP SCHEMA public CASCADE');

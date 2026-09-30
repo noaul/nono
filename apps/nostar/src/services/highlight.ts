@@ -23,7 +23,7 @@ import swift from 'highlight.js/lib/languages/swift';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
-import 'highlight.js/styles/github.min.css';
+import '../highlight.css';
 
 const languages = {
   bash,

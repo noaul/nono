@@ -9,7 +9,7 @@ import { analyzeRepository, createFailedAnalysisResult } from '../services/aiAna
 import { forceSyncToBackend } from '../services/autoSync';
 import { GitHubApiService } from '../services/githubApi';
 import { FloatingTooltip } from './FloatingTooltip';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/shallow';
 import { useDialog } from '../hooks/useDialog';
 import { logger } from '../services/logger';
 import { formatRelativeTime, formatShanghaiDateTime } from '../utils/dateTime';
@@ -123,7 +123,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
     repositories,
     enterSimilarView
   } = useAppStore(
-    useCallback(
+    useShallow(useCallback(
       (state) => ({
         toggleReleaseSubscription: state.toggleReleaseSubscription,
         githubToken: state.githubToken,
@@ -140,8 +140,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
         enterSimilarView: state.enterSimilarView
       }),
       []
-    ),
-    shallow
+    ))
   );
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -205,7 +204,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
         return (
           <mark
             key={index}
-            className="bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary px-1 rounded"
+            className="bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary px-1 rounded-sm"
           >
             {part}
           </mark>
@@ -881,7 +880,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
 
   // 使用 useMemo 缓存卡片类名，避免重复计算
   const cardClassName = useMemo(() => {
-    const baseClasses = 'repository-card group bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 hover:border-black/10 dark:hover:border-white/10 flex flex-col h-full cursor-pointer select-none';
+    const baseClasses = 'repository-card group bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-6 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 hover:border-black/10 dark:hover:border-white/10 flex flex-col h-full cursor-pointer select-none';
     const selectedClasses = isSelected
       ? 'shadow-[0_0_0_2px_theme(colors.blue.500)] dark:shadow-[0_0_0_2px_theme(colors.brand.violet)] bg-gray-100 dark:bg-brand-indigo/10'
       : '';
@@ -980,7 +979,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
             onClick={() => toggleReleaseSubscription(repository.id)}
             selectionMode={selectionMode}
             className={`${isSubscribed
-              ? 'bg-brand-indigo text-white shadow-sm dark:bg-brand-indigo/80 dark:text-white'
+              ? 'bg-brand-indigo text-white shadow-xs dark:bg-brand-indigo/80 dark:text-white'
               : 'bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary'
             }`}
             title={isSubscribed ? (language === 'zh' ? '取消订阅发布' : 'Unsubscribe from releases') : (language === 'zh' ? '订阅发布' : 'Subscribe to releases')}
@@ -1044,7 +1043,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
           tabIndex={0}
         >
           <p
-            className="text-gray-800 dark:text-text-secondary text-[13px] leading-[1.625] line-clamp-3 mb-2 transition-colors duration-200 hover:text-gray-900 dark:hover:text-text-primary rounded px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02]"
+            className="text-gray-800 dark:text-text-secondary text-[13px] leading-[1.625] line-clamp-3 mb-2 transition-colors duration-200 hover:text-gray-900 dark:hover:text-text-primary rounded-sm px-1 -mx-1 hover:bg-gray-50/50 dark:hover:bg-white/[0.02]"
           >
             {highlightSearchTerm(displayContent.content, searchQuery)}
           </p>
@@ -1121,7 +1120,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
               return (
                 <div
                   key={index}
-                  className="w-6 h-6 flex items-center justify-center bg-light-surface dark:bg-white/[0.04] rounded text-gray-700 dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/10 dark:hover:text-text-primary transition-colors cursor-default"
+                  className="w-6 h-6 flex items-center justify-center bg-light-surface dark:bg-white/[0.04] rounded-sm text-gray-700 dark:text-text-tertiary hover:bg-gray-200 dark:hover:bg-white/10 dark:hover:text-text-primary transition-colors cursor-default"
                   title={displayName}
                 >
                   <IconComponent className="w-3 h-3" />

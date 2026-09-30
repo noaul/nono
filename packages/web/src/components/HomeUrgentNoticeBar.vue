@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDays, ServerCog, WalletCards } from 'lucide-vue-next';
+import { CalendarDays, ServerCog, WalletCards } from '@lucide/vue';
 import type { AdminNotification } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 

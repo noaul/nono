@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { AlertTriangle, X } from 'lucide-vue-next';
+import { AlertTriangle, X } from '@lucide/vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import { useI18n } from '@/composables/useI18n';

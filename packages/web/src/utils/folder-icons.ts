@@ -29,7 +29,7 @@ import {
   Star,
   Tag,
   Wrench,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 export interface FolderIconOption {
   value: string;

@@ -16,3 +16,4 @@ apps/nomoney/data/
 apps/nomoney/.env
 apps/nomoney/node_modules/
 packages/extension/artifacts/
+packages/server/src/generated/
