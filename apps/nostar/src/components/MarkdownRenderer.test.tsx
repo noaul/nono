@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 
 vi.mock('../store/useAppStore', () => ({
@@ -296,5 +296,37 @@ describe('MarkdownRenderer', () => {
       const heading = container.querySelector('h2');
       expect(heading?.getAttribute('id')).toMatch(/^heading-extra-\d+$/);
     });
+  });
+});
+
+
+describe('README enhancements', () => {
+  it.each(['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'])('renders %s as an alert with formatted content', (type) => {
+    const { container } = render(<MarkdownRenderer content={`> [!${type}]\n> Keep **this detail**.\n>\n> - Follow the instructions`} enableHtml />);
+    const alert = container.querySelector(`[data-markdown-alert="${type.toLowerCase()}"]`);
+    expect(alert).toBeInTheDocument();
+    expect(alert?.querySelector('strong')).toHaveTextContent('this detail');
+    expect(alert?.querySelector('li')).toHaveTextContent('Follow the instructions');
+    expect(alert).not.toHaveTextContent(`[!${type}]`);
+  });
+
+  it('renders inline and display math without treating normal code or escaped dollars as equations', async () => {
+    const { container } = render(<MarkdownRenderer content={'Inline $x^2$.\n\n$$\n\\sum_{i=1}^n i\n$$\n\n`$raw$` and \\$5.'} enableHtml />);
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
+    expect(container.querySelector('.katex-display')).toBeInTheDocument();
+    expect(container.querySelector('code')).toHaveTextContent('$raw$');
+    expect(container).toHaveTextContent('$5');
+  });
+
+  it('preserves navigation IDs for headings containing equations', async () => {
+    const { container } = render(<MarkdownRenderer content="# Compute $x^2$" headingIds={new Map([['Compute $x^2$', 'equation-heading']])} />);
+    await waitFor(() => expect(container.querySelector('.katex')).toBeInTheDocument());
+    expect(container.querySelector('h2')).toHaveAttribute('id', 'equation-heading');
+  });
+
+  it('keeps unsafe embedded HTML and link protocols out of the rendered README', () => {
+    const { container } = render(<MarkdownRenderer content={'<script>alert(1)</script><img src="javascript:alert(1)" onerror="alert(1)"><a href="javascript:alert(1)">unsafe</a>\n\n[unsafe markdown](javascript:alert(1))'} enableHtml />);
+    expect(container.querySelector('script, [onerror]')).toBeNull();
+    expect(container.querySelector('[href^="javascript:"], [src^="javascript:"]')).toBeNull();
   });
 });

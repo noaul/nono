@@ -1,3 +1,4 @@
+import { readBatchTwoSettings } from '../utils/displayPreferences';
 import { normalizeAssetFilters } from '../utils/assetFilters';
 import { backend } from './backendAdapter';
 import { useAppStore } from '../store/useAppStore';
@@ -263,6 +264,7 @@ export async function syncFromBackend(): Promise<void> {
     // Sync active selections from settings
     if (changed.settings && settingsResult.status === 'fulfilled') {
       const settings = settingsResult.value;
+      useAppStore.setState(readBatchTwoSettings(settings));
       if (typeof settings.activeAIConfig === 'string' || settings.activeAIConfig === null) {
         state.setActiveAIConfig(settings.activeAIConfig as string | null);
       }
@@ -350,6 +352,9 @@ async function pushCurrentStateToBackend(): Promise<void> {
         categoryOrder: state.categoryOrder,
         customCategories: state.customCategories,
         assetFilters: state.assetFilters,
+        displayPreferences: state.displayPreferences,
+        categoryListIdMap: state.categoryListIdMap,
+        githubListMemberships: state.githubListMemberships,
         translationEngine: state.translationEngine,
         releaseSubscriptions: Array.from(state.releaseSubscriptions || []),
         defaultCategoryOverrides: state.defaultCategoryOverrides,
@@ -389,6 +394,9 @@ async function pushCurrentStateToBackend(): Promise<void> {
         categoryOrder: state.categoryOrder,
         customCategories: state.customCategories,
         assetFilters: state.assetFilters,
+        displayPreferences: state.displayPreferences,
+        categoryListIdMap: state.categoryListIdMap,
+        githubListMemberships: state.githubListMemberships,
         translationEngine: state.translationEngine,
         releaseSubscriptions: Array.from(state.releaseSubscriptions || []),
         defaultCategoryOverrides: state.defaultCategoryOverrides,
@@ -501,6 +509,9 @@ export function startAutoSync(): () => void {
       state.categoryOrder !== prevState.categoryOrder ||
       state.customCategories !== prevState.customCategories ||
       state.assetFilters !== prevState.assetFilters ||
+      state.displayPreferences !== prevState.displayPreferences ||
+      state.categoryListIdMap !== prevState.categoryListIdMap ||
+      state.githubListMemberships !== prevState.githubListMemberships ||
       state.translationEngine !== prevState.translationEngine ||
       state.releaseSubscriptions !== prevState.releaseSubscriptions ||
       state.readReleases !== prevState.readReleases ||

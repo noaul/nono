@@ -1,3 +1,4 @@
+import type { DisplayPreferences } from '../utils/displayPreferences';
 export type TranslationEngine = 'microsoft' | 'google';
 
 export interface Repository {
@@ -9,6 +10,7 @@ export interface Repository {
   stargazers_count: number;
   forks_count: number;
   forks: number;
+  license?: { key?: string; name?: string; spdx_id?: string } | null;
   language: string | null;
   created_at: string;
   updated_at: string;
@@ -443,6 +445,9 @@ export interface AppState {
   selectedCategory: string;
   language: 'zh' | 'en';
   translationEngine: TranslationEngine;
+  displayPreferences: DisplayPreferences;
+  categoryListIdMap: Record<string, string>;
+  githubListMemberships: Record<string, string[]>;
   isSidebarCollapsed: boolean;
   readmeModalOpen: boolean;
   headerMenuConfig: HeaderMenuItem[];

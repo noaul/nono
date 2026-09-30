@@ -29,6 +29,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     customCategories,
     hiddenDefaultCategoryIds,
     defaultCategoryOverrides,
+    githubListMemberships,
     categoryOrder,
     collapsedSidebarCategoryCount,
     deleteCustomCategory,
@@ -175,11 +176,11 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     
     for (const category of allCategories) {
       if (category.id === 'all') continue;
-      const count = repositories.filter(repo => matchesCategory(repo, category)).length;
+      const count = repositories.filter(repo => matchesCategory(repo, category, githubListMemberships)).length;
       counts.set(category.id, count);
     }
     return counts;
-  }, [repositories, allCategories]);
+  }, [repositories, allCategories, githubListMemberships]);
 
   const getCategoryCount = useCallback((category: Category) => {
     return categoryCounts.get(category.id) ?? 0;

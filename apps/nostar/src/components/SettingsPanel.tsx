@@ -1,3 +1,6 @@
+import { ListMembershipPanel } from './settings/ListMembershipPanel';
+import { AppearancePanel } from './settings/AppearancePanel';
+const GitHubListsPanel = React.lazy(() => import('./settings/GitHubListsPanel').then(module => ({default: module.GitHubListsPanel})));
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Settings,
@@ -25,7 +28,7 @@ import {
   VectorSearchSettings,
 } from './settings';
 
-type SettingsTab = 'general' | 'ai' | 'category' | 'menu' | 'data' | 'logs' | 'network' | 'vectorSearch';
+type SettingsTab = 'general' | 'ai' | 'category' | 'menu' | 'data' | 'logs' | 'network' | 'vectorSearch' | 'appearance' | 'lists';
 
 interface SettingsTabItem {
   id: SettingsTab;
@@ -197,9 +200,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onClose,
   isModal = false 
 }) => {
-  const { language, setCurrentView } = useAppStore();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [displayTab, setDisplayTab] = useState<SettingsTab>('general');
+  const { language, setCurrentView, displayPreferences } = useAppStore();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const stored = sessionStorage.getItem('gsm:pending-settings-tab');
+    return stored && ['general','ai','category','menu','data','logs','network','vectorSearch','appearance','lists'].includes(stored) ? stored as SettingsTab : 'general';
+  });
+  const [displayTab, setDisplayTab] = useState<SettingsTab>(activeTab);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const tabChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tabResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -218,6 +224,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   // 动画顺序：1.淡出当前内容 2.切换标签 3.淡入新内容
   const handleTabChange = useCallback((tabId: SettingsTab) => {
     if (tabId === activeTab || isTransitioning) return;
+    if (displayPreferences.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {setActiveTab(tabId); setDisplayTab(tabId); return;}
 
     if (tabChangeTimeoutRef.current) {
       clearTimeout(tabChangeTimeoutRef.current);
@@ -236,7 +243,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setIsTransitioning(false);
       }, 120);
     }, 100);
-  }, [activeTab, isTransitioning]);
+  }, [activeTab, isTransitioning, displayPreferences.reducedMotion]);
 
   // 清理定时器
   useEffect(() => {
@@ -252,7 +259,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // Valid SettingsTab values for runtime validation
   const VALID_TABS: ReadonlySet<string> = useMemo(
-    () => new Set(['general', 'ai', 'category', 'menu', 'data', 'logs', 'network', 'vectorSearch']),
+    () => new Set(['general', 'ai', 'category', 'menu', 'data', 'logs', 'network', 'vectorSearch', 'appearance', 'lists']),
     []
   );
 
@@ -263,14 +270,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   // Check sessionStorage for a pending tab (set by DebugModeIndicator before
   // the view switch, so it survives the SettingsPanel remount)
   useEffect(() => {
-    const stored = sessionStorage.getItem('gsm:pending-settings-tab');
-    if (stored && VALID_TABS.has(stored)) {
-      sessionStorage.removeItem('gsm:pending-settings-tab');
-      handleTabChange(stored as SettingsTab);
-    } else if (stored) {
-      sessionStorage.removeItem('gsm:pending-settings-tab');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    sessionStorage.removeItem('gsm:pending-settings-tab');
   }, []); // Run once on mount to read pending tab from sessionStorage
 
   // Listen for external tab navigation requests (e.g. from DebugModeIndicator)
@@ -300,6 +300,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, [handleTabChange, isTransitioning]);
 
   const tabs: SettingsTabItem[] = [
+    {id: 'appearance', label: t('外观', 'Appearance'), icon: <Layout className="w-4 h-4" />},
+    {id: 'lists', label: 'GitHub Lists', icon: <Package className="w-4 h-4" />},
     {
       id: 'general',
       label: t('通用', 'General'),
@@ -345,6 +347,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const renderTabContent = () => {
     const content = (() => {
       switch (displayTab) {
+        case 'appearance': return <AppearancePanel t={t} />;
+        case 'lists': return <React.Suspense fallback={<p>{t('加载中…','Loading…')}</p>}><GitHubListsPanel t={t} /><ListMembershipPanel t={t} /></React.Suspense>;
         case 'general':
           return <GeneralPanel t={t} />;
         case 'ai':

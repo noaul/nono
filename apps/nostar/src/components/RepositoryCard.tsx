@@ -61,6 +61,7 @@ const SelectionAwareButton: React.FC<SelectionAwareButtonProps> = ({
   return (
     <button
       {...props}
+      aria-label={props['aria-label'] ?? props.title}
       onClick={handleClick}
       disabled={disabled || selectionMode}
       className={`${baseClasses} ${variantClasses[variant]} ${selectionClasses} ${className}`}
@@ -114,6 +115,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
     activeAIConfig,
     setAnalyzingRepository,
     language,
+    displayPreferences,
     updateRepository,
     deleteRepository,
     vectorSearchConfig,
@@ -130,6 +132,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
         activeAIConfig: state.activeAIConfig,
         setAnalyzingRepository: state.setAnalyzingRepository,
         language: state.language,
+        displayPreferences: state.displayPreferences,
         updateRepository: state.updateRepository,
         deleteRepository: state.deleteRepository,
         vectorSearchConfig: state.vectorSearchConfig,
@@ -220,6 +223,8 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
     highlightCache.set(cacheKey, result);
     return result;
   }, []);
+
+  const cardFields = displayPreferences.cardFields;
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -824,7 +829,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
     // 检查点击目标是否是交互元素或其子元素
     const target = event.target as HTMLElement;
     // 排除卡片本身的 role="button"，只检查子元素的交互元素
-    const isInteractiveElement = target.closest('button, a, input, textarea, select, [draggable="true"]');
+    const isInteractiveElement = target.closest('button, a, input, textarea, select, [draggable="true"], details, summary');
 
     // 如果点击的是交互元素，不处理
     if (isInteractiveElement) return;
@@ -864,7 +869,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
   
   const handleCardKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     // 如果任何模态框打开，不处理键盘事件
-    if (isModalOpen) return;
+    if (isModalOpen || event.target !== event.currentTarget) return;
     
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -957,7 +962,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
       </div>
 
       {/* Action Buttons Row - Left and Right Aligned */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="hidden sm:flex items-center justify-between mb-4">
         {/* Left side: AI Analysis, Release Subscription, and Edit */}
         <div className="flex items-center gap-1.5">
           <SelectionAwareButton
@@ -1030,8 +1035,20 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
         </div>
       </div>
 
+      <details className="relative mb-4 sm:hidden" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+        <summary className={`rounded-lg border px-3 py-2 text-sm cursor-pointer ${selectionMode ? 'pointer-events-none opacity-50' : ''}`}>{t('仓库操作', 'Repository actions')}</summary>
+        <div className="mt-2 flex flex-col gap-2 rounded-lg border p-3 bg-white dark:bg-panel-dark">
+          <button disabled={selectionMode || isAnalyzing} onClick={handleAIAnalyze}>{t('AI 分析','AI analysis')}</button>
+          <button disabled={selectionMode} onClick={() => toggleReleaseSubscription(repository.id)}>{isSubscribed ? t('取消订阅发布','Unsubscribe from releases') : t('订阅发布','Subscribe to releases')}</button>
+          <button disabled={selectionMode} onClick={() => setEditModalOpen(true)}>{t('编辑与分类','Edit and categorize')}</button>
+          <a href={repository.html_url} target="_blank" rel="noopener noreferrer" aria-disabled={selectionMode} onClick={e => selectionMode && e.preventDefault()}>GitHub</a>
+          <a href={language === 'zh' ? getZreadUrl(repository.full_name) : getDeepWikiUrl(repository.html_url)} target="_blank" rel="noopener noreferrer" aria-disabled={selectionMode} onClick={e => selectionMode && e.preventDefault()}>{language === 'zh' ? 'Zread' : 'DeepWiki'}</a>
+          <button disabled={selectionMode || unstarring} onClick={handleUnstar}>{t('取消 Star','Unstar')}</button>
+        </div>
+      </details>
+
       {/* Description with Tooltip */}
-      <div className="mb-4 flex-1">
+      <div className="mb-4 flex-1" hidden={!cardFields.description}>
         <div
           ref={descTriggerRef}
           className="relative group"
@@ -1093,7 +1110,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
       </div>
 
       {/* Tags - 未AI分析时显示Topics，AI分析后显示AI标签 */}
-      {displayTags.tags.length > 0 && (
+      {cardFields.tags && displayTags.tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {displayTags.tags.map((tagItem, index) => (
             <span
@@ -1135,7 +1152,7 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
       <div className="space-y-3 mt-auto">
         {/* Language and Stars */}
         <div className="flex items-center space-x-4 text-sm text-gray-700 dark:text-text-secondary">
-          {repository.language && (
+          {cardFields.language && repository.language && (
             <div className="flex items-center space-x-1">
               <div
                 className="w-3 h-3 rounded-full"
@@ -1144,17 +1161,18 @@ const RepositoryCardComponent: React.FC<RepositoryCardProps> = ({
               <span className="truncate max-w-20">{repository.language}</span>
             </div>
           )}
-          <div className="flex items-center space-x-1">
+          <div hidden={!cardFields.stars} className={cardFields.stars ? "flex items-center space-x-1" : "hidden"}>
             <Star className="w-4 h-4" />
             <span>{formatNumber(repository.stargazers_count)}</span>
           </div>
         </div>
 
+        {cardFields.license && repository.license && <span className="text-xs text-gray-600 dark:text-text-secondary">{repository.license.spdx_id && repository.license.spdx_id !== 'NOASSERTION' ? repository.license.spdx_id : repository.license.name}</span>}
         {/* Update Time / 查找相似仓库 - 悬停时时间淡出，显示高亮按钮 */}
         <div className="flex items-center justify-between text-sm text-gray-700 dark:text-text-secondary pt-2 border-t border-black/[0.04] dark:border-white/[0.04]">
           <div className="relative flex items-center space-x-1 min-w-0">
-            <Calendar className={`w-4 h-4 flex-shrink-0 transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`} />
-            <span className={`truncate transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`}>
+            <Calendar className={`${cardFields.updated ? '' : 'hidden'} w-4 h-4 flex-shrink-0 transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`} />
+            <span hidden={!cardFields.updated} className={`truncate transition-opacity duration-150 ${vectorSearchAvailable && !selectionMode ? 'group-hover:opacity-0' : ''}`}>
               {language === 'zh' ? '最近提交' : 'Last pushed'} {formatRelativeTime(repository.pushed_at || repository.updated_at, language)}
             </span>
 
@@ -1246,6 +1264,8 @@ export const RepositoryCard = React.memo(RepositoryCardComponent, (prevProps, ne
     prevProps.repository.custom_tags === nextProps.repository.custom_tags &&
     prevProps.repository.custom_category === nextProps.repository.custom_category &&
     prevProps.repository.category_locked === nextProps.repository.category_locked &&
+    prevProps.repository.license === nextProps.repository.license &&
+    prevProps.repository.language === nextProps.repository.language &&
     prevProps.repository.description === nextProps.repository.description &&
     prevProps.repository.topics === nextProps.repository.topics &&
     prevProps.repository.stargazers_count === nextProps.repository.stargazers_count &&

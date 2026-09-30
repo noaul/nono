@@ -1,3 +1,7 @@
+import { getStorageScope } from '../services/storageScope';
+import { defaultDisplayPreferences, normalizeDisplayPreferences, normalizeListSettings, type DisplayPreferences } from '../utils/displayPreferences';
+import { buildListsImportPlan } from './helpers/listsPushPlan';
+import type { GitHubList } from '../utils/githubLists';
 import { create } from 'zustand';
 import { hasReleaseChanged } from '../utils/releaseAssets';
 import { normalizeAssetFilters } from '../utils/assetFilters';
@@ -88,6 +92,7 @@ const cancelIdleTask = (id: number): void => {
 let persistTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let persistIdleTaskId: number | null = null;
 let latestPersistName: string | null = null;
+let latestPersistScope = "";
 let latestPersistValue: StorageValue<unknown> | null = null;
 let persistWriteVersion = 0;
 let persistFlushListenersRegistered = false;
@@ -110,7 +115,7 @@ const writePersistSnapshot = (
   version: number,
   source: 'idle' | 'flush'
 ): void => {
-  if (latestPersistValue === null || latestPersistName !== name || persistWriteVersion !== version) {
+  if (latestPersistValue === null || latestPersistName !== name || persistWriteVersion !== version || latestPersistScope !== getStorageScope()) {
     return;
   }
 
@@ -188,6 +193,7 @@ const debouncedPersistStorage: PersistStorage<unknown> = {
   setItem: (name: string, value: StorageValue<unknown>) => {
     registerPersistFlushListeners();
     latestPersistName = name;
+    latestPersistScope = getStorageScope();
     latestPersistValue = value;
     persistWriteVersion++;
     const scheduledVersion = persistWriteVersion;
@@ -397,6 +403,10 @@ interface AppActions {
   setSelectedCategory: (category: string) => void;
   setLanguage: (language: 'zh' | 'en') => void;
   setTranslationEngine: (engine: 'microsoft' | 'google') => void;
+  setDisplayPreferences: (preferences: Partial<DisplayPreferences>) => void;
+  setCategoryListIdMap: (map: Record<string,string>) => void;
+  importGitHubLists: (lists: GitHubList[]) => void;
+  setLocalListMembers: (categoryId: string, names: string[]) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setReadmeModalOpen: (open: boolean) => void;
   setHeaderMenuConfig: (config: HeaderMenuItem[]) => void;
@@ -524,6 +534,9 @@ type PersistedAppState = Partial<
     | 'currentView'
     | 'selectedCategory'
     | 'language'
+    | 'displayPreferences'
+    | 'categoryListIdMap'
+    | 'githubListMemberships'
     | 'translationEngine'
     | 'searchFilters'
     | 'isSidebarCollapsed'
@@ -744,6 +757,8 @@ export const normalizePersistedState = (
     releaseSubscriptions: normalizeNumberSet(safePersisted.releaseSubscriptions),
     releaseSourceSettings: normalizeReleaseSourceSettings(safePersisted.releaseSourceSettings),
     readReleases: normalizeNumberSet(safePersisted.readReleases),
+    displayPreferences: normalizeDisplayPreferences(safePersisted.displayPreferences),
+    ...normalizeListSettings(safePersisted.categoryListIdMap, safePersisted.githubListMemberships),
     translationEngine: safePersisted.translationEngine === 'google' ? 'google' : 'microsoft',
     readForks: normalizeNumberSet(safePersisted.readForks),
     forks: Array.isArray(safePersisted.forks) ? safePersisted.forks : [],
@@ -1192,6 +1207,9 @@ export const useAppStore = create<AppState & AppActions>()(
       selectedCategory: 'all',
       language: currentLocale(),
       translationEngine: 'microsoft',
+      displayPreferences: normalizeDisplayPreferences(defaultDisplayPreferences),
+      categoryListIdMap: {},
+      githubListMemberships: {},
       updateNotification: null,
       analysisProgress: { current: 0, total: 0 },
       backendApiSecret: readSessionBackendSecret(),
@@ -1256,6 +1274,9 @@ export const useAppStore = create<AppState & AppActions>()(
         }));
       },
       logout: () => set({
+        displayPreferences: normalizeDisplayPreferences(null),
+        categoryListIdMap: {},
+        githubListMemberships: {},
         user: null,
         githubToken: null,
         isAuthenticated: false,
@@ -1274,6 +1295,18 @@ export const useAppStore = create<AppState & AppActions>()(
         searchResults: [],
         similarView: null,
         lastSync: null,
+      }),
+
+      setDisplayPreferences: (preferences) => set(state => ({displayPreferences: normalizeDisplayPreferences({...state.displayPreferences, ...preferences, cardFields: {...state.displayPreferences.cardFields, ...preferences.cardFields}})})),
+      setCategoryListIdMap: (map) => set({categoryListIdMap: normalizeListSettings(map, {}).categoryListIdMap}),
+      setLocalListMembers: (categoryId, names) => set(state => state.categoryListIdMap[categoryId] ? {githubListMemberships: {...state.githubListMemberships, ...normalizeListSettings({}, {[categoryId]: names}).githubListMemberships}} : {}),
+      importGitHubLists: (lists) => set(state => {
+        const plan = buildListsImportPlan(lists, getAllCategories(state.customCategories, state.language, state.hiddenDefaultCategoryIds, state.defaultCategoryOverrides), state.categoryListIdMap, state.githubListMemberships, state.repositories);
+        return {
+          customCategories: [...state.customCategories, ...plan.categoriesToAdd],
+          categoryListIdMap: plan.categoryListIdMap,
+          githubListMemberships: plan.githubListMemberships,
+        };
       }),
 
       // Repository actions
@@ -1994,9 +2027,12 @@ export const useAppStore = create<AppState & AppActions>()(
       deleteCustomCategory: (id) => set((state) => {
         const targetCategory = state.customCategories.find(category => category.id === id);
         const nextSelectedCategory = state.selectedCategory === id ? 'all' : state.selectedCategory;
+        const categoryListIdMap = {...state.categoryListIdMap}; delete categoryListIdMap[id];
+        const githubListMemberships = {...state.githubListMemberships}; delete githubListMemberships[id];
 
         if (!targetCategory) {
           return {
+            categoryListIdMap, githubListMemberships,
             customCategories: state.customCategories.filter(category => category.id !== id),
             selectedCategory: nextSelectedCategory
           };
@@ -2009,6 +2045,7 @@ export const useAppStore = create<AppState & AppActions>()(
         );
 
         return {
+          categoryListIdMap, githubListMemberships,
           customCategories: state.customCategories.filter(category => category.id !== id),
           repositories: clearedRepositories,
           searchResults: state.searchResults.map(repo =>
@@ -2306,6 +2343,10 @@ export const useAppStore = create<AppState & AppActions>()(
 
         // 持久化资源过滤器
         assetFilters: state.assetFilters,
+
+        displayPreferences: state.displayPreferences,
+        categoryListIdMap: state.categoryListIdMap,
+        githubListMemberships: state.githubListMemberships,
 
         // 持久化UI设置
         translationEngine: state.translationEngine,

@@ -1,3 +1,4 @@
+import { useModalLifecycle } from '../hooks/useModalLifecycle';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { X, Loader2, AlertCircle, FileText, ExternalLink, List, Type, ArrowUp, Languages, Eye } from 'lucide-react';
 import BilingualMarkdownRenderer, { DisplayMode, BilingualMarkdownRendererHandle, TranslationStatus } from './BilingualMarkdownRenderer';
@@ -66,7 +67,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
 
   const modalRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const modalLayer = useModalLifecycle(isOpen && !!repository, onClose, modalRef);
   const abortControllerRef = useRef<AbortController | null>(null);
   const variantsAbortControllerRef = useRef<AbortController | null>(null);
   const isResizingRef = useRef(false);
@@ -561,30 +562,6 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      previousFocusRef.current = document.activeElement as HTMLElement;
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 0);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      if (document.body.style.overflow === 'hidden') {
-        document.body.style.overflow = 'unset';
-      }
-      previousFocusRef.current?.focus();
-    };
-  }, [isOpen, onClose]);
 
   if (!isOpen || !repository) return null;
 
@@ -618,7 +595,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
   const currentReadmeVariant = readmeVariants.find(variant => variant.key === selectedReadmeKey) || defaultReadmeVariant;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div style={{zIndex:modalLayer}} className="fixed inset-0 overflow-y-auto">
       <div
         className="flex min-h-full items-center justify-center p-4 bg-black/50 transition-opacity"
         onClick={handleBackdropClick}

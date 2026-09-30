@@ -1,11 +1,16 @@
+import { useModalLifecycle } from '../hooks/useModalLifecycle';
 import React, { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import { Copy, Check, Download } from 'lucide-react';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import remarkMath from 'remark-math';
+import remarkAlerts from '../utils/remarkAlerts';
+import { MarkdownMath, MarkdownDiagram } from './MarkdownEnhancements';
+import './markdown-enhancements.css';
+import { Copy, Check, Download, Info, Lightbulb, MessageSquare, TriangleAlert, OctagonAlert } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { safeWriteText, getClipboardErrorMessage } from '../utils/clipboardUtils';
 import { hljs, normalizeHighlightLanguage } from '../services/highlight';
@@ -20,8 +25,16 @@ interface MarkdownRendererProps {
   fontSize?: 'small' | 'medium' | 'large';
 }
 
-const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
-const REHYPE_PLUGINS_WITH_HTML = [rehypeRaw, rehypeSanitize];
+const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkAlerts, remarkBreaks];
+const README_SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    blockquote: [...(defaultSchema.attributes?.blockquote ?? []), 'dataMarkdownAlert'],
+    code: [...(defaultSchema.attributes?.code ?? []).filter(attr => (Array.isArray(attr) ? attr[0] : attr) !== 'className'), ['className', /^language-./, 'math-inline', 'math-display']],
+  },
+};
+const REHYPE_PLUGINS_WITH_HTML: NonNullable<React.ComponentProps<typeof ReactMarkdown>['rehypePlugins']> = [rehypeRaw, [rehypeSanitize, README_SANITIZE_SCHEMA]];
 const REHYPE_PLUGINS_NO_HTML: never[] = [];
 
 const CodeBlock: React.FC<{
@@ -339,19 +352,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
     setZoomPos({ x: 0, y: 0 });
   }, []);
 
-  useEffect(() => {
-    if (!isZoomed) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeZoom();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isZoomed, closeZoom]);
+  const zoomLayer = useModalLifecycle(isZoomed, closeZoom, zoomOverlayRef);
 
   useEffect(() => {
     if (!isZoomed || !zoomOverlayRef.current) return;
@@ -602,7 +603,12 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
       {isZoomed && createPortal(
         <div
           ref={zoomOverlayRef}
-          className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center cursor-default select-none"
+          role="dialog"
+          aria-modal="true"
+          aria-label={language === 'zh' ? '图片预览' : 'Image preview'}
+          tabIndex={-1}
+          style={{zIndex:zoomLayer}}
+          className="fixed inset-0 bg-black/90 flex items-center justify-center cursor-default select-none"
           onClick={() => {
             if (!isDragging) {
               closeZoom();
@@ -684,6 +690,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
                   e.stopPropagation();
                   closeZoom();
                 }}
+                aria-label={language === 'zh' ? '关闭图片预览' : 'Close image preview'}
                 title={language === 'zh' ? '关闭 (Esc)' : 'Close (Esc)'}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -757,7 +764,12 @@ const extractTextFromChildren = (children: React.ReactNode): string => {
     if (typeof children === 'number') return String(children);
     if (Array.isArray(children)) return children.map(inner).join('');
     if (React.isValidElement(children)) {
-      return inner((children.props as { children?: React.ReactNode }).children);
+      const props = children.props as { children?: React.ReactNode; className?: string };
+      if (props.className?.split(' ').includes('language-math')) {
+        const delimiter = props.className.split(' ').includes('math-display') ? '$$' : '$';
+        return `${delimiter}${inner(props.children).replace(/\n$/, '')}${delimiter}`;
+      }
+      return inner(props.children);
     }
     return '';
   };
@@ -878,14 +890,23 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
       <del className="line-through text-gray-500 dark:text-text-tertiary">{children}</del>
     ),
     code: ({ className, children, ...props }) => {
+      const codeProps = { ...props };
+      delete codeProps.node;
+      if (className?.split(' ').includes('language-math')) {
+        return <MarkdownMath source={String(children).replace(/\n$/, '')} display={className.split(' ').includes('math-display')} />;
+      }
       // 检查 props 中是否有 'data-code-block' 标记（由 pre 组件添加）
       const isCodeBlock = 'data-code-block' in props || !!className;
       const isInline = !isCodeBlock;
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
 
+      if (language.toLowerCase() === 'mermaid') {
+        return <MarkdownDiagram source={String(children).replace(/\n$/, '')} fallback={<CodeBlock className={className} language={language}>{children}</CodeBlock>} />;
+      }
+
       return isInline ? (
-        <code className="px-1.5 py-0.5 bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-gray-200 rounded-sm text-xs font-mono" {...props}>
+        <code className="px-1.5 py-0.5 bg-light-surface dark:bg-white/[0.04] text-gray-900 dark:text-gray-200 rounded-sm text-xs font-mono" {...codeProps}>
           {children}
         </code>
       ) : (
@@ -896,18 +917,27 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
     },
     pre: ({ children }) => {
       // 给 code 子元素添加标记，表明它是代码块而不是行内代码
-      if (React.isValidElement(children) && children.type === 'code') {
+      if (React.isValidElement(children) && (children.type === 'code' || (children.props as { node?: { tagName?: string } }).node?.tagName === 'code')) {
         type CodeBlockMarkerProps = React.ComponentPropsWithoutRef<'code'> & { 'data-code-block'?: boolean };
         return <>{React.cloneElement(children as React.ReactElement<CodeBlockMarkerProps>, { 'data-code-block': true })}</>;
       }
       // 对于非 code 子元素（如 ASCII 字符画），保留 pre 标签
       return <pre>{children}</pre>;
     },
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-black/[0.06] dark:border-white/[0.04] pl-4 py-1 my-2 text-gray-700 dark:text-text-tertiary italic bg-light-bg dark:bg-panel-dark/50 rounded-r">
+    blockquote: ({ children, node }) => {
+      const type = String(node?.properties?.dataMarkdownAlert ?? '');
+      const alerts = { note: Info, tip: Lightbulb, important: MessageSquare, warning: TriangleAlert, caution: OctagonAlert };
+      if (Object.prototype.hasOwnProperty.call(alerts, type)) {
+        const Icon = alerts[type as keyof typeof alerts];
+        return <blockquote className="markdown-alert" data-markdown-alert={type}>
+          <div className="markdown-alert-title"><Icon aria-hidden="true" />{type[0].toUpperCase() + type.slice(1)}</div>
+          {children}
+        </blockquote>;
+      }
+      return <blockquote className="border-l-4 border-black/[0.06] dark:border-white/[0.04] pl-4 py-1 my-2 text-gray-700 dark:text-text-tertiary italic bg-light-bg dark:bg-panel-dark/50 rounded-r">
         {children}
-      </blockquote>
-    ),
+      </blockquote>;
+    },
     hr: () => <hr className="my-4 border-black/[0.06] dark:border-white/[0.04]" />,
     table: ({ children }) => (
       <div className="overflow-x-auto my-3">

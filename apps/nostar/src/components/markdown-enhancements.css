@@ -1,0 +1,32 @@
+.markdown-alert {
+  --markdown-alert-color: var(--color-brand-violet, #7c3aed);
+  border-left: 3px solid var(--markdown-alert-color);
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  font-style: normal;
+  background: color-mix(in srgb, var(--markdown-alert-color) 6%, transparent);
+}
+.markdown-alert[data-markdown-alert="note"] { --markdown-alert-color: #2563eb; }
+.markdown-alert[data-markdown-alert="tip"] { --markdown-alert-color: #15803d; }
+.markdown-alert[data-markdown-alert="warning"] { --markdown-alert-color: #a16207; }
+.markdown-alert[data-markdown-alert="caution"] { --markdown-alert-color: #dc2626; }
+.markdown-alert-title { display: flex; align-items: center; gap: 0.5rem; color: var(--markdown-alert-color); font-weight: 600; margin-bottom: 0.5rem; }
+.markdown-alert-title svg { width: 1.1rem; height: 1.1rem; flex: none; }
+.markdown-alert p::before, .markdown-alert p::after { content: none; }
+.markdown-alert > :last-child { margin-bottom: 0; }
+.dark .markdown-alert[data-markdown-alert="note"] { --markdown-alert-color: #60a5fa; }
+.dark .markdown-alert[data-markdown-alert="tip"] { --markdown-alert-color: #4ade80; }
+.dark .markdown-alert[data-markdown-alert="warning"] { --markdown-alert-color: #facc15; }
+.dark .markdown-alert[data-markdown-alert="caution"] { --markdown-alert-color: #f87171; }
+.markdown-math-display { display: block; max-width: 100%; overflow-x: auto; padding: 0.3rem 0; }
+.markdown-math-source { white-space: pre-wrap; font-family: ui-monospace, monospace; }
+.markdown-diagram { min-width: 0; margin: 1rem 0; }
+.markdown-diagram-output { overflow-x: auto; padding: 1rem; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 0.75rem; background: #fff; color: #111827; }
+.markdown-diagram-output svg { display: block; max-width: 100%; height: auto; margin: auto; }
+.markdown-diagram-source > summary { cursor: pointer; font-size: 0.8rem; padding: 0.5rem 0; opacity: 0.75; }
+.markdown-diagram-error { font-size: 0.8rem; opacity: 0.75; }
+@media (max-width: 640px) {
+  .markdown-alert { padding: 0.65rem 0.75rem; }
+  .markdown-diagram-output { padding: 0.5rem; }
+}

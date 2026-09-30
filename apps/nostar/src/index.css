@@ -1427,3 +1427,15 @@ textarea::-webkit-resizer {
 }
 
 }
+
+/* Per-account NoStar appearance layered on the shared NoNo theme. */
+html[data-nostar-font="small"] { font-size: 14px; }
+html[data-nostar-font="large"] { font-size: 18px; }
+html[data-nostar-reduced-motion="true"] *, html[data-nostar-reduced-motion="true"] *::before, html[data-nostar-reduced-motion="true"] *::after {
+  animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--ui-accent, #6366f1); outline-offset: 3px; }

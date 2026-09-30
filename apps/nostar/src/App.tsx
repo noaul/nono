@@ -37,6 +37,7 @@ function App() {
     currentView,
     selectedCategory,
     theme,
+    displayPreferences,
     language,
     hasHydrated,
     searchResults,
@@ -44,6 +45,12 @@ function App() {
     repositories,
     setSelectedCategory,
   } = useAppStore();
+
+  useEffect(() => {
+    document.documentElement.dataset.nostarFont = displayPreferences.fontSize;
+    document.documentElement.dataset.nostarReducedMotion = String(displayPreferences.reducedMotion);
+    return () => { delete document.documentElement.dataset.nostarFont; delete document.documentElement.dataset.nostarReducedMotion; };
+  }, [displayPreferences.fontSize, displayPreferences.reducedMotion]);
 
   useAutoUpdateCheck();
 
@@ -105,6 +112,7 @@ function App() {
   useEffect(() => watchLocale((locale) => useAppStore.setState({ language: locale })), []);
 
   useEffect(() => {
+    if (nonoSession !== 'authenticated' || !hasHydrated) return;
     let unsubscribe: (() => void) | null = null;
     let cancelled = false;
 
@@ -130,7 +138,7 @@ function App() {
         stopAutoSync(unsubscribe);
       }
     };
-  }, []);
+  }, [nonoSession, hasHydrated]);
 
   const handleCategorySelect = useCallback((category: string) => {
     // 相似仓库视图下点击分类 = 离开相似视图并切换到该分类，避免交互歧义

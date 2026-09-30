@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CategorySidebar } from '../components/CategorySidebar';
 import { RepositoryList } from '../components/RepositoryList';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../store/useAppStore';
 import type { AppState, SearchFilters } from '../types';
+
+const BatchStarModal = React.lazy(() => import('../components/BatchStarModal').then(module => ({default: module.BatchStarModal})));
 
 function hasActiveSearchFilters(filters: SearchFilters): boolean {
   return (
@@ -38,6 +40,8 @@ const RepositoriesView = React.memo(({
   selectedCategory,
   onCategorySelect,
 }: RepositoriesViewProps) => {
+  const [batchOpen, setBatchOpen] = useState(false);
+  const language = useAppStore(state => state.language);
   const isActive = hasActiveSearchFilters(searchFilters);
   const similarView = useAppStore((state) => state.similarView);
   const exitSimilarView = useAppStore((state) => state.exitSimilarView);
@@ -58,6 +62,11 @@ const RepositoriesView = React.memo(({
         onCategorySelect={onCategorySelect}
       />
       <div className="flex-1 space-y-6">
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => setBatchOpen(true)}>{language === 'zh' ? '批量 Star' : 'Batch Star'}</button>
+          <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => {sessionStorage.setItem('gsm:pending-settings-tab', 'lists'); useAppStore.getState().setCurrentView('settings');}} >GitHub Lists</button>
+        </div>
+        {batchOpen && <React.Suspense fallback={<p role="status">{language === 'zh' ? '加载中…' : 'Loading…'}</p>}><BatchStarModal isOpen onClose={() => setBatchOpen(false)} /></React.Suspense>}
         <SearchBar />
         <RepositoryList
           repositories={listRepositories}

@@ -80,8 +80,9 @@ export const computeCustomCategory = (
   return categoryName;
 };
 
-export const matchesCategory = (repo: Repository, category: Category): boolean => {
+export const matchesCategory = (repo: Repository, category: Category, memberships: Record<string, string[]> = {}): boolean => {
   if (category.id === 'all') return true;
+  if (memberships[category.id]?.includes(repo.full_name.toLowerCase())) return true;
 
   if (repo.custom_category != null) {
     if (repo.custom_category === '') {

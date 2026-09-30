@@ -1,3 +1,4 @@
+import { readBatchTwoSettings } from '../../utils/displayPreferences';
 import { normalizeAssetFilters } from '../../utils/assetFilters';
 import React, { useState, useEffect } from 'react';
 import { Server, TestTube, RefreshCw, Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
@@ -111,6 +112,9 @@ export const BackendPanel: React.FC<BackendPanelProps> = ({ t }) => {
             categoryOrder,
             customCategories,
             assetFilters,
+            displayPreferences: useAppStore.getState().displayPreferences,
+            categoryListIdMap: useAppStore.getState().categoryListIdMap,
+            githubListMemberships: useAppStore.getState().githubListMemberships,
             translationEngine: useAppStore.getState().translationEngine,
             releaseSubscriptions: Array.from(useAppStore.getState().releaseSubscriptions),
             defaultCategoryOverrides: useAppStore.getState().defaultCategoryOverrides,
@@ -164,6 +168,7 @@ export const BackendPanel: React.FC<BackendPanelProps> = ({ t }) => {
       const aiConfigData = await backend.fetchAIConfigs();
       const webdavConfigData = await backend.fetchWebDAVConfigs();
       const settingsData = await backend.fetchSettings();
+      useAppStore.setState(readBatchTwoSettings(settingsData));
 
       // Always apply backend snapshot to state (empty array allowed)
       setRepositories(repoData.repositories);

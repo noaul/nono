@@ -37,6 +37,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
     customCategories,
     hiddenDefaultCategoryIds,
     defaultCategoryOverrides,
+    githubListMemberships,
     analysisProgress,
     setAnalysisProgress,
     searchFilters,
@@ -79,8 +80,8 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
     
     const selectedCategoryObj = allCategories.find(cat => cat.id === selectedCategory);
     if (!selectedCategoryObj) return [];
-    return repositories.filter(repo => matchesCategory(repo, selectedCategoryObj));
-  }, [repositories, selectedCategory, allCategories]);
+    return repositories.filter(repo => matchesCategory(repo, selectedCategoryObj, githubListMemberships));
+  }, [repositories, selectedCategory, allCategories, githubListMemberships]);
 
   // 根据当前筛选的仓库中是否有AI分析内容来动态设置默认显示模式
   const hasAnalyzedRepos = useMemo(() => 

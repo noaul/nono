@@ -20,7 +20,7 @@ function getBlockType(tagName: string): DomBlockSegment['blockType'] {
 }
 
 function hasVisualContent(element: HTMLElement): boolean {
-  return element.querySelectorAll('img, svg, pre, video, iframe, picture').length > 0;
+  return element.querySelectorAll('img, svg, pre, video, iframe, picture, [data-translate="false"]').length > 0;
 }
 
 interface ExtractedText {
@@ -81,6 +81,7 @@ function extractTextPreservingInlineCode(element: HTMLElement): ExtractedText {
 }
 
 function isInsideSkippedElement(element: HTMLElement, root: HTMLElement): boolean {
+  if (element.closest('[data-translate="false"]')) return true;
   let parent = element.parentElement;
   while (parent && parent !== root) {
     const tag = parent.tagName;

@@ -8,7 +8,7 @@ import { createRelease } from '../test/releaseFixtures';
 describe('Release and translation settings sync', () => {
   beforeEach(() => {
     stopAutoSync(() => {});
-    useAppStore.setState({repositories: [], releases: [createRelease({id: 47, is_read: false})], readReleases: new Set([47]), releaseSubscriptions: new Set([10]), aiConfigs: [], webdavConfigs: [], embeddingConfigs: [], translationEngine: 'google', defaultCategoryOverrides: {tools: {name: 'Custom tools'}}});
+    useAppStore.setState({repositories: [], releases: [createRelease({id: 47, is_read: false})], readReleases: new Set([47]), releaseSubscriptions: new Set([10]), aiConfigs: [], webdavConfigs: [], embeddingConfigs: [], displayPreferences: {fontSize:'large',reducedMotion:true,cardFields:{description:false,tags:true,language:true,stars:true,license:true,updated:true}}, categoryListIdMap:{cat:'LIST'},githubListMemberships:{cat:['owner/repo']}, translationEngine: 'google', defaultCategoryOverrides: {tools: {name: 'Custom tools'}}});
     vi.spyOn(backend, 'isAvailable', 'get').mockReturnValue(true);
     vi.spyOn(backend, 'syncRepositories').mockResolvedValue();
     vi.spyOn(backend, 'syncReleases').mockResolvedValue();
@@ -22,7 +22,7 @@ describe('Release and translation settings sync', () => {
   it('sends the current read Set and new preferences to the per-user backend', async () => {
     await syncToBackend();
     expect(backend.syncReleases).toHaveBeenCalledWith([expect.objectContaining({id: 47, is_read: true})]);
-    expect(backend.syncSettings).toHaveBeenCalledWith(expect.objectContaining({translationEngine: 'google', releaseSubscriptions: [10], defaultCategoryOverrides: {tools: {name: 'Custom tools'}}}));
+    expect(backend.syncSettings).toHaveBeenCalledWith(expect.objectContaining({displayPreferences: expect.objectContaining({fontSize:'large',reducedMotion:true}),categoryListIdMap:{cat:'LIST'},githubListMemberships:{cat:['owner/repo']},translationEngine: 'google', releaseSubscriptions: [10], defaultCategoryOverrides: {tools: {name: 'Custom tools'}}}));
   });
   it('adopts remote read flags and preferences including explicit empty subscriptions', async () => {
     vi.spyOn(backend, 'fetchRepositories').mockResolvedValue({repositories: [], total: 0});
@@ -31,11 +31,14 @@ describe('Release and translation settings sync', () => {
     vi.spyOn(backend, 'fetchWebDAVConfigs').mockResolvedValue([]);
     vi.spyOn(backend, 'fetchEmbeddingConfigs').mockResolvedValue([]);
     vi.spyOn(backend, 'fetchVectorSearchConfig').mockResolvedValue(useAppStore.getState().vectorSearchConfig);
-    vi.spyOn(backend, 'fetchSettings').mockResolvedValue({translationEngine: 'microsoft', releaseSubscriptions: [], defaultCategoryOverrides: {}});
+    vi.spyOn(backend, 'fetchSettings').mockResolvedValue({displayPreferences:{fontSize:'small'},categoryListIdMap:{},githubListMemberships:{},translationEngine: 'microsoft', releaseSubscriptions: [], defaultCategoryOverrides: {}});
     await syncFromBackend();
     expect([...useAppStore.getState().readReleases]).toEqual([92]);
     expect([...useAppStore.getState().releaseSubscriptions]).toEqual([]);
     expect(useAppStore.getState().defaultCategoryOverrides).toEqual({});
     expect(useAppStore.getState().translationEngine).toBe('microsoft');
+    expect(useAppStore.getState().displayPreferences.fontSize).toBe('small');
+    expect(useAppStore.getState().categoryListIdMap).toEqual({});
+    expect(useAppStore.getState().githubListMemberships).toEqual({});
   });
 });

@@ -46,6 +46,63 @@ test.describe('NoStar browser flows', () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fnostar%2F$/);
   });
 
+  test('batch preview, Lists import, appearance and README work on desktop and mobile', async ({ page }, testInfo) => {
+    await installAuthenticatedMocks(page);
+    let starWrites = 0;
+    await page.route('**/api/nostar/proxy/github/user/starred/**', async route => {starWrites++; await json(route, {});});
+    await page.goto(`${nostarBaseURL}/nostar/`);
+    await expect(page.getByRole('heading', {name:'连接GitHub'})).toBeVisible();
+    await page.locator('input[type="password"]').fill('ghp_nostar_e2e_token');
+    await page.getByRole('button', {name:'连接到GitHub'}).click();
+    const card = page.getByRole('button', {name:/owner\/e2e-repo/});
+    await expect(card).toBeVisible();
+    await page.getByRole('button', {name:'批量 Star',exact:true}).click();
+    const dialog = page.getByRole('dialog',{name:'批量 Star'});
+    await dialog.getByRole('textbox',{name:'粘贴仓库'}).fill('https://github.com/owner/e2e-repo');
+    await dialog.getByRole('button',{name:'预览仓库'}).click();
+    await expect(dialog.getByText('已在本地 Star 仓库中')).toBeVisible();
+    expect(starWrites).toBe(0);
+    await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+    if(testInfo.project.name === 'mobile-chromium') {
+      await card.locator('summary').click();
+      await card.getByRole('button',{name:'编辑与分类'}).focus(); await page.keyboard.press('Enter');
+      await expect(page.getByRole('heading',{name:'编辑仓库信息'})).toBeVisible();
+      await expect(page.getByRole('heading',{name:'owner/e2e-repo',exact:true})).toBeHidden();
+      await page.keyboard.press('Escape');
+      await card.locator('summary').click();
+    }
+    await card.click();
+    await expect(page.getByText('Keep this note')).toBeVisible();
+    await expect(page.locator('.katex').first()).toBeVisible();
+    await expect(page.locator('.markdown-diagram-output svg')).toBeVisible();
+    await page.getByRole('button',{name:'Close',exact:true}).click();
+    await page.getByRole('button',{name:'GitHub Lists',exact:true}).click();
+    await page.getByRole('button',{name:'刷新 GitHub Lists'}).click();
+    await page.getByLabel('Import Browser List').check();
+    await page.getByRole('button',{name:'导入所选列表'}).click();
+    await expect(page.getByText('已导入所选列表。')).toBeVisible();
+    await page.getByLabel('列表分类').selectOption('github-list-LIST_BROWSER');
+    const localMembers = page.getByRole('heading',{name:'编辑导入的分类成员'}).locator('..');
+    await localMembers.getByLabel('owner/e2e-repo',{exact:true}).uncheck();
+    await localMembers.getByRole('button',{name:'保存本地成员'}).click();
+    await expect(localMembers.getByText('本地成员已保存。请重新预览 GitHub 推送。')).toBeVisible();
+    await localMembers.getByLabel('owner/e2e-repo',{exact:true}).check();
+    await localMembers.getByRole('button',{name:'保存本地成员'}).click();
+
+    await page.getByRole('tab',{name:'外观',exact:true}).click();
+    await page.getByLabel('字号').selectOption('large');
+    await page.getByLabel('减少动画').check();
+    await page.getByLabel('描述',{exact:true}).uncheck();
+    await expect(page.locator('html')).toHaveAttribute('data-nostar-font','large');
+    await expect(page.locator('html')).toHaveAttribute('data-nostar-reduced-motion','true');
+    if(testInfo.project.name === 'mobile-chromium') await page.getByRole('button',{name:'菜单',exact:true}).click();
+    await page.getByRole('button',{name:'仓库',exact:true}).click();
+    await expect(card.getByText('A NoStar browser test repository')).toBeHidden();
+    await page.getByText('Browser List',{exact:true}).click();
+    await expect(card).toBeVisible();
+    expect(starWrites).toBe(0);
+  });
+
   test('logs in, navigates views, and opens repository dialogs', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'The full dialog flow is covered on desktop Chromium.');
 
@@ -127,11 +184,17 @@ async function handleNoStarApi(route: Route) {
       readmeMaxChars: 6000,
     });
   }
+  if (path === '/proxy/github/graphql') {
+    const body = request.postDataJSON();
+    return json(route, {data: body.query.includes('viewer { lists')
+      ? {viewer:{lists:{nodes:[{id:'LIST_BROWSER',name:'Browser List',description:'',isPrivate:true}],pageInfo:{hasNextPage:false,endCursor:null}}},rateLimit:{remaining:4000,cost:1,resetAt:'2026-10-01T00:00:00Z'}}
+      : {node:{items:{nodes:[{__typename:'Repository',id:'REPO_BROWSER',nameWithOwner:'owner/e2e-repo'}],pageInfo:{hasNextPage:false,endCursor:null}}}}});
+  }
   if (path === '/proxy/github/user') {
     return json(route, githubUser);
   }
   if (path === '/proxy/github/repos/owner/e2e-repo/readme') {
-    const content = Buffer.from('# NoStar E2E README\n\n```ts\nconst ready = true;\n```').toString('base64');
+    const content = Buffer.from('# NoStar E2E README\n\n> [!NOTE]\n> Keep this note\n\nInline $x^2$.\n\n```mermaid\ngraph TD; Start-->End\n```\n\n```ts\nconst ready = true;\n```').toString('base64');
     return json(route, { encoding: 'base64', content });
   }
   if (path === '/proxy/github/repos/owner/e2e-repo/git/trees/main') {

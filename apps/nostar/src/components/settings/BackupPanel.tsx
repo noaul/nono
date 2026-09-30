@@ -1,3 +1,4 @@
+import { readBatchTwoSettings } from '../../utils/displayPreferences';
 import { normalizeAssetFilters } from '../../utils/assetFilters';
 import React, { useState } from 'react';
 import { Download, Upload, RefreshCw, Cloud, AlertCircle } from 'lucide-react';
@@ -64,6 +65,9 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
       const webdavService = new WebDAVService(activeConfig);
 
       const backupData = {
+        displayPreferences: useAppStore.getState().displayPreferences,
+        categoryListIdMap: useAppStore.getState().categoryListIdMap,
+        githubListMemberships: useAppStore.getState().githubListMemberships,
         repositories,
         releases,
         releaseSubscriptions: Array.from(useAppStore.getState().releaseSubscriptions),
@@ -153,6 +157,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
 
       try {
         const backupData = JSON.parse(backupContent);
+        useAppStore.setState(readBatchTwoSettings(backupData));
         const backupIncludedKeys = backupData.includeKeysInBackup ?? true;
 
         if (Array.isArray(backupData.repositories)) {

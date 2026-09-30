@@ -1,3 +1,4 @@
+import { readBatchTwoSettings, normalizeDisplayPreferences, type DisplayPreferences } from '../../utils/displayPreferences';
 import { normalizeAssetFilters } from '../../utils/assetFilters';
 import { Github } from '../BrandIcons';
 import React, { useState, useCallback, useMemo } from 'react';
@@ -101,6 +102,9 @@ interface ExportData {
     readReleases?: number[];
     searchFilters?: SearchFilters;
     hiddenDefaultCategoryIds?: string[];
+    displayPreferences?: DisplayPreferences;
+    categoryListIdMap?: Record<string,string>;
+    githubListMemberships?: Record<string,string[]>;
     defaultCategoryOverrides?: Record<string, Partial<Category>>;
     categoryOrder?: string[];
     theme?: 'light' | 'dark';
@@ -328,6 +332,8 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
       useAppStore.setState({ 
         hiddenDefaultCategoryIds: [],
         defaultCategoryOverrides: {},
+        categoryListIdMap: {},
+        githubListMemberships: {},
         categoryOrder: [],
         collapsedSidebarCategoryCount: 20,
         isSidebarCollapsed: false
@@ -496,6 +502,8 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
           : store.webdavConfigs.map(cfg => ({ ...cfg, password: cfg.password ? MASKED_SECRET : '' }));
       }
       if (selectedTypes.includes('customCategories')) {
+        exportDataObj.data.categoryListIdMap = store.categoryListIdMap;
+        exportDataObj.data.githubListMemberships = store.githubListMemberships;
         exportDataObj.data.customCategories = store.customCategories;
         exportDataObj.data.hiddenDefaultCategoryIds = store.hiddenDefaultCategoryIds;
         exportDataObj.data.defaultCategoryOverrides = store.defaultCategoryOverrides;
@@ -524,6 +532,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
         exportDataObj.data.searchFilters = store.searchFilters;
       }
       if (selectedTypes.includes('uiSettings')) {
+        exportDataObj.data.displayPreferences = store.displayPreferences;
         exportDataObj.data.theme = store.theme;
         exportDataObj.data.language = store.language;
         exportDataObj.data.isSidebarCollapsed = store.isSidebarCollapsed;
@@ -599,6 +608,15 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
     try {
       const store = useAppStore.getState();
       const importedData = importPreview.data.data;
+      const batchSettings = readBatchTwoSettings(importedData as Record<string, unknown>);
+      const nextBatchSettings: ReturnType<typeof readBatchTwoSettings> = {};
+      if (selectedTypes.includes('uiSettings') && batchSettings.displayPreferences) nextBatchSettings.displayPreferences = batchSettings.displayPreferences;
+      if (selectedTypes.includes('customCategories')) {
+        nextBatchSettings.categoryListIdMap = mode === 'replace' ? batchSettings.categoryListIdMap ?? {} : {...store.categoryListIdMap, ...batchSettings.categoryListIdMap};
+        nextBatchSettings.githubListMemberships = mode === 'replace' ? batchSettings.githubListMemberships ?? {} : {...store.githubListMemberships, ...batchSettings.githubListMemberships};
+      }
+      useAppStore.setState(nextBatchSettings);
+
       // Legacy compatibility: treat missing flag as true (older exports contained keys)
       const wasIncluded = importedData.includeKeysInBackup ?? true;
 
@@ -959,11 +977,14 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
         categoryOrder: [],
         collapsedSidebarCategoryCount: 20,
         defaultCategoryOverrides: {},
+        categoryListIdMap: {},
+        githubListMemberships: {},
 
         // 资源过滤器
         assetFilters: [],
 
         // UI 设置
+        displayPreferences: normalizeDisplayPreferences(null),
         selectedCategory: 'all',
         isSidebarCollapsed: false,
         searchFilters: {
