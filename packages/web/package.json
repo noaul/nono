@@ -13,18 +13,18 @@
     "lucide-vue-next": "^0.554.0",
     "pinia": "^3.0.4",
     "sortablejs": "^1.15.7",
-    "vue": "^3.5.25",
-    "vue-router": "^4.6.3"
+    "vue": "^3.5.43",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@types/node": "^24.12.4",
+    "@types/node": "^24.19.0",
     "@types/sortablejs": "^1.15.9",
-    "@vitejs/plugin-vue": "^6.0.2",
-    "@vue/test-utils": "2.4.11",
-    "jsdom": "^27.2.0",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "2.5.1",
+    "jsdom": "^27.4.0",
     "typescript": "^5.9.3",
-    "vite": "^7.2.4",
-    "vitest": "^4.0.14",
-    "vue-tsc": "^3.1.5"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.11"
   }
 }

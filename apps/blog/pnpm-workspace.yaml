@@ -18,9 +18,9 @@ overrides:
   "@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4": 7.29.4
   "@isaacs/brace-expansion@<=5.0.0": 5.0.1
   "body-parser@>=2.0.0 <2.3.0": 2.3.0
-  "brace-expansion@<=5.0.8": 5.0.9
+  "brace-expansion@<5.0.12": 5.0.12
   "form-data@>=4.0.0 <4.0.6": 4.0.6
-  "js-yaml@>=4.0.0 <=4.3.0": 4.3.1
+  "js-yaml@>=4.0.0 <4.3.2": 4.3.2
   "mdast-util-to-hast@>=13.0.0 <13.2.1": 13.2.1
   "minimatch@>=8.0.0 <9": 8.0.7
   "minimatch@>=10.0.0 <11": 10.2.5
@@ -31,6 +31,6 @@ overrides:
   "qs@<6.16.0": 6.16.0
   "browserslist@<4.28.7": 4.28.7
   "sharp@<0.35.4": 0.35.4
-  "svgo@>=3.0.0 <3.3.4": 3.3.4
-  "undici@>=7.0.0 <7.29.0": 7.29.0
+  "svgo@>=3.0.0 <3.3.5": 3.3.5
+  "undici@>=7.0.0 <7.29.1": 7.29.1
   "yaml@>=2.0.0 <2.8.3": 2.8.3
