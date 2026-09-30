@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 
 test('packages NoMoney in the combined image', () => {
@@ -45,4 +48,34 @@ test('runs both NoMoney backend and frontend tests from the repository quality g
   const packageJson = JSON.parse(fs.readFileSync('apps/nomoney/package.json', 'utf8'));
   assert.match(packageJson.scripts.test, /npm run test -w backend/);
   assert.match(packageJson.scripts.test, /npm run test -w frontend/);
+});
+
+
+test('resolves backend-local production dependencies after runtime image copies', (t) => {
+  const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
+  const lock = JSON.parse(fs.readFileSync('apps/nomoney/package-lock.json', 'utf8'));
+  const localDependencies = Object.entries(lock.packages)
+    .filter(([location, entry]) => location.startsWith('backend/node_modules/') && !entry.dev)
+    .map(([location]) => location);
+  assert.ok(localDependencies.includes('backend/node_modules/nodemailer'), 'the production fixture includes the workspace-local mailer');
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-runtime-layout-'));
+  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+  const source = path.join(temporary, 'source');
+  const runtime = path.join(temporary, 'runtime');
+  fs.mkdirSync(path.join(source, 'node_modules'), { recursive: true });
+  fs.mkdirSync(path.join(runtime, 'nomoney/backend/dist'), { recursive: true });
+  for (const location of localDependencies) {
+    const directory = path.join(source, location);
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ main: 'index.cjs' }));
+    fs.writeFileSync(path.join(directory, 'index.cjs'), 'module.exports = {};');
+  }
+  for (const copy of dockerfile.matchAll(/^COPY --from=nomoney-runtime-deps \/app\/nomoney\/(\S+) \.\/(\S+)$/gm)) {
+    fs.cpSync(path.join(source, copy[1]), path.join(runtime, copy[2]), { recursive: true });
+  }
+  const require = createRequire(path.join(runtime, 'nomoney/backend/dist/mailer.js'));
+  for (const location of localDependencies) {
+    const name = location.slice('backend/node_modules/'.length);
+    assert.doesNotThrow(() => require.resolve(name), `${name} must be available to the deployed backend`);
+  }
 });
