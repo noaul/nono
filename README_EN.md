@@ -108,7 +108,15 @@ docker compose ps
 
 `/healthz` checks liveness. `/readyz` also checks the database, NoDesk content, NoMoney, and Yumi. An HTTP 200 from the homepage alone is insufficient acceptance.
 
-Failures before public release trigger a recovery attempt. After release, arbitrary data rollback may discard new writes. An image-only rollback does not restore the database. See the [Compose deployment runbook](docs/deployment/compose-verified-deploy.md).
+Failures before public release trigger a recovery attempt. After release, arbitrary data rollback may discard new writes. To return to an earlier version, use the immutable image recorded by the deployment:
+
+```bash
+flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- \
+  --dir /opt/nono --base-url http://127.0.0.1:8188 \
+  --image nono-app:<git-commit>
+```
+
+`deploy:rollback` only switches images; it does not restore the database or volumes and cannot alone reverse an incompatible migration. Serialize deployment, restore, and image-rollback operations with the same `flock -n /var/lock/nono-deploy.lock`; a busy operation fails immediately. See the [Compose deployment runbook](docs/deployment/compose-verified-deploy.md).
 
 ## Backup and restore
 
@@ -144,6 +152,8 @@ Install Node.js 22+, npm, PostgreSQL, and the pnpm version declared in `apps/blo
 npm run install:all
 npm run prisma:generate
 ```
+
+`install:all` installs strictly from four lockfile groups: the root npm workspace, NoDesk pnpm, NoMoney npm, and NoStar npm. Do not rewrite them with a different package manager.
 
 For NoNo-only development, `npm ci` is sufficient to install its dependencies. Set `.env`'s `DATABASE_URL` to your local database and keep it consistent with `POSTGRES_PASSWORD`:
 
@@ -190,6 +200,14 @@ See [Extension documentation](packages/extension/README.md) and [Store publishin
 - Forwarded headers are untrusted by default. Enabling `GATEWAY_TRUST_FORWARDED_HEADERS` also requires a trusted proxy address configuration.
 - Protect `.env`, the Docker socket, backups, and logs. Do not expose PostgreSQL or unencrypted management endpoints publicly.
 - Maintain secrets, audit dependencies, and rehearse off-host recovery. Do not commit credentials, database copies, or real user data.
+
+Gateway variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | Trust forwarded headers received by the gateway |
+| `GATEWAY_TRUSTED_PROXY_ADDRESSES` | Empty | Comma-separated proxy IPs/CIDRs allowed to send forwarded headers |
+| `GATEWAY_UPSTREAM_TIMEOUT_MS` | `30000` | Maximum wait for an internal app response; timeouts return `504` |
 
 ## Troubleshooting
 

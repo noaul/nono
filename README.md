@@ -108,7 +108,15 @@ docker compose ps
 
 `/healthz` 是存活检查；`/readyz` 还检查数据库、NoDesk 内容及 NoMoney/Yumi。仅收到首页 200 不能替代完整验收。
 
-部署脚本在开放访问前失败时会尝试恢复；开放后不能任意回退数据，以免丢失新写入。仅镜像回滚不等于数据库回滚。详细步骤见 [Compose 部署与恢复手册](docs/deployment/compose-verified-deploy.md)。
+部署脚本在开放访问前失败时会尝试恢复；开放后不能任意回退数据，以免丢失新写入。需要回到旧版本时，使用部署记录中的不可变镜像：
+
+```bash
+flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- \
+  --dir /opt/nono --base-url http://127.0.0.1:8188 \
+  --image nono-app:<git-commit>
+```
+
+`deploy:rollback` 只切换镜像，不会还原数据库或数据卷，不能单独回退不兼容的数据库迁移。部署、恢复和仅镜像回滚必须使用同一 `flock -n /var/lock/nono-deploy.lock` 锁串行执行；锁被占用时会立即失败。详细步骤见 [Compose 部署与恢复手册](docs/deployment/compose-verified-deploy.md)。
 
 ## 备份与恢复
 
@@ -144,6 +152,8 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 npm run install:all
 npm run prisma:generate
 ```
+
+`install:all` 严格按四套锁文件安装：根 npm、NoDesk pnpm、NoMoney npm、NoStar npm。不要用其他包管理器重写这些锁文件。
 
 仅开发 NoNo 可先运行 `npm ci`。为本地数据库填写 `.env` 的 `DATABASE_URL`，保持它与 `POSTGRES_PASSWORD` 一致，然后：
 
@@ -190,6 +200,14 @@ npm run package:extension
 - 代理头默认不受信任。启用 `GATEWAY_TRUST_FORWARDED_HEADERS` 时，同时配置可信代理地址，避免客户端伪造来源。
 - 保护 `.env`、Docker socket、备份和日志；不要向公网暴露 PostgreSQL 或未加密的管理入口。
 - 应用升级不能替代密钥管理、依赖审计和异机恢复演练。不要把凭据、数据库副本或真实用户数据提交到仓库。
+
+网关相关变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `GATEWAY_TRUST_FORWARDED_HEADERS` | `false` | 是否信任网关入口收到的转发头 |
+| `GATEWAY_TRUSTED_PROXY_ADDRESSES` | 空 | 启用转发头信任时允许的代理 IP/CIDR，逗号分隔 |
+| `GATEWAY_UPSTREAM_TIMEOUT_MS` | `30000` | 网关等待内部应用响应的最长毫秒数；超时返回 `504` |
 
 ## 常见问题
 
