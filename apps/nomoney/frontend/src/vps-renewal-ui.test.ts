@@ -1,10 +1,11 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('NoMoney VPS renewal UI', () => {
   it('offers one-click renewal beside the VPS due date without a confirmation dialog', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
     const renewals = fs.readFileSync(path.resolve(process.cwd(), 'src/renewals.tsx'), 'utf8');
 
     expect(source).toContain("copy('标记已续费', 'Mark renewed')");
@@ -32,7 +33,7 @@ describe('NoMoney VPS renewal UI', () => {
   });
 
   it('does not expose renewal for cancelled or archived VPS entries', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
 
     expect(source).toContain("!['cancelled', 'archived'].includes(item.status)");
   });

@@ -1,10 +1,11 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('subscription purchase types', () => {
   it('uses the active subscription or buyout segment when creating entries', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
 
     expect(source).toContain("{ value: 'subscription', label: copy('订阅制', 'Subscription') }");
     expect(source).toContain("{ value: 'buyout', label: copy('买断制', 'Buyout') }");
@@ -13,7 +14,7 @@ describe('subscription purchase types', () => {
   });
 
   it('shows optional buyout details and removes recurring renewal values', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
     const start = source.indexOf('function SubscriptionFormSections');
     const end = source.indexOf('function VpsFormSections', start);
     const form = source.slice(start, end);

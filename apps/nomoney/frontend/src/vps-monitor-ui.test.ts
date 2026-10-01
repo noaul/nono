@@ -1,10 +1,11 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('NoMoney VPS monitor refresh', () => {
   it('refreshes live metrics every five seconds only while the page is visible', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
 
     expect(source).toContain('const vpsMonitorRefreshIntervalMs = 5_000;');
     expect(source).toContain("document.visibilityState !== 'visible'");
@@ -14,7 +15,7 @@ describe('NoMoney VPS monitor refresh', () => {
   });
 
   it('shows configured resource totals beside live VPS utilization', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
 
     expect(source).toContain("total={formatVpsCapacity(item.cpu, 'cpu')}");
     expect(source).toContain("total={formatVpsCapacity(item.memory, 'memory')}");
@@ -22,7 +23,7 @@ describe('NoMoney VPS monitor refresh', () => {
   });
 
   it('uses the VPS expiration date as the only renewal date input', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
     const start = source.indexOf('function VpsFormSections');
     const end = source.indexOf('function DomainCommandPanel', start);
     const vpsForm = source.slice(start, end);
@@ -37,7 +38,7 @@ describe('NoMoney VPS monitor refresh', () => {
   });
 
   it('captures and filters the VPS role', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
     const start = source.indexOf('function VpsFormSections');
     const end = source.indexOf('function DomainCommandPanel', start);
     const vpsForm = source.slice(start, end);
@@ -51,7 +52,7 @@ describe('NoMoney VPS monitor refresh', () => {
   });
 
   it('keeps VPS cards compact and exposes only the useful quick actions', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
     const start = source.indexOf('function VpsNodeCard');
     const end = source.indexOf('function VpsMetricLine', start);
     const vpsCard = source.slice(start, end);

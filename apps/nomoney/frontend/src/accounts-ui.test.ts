@@ -1,3 +1,4 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -47,7 +48,7 @@ describe('NoMoney account management UI', () => {
   });
 
   it('exposes physical SIM and eSIM choices for foreign phone cards', () => {
-    const assetPage = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const assetPage = readAssetPageSource();
     const config = fs.readFileSync(path.resolve(process.cwd(), 'src/assetConfig.ts'), 'utf8');
 
     expect(config).toContain("{ key: 'isEsim'");

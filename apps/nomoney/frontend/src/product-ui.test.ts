@@ -1,3 +1,4 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -75,7 +76,7 @@ describe('NoMoney and Yumi product surfaces', () => {
   });
 
   it('uses full-result asset summaries and cancels stale filter requests', () => {
-    const assetPage = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const assetPage = readAssetPageSource();
     const api = fs.readFileSync(path.resolve(process.cwd(), 'src/api.ts'), 'utf8');
 
     expect(assetPage).toContain('meta?.assetSummary');

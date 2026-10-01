@@ -1,10 +1,11 @@
+import { readAssetPageSource } from './test-source';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('NoMoney bilingual UI contract', () => {
   it('localizes asset controls, tables, forms, and paging', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
+    const source = readAssetPageSource();
 
     for (const literal of [
       "header: '名称'",
