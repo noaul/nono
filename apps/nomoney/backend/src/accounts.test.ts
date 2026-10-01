@@ -159,3 +159,16 @@ describe('account APIs', () => {
     expect(missing.body.error.code).toBe('ACCOUNT_NOT_FOUND');
   });
 });
+
+describe('accounts linked to phone cards', () => {
+  test('lists the accounts registered on a card number', async () => {
+    const { agent } = await setupAgent('nomoney');
+    await agent.post('/api/phones').send({ cardNumber: '138 0013 8000', phoneType: 'domestic', amountMinorUnits: 800, currency: 'CNY', billingCycle: 'monthly', status: 'active' }).expect(201);
+    await agent.post('/api/accounts').send({ accountType: 'telegram', phoneNumber: '13800138000', countryCallingCode: '+86', countryIso: 'CN' }).expect(201);
+    await agent.post('/api/accounts').send({ accountType: 'signal', phoneNumber: '13900000000', countryCallingCode: '+86', countryIso: 'CN' }).expect(201);
+
+    const phones = await agent.get('/api/phones').expect(200);
+
+    expect(phones.body.items[0].linkedAccounts).toEqual([{ id: 1, accountType: 'telegram' }]);
+  });
+});

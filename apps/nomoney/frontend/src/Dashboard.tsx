@@ -166,7 +166,8 @@ export function Dashboard() {
 
   const yearlyChart = useMemo(() => {
     if (!summary) return [];
-    return currencies.map((currency) => ({
+    const used = currencies.filter((currency) => Number(summary.predictedYearly[currency] ?? 0) || Number(summary.actualYearly[currency] ?? 0));
+    return (used.length ? used : currencies.slice(0, 1)).map((currency) => ({
       currency,
       forecast: summary.predictedYearly[currency] ?? 0,
       actual: summary.actualYearly[currency] ?? 0

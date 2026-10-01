@@ -11,6 +11,7 @@ import { commonDomainExtensions, composeDomainName, dnsProviderLink, dnsProvider
 import { useI18n } from './i18n';
 import { getDefaultCurrency } from './preferences';
 import { RenewalHistory, RenewalToast, RenewButton, useRenewals } from './renewals';
+import { BulkBar, CsvTools } from './BulkTools';
 import { formatVpsCapacity } from './vps-capacity';
 import { assetLabel, assetSingular } from './assetConfigLabels';
 
@@ -102,7 +103,7 @@ const vpsTypes = [
   { value: 'route', labelZh: '线路机', labelEn: 'Route' },
   { value: 'residential', labelZh: '家宽', labelEn: 'Residential' }
 ] as const;
-const pageSize = 24;
+const pageSizes = [24, 48, 96];
 const vpsMonitorRefreshIntervalMs = 5_000;
 const phoneVisualStyles: PhoneVisualStyle[] = [
   {
@@ -189,7 +190,7 @@ const phoneVisualAccents: PhoneVisualAccent[] = [
   { key: 'lime', labelZh: '青柠', labelEn: 'Lime', primary: '#84cc16', secondary: '#14b8a6', tertiary: '#f97316', chart: ['#84cc16', '#14b8a6', '#f97316', '#38bdf8', '#eab308', '#f43f5e'] },
   { key: 'amber', labelZh: '琥珀', labelEn: 'Amber', primary: '#f59e0b', secondary: '#ef4444', tertiary: '#22c55e', chart: ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#f97316'] }
 ];
-const filterClass = `${inputClass} w-auto min-w-[120px] flex-[0_1_auto]`;
+const filterClass = `${inputClass} !w-auto min-w-[120px] flex-[0_1_auto]`;
 const assetSortOptions = [
   { value: 'dueDate', labelZh: '到期 / 扣费日', labelEn: 'Due date' },
   { value: 'amount', labelZh: '费用', labelEn: 'Cost' },
@@ -241,6 +242,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const defaultSort = isDomain ? 'expireDate' : 'dueDate';
   const [sort, setSort] = useState(() => param('sort', defaultSort));
   const [direction, setDirection] = useState<'asc' | 'desc'>(() => param('dir') === 'desc' ? 'desc' : 'asc');
+  const [pageSize, setPageSize] = useState(() => pageSizes.includes(Number(param('size'))) ? Number(param('size')) : Number(localStorage.getItem('nomoney:page-size')) || 24);
   const [offset, setOffset] = useState(() => Math.max(0, (Number(param('page', '1')) || 1) - 1) * pageSize);
   const [pendingEditId] = useState(() => Number(param('edit')) || null);
   const mounted = useRef(false);
@@ -250,6 +252,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [formError, setFormError] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const searchRef = useRef<HTMLInputElement>(null);
   const formSnapshot = useRef('');
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [duplicatedId, setDuplicatedId] = useState<number | null>(null);
@@ -418,11 +422,13 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     if (isDomain) params.set('displayCurrency', displayCurrency);
     if (sort) params.set('sort', sort);
     if (direction) params.set('direction', direction);
-    params.set('limit', String(pageSize));
+    // The visual board summarises every card, so it asks for the API maximum in one page.
+    params.set('limit', String(isPhoneVisual ? 200 : pageSize));
     params.set('offset', String(nextOffset));
     const response = await api.get<ListResponse<AssetItem>>(`/api/${config.endpoint}?${params}`, signal);
     setItems(response.items);
     setMeta(response.meta ?? null);
+    setSelectedIds((current) => new Set(response.items.filter((item) => current.has(item.id)).map((item) => item.id)));
     setLoading(false);
   };
 
@@ -436,7 +442,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setLoading(false);
     });
     return () => controller.abort();
-  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
+  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, pageSize]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -455,12 +461,14 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     set('sort', sort, defaultSort);
     set('dir', direction, 'asc');
     set('page', offset > 0 ? String(Math.floor(offset / pageSize) + 1) : '');
+    set('size', String(pageSize), '24');
     set('view', view, 'card');
     const search = params.toString();
     const next = `${window.location.pathname}${search ? `?${search}` : ''}`;
     if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, '', next);
     localStorage.setItem(viewStorageKey, view);
-  }, [query, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, view]);
+    localStorage.setItem('nomoney:page-size', String(pageSize));
+  }, [query, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, view, pageSize]);
 
   useEffect(() => {
     if (!pendingEditId) return;
@@ -495,7 +503,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     // The first run is the mount, where the page number came from the URL.
     if (!mounted.current) return;
     setOffset(0);
-  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction]);
+  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, pageSize]);
 
   useEffect(() => {
     if (!mounted.current) {
@@ -560,10 +568,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         const carrier = normalizeDomesticCarrier(item.carrier, copy);
         carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);
         const itemCurrency = (item.currency || 'CNY') as Currency;
-        domesticMonthlyTotal[itemCurrency] = (domesticMonthlyTotal[itemCurrency] ?? 0) + Number(item.amountMinorUnits ?? 0);
+        domesticMonthlyTotal[itemCurrency] = (domesticMonthlyTotal[itemCurrency] ?? 0) + monthlyEquivalent(Number(item.amountMinorUnits ?? 0), item.billingCycle);
       }
       const itemCurrency = (item.currency || 'CNY') as Currency;
-      monthlyTotal[itemCurrency] = (monthlyTotal[itemCurrency] ?? 0) + Number(item.amountMinorUnits ?? 0);
+      monthlyTotal[itemCurrency] = (monthlyTotal[itemCurrency] ?? 0) + monthlyEquivalent(Number(item.amountMinorUnits ?? 0), item.billingCycle);
       if (item.status === 'active') activeCount += 1;
       const dueDate = stringValue(item.totalKeepaliveUntil) || stringValue(item.nextDueDate) || stringValue(item.expireDate);
       const left = daysLeft(dueDate || null);
@@ -779,7 +787,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   const moveToTrash = async (item: AssetItem) => {
     const name = getText(item, config.primaryKey);
-    if (!window.confirm(copy(`将 ${name} 移入回收站？`, `Move ${name} to the recycle bin?`))) return;
+    const linked = Array.isArray(item.linkedAccounts) ? item.linkedAccounts.length : 0;
+    const warning = linked ? copy(`\n\n这个号码上还登记着 ${linked} 个账号，换号前记得先迁移。`, `\n\n${linked} accounts are still registered on this number; move them before letting it go.`) : '';
+    if (!window.confirm(copy(`将 ${name} 移入回收站？`, `Move ${name} to the recycle bin?`) + warning)) return;
     setError('');
     try {
       await api.delete(`/api/${config.endpoint}/${item.id}`);
@@ -898,6 +908,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           {stringValue(item.phoneType) === 'foreign'
             ? `${copy('国外电话卡', 'Foreign SIM')} · ${getSimFormFactorLabel(item, copy)}`
             : copy('国内电话卡', 'Domestic SIM')}
+          <LinkedAccountsBadge item={item} copy={copy} />
         </p>
       </div>
     ) },
@@ -1111,7 +1122,28 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       </div>
     ) }
   ];
-  const columns = isDomain ? domainColumns : isVps ? vpsColumns : isPhone ? phoneColumns : genericColumns;
+  const baseColumns = isDomain ? domainColumns : isVps ? vpsColumns : isPhone ? phoneColumns : genericColumns;
+  const allSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
+  const selectColumn: DataTableColumn<AssetItem> = {
+    key: 'select',
+    header: <input type="checkbox" className="h-4 w-4 accent-brand-500" aria-label={copy('全选本页', 'Select page')} checked={allSelected} onChange={() => setSelectedIds(allSelected ? new Set() : new Set(items.map((item) => item.id)))} />,
+    render: (item) => (
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-brand-500"
+        aria-label={copy('选择', 'Select')}
+        checked={selectedIds.has(item.id)}
+        onChange={() => setSelectedIds((current) => {
+          const next = new Set(current);
+          if (next.has(item.id)) next.delete(item.id);
+          else next.add(item.id);
+          return next;
+        })}
+      />
+    )
+  };
+  const columns = [selectColumn, ...baseColumns];
+  const selectedItems = items.filter((item) => selectedIds.has(item.id));
 
   useEffect(() => {
     setTopbarActions(
@@ -1172,6 +1204,24 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     return () => setTopbarActions(null);
   }, [setTopbarActions]);
 
+  // "/" focuses search and "n" opens a new entry, unless the user is typing somewhere.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || drawerOpen) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      if (event.key === '/') {
+        event.preventDefault();
+        searchRef.current?.focus();
+      } else if (event.key === 'n') {
+        event.preventDefault();
+        openCreate();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  });
+
   return (
     <div className="space-y-4">
       {isDomain && domainStats && <DomainCommandPanel stats={domainStats} renewalTotals={meta?.renewalTotals} copy={copy} />}
@@ -1182,7 +1232,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] flex-[1_1_240px]">
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : isVps ? copy('搜索节点 / IP / 服务商 / 标签', 'Search nodes, IPs, tags') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input ref={searchRef} className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : isVps ? copy('搜索节点 / IP / 服务商 / 标签', 'Search nodes, IPs, tags') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           {isVps ? (
             <>
@@ -1256,6 +1306,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             {direction === 'asc' ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />}
           </IconButton>
           <div className="ml-auto flex gap-1">
+            <CsvTools endpoint={config.endpoint} copy={copy} onError={setError} onImported={async (message) => { setNotice(message); await load(); }} />
             <IconButton onClick={() => setView('card')} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('卡片', 'Cards')}>
               <Grid3X3 size={16} />
             </IconButton>
@@ -1302,14 +1353,34 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           {items.map((item) => <PhoneMiniCardView key={item.id} item={item} copy={copy} />)}
         </div>
       ) : (
-        <DataTable columns={columns} data={items} />
+        <>
+          <p className="text-xs text-slate-400">{copy('勾选多行可批量标记已付、改状态、打标签或删除。', 'Tick rows to mark paid, change status, tag or delete in bulk.')}</p>
+          <DataTable columns={columns} data={items} />
+        </>
       )}
 
-      {meta && !isPhoneVisual && meta.total > pageSize && (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-ink-900">
-          <span className="text-slate-500">{copy(`第 ${Math.floor(offset / pageSize) + 1} 页，共 ${Math.ceil(meta.total / pageSize)} 页`, `Page ${Math.floor(offset / pageSize) + 1} of ${Math.ceil(meta.total / pageSize)}`)}</span>
-          <div className="flex gap-2">
+      {selectedItems.length > 0 && view === 'table' && (
+        <BulkBar
+          endpoint={config.endpoint}
+          selected={selectedItems}
+          copy={copy}
+          onClear={() => setSelectedIds(new Set())}
+          onError={setError}
+          onDone={async (message) => { setError(''); setNotice(message); setHistoryKey((value) => value + 1); await load(); }}
+        />
+      )}
+
+      {meta && !isPhoneVisual && meta.total > pageSizes[0] && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-ink-900">
+          <span className="text-slate-500">{copy(`共 ${meta.total} 项`, `${meta.total} items`)}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <select className={`${inputClass} !h-8 !w-auto text-xs`} value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label={copy('每页条数', 'Page size')}>
+              {pageSizes.map((size) => <option key={size} value={size}>{copy(`每页 ${size}`, `${size} / page`)}</option>)}
+            </select>
             <Button variant="secondary" size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))}>{copy('上一页', 'Previous')}</Button>
+            <select className={`${inputClass} !h-8 !w-auto text-xs`} value={Math.floor(offset / pageSize)} onChange={(e) => setOffset(Number(e.target.value) * pageSize)} aria-label={copy('跳转页码', 'Go to page')}>
+              {Array.from({ length: Math.ceil(meta.total / pageSize) }, (_, index) => <option key={index} value={index}>{copy(`第 ${index + 1} / ${Math.ceil(meta.total / pageSize)} 页`, `Page ${index + 1} of ${Math.ceil(meta.total / pageSize)}`)}</option>)}
+            </select>
             <Button variant="secondary" size="sm" disabled={offset + pageSize >= meta.total} onClick={() => setOffset(offset + pageSize)}>{copy('下一页', 'Next')}</Button>
           </div>
         </div>
@@ -1442,7 +1513,9 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
     .map((item) => ({
       number: getPhoneDisplayNumber(item).replace(/^\+86/, ''),
       owner: stringValue(item.userName) || stringValue(item.realNamePerson) || '-',
-      cost: Math.round(Number(item.amountMinorUnits ?? 0)) / 100,
+      // Domestic cards bill in different cycles; compare them as a monthly amount.
+      cost: Math.round(monthlyEquivalent(Number(item.amountMinorUnits ?? 0), item.billingCycle)) / 100,
+      currency: item.currency,
       carrier: normalizeDomesticCarrier(item.carrier, copy)
     }))
     .sort((a, b) => b.cost - a.cost)
@@ -1537,7 +1610,7 @@ function PhoneVisualDashboard({ items, stats, copy }: { items: AssetItem[]; stat
                   <CartesianGrid stroke={visualStyle.grid} vertical={false} />
                   <XAxis dataKey="number" tick={{ fill: visualStyle.axis, fontSize: 11 }} tickLine={false} axisLine={{ stroke: visualStyle.border }} />
                   <YAxis tick={{ fill: visualStyle.soft, fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: visualStyle.tooltipBg, border: `1px solid ${visualStyle.tooltipBorder}`, borderRadius: 12, color: visualStyle.text }} formatter={(value) => [`¥${value}`, copy('月花费', 'Monthly cost')]} />
+                  <Tooltip contentStyle={{ background: visualStyle.tooltipBg, border: `1px solid ${visualStyle.tooltipBorder}`, borderRadius: 12, color: visualStyle.text }} formatter={(value, _name, entry) => [formatMoney(Math.round(Number(value) * 100), (entry.payload.currency as Currency) || 'CNY'), copy('月花费', 'Monthly cost')]} />
                   <Bar dataKey="cost" radius={[8, 8, 2, 2]}>
                     {costChart.map((entry, index) => <Cell key={entry.number} fill={carrierColor(entry.carrier, chartColors[index % chartColors.length])} />)}
                   </Bar>
@@ -2606,6 +2679,13 @@ function ExtensionInput({ value, onCommit }: { value: string; onCommit: (value: 
   );
 }
 
+function LinkedAccountsBadge({ item, copy }: { item: AssetItem; copy: (zh: string, en: string) => string }) {
+  const accounts = Array.isArray(item.linkedAccounts) ? item.linkedAccounts as Array<{ accountType: string }> : [];
+  if (!accounts.length) return null;
+  const types = [...new Set(accounts.map((account) => account.accountType))].join(', ');
+  return <span className="ml-1.5 rounded-md bg-brand-500/10 px-1.5 py-0.5 text-[10px] text-brand-600 dark:text-brand-300" title={types}>{copy(`${accounts.length} 个账号`, `${accounts.length} accounts`)}</span>;
+}
+
 function CertificateLine({ item, copy }: { item: AssetItem; copy: (zh: string, en: string) => string }) {
   const expiresAt = stringValue(item.sslExpiresAt);
   const error = stringValue(item.sslError);
@@ -2818,6 +2898,7 @@ function PhoneCardView({
               {isForeign ? copy('国外', 'Foreign') : copy('国内', 'Domestic')}
             </span>
             {isForeign && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">{getSimFormFactorLabel(item, copy)}</span>}
+            <LinkedAccountsBadge item={item} copy={copy} />
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-sm">
             <span className="truncate text-slate-500">{stringValue(item.carrier) || '-'}</span>
@@ -3108,6 +3189,12 @@ const statusLabels: Record<AssetStatus, [string, string]> = {
 
 function statusOptions(copy: (zh: string, en: string) => string) {
   return statuses.map((value) => <option key={value} value={value}>{copy(...statusLabels[value])}</option>);
+}
+
+const cyclesPerYear: Record<BillingCycle, number> = { weekly: 52, monthly: 12, quarterly: 4, semiannual: 2, annual: 1, biennial: 0.5 };
+
+function monthlyEquivalent(amountMinorUnits: number, cycle: BillingCycle): number {
+  return (amountMinorUnits * (cyclesPerYear[cycle] ?? 12)) / 12;
 }
 
 function nil(value: unknown): string | null | boolean {

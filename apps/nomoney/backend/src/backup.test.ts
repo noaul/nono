@@ -282,3 +282,23 @@ describe('backup APIs', () => {
     expect(context.db.get<{ name: string }>('SELECT name FROM vps WHERE id = 20')).toEqual({ name: 'before' });
   });
 });
+
+describe('backup file upload', () => {
+  test('restores an exported encrypted backup file', async () => {
+    const { agent } = await setupAgent('nomoney');
+    await agent.put('/api/settings').send({ webdavEncryptionKey: 'file-backup-key' }).expect(200);
+    await agent.post('/api/subscriptions').send({ name: 'Keep me', purchaseType: 'subscription', amountMinorUnits: 100, currency: 'CNY', billingCycle: 'monthly', status: 'active' }).expect(201);
+    const exported = await agent.get('/api/export/json').expect(200);
+    await agent.delete('/api/subscriptions/1').expect(204);
+    await agent.delete('/api/subscriptions/1/permanent').expect(204);
+
+    const restored = await agent.post('/api/backup/restore-file').send(exported.body).expect(200);
+
+    expect(restored.body.ok).toBe(true);
+    // Restoring replaces users and sessions, so the browser has to sign in again.
+    await agent.post('/api/auth/login').send({ username: 'owner', password: 'correct horse battery staple' }).expect(200);
+    const list = await agent.get('/api/subscriptions');
+    expect(list.status, JSON.stringify(list.body)).toBe(200);
+    expect(list.body.items).toEqual([expect.objectContaining({ name: 'Keep me' })]);
+  });
+});

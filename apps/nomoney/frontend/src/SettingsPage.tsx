@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { Bell, CloudDownload, Download, LockKeyhole, Mail, Play, Save } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Bell, CloudDownload, Download, LockKeyhole, Mail, Play, Save, Upload } from 'lucide-react';
 import type { ListResponse, ReminderLogItem, SettingsValue } from './types';
 import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
@@ -142,6 +142,19 @@ export function SettingsPage() {
     }
   };
 
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const restoreFile = async (file: File) => {
+    if (!window.confirm(copy(`用 ${file.name} 恢复会覆盖当前的资产、流水、设置、提醒日志和登录账号。恢复后需要用备份里的账号重新登录。继续？`, `Restoring ${file.name} replaces current assets, expenses, settings, reminder logs and sign-in accounts. You will sign in again with the account from the backup. Continue?`))) return;
+    try {
+      const payload = JSON.parse(await file.text());
+      await api.post('/api/backup/restore-file', payload);
+      window.alert(copy('已恢复。请用备份中的账号重新登录。', 'Restored. Sign in with the account from the backup.'));
+      window.location.reload();
+    } catch (err) {
+      showMessage(err instanceof ApiError ? err.message : err instanceof SyntaxError ? copy('文件不是有效的备份', 'The file is not a valid backup') : copy('恢复失败', 'Restore failed'), 'danger');
+    }
+  };
+
   const restoreWebdav = async () => {
     if (!window.confirm(copy('从 WebDAV 备份恢复会覆盖当前资产、流水、设置和提醒日志。继续？', 'Restoring from WebDAV will replace current assets, expenses, settings, and reminder logs. Continue?'))) return;
     try {
@@ -187,7 +200,13 @@ export function SettingsPage() {
         title={copy('设置', 'Settings')}
         eyebrow="System"
         description={copy('管理提醒策略、邮件投递、WebDAV 备份、语言和账户安全。', 'Manage reminders, email delivery, WebDAV backup, language, and account security.')}
-        actions={<a className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.07]" href={withBasePath('/api/export/json')}><Download size={16} />{copy('导出加密备份', 'Export encrypted backup')}</a>}
+        actions={(
+          <div className="flex flex-wrap gap-2">
+            <a className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.07]" href={withBasePath('/api/export/json')}><Download size={16} />{copy('导出加密备份', 'Export encrypted backup')}</a>
+            <Button type="button" variant="secondary" onClick={() => backupFileRef.current?.click()}><Upload size={16} />{copy('从备份文件恢复', 'Restore from file')}</Button>
+            <input ref={backupFileRef} type="file" accept=".enc,.json,application/json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void restoreFile(file); event.target.value = ''; }} />
+          </div>
+        )}
       />
 
       {message && <StateBanner tone={messageTone}>{message}</StateBanner>}

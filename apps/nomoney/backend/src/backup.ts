@@ -175,6 +175,17 @@ export function registerBackupRoutes(router: Router, context: AppContext): void 
   );
 }
 
+/** Restores from a backup file the user downloaded earlier (encrypted or plain JSON). */
+export function registerBackupUploadRoute(router: Router, context: AppContext): void {
+  router.post('/backup/restore-file', (req, res) => {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw new HttpError(400, 'INVALID_BACKUP', 'Backup must be a JSON object');
+    }
+    const payload = parseBackupPayload(JSON.stringify(req.body), getSettings(context));
+    res.json({ ok: true, counts: restoreBackupPayload(context, payload) });
+  });
+}
+
 export function registerInternalBackupRoutes(router: Router, context: AppContext): void {
   router.get('/internal/backup', requireInternalToken(context), (_req, res) => {
     res.json(buildBackupPayload(context));

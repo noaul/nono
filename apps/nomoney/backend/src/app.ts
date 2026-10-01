@@ -4,12 +4,13 @@ import helmet from 'helmet';
 import type { AppContext } from './types.js';
 import { registerAuthRoutes, requireAuth } from './auth.js';
 import { registerAssetRoutes } from './assets.js';
+import { registerBulkRoutes } from './bulk-io.js';
 import { registerExpenseRoutes } from './expenses.js';
 import { registerDashboardRoutes } from './dashboard.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerNotifyRoutes } from './notifier.js';
 import { registerReminderRoutes } from './reminders.js';
-import { buildEncryptedBackupEnvelope, registerBackupRoutes, registerInternalBackupRoutes } from './backup.js';
+import { buildEncryptedBackupEnvelope, registerBackupRoutes, registerBackupUploadRoute, registerInternalBackupRoutes } from './backup.js';
 import { registerAccountRoutes } from './accounts.js';
 import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
@@ -36,6 +37,7 @@ export function createApp(context: AppContext) {
     })
   );
   app.use('/api/internal/backup', express.json({ limit: '64mb' }));
+  app.use('/api/backup/restore-file', express.json({ limit: '64mb' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
@@ -62,6 +64,8 @@ export function createApp(context: AppContext) {
   if (product !== 'nomoney') registerInternalRenewalRoutes(api, context);
 
   api.use(requireAuth(context));
+  // Before the asset routes, so /phones/export.csv is not read as /phones/:id.
+  registerBulkRoutes(api, context, [...allowedTypes]);
   registerAssetRoutes(api, context, [...allowedTypes]);
   registerRenewalRoutes(api, context, [...allowedTypes]);
   if (product !== 'yumi') registerAccountRoutes(api, context);
@@ -74,6 +78,7 @@ export function createApp(context: AppContext) {
   registerNotifyRoutes(api, context);
   registerReminderRoutes(api, context, [...allowedTypes]);
   registerBackupRoutes(api, context);
+  registerBackupUploadRoute(api, context);
   api.get('/export/json', (_req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${product ?? 'nomoney'}-backup.json.enc"`);
     res.json(buildEncryptedBackupEnvelope(context));

@@ -98,6 +98,30 @@ export default function TrashPage() {
     }
   };
 
+  const [emptying, setEmptying] = useState(false);
+  const emptyTrash = async () => {
+    if (!visibleItems.length) return;
+    if (!window.confirm(copy(`永久删除这里的 ${visibleItems.length} 个条目？关联的费用流水和续费记录会一并删除，无法恢复。`, `Permanently delete these ${visibleItems.length} entries, with their expenses and renewal history? This cannot be undone.`))) return;
+    setEmptying(true);
+    setError('');
+    try {
+      const byEndpoint = new Map<TrashKind, number[]>();
+      for (const item of visibleItems) byEndpoint.set(item.endpoint, [...(byEndpoint.get(item.endpoint) ?? []), item.id]);
+      for (const [endpoint, ids] of byEndpoint) {
+        if (endpoint === 'accounts') {
+          for (const id of ids) await api.delete(`/api/accounts/${id}/permanent`);
+        } else {
+          await api.post(`/api/${endpoint}/bulk`, { ids, action: 'purge' });
+        }
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('清空失败', 'Failed to empty the recycle bin'));
+    } finally {
+      setEmptying(false);
+    }
+  };
+
   const allFilters: Array<{ value: TrashKind | 'all'; zh: string; en: string }> = [
     { value: 'all', zh: '全部', en: 'All' },
     { value: 'phones', zh: '电话卡', en: 'SIM cards' },
@@ -116,6 +140,12 @@ export default function TrashPage() {
         eyebrow="Recycle bin"
         title={copy('回收站', 'Recycle bin')}
         description={copy('删除的条目会保留在这里，可恢复或永久删除。', 'Deleted entries stay here until restored or permanently deleted.')}
+        actions={visibleItems.length > 0 ? (
+          <Button variant="danger" onClick={emptyTrash} disabled={emptying || loading}>
+            <Trash2 size={16} />
+            {filter === 'all' ? copy('清空回收站', 'Empty recycle bin') : copy(`清空此分类（${visibleItems.length}）`, `Empty this category (${visibleItems.length})`)}
+          </Button>
+        ) : undefined}
       />
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-ink-900" role="tablist" aria-label={copy('回收站分类', 'Recycle bin categories')}>

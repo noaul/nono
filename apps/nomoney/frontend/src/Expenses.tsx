@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { CalendarRange, Pencil, Plus, ReceiptText, Server, Trash2, WalletCards } from 'lucide-react';
+import { CalendarRange, Download, Pencil, Plus, ReceiptText, Server, Trash2, WalletCards } from 'lucide-react';
+import { withBasePath } from './base-path';
 import type { AssetLookupItem, AssetType, Currency, ExpenseItem, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
 import { getDefaultCurrency } from './preferences';
@@ -105,7 +106,12 @@ export function Expenses() {
   };
 
   useEffect(() => {
-    setTopbarActions(<Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>);
+    setTopbarActions(
+      <>
+        <a className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100" href={withBasePath('/api/expenses/export.csv')}><Download size={16} />CSV</a>
+        <Button onClick={openCreate}><Plus size={16} />{copy('新增流水', 'New entry')}</Button>
+      </>
+    );
     return () => setTopbarActions(null);
   }, [assetOptions, copy, setTopbarActions]);
 

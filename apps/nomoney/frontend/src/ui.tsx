@@ -261,7 +261,7 @@ export function LoadingInline({ label }: { label?: string }) {
 
 export interface DataTableColumn<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   align?: 'left' | 'right' | 'center';
   render: (item: T) => React.ReactNode;
 }

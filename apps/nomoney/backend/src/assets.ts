@@ -508,6 +508,7 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
         }
 
         const items = rows.map((row) => mapAssetRow(config, row));
+        if (config.type === 'phone') attachLinkedAccounts(context, items as Array<Record<string, unknown>>);
         res.json({
           items: config.type === 'domain'
             ? await addDomainDisplayCurrency(context, items, query.displayCurrency)
@@ -620,15 +621,7 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
     router.post(
       `/${config.route}`,
       asyncHandler(async (req, res) => {
-        const body = enrichAssetBody(config, parseBody(config.schema, req.body) as Record<string, unknown>);
-        const now = toIsoDateTime(context.now());
-        const columns = [...config.fields.map((field) => field.db), 'created_at', 'updated_at'];
-        const values = [...config.fields.map((field) => toAssetDbValue(context, config, field.api, body[field.api])), now, now];
-        const placeholders = columns.map(() => '?').join(', ');
-        const id = context.db.insert(
-          `INSERT INTO ${config.table} (${columns.join(', ')}) VALUES (${placeholders})`,
-          values
-        );
+        const id = createAsset(context, config, req.body);
         res.status(201).json({ item: getAssetOrThrow(context, config, id) });
       })
     );
@@ -694,6 +687,41 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
       })
     );
   }
+}
+
+/**
+ * Accounts are stored by phone number rather than by card, so a card's
+ * accounts are the ones whose number matches the card's number.
+ */
+export function attachLinkedAccounts(context: AppContext, items: Array<Record<string, unknown>>): void {
+  const accounts = context.db.all<{ id: number; account_type: string; phone_key: string }>(
+    'SELECT id, account_type, phone_key FROM accounts WHERE archived_at IS NULL'
+  );
+  for (const item of items) {
+    const numbers = [item.cardNumber, item.aPhoneNumber, item.poPhoneNumber, item.mainlandNumber]
+      .map((value) => String(value ?? '').replace(/\D/g, ''))
+      .filter((value) => value.length >= 6);
+    item.linkedAccounts = accounts
+      .filter((account) => account.phone_key.length >= 6 && numbers.some((number) => number.endsWith(account.phone_key) || account.phone_key.endsWith(number)))
+      .map((account) => ({ id: account.id, accountType: account.account_type }));
+  }
+}
+
+/** Validates and inserts one asset; shared by the create route and CSV import. */
+export function createAsset(context: AppContext, config: AssetConfig, input: unknown): number {
+  const body = enrichAssetBody(config, parseBody(config.schema, input) as Record<string, unknown>);
+  const now = toIsoDateTime(context.now());
+  const columns = [...config.fields.map((field) => field.db), 'created_at', 'updated_at'];
+  const values = [...config.fields.map((field) => toAssetDbValue(context, config, field.api, body[field.api])), now, now];
+  const placeholders = columns.map(() => '?').join(', ');
+  return context.db.insert(
+    `INSERT INTO ${config.table} (${columns.join(', ')}) VALUES (${placeholders})`,
+    values
+  );
+}
+
+export function isSensitiveAssetField(type: AssetType, apiField: string): boolean {
+  return Boolean(sensitiveFieldsByAssetType[type]?.has(apiField));
 }
 
 export function getAssetOrThrow(
