@@ -57,6 +57,14 @@ describe('GitHub Lists proxy', () => {
     });
     await expect(new GitHubListsApiService().getUserLists()).rejects.toThrow('permission denied');
   });
+  it('treats NOT_FOUND repositories as unresolved instead of failing the whole lookup', async () => {
+    vi.spyOn(backend, 'proxyGitHubGraphQL').mockResolvedValue({
+      data: { r0: { id: 'R1', nameWithOwner: 'a/one' }, r1: null },
+      errors: [{ type: 'NOT_FOUND', path: ['r1'], message: 'Could not resolve to a Repository' }],
+    });
+    const nodes = await new GitHubListsApiService().resolveRepositoryNodeIds(['a/one', 'gone/repo']);
+    expect([...nodes]).toEqual([['a/one', 'R1']]);
+  });
   it('does not replay a mutation after a lost response', async () => {
     const call = vi
       .spyOn(backend, 'proxyGitHubGraphQL')

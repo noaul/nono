@@ -38,6 +38,7 @@ export class GitHubListsApiService {
     query: string,
     variables: Record<string, unknown> = {},
     signal?: AbortSignal,
+    allowNotFound = false,
   ): Promise<T> {
     this.assertActive(signal);
     let response;
@@ -55,8 +56,14 @@ export class GitHubListsApiService {
       throw error;
     }
     this.assertActive(signal);
-    if (response.errors?.length)
-      throw new Error(response.errors.map((e) => e.message ?? 'GitHub GraphQL error').join('; '));
+    // Missing repositories come back as top-level NOT_FOUND errors next to a null field.
+    const errors = allowNotFound
+      ? response.errors?.filter(
+          (e) => !(e.type === 'NOT_FOUND' && e.path?.length === 1 && response.data?.[String(e.path[0])] === null),
+        )
+      : response.errors;
+    if (errors?.length)
+      throw new Error(errors.map((e) => e.message ?? 'GitHub GraphQL error').join('; '));
     if (!response.data) throw new Error('GitHub GraphQL response is missing data.');
     if (response.data.rateLimit) this.rateLimit = response.data.rateLimit as GitHubListsRateLimit;
     return response.data as T;
@@ -183,6 +190,7 @@ export class GitHubListsApiService {
         `query(${declarations.join(',')}) { ${fields.join(' ')} ${rateFields} }`,
         variables,
         signal,
+        true,
       );
       batch.forEach((name, index) => {
         const node = data[`r${index}`];

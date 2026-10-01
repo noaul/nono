@@ -128,7 +128,7 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
     });
     if (!config) return reply.status(404).send({ error: 'WebDAV config not found', code: 'WEBDAV_CONFIG_NOT_FOUND' });
     const method = text(input.method).toUpperCase();
-    if (!['GET', 'PUT', 'DELETE', 'PROPFIND', 'MKCOL', 'MOVE', 'COPY', 'HEAD', 'OPTIONS'].includes(method)) {
+    if (!['GET', 'PUT', 'DELETE', 'PROPFIND', 'MKCOL', 'HEAD', 'OPTIONS'].includes(method)) {
       return reply.status(400).send({ error: 'Unsupported WebDAV method', code: 'INVALID_WEBDAV_METHOD' });
     }
     const rawPath = text(input.path);
@@ -155,9 +155,10 @@ export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppSer
     if (decodedTarget.origin !== configuredUrl.origin || !decodedTarget.pathname.startsWith(basePath)) {
       return reply.status(400).send({ error: 'Invalid WebDAV path', code: 'INVALID_WEBDAV_PATH' });
     }
-    const headers = asRecord(input.headers);
-    delete headers.authorization;
-    delete headers.Authorization;
+    // Strip credentials and headers that could redirect the request (MOVE/COPY Destination, Host).
+    const headers = Object.fromEntries(Object.entries(asRecord(input.headers)).filter(
+      ([name]) => !['authorization', 'host', 'destination', 'proxy-authorization'].includes(name.toLowerCase()),
+    ));
     headers.authorization = `Basic ${Buffer.from(`${config.username}:${decryptSecret(config.passwordEncrypted, services.encryptionKey)}`).toString('base64')}`;
     const response = await outboundRequest(services, user, targetUrl.toString(), {
       method,

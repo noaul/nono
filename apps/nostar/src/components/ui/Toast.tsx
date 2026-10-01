@@ -64,7 +64,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration =
       role={type === 'error' ? 'alert' : 'status'}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
       aria-atomic="true"
-      className="nostar-toast-viewport fixed z-[100] animate-in slide-in-from-top-2 fade-in duration-200"
+      className="nostar-toast-viewport fixed z-[100000] animate-in slide-in-from-top-2 fade-in duration-200"
     >
       <div className={`flex items-center space-x-3 px-4 py-3 rounded-lg border shadow-lg ${bgMap[type]}`}>
         <Icon className={`w-5 h-5 flex-shrink-0 ${iconColorMap[type]}`} aria-hidden="true" />

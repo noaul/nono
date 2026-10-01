@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useId } from 'react';
+import React, { useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalLifecycle } from '../../hooks/useModalLifecycle';
 import { AlertTriangle } from 'lucide-react';
 
 interface ConfirmDialogProps {
@@ -23,46 +24,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
   type = 'warning',
 }) => {
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
   const titleId = useId();
-
-  useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      document.body.style.overflow = 'hidden';
-
-      setTimeout(() => {
-        cancelButtonRef.current?.focus();
-      }, 0);
-    } else {
-      document.body.style.overflow = '';
-      previousActiveElement.current?.focus();
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
-        onCancelRef.current();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen]);
+  // Shares the dialog stack so a confirmation over a Modal owns Escape, focus and the top layer.
+  const layer = useModalLifecycle(isOpen, onCancel, dialogRef);
 
   if (!isOpen) return null;
 
@@ -80,7 +45,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   const dialogContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      style={{ zIndex: layer }}
+      className="fixed inset-0 flex items-center justify-center"
     >
       {/* Backdrop */}
       <div
@@ -94,6 +60,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         className="relative w-full max-w-md mx-4 bg-white dark:bg-panel-dark dark:border dark:border-white/[0.04] rounded-xl shadow-xl"
       >
         <div className="p-6">
@@ -118,13 +85,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
         <div className="flex justify-end space-x-3 px-6 py-4 bg-light-bg dark:bg-white/[0.02] border-t border-black/[0.06] dark:border-white/[0.04] rounded-b-xl">
           <button
-            ref={cancelButtonRef}
+            type="button"
             onClick={handleCancel}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-text-primary bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.08] rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.08] transition-colors"
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={handleConfirm}
             className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${buttonClass}`}
           >

@@ -41,4 +41,24 @@ describe('Release and translation settings sync', () => {
     expect(useAppStore.getState().categoryListIdMap).toEqual({});
     expect(useAppStore.getState().githubListMemberships).toEqual({});
   });
+  it('merges device-local reads on the first pull and pushes them, then trusts the backend', async () => {
+    useAppStore.setState({readReleases: new Set([47, 99])});
+    vi.spyOn(backend, 'fetchRepositories').mockResolvedValue({repositories: [], total: 0});
+    const fetchReleases = vi.spyOn(backend, 'fetchReleases').mockResolvedValue({releases: [createRelease({id: 47, is_read: false}), createRelease({id: 92, is_read: true})], total: 2});
+    vi.spyOn(backend, 'fetchAIConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchWebDAVConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchEmbeddingConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchVectorSearchConfig').mockResolvedValue(useAppStore.getState().vectorSearchConfig);
+    vi.spyOn(backend, 'fetchSettings').mockResolvedValue({});
+    await syncFromBackend();
+    expect([...useAppStore.getState().readReleases].sort()).toEqual([47, 92]);
+    await vi.waitFor(() => expect(backend.syncReleases).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({id: 47, is_read: true})])));
+
+    fetchReleases.mockResolvedValue({releases: [createRelease({id: 47, is_read: false}), createRelease({id: 92, is_read: false})], total: 2});
+    // The merge push may still be in flight; pulls are skipped until it settles.
+    await vi.waitFor(async () => {
+      await syncFromBackend();
+      expect([...useAppStore.getState().readReleases]).toEqual([]);
+    });
+  });
 });

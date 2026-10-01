@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { mergeRepositoriesPreservingLocalMetadata } from '../utils/repositoryMerge';
 import { logger } from './logger';
 import { SERVER_MANAGED_GITHUB_TOKEN } from './githubApi';
+import { getStorageScope } from './storageScope';
 
 // Prevent sync loops: when we pull data FROM backend and update store,
 // the store subscription would trigger a push TO backend. This flag blocks that.
@@ -22,6 +23,9 @@ let _hasPendingPush = false;
 // Track unsynced local edits so backend polling does not overwrite them.
 let _hasPendingLocalChanges = false;
 let _localChangeVersion = 0;
+// Read state used to be device-local and the backend flags start out unread, so the first
+// pull per NoNo user merges local reads instead of replacing them. Reads are monotonic.
+let _readStateMergedScope: string | null = null;
 
 // Debounce timer for push-to-backend
 let _debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -177,8 +181,23 @@ export async function syncFromBackend(): Promise<void> {
       }
     }
     if (changed.releases && releasesResult.status === 'fulfilled') {
-      state.setReleases(releasesResult.value.releases);
-      useAppStore.setState({ readReleases: new Set(releasesResult.value.releases.filter(release => release.is_read).map(release => release.id)) });
+      const remoteReleases = releasesResult.value.releases;
+      const readReleases = new Set(remoteReleases.filter(release => release.is_read).map(release => release.id));
+      const scope = getStorageScope();
+      if (_readStateMergedScope !== scope) {
+        _readStateMergedScope = scope;
+        const remoteIds = new Set(remoteReleases.map(release => release.id));
+        const remoteReadCount = readReleases.size;
+        for (const id of state.readReleases ?? []) {
+          if (remoteIds.has(id)) readReleases.add(id);
+        }
+        if (readReleases.size > remoteReadCount) {
+          _hasPendingLocalChanges = true;
+          _hasPendingPush = true;
+        }
+      }
+      state.setReleases(remoteReleases);
+      useAppStore.setState({ readReleases });
       _lastHash.releases = hashes.releases;
     }
     if (changed.ai && aiResult.status === 'fulfilled') {
@@ -580,5 +599,6 @@ export function stopAutoSync(unsubscribe: () => void): void {
   _isSyncingFromBackend = false;
   _hasPendingPush = false;
   _hasPendingLocalChanges = false;
+  _readStateMergedScope = null;
   logger.info('sync.stop', 'Auto-sync stopped');
 }

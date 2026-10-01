@@ -224,7 +224,7 @@ class BackendAdapter {
   // === GitHub Proxy ===
 
   /** Browser-session proxy; GraphQL mutations must never be automatically replayed. */
-  async proxyGitHubGraphQL(query: string, variables: Record<string, unknown> = {}, signal?: AbortSignal): Promise<{ data?: Record<string, unknown>; errors?: Array<{ message?: string }> }> {
+  async proxyGitHubGraphQL(query: string, variables: Record<string, unknown> = {}, signal?: AbortSignal): Promise<{ data?: Record<string, unknown>; errors?: Array<{ message?: string; type?: string; path?: Array<string | number> }> }> {
     if (!this._backendUrl) throw new Error('Backend not available. Sign in to NoNo before syncing GitHub Lists.');
     if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
     const res = await this.fetchWithTimeout(`${this._backendUrl}/proxy/github/graphql`, {

@@ -86,11 +86,14 @@ export class AIRateLimiter {
     const backoff = Math.min(60_000, 1000 * 2 ** Math.min(this.consecutiveRateLimits++, 6));
     const jitteredBackoff = Math.min(60_000, Math.round(backoff * (0.75 + Math.random() * 0.5)));
     const serverWait = typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs)
-      ? Math.max(0, retryAfterMs) : 0;
+      ? Math.min(MAX_SERVER_RETRY_AFTER_MS, Math.max(0, retryAfterMs)) : 0;
     // Every 429 delays every queued caller; a later success never shortens this cooldown.
     this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + Math.max(serverWait, jitteredBackoff));
   }
 }
+
+// A hostile or misconfigured Retry-After must not freeze AI features for the rest of the session.
+const MAX_SERVER_RETRY_AFTER_MS = 5 * 60_000;
 
 const sharedLimiters = new Map<string, AIRateLimiter>();
 
