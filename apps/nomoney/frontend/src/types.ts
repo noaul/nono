@@ -1,5 +1,5 @@
 export type Currency = 'CNY' | 'USD' | 'HKD' | 'JPY' | 'GBP' | 'EUR' | 'CAD' | 'SGD' | 'AUD';
-export type BillingCycle = 'monthly' | 'quarterly' | 'annual' | 'biennial';
+export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
 export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
 export type AccountType = 'telegram' | 'whatsapp' | 'signal' | 'wechat' | 'line' | 'discord' | 'viber' | 'other';
@@ -109,6 +109,12 @@ export interface DashboardSummary {
     month: number;
   };
   nextDueItems?: DueItem[];
+  monthlyActual?: Array<{ month: string; totals: Partial<Record<Currency, number>> }>;
+  converted?: {
+    predictedMonthly: ConvertedTotal;
+    predictedYearly: ConvertedTotal;
+    actualYearly: ConvertedTotal;
+  };
   phoneStats?: {
     total: number;
     domestic: number;
@@ -121,6 +127,14 @@ export interface DashboardSummary {
     predictedYearly: Partial<Record<Currency, number>>;
     actualYearly: Partial<Record<Currency, number>>;
   };
+}
+
+export interface ConvertedTotal {
+  currency: Currency;
+  amountMinorUnits: number;
+  /** False when an exchange rate was unavailable and some currencies were left out. */
+  complete: boolean;
+  rateDate: string | null;
 }
 
 export interface DashboardCostSubcategory {
@@ -145,6 +159,7 @@ export interface DashboardCategoryCost {
 }
 
 export interface DueItem {
+  kind?: 'renewal' | 'keepalive';
   assetType: AssetType;
   assetId: number;
   name: string;
@@ -161,6 +176,7 @@ export interface DueItem {
 export interface SettingsValue {
   reminderDays: number[];
   reminderEnabled: boolean;
+  autoRenewEnabled: boolean;
   defaultCurrency: Currency;
   timezone: string;
   language: 'zh' | 'en';
@@ -191,6 +207,8 @@ export interface ListMeta {
     earliestPaidAt: string | null;
     latestPaidAt: string | null;
   };
+  tagOptions?: Array<{ tag: string; count: number }>;
+  categoryOptions?: string[];
   registrarAccounts?: Array<{
     registrar: string;
     account: string;

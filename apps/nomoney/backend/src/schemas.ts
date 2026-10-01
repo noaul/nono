@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { currencies } from './utils.js';
+import { billingCycles, currencies } from './utils.js';
 
 export const currencySchema = z.enum(currencies);
-export const billingCycleSchema = z.enum(['monthly', 'quarterly', 'annual', 'biennial']);
+export const billingCycleSchema = z.enum(billingCycles);
 const domainBillingCycleSchema = z.enum(['annual', 'biennial']);
 export const statusSchema = z.enum(['active', 'paused', 'expired', 'cancelled', 'archived']);
 const phoneTypeSchema = z.enum(['domestic', 'foreign']);

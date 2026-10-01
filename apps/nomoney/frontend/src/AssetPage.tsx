@@ -10,6 +10,7 @@ import { Button, DataTable, Drawer, EmptyState, Field, IconButton, ProgressBar, 
 import { commonDomainExtensions, composeDomainName, dnsProviderLink, dnsProviderProfiles, domainLink, domainPrefix, findDnsProviderProfile, findRegistrarProfile, inferDomainExtension, normalizeDomainExtension, registrarProfiles, stringValue } from './domainRegistrars';
 import { useI18n } from './i18n';
 import { getDefaultCurrency } from './preferences';
+import { RenewalHistory, RenewalToast, RenewButton, useRenewals } from './renewals';
 import { formatVpsCapacity } from './vps-capacity';
 import { assetLabel, assetSingular } from './assetConfigLabels';
 
@@ -34,17 +35,6 @@ type VpsMonitorResponse = { monitor: VpsMonitorSnapshot; item: AssetItem };
 type VpsActionResponse = { ok: boolean; item: AssetItem; message?: string; probeUrl?: string; testedAt?: string; installedAt?: string };
 type VpsMonitorState = { loading?: boolean; error?: string; monitor?: VpsMonitorSnapshot };
 type VpsActionState = { testing?: boolean; installing?: boolean; message?: string; error?: string };
-type VpsRenewal = {
-  id: number;
-  previousExpireDate: string;
-  renewedExpireDate: string;
-  expenseId: number;
-  amountMinorUnits: number;
-  currency: Currency;
-  status: 'active' | 'undone';
-};
-type VpsRenewalResponse = { idempotent: boolean; item: AssetItem; renewal: VpsRenewal };
-type VpsRenewalToastState = { itemId: number; renewal: VpsRenewal };
 type VpsStats = {
   total: number;
   online: number;
@@ -98,7 +88,7 @@ type PhoneVisualAccent = {
   chart: string[];
 };
 
-const cycles: BillingCycle[] = ['monthly', 'quarterly', 'annual', 'biennial'];
+const cycles: BillingCycle[] = ['weekly', 'monthly', 'quarterly', 'semiannual', 'annual', 'biennial'];
 const domainCycles: BillingCycle[] = ['annual', 'biennial'];
 const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
 const vpsTypes = [
@@ -193,12 +183,20 @@ const phoneVisualAccents: PhoneVisualAccent[] = [
   { key: 'lime', labelZh: '青柠', labelEn: 'Lime', primary: '#84cc16', secondary: '#14b8a6', tertiary: '#f97316', chart: ['#84cc16', '#14b8a6', '#f97316', '#38bdf8', '#eab308', '#f43f5e'] },
   { key: 'amber', labelZh: '琥珀', labelEn: 'Amber', primary: '#f59e0b', secondary: '#ef4444', tertiary: '#22c55e', chart: ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#f97316'] }
 ];
+const filterClass = `${inputClass} w-auto min-w-[120px] flex-[0_1_auto]`;
+const assetSortOptions = [
+  { value: 'dueDate', labelZh: '到期 / 扣费日', labelEn: 'Due date' },
+  { value: 'amount', labelZh: '费用', labelEn: 'Cost' },
+  { value: 'name', labelZh: '名称', labelEn: 'Name' },
+  { value: 'createdAt', labelZh: '添加时间', labelEn: 'Date added' }
+];
 const domainSortOptions = [
   { value: 'expireDate', labelZh: '到期时间', labelEn: 'Expiry date' },
   { value: 'renewalDate', labelZh: '续费日期', labelEn: 'Renewal date' },
   { value: 'registerDate', labelZh: '注册时间', labelEn: 'Registration date' },
   { value: 'name', labelZh: '域名', labelEn: 'Domain' },
-  { value: 'amount', labelZh: '费用', labelEn: 'Cost' }
+  { value: 'amount', labelZh: '费用', labelEn: 'Cost' },
+  { value: 'rarity', labelZh: '稀有度', labelEn: 'Rarity' }
 ];
 
 export function AssetPage({ config }: { config: AssetPageConfig }) {
@@ -212,21 +210,34 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [meta, setMeta] = useState<ListMeta | null>(null);
   const assetSummary = meta?.assetSummary;
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'card' | 'compact' | 'table'>('card');
-  const [query, setQuery] = useState('');
+  // Filters, sort, page and view live in the URL so reloads, bookmarks and the back button keep them.
+  const [initialParams] = useState(() => new URLSearchParams(window.location.search));
+  const param = (key: string, fallback = '') => initialParams.get(key) ?? fallback;
+  const viewStorageKey = `nomoney:view:${config.endpoint}`;
+  const [view, setView] = useState<'card' | 'compact' | 'table'>(() => {
+    const stored = param('view') || localStorage.getItem(viewStorageKey) || 'card';
+    return stored === 'table' || stored === 'compact' ? stored : 'card';
+  });
+  const [query, setQuery] = useState(() => param('q'));
   const deferredQuery = useDeferredValue(query);
-  const [status, setStatus] = useState('');
-  const [vpsType, setVpsType] = useState('');
-  const [currency, setCurrency] = useState('');
-  const [billingCycle, setBillingCycle] = useState('');
-  const [phoneType, setPhoneType] = useState(isPhone ? 'domestic' : '');
-  const [purchaseType, setPurchaseType] = useState(isSubscription ? 'subscription' : '');
-  const [domainExtension, setDomainExtension] = useState('');
-  const [registrarAccount, setRegistrarAccount] = useState('');
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>(getDefaultCurrency);
-  const [sort, setSort] = useState(isDomain ? 'expireDate' : 'dueDate');
-  const [direction, setDirection] = useState<'asc' | 'desc'>(isDomain ? 'asc' : 'asc');
-  const [offset, setOffset] = useState(0);
+  const [status, setStatus] = useState(() => param('status'));
+  const [vpsType, setVpsType] = useState(() => isVps ? param('type') : '');
+  const [monitorStatus, setMonitorStatus] = useState(() => param('online'));
+  const [currency, setCurrency] = useState(() => param('currency'));
+  const [billingCycle, setBillingCycle] = useState(() => param('cycle'));
+  const [phoneType, setPhoneType] = useState(() => isPhone ? param('type', 'domestic') : '');
+  const [purchaseType, setPurchaseType] = useState(() => isSubscription ? param('type', 'subscription') : '');
+  const [category, setCategory] = useState(() => param('category'));
+  const [tag, setTag] = useState(() => param('tag'));
+  const [domainExtension, setDomainExtension] = useState(() => param('ext'));
+  const [registrarAccount, setRegistrarAccount] = useState(() => param('account'));
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>(() => (param('display') as Currency) || getDefaultCurrency());
+  const defaultSort = isDomain ? 'expireDate' : 'dueDate';
+  const [sort, setSort] = useState(() => param('sort', defaultSort));
+  const [direction, setDirection] = useState<'asc' | 'desc'>(() => param('dir') === 'desc' ? 'desc' : 'asc');
+  const [offset, setOffset] = useState(() => Math.max(0, (Number(param('page', '1')) || 1) - 1) * pageSize);
+  const [pendingEditId] = useState(() => Number(param('edit')) || null);
+  const mounted = useRef(false);
   const [editing, setEditing] = useState<AssetItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => initialForm(config));
@@ -234,15 +245,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [error, setError] = useState('');
   const [formError, setFormError] = useState('');
   const formSnapshot = useRef('');
-  const [duplicatingDomainId, setDuplicatingDomainId] = useState<number | null>(null);
-  const [duplicatedDomainId, setDuplicatedDomainId] = useState<number | null>(null);
-  const [duplicatingPhoneId, setDuplicatingPhoneId] = useState<number | null>(null);
-  const [duplicatedPhoneId, setDuplicatedPhoneId] = useState<number | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
+  const [duplicatedId, setDuplicatedId] = useState<number | null>(null);
   const [copiedPhoneNumberId, setCopiedPhoneNumberId] = useState<number | null>(null);
-  const [renewingDomainId, setRenewingDomainId] = useState<number | null>(null);
-  const [renewedDomainId, setRenewedDomainId] = useState<number | null>(null);
-  const [renewingVpsId, setRenewingVpsId] = useState<number | null>(null);
-  const [vpsRenewalToast, setVpsRenewalToast] = useState<VpsRenewalToastState | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
   const [monitorById, setMonitorById] = useState<Record<number, VpsMonitorState>>({});
   const [refreshingVps, setRefreshingVps] = useState(false);
   const [autoRefreshVps, setAutoRefreshVps] = useState(true);
@@ -394,6 +400,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     if (deferredQuery.trim()) params.set('q', deferredQuery.trim());
     if (!isPhoneVisual && !isVps && status) params.set('status', status);
     if (isVps && vpsType) params.set('vpsType', vpsType);
+    if (isVps && monitorStatus) params.set('monitorStatus', monitorStatus);
+    if (isSubscription && category) params.set('category', category);
+    if (tag) params.set('tag', tag);
     if (!isPhoneVisual && currency) params.set('currency', currency);
     if (!isDomain && !isPhoneVisual && billingCycle) params.set('billingCycle', billingCycle);
     if (isPhone && (phoneType === 'domestic' || phoneType === 'foreign')) params.set('phoneType', phoneType);
@@ -421,7 +430,38 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setLoading(false);
     });
     return () => controller.abort();
-  }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
+  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    const set = (key: string, value: string, fallback = '') => { if (value && value !== fallback) params.set(key, value); };
+    set('q', query.trim());
+    set('status', status);
+    set('type', isVps ? vpsType : isPhone ? phoneType : isSubscription ? purchaseType : '', isPhone ? 'domestic' : isSubscription ? 'subscription' : '');
+    set('online', monitorStatus);
+    set('currency', currency);
+    set('cycle', billingCycle);
+    set('category', category);
+    set('tag', tag);
+    set('ext', domainExtension);
+    set('account', registrarAccount);
+    set('display', isDomain ? displayCurrency : '', getDefaultCurrency());
+    set('sort', sort, defaultSort);
+    set('dir', direction, 'asc');
+    set('page', offset > 0 ? String(Math.floor(offset / pageSize) + 1) : '');
+    set('view', view, 'card');
+    const search = params.toString();
+    const next = `${window.location.pathname}${search ? `?${search}` : ''}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, '', next);
+    localStorage.setItem(viewStorageKey, view);
+  }, [query, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, view]);
+
+  useEffect(() => {
+    if (!pendingEditId) return;
+    api.get<{ item: AssetItem }>(`/api/${config.endpoint}/${pendingEditId}`)
+      .then((response) => openEdit(response.item))
+      .catch(() => setError(copy('找不到要打开的条目，可能已删除。', 'The requested entry was not found; it may have been deleted.')));
+  }, [pendingEditId]);
 
   const vpsProbeKey = useMemo(
     () => isVps ? items.map((item) => `${item.id}:${stringValue(item.probeUrl)}`).join('|') : '',
@@ -446,10 +486,19 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   }, [isVps, loading, vpsProbeKey, autoRefreshVps]);
 
   useEffect(() => {
+    // The first run is the mount, where the page number came from the URL.
+    if (!mounted.current) return;
     setOffset(0);
-  }, [config.endpoint, deferredQuery, status, vpsType, currency, billingCycle, phoneType, purchaseType, domainExtension, registrarAccount, displayCurrency, sort, direction]);
+  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction]);
 
   useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    setTag('');
+    setCategory('');
+    setMonitorStatus('');
     setSort(config.endpoint === 'domains' ? 'expireDate' : 'dueDate');
     setDirection('asc');
     setDomainExtension('');
@@ -463,8 +512,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     setCopiedSshId(null);
     setCopiedVpsIpId(null);
     setVpsActionById({});
-    setDuplicatingPhoneId(null);
-    setDuplicatedPhoneId(null);
+    setDuplicatingId(null);
+    setDuplicatedId(null);
     setCopiedPhoneNumberId(null);
     setForm(initialForm(config));
   }, [config]);
@@ -709,108 +758,50 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
-  const duplicateDomainEntry = async (item: AssetItem) => {
-    if (!isDomain || duplicatingDomainId !== null) return;
+  const duplicateEntry = async (item: AssetItem) => {
+    if (duplicatingId !== null) return;
     setError('');
-    setDuplicatingDomainId(item.id);
+    setDuplicatingId(item.id);
     try {
-      await api.post(`/api/${config.endpoint}`, formToPayload(config, assetToForm(config, item)));
-      setDuplicatedDomainId(item.id);
+      await api.post(`/api/${config.endpoint}`, formToPayload(config, duplicateForm(config, assetToForm(config, item))));
+      setDuplicatedId(item.id);
       window.setTimeout(() => {
-        setDuplicatedDomainId((current) => current === item.id ? null : current);
+        setDuplicatedId((current) => current === item.id ? null : current);
       }, 1400);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : copy('复制条目失败', 'Failed to duplicate entry'));
     } finally {
-      setDuplicatingDomainId(null);
+      setDuplicatingId(null);
     }
   };
 
-  const duplicatePhoneEntry = async (item: AssetItem) => {
-    if (!isPhone || duplicatingPhoneId !== null) return;
-    setError('');
-    setDuplicatingPhoneId(item.id);
-    try {
-      await api.post(`/api/${config.endpoint}`, formToPayload(config, assetToForm(config, item)));
-      setDuplicatedPhoneId(item.id);
-      window.setTimeout(() => {
-        setDuplicatedPhoneId((current) => current === item.id ? null : current);
-      }, 1400);
+  const renewals = useRenewals({
+    copy,
+    onError: setError,
+    onNeedsSetup: openEdit,
+    onChanged: async () => {
+      setError('');
+      setHistoryKey((value) => value + 1);
       await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('复制条目失败', 'Failed to duplicate entry'));
-    } finally {
-      setDuplicatingPhoneId(null);
     }
-  };
-
-  const renewDomainOnce = async (item: AssetItem) => {
-    if (!isDomain || renewingDomainId !== null) return;
-    setError('');
-    setRenewingDomainId(item.id);
-    try {
-      await api.post(`/api/${config.endpoint}/${item.id}/renew`);
-      setRenewedDomainId(item.id);
-      window.setTimeout(() => {
-        setRenewedDomainId((current) => current === item.id ? null : current);
-      }, 1400);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('标记续费失败', 'Failed to mark renewal'));
-    } finally {
-      setRenewingDomainId(null);
-    }
-  };
-
-  const renewVpsOnce = async (item: AssetItem) => {
-    if (!isVps || renewingVpsId !== null) return;
-    const dueDate = String(item.expireDate ?? item.nextDueDate ?? '');
-    if (!dueDate || !item.billingCycle) {
-      setError(copy('请先设置到期日和计费周期。', 'Set an expiry date and billing cycle first.'));
-      openEdit(item);
-      return;
-    }
-    setError('');
-    setRenewingVpsId(item.id);
-    try {
-      const response = await api.post<VpsRenewalResponse>(`/api/vps/${item.id}/renew`, {
-        requestId: crypto.randomUUID(),
-        expectedExpireDate: dueDate
-      });
-      setVpsRenewalToast({ itemId: item.id, renewal: response.renewal });
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('标记续费失败', 'Failed to mark renewal'));
-    } finally {
-      setRenewingVpsId(null);
-    }
-  };
-
-  const undoVpsRenewal = async (toast: VpsRenewalToastState) => {
-    setError('');
-    try {
-      await api.post(`/api/vps/${toast.itemId}/renewals/${toast.renewal.id}/undo`);
-      setVpsRenewalToast(null);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('撤销续费失败', 'Failed to undo renewal'));
-    }
-  };
-
-  const updateVpsRenewalAmount = async (toast: VpsRenewalToastState, amountMinorUnits: number) => {
-    setError('');
-    try {
-      const response = await api.put<{ renewal: VpsRenewal }>(
-        `/api/vps/${toast.itemId}/renewals/${toast.renewal.id}/expense`,
-        { amountMinorUnits }
-      );
-      setVpsRenewalToast({ ...toast, renewal: response.renewal });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('修改续费金额失败', 'Failed to update renewal amount'));
-      throw err;
-    }
-  };
+  });
+  const renewItem = (item: AssetItem) => renewals.renew(config.endpoint, item);
+  const duplicateAction = (item: AssetItem) => (
+    <button
+      type="button"
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicatedId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+      onClick={() => duplicateEntry(item)}
+      disabled={duplicatingId === item.id}
+      title={copy('复制条目', 'Duplicate entry')}
+      aria-label={copy('复制条目', 'Duplicate entry')}
+    >
+      {duplicatedId === item.id ? <Check size={14} /> : <Copy className={duplicatingId === item.id ? 'animate-pulse' : ''} size={14} />}
+    </button>
+  );
+  const renewAction = (item: AssetItem) => (
+    <RenewButton endpoint={config.endpoint} item={item} renewing={renewals.renewingId === item.id} onRenew={renewItem} copy={copy} />
+  );
 
   const isForeignPhoneView = phoneType === 'foreign';
   const phoneColumns: DataTableColumn<AssetItem>[] = [
@@ -855,8 +846,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {(() => {
-          const isDuplicating = duplicatingPhoneId === item.id;
-          const isDuplicated = duplicatedPhoneId === item.id;
+          const isDuplicating = duplicatingId === item.id;
+          const isDuplicated = duplicatedId === item.id;
           const title = isDuplicated
             ? copy('已复制条目', 'Entry duplicated')
             : isDuplicating
@@ -865,7 +856,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           return (
             <button
               className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
-              onClick={() => duplicatePhoneEntry(item)}
+              onClick={() => duplicateEntry(item)}
               title={title}
               aria-label={title}
               disabled={isDuplicating}
@@ -874,6 +865,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             </button>
           );
         })()}
+        {renewAction(item)}
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
@@ -903,6 +895,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <ExternalLink size={14} />
           </a>
         )}
+        {renewAction(item)}
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
           <Pencil size={14} />
         </button>
@@ -949,8 +942,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {(() => {
-          const isDuplicating = duplicatingDomainId === item.id;
-          const isDuplicated = duplicatedDomainId === item.id;
+          const isDuplicating = duplicatingId === item.id;
+          const isDuplicated = duplicatedId === item.id;
           const title = isDuplicated
             ? copy('已复制条目', 'Entry duplicated')
             : isDuplicating
@@ -959,7 +952,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           return (
             <button
               className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
-              onClick={() => duplicateDomainEntry(item)}
+              onClick={() => duplicateEntry(item)}
               title={title}
               aria-label={title}
               disabled={isDuplicating}
@@ -978,6 +971,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <Link2 size={14} />
           </a>
         )}
+        {renewAction(item)}
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
@@ -1030,6 +1024,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <button className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSshId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} onClick={() => copySshCommand(item)} title={copy('复制 SSH 命令', 'Copy SSH command')}>
           {copiedSshId === item.id ? <Check size={14} /> : <Terminal size={14} />}
         </button>
+        {renewAction(item)}
+        {duplicateAction(item)}
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
@@ -1101,35 +1097,56 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       {isPhone && !isPhoneVisual && phoneStats && <PhoneCommandPanel stats={phoneStats} copy={copy} />}
 
       {!isPhoneVisual && <section className="card">
-        <div className={isDomain ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[180px_118px_108px_168px_112px_132px_118px_40px_auto] xl:items-center' : isVps ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_130px_130px_150px_auto] xl:items-center' : isPhone ? 'grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_120px_120px_130px_auto] xl:items-center' : 'grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_auto]'}>
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-[1_1_240px]">
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名', 'Search') : isVps ? copy('搜索节点 / IP / 服务商', 'Search nodes') : copy(`搜索${config.singular}`, `Search ${assetSingular(config.singular, language)}`)} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : isVps ? copy('搜索节点 / IP / 服务商 / 标签', 'Search nodes, IPs, tags') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           {isVps ? (
-            <select className={inputClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)}>
-              <option value="">{copy('全部类型', 'All types')}</option>
-              {vpsTypes.map((option) => <option key={option.value} value={option.value}>{language === 'zh' ? option.labelZh : option.labelEn}</option>)}
-            </select>
+            <>
+              <select className={filterClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)} aria-label={copy('类型', 'Type')}>
+                <option value="">{copy('全部类型', 'All types')}</option>
+                {vpsTypes.map((option) => <option key={option.value} value={option.value}>{language === 'zh' ? option.labelZh : option.labelEn}</option>)}
+              </select>
+              <select className={filterClass} value={monitorStatus} onChange={(e) => setMonitorStatus(e.target.value)} aria-label={copy('在线状态', 'Online status')}>
+                <option value="">{copy('全部状态', 'Any status')}</option>
+                <option value="online">{copy('在线', 'Online')}</option>
+                <option value="offline">{copy('离线', 'Offline')}</option>
+                <option value="unknown">{copy('未接入探针', 'No probe')}</option>
+              </select>
+            </>
           ) : (
-            <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select className={filterClass} value={status} onChange={(e) => setStatus(e.target.value)} aria-label={copy('状态', 'Status')}>
               <option value="">{copy('未归档', 'Not archived')}</option>
               {statusOptions(copy)}
             </select>
           )}
-          <select className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+          {isSubscription && (meta?.categoryOptions?.length ?? 0) > 0 && (
+            <select className={filterClass} value={category} onChange={(e) => setCategory(e.target.value)} aria-label={copy('分类', 'Category')}>
+              <option value="">{copy('全部分类', 'All categories')}</option>
+              {meta?.categoryOptions?.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          )}
+          {((meta?.tagOptions?.length ?? 0) > 0 || tag) && (
+            <select className={filterClass} value={tag} onChange={(e) => setTag(e.target.value)} aria-label={copy('标签', 'Tag')}>
+              <option value="">{copy('全部标签', 'All tags')}</option>
+              {tag && !meta?.tagOptions?.some((option) => option.tag === tag) && <option value={tag}>{tag}</option>}
+              {meta?.tagOptions?.map((option) => <option key={option.tag} value={option.tag}>{option.tag} ({option.count})</option>)}
+            </select>
+          )}
+          <select className={filterClass} value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={copy('币种', 'Currency')}>
             <option value="">{copy('全部币种', 'All currencies')}</option>
             {currencies.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
           {!isDomain && (
-            <select className={inputClass} value={billingCycle} onChange={(e) => setBillingCycle(e.target.value)}>
+            <select className={filterClass} value={billingCycle} onChange={(e) => setBillingCycle(e.target.value)} aria-label={copy('周期', 'Cycle')}>
               <option value="">{copy('全部周期', 'All cycles')}</option>
-            {cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}
+              {cycles.map((value) => <option key={value} value={value}>{formatCycle(value, language)}</option>)}
             </select>
           )}
           {isDomain && (
             <>
-              <select className={inputClass} value={registrarAccount} onChange={(e) => setRegistrarAccount(e.target.value)}>
+              <select className={filterClass} value={registrarAccount} onChange={(e) => setRegistrarAccount(e.target.value)} aria-label={copy('账号', 'Account')}>
                 <option value="">{copy('全部账号', 'All accounts')}</option>
                 {registrarAccount && !registrarAccountOptions.some((option) => option.value === registrarAccount) && (
                   <option value={registrarAccount}>{registrarAccount}</option>
@@ -1138,25 +1155,25 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
                   <option key={option.value} value={option.value}>{formatRegistrarAccountOption(option, copy)}</option>
                 ))}
               </select>
-              <select className={inputClass} value={domainExtension} onChange={(e) => setDomainExtension(e.target.value)}>
-                <option value="">{copy('全部后缀', 'All extensions')}</option>
-                {commonDomainExtensions.map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-              <select className={inputClass} value={displayCurrency} onChange={(e) => setDisplayCurrency(e.target.value as Currency)}>
+              <input className={filterClass} list="domain-extension-options" placeholder={copy('全部后缀', 'All extensions')} value={domainExtension} onChange={(e) => setDomainExtension(e.target.value)} aria-label={copy('后缀', 'Extension')} />
+              <datalist id="domain-extension-options">
+                {commonDomainExtensions.map((value) => <option key={value} value={value} />)}
+              </datalist>
+              <select className={filterClass} value={displayCurrency} onChange={(e) => setDisplayCurrency(e.target.value as Currency)} aria-label={copy('统一币种', 'Total currency')}>
                 {currencies.map((value) => <option key={value} value={value}>{copy(`统一 ${value}`, `Total in ${value}`)}</option>)}
               </select>
-              <select className={inputClass} value={sort} onChange={(e) => setSort(e.target.value)}>
-                {domainSortOptions.map((item) => <option key={item.value} value={item.value}>{language === 'zh' ? item.labelZh : item.labelEn}</option>)}
-              </select>
-              <IconButton
-                onClick={() => setDirection(direction === 'asc' ? 'desc' : 'asc')}
-                title={direction === 'asc' ? copy('升序', 'Ascending') : copy('降序', 'Descending')}
-              >
-                {direction === 'asc' ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />}
-              </IconButton>
             </>
           )}
-          <div className="flex gap-1 xl:justify-end">
+          <select className={filterClass} value={sort} onChange={(e) => setSort(e.target.value)} aria-label={copy('排序', 'Sort')}>
+            {(isDomain ? domainSortOptions : assetSortOptions).map((item) => <option key={item.value} value={item.value}>{language === 'zh' ? item.labelZh : item.labelEn}</option>)}
+          </select>
+          <IconButton
+            onClick={() => setDirection(direction === 'asc' ? 'desc' : 'asc')}
+            title={direction === 'asc' ? copy('升序', 'Ascending') : copy('降序', 'Descending')}
+          >
+            {direction === 'asc' ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />}
+          </IconButton>
+          <div className="ml-auto flex gap-1">
             <IconButton onClick={() => setView('card')} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('卡片', 'Cards')}>
               <Grid3X3 size={16} />
             </IconButton>
@@ -1183,12 +1200,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       ) : view === 'card' ? (
         <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => isDomain
-            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedDomainId === item.id} duplicating={duplicatingDomainId === item.id} renewing={renewingDomainId === item.id} renewed={renewedDomainId === item.id} onDuplicate={duplicateDomainEntry} onRenew={renewDomainOnce} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} renewing={renewals.renewingId === item.id} renewed={false} onDuplicate={duplicateEntry} onRenew={renewItem} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps
-              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} copiedIp={copiedVpsIpId === item.id} renewing={renewingVpsId === item.id} onRenew={renewVpsOnce} onCopySsh={copySshCommand} onCopyIp={copyVpsIpAddress} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} copiedIp={copiedVpsIpId === item.id} renewing={renewals.renewingId === item.id} onRenew={renewItem} onCopySsh={copySshCommand} onCopyIp={copyVpsIpAddress} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
-              ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedPhoneId === item.id} duplicating={duplicatingPhoneId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicatePhoneEntry} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
-            : <AssetCardView key={item.id} item={item} config={config} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+              ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicateEntry} renewAction={renewAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+            : <AssetCardView key={item.id} item={item} config={config} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} onDuplicate={duplicateEntry} renewAction={renewAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
           )}
         </div>
       ) : isDomain && view === 'compact' ? (
@@ -1213,12 +1230,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         </div>
       )}
 
-      {vpsRenewalToast && (
-        <VpsRenewalToast
-          toast={vpsRenewalToast}
-          onUndo={undoVpsRenewal}
-          onUpdateAmount={updateVpsRenewalAmount}
-          onClose={() => setVpsRenewalToast(null)}
+      {renewals.toast && (
+        <RenewalToast
+          toast={renewals.toast}
+          onUndo={renewals.undo}
+          onUpdateAmount={renewals.updateAmount}
+          onClose={() => renewals.setToast(null)}
           copy={copy}
         />
       )}
@@ -1276,6 +1293,22 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             </>
           )}
         </form>
+        {editing && !(isSubscription && editing.purchaseType === 'buyout') && (
+          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-white/[0.06]">
+            <RenewalHistory
+              endpoint={config.endpoint}
+              itemId={editing.id}
+              refreshKey={historyKey}
+              copy={copy}
+              onUndone={(item) => {
+                setEditing(item);
+                setForm(assetToForm(config, item));
+                formSnapshot.current = JSON.stringify(assetToForm(config, item));
+                void load();
+              }}
+            />
+          </div>
+        )}
       </Drawer>
     </div>
   );
@@ -1670,6 +1703,7 @@ function PhoneFormSections({
             <Field label={copy('流量（G）', 'Data GB')}><input className={`${inputClass} font-mono`} type="number" step="0.1" value={String(form.dataAllowanceGb ?? '')} onChange={(e) => updateForm('dataAllowanceGb', e.target.value)} /></Field>
             <Field label={copy('通话（min）', 'Minutes')}><input className={`${inputClass} font-mono`} type="number" value={String(form.voiceMinutes ?? '')} onChange={(e) => updateForm('voiceMinutes', e.target.value)} /></Field>
           </div>
+          <Field label={copy('套餐名称', 'Plan name')}><input className={inputClass} placeholder={copy('如：大王卡 19 元', 'e.g. 19 CNY basic plan')} value={String(form.planName ?? '')} onChange={(e) => updateForm('planName', e.target.value)} /></Field>
           <Field label={copy('附属业务备注', 'Attached service notes')}><input className={inputClass} value={String(form.attachedServices ?? '')} onChange={(e) => updateForm('attachedServices', e.target.value)} /></Field>
         </Section>
       )}
@@ -1678,7 +1712,7 @@ function PhoneFormSections({
         {phoneType === 'foreign' ? (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={copy('余额（当地货币）', 'Balance')}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.balanceMinorUnits ?? '')} onChange={(e) => updateForm('balanceMinorUnits', e.target.value)} /></Field>
+              <Field label={copy(`余额（${String(form.currency || 'CNY')}）`, `Balance (${String(form.currency || 'CNY')})`)}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.balanceMinorUnits ?? '')} onChange={(e) => updateForm('balanceMinorUnits', e.target.value)} /></Field>
               <Field label={copy('最低保号金额', 'Min keepalive')}><input className={`${inputClass} font-mono`} type="number" step="0.01" value={String(form.minimumKeepaliveAmountMinorUnits ?? '')} onChange={(e) => updateForm('minimumKeepaliveAmountMinorUnits', e.target.value)} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1919,71 +1953,6 @@ function VpsNodeCard({
         </div>
       </div>
     </div>
-  );
-}
-
-function VpsRenewalToast({
-  toast,
-  onUndo,
-  onUpdateAmount,
-  onClose,
-  copy
-}: {
-  toast: VpsRenewalToastState;
-  onUndo: (toast: VpsRenewalToastState) => Promise<void>;
-  onUpdateAmount: (toast: VpsRenewalToastState, amountMinorUnits: number) => Promise<void>;
-  onClose: () => void;
-  copy: (zh: string, en: string) => string;
-}) {
-  const [editingAmount, setEditingAmount] = useState(false);
-  const [amount, setAmount] = useState((toast.renewal.amountMinorUnits / 100).toFixed(2));
-  const [working, setWorking] = useState<'undo' | 'amount' | null>(null);
-
-  const saveAmount = async () => {
-    const amountMinorUnits = Math.round(Number(amount) * 100);
-    if (!Number.isFinite(amountMinorUnits) || amountMinorUnits < 0) return;
-    setWorking('amount');
-    try {
-      await onUpdateAmount(toast, amountMinorUnits);
-      setEditingAmount(false);
-    } finally {
-      setWorking(null);
-    }
-  };
-
-  const undo = async () => {
-    setWorking('undo');
-    try {
-      await onUndo(toast);
-    } finally {
-      setWorking(null);
-    }
-  };
-
-  return (
-    <aside className="fixed bottom-5 right-5 z-50 w-[min(420px,calc(100vw-2rem))] rounded-xl border border-success-500/25 bg-white p-3 shadow-2xl shadow-slate-950/15 dark:bg-ink-900" role="status" aria-live="polite">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success-500/10 text-success-600 dark:text-success-400"><Check size={15} /></span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-950 dark:text-white">
-            {copy(`已续费至 ${toast.renewal.renewedExpireDate}`, `Renewed until ${toast.renewal.renewedExpireDate}`)}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">{formatMoney(toast.renewal.amountMinorUnits, toast.renewal.currency)}</p>
-          {editingAmount ? (
-            <div className="mt-2 flex items-center gap-2">
-              <input className={`${inputClass} h-8 min-w-0 flex-1 font-mono text-xs`} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} autoFocus />
-              <Button size="sm" onClick={saveAmount} disabled={working === 'amount'}>{copy('保存', 'Save')}</Button>
-            </div>
-          ) : (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button type="button" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400" onClick={() => setEditingAmount(true)}>{copy('修改金额', 'Edit amount')}</button>
-              <button type="button" className="text-xs font-medium text-slate-600 hover:underline disabled:opacity-50 dark:text-slate-300" onClick={undo} disabled={working !== null}>{copy('撤销', 'Undo')}</button>
-            </div>
-          )}
-        </div>
-        <button type="button" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={onClose} aria-label={copy('关闭', 'Close')}><X size={14} /></button>
-      </div>
-    </aside>
   );
 }
 
@@ -2401,7 +2370,7 @@ function DomainCardView({
         <div className="muted-panel p-3">
           <p className="text-xs text-slate-500">{copy('周期费用', 'Cycle cost')}</p>
           <p className="mt-1 font-mono text-lg font-semibold text-slate-950 dark:text-white">{formatDisplayMoney(item)}</p>
-          <p className="text-xs text-slate-400">{formatCycle(item.billingCycle)}</p>
+          <p className="text-xs text-slate-400">{copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</p>
         </div>
       </div>
 
@@ -2609,6 +2578,7 @@ function PhoneCardView({
   copiedNumber,
   onCopyNumber,
   onDuplicate,
+  renewAction,
   onEdit,
   onDelete,
   copy
@@ -2619,6 +2589,7 @@ function PhoneCardView({
   copiedNumber: boolean;
   onCopyNumber: (item: AssetItem) => void;
   onDuplicate: (item: AssetItem) => void;
+  renewAction?: React.ReactNode;
   onEdit: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
@@ -2683,6 +2654,7 @@ function PhoneCardView({
       )}
 
       <div className="mt-5 flex justify-end gap-1 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+        {renewAction}
         <button
           onClick={() => onDuplicate(item)}
           className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
@@ -2706,12 +2678,20 @@ function PhoneCardView({
 function AssetCardView({
   item,
   config,
+  duplicated,
+  duplicating,
+  onDuplicate,
+  renewAction,
   onEdit,
   onDelete,
   copy
 }: {
   item: AssetItem;
   config: AssetPageConfig;
+  duplicated: boolean;
+  duplicating: boolean;
+  onDuplicate: (item: AssetItem) => void;
+  renewAction?: React.ReactNode;
   onEdit: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
@@ -2731,7 +2711,7 @@ function AssetCardView({
       <div className="mt-5 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${formatCycle(item.billingCycle)} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
+          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
         </div>
         {left !== null && (
           <div className={`text-right font-mono text-sm font-semibold ${dueTone(left)}`}>
@@ -2751,6 +2731,16 @@ function AssetCardView({
             <ExternalLink size={14} />
           </a>
         )}
+        {renewAction}
+        <button
+          onClick={() => onDuplicate(item)}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+          title={copy('复制条目', 'Duplicate entry')}
+          aria-label={copy('复制条目', 'Duplicate entry')}
+          disabled={duplicating}
+        >
+          {duplicated ? <Check size={14} /> : <Copy className={duplicating ? 'animate-pulse' : ''} size={14} />}
+        </button>
         <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
@@ -2760,6 +2750,17 @@ function AssetCardView({
       </div>
     </div>
   );
+}
+
+/** A copy of an entry: renamed so it is easy to spot, with VPS probe credentials left behind. */
+function duplicateForm(config: AssetPageConfig, form: FormState): FormState {
+  const next = { ...form };
+  if (config.endpoint === 'vps') {
+    next.name = `${String(form.name ?? '')} (copy)`;
+    for (const key of ['probeUrl', 'probeApiKey', 'probePort']) next[key] = '';
+  }
+  if (config.endpoint === 'subscriptions') next.name = `${String(form.name ?? '')} (copy)`;
+  return next;
 }
 
 function initialForm(config: AssetPageConfig): FormState {

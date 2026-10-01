@@ -1,28 +1,50 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { RequestHandler, Router } from 'express';
 import { z } from 'zod';
-import { assetConfigs, getAssetOrThrow } from './assets.js';
+import { assetConfigs, getAssetOrThrow, type AssetConfig } from './assets.js';
 import { asyncHandler, HttpError, parseBody } from './http.js';
-import type { AppContext, BillingCycle, Currency } from './types.js';
-import { toIsoDate, toIsoDateTime } from './utils.js';
+import { getSettings } from './settings.js';
+import type { AppContext, AssetType, Currency } from './types.js';
+import { addBillingCycle, addDays, isBillingCycle, toIsoDate, toIsoDateTime } from './utils.js';
+
+export const autoRenewWindowDays = 60;
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const renewalSchema = z.object({
   requestId: z.string().trim().min(8).max(128),
-  expectedExpireDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+  // `expectedExpireDate` is the original VPS field name; both mean "the due date the client saw".
+  expectedDueDate: isoDate.optional(),
+  expectedExpireDate: isoDate.optional(),
+  amountMinorUnits: z.number().int().nonnegative().optional(),
+  paidAt: isoDate.optional()
+}).refine((value) => value.expectedDueDate || value.expectedExpireDate, {
+  message: 'expectedDueDate is required',
+  path: ['expectedDueDate']
 });
 
 const expenseAmountSchema = z.object({
   amountMinorUnits: z.number().int().nonnegative()
 });
 
+type RenewalInput = {
+  requestId: string;
+  expectedDueDate: string;
+  amountMinorUnits?: number;
+  paidAt?: string;
+  auto?: boolean;
+};
+
 type RenewalRow = {
   id: number;
   request_id: string;
+  asset_type: AssetType;
   asset_id: number;
   previous_expire_date: string;
   previous_next_due_date: string | null;
+  previous_last_renew_date: string | null;
   renewed_expire_date: string;
-  expense_id: number;
+  expense_id: number | null;
   amount_minor_units: number;
   currency: Currency;
   status: 'active' | 'undone';
@@ -30,25 +52,36 @@ type RenewalRow = {
   undone_at: string | null;
 };
 
-type VpsRow = {
+type AssetRow = {
   id: number;
   amount_minor_units: number;
   currency: Currency;
   billing_cycle: string;
   next_due_date: string | null;
   expire_date: string | null;
+  last_renew_date?: string | null;
   status: string;
+  purchase_type?: string | null;
+  auto_renew?: number | null;
 };
 
-const vpsConfig = getVpsConfig();
+/**
+ * Which date column a renewal advances. VPS and domains track an expiry date;
+ * phone cards and subscriptions track the next charge date.
+ */
+const anchorColumn: Record<AssetType, 'expire_date' | 'next_due_date'> = {
+  vps: 'expire_date',
+  domain: 'expire_date',
+  phone: 'next_due_date',
+  subscription: 'next_due_date'
+};
 
 export function registerInternalRenewalRoutes(router: Router, context: AppContext): void {
   router.post(
     '/internal/vps/:id/renew',
     requireInternalToken(context),
     asyncHandler(async (req, res) => {
-      const body = parseBody(renewalSchema, req.body);
-      res.json(renewVps(context, Number(req.params.id), body));
+      res.json(renewAsset(context, 'vps', Number(req.params.id), parseRenewalInput(req.body)));
     })
   );
 
@@ -56,7 +89,7 @@ export function registerInternalRenewalRoutes(router: Router, context: AppContex
     '/internal/vps/:id/renewals/:renewalId/undo',
     requireInternalToken(context),
     asyncHandler(async (req, res) => {
-      res.json(undoVpsRenewal(context, Number(req.params.id), Number(req.params.renewalId)));
+      res.json(undoRenewal(context, 'vps', Number(req.params.id), Number(req.params.renewalId)));
     })
   );
 
@@ -65,84 +98,108 @@ export function registerInternalRenewalRoutes(router: Router, context: AppContex
     requireInternalToken(context),
     asyncHandler(async (req, res) => {
       const body = parseBody(expenseAmountSchema, req.body);
-      res.json(updateVpsRenewalExpense(context, Number(req.params.id), Number(req.params.renewalId), body.amountMinorUnits));
+      res.json(updateRenewalExpense(context, 'vps', Number(req.params.id), Number(req.params.renewalId), body.amountMinorUnits));
     })
   );
 }
 
-export function registerRenewalRoutes(router: Router, context: AppContext): void {
-  router.post(
-    '/vps/:id/renew',
-    asyncHandler(async (req, res) => {
-      const body = parseBody(renewalSchema, req.body);
-      res.json(renewVps(context, Number(req.params.id), body));
-    })
-  );
+export function registerRenewalRoutes(router: Router, context: AppContext, allowedTypes: AssetType[]): void {
+  for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
+    router.post(
+      `/${config.route}/:id/renew`,
+      asyncHandler(async (req, res) => {
+        res.json(renewAsset(context, config.type, Number(req.params.id), parseRenewalInput(req.body)));
+      })
+    );
 
-  router.post(
-    '/vps/:id/renewals/:renewalId/undo',
-    asyncHandler(async (req, res) => {
-      res.json(undoVpsRenewal(context, Number(req.params.id), Number(req.params.renewalId)));
-    })
-  );
+    router.get(`/${config.route}/:id/renewals`, (req, res) => {
+      const id = Number(req.params.id);
+      getAssetRow(context, config, id);
+      const rows = context.db.all<RenewalRow>(
+        'SELECT * FROM renewal_events WHERE asset_type = ? AND asset_id = ? ORDER BY id DESC LIMIT 100',
+        [config.type, id]
+      );
+      res.json({ items: rows.map(mapRenewal) });
+    });
 
-  router.put(
-    '/vps/:id/renewals/:renewalId/expense',
-    asyncHandler(async (req, res) => {
-      const body = parseBody(expenseAmountSchema, req.body);
-      res.json(updateVpsRenewalExpense(context, Number(req.params.id), Number(req.params.renewalId), body.amountMinorUnits));
-    })
-  );
+    router.post(
+      `/${config.route}/:id/renewals/:renewalId/undo`,
+      asyncHandler(async (req, res) => {
+        res.json(undoRenewal(context, config.type, Number(req.params.id), Number(req.params.renewalId)));
+      })
+    );
+
+    router.put(
+      `/${config.route}/:id/renewals/:renewalId/expense`,
+      asyncHandler(async (req, res) => {
+        const body = parseBody(expenseAmountSchema, req.body);
+        res.json(updateRenewalExpense(context, config.type, Number(req.params.id), Number(req.params.renewalId), body.amountMinorUnits));
+      })
+    );
+  }
 }
 
-export function renewVps(
-  context: AppContext,
-  vpsId: number,
-  input: z.infer<typeof renewalSchema>
-) {
-  const byRequest = context.db.get<RenewalRow>(
-    'SELECT * FROM renewal_events WHERE request_id = ?',
-    [input.requestId]
-  );
+function parseRenewalInput(body: unknown): RenewalInput {
+  const parsed = parseBody(renewalSchema, body ?? {});
+  return {
+    requestId: parsed.requestId,
+    expectedDueDate: (parsed.expectedDueDate ?? parsed.expectedExpireDate)!,
+    amountMinorUnits: parsed.amountMinorUnits,
+    paidAt: parsed.paidAt
+  };
+}
+
+export function renewAsset(context: AppContext, type: AssetType, assetId: number, input: RenewalInput) {
+  const config = getConfig(type);
+  const code = type.toUpperCase();
+  const byRequest = context.db.get<RenewalRow>('SELECT * FROM renewal_events WHERE request_id = ?', [input.requestId]);
   if (byRequest) {
-    if (byRequest.asset_id !== vpsId) throw new HttpError(409, 'RENEWAL_REQUEST_CONFLICT', 'Renewal request is already in use');
-    return renewalResponse(context, byRequest, true);
+    if (byRequest.asset_type !== type || byRequest.asset_id !== assetId) {
+      throw new HttpError(409, 'RENEWAL_REQUEST_CONFLICT', 'Renewal request is already in use');
+    }
+    return renewalResponse(context, config, byRequest, true);
   }
 
-  const current = getVpsRow(context, vpsId);
-  assertVpsRenewable(current);
-  const currentExpireDate = current.expire_date || '';
-  if (currentExpireDate !== input.expectedExpireDate) {
+  const current = getAssetRow(context, config, assetId);
+  assertRenewable(current, type);
+  const column = anchorColumn[type];
+  const currentDueDate = current[column] || '';
+  if (currentDueDate !== input.expectedDueDate) {
     const previous = context.db.get<RenewalRow>(
       `SELECT * FROM renewal_events
-       WHERE asset_id = ? AND previous_expire_date = ? AND status = 'active'
+       WHERE asset_type = ? AND asset_id = ? AND previous_expire_date = ? AND status = 'active'
        ORDER BY id DESC LIMIT 1`,
-      [vpsId, input.expectedExpireDate]
+      [type, assetId, input.expectedDueDate]
     );
-    if (previous) return renewalResponse(context, previous, true);
-    throw new HttpError(409, 'VPS_RENEWAL_DATE_CHANGED', 'VPS expiry date changed; refresh before renewing');
+    if (previous) return renewalResponse(context, config, previous, true);
+    throw new HttpError(409, `${code}_RENEWAL_DATE_CHANGED`, 'The due date changed; refresh before renewing');
   }
 
-  const cycle = parseBillingCycle(current.billing_cycle);
-  const renewedExpireDate = addBillingCycle(currentExpireDate, cycle);
+  const cycle = current.billing_cycle;
+  if (!isBillingCycle(cycle)) throw new HttpError(409, `${code}_RENEWAL_CONFIGURATION_REQUIRED`, 'Set a billing cycle before renewing');
+  const renewedDate = addBillingCycle(currentDueDate, cycle);
+  const amount = input.amountMinorUnits ?? Number(current.amount_minor_units ?? 0);
   const now = toIsoDateTime(context.now());
-  const paidAt = toIsoDate(context.now());
+  const today = toIsoDate(context.now(), getSettings(context).timezone);
+  const paidAt = input.paidAt ?? (input.auto ? currentDueDate : today);
   let renewalId = 0;
 
   context.db.exec('BEGIN');
   try {
     renewalId = context.db.insert(
       `INSERT INTO renewal_events (
-         request_id, asset_type, asset_id, previous_expire_date, previous_next_due_date,
+         request_id, asset_type, asset_id, previous_expire_date, previous_next_due_date, previous_last_renew_date,
          renewed_expire_date, expense_id, amount_minor_units, currency, status, created_at, undone_at
-       ) VALUES (?, 'vps', ?, ?, ?, ?, NULL, ?, ?, 'active', ?, NULL)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 'active', ?, NULL)`,
       [
         input.requestId,
-        vpsId,
-        currentExpireDate,
+        type,
+        assetId,
+        currentDueDate,
         current.next_due_date,
-        renewedExpireDate,
-        current.amount_minor_units,
+        current.last_renew_date ?? null,
+        renewedDate,
+        amount,
         current.currency,
         now
       ]
@@ -151,49 +208,67 @@ export function renewVps(
       `INSERT INTO expenses (
          asset_type, asset_id, amount_minor_units, currency, paid_at,
          period_start, period_end, category, notes, created_at, updated_at
-       ) VALUES ('vps', ?, ?, ?, ?, ?, ?, 'renewal', ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'renewal', ?, ?, ?)`,
       [
-        vpsId,
-        current.amount_minor_units,
+        type,
+        assetId,
+        amount,
         current.currency,
         paidAt,
-        currentExpireDate,
-        renewedExpireDate,
-        `VPS renewal event #${renewalId}`,
+        currentDueDate,
+        renewedDate,
+        `${input.auto ? 'Auto-renewal' : 'Renewal'} event #${renewalId}`,
         now,
         now
       ]
     );
     context.db.run('UPDATE renewal_events SET expense_id = ? WHERE id = ?', [expenseId, renewalId]);
-    context.db.run(
-      'UPDATE vps SET expire_date = ?, next_due_date = NULL, updated_at = ? WHERE id = ?',
-      [renewedExpireDate, now, vpsId]
-    );
+    if (type === 'vps') {
+      context.db.run('UPDATE vps SET expire_date = ?, next_due_date = NULL, updated_at = ? WHERE id = ?', [renewedDate, now, assetId]);
+    } else if (type === 'domain') {
+      context.db.run(
+        'UPDATE domains SET expire_date = ?, next_due_date = ?, last_renew_date = ?, updated_at = ? WHERE id = ?',
+        [renewedDate, renewedDate, paidAt, now, assetId]
+      );
+    } else {
+      context.db.run(`UPDATE ${config.table} SET next_due_date = ?, updated_at = ? WHERE id = ?`, [renewedDate, now, assetId]);
+    }
     context.db.exec('COMMIT');
   } catch (error) {
     context.db.exec('ROLLBACK');
     throw error;
   }
 
-  return renewalResponse(context, getRenewalRow(context, vpsId, renewalId), false);
+  return renewalResponse(context, config, getRenewalRow(context, type, assetId, renewalId), false);
 }
 
-export function undoVpsRenewal(context: AppContext, vpsId: number, renewalId: number) {
-  const renewal = getRenewalRow(context, vpsId, renewalId);
-  if (renewal.status !== 'active') throw new HttpError(409, 'VPS_RENEWAL_ALREADY_UNDONE', 'Renewal was already undone');
-  const current = getVpsRow(context, vpsId);
-  if (current.expire_date !== renewal.renewed_expire_date) {
-    throw new HttpError(409, 'VPS_RENEWAL_UNDO_CONFLICT', 'VPS expiry date changed after this renewal');
+export function undoRenewal(context: AppContext, type: AssetType, assetId: number, renewalId: number) {
+  const config = getConfig(type);
+  const code = type.toUpperCase();
+  const renewal = getRenewalRow(context, type, assetId, renewalId);
+  if (renewal.status !== 'active') throw new HttpError(409, `${code}_RENEWAL_ALREADY_UNDONE`, 'Renewal was already undone');
+  const current = getAssetRow(context, config, assetId);
+  if (current[anchorColumn[type]] !== renewal.renewed_expire_date) {
+    throw new HttpError(409, `${code}_RENEWAL_UNDO_CONFLICT`, 'The due date changed after this renewal');
   }
   const now = toIsoDateTime(context.now());
 
   context.db.exec('BEGIN');
   try {
-    context.db.run(
-      'UPDATE vps SET expire_date = ?, next_due_date = ?, updated_at = ? WHERE id = ?',
-      [renewal.previous_expire_date, renewal.previous_next_due_date, now, vpsId]
-    );
-    context.db.run('DELETE FROM expenses WHERE id = ?', [renewal.expense_id]);
+    if (type === 'domain') {
+      context.db.run(
+        'UPDATE domains SET expire_date = ?, next_due_date = ?, last_renew_date = ?, updated_at = ? WHERE id = ?',
+        [renewal.previous_expire_date, renewal.previous_next_due_date, renewal.previous_last_renew_date, now, assetId]
+      );
+    } else if (type === 'vps') {
+      context.db.run(
+        'UPDATE vps SET expire_date = ?, next_due_date = ?, updated_at = ? WHERE id = ?',
+        [renewal.previous_expire_date, renewal.previous_next_due_date, now, assetId]
+      );
+    } else {
+      context.db.run(`UPDATE ${config.table} SET next_due_date = ?, updated_at = ? WHERE id = ?`, [renewal.previous_expire_date, now, assetId]);
+    }
+    if (renewal.expense_id !== null) context.db.run('DELETE FROM expenses WHERE id = ?', [renewal.expense_id]);
     context.db.run("UPDATE renewal_events SET status = 'undone', undone_at = ? WHERE id = ?", [now, renewalId]);
     context.db.exec('COMMIT');
   } catch (error) {
@@ -201,17 +276,19 @@ export function undoVpsRenewal(context: AppContext, vpsId: number, renewalId: nu
     throw error;
   }
 
-  return { item: getAssetOrThrow(context, vpsConfig, vpsId), renewal: mapRenewal({ ...renewal, status: 'undone', undone_at: now }) };
+  return { item: getAssetOrThrow(context, config, assetId), renewal: mapRenewal({ ...renewal, status: 'undone', undone_at: now }) };
 }
 
-export function updateVpsRenewalExpense(context: AppContext, vpsId: number, renewalId: number, amountMinorUnits: number) {
-  const renewal = getRenewalRow(context, vpsId, renewalId);
-  if (renewal.status !== 'active') throw new HttpError(409, 'VPS_RENEWAL_ALREADY_UNDONE', 'Renewal was already undone');
+export function updateRenewalExpense(context: AppContext, type: AssetType, assetId: number, renewalId: number, amountMinorUnits: number) {
+  const renewal = getRenewalRow(context, type, assetId, renewalId);
+  if (renewal.status !== 'active') throw new HttpError(409, `${type.toUpperCase()}_RENEWAL_ALREADY_UNDONE`, 'Renewal was already undone');
   const now = toIsoDateTime(context.now());
 
   context.db.exec('BEGIN');
   try {
-    context.db.run('UPDATE expenses SET amount_minor_units = ?, updated_at = ? WHERE id = ?', [amountMinorUnits, now, renewal.expense_id]);
+    if (renewal.expense_id !== null) {
+      context.db.run('UPDATE expenses SET amount_minor_units = ?, updated_at = ? WHERE id = ?', [amountMinorUnits, now, renewal.expense_id]);
+    }
     context.db.run('UPDATE renewal_events SET amount_minor_units = ? WHERE id = ?', [amountMinorUnits, renewalId]);
     context.db.exec('COMMIT');
   } catch (error) {
@@ -220,6 +297,45 @@ export function updateVpsRenewalExpense(context: AppContext, vpsId: number, rene
   }
 
   return { renewal: mapRenewal({ ...renewal, amount_minor_units: amountMinorUnits }) };
+}
+
+/**
+ * Rolls forward overdue items that renew automatically (auto-renew on), recording
+ * one expense per elapsed cycle so the "actual spend" figures need no manual entry.
+ * Request ids are derived from the due date, so repeated runs are idempotent.
+ */
+export function runAutoRenewals(context: AppContext, allowedTypes: AssetType[]) {
+  const settings = getSettings(context);
+  const renewed: Array<{ assetType: AssetType; assetId: number; dueDate: string }> = [];
+  if (!settings.autoRenewEnabled) return renewed;
+  const today = toIsoDate(context.now(), settings.timezone);
+  // Items overdue for longer than this were probably dropped without being
+  // marked cancelled; leave them overdue for a human to look at.
+  const oldestDue = addDays(today, -autoRenewWindowDays);
+  for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
+    const column = anchorColumn[config.type];
+    const rows = context.db.all<AssetRow>(
+      `SELECT * FROM ${config.table}
+       WHERE archived_at IS NULL AND status = 'active' AND auto_renew = 1 AND ${column} < ? AND ${column} >= ?`,
+      [today, oldestDue]
+    );
+    for (const row of rows) {
+      if (row.purchase_type === 'buyout' || !isBillingCycle(row.billing_cycle)) continue;
+      // Bound the catch-up so a decades-old date cannot spin for long.
+      for (let step = 0; step < 120; step += 1) {
+        const current = getAssetRow(context, config, row.id);
+        const dueDate = current[column];
+        if (!dueDate || dueDate >= today) break;
+        renewAsset(context, config.type, row.id, {
+          requestId: `auto:${config.type}:${row.id}:${dueDate}`,
+          expectedDueDate: dueDate,
+          auto: true
+        });
+        renewed.push({ assetType: config.type, assetId: row.id, dueDate });
+      }
+    }
+  }
+  return renewed;
 }
 
 export function requireInternalToken(context: AppContext): RequestHandler {
@@ -240,63 +356,42 @@ function safeEqual(left: string, right: string): boolean {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function getVpsConfig() {
-  const config = assetConfigs.find((item) => item.type === 'vps');
-  if (!config) throw new Error('VPS asset configuration is missing');
+function getConfig(type: AssetType): AssetConfig {
+  const config = assetConfigs.find((item) => item.type === type);
+  if (!config) throw new Error(`Asset configuration for ${type} is missing`);
   return config;
 }
 
-function getVpsRow(context: AppContext, vpsId: number): VpsRow {
-  const row = context.db.get<VpsRow>('SELECT * FROM vps WHERE id = ?', [vpsId]);
+function getAssetRow(context: AppContext, config: AssetConfig, id: number): AssetRow {
+  const row = context.db.get<AssetRow>(`SELECT * FROM ${config.table} WHERE id = ? AND archived_at IS NULL`, [id]);
   if (!row) throw new HttpError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   return row;
 }
 
-function getRenewalRow(context: AppContext, vpsId: number, renewalId: number): RenewalRow {
+function getRenewalRow(context: AppContext, type: AssetType, assetId: number, renewalId: number): RenewalRow {
   const row = context.db.get<RenewalRow>(
-    "SELECT * FROM renewal_events WHERE id = ? AND asset_type = 'vps' AND asset_id = ?",
-    [renewalId, vpsId]
+    'SELECT * FROM renewal_events WHERE id = ? AND asset_type = ? AND asset_id = ?',
+    [renewalId, type, assetId]
   );
-  if (!row) throw new HttpError(404, 'VPS_RENEWAL_NOT_FOUND', 'VPS renewal not found');
+  if (!row) throw new HttpError(404, `${type.toUpperCase()}_RENEWAL_NOT_FOUND`, 'Renewal not found');
   return row;
 }
 
-function assertVpsRenewable(vps: VpsRow): void {
-  if (!['active', 'paused', 'expired'].includes(vps.status)) {
-    throw new HttpError(409, 'VPS_RENEWAL_NOT_ALLOWED', 'This VPS cannot be renewed in its current state');
+function assertRenewable(row: AssetRow, type: AssetType): void {
+  const code = type.toUpperCase();
+  if (!['active', 'paused', 'expired'].includes(row.status) || row.purchase_type === 'buyout') {
+    throw new HttpError(409, `${code}_RENEWAL_NOT_ALLOWED`, 'This item cannot be renewed in its current state');
   }
-  if (!vps.expire_date || !/^\d{4}-\d{2}-\d{2}$/.test(vps.expire_date) || !isBillingCycle(vps.billing_cycle)) {
-    throw new HttpError(409, 'VPS_RENEWAL_CONFIGURATION_REQUIRED', 'Set an expiry date and billing cycle before renewing');
+  const dueDate = row[anchorColumn[type]];
+  if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !isBillingCycle(row.billing_cycle)) {
+    throw new HttpError(409, `${code}_RENEWAL_CONFIGURATION_REQUIRED`, 'Set a due date and billing cycle before renewing');
   }
 }
 
-function isBillingCycle(value: string): value is BillingCycle {
-  return value === 'monthly' || value === 'quarterly' || value === 'annual' || value === 'biennial';
-}
-
-function parseBillingCycle(value: string): BillingCycle {
-  if (!isBillingCycle(value)) throw new HttpError(409, 'VPS_RENEWAL_CONFIGURATION_REQUIRED', 'Set a billing cycle before renewing');
-  return value;
-}
-
-function addBillingCycle(dateValue: string, cycle: BillingCycle): string {
-  const months = cycle === 'biennial' ? 24 : cycle === 'annual' ? 12 : cycle === 'quarterly' ? 3 : 1;
-  const [year, month, day] = dateValue.split('-').map(Number);
-  const monthIndex = month - 1 + months;
-  const targetYear = year + Math.floor(monthIndex / 12);
-  const targetMonthIndex = ((monthIndex % 12) + 12) % 12;
-  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
-  return [
-    targetYear,
-    String(targetMonthIndex + 1).padStart(2, '0'),
-    String(Math.min(day, lastDay)).padStart(2, '0')
-  ].join('-');
-}
-
-function renewalResponse(context: AppContext, renewal: RenewalRow, idempotent: boolean) {
+function renewalResponse(context: AppContext, config: AssetConfig, renewal: RenewalRow, idempotent: boolean) {
   return {
     idempotent,
-    item: getAssetOrThrow(context, vpsConfig, renewal.asset_id),
+    item: getAssetOrThrow(context, config, renewal.asset_id),
     renewal: mapRenewal(renewal)
   };
 }
@@ -304,12 +399,14 @@ function renewalResponse(context: AppContext, renewal: RenewalRow, idempotent: b
 function mapRenewal(row: RenewalRow) {
   return {
     id: row.id,
+    assetType: row.asset_type,
     previousExpireDate: row.previous_expire_date,
     renewedExpireDate: row.renewed_expire_date,
     expenseId: row.expense_id,
     amountMinorUnits: row.amount_minor_units,
     currency: row.currency,
     status: row.status,
+    auto: row.request_id.startsWith('auto:'),
     createdAt: row.created_at,
     undoneAt: row.undone_at
   };

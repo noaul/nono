@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AppContext, AssetType, BillingCycle, Currency, DbValue, SshAuthType, SshExecOptions } from './types.js';
 import { asyncHandler, HttpError, parseBody, parsePatchBody } from './http.js';
 import { domainSchema, phoneSchema, subscriptionSchema, vpsSchema } from './schemas.js';
-import { currencies, daysBetween, parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
+import { addBillingCycle, currencies, daysBetween, isBillingCycle, parseJsonArray, predictedMonthly, toIsoDate, toIsoDateTime } from './utils.js';
 import { billingCycleSchema, currencySchema, statusSchema } from './schemas.js';
 import { getSettings } from './settings.js';
 import { runSshCommand } from './ssh.js';
@@ -189,7 +189,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'expireDate', db: 'expire_date' },
       ...commonFields
     ],
-    searchable: ['card_number', 'po_phone_number', 'carrier', 'plan_name', 'real_name_person', 'user_name', 'country_code', 'home_location', 'a_phone_number', 'mainland_number'],
+    searchable: ['card_number', 'po_phone_number', 'carrier', 'plan_name', 'real_name_person', 'user_name', 'country_code', 'home_location', 'a_phone_number', 'mainland_number', 'tags', 'notes'],
     displayField: 'card_number',
     dueFields: ['next_due_date', 'expire_date']
   },
@@ -242,7 +242,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'expireDate', db: 'expire_date' },
       ...commonFields
     ],
-    searchable: ['name', 'provider', 'ip_address', 'location'],
+    searchable: ['name', 'provider', 'ip_address', 'location', 'os', 'tags', 'notes'],
     displayField: 'name',
     dueFields: ['expire_date', 'next_due_date']
   },
@@ -265,7 +265,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'expireDate', db: 'expire_date' },
       ...commonFields
     ],
-    searchable: ['domain_name', 'registrar', 'registrar_account', 'dns_provider', 'purpose', 'domain_extension'],
+    searchable: ['domain_name', 'registrar', 'registrar_account', 'dns_provider', 'purpose', 'domain_extension', 'tags', 'notes'],
     displayField: 'domain_name',
     dueFields: ['next_due_date', 'expire_date']
   },
@@ -287,7 +287,7 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'content', db: 'content' },
       ...commonFields
     ],
-    searchable: ['name', 'provider', 'account', 'category', 'email', 'phone_number', 'license_key', 'content'],
+    searchable: ['name', 'provider', 'account', 'category', 'email', 'phone_number', 'license_key', 'content', 'tags', 'notes'],
     displayField: 'name',
     dueFields: ['next_due_date']
   }
@@ -304,6 +304,9 @@ const listQuerySchema = z.object({
   domainExtension: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   registrarAccount: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   displayCurrency: z.preprocess(emptyToUndefined, currencySchema.optional()),
+  tag: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  category: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  monitorStatus: z.preprocess(emptyToUndefined, z.enum(['online', 'offline', 'unknown']).optional()),
   sort: z.preprocess(
     emptyToUndefined,
     z
@@ -395,6 +398,27 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
           renewalParams.push(normalizeDomainExtension(query.domainExtension));
         }
 
+        // Tags are stored as a JSON array, so match the quoted element.
+        const tagOptionWhere = [...where];
+        const tagOptionParams = [...params];
+        if (query.tag) {
+          where.push('tags LIKE ?');
+          params.push(`%${JSON.stringify(query.tag)}%`);
+        }
+
+        if (config.type === 'subscription' && query.category) {
+          where.push("LOWER(COALESCE(category, '')) = LOWER(?)");
+          params.push(query.category);
+        }
+
+        if (config.type === 'vps' && query.monitorStatus) {
+          if (query.monitorStatus === 'unknown') where.push("(monitor_status IS NULL OR monitor_status = '')");
+          else {
+            where.push('monitor_status = ?');
+            params.push(query.monitorStatus);
+          }
+        }
+
         const accountOptionWhere = [...where];
         const accountOptionParams = [...params];
 
@@ -441,8 +465,17 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
           total: summaryRows.length,
           limit: query.limit,
           offset: query.offset,
-          assetSummary: calculateAssetSummary(context, config, summaryRows)
+          assetSummary: calculateAssetSummary(context, config, summaryRows),
+          tagOptions: collectTagOptions(context.db.all<{ tags: string }>(
+            `SELECT tags FROM ${config.table} WHERE ${tagOptionWhere.join(' AND ')}`,
+            tagOptionParams
+          ))
         };
+        if (config.type === 'subscription') {
+          meta.categoryOptions = context.db.all<{ category: string }>(
+            `SELECT DISTINCT TRIM(category) AS category FROM ${config.table} WHERE archived_at IS NULL AND TRIM(COALESCE(category, '')) <> '' ORDER BY category`
+          ).map((row) => row.category);
+        }
         if (config.type === 'domain') {
           meta.renewalTotals = await calculateRenewalTotals(
             context,
@@ -585,24 +618,6 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
       })
     );
 
-    if (config.type === 'domain') {
-      router.post(
-        `/${config.route}/:id/renew`,
-        asyncHandler(async (req, res) => {
-          const id = Number(req.params.id);
-          const current = getAssetOrThrow(context, config, id);
-          const cycle = normalizeBillingCycle(current.billingCycle);
-          const baseDate = stringValue(current.expireDate) || stringValue(current.nextDueDate) || toIsoDate(context.now());
-          const nextDate = addBillingCycle(baseDate, cycle);
-          const renewedAt = toIsoDate(context.now());
-          context.db.run(
-            `UPDATE ${config.table} SET last_renew_date = ?, expire_date = ?, next_due_date = ?, updated_at = ? WHERE id = ?`,
-            [renewedAt, nextDate, nextDate, toIsoDateTime(context.now()), id]
-          );
-          res.json({ item: getAssetOrThrow(context, config, id) });
-        })
-      );
-    }
 
     router.put(
       `/${config.route}/:id`,
@@ -751,7 +766,7 @@ export function getDueDate(row: Record<string, unknown>, fields: string[]): stri
 }
 
 export function normalizeBillingCycle(value: unknown): BillingCycle {
-  return value === 'quarterly' || value === 'annual' || value === 'biennial' ? value : 'monthly';
+  return isBillingCycle(value) ? value : 'monthly';
 }
 
 export function normalizeCurrency(value: unknown): Currency {
@@ -798,6 +813,16 @@ function sortExpression(config: AssetConfig, sort: z.infer<typeof listQuerySchem
   if (sort === 'name') return displayColumn(config);
   if (sort === 'createdAt') return 'created_at';
   return `COALESCE(${[...config.dueFields, "''"].join(', ')})`;
+}
+
+function collectTagOptions(rows: Array<{ tags: string }>): Array<{ tag: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const tag of parseJsonArray(row.tags)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 }
 
 function getProviderLabel(row: Record<string, unknown>): string | null {
@@ -1445,10 +1470,21 @@ function calculateAssetSummary(
     statusCounts
   };
 
-  if (config.type === 'phone') summary.phone = calculatePhoneSummary(rows, today, totalsByCurrency);
+  if (config.type === 'phone') summary.phone = calculatePhoneSummary(rows, today, monthlyEquivalentTotals(rows));
   if (config.type === 'domain') summary.domain = calculateDomainSummary(rows, dueWithin30Days);
   if (config.type === 'vps') summary.vps = calculateVpsSummary(rows, dueWithin30Days);
   return summary;
+}
+
+/** Per-currency totals with every billing cycle converted to a monthly amount. */
+function monthlyEquivalentTotals(rows: Array<Record<string, unknown>>): Partial<Record<Currency, number>> {
+  const totals: Partial<Record<Currency, number>> = {};
+  for (const row of rows) {
+    const currency = normalizeCurrency(row.currency);
+    totals[currency] = (totals[currency] ?? 0)
+      + predictedMonthly(Number(row.amount_minor_units ?? 0), normalizeBillingCycle(row.billing_cycle));
+  }
+  return totals;
 }
 
 function calculatePhoneSummary(
@@ -1474,7 +1510,8 @@ function calculatePhoneSummary(
       domestic += 1;
       incrementCount(carrierCounts, stringValue(row.carrier));
       const currency = normalizeCurrency(row.currency);
-      domesticMonthlyTotal[currency] = (domesticMonthlyTotal[currency] ?? 0) + Number(row.amount_minor_units ?? 0);
+      domesticMonthlyTotal[currency] = (domesticMonthlyTotal[currency] ?? 0)
+        + predictedMonthly(Number(row.amount_minor_units ?? 0), normalizeBillingCycle(row.billing_cycle));
     }
     if (stringValue(row.status) === 'active') activeCount += 1;
     const riskDate = stringValue(row.total_keepalive_until) || stringValue(row.next_due_date) || stringValue(row.expire_date);
@@ -1823,25 +1860,6 @@ function datePartsInTimeZone(date: Date, timeZone: string): { year: number; mont
   return { year, month };
 }
 
-function addBillingCycle(dateValue: string, cycle: BillingCycle): string {
-  const months = cycle === 'biennial' ? 24 : cycle === 'annual' ? 12 : cycle === 'quarterly' ? 3 : 1;
-  return addMonths(dateValue, months);
-}
-
-function addMonths(dateValue: string, months: number): string {
-  const [year, month, day] = dateValue.split('-').map(Number);
-  if (!year || !month || !day) return dateValue;
-  const monthIndex = month - 1 + months;
-  const targetYear = year + Math.floor(monthIndex / 12);
-  const targetMonthIndex = ((monthIndex % 12) + 12) % 12;
-  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
-  const targetDay = Math.min(day, lastDay);
-  return [
-    targetYear,
-    String(targetMonthIndex + 1).padStart(2, '0'),
-    String(targetDay).padStart(2, '0')
-  ].join('-');
-}
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : '';

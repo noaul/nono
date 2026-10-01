@@ -53,18 +53,22 @@ export function formatMoney(amountMinorUnits: number, currency: Currency): strin
 
 export function formatCycle(cycle: BillingCycle, language: Language = getStoredLanguage()): string {
   const zh = {
+    weekly: '周付',
     monthly: '月付',
     quarterly: '季付',
+    semiannual: '半年付',
     annual: '年付',
     biennial: '两年付'
   };
   const en = {
+    weekly: 'Weekly',
     monthly: 'Monthly',
     quarterly: 'Quarterly',
+    semiannual: 'Semi-annual',
     annual: 'Annual',
     biennial: 'Biennial'
   };
-  return (language === 'zh' ? zh : en)[cycle];
+  return (language === 'zh' ? zh : en)[cycle] ?? cycle;
 }
 
 export function formatStatus(status: AssetStatus, language: Language = getStoredLanguage()): string {

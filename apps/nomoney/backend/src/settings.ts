@@ -8,6 +8,7 @@ import { decryptSecret, encryptSecret } from './secret-crypto.js';
 export interface Settings {
   reminderDays: number[];
   reminderEnabled: boolean;
+  autoRenewEnabled: boolean;
   defaultCurrency: Currency;
   timezone: string;
   language: 'zh' | 'en';
@@ -33,6 +34,7 @@ export type PublicSettings = Settings & {
 const settingsSchema = z.object({
   reminderDays: z.array(z.number().int().min(0).max(365)).optional(),
   reminderEnabled: z.boolean().optional(),
+  autoRenewEnabled: z.boolean().optional(),
   defaultCurrency: z.enum(currencies).optional(),
   timezone: z.string().trim().min(1).optional(),
   language: z.enum(['zh', 'en']).optional(),
@@ -112,6 +114,7 @@ export function getSettings(context: AppContext): Settings {
   return {
     reminderDays: reminderDays.length ? reminderDays : [30, 14, 7, 3, 1, 0],
     reminderEnabled: settings.reminderEnabled ?? true,
+    autoRenewEnabled: settings.autoRenewEnabled ?? true,
     defaultCurrency: settings.defaultCurrency ?? 'CNY',
     timezone: settings.timezone ?? 'Asia/Shanghai',
     language: settings.language ?? 'zh',

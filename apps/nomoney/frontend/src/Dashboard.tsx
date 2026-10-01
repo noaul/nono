@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
+import { RenewButton, RenewalToast, useRenewals, type RenewableEndpoint } from './renewals';
 import { useI18n } from './i18n';
 import {
   AlertTriangle,
   ArrowUpRight,
+  Pencil,
   BarChart3,
   CalendarClock,
   CircleDollarSign,
@@ -14,7 +16,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import type { AssetType, Currency, DashboardCategoryCost, DashboardSummary, DueItem } from './types';
+import type { AssetItem, AssetType, ConvertedTotal, Currency, DashboardCategoryCost, DashboardSummary, DueItem } from './types';
 import { api } from './api';
 import { compactDate, currentShanghaiYear, dueTone, formatCycle, formatMoney, currencies } from './format';
 import { DataTable, EmptyState, MetricCard, PageHeader, Skeleton, StateBanner, StatusBadge, type DataTableColumn } from './ui';
@@ -59,16 +61,55 @@ const buildAssetTypeLabels = (copy: Copy): Record<AssetType, string> => ({
   subscription: copy('订阅', 'Subscription')
 });
 
-const buildDueColumns = (copy: Copy): DataTableColumn<DueItem & { id: string }>[] => {
+const assetEndpoints: Record<AssetType, RenewableEndpoint> = {
+  phone: 'phones',
+  subscription: 'subscriptions',
+  vps: 'vps',
+  domain: 'domains'
+};
+
+/** Enough of an asset for the shared renewal helpers, built from a due-list row. */
+function dueItemAsAsset(item: DueItem): AssetItem {
+  return {
+    id: item.assetId,
+    nextDueDate: item.dueDate,
+    expireDate: item.dueDate,
+    billingCycle: item.billingCycle,
+    status: item.status,
+    amountMinorUnits: item.amountMinorUnits,
+    currency: item.currency
+  } as AssetItem;
+}
+
+type DueRow = DueItem & { id: string };
+
+const buildDueColumns = (
+  copy: Copy,
+  renewal: { renewingKey: string | null; onRenew: (item: DueItem) => void }
+): DataTableColumn<DueRow>[] => {
   const assetTypeLabels = buildAssetTypeLabels(copy);
   return [
-    { key: 'name', header: copy('资产', 'Asset'), render: (item) => <span className="font-medium text-slate-950 dark:text-white">{item.name}</span> },
-    { key: 'type', header: copy('类型', 'Type'), render: (item) => <span className="text-xs text-slate-500">{assetTypeLabels[item.assetType]}</span> },
-    { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{formatCycle(item.billingCycle)}</span> },
+    { key: 'name', header: copy('资产', 'Asset'), render: (item) => (
+      <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="font-medium text-slate-950 hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-300">{item.name}</Link>
+    ) },
+    { key: 'type', header: copy('类型', 'Type'), render: (item) => (
+      <span className="text-xs text-slate-500">{assetTypeLabels[item.assetType]}{item.kind === 'keepalive' ? copy(' · 保号', ' · keep-alive') : ''}</span>
+    ) },
+    { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{item.kind === 'keepalive' && !item.amountMinorUnits ? '-' : formatMoney(item.amountMinorUnits, item.currency)}</span> },
+    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{item.kind === 'keepalive' ? '-' : copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</span> },
     { key: 'date', header: copy('日期', 'Date'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{compactDate(item.dueDate)}</span> },
     { key: 'days', header: copy('剩余', 'Left'), align: 'right', render: (item) => <span className={`font-mono font-semibold ${dueTone(item.daysLeft)}`}>{item.daysLeft}d</span> },
-    { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> }
+    { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> },
+    { key: 'actions', header: '', align: 'right', render: (item) => (
+      <div className="flex justify-end gap-1">
+        {item.kind !== 'keepalive' && (
+          <RenewButton endpoint={assetEndpoints[item.assetType]} item={dueItemAsAsset(item)} renewing={renewal.renewingKey === item.id} onRenew={() => renewal.onRenew(item)} copy={copy} />
+        )}
+        <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('打开', 'Open')} aria-label={copy('打开', 'Open')}>
+          <Pencil size={14} />
+        </Link>
+      </div>
+    ) }
   ];
 };
 
@@ -77,12 +118,34 @@ export function Dashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [year, setYear] = useState(currentShanghaiYear());
+  const [reloadKey, setReloadKey] = useState(0);
+  const [renewingKey, setRenewingKey] = useState<string | null>(null);
   const categoryDefinitions = useMemo(() => buildCategoryDefinitions(copy), [copy]);
-  const dueColumns = useMemo(() => buildDueColumns(copy), [copy]);
+  const [, navigate] = useLocation();
+  const renewals = useRenewals({
+    copy,
+    onError: setActionError,
+    onNeedsSetup: () => undefined,
+    onChanged: () => {
+      setActionError('');
+      setReloadKey((value) => value + 1);
+    }
+  });
+  const renewDue = async (item: DueItem) => {
+    setRenewingKey(`${item.kind ?? 'renewal'}-${item.assetType}-${item.assetId}`);
+    try {
+      await renewals.renew(assetEndpoints[item.assetType], dueItemAsAsset(item));
+    } finally {
+      setRenewingKey(null);
+    }
+  };
+  const dueColumns = useMemo(() => buildDueColumns(copy, { renewingKey, onRenew: renewDue }), [copy, renewingKey]);
 
   useEffect(() => {
     Promise.all([
-      api.get<DashboardSummary>('/api/dashboard/summary'),
+      api.get<DashboardSummary>(`/api/dashboard/summary?year=${year}`),
       api.get<{ items: DueItem[] }>('/api/dashboard/expiring?days=30')
     ])
       .then(([summaryResponse, dueResponse]) => {
@@ -90,7 +153,16 @@ export function Dashboard() {
         setDueItems(dueResponse.items);
       })
       .catch(() => setError(copy('Dashboard 数据加载失败', 'Could not load the dashboard')));
-  }, [copy]);
+  }, [copy, year, reloadKey]);
+
+  const trendChart = useMemo(() => (summary?.monthlyActual ?? []).map((entry) => ({
+    month: entry.month.slice(2).replace('-', '/'),
+    ...Object.fromEntries(currencies.map((currency) => [currency, entry.totals[currency] ?? 0]))
+  })), [summary]);
+  const trendCurrencies = useMemo(
+    () => currencies.filter((currency) => (summary?.monthlyActual ?? []).some((entry) => Number(entry.totals[currency] ?? 0) > 0)),
+    [summary]
+  );
 
   const yearlyChart = useMemo(() => {
     if (!summary) return [];
@@ -111,7 +183,8 @@ export function Dashboard() {
   }, [summary]);
 
   const totalAssets = assetChart.reduce((sum, item) => sum + item.value, 0);
-  const nextDue = summary?.nextDueItems?.length ? summary.nextDueItems : dueItems.slice(0, 5);
+  const nextDue = dueItems.length ? dueItems : summary?.nextDueItems ?? [];
+  const yearOptions = [0, 1, 2, 3].map((offset) => currentShanghaiYear() - offset);
   const dueBuckets = summary?.dueBuckets ?? { overdue: 0, today: 0, week: 0, month: dueItems.length };
 
   if (error) return <StateBanner tone="danger">{error}</StateBanner>;
@@ -139,9 +212,9 @@ export function Dashboard() {
       />
 
       <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={<CircleDollarSign size={18} />} color="brand" label={copy('本月预测', 'Monthly forecast')} value={<MoneyList values={summary.predictedMonthly} size="large" />} detail={copy('按计费周期折算，保留全部币种', 'Normalised by billing cycle, every currency kept')} />
-        <MetricCard icon={<TrendingUp size={18} />} color="success" label={copy('年度预测', 'Yearly forecast')} value={<MoneyList values={summary.predictedYearly} size="large" />} detail={copy('活跃循环资产的全年成本', 'Full-year cost of active recurring assets')} />
-        <MetricCard icon={<BarChart3 size={18} />} color="warning" label={copy('年度实际', 'Yearly actual')} value={<MoneyList values={summary.actualYearly} size="large" />} detail={copy('本年度已登记费用流水', 'Expenses recorded so far this year')} />
+        <MetricCard icon={<CircleDollarSign size={18} />} color="brand" label={copy('本月预测', 'Monthly forecast')} value={<ConvertedMoney total={summary.converted?.predictedMonthly} values={summary.predictedMonthly} />} detail={<MoneyBreakdown values={summary.predictedMonthly} total={summary.converted?.predictedMonthly} fallback={copy('按计费周期折算', 'Normalised by billing cycle')} />} />
+        <MetricCard icon={<TrendingUp size={18} />} color="success" label={copy('年度预测', 'Yearly forecast')} value={<ConvertedMoney total={summary.converted?.predictedYearly} values={summary.predictedYearly} />} detail={<MoneyBreakdown values={summary.predictedYearly} total={summary.converted?.predictedYearly} fallback={copy('活跃循环资产的全年成本', 'Full-year cost of active recurring assets')} />} />
+        <MetricCard icon={<BarChart3 size={18} />} color="warning" label={year === currentShanghaiYear() ? copy('年度实际', 'Yearly actual') : copy(`${year} 年实际`, `${year} actual`)} value={<ConvertedMoney total={summary.converted?.actualYearly} values={summary.actualYearly} />} detail={<MoneyBreakdown values={summary.actualYearly} total={summary.converted?.actualYearly} fallback={copy('标记已付或自动续费后计入', 'Counted when marked paid or auto-renewed')} />} />
         <MetricCard icon={<AlertTriangle size={18} />} color="danger" label={copy('30 天风险', '30-day risk')} value={summary.expiringCount} detail={copy(`逾期 ${dueBuckets.overdue} 项，7 天内 ${dueBuckets.today + dueBuckets.week} 项`, `${dueBuckets.overdue} overdue, ${dueBuckets.today + dueBuckets.week} within 7 days`)} />
       </div>
 
@@ -168,7 +241,9 @@ export function Dashboard() {
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('年度成本对比', 'Yearly cost comparison')}</h3>
               <p className="mt-1 text-xs text-slate-500">{copy('预测支出和真实支出的多币种对照。', 'Forecast against real spend, across currencies.')}</p>
             </div>
-            <span className="rounded-lg border border-slate-200 px-2 py-1 font-mono text-xs text-slate-500 dark:border-white/10">FY {currentShanghaiYear()}</span>
+            <select aria-label={copy('年份', 'Year')} className="h-8 rounded-lg border border-slate-200 bg-transparent px-2 font-mono text-xs text-slate-600 dark:border-white/10 dark:text-slate-300" value={year} onChange={(event) => setYear(Number(event.target.value))}>
+              {yearOptions.map((value) => <option key={value} value={value}>FY {value}</option>)}
+            </select>
           </div>
           <div className="h-72 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
@@ -255,11 +330,64 @@ export function Dashboard() {
               <p className="text-xs text-slate-500">{copy('按剩余天数排序', 'Sorted by days remaining')}</p>
             </div>
           </div>
-          <DataTable columns={dueColumns} data={nextDue.map((item) => ({ ...item, id: `${item.assetType}-${item.assetId}` }))} emptyText={copy('30 天内没有到期项目', 'Nothing due in the next 30 days')} />
+          {actionError && <div className="mb-3"><StateBanner tone="danger">{actionError}</StateBanner></div>}
+          <DataTable columns={dueColumns} data={nextDue.map((item) => ({ ...item, id: `${item.kind ?? 'renewal'}-${item.assetType}-${item.assetId}` }))} emptyText={copy('30 天内没有到期项目', 'Nothing due in the next 30 days')} />
         </section>
       </div>
+
+      <section className="card">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('近 12 个月实际支出', 'Actual spend, last 12 months')}</h3>
+            <p className="mt-1 text-xs text-slate-500">{copy('来自费用流水，按币种堆叠。', 'From the expense ledger, stacked by currency.')}</p>
+          </div>
+          <button type="button" onClick={() => navigate('/expenses')} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">{copy('查看流水', 'View ledger')}</button>
+        </div>
+        {trendCurrencies.length > 0 ? (
+          <div className="h-64 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={trendChart} margin={{ left: -12, right: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.18)" />
+                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => String(Math.round(Number(value) / 100))} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(59,130,246,0.08)' }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid rgba(148,163,184,.22)', background: '#0b0d10', color: '#f8fafc' }}
+                  formatter={(value, name) => [formatMoney(Number(value), name as Currency), name]}
+                />
+                {trendCurrencies.map((currency, index) => (
+                  <Bar key={currency} dataKey={currency} stackId="spend" fill={trendColors[index % trendColors.length]} radius={index === trendCurrencies.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <EmptyState title={copy('还没有支出记录', 'No spend recorded yet')} description={copy('在资产卡片上点“标记已付”，或开启自动续费，支出会自动记到这里。', 'Use “Mark paid” on a card, or turn on auto-renew, and spend lands here automatically.')} />
+        )}
+      </section>
+
+      {renewals.toast && (
+        <RenewalToast toast={renewals.toast} onUndo={renewals.undo} onUpdateAmount={renewals.updateAmount} onClose={() => renewals.setToast(null)} copy={copy} />
+      )}
     </div>
   );
+}
+
+const trendColors = ['#10b981', '#3b82f6', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#84cc16', '#ec4899', '#64748b'];
+
+/** The headline figure: everything converted into the default currency when rates allow. */
+function ConvertedMoney({ total, values }: { total?: ConvertedTotal; values: Partial<Record<Currency, number>> }) {
+  const currencyCount = currencies.filter((currency) => Number(values[currency] ?? 0) !== 0).length;
+  if (!total || currencyCount <= 1 || !total.complete) return <MoneyList values={values} size="large" />;
+  return <span className="font-mono text-base font-semibold">≈ {formatMoney(total.amountMinorUnits, total.currency)}</span>;
+}
+
+function MoneyBreakdown({ values, total, fallback }: { values: Partial<Record<Currency, number>>; total?: ConvertedTotal; fallback: string }) {
+  const { copy } = useI18n();
+  const currencyCount = currencies.filter((currency) => Number(values[currency] ?? 0) !== 0).length;
+  if (!total || currencyCount <= 1) return <>{fallback}</>;
+  if (!total.complete) return <>{copy('汇率暂不可用，按币种分别显示', 'Exchange rates unavailable; shown per currency')}</>;
+  return <MoneyList values={values} size="small" />;
 }
 
 function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition; cost: DashboardCategoryCost }) {

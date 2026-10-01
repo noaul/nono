@@ -157,11 +157,12 @@ function renderDigest(items: DueItem[], language: 'zh' | 'en', product: string):
     const days = item.daysLeft < 0
       ? label(`已逾期 ${-item.daysLeft} 天`, `${-item.daysLeft} days overdue`)
       : item.daysLeft === 0 ? label('今天', 'today') : String(item.daysLeft);
+    const keepalive = item.kind === 'keepalive';
     lines.push(
-      `- ${type}: ${item.name}`,
-      `  ${label('到期/扣费日期', 'Due date')}: ${item.dueDate}`,
+      `- ${type}: ${item.name}${keepalive ? label('（保号）', ' (keep-alive)') : ''}`,
+      `  ${keepalive ? label('保号截止', 'Keep-alive deadline') : label('到期/扣费日期', 'Due date')}: ${item.dueDate}`,
       `  ${label('剩余天数', 'Days left')}: ${days}`,
-      `  ${label('金额', 'Amount')}: ${formatMoney(item.amountMinorUnits, item.currency)}`,
+      keepalive && !item.amountMinorUnits ? '' : `  ${keepalive ? label('最低保号金额', 'Minimum top-up') : label('金额', 'Amount')}: ${formatMoney(item.amountMinorUnits, item.currency)}`,
       item.autoRenew ? `  ${label('已开启自动续费', 'Auto-renew is on')}` : '',
       item.renewalUrl ? `  ${label('续费链接', 'Renewal link')}: ${item.renewalUrl}` : ''
     );

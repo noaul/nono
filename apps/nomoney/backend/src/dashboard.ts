@@ -9,8 +9,12 @@ import {
   toIsoDate
 } from './utils.js';
 import { getSettings } from './settings.js';
+import { convertTotals } from './exchange-rates.js';
+import { asyncHandler } from './http.js';
 
 export interface DueItem {
+  /** `keepalive` items are phone-card keep-alive deadlines rather than charges. */
+  kind: 'renewal' | 'keepalive';
   assetType: AssetType;
   assetId: number;
   name: string;
@@ -75,11 +79,19 @@ const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: 
 };
 
 export function registerDashboardRoutes(router: Router, context: AppContext, allowedTypes: AssetType[] = assetTypes): void {
-  router.get('/dashboard/summary', (req, res) => {
-    const currentYear = Number(toIsoDate(context.now(), getSettings(context).timezone).slice(0, 4));
+  router.get('/dashboard/summary', asyncHandler(async (req, res) => {
+    const settings = getSettings(context);
+    const currentYear = Number(toIsoDate(context.now(), settings.timezone).slice(0, 4));
     const year = typeof req.query.year === 'string' ? Number(req.query.year) : currentYear;
-    res.json(getDashboardSummary(context, Number.isFinite(year) ? year : currentYear, allowedTypes));
-  });
+    const summary = getDashboardSummary(context, Number.isFinite(year) ? year : currentYear, allowedTypes);
+    const fetcher = context.fetch ?? globalThis.fetch;
+    const [predictedMonthlyTotal, predictedYearlyTotal, actualYearlyTotal] = await Promise.all([
+      convertTotals(fetcher, summary.predictedMonthly, settings.defaultCurrency),
+      convertTotals(fetcher, summary.predictedYearly, settings.defaultCurrency),
+      convertTotals(fetcher, summary.actualYearly, settings.defaultCurrency)
+    ]);
+    res.json({ ...summary, converted: { predictedMonthly: predictedMonthlyTotal, predictedYearly: predictedYearlyTotal, actualYearly: actualYearlyTotal } });
+  }));
 
   router.get('/dashboard/expiring', (req, res) => {
     const days = typeof req.query.days === 'string' ? Number(req.query.days) : 30;
@@ -151,6 +163,7 @@ export function getDashboardSummary(context: AppContext, year: number, allowedTy
     }
   }
 
+  const monthlyActual = collectMonthlyActual(context, allowedTypes);
   const dueItems = collectDueItems(context, 30, allowedTypes);
   for (const item of dueItems) {
     categoryCosts[item.assetType].dueCount += 1;
@@ -171,6 +184,7 @@ export function getDashboardSummary(context: AppContext, year: number, allowedTy
       month: dueItems.filter((item) => item.daysLeft > 7 && item.daysLeft <= 30).length
     },
     nextDueItems: dueItems.slice(0, 5),
+    monthlyActual,
     phoneStats,
     currencyTotals: {
       predictedMonthly: predictedMonthlyTotals,
@@ -178,6 +192,32 @@ export function getDashboardSummary(context: AppContext, year: number, allowedTy
       actualYearly
     }
   };
+}
+
+/** Actual spend for the last 12 calendar months, oldest first. */
+function collectMonthlyActual(context: AppContext, allowedTypes: AssetType[]) {
+  const today = toIsoDate(context.now(), getSettings(context).timezone);
+  const [year, month] = today.split('-').map(Number);
+  const months: string[] = [];
+  for (let offset = 11; offset >= 0; offset -= 1) {
+    const index = year * 12 + (month - 1) - offset;
+    months.push(`${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`);
+  }
+  const placeholders = allowedTypes.map(() => '?').join(', ');
+  const rows = context.db.all<{ month: string; currency: Currency; total: number }>(
+    `SELECT substr(paid_at, 1, 7) AS month, currency, SUM(amount_minor_units) AS total
+     FROM expenses
+     WHERE paid_at >= ? AND asset_type IN (${placeholders})
+     GROUP BY month, currency`,
+    [`${months[0]}-01`, ...allowedTypes]
+  );
+  return months.map((key) => {
+    const totals: CurrencyTotals = {};
+    for (const row of rows.filter((item) => item.month === key)) {
+      addCurrencyTotal(totals, normalizeCurrency(row.currency), Number(row.total ?? 0));
+    }
+    return { month: key, totals };
+  });
 }
 
 function createCategoryCost(assetType: AssetType): CategoryCost {
@@ -227,8 +267,10 @@ function getSubcategoryIdentity(assetType: AssetType, row: Record<string, unknow
     return known ?? { key: 'other', label: '未分类' };
   }
   if (assetType === 'subscription') {
-    return row.purchase_type === 'buyout'
-      ? { key: 'buyout', label: '买断制' }
+    if (row.purchase_type === 'buyout') return { key: 'buyout', label: '买断制' };
+    const category = typeof row.category === 'string' ? row.category.trim() : '';
+    return category
+      ? { key: `category:${category.toLocaleLowerCase()}`, label: category }
       : { key: 'subscription', label: '订阅制' };
   }
 
@@ -258,6 +300,7 @@ export function collectDueItems(context: AppContext, withinDays: number, allowed
       if (daysLeft > withinDays) continue;
 
       items.push({
+        kind: 'renewal',
         assetType: config.type,
         assetId: Number(row.id),
         name: String(row[config.displayField] ?? ''),
@@ -271,9 +314,35 @@ export function collectDueItems(context: AppContext, withinDays: number, allowed
         status: String(row.status ?? '')
       });
     }
+    if (config.type === 'phone') items.push(...collectKeepaliveItems(rows, today, withinDays));
   }
 
   return items.sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name));
+}
+
+function collectKeepaliveItems(rows: Array<Record<string, unknown>>, today: string, withinDays: number): DueItem[] {
+  const items: DueItem[] = [];
+  for (const row of rows) {
+    const deadline = typeof row.total_keepalive_until === 'string' ? row.total_keepalive_until : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) continue;
+    const daysLeft = daysBetween(today, deadline);
+    if (daysLeft > withinDays) continue;
+    items.push({
+      kind: 'keepalive',
+      assetType: 'phone',
+      assetId: Number(row.id),
+      name: String(row.card_number ?? ''),
+      dueDate: deadline,
+      daysLeft,
+      amountMinorUnits: Number(row.minimum_keepalive_amount_minor_units ?? 0),
+      currency: normalizeCurrency(row.currency),
+      billingCycle: String(row.billing_cycle ?? ''),
+      autoRenew: false,
+      renewalUrl: typeof row.renewal_url === 'string' ? row.renewal_url : null,
+      status: String(row.status ?? '')
+    });
+  }
+  return items;
 }
 
 function collectPhoneStats(context: AppContext): PhoneStats {
@@ -282,7 +351,8 @@ function collectPhoneStats(context: AppContext): PhoneStats {
     carrier: string | null;
     amount_minor_units: number | null;
     currency: Currency | null;
-  }>("SELECT phone_type, carrier, amount_minor_units, currency FROM phones WHERE archived_at IS NULL AND status = 'active'");
+    billing_cycle: string | null;
+  }>("SELECT phone_type, carrier, amount_minor_units, currency, billing_cycle FROM phones WHERE archived_at IS NULL AND status = 'active'");
   const monthlyRentByCurrency: Partial<Record<Currency, number>> = {};
   const carrierCounts = new Map<string, number>();
   let domestic = 0;
@@ -294,7 +364,7 @@ function collectPhoneStats(context: AppContext): PhoneStats {
     else domestic += 1;
 
     const currency = normalizeCurrency(row.currency);
-    addCurrencyTotal(monthlyRentByCurrency, currency, Number(row.amount_minor_units ?? 0));
+    addCurrencyTotal(monthlyRentByCurrency, currency, predictedMonthly(Number(row.amount_minor_units ?? 0), normalizeBillingCycle(row.billing_cycle)));
 
     const carrier = (row.carrier || '').trim() || '未记录运营商';
     carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);

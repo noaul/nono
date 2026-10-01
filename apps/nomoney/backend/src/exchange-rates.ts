@@ -9,15 +9,54 @@ export type ExchangeRates = {
 
 const supportedCurrencies = new Set<Currency>(currencies);
 
+const cacheTtlMs = 6 * 60 * 60 * 1000;
+// Keyed by fetcher so each caller (and each test context) gets its own cache.
+const rateCaches = new WeakMap<typeof fetch, Map<string, { at: number; rates: ExchangeRates }>>();
+
 export async function fetchExchangeRates(
   fetcher: typeof fetch | undefined,
   base: Currency,
   quotes: Currency[],
   timeoutMs = 1000,
 ): Promise<ExchangeRates> {
-  const uniqueQuotes = Array.from(new Set(quotes.filter((quote) => quote !== base)));
+  const uniqueQuotes = Array.from(new Set(quotes.filter((quote) => quote !== base))).sort();
   if (!fetcher || uniqueQuotes.length === 0) return emptyRates(base);
+  const cacheKey = `${base}:${uniqueQuotes.join(',')}`;
+  let rateCache = rateCaches.get(fetcher);
+  if (!rateCache) rateCaches.set(fetcher, rateCache = new Map());
+  const cached = rateCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < cacheTtlMs) return cached.rates;
+  const rates = await requestExchangeRates(fetcher, base, uniqueQuotes, timeoutMs);
+  // Only complete answers are cached, so a transient failure is retried next time.
+  if (uniqueQuotes.every((quote) => rates.rates[quote])) rateCache.set(cacheKey, { at: Date.now(), rates });
+  return rates;
+}
 
+/** Sums per-currency totals into `target`; `complete` is false when a rate was unavailable. */
+export async function convertTotals(
+  fetcher: typeof fetch | undefined,
+  values: Partial<Record<Currency, number>>,
+  target: Currency
+): Promise<{ currency: Currency; amountMinorUnits: number; complete: boolean; rateDate: string | null }> {
+  const sources = (Object.keys(values) as Currency[]).filter((currency) => Number(values[currency] ?? 0) !== 0);
+  const rates = await fetchExchangeRates(fetcher, target, sources);
+  let total = 0;
+  let complete = true;
+  for (const currency of sources) {
+    const amount = Number(values[currency] ?? 0);
+    if (currency === target) total += amount;
+    else if (rates.rates[currency]) total += amount / rates.rates[currency]!;
+    else complete = false;
+  }
+  return { currency: target, amountMinorUnits: Math.round(total), complete, rateDate: rates.date };
+}
+
+async function requestExchangeRates(
+  fetcher: typeof fetch,
+  base: Currency,
+  uniqueQuotes: Currency[],
+  timeoutMs: number
+): Promise<ExchangeRates> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {

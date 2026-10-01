@@ -61,7 +61,7 @@ export function createApp(context: AppContext) {
 
   api.use(requireAuth(context));
   registerAssetRoutes(api, context, [...allowedTypes]);
-  if (product !== 'nomoney') registerRenewalRoutes(api, context);
+  registerRenewalRoutes(api, context, [...allowedTypes]);
   if (product !== 'yumi') registerAccountRoutes(api, context);
   registerExpenseRoutes(api, context, [...allowedTypes]);
   if (product !== 'yumi') registerDashboardRoutes(api, context, [...allowedTypes]);

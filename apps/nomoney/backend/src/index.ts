@@ -10,7 +10,8 @@ import { runReminderScan } from './reminders.js';
 import { getSettings } from './settings.js';
 import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
 import { migrateStoredSecrets } from './secret-migration.js';
-import type { ProductMode } from './types.js';
+import type { AssetType, ProductMode } from './types.js';
+import { runAutoRenewals } from './renewals.js';
 import { migrateYumiData, waitForDatabaseFile } from './yumi-migration.js';
 import { runStatusSweep } from './status.js';
 
@@ -41,6 +42,7 @@ if (process.env.NODE_ENV === 'production' && (!encryptionKey || encryptionKey ==
 }
 assertEncryptionKey(encryptionKey, productEncryptionKeyName);
 
+const productTypes: AssetType[] = product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription'];
 const databasePath = path.join(dataDir, 'app.db');
 if (product === 'yumi' && !fs.existsSync(databasePath)) {
   const sourcePath = path.join(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data'), 'app.db');
@@ -101,7 +103,12 @@ app.get('/{*splat}', (_req, res) => {
 cron.schedule('7 * * * *', () => {
   const settings = getSettings(context);
   if (localHour(context.now(), settings.timezone) < 9) return;
-  runReminderScan(context, product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription']).catch((error) => {
+  try {
+    runAutoRenewals(context, productTypes);
+  } catch (error) {
+    console.error('Auto-renewal run failed', error);
+  }
+  runReminderScan(context, productTypes).catch((error) => {
     console.error('Reminder scan failed', error);
   });
 }, { timezone: 'UTC' });

@@ -53,7 +53,7 @@ describe('NoMoney VPS monitor refresh', () => {
   it('keeps VPS cards compact and exposes only the useful quick actions', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/AssetPage.tsx'), 'utf8');
     const start = source.indexOf('function VpsNodeCard');
-    const end = source.indexOf('function VpsRenewalToast', start);
+    const end = source.indexOf('function VpsMetricLine', start);
     const vpsCard = source.slice(start, end);
 
     expect(vpsCard).toContain("copy('复制 IP 地址', 'Copy IP address')");

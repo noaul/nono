@@ -136,6 +136,9 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
         assignments.push('updated_at = ?');
         values.push(toIsoDateTime(context.now()), Number(req.params.id));
         context.db.run(`UPDATE expenses SET ${assignments.join(', ')} WHERE id = ?`, values);
+        if (typeof body.amountMinorUnits === 'number') {
+          context.db.run('UPDATE renewal_events SET amount_minor_units = ? WHERE expense_id = ?', [body.amountMinorUnits, Number(req.params.id)]);
+        }
       }
       res.json({ item: getExpenseOrThrow(context, Number(req.params.id), allowedTypes) });
     })
@@ -145,6 +148,7 @@ export function registerExpenseRoutes(router: Router, context: AppContext, allow
     '/expenses/:id',
     asyncHandler(async (req, res) => {
       getExpenseOrThrow(context, Number(req.params.id), allowedTypes);
+      context.db.run('UPDATE renewal_events SET expense_id = NULL WHERE expense_id = ?', [Number(req.params.id)]);
       context.db.run('DELETE FROM expenses WHERE id = ?', [Number(req.params.id)]);
       res.status(204).end();
     })

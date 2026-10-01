@@ -469,6 +469,7 @@ function migrate(db: DbClient, product: ProductMode): void {
   ensureColumn(db, 'domains', 'domain_extension', 'TEXT');
   ensureColumn(db, 'domains', 'rarity_score', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'domains', 'last_renew_date', 'TEXT');
+  ensureColumn(db, 'renewal_events', 'previous_last_renew_date', 'TEXT');
   ensureColumn(db, 'subscriptions', 'purchase_type', "TEXT NOT NULL DEFAULT 'subscription'");
   ensureColumn(db, 'subscriptions', 'email', 'TEXT');
   ensureColumn(db, 'subscriptions', 'phone_number', 'TEXT');

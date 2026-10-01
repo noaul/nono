@@ -330,3 +330,33 @@ describe('dashboard APIs', () => {
     });
   });
 });
+
+describe('dashboard additions', () => {
+  test('reports phone keep-alive deadlines, cycle-normalised phone rent and a 12-month trend', async () => {
+    const { agent } = await setupAgent('nomoney');
+    await agent.post('/api/phones').send({
+      cardNumber: '+44 7700 900000', phoneType: 'foreign', amountMinorUnits: 1200, currency: 'GBP',
+      billingCycle: 'annual', totalKeepaliveUntil: '2026-06-01', minimumKeepaliveAmountMinorUnits: 500, status: 'active'
+    }).expect(201);
+    await agent.post('/api/subscriptions').send({
+      name: 'Video', purchaseType: 'subscription', category: 'Streaming', amountMinorUnits: 3000, currency: 'CNY',
+      billingCycle: 'monthly', nextDueDate: '2026-05-25', status: 'active'
+    }).expect(201);
+    await agent.post('/api/subscriptions/1/renew').send({ requestId: 'video-may', expectedDueDate: '2026-05-25' }).expect(200);
+
+    const expiring = await agent.get('/api/dashboard/expiring?days=30').expect(200);
+    expect(expiring.body.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'keepalive', assetType: 'phone', dueDate: '2026-06-01', amountMinorUnits: 500 })
+    ]));
+
+    const summary = await agent.get('/api/dashboard/summary').expect(200);
+    expect(summary.body.phoneStats.monthlyRentByCurrency).toEqual({ GBP: 100 });
+    expect(summary.body.monthlyActual).toHaveLength(12);
+    expect(summary.body.monthlyActual.at(-1)).toEqual({ month: '2026-05', totals: { CNY: 3000 } });
+    expect(summary.body.categoryCosts.subscription.subcategories).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'category:streaming', label: 'Streaming', count: 1 })
+    ]));
+    expect(summary.body.converted.actualYearly).toMatchObject({ currency: 'CNY', amountMinorUnits: 3000, complete: true });
+    expect(summary.body.converted.predictedMonthly).toMatchObject({ currency: 'CNY', complete: false });
+  });
+});

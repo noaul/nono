@@ -7,6 +7,7 @@ import { compactDate, currentShanghaiYear, formatMoney, shanghaiDateKey, currenc
 import { Button, DataTable, Drawer, EmptyState, Field, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
+import { product } from './product';
 
 type ExpenseCategory = 'renewal' | 'monthly' | 'setup' | 'other';
 type ExpenseForm = {
@@ -20,8 +21,20 @@ type ExpenseForm = {
   notes: string;
 };
 
-const assetTypes: AssetType[] = ['vps', 'domain'];
+const assetTypes: AssetType[] = product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
+const assetTypeLabels: Record<AssetType, [string, string]> = {
+  phone: ['电话卡', 'Phone card'],
+  subscription: ['订阅', 'Subscription'],
+  vps: ['VPS', 'VPS'],
+  domain: ['域名', 'Domain']
+};
+const categoryLabels: Record<ExpenseCategory, [string, string]> = {
+  renewal: ['续费', 'Renewal'],
+  monthly: ['月度', 'Monthly'],
+  setup: ['开通', 'Setup'],
+  other: ['其他', 'Other']
+};
 const currentYear = currentShanghaiYear();
 const initialForm: ExpenseForm = {
   assetKey: '',
@@ -80,7 +93,14 @@ export function Expenses() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ ...initialForm, currency: getDefaultCurrency(), assetKey: assetOptions[0] ? toAssetKey(assetOptions[0].assetType, assetOptions[0].assetId) : '' });
+    const first = assetOptions[0];
+    setForm({
+      ...initialForm,
+      paidAt: shanghaiDateKey(),
+      currency: first?.currency ?? getDefaultCurrency(),
+      amount: first ? (first.amountMinorUnits / 100).toFixed(2) : '',
+      assetKey: first ? toAssetKey(first.assetType, first.assetId) : ''
+    });
     setDrawerOpen(true);
   };
 
@@ -141,11 +161,11 @@ export function Expenses() {
 
   const columns: DataTableColumn<ExpenseItem>[] = [
     { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <div><span className="font-medium text-slate-950 dark:text-white">{item.assetLabel ?? item.assetType}</span><span className="ml-2 font-mono text-xs text-slate-400">#{item.assetId}</span></div> },
-    { key: 'type', header: copy('类型', 'Type'), render: (item) => <span className="font-mono text-xs text-slate-500">{item.assetType}</span> },
+    { key: 'type', header: copy('类型', 'Type'), render: (item) => <span className="text-xs text-slate-500">{copy(...(assetTypeLabels[item.assetType] ?? [item.assetType, item.assetType]))}</span> },
     { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
     { key: 'paid', header: copy('支付日期', 'Paid on'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.paidAt}</span> },
     { key: 'period', header: copy('覆盖周期', 'Period'), align: 'right', render: (item) => <span className="text-slate-500">{compactDate(item.periodStart)} – {compactDate(item.periodEnd)}</span> },
-    { key: 'cat', header: copy('分类', 'Category'), render: (item) => <span className="rounded-lg border border-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:border-white/10">{item.category}</span> },
+    { key: 'cat', header: copy('分类', 'Category'), render: (item) => <span className="rounded-lg border border-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:border-white/10">{copy(...(categoryLabels[item.category] ?? [item.category, item.category]))}</span> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
@@ -166,7 +186,7 @@ export function Expenses() {
         <ExpenseSummaryItem
           icon={<Server size={17} />}
           label={copy('资产构成', 'Asset mix')}
-          value={copy(`${summary?.assetTypeCounts.vps ?? 0} VPS / ${summary?.assetTypeCounts.domain ?? 0} 域名`, `${summary?.assetTypeCounts.vps ?? 0} VPS / ${summary?.assetTypeCounts.domain ?? 0} domains`)}
+          value={assetTypes.map((type) => `${summary?.assetTypeCounts[type] ?? 0} ${copy(...assetTypeLabels[type])}`).join(' / ')}
         />
         <ExpenseSummaryItem
           icon={<CalendarRange size={17} />}
@@ -180,8 +200,8 @@ export function Expenses() {
         <div className="grid gap-3 md:grid-cols-4">
           <Field label={copy('年份', 'Year')}><input className={inputClass} value={year} onChange={(e) => setYear(e.target.value)} /></Field>
           <Field label={copy('币种', 'Currency')}><select className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)}><option value="">{copy('全部', 'All')}</option>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          <Field label={copy('资产类型', 'Asset type')}><select className={inputClass} value={assetType} onChange={(e) => setAssetType(e.target.value)}><option value="">{copy('全部', 'All')}</option>{assetTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          <Field label={copy('分类', 'Category')}><select className={inputClass} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{copy('全部', 'All')}</option>{categories.map((value) => <option key={value}>{value}</option>)}</select></Field>
+          <Field label={copy('资产类型', 'Asset type')}><select className={inputClass} value={assetType} onChange={(e) => setAssetType(e.target.value)}><option value="">{copy('全部', 'All')}</option>{assetTypes.map((value) => <option key={value} value={value}>{copy(...assetTypeLabels[value])}</option>)}</select></Field>
+          <Field label={copy('分类', 'Category')}><select className={inputClass} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{copy('全部', 'All')}</option>{categories.map((value) => <option key={value} value={value}>{copy(...categoryLabels[value])}</option>)}</select></Field>
         </div>
       </section>
 
@@ -212,11 +232,17 @@ export function Expenses() {
       >
         <form id="expense-form" onSubmit={submit} className="space-y-4">
           <Field label={copy('关联资产', 'Linked asset')}>
-            <select className={inputClass} value={form.assetKey} onChange={(e) => setForm({ ...form, assetKey: e.target.value })}>
+            <select className={inputClass} value={form.assetKey} onChange={(e) => {
+              const asset = assetOptions.find((option) => toAssetKey(option.assetType, option.assetId) === e.target.value);
+              // A newly picked asset brings its usual amount and currency; edits keep what was typed.
+              setForm(editing || !asset
+                ? { ...form, assetKey: e.target.value }
+                : { ...form, assetKey: e.target.value, currency: asset.currency, amount: (asset.amountMinorUnits / 100).toFixed(2) });
+            }}>
               <option value="">{copy('选择资产', 'Choose an asset')}</option>
               {assetOptions.map((asset) => (
                 <option key={toAssetKey(asset.assetType, asset.assetId)} value={toAssetKey(asset.assetType, asset.assetId)}>
-                  {asset.label} · {asset.assetType} #{asset.assetId}
+                  {asset.label} · {copy(...(assetTypeLabels[asset.assetType] ?? [asset.assetType, asset.assetType]))}{asset.provider ? ` · ${asset.provider}` : ''}
                 </option>
               ))}
             </select>

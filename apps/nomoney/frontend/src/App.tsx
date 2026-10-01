@@ -86,7 +86,7 @@ export default function App() {
           ))}
           {product === 'nomoney' && <Route path="/accounts"><AccountPage /></Route>}
           <Route path="/trash"><TrashPage /></Route>
-          {product === 'yumi' && <Route path="/expenses"><Expenses /></Route>}
+          <Route path="/expenses"><Expenses /></Route>
           <Route path="/settings"><SettingsPage /></Route>
           <Route><Redirect to="/dashboard" replace /></Route>
         </Switch>

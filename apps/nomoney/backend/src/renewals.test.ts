@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { describe, expect, test } from 'vitest';
 import { createApp } from './app.js';
+import { runAutoRenewals } from './renewals.js';
 import { setupAgent } from './test-utils.js';
 
 const activeVps = {
@@ -149,5 +150,81 @@ describe('VPS renewal APIs', () => {
       .set('x-nono-internal-token', 'nono-to-nomoney-test-token')
       .expect(200);
     expect(undone.body.item.expireDate).toBe('2027-08-10');
+  });
+});
+
+describe('renewals for phone cards and subscriptions', () => {
+  const subscription = {
+    name: 'Music',
+    purchaseType: 'subscription',
+    amountMinorUnits: 1500,
+    currency: 'CNY',
+    billingCycle: 'monthly',
+    nextDueDate: '2026-05-31',
+    autoRenew: false,
+    status: 'active'
+  };
+
+  test('marking a subscription paid advances the next charge and records an expense', async () => {
+    const { agent, context } = await setupAgent('nomoney');
+    await agent.post('/api/subscriptions').send(subscription).expect(201);
+
+    const response = await agent.post('/api/subscriptions/1/renew')
+      .send({ requestId: 'music-2026-05', expectedDueDate: '2026-05-31', amountMinorUnits: 1800 })
+      .expect(200);
+
+    expect(response.body.item).toMatchObject({ nextDueDate: '2026-06-30' });
+    expect(context.db.all('SELECT asset_type, amount_minor_units, period_start, period_end FROM expenses')).toEqual([
+      { asset_type: 'subscription', amount_minor_units: 1800, period_start: '2026-05-31', period_end: '2026-06-30' }
+    ]);
+
+    const history = await agent.get('/api/subscriptions/1/renewals').expect(200);
+    expect(history.body.items).toEqual([expect.objectContaining({ amountMinorUnits: 1800, status: 'active', auto: false })]);
+
+    await agent.post(`/api/subscriptions/1/renewals/${response.body.renewal.id}/undo`).expect(200);
+    expect((await agent.get('/api/subscriptions/1')).body.item.nextDueDate).toBe('2026-05-31');
+    expect(context.db.all('SELECT id FROM expenses')).toHaveLength(0);
+  });
+
+  test('buyouts cannot be renewed', async () => {
+    const { agent } = await setupAgent('nomoney');
+    await agent.post('/api/subscriptions').send({ ...subscription, purchaseType: 'buyout' }).expect(201);
+    const response = await agent.post('/api/subscriptions/1/renew').send({ requestId: 'buyout-renew', expectedDueDate: '2026-05-31' });
+    expect(response.status).toBe(409);
+  });
+
+  test('auto-renew rolls overdue items forward once per elapsed cycle and is idempotent', async () => {
+    const { agent, context } = await setupAgent('nomoney');
+    await agent.post('/api/subscriptions').send({ ...subscription, autoRenew: true, billingCycle: 'weekly', nextDueDate: '2026-05-05' }).expect(201);
+    await agent.post('/api/subscriptions').send({ ...subscription, name: 'Stale', autoRenew: true, nextDueDate: '2025-12-01' }).expect(201);
+    await agent.post('/api/subscriptions').send({ ...subscription, name: 'Manual', nextDueDate: '2026-05-01' }).expect(201);
+
+    const first = runAutoRenewals(context, ['subscription']);
+    const second = runAutoRenewals(context, ['subscription']);
+
+    expect(first.map((item) => item.dueDate)).toEqual(['2026-05-05', '2026-05-12', '2026-05-19']);
+    expect(second).toEqual([]);
+    expect((await agent.get('/api/subscriptions/1')).body.item.nextDueDate).toBe('2026-05-26');
+    expect((await agent.get('/api/subscriptions/2')).body.item.nextDueDate).toBe('2025-12-01');
+    expect(context.db.all('SELECT paid_at FROM expenses ORDER BY id')).toEqual([
+      { paid_at: '2026-05-05' }, { paid_at: '2026-05-12' }, { paid_at: '2026-05-19' }
+    ]);
+
+    await agent.put('/api/settings').send({ autoRenewEnabled: false }).expect(200);
+    await agent.post('/api/subscriptions').send({ ...subscription, name: 'Off', autoRenew: true, nextDueDate: '2026-05-10' }).expect(201);
+    expect(runAutoRenewals(context, ['subscription'])).toEqual([]);
+  });
+
+  test('deleting a renewal expense keeps the renewal undoable', async () => {
+    const { agent, context } = await setupAgent('nomoney');
+    await agent.post('/api/subscriptions').send(subscription).expect(201);
+    const renewed = await agent.post('/api/subscriptions/1/renew')
+      .send({ requestId: 'delete-expense', expectedDueDate: '2026-05-31' })
+      .expect(200);
+
+    await agent.delete(`/api/expenses/${renewed.body.renewal.expenseId}`).expect(204);
+    expect(context.db.get('SELECT expense_id FROM renewal_events')).toEqual({ expense_id: null });
+
+    await agent.post(`/api/subscriptions/1/renewals/${renewed.body.renewal.id}/undo`).expect(200);
   });
 });

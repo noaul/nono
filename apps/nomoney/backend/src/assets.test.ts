@@ -1210,21 +1210,54 @@ describe('asset APIs', () => {
       status: 'active'
     });
 
-    const renewed = await agent.post('/api/domains/1/renew').expect(200);
+    const renewed = await agent.post('/api/domains/1/renew')
+      .send({ requestId: 'renew-me-2027', expectedDueDate: '2027-01-31' })
+      .expect(200);
 
     expect(renewed.body.item).toMatchObject({
       lastRenewDate: '2026-05-22',
       expireDate: '2028-01-31',
       nextDueDate: '2028-01-31'
     });
+    expect(renewed.body.renewal).toMatchObject({ amountMinorUnits: 1200, currency: 'USD' });
+
+    const undone = await agent.post(`/api/domains/1/renewals/${renewed.body.renewal.id}/undo`).expect(200);
+    expect(undone.body.item).toMatchObject({
+      lastRenewDate: '2026-01-31',
+      expireDate: '2027-01-31',
+      nextDueDate: '2027-01-31'
+    });
   });
 
   test('rejects invalid asset list query values', async () => {
     const { agent } = await setupAgent();
 
-    const response = await agent.get('/api/subscriptions?limit=not-a-number&currency=JPY');
+    const response = await agent.get('/api/subscriptions?limit=not-a-number&currency=XYZ');
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+describe('list filters', () => {
+  test('filters by tag and category, searches notes, and reports tag options', async () => {
+    const { agent } = await setupAgent('nomoney');
+    const base = { purchaseType: 'subscription', amountMinorUnits: 100, currency: 'CNY', billingCycle: 'monthly', status: 'active' };
+    await agent.post('/api/subscriptions').send({ ...base, name: 'A', tags: ['work', 'ai'], category: 'AI', notes: 'team seat' }).expect(201);
+    await agent.post('/api/subscriptions').send({ ...base, name: 'B', tags: ['home'], category: 'Streaming' }).expect(201);
+    await agent.post('/api/subscriptions').send({ ...base, name: 'C', tags: ['work'] }).expect(201);
+
+    const byTag = await agent.get('/api/subscriptions?tag=work').expect(200);
+    expect(byTag.body.items.map((item: { name: string }) => item.name).sort()).toEqual(['A', 'C']);
+    expect(byTag.body.meta.tagOptions).toEqual([
+      { tag: 'work', count: 2 }, { tag: 'ai', count: 1 }, { tag: 'home', count: 1 }
+    ]);
+    expect(byTag.body.meta.categoryOptions).toEqual(['AI', 'Streaming']);
+
+    const byCategory = await agent.get('/api/subscriptions?category=streaming').expect(200);
+    expect(byCategory.body.items.map((item: { name: string }) => item.name)).toEqual(['B']);
+
+    const byNotes = await agent.get('/api/subscriptions?q=team').expect(200);
+    expect(byNotes.body.items.map((item: { name: string }) => item.name)).toEqual(['A']);
   });
 });

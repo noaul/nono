@@ -22,7 +22,7 @@ const navItems = [
 ];
 
 const yumiNavOrder = ['/dashboard', '/expenses', '/vps', '/domains', '/trash', '/settings'];
-const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/accounts', '/trash', '/settings'];
+const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/expenses', '/accounts', '/trash', '/settings'];
 const activeNavOrder = product === 'yumi' ? yumiNavOrder : noMoneyNavOrder;
 const productNavItems = activeNavOrder.map((path) => navItems.find((item) => item.to === path)!);
 

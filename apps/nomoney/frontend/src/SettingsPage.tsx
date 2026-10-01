@@ -14,6 +14,7 @@ const productBackupName = product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney
 const defaultSettings: SettingsValue = {
   reminderDays: [30, 14, 7, 3, 1, 0],
   reminderEnabled: true,
+  autoRenewEnabled: true,
   defaultCurrency: 'CNY',
   timezone: 'Asia/Shanghai',
   language: 'zh',
@@ -174,6 +175,7 @@ export function SettingsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={copy('提醒天数', 'Reminder days')} hint={copy('逗号分隔，如 30,7,1,0；漏发会在下次补发，逾期后还会在 1/7/14/30 天各提醒一次。', 'Comma-separated, e.g. 30,7,1,0. Missed days are caught up; overdue items are re-sent at 1/7/14/30 days.')}><input className={inputClass} inputMode="numeric" value={reminderDaysText} onChange={(e) => setReminderDaysText(e.target.value)} /></Field>
               <Field label={copy('提醒开关', 'Reminders')}><select className={inputClass} value={String(settings.reminderEnabled)} onChange={(e) => setSettings({ ...settings, reminderEnabled: e.target.value === 'true' })}><option value="true">{copy('开启', 'Enabled')}</option><option value="false">{copy('关闭', 'Disabled')}</option></select></Field>
+              <Field label={copy('自动续费记账', 'Auto-renew bookkeeping')} hint={copy('开启后，标记为“自动续费”的项目到期后自动顺延一个周期并记一笔支出（只处理逾期 60 天内的）。', 'Items marked auto-renew roll forward one cycle at their due date and record an expense (only if overdue by 60 days or less).')}><select className={inputClass} value={String(settings.autoRenewEnabled)} onChange={(e) => setSettings({ ...settings, autoRenewEnabled: e.target.value === 'true' })}><option value="true">{copy('开启', 'Enabled')}</option><option value="false">{copy('关闭', 'Disabled')}</option></select></Field>
               <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
               <Field label={copy('时区', 'Timezone')}><input className={inputClass} value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} /></Field>
             </div>

@@ -7,7 +7,7 @@ describe('NoMoney and Yumi product surfaces', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
     expect(source).toContain("product === 'yumi'");
     expect(source).toContain("['/dashboard', '/expenses', '/vps', '/domains', '/trash', '/settings']");
-    expect(source).toContain("['/dashboard', '/phones', '/subscriptions', '/accounts', '/trash', '/settings']");
+    expect(source).toContain("['/dashboard', '/phones', '/subscriptions', '/expenses', '/accounts', '/trash', '/settings']");
   });
 
   it('uses a status-first Yumi overview with no cost components', () => {

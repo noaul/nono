@@ -24,18 +24,54 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((end - start) / 86_400_000);
 }
 
+export const billingCycles = ['weekly', 'monthly', 'quarterly', 'semiannual', 'annual', 'biennial'] as const satisfies readonly BillingCycle[];
+
+const cyclesPerYear: Record<BillingCycle, number> = {
+  weekly: 52,
+  monthly: 12,
+  quarterly: 4,
+  semiannual: 2,
+  annual: 1,
+  biennial: 0.5
+};
+
+export function isBillingCycle(value: unknown): value is BillingCycle {
+  return typeof value === 'string' && (billingCycles as readonly string[]).includes(value);
+}
+
 export function predictedMonthly(amountMinorUnits: number, billingCycle: BillingCycle): number {
-  if (billingCycle === 'monthly') return amountMinorUnits;
-  if (billingCycle === 'quarterly') return Math.round(amountMinorUnits / 3);
-  if (billingCycle === 'biennial') return Math.round(amountMinorUnits / 24);
-  return Math.round(amountMinorUnits / 12);
+  return Math.round((amountMinorUnits * (cyclesPerYear[billingCycle] ?? 12)) / 12);
 }
 
 export function predictedYearly(amountMinorUnits: number, billingCycle: BillingCycle): number {
-  if (billingCycle === 'monthly') return amountMinorUnits * 12;
-  if (billingCycle === 'quarterly') return amountMinorUnits * 4;
-  if (billingCycle === 'biennial') return Math.round(amountMinorUnits / 2);
-  return amountMinorUnits;
+  return Math.round(amountMinorUnits * (cyclesPerYear[billingCycle] ?? 12));
+}
+
+/** Advances an ISO date by `count` billing cycles, clamping to the last day of short months. */
+export function addBillingCycle(dateValue: string, cycle: BillingCycle, count = 1): string {
+  if (cycle === 'weekly') return addDays(dateValue, 7 * count);
+  const months = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12, biennial: 24 }[cycle] ?? 1;
+  return addMonths(dateValue, months * count);
+}
+
+export function addDays(dateValue: string, days: number): string {
+  const time = Date.parse(`${dateValue}T00:00:00.000Z`);
+  if (Number.isNaN(time)) return dateValue;
+  return new Date(time + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function addMonths(dateValue: string, months: number): string {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  if (!year || !month || !day) return dateValue;
+  const monthIndex = month - 1 + months;
+  const targetYear = year + Math.floor(monthIndex / 12);
+  const targetMonthIndex = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
+  return [
+    targetYear,
+    String(targetMonthIndex + 1).padStart(2, '0'),
+    String(Math.min(day, lastDay)).padStart(2, '0')
+  ].join('-');
 }
 
 export function addCurrencyTotal(
