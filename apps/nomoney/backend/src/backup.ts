@@ -7,6 +7,7 @@ import { toIsoDateTime } from './utils.js';
 import { migrateStoredSecrets } from './secret-migration.js';
 import { requestOutbound } from './outbound-request.js';
 import { requireInternalToken } from './renewals.js';
+import { invalidateDatabaseGeneration } from './db.js';
 
 type BackupRow = Record<string, unknown>;
 
@@ -57,6 +58,8 @@ const backupTables: BackupTable[] = [
       'monitor_status', 'monitor_cpu_percent', 'monitor_memory_percent', 'monitor_disk_percent',
       'monitor_net_in_bps', 'monitor_net_out_bps', 'monitor_net_total_in_bytes',
       'monitor_net_total_out_bytes', 'monitor_load1', 'monitor_uptime_seconds', 'monitor_updated_at',
+      'panel_url', 'ipv6_address', 'traffic_quota_gb', 'traffic_reset_day', 'traffic_used_bytes',
+      'traffic_last_total_bytes', 'traffic_period_start', 'alert_traffic_period', 'alert_disk_at', 'alert_down_since',
       'amount_minor_units', 'currency', 'billing_cycle', 'start_date', 'next_due_date',
       'expire_date', 'auto_renew', 'payment_method', 'renewal_url', 'status', 'tags', 'notes',
       'created_at', 'updated_at', 'archived_at'
@@ -68,6 +71,7 @@ const backupTables: BackupTable[] = [
     products: ['yumi'],
     columns: [
       'id', 'domain_name', 'registrar', 'registrar_account', 'registrar_url', 'dns_provider',
+      'rdap_expire_date', 'rdap_checked_at', 'rdap_error', 'ssl_expires_at', 'ssl_issuer', 'ssl_checked_at', 'ssl_error',
       'purpose', 'register_date', 'last_renew_date', 'domain_extension', 'rarity_score', 'next_due_date', 'expire_date',
       'amount_minor_units', 'currency', 'billing_cycle', 'auto_renew', 'payment_method', 'renewal_url',
       'status', 'tags', 'notes', 'created_at', 'updated_at', 'archived_at'
@@ -107,7 +111,7 @@ const backupTables: BackupTable[] = [
     table: 'renewal_events',
     assetTypes: ['phone', 'subscription', 'vps', 'domain'],
     columns: [
-      'id', 'request_id', 'asset_type', 'asset_id', 'previous_expire_date', 'previous_next_due_date',
+      'id', 'request_id', 'asset_type', 'asset_id', 'previous_expire_date', 'previous_next_due_date', 'previous_last_renew_date',
       'renewed_expire_date', 'expense_id', 'amount_minor_units', 'currency', 'status', 'created_at', 'undone_at'
     ]
   },
@@ -121,8 +125,14 @@ const backupTables: BackupTable[] = [
     table: 'reminder_logs',
     assetTypes: ['phone', 'subscription', 'vps', 'domain'],
     columns: [
-      'id', 'run_id', 'asset_type', 'asset_id', 'due_date', 'days_before', 'sent_at', 'status', 'error_message'
+      'id', 'run_id', 'asset_type', 'asset_id', 'due_date', 'days_before', 'sent_at', 'status', 'error_message', 'kind'
     ]
+  },
+  {
+    key: 'pendingStatusAlerts',
+    table: 'pending_status_alerts',
+    products: ['yumi'],
+    columns: ['id', 'vps_id', 'name', 'kind', 'detail', 'created_at']
   },
   {
     key: 'vpsStatusSamples',
@@ -228,7 +238,7 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
     for (const table of tablesForProduct(product)) {
       const rows = scopedBackupRows(getBackupRows(payload, table.key), table, product, payloadProduct !== undefined);
       if (!rows) {
-        if (table.key === 'renewalEvents') deleteBackupRows(context, table, product);
+        if (table.key === 'renewalEvents' || table.key === 'pendingStatusAlerts') deleteBackupRows(context, table, product);
         continue;
       }
       deleteBackupRows(context, table, product);
@@ -240,6 +250,7 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
     context.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['productMode', JSON.stringify(product)]);
     migrateStoredSecrets(context);
     context.db.exec('COMMIT');
+    invalidateDatabaseGeneration(context.db);
   } catch (error) {
     context.db.exec('ROLLBACK');
     throw error;

@@ -93,6 +93,16 @@ export function SettingsPage() {
     }
   };
 
+  const clearBark = async () => {
+    try {
+      const response = await api.put<{ settings: SettingsValue }>('/api/settings', { barkUrl: null });
+      setSettings((current) => ({ ...current, barkUrl: '', barkUrlSet: response.settings.barkUrlSet }));
+      showMessage(copy('Bark 已移除', 'Bark removed'), 'success');
+    } catch (err) {
+      showMessage(err instanceof ApiError ? err.message : copy('移除失败', 'Failed to remove Bark'), 'danger');
+    }
+  };
+
   const testEmail = async () => {
     setMessage('');
     try {
@@ -239,7 +249,7 @@ export function SettingsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Telegram Bot Token" hint={settings.telegramBotTokenSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : undefined}><input className={inputClass} type="password" autoComplete="off" value={settings.telegramBotToken} placeholder={settings.telegramBotTokenSet ? copy('已保存', 'Saved') : '123456:ABC…'} onChange={(e) => setSettings({ ...settings, telegramBotToken: e.target.value })} /></Field>
               <Field label="Telegram Chat ID"><input className={`${inputClass} font-mono`} value={settings.telegramChatId} placeholder="123456789" onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })} /></Field>
-              <Field label={copy('Bark 推送地址', 'Bark URL')} hint={settings.barkUrlSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : copy('如 https://api.day.app/你的Key', 'e.g. https://api.day.app/<key>')}><input className={inputClass} type="password" autoComplete="off" value={settings.barkUrl} placeholder={settings.barkUrlSet ? copy('已保存', 'Saved') : 'https://api.day.app/…'} onChange={(e) => setSettings({ ...settings, barkUrl: e.target.value })} /></Field>
+              <Field label={copy('Bark 推送地址', 'Bark URL')} hint={settings.barkUrlSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : copy('如 https://api.day.app/你的Key', 'e.g. https://api.day.app/<key>')}><input className={inputClass} type="password" autoComplete="off" value={settings.barkUrl} placeholder={settings.barkUrlSet ? copy('已保存', 'Saved') : 'https://api.day.app/…'} onChange={(e) => setSettings({ ...settings, barkUrl: e.target.value })} />{settings.barkUrlSet && <button type="button" className="mt-2 text-xs text-danger-600 hover:underline" onClick={clearBark}>{copy('移除 Bark', 'Remove Bark')}</button>}</Field>
               <Field label="Webhook" hint={copy('POST JSON：subject、text、content。', 'POSTs JSON with subject, text and content.')}><input className={inputClass} type="url" value={settings.webhookUrl} placeholder="https://hooks.example.com/…" onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })} /></Field>
             </div>
             {product === 'yumi' && (

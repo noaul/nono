@@ -167,6 +167,8 @@ export interface DueItem {
   assetId: number;
   name: string;
   dueDate: string;
+  expireDate?: string | null;
+  nextDueDate?: string | null;
   daysLeft: number;
   amountMinorUnits: number;
   currency: Currency;
@@ -305,6 +307,7 @@ export interface ReminderLogItem {
   assetType: AssetType;
   assetId: number;
   dueDate: string;
+  kind: 'renewal' | 'keepalive' | 'certificate';
   daysBefore: number;
   assetName: string | null;
   sentAt: string;

@@ -116,8 +116,8 @@ function productName(context: AppContext) {
 function hasSentReminder(context: AppContext, item: ReminderItem): boolean {
   const row = context.db.get<{ count: number }>(
     `SELECT COUNT(*) as count FROM reminder_logs
-     WHERE asset_type = ? AND asset_id = ? AND due_date = ? AND days_before = ? AND status = 'sent'`,
-    [item.assetType, item.assetId, item.dueDate, item.threshold]
+     WHERE asset_type = ? AND asset_id = ? AND due_date = ? AND days_before = ? AND kind = ? AND status = 'sent'`,
+    [item.assetType, item.assetId, item.dueDate, item.threshold, item.kind]
   );
   return Number(row?.count ?? 0) > 0;
 }
@@ -132,9 +132,9 @@ function insertReminderLog(
 ): void {
   context.db.run(
     `INSERT OR IGNORE INTO reminder_logs (
-      run_id, asset_type, asset_id, due_date, days_before, sent_at, status, error_message
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [runId, item.assetType, item.assetId, item.dueDate, item.threshold, sentAt, status, errorMessage]
+      run_id, asset_type, asset_id, due_date, days_before, sent_at, status, error_message, kind
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [runId, item.assetType, item.assetId, item.dueDate, item.threshold, sentAt, status, errorMessage, item.kind]
   );
 }
 
@@ -185,6 +185,7 @@ function mapReminderLog(context: AppContext, row: Record<string, unknown>) {
     assetName: typeof asset?.name === 'string' ? asset.name : null,
     id: Number(row.id),
     runId: row.run_id,
+    kind: row.kind,
     assetType: row.asset_type,
     assetId: Number(row.asset_id),
     dueDate: row.due_date,

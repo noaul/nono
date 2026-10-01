@@ -8,7 +8,7 @@ import { Link } from 'wouter';
 import type { AssetType, DailyStatusState, DueItem, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
 import { compactDate, dueTone } from './format';
 import { usePreferences } from './preferences';
-import { RenewButton, RenewalToast, useRenewals, type RenewableEndpoint } from './renewals';
+import { RenewButton, RenewalToast, useRenewals, renewalAssetFromDueItem, type RenewableEndpoint } from './renewals';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
 import { buildStatusDisplayHistory, formatStatusLocation } from './yumi-status-display';
@@ -251,7 +251,7 @@ export function YumiOverview() {
                       <span className="shrink-0 font-mono text-xs text-slate-500">{compactDate(item.dueDate)}</span>
                       {item.kind === 'certificate'
                         ? <span className="inline-block h-8 w-8" aria-hidden="true" />
-                        : <RenewButton endpoint={endpoint} item={{ id: item.assetId, expireDate: item.dueDate, nextDueDate: item.dueDate, billingCycle: item.billingCycle, status: item.status } as never} renewing={renewals.renewingId === item.assetId} onRenew={(asset) => renewals.renew(endpoint, asset)} copy={copy} />}
+                        : <RenewButton endpoint={endpoint} item={renewalAssetFromDueItem(item)} renewing={renewals.renewingId === item.assetId} onRenew={(asset) => renewals.renew(endpoint, asset)} copy={copy} />}
                     </li>
                   );
                 })}

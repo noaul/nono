@@ -326,12 +326,16 @@ export function runAutoRenewals(context: AppContext, allowedTypes: AssetType[]) 
         const current = getAssetRow(context, config, row.id);
         const dueDate = current[column];
         if (!dueDate || dueDate >= today) break;
-        renewAsset(context, config.type, row.id, {
+        const result = renewAsset(context, config.type, row.id, {
           requestId: `auto:${config.type}:${row.id}:${dueDate}`,
           expectedDueDate: dueDate,
           auto: true
         });
-        renewed.push({ assetType: config.type, assetId: row.id, dueDate });
+        // An undone automatic request suppresses this date until a manual payment advances it.
+        // Also stop on any nonprogressing replay rather than counting phantom payments.
+        const nextDueDate = getAssetRow(context, config, row.id)[column];
+        if (result.renewal.status === 'undone' || !nextDueDate || nextDueDate <= dueDate) break;
+        if (!result.idempotent) renewed.push({ assetType: config.type, assetId: row.id, dueDate });
       }
     }
   }

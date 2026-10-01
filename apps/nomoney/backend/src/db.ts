@@ -25,6 +25,32 @@ export interface DatabaseOptions {
   product?: ProductMode;
 }
 
+const reminderLogsSchema = `CREATE TABLE IF NOT EXISTS reminder_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      asset_id INTEGER NOT NULL,
+      due_date TEXT NOT NULL,
+      days_before INTEGER NOT NULL,
+      sent_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error_message TEXT,
+      kind TEXT NOT NULL DEFAULT 'renewal',
+      UNIQUE(asset_type, asset_id, kind, due_date, days_before, status)
+    );`;
+
+// A successful restore replaces row identities. In-flight work belongs to the old
+// generation; promises cannot survive restart, so only the pending data is persisted.
+const databaseGenerations = new WeakMap<DbClient, number>();
+
+export function getDatabaseGeneration(db: DbClient): number {
+  return databaseGenerations.get(db) ?? 0;
+}
+
+export function invalidateDatabaseGeneration(db: DbClient): void {
+  databaseGenerations.set(db, getDatabaseGeneration(db) + 1);
+}
+
 export async function createDatabase(options: DatabaseOptions): Promise<DbClient> {
   const require = createRequire(import.meta.url);
   const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
@@ -378,17 +404,15 @@ function migrate(db: DbClient, product: ProductMode): void {
     CREATE INDEX IF NOT EXISTS idx_renewal_events_asset
       ON renewal_events(asset_type, asset_id, status);
 
-    CREATE TABLE IF NOT EXISTS reminder_logs (
+    ${reminderLogsSchema}
+
+    CREATE TABLE IF NOT EXISTS pending_status_alerts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      run_id TEXT NOT NULL,
-      asset_type TEXT NOT NULL,
-      asset_id INTEGER NOT NULL,
-      due_date TEXT NOT NULL,
-      days_before INTEGER NOT NULL,
-      sent_at TEXT NOT NULL,
-      status TEXT NOT NULL,
-      error_message TEXT,
-      UNIQUE(asset_type, asset_id, due_date, days_before, status)
+      vps_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS vps_status_samples (
@@ -519,6 +543,7 @@ function migrate(db: DbClient, product: ProductMode): void {
   ensureColumn(db, 'vps', 'traffic_period_start', 'TEXT');
   ensureColumn(db, 'vps', 'alert_traffic_period', 'TEXT');
   ensureColumn(db, 'vps', 'alert_disk_at', 'TEXT');
+  migrateReminderLogs(db);
   backfillDomainMetadata(db);
   backfillDomainRenewalDates(db);
 }
@@ -570,4 +595,24 @@ function backfillDomainRenewalDates(db: DbClient): void {
       AND expire_date IS NOT NULL
       AND expire_date != ''
   `);
+}
+
+/** SQLite cannot alter a table-level UNIQUE constraint; rebuild atomically. */
+function migrateReminderLogs(db: DbClient): void {
+  const hasKind = db.all<{ name: string }>('PRAGMA table_info(reminder_logs)').some((column) => column.name === 'kind');
+  const uniqueIndexes = db.all<{ name: string; unique: number }>('PRAGMA index_list(reminder_logs)').filter((index) => index.unique);
+  const hasLegacyUnique = uniqueIndexes.some((index) => !db.all<{ name: string }>(`PRAGMA index_info("${index.name.replaceAll('"', '""')}")`).some((column) => column.name === 'kind'));
+  if (hasKind && !hasLegacyUnique) return;
+  db.exec('BEGIN');
+  try {
+    db.exec('ALTER TABLE reminder_logs RENAME TO reminder_logs_legacy');
+    db.exec(reminderLogsSchema);
+    db.run(`INSERT INTO reminder_logs (id, run_id, asset_type, asset_id, due_date, days_before, sent_at, status, error_message, kind)
+      SELECT id, run_id, asset_type, asset_id, due_date, days_before, sent_at, status, error_message, ${hasKind ? "COALESCE(kind, 'renewal')" : "'renewal'"} FROM reminder_logs_legacy`);
+    db.exec('DROP TABLE reminder_logs_legacy');
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }

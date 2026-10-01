@@ -65,7 +65,7 @@ const settingsSchema = z.object({
   webhookUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
   telegramBotToken: z.string().trim().max(200).optional(),
   telegramChatId: z.string().trim().max(100).optional(),
-  barkUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
+  barkUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).nullable().optional(),
   outageAlertsEnabled: z.boolean().optional(),
   diskAlertPercent: z.number().int().min(0).max(100).optional()
 });
@@ -87,7 +87,7 @@ export function registerSettingsRoutes(router: Router, context: AppContext): voi
         context.db.run(
           `INSERT INTO settings (key, value) VALUES (?, ?)
            ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          [key, JSON.stringify(isSensitiveSetting(key) ? encryptSecret(String(value), context.encryptionKey) : value)]
+          [key, JSON.stringify(isSensitiveSetting(key) ? encryptSecret(value === null ? '' : String(value), context.encryptionKey) : value)]
         );
       }
       res.json({ settings: getPublicSettings(context) });

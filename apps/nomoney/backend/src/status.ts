@@ -1,10 +1,11 @@
 import type { Router } from 'express';
-import type { AppContext } from './types.js';
+import type { AppContext, DbClient } from './types.js';
 import { assetConfigs, getAssetOrThrow, refreshVpsMonitor } from './assets.js';
 import { asyncHandler, HttpError } from './http.js';
 import { getSettings } from './settings.js';
 import { notify } from './notifier.js';
 import { toIsoDate } from './utils.js';
+import { getDatabaseGeneration } from './db.js';
 
 export type StatusSampleState = 'up' | 'degraded' | 'down';
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
@@ -50,33 +51,62 @@ export function registerStatusRoutes(router: Router, context: AppContext): void 
   }));
 }
 
-export async function runStatusSweep(context: AppContext) {
+const activeSweeps = new WeakMap<DbClient, Promise<Awaited<ReturnType<typeof performStatusSweep>>>>();
+
+/** Manual refresh and the scheduler share a sweep, including delivery and acknowledgement. */
+export function runStatusSweep(context: AppContext) {
+  const active = activeSweeps.get(context.db);
+  if (active) return active;
+  const sweep = performStatusSweep(context).finally(() => activeSweeps.delete(context.db));
+  activeSweeps.set(context.db, sweep);
+  return sweep;
+}
+
+async function performStatusSweep(context: AppContext) {
+  const generation = getDatabaseGeneration(context.db);
   const vpsConfig = assetConfigs.find((config) => config.type === 'vps');
   if (!vpsConfig) throw new Error('VPS configuration is missing');
   const rows = context.db.all<Record<string, unknown>>(
     "SELECT id FROM vps WHERE archived_at IS NULL AND status != 'cancelled' AND probe_url IS NOT NULL AND probe_url != '' ORDER BY id"
   );
   const results: Array<{ vpsId: number; state: StatusSampleState }> = [];
-  const alerts: StatusAlert[] = [];
   for (let index = 0; index < rows.length; index += 4) {
     const batch = rows.slice(index, index + 4);
-    results.push(...await Promise.all(batch.map(async (row) => {
+    const batchResults = await Promise.all(batch.map(async (row) => {
       const id = Number(row.id);
       const startedAt = Date.now();
       const item = getAssetOrThrow(context, vpsConfig, id, { includeSecrets: true });
       const monitor = await refreshVpsMonitor(context, vpsConfig, id, item);
+      if (getDatabaseGeneration(context.db) !== generation) return undefined;
       const previous = context.db.get<{ state: StatusSampleState }>(
         'SELECT state FROM vps_status_samples WHERE vps_id = ? ORDER BY sampled_at DESC LIMIT 1', [id]
       )?.state;
       const state: StatusSampleState = monitor.status === 'online' ? 'up' : previous === 'degraded' || previous === 'down' ? 'down' : 'degraded';
       recordStatusSample(context, id, state, Date.now() - startedAt, monitor.status === 'online' ? null : monitor.error ?? 'Probe unavailable');
       if (monitor.status === 'online') accumulateTraffic(context, id, monitor.netTotalInBytes, monitor.netTotalOutBytes);
-      alerts.push(...evaluateAlerts(context, id, String(item.name ?? `VPS #${id}`), state, monitor.diskPercent, monitor.error));
+      evaluateAlerts(context, id, String(item.name ?? `VPS #${id}`), state, monitor.diskPercent, monitor.error);
       return { vpsId: id, state };
-    })));
+    }));
+    // Restore invalidates probes and transitions from the previous database contents.
+    if (getDatabaseGeneration(context.db) !== generation) return { checked: 0, results: [], alerts: [] };
+    results.push(...batchResults.filter((result) => result !== undefined));
   }
   pruneStatusHistory(context);
+  context.db.run(`DELETE FROM pending_status_alerts WHERE vps_id NOT IN (
+    SELECT id FROM vps WHERE archived_at IS NULL AND status != 'cancelled'
+  )`);
+  const pending = context.db.all<{ id: number; vps_id: number; name: string; kind: StatusAlert['kind']; detail: string }>(
+    'SELECT * FROM pending_status_alerts ORDER BY id'
+  );
+  const alerts = pending.map((row) => ({ vpsId: row.vps_id, name: row.name, kind: row.kind, detail: row.detail }));
   const delivered = alerts.length ? await sendAlerts(context, alerts) : [];
+  if (getDatabaseGeneration(context.db) === generation && delivered.some((item) => item.ok)) {
+    context.db.exec('BEGIN');
+    try {
+      for (const row of pending) context.db.run('DELETE FROM pending_status_alerts WHERE id = ?', [row.id]);
+      context.db.exec('COMMIT');
+    } catch (error) { context.db.exec('ROLLBACK'); throw error; }
+  }
   return { checked: results.length, results, alerts: alerts.map((alert) => ({ ...alert, delivered: delivered.some((item) => item.ok) })) };
 }
 
@@ -123,6 +153,20 @@ export function evaluateAlerts(
   diskPercent: number | null,
   error?: string
 ): StatusAlert[] {
+  // Persist observation transitions and their notifications in the same transaction.
+  context.db.exec('BEGIN');
+  try {
+    const alerts = evaluateAlertTransitions(context, vpsId, name, state, diskPercent, error);
+    for (const alert of alerts) context.db.run(
+      'INSERT INTO pending_status_alerts (vps_id, name, kind, detail, created_at) VALUES (?, ?, ?, ?, ?)',
+      [alert.vpsId, alert.name, alert.kind, alert.detail, context.now().toISOString()]
+    );
+    context.db.exec('COMMIT');
+    return alerts;
+  } catch (error) { context.db.exec('ROLLBACK'); throw error; }
+}
+
+function evaluateAlertTransitions(context: AppContext, vpsId: number, name: string, state: StatusSampleState, diskPercent: number | null, error?: string): StatusAlert[] {
   const settings = getSettings(context);
   const row = context.db.get<{
     alert_down_since: string | null;

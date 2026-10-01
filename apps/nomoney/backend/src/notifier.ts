@@ -67,19 +67,17 @@ async function deliver(context: AppContext, settings: Settings, channel: Notific
   }
   if (channel === 'telegram') {
     const url = `https://api.telegram.org/bot${encodeURIComponent(settings.telegramBotToken)}/sendMessage`;
-    await post(context, url, {
-      chat_id: settings.telegramChatId,
-      text: `${message.subject}\n\n${message.text}`.slice(0, 4000),
-      disable_web_page_preview: true
-    });
+    for (const text of splitMessage(`${message.subject}\n\n${message.text}`, 4000)) {
+      await post(context, url, { chat_id: settings.telegramChatId, text, disable_web_page_preview: true });
+    }
     return;
   }
   // Bark: https://api.day.app/<key>, which accepts a JSON POST with title/body.
-  await post(context, settings.barkUrl.replace(/\/+$/, ''), {
-    title: message.subject,
-    body: message.text.slice(0, 3000),
-    group: context.product === 'yumi' ? 'Yumi' : 'NoMoney'
-  });
+  for (const body of splitMessage(message.text, 3000)) {
+    await post(context, settings.barkUrl.replace(/\/+$/, ''), {
+      title: message.subject, body, group: context.product === 'yumi' ? 'Yumi' : 'NoMoney'
+    });
+  }
 }
 
 async function post(context: AppContext, url: string, body: unknown) {
@@ -89,4 +87,16 @@ async function post(context: AppContext, url: string, body: unknown) {
     body: JSON.stringify(body)
   }, { timeoutMs: 8_000, maxBytes: 64 * 1024, maxRedirects: 0 });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+}
+
+/** Bound UTF-16 length without splitting a Unicode code point. */
+function splitMessage(text: string, limit: number): string[] {
+  const parts: string[] = [];
+  let part = '';
+  for (const character of text) {
+    if (part.length + character.length > limit) { parts.push(part); part = ''; }
+    part += character;
+  }
+  if (part || !parts.length) parts.push(part);
+  return parts;
 }

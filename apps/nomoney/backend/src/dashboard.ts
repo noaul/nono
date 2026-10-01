@@ -19,6 +19,8 @@ export interface DueItem {
   assetId: number;
   name: string;
   dueDate: string;
+  expireDate?: string | null;
+  nextDueDate?: string | null;
   daysLeft: number;
   amountMinorUnits: number;
   currency: Currency;
@@ -311,6 +313,8 @@ export function collectDueItems(context: AppContext, withinDays: number, allowed
         assetId: Number(row.id),
         name: String(row[config.displayField] ?? ''),
         dueDate,
+        expireDate: typeof row.expire_date === 'string' ? row.expire_date : null,
+        nextDueDate: typeof row.next_due_date === 'string' ? row.next_due_date : null,
         daysLeft,
         amountMinorUnits: Number(row.amount_minor_units ?? 0),
         currency: normalizeCurrency(row.currency),

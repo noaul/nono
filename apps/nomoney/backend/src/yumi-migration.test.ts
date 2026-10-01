@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 import { createHash } from 'node:crypto';
 import { createDatabase } from './db.js';
 import { decryptSecret, encryptSecret } from './secret-crypto.js';
-import { migrateYumiData, waitForDatabaseFile } from './yumi-migration.js';
+import { migrateYumiData, waitForDatabaseFile, finalizeNoMoneySplit } from './yumi-migration.js';
 
 const oldKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const newKey = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
@@ -47,6 +47,8 @@ describe('NoMoney to Yumi database migration', () => {
     source.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['webdavEncryptionKey', JSON.stringify(encryptSecret('backup-secret', oldKey))]);
     source.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['webdavPath', JSON.stringify('nomoney-backup.json.enc')]);
     source.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['webdavBackupFilename', JSON.stringify('nomoney-custom.json.enc')]);
+    source.run("INSERT INTO pending_status_alerts (vps_id, name, kind, detail, created_at) VALUES (11, 'nc48', 'down', 'offline', '2026-01-25')");
+    source.run("UPDATE reminder_logs SET kind = 'certificate' WHERE id = 41");
     const sourceHashBefore = createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
 
     const result = await migrateYumiData({ sourcePath, targetPath, sourceEncryptionKey: oldKey, targetEncryptionKey: newKey });
@@ -58,6 +60,8 @@ describe('NoMoney to Yumi database migration', () => {
     expect(yumi.get<{ id: number }>('SELECT id FROM vps WHERE id = 11')?.id).toBe(11);
     expect(yumi.get<{ asset_id: number }>('SELECT asset_id FROM expenses WHERE id = 21')?.asset_id).toBe(11);
     expect(yumi.get<{ expense_id: number }>('SELECT expense_id FROM renewal_events WHERE id = 31')?.expense_id).toBe(21);
+    expect(yumi.all('SELECT * FROM pending_status_alerts')).toEqual(source.all('SELECT * FROM pending_status_alerts'));
+    expect(yumi.get('SELECT kind FROM reminder_logs WHERE id = 41')).toEqual({ kind: 'certificate' });
     const secret = yumi.get<{ ssh_password: string; probe_api_key: string }>('SELECT ssh_password, probe_api_key FROM vps WHERE id = 11');
     expect(decryptSecret(secret!.ssh_password, newKey)).toBe('ssh-secret');
     expect(decryptSecret(secret!.probe_api_key, newKey)).toBe('probe-secret');
@@ -70,4 +74,16 @@ describe('NoMoney to Yumi database migration', () => {
     const second = await migrateYumiData({ sourcePath, targetPath, sourceEncryptionKey: oldKey, targetEncryptionKey: newKey });
     expect(second).toMatchObject({ migrated: false, alreadyCurrent: true });
   });
+});
+
+test('split finalization removes pending VPS alerts from NoMoney', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-yumi-finalize-'));
+  try {
+    const sourcePath = path.join(directory, 'nomoney.db');
+    const source = await createDatabase({ persist: true, filePath: sourcePath });
+    source.run("INSERT INTO pending_status_alerts (vps_id, name, kind, detail, created_at) VALUES (11, 'nc48', 'down', 'offline', '2026-01-25')");
+    await finalizeNoMoneySplit(sourcePath);
+    const finalized = await createDatabase({ persist: true, filePath: sourcePath });
+    expect(finalized.all('SELECT * FROM pending_status_alerts')).toEqual([]);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });

@@ -1,3 +1,4 @@
+import { getDatabaseGeneration } from './db.js';
 import type { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
@@ -1313,6 +1314,7 @@ export async function refreshVpsMonitor(
   id: number,
   item: Record<string, unknown>
 ): Promise<MonitorSnapshot> {
+  const generation = getDatabaseGeneration(context.db);
   const probeUrl = stringValue(item.probeUrl);
   if (!probeUrl) {
     throw new HttpError(400, 'VPS_PROBE_NOT_CONFIGURED', 'VPS probe URL is required');
@@ -1338,6 +1340,8 @@ export async function refreshVpsMonitor(
   } catch (error) {
     snapshot = { ...offlineMonitorSnapshot(now), error: describeProbeError(error) };
   }
+
+  if (getDatabaseGeneration(context.db) !== generation) return snapshot;
 
   context.db.run(
     `UPDATE ${config.table}

@@ -78,7 +78,7 @@ export async function requestOutbound(
   };
   if (!context.fetch) {
     const result = await requestSafeResource(rawUrl, options);
-    return toResponse(result);
+    return toResponse(result, init.method);
   }
   return requestWithInjectedFetch(context.fetch, rawUrl, options);
 }
@@ -193,7 +193,7 @@ async function requestWithInjectedFetch(
     if (!isRedirect(response.status) || !location) {
       const body = Buffer.from(await response.arrayBuffer());
       if (body.length > (options.maxBytes ?? 512 * 1024)) throw new Error('Response body is too large');
-      return new Response(toArrayBuffer(body), { status: response.status, statusText: response.statusText, headers: response.headers });
+      return new Response(responseBody(body, response.status, requestOptions.method), { status: response.status, statusText: response.statusText, headers: response.headers });
     }
     if (redirectCount >= maxRedirects) throw new Error('Too many redirects');
     const nextUrl = parsePublicUrl(new URL(location, url).href);
@@ -241,13 +241,17 @@ function isLoopbackHost(host: string): boolean {
   return normalized === '::1' || normalized.startsWith('127.');
 }
 
-function toResponse(result: SafeResponse): Response {
+function toResponse(result: SafeResponse, method?: string): Response {
   const headers = new Headers();
   for (const [key, value] of Object.entries(result.headers)) {
     if (Array.isArray(value)) value.forEach((item) => headers.append(key, item));
     else if (value !== undefined) headers.set(key, String(value));
   }
-  return new Response(toArrayBuffer(result.body), { status: result.statusCode, headers });
+  return new Response(responseBody(result.body, result.statusCode, method), { status: result.statusCode, headers });
+}
+
+function responseBody(body: Buffer, status: number, method?: string): ArrayBuffer | null {
+  return method?.toUpperCase() === 'HEAD' || [204, 205, 304].includes(status) ? null : toArrayBuffer(body);
 }
 
 function toArrayBuffer(body: Buffer): ArrayBuffer {

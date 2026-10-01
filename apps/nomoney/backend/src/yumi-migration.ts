@@ -59,6 +59,7 @@ export async function migrateYumiData(options: YumiMigrationOptions) {
       copyTable(source, target, 'settings', undefined, (row) => reencryptSettingRow(row, options));
       copyTable(source, target, 'vps', undefined, (row) => reencryptVpsRow(row, options));
       copyTable(source, target, 'domains');
+      copyTable(source, target, 'pending_status_alerts');
       copyTable(source, target, 'expenses', "asset_type IN ('vps', 'domain')");
       copyTable(source, target, 'renewal_events', "asset_type IN ('vps', 'domain')");
       copyTable(source, target, 'reminder_logs', "asset_type IN ('vps', 'domain')");
@@ -91,6 +92,7 @@ export async function finalizeNoMoneySplit(sourcePath: string) {
     source.run("DELETE FROM reminder_logs WHERE asset_type IN ('vps', 'domain')");
     source.run("DELETE FROM renewal_events WHERE asset_type IN ('vps', 'domain')");
     source.run("DELETE FROM expenses WHERE asset_type IN ('vps', 'domain')");
+    source.run('DELETE FROM pending_status_alerts');
     source.run('DELETE FROM vps_status_samples');
     source.run('DELETE FROM vps_status_daily');
     source.run('DELETE FROM vps');

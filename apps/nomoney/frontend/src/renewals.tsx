@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, CircleDollarSign, History, X } from 'lucide-react';
-import type { AssetItem, Currency } from './types';
+import type { AssetItem, Currency, DueItem } from './types';
 import { api, ApiError } from './api';
 import { compactDate, formatMoney } from './format';
 import { Button, inputClass } from './ui';
@@ -23,9 +23,20 @@ export type Renewal = {
 export type RenewalToastState = { endpoint: RenewableEndpoint; itemId: number; renewal: Renewal };
 type RenewalResponse = { idempotent: boolean; item: AssetItem; renewal: Renewal };
 
+/** Build the overview renewal input from the API's distinct date fields. */
+export function renewalAssetFromDueItem(item: DueItem): AssetItem {
+  return {
+    id: item.assetId, assetType: item.assetType, amountMinorUnits: item.amountMinorUnits,
+    currency: item.currency, billingCycle: item.billingCycle, status: item.status,
+    expireDate: item.expireDate ?? null, nextDueDate: item.nextDueDate ?? null,
+    autoRenew: item.autoRenew, renewalUrl: item.renewalUrl,
+    paymentMethod: null, tags: [], notes: null, archivedAt: null
+  };
+}
+
 /** The date a renewal advances: expiry for VPS/domains, the next charge for phones/subscriptions. */
 export function renewalDueDate(endpoint: RenewableEndpoint, item: AssetItem): string {
-  if (endpoint === 'vps' || endpoint === 'domains') return String(item.expireDate ?? item.nextDueDate ?? '');
+  if (endpoint === 'vps' || endpoint === 'domains') return String(item.expireDate ?? '');
   return String(item.nextDueDate ?? '');
 }
 
