@@ -32,6 +32,11 @@ type VpsMonitorSnapshot = {
   updatedAt: string;
 };
 type VpsMonitorResponse = { monitor: VpsMonitorSnapshot; item: AssetItem };
+type DomainCheckResponse = {
+  item: AssetItem;
+  rdap: { ok: boolean; updated?: boolean; registryExpireDate?: string; error?: string };
+  certificate: { ok: boolean; expiresAt?: string; issuer?: string | null; error?: string };
+};
 type VpsActionResponse = { ok: boolean; item: AssetItem; message?: string; probeUrl?: string; testedAt?: string; installedAt?: string };
 type VpsMonitorState = { loading?: boolean; error?: string; monitor?: VpsMonitorSnapshot };
 type VpsActionState = { testing?: boolean; installing?: boolean; message?: string; error?: string };
@@ -43,6 +48,7 @@ type VpsStats = {
   avgCpu: number | null;
   avgMemory: number | null;
   totalTrafficBytes: number;
+  monthlyCost?: Partial<Record<Currency, number>>;
   riskWithin30Days: number;
 };
 type PhoneStats = {
@@ -746,6 +752,31 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
+  /** New VPS: create it, keep the drawer open on the saved entry, then run the SSH action. */
+  const saveVpsThen = async (action: 'test' | 'install') => {
+    const formElement = document.getElementById('asset-form') as HTMLFormElement | null;
+    if (formElement && !formElement.reportValidity()) return;
+    setFormError('');
+    setSubmitting(true);
+    let created: AssetItem;
+    try {
+      const response = await api.post<{ item: AssetItem }>(`/api/${config.endpoint}`, formToPayload(config, form));
+      created = response.item;
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : copy('保存失败', 'Failed to save'));
+      return;
+    } finally {
+      setSubmitting(false);
+    }
+    const nextForm = assetToForm(config, created);
+    setEditing(created);
+    setForm(nextForm);
+    formSnapshot.current = JSON.stringify(nextForm);
+    void load();
+    if (action === 'test') await testVpsSsh(created);
+    else await installVpsProbe(created, numberValue(form.probePort) ?? 9100);
+  };
+
   const moveToTrash = async (item: AssetItem) => {
     const name = getText(item, config.primaryKey);
     if (!window.confirm(copy(`将 ${name} 移入回收站？`, `Move ${name} to the recycle bin?`))) return;
@@ -787,6 +818,51 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   });
   const renewItem = (item: AssetItem) => renewals.renew(config.endpoint, item);
+  const [checkingDomainId, setCheckingDomainId] = useState<number | null>(null);
+  const [checkingAllDomains, setCheckingAllDomains] = useState(false);
+  const [notice, setNotice] = useState('');
+  const checkDomain = async (item: AssetItem) => {
+    setCheckingDomainId(item.id);
+    setError('');
+    try {
+      const response = await api.post<DomainCheckResponse>(`/api/domains/${item.id}/check`);
+      setItems((current) => current.map((entry) => entry.id === item.id ? response.item : entry));
+      setNotice(describeDomainCheck(response, copy));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('检查失败', 'Check failed'));
+    } finally {
+      setCheckingDomainId(null);
+    }
+  };
+  const checkAllDomains = async () => {
+    setCheckingAllDomains(true);
+    setError('');
+    try {
+      const response = await api.post<{ rdap: Array<{ ok: boolean; updated?: boolean }>; certificates: Array<{ ok: boolean }> }>('/api/domains/check-all');
+      const updated = response.rdap.filter((entry) => entry.updated).length;
+      setNotice(copy(
+        `已检查 ${response.rdap.length} 个域名：${updated} 个到期日已按注册局更新，${response.certificates.filter((entry) => entry.ok).length} 个读取到证书。`,
+        `Checked ${response.rdap.length} domains: ${updated} expiry dates updated from the registry, ${response.certificates.filter((entry) => entry.ok).length} certificates read.`
+      ));
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : copy('检查失败', 'Check failed'));
+    } finally {
+      setCheckingAllDomains(false);
+    }
+  };
+  const domainCheckAction = (item: AssetItem) => (
+    <button
+      type="button"
+      onClick={() => checkDomain(item)}
+      disabled={checkingDomainId === item.id}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-brand-600 disabled:cursor-wait dark:hover:bg-white/[0.06]"
+      title={copy('查询注册局到期日与 SSL 证书', 'Check registry expiry and TLS certificate')}
+      aria-label={copy('查询注册局到期日与 SSL 证书', 'Check registry expiry and TLS certificate')}
+    >
+      <ShieldCheck className={checkingDomainId === item.id ? 'animate-pulse' : ''} size={14} />
+    </button>
+  );
   const duplicateAction = (item: AssetItem) => (
     <button
       type="button"
@@ -1046,6 +1122,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             {copy('刷新监控', 'Refresh')}
           </Button>
         )}
+        {isDomain && (
+          <Button variant="secondary" onClick={checkAllDomains} disabled={checkingAllDomains}>
+            <ShieldCheck className={checkingAllDomains ? 'animate-pulse' : ''} size={16} />
+            {copy('同步到期日 / SSL', 'Sync expiry / TLS')}
+          </Button>
+        )}
         {isPhone && (
           <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/[0.04]">
             {[
@@ -1084,7 +1166,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isVps ? copy('新增 VPS', 'Add VPS') : isPhone ? copy('新增电话卡', 'Add phone card') : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>
       </>
     );
-  }, [config.singular, copy, isDomain, isPhone, isSubscription, isVps, items, phoneType, purchaseType, refreshingVps, setTopbarActions]);
+  }, [config.singular, copy, isDomain, isPhone, isSubscription, isVps, items, phoneType, purchaseType, refreshingVps, checkingAllDomains, setTopbarActions]);
 
   useEffect(() => {
     return () => setTopbarActions(null);
@@ -1190,6 +1272,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       </section>}
 
       {error && <StateBanner tone="danger">{error}</StateBanner>}
+      {notice && !error && (
+        <div className="flex items-start gap-2"><div className="flex-1"><StateBanner tone="success">{notice}</StateBanner></div><IconButton onClick={() => setNotice('')} title={copy('关闭', 'Close')}><X size={14} /></IconButton></div>
+      )}
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-44" />)}</div>
@@ -1200,7 +1285,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       ) : view === 'card' ? (
         <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => isDomain
-            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} renewing={renewals.renewingId === item.id} renewed={false} onDuplicate={duplicateEntry} onRenew={renewItem} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
+            ? <DomainCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} renewing={renewals.renewingId === item.id} renewed={false} onDuplicate={duplicateEntry} onRenew={renewItem} checkAction={domainCheckAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps
               ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} copiedIp={copiedVpsIpId === item.id} renewing={renewals.renewingId === item.id} onRenew={renewItem} onCopySsh={copySshCommand} onCopyIp={copyVpsIpAddress} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
@@ -1252,7 +1337,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           {isDomain ? (
             <DomainFormSections form={form} updateForm={updateForm} copy={copy} />
           ) : isVps ? (
-            <VpsFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} actionState={editing ? vpsActionById[editing.id] : undefined} onTest={(item) => testVpsSsh(item, formToPayload(config, form))} onInstall={(item, probePort) => installVpsProbe(item, probePort, formToPayload(config, form))} />
+            <VpsFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} actionState={editing ? vpsActionById[editing.id] : undefined} onTest={(item) => testVpsSsh(item, formToPayload(config, form))} onInstall={(item, probePort) => installVpsProbe(item, probePort, formToPayload(config, form))} onSaveThen={saveVpsThen} />
           ) : isPhone ? (
             <PhoneFormSections form={form} updateForm={updateForm} copy={copy} language={language} />
           ) : isSubscription ? (
@@ -1780,7 +1865,10 @@ function VpsCommandPanel({
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-success-500/20 bg-success-500/10 text-success-500"><Database size={17} /></div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>{copy(`30 天续费风险 ${stats.riskWithin30Days}`, `${stats.riskWithin30Days} renewal risks`)}</span>
+          <span>
+            {copy(`30 天续费风险 ${stats.riskWithin30Days}`, `${stats.riskWithin30Days} renewal risks`)}
+            {stats.monthlyCost && Object.keys(stats.monthlyCost).length > 0 && <> · {copy('月均', 'Monthly')} {formatMoneyTotals(stats.monthlyCost)}</>}
+          </span>
           <button
             type="button"
             onClick={() => onAutoRefreshChange(!autoRefresh)}
@@ -1913,6 +2001,8 @@ function VpsNodeCard({
         </div>
       </div>
 
+      <TrafficQuotaLine item={item} copy={copy} />
+
       {(monitorState?.error || actionState?.error || actionState?.message) && (
         <p className={`mt-3 rounded-lg border px-2 py-1 text-xs ${actionState?.message ? 'border-success-500/20 bg-success-500/10 text-success-700 dark:text-success-300' : 'border-warning-500/20 bg-warning-500/10 text-warning-700 dark:text-warning-300'}`}>
           {actionState?.message || actionState?.error || monitorState?.error}
@@ -1952,6 +2042,32 @@ function VpsNodeCard({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TrafficQuotaLine({ item, copy }: { item: AssetItem; copy: (zh: string, en: string) => string }) {
+  const quotaGb = numberValue(item.trafficQuotaGb);
+  const usedBytes = numberValue(item.trafficUsedBytes);
+  const panelUrl = stringValue(item.panelUrl);
+  if (!quotaGb && !panelUrl) return null;
+  const ratio = quotaGb && usedBytes !== null ? usedBytes / (quotaGb * 1024 ** 3) : null;
+  return (
+    <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
+      {quotaGb ? (
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex justify-between gap-2">
+            <span>{copy('本期流量', 'Period traffic')}</span>
+            <span className="font-mono">{formatBytes(usedBytes ?? 0)} / {quotaGb} GB</span>
+          </div>
+          <ProgressBar value={Math.round((ratio ?? 0) * 100)} max={100} color={(ratio ?? 0) >= 0.9 ? 'danger' : (ratio ?? 0) >= 0.75 ? 'warning' : 'brand'} />
+        </div>
+      ) : <span className="flex-1" />}
+      {panelUrl && (
+        <a href={panelUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-brand-600 hover:underline dark:text-brand-400">
+          <ExternalLink size={12} />{copy('控制面板', 'Panel')}
+        </a>
+      )}
     </div>
   );
 }
@@ -2079,7 +2195,8 @@ function VpsFormSections({
   editing,
   actionState,
   onTest,
-  onInstall
+  onInstall,
+  onSaveThen
 }: {
   form: FormState;
   updateForm: (key: string, value: string | boolean) => void;
@@ -2089,6 +2206,7 @@ function VpsFormSections({
   actionState?: VpsActionState;
   onTest: (item: AssetItem) => void;
   onInstall: (item: AssetItem, probePort?: number) => void;
+  onSaveThen?: (action: 'test' | 'install') => void;
 }) {
   const sshCommand = stringValue(form.sshCommand) || buildSshCommand(form);
   const sshHref = getSshHrefFromValues(form.sshHost || form.ipAddress, form.sshUser, form.sshPort);
@@ -2115,7 +2233,11 @@ function VpsFormSections({
           <Field label={copy('机房位置', 'Region')}><input className={inputClass} value={String(form.location ?? '')} onChange={(e) => updateForm('location', e.target.value)} placeholder="DE / US-LAX" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="IP"><input className={`${inputClass} font-mono`} value={String(form.ipAddress ?? '')} onChange={(e) => updateForm('ipAddress', e.target.value)} placeholder="203.0.113.48" /></Field>
+          <Field label="IPv4"><input className={`${inputClass} font-mono`} value={String(form.ipAddress ?? '')} onChange={(e) => updateForm('ipAddress', e.target.value)} placeholder="203.0.113.48" /></Field>
+          <Field label="IPv6"><input className={`${inputClass} font-mono`} value={String(form.ipv6Address ?? '')} onChange={(e) => updateForm('ipv6Address', e.target.value)} placeholder="2001:db8::48" /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('控制面板', 'Control panel')}><input className={inputClass} type="url" value={String(form.panelUrl ?? '')} onChange={(e) => updateForm('panelUrl', e.target.value)} placeholder="https://panel.example.com" /></Field>
           <Field label={copy('系统', 'OS')}><input className={inputClass} value={String(form.os ?? '')} onChange={(e) => updateForm('os', e.target.value)} placeholder="Debian 12" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -2124,7 +2246,11 @@ function VpsFormSections({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label={copy('硬盘', 'Storage')}><input className={inputClass} value={String(form.storage ?? '')} onChange={(e) => updateForm('storage', e.target.value)} placeholder="160 GB NVMe" /></Field>
-          <Field label={copy('流量 / 带宽', 'Traffic / bandwidth')}><input className={inputClass} value={String(form.bandwidth ?? '')} onChange={(e) => updateForm('bandwidth', e.target.value)} placeholder="2 TB / 1 Gbps" /></Field>
+          <Field label={copy('流量 / 带宽说明', 'Traffic / bandwidth')}><input className={inputClass} value={String(form.bandwidth ?? '')} onChange={(e) => updateForm('bandwidth', e.target.value)} placeholder="2 TB / 1 Gbps" /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('月流量额度（GB）', 'Monthly quota (GB)')} hint={copy('用探针数据按账期累计，用到 90% 时提醒。', 'Counted from probe data per billing period; alerts at 90%.')}><input className={`${inputClass} font-mono`} type="number" min="0" step="1" value={String(form.trafficQuotaGb ?? '')} onChange={(e) => updateForm('trafficQuotaGb', e.target.value)} placeholder="2048" /></Field>
+          <Field label={copy('流量重置日', 'Quota reset day')}><input className={`${inputClass} font-mono`} type="number" min="1" max="28" value={String(form.trafficResetDay ?? '')} onChange={(e) => updateForm('trafficResetDay', e.target.value)} placeholder="1" /></Field>
         </div>
       </Section>
 
@@ -2151,6 +2277,15 @@ function VpsFormSections({
         )}
         <Field label={copy('命令', 'Command')}><input className={`${inputClass} font-mono`} value={String(form.sshCommand ?? '')} onChange={(e) => updateForm('sshCommand', e.target.value)} placeholder={sshCommand || 'ssh root@IP -p 22'} /></Field>
         <ProviderJump label={copy('SSH 链接', 'SSH link')} href={sshHref} empty={copy('填写 IP 后自动出现', 'Shown after entering an IP')} />
+        {!editing && onSaveThen && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => onSaveThen('test')}>
+              <Terminal size={14} />
+              {copy('保存并测试连接', 'Save and test connection')}
+            </Button>
+            <span className="text-xs text-slate-400">{copy('先保存为新节点，再用上面的 SSH 信息测试。', 'Saves the node first, then tests with the SSH details above.')}</span>
+          </div>
+        )}
         {editing && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => onTest(editing)} disabled={actionState?.testing}>
@@ -2181,6 +2316,14 @@ function VpsFormSections({
           </div>
           <span className="block text-xs text-slate-400">{hasProbeApiKey ? copy('已保存；留空会继续使用原密钥。', 'Saved; leave blank to keep using it.') : copy('留空安装时自动生成。', 'Generated during install if left blank.')}</span>
         </div>
+        {!editing && onSaveThen && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => onSaveThen('install')}>
+              <Download size={14} />
+              {copy('保存并安装探针', 'Save and install probe')}
+            </Button>
+          </div>
+        )}
         {editing && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => onInstall(editing, probePort)} disabled={actionState?.installing}>
@@ -2313,6 +2456,7 @@ function DomainCardView({
   renewed,
   onDuplicate,
   onRenew,
+  checkAction,
   onEdit,
   onDelete,
   copy
@@ -2324,6 +2468,7 @@ function DomainCardView({
   renewed: boolean;
   onDuplicate: (item: AssetItem) => void;
   onRenew: (item: AssetItem) => void;
+  checkAction?: React.ReactNode;
   onEdit: (item: AssetItem) => void;
   onDelete: (item: AssetItem) => void;
   copy: (zh: string, en: string) => string;
@@ -2366,6 +2511,7 @@ function DomainCardView({
           <p className={`mt-1 font-mono text-lg font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</p>
           <p className="text-xs text-slate-400">{compactDate(dueDate)}</p>
           <p className="mt-1 text-[11px] text-slate-400">{copy('上次 ', 'Last ')}{compactDate(lastRenewDate)}</p>
+          <CertificateLine item={item} copy={copy} />
         </div>
         <div className="muted-panel p-3">
           <p className="text-xs text-slate-500">{copy('周期费用', 'Cycle cost')}</p>
@@ -2380,6 +2526,7 @@ function DomainCardView({
           <span className="truncate">{stringValue(item.dnsProvider) || stringValue(item.purpose) || copy('未记录 DNS/用途', 'No DNS or purpose recorded')}</span>
         </div>
         <div className="flex shrink-0 justify-end gap-1">
+          {checkAction}
           <button
             onClick={() => onRenew(item)}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${renewed ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]'}`}
@@ -2417,6 +2564,59 @@ function DomainCardView({
         </div>
       </div>
     </div>
+  );
+}
+
+function describeDomainCheck(response: DomainCheckResponse, copy: (zh: string, en: string) => string): string {
+  const name = stringValue(response.item.domainName);
+  const rdap = response.rdap.ok
+    ? response.rdap.updated
+      ? copy(`注册局到期日为 ${response.rdap.registryExpireDate}，已更新本地记录`, `registry expiry ${response.rdap.registryExpireDate}, local record updated`)
+      : copy(`注册局到期日 ${response.rdap.registryExpireDate}，与记录一致或更早`, `registry expiry ${response.rdap.registryExpireDate}, not ahead of the record`)
+    : copy(`注册局查询失败：${response.rdap.error}`, `registry lookup failed: ${response.rdap.error}`);
+  const certificate = response.certificate.ok
+    ? copy(`SSL 证书 ${response.certificate.expiresAt} 到期`, `TLS certificate expires ${response.certificate.expiresAt}`)
+    : copy(`未读取到 SSL 证书（${response.certificate.error}）`, `no TLS certificate (${response.certificate.error})`);
+  return `${name}：${rdap}；${certificate}`;
+}
+
+/** Free-text suffix with suggestions; committed on blur so clearing the field mid-edit is harmless. */
+function ExtensionInput({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const commit = () => {
+    const normalized = normalizeDomainExtension(draft);
+    if (normalized && normalized !== value) onCommit(normalized);
+    else setDraft(value);
+  };
+  return (
+    <>
+      <input
+        className={`${inputClass} font-mono`}
+        list="domain-extension-suggestions"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }}
+      />
+      <datalist id="domain-extension-suggestions">
+        {commonDomainExtensions.map((item) => <option key={item} value={item} />)}
+      </datalist>
+    </>
+  );
+}
+
+function CertificateLine({ item, copy }: { item: AssetItem; copy: (zh: string, en: string) => string }) {
+  const expiresAt = stringValue(item.sslExpiresAt);
+  const error = stringValue(item.sslError);
+  if (!expiresAt && !error) return null;
+  if (error) return <p className="mt-1 truncate text-[11px] text-slate-400" title={error}>{copy('SSL 未检测到', 'No TLS certificate')}</p>;
+  const left = daysLeft(expiresAt);
+  return (
+    <p className="mt-1 truncate text-[11px] text-slate-400" title={stringValue(item.sslIssuer)}>
+      SSL <span className={`font-mono ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>
+      {stringValue(item.sslIssuer) && <> · {stringValue(item.sslIssuer)}</>}
+    </p>
   );
 }
 
@@ -2489,9 +2689,7 @@ function DomainFormSections({
             <input className={`${inputClass} font-mono`} required value={prefix} onChange={(e) => updateForm('domainPrefix', e.target.value)} placeholder="moneypulse" />
           </Field>
           <Field label={copy('后缀', 'Suffix')}>
-            <select className={`${inputClass} font-mono`} value={extension} onChange={(e) => updateForm('domainExtension', e.target.value)}>
-              {commonDomainExtensions.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
+            <ExtensionInput value={extension} onCommit={(value) => updateForm('domainExtension', value)} />
           </Field>
         </div>
         <div className="rounded-xl border border-brand-500/20 bg-brand-500/10 p-3">
@@ -2504,16 +2702,16 @@ function DomainFormSections({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label={copy('注册商', 'Registrar')}>
-            <select className={inputClass} value={String(form.registrar ?? '')} onChange={(e) => updateForm('registrar', e.target.value)}>
-              <option value="">{copy('选择注册商', 'Select registrar')}</option>
-              {registrarProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
-            </select>
+            <input className={inputClass} list="registrar-options" placeholder={copy('选择或输入注册商', 'Pick or type a registrar')} value={String(form.registrar ?? '')} onChange={(e) => updateForm('registrar', e.target.value)} />
+            <datalist id="registrar-options">
+              {registrarProfiles.map((profile) => <option key={profile.name} value={profile.name} />)}
+            </datalist>
           </Field>
           <Field label={copy('DNS 托管商', 'DNS host')}>
-            <select className={inputClass} value={String(form.dnsProvider ?? '')} onChange={(e) => updateForm('dnsProvider', e.target.value)}>
-              <option value="">{copy('选择 DNS 托管商', 'Select DNS host')}</option>
-              {dnsProviderProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
-            </select>
+            <input className={inputClass} list="dns-provider-options" placeholder={copy('选择或输入 DNS 托管商', 'Pick or type a DNS host')} value={String(form.dnsProvider ?? '')} onChange={(e) => updateForm('dnsProvider', e.target.value)} />
+            <datalist id="dns-provider-options">
+              {dnsProviderProfiles.map((profile) => <option key={profile.name} value={profile.name} />)}
+            </datalist>
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">

@@ -1,15 +1,23 @@
 import nodemailer from 'nodemailer';
 import type { Mailer, MailMessage } from './types.js';
 
-export function createSmtpMailer(): Mailer {
+type SmtpOverrides = { smtpHost?: string; smtpPort?: number; smtpUser?: string };
+
+/**
+ * SMTP settings come from the environment; the host, port and user saved in
+ * Settings fill in whatever the environment leaves empty. The password is
+ * only ever read from the environment.
+ */
+export function createSmtpMailer(readSettings: () => SmtpOverrides = () => ({})): Mailer {
   const sent: MailMessage[] = [];
 
   return {
     sent,
     async send(message) {
-      const host = process.env.SMTP_HOST;
-      const port = Number(process.env.SMTP_PORT ?? 587);
-      const user = process.env.SMTP_USER;
+      const saved = readSettings();
+      const host = process.env.SMTP_HOST || saved.smtpHost;
+      const port = Number(process.env.SMTP_PORT || saved.smtpPort || 587);
+      const user = process.env.SMTP_USER || saved.smtpUser;
       const pass = process.env.SMTP_PASS;
 
       if (!host) {

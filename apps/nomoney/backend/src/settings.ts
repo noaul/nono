@@ -24,11 +24,23 @@ export interface Settings {
   webdavFolderPath: string;
   webdavBackupFilename: string;
   webdavEncryptionKey: string;
+  webhookUrl: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+  barkUrl: string;
+  outageAlertsEnabled: boolean;
+  diskAlertPercent: number;
 }
+
+/** Stored encrypted and never returned by the API. */
+export const sensitiveSettingKeys = ['webdavPassword', 'webdavEncryptionKey', 'telegramBotToken', 'barkUrl'] as const;
+type SensitiveSettingKey = typeof sensitiveSettingKeys[number];
 
 export type PublicSettings = Settings & {
   webdavPasswordSet: boolean;
   webdavEncryptionKeySet: boolean;
+  telegramBotTokenSet: boolean;
+  barkUrlSet: boolean;
 };
 
 const settingsSchema = z.object({
@@ -49,7 +61,13 @@ const settingsSchema = z.object({
   webdavPath: z.string().optional(),
   webdavFolderPath: z.string().optional(),
   webdavBackupFilename: z.string().optional(),
-  webdavEncryptionKey: z.string().optional()
+  webdavEncryptionKey: z.string().optional(),
+  webhookUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
+  telegramBotToken: z.string().trim().max(200).optional(),
+  telegramChatId: z.string().trim().max(100).optional(),
+  barkUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
+  outageAlertsEnabled: z.boolean().optional(),
+  diskAlertPercent: z.number().int().min(0).max(100).optional()
 });
 
 export function registerSettingsRoutes(router: Router, context: AppContext): void {
@@ -103,7 +121,7 @@ export function getSettings(context: AppContext): Settings {
     })
   ) as Partial<Settings>;
 
-  for (const key of ['webdavPassword', 'webdavEncryptionKey'] as const) {
+  for (const key of sensitiveSettingKeys) {
     if (settings[key]) {
       settings[key] = decryptSecret(settings[key], context.encryptionKey);
     }
@@ -129,7 +147,13 @@ export function getSettings(context: AppContext): Settings {
     webdavPath: !settings.webdavPath || settings.webdavPath === 'moneypulse-backup.json' ? defaultBackupPath : settings.webdavPath,
     webdavFolderPath: settings.webdavFolderPath ?? '',
     webdavBackupFilename: settings.webdavBackupFilename ?? '',
-    webdavEncryptionKey: settings.webdavEncryptionKey ?? ''
+    webdavEncryptionKey: settings.webdavEncryptionKey ?? '',
+    webhookUrl: settings.webhookUrl ?? '',
+    telegramBotToken: settings.telegramBotToken ?? '',
+    telegramChatId: settings.telegramChatId ?? '',
+    barkUrl: settings.barkUrl ?? '',
+    outageAlertsEnabled: settings.outageAlertsEnabled ?? true,
+    diskAlertPercent: Number(settings.diskAlertPercent ?? 90)
   };
 }
 
@@ -139,11 +163,15 @@ export function getPublicSettings(context: AppContext): PublicSettings {
     ...settings,
     webdavPassword: '',
     webdavEncryptionKey: '',
+    telegramBotToken: '',
+    barkUrl: '',
     webdavPasswordSet: Boolean(settings.webdavPassword),
-    webdavEncryptionKeySet: Boolean(settings.webdavEncryptionKey)
+    webdavEncryptionKeySet: Boolean(settings.webdavEncryptionKey),
+    telegramBotTokenSet: Boolean(settings.telegramBotToken),
+    barkUrlSet: Boolean(settings.barkUrl)
   };
 }
 
-function isSensitiveSetting(key: string): key is 'webdavPassword' | 'webdavEncryptionKey' {
-  return key === 'webdavPassword' || key === 'webdavEncryptionKey';
+function isSensitiveSetting(key: string): key is SensitiveSettingKey {
+  return (sensitiveSettingKeys as readonly string[]).includes(key);
 }

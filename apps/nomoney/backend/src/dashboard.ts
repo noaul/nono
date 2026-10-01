@@ -13,8 +13,8 @@ import { convertTotals } from './exchange-rates.js';
 import { asyncHandler } from './http.js';
 
 export interface DueItem {
-  /** `keepalive` items are phone-card keep-alive deadlines rather than charges. */
-  kind: 'renewal' | 'keepalive';
+  /** `keepalive`: phone-card keep-alive deadline; `certificate`: a domain's TLS certificate expiry. */
+  kind: 'renewal' | 'keepalive' | 'certificate';
   assetType: AssetType;
   assetId: number;
   name: string;
@@ -78,7 +78,18 @@ const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: 
   ]
 };
 
-export function registerDashboardRoutes(router: Router, context: AppContext, allowedTypes: AssetType[] = assetTypes): void {
+export function registerDashboardRoutes(
+  router: Router,
+  context: AppContext,
+  allowedTypes: AssetType[] = assetTypes,
+  options: { summary?: boolean } = {}
+): void {
+  router.get('/dashboard/expiring', (req, res) => {
+    const days = typeof req.query.days === 'string' ? Number(req.query.days) : 30;
+    res.json({ items: collectDueItems(context, Number.isFinite(days) ? days : 30, allowedTypes) });
+  });
+  if (options.summary === false) return;
+
   router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     const settings = getSettings(context);
     const currentYear = Number(toIsoDate(context.now(), settings.timezone).slice(0, 4));
@@ -92,11 +103,6 @@ export function registerDashboardRoutes(router: Router, context: AppContext, all
     ]);
     res.json({ ...summary, converted: { predictedMonthly: predictedMonthlyTotal, predictedYearly: predictedYearlyTotal, actualYearly: actualYearlyTotal } });
   }));
-
-  router.get('/dashboard/expiring', (req, res) => {
-    const days = typeof req.query.days === 'string' ? Number(req.query.days) : 30;
-    res.json({ items: collectDueItems(context, Number.isFinite(days) ? days : 30, allowedTypes) });
-  });
 }
 
 export function getDashboardSummary(context: AppContext, year: number, allowedTypes: AssetType[] = assetTypes) {
@@ -315,6 +321,7 @@ export function collectDueItems(context: AppContext, withinDays: number, allowed
       });
     }
     if (config.type === 'phone') items.push(...collectKeepaliveItems(rows, today, withinDays));
+    if (config.type === 'domain') items.push(...collectCertificateItems(rows, today, withinDays));
   }
 
   return items.sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name));
@@ -339,6 +346,32 @@ function collectKeepaliveItems(rows: Array<Record<string, unknown>>, today: stri
       billingCycle: String(row.billing_cycle ?? ''),
       autoRenew: false,
       renewalUrl: typeof row.renewal_url === 'string' ? row.renewal_url : null,
+      status: String(row.status ?? '')
+    });
+  }
+  return items;
+}
+
+function collectCertificateItems(rows: Array<Record<string, unknown>>, today: string, withinDays: number): DueItem[] {
+  const items: DueItem[] = [];
+  for (const row of rows) {
+    const expiresAt = typeof row.ssl_expires_at === 'string' ? row.ssl_expires_at : '';
+    // Skip stale readings: a failing check leaves the old date behind.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiresAt) || row.ssl_error) continue;
+    const daysLeft = daysBetween(today, expiresAt);
+    if (daysLeft > withinDays) continue;
+    items.push({
+      kind: 'certificate',
+      assetType: 'domain',
+      assetId: Number(row.id),
+      name: String(row.domain_name ?? ''),
+      dueDate: expiresAt,
+      daysLeft,
+      amountMinorUnits: 0,
+      currency: normalizeCurrency(row.currency),
+      billingCycle: String(row.billing_cycle ?? ''),
+      autoRenew: false,
+      renewalUrl: null,
       status: String(row.status ?? '')
     });
   }

@@ -469,6 +469,9 @@ function migrate(db: DbClient, product: ProductMode): void {
   ensureColumn(db, 'domains', 'domain_extension', 'TEXT');
   ensureColumn(db, 'domains', 'rarity_score', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'domains', 'last_renew_date', 'TEXT');
+  for (const column of ['rdap_expire_date', 'rdap_checked_at', 'rdap_error', 'ssl_expires_at', 'ssl_issuer', 'ssl_checked_at', 'ssl_error']) {
+    ensureColumn(db, 'domains', column, 'TEXT');
+  }
   ensureColumn(db, 'renewal_events', 'previous_last_renew_date', 'TEXT');
   ensureColumn(db, 'subscriptions', 'purchase_type', "TEXT NOT NULL DEFAULT 'subscription'");
   ensureColumn(db, 'subscriptions', 'email', 'TEXT');
@@ -506,6 +509,16 @@ function migrate(db: DbClient, product: ProductMode): void {
   ensureColumn(db, 'vps', 'monitor_load1', 'REAL');
   ensureColumn(db, 'vps', 'monitor_uptime_seconds', 'INTEGER');
   ensureColumn(db, 'vps', 'monitor_updated_at', 'TEXT');
+  ensureColumn(db, 'vps', 'alert_down_since', 'TEXT');
+  ensureColumn(db, 'vps', 'panel_url', 'TEXT');
+  ensureColumn(db, 'vps', 'ipv6_address', 'TEXT');
+  ensureColumn(db, 'vps', 'traffic_quota_gb', 'REAL');
+  ensureColumn(db, 'vps', 'traffic_reset_day', 'INTEGER');
+  ensureColumn(db, 'vps', 'traffic_used_bytes', 'INTEGER');
+  ensureColumn(db, 'vps', 'traffic_last_total_bytes', 'INTEGER');
+  ensureColumn(db, 'vps', 'traffic_period_start', 'TEXT');
+  ensureColumn(db, 'vps', 'alert_traffic_period', 'TEXT');
+  ensureColumn(db, 'vps', 'alert_disk_at', 'TEXT');
   backfillDomainMetadata(db);
   backfillDomainRenewalDates(db);
 }

@@ -83,6 +83,11 @@ export async function requestOutbound(
   return requestWithInjectedFetch(context.fetch, rawUrl, options);
 }
 
+/** Resolves a hostname for a raw socket connection, refusing private addresses like HTTP requests do. */
+export function resolvePublicAddress(hostname: string, allowPrivateHosts: string[] = []): Promise<LookupAddress> {
+  return resolveRequestAddress(hostname, allowPrivateHosts, defaultLookup);
+}
+
 async function resolveRequestAddress(hostname: string, allowPrivateHosts: string[], lookup: Lookup): Promise<LookupAddress> {
   const host = stripBrackets(hostname).toLowerCase();
   const allowlist = new Set(allowPrivateHosts.map((item) => stripBrackets(item.trim()).toLowerCase()).filter(Boolean));

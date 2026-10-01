@@ -4,11 +4,14 @@ import clsx from 'clsx';
 import { api } from './api';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
-import type { DailyStatusState, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
+import { Link } from 'wouter';
+import type { AssetType, DailyStatusState, DueItem, OverallStatus, StatusDay, StatusOverview, StatusWindow } from './types';
+import { compactDate, dueTone } from './format';
+import { usePreferences } from './preferences';
+import { RenewButton, RenewalToast, useRenewals, type RenewableEndpoint } from './renewals';
 import { Button, EmptyState, Skeleton, StateBanner } from './ui';
 import { formatStatusDay, startVisibleStatusRefresh } from './yumi-status-refresh';
 import { buildStatusDisplayHistory, formatStatusLocation } from './yumi-status-display';
-import { APP_TIME_ZONE } from './format';
 
 const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: string; detailEn: string }> = {
   operational: { zh: '所有服务运行正常', en: 'All systems operational', detailZh: '当前没有发现影响服务器可用性的问题。', detailEn: 'No availability issues are currently affecting your servers.' },
@@ -34,6 +37,24 @@ export function YumiOverview() {
   const [statusWindowLoading, setStatusWindowLoading] = useState(false);
   const loadPromiseRef = useRef<{ window: StatusWindow; promise: Promise<void> } | null>(null);
   const mountedRef = useRef(false);
+  const [dueItems, setDueItems] = useState<DueItem[]>([]);
+  const [dueError, setDueError] = useState('');
+  const { timezone } = usePreferences();
+  const renewals = useRenewals({
+    copy,
+    onError: setDueError,
+    onNeedsSetup: () => undefined,
+    onChanged: () => { setDueError(''); void loadDue(); }
+  });
+  const loadDue = useCallback(async () => {
+    try {
+      const response = await api.get<{ items: DueItem[] }>('/api/dashboard/expiring?days=30');
+      if (mountedRef.current) setDueItems(response.items);
+    } catch {
+      // The status panel is the primary content; a missing due list is not worth a banner.
+    }
+  }, []);
+  useEffect(() => { void loadDue(); }, [loadDue]);
   const statusWindowRef = useRef(statusWindow);
   const copyRef = useRef(copy);
   statusWindowRef.current = statusWindow;
@@ -109,10 +130,10 @@ export function YumiOverview() {
   const rangeLabel = useMemo(() => {
     if (!data) return '';
     if (data.range.unit === 'hour') {
-      return `${formatStatusHour(data.range.start, language)} - ${formatStatusHour(data.range.end, language)}`;
+      return `${formatStatusHour(data.range.start, language, timezone)} - ${formatStatusHour(data.range.end, language, timezone)}`;
     }
     return `${formatStatusDay(data.range.start, language)} - ${formatStatusDay(data.range.end, language)}`;
-  }, [data, language]);
+  }, [data, language, timezone]);
 
   const overallStatus = data?.overallStatus ?? 'no_data';
   const overall = overallCopy[overallStatus];
@@ -176,6 +197,9 @@ export function YumiOverview() {
                       <h3 className="truncate">{item.name}</h3>
                     </div>
                     <p>{[item.provider, formatStatusLocation(item.location)].filter(Boolean).join(' / ') || copy('未填写服务商与地区', 'Provider and region not set')}</p>
+                    {item.lastError
+                      ? <p className="text-danger-600 dark:text-danger-400">{item.lastError}</p>
+                      : typeof item.latencyMs === 'number' && <p className="font-mono">{copy(`响应 ${item.latencyMs} ms`, `${item.latencyMs} ms response`)}</p>}
                   </div>
                   <div className="yumi-uptime">
                     <strong>{item.uptimePercent === null ? '--' : `${item.uptimePercent.toFixed(2)}%`}</strong>
@@ -189,8 +213,8 @@ export function YumiOverview() {
                         type="button"
                         key={`${day.day}-${index}`}
                         className={`status-history-day is-${day.state}`}
-                        title={dayTitle(day, language)}
-                        aria-label={dayTitle(day, language)}
+                        title={dayTitle(day, language, timezone)}
+                        aria-label={dayTitle(day, language, timezone)}
                         onClick={() => setSelected({ name: item.name, day })}
                       />
                     ))}
@@ -202,6 +226,37 @@ export function YumiOverview() {
                 </div>
               </article>
             ))}</div>}
+          </section>
+
+          <section className="card" aria-labelledby="yumi-due-title">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 id="yumi-due-title" className="text-sm font-semibold text-slate-950 dark:text-white">{copy('30 天内到期', 'Due in the next 30 days')}</h2>
+                <p className="mt-1 text-xs text-slate-500">{copy('VPS、域名与 SSL 证书，按剩余天数排序。', 'VPS, domains and TLS certificates, soonest first.')}</p>
+              </div>
+              <CalendarClock size={18} className="text-slate-400" aria-hidden="true" />
+            </div>
+            {dueError && <div className="mb-3"><StateBanner tone="danger">{dueError}</StateBanner></div>}
+            {dueItems.length === 0 ? (
+              <p className="py-3 text-sm text-slate-400">{copy('近 30 天没有需要处理的到期项。', 'Nothing is due in the next 30 days.')}</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+                {dueItems.map((item) => {
+                  const endpoint = dueEndpoints[item.assetType];
+                  return (
+                    <li key={`${item.kind ?? 'renewal'}-${item.assetType}-${item.assetId}`} className="flex items-center gap-3 py-2 text-sm">
+                      <span className={`w-14 shrink-0 font-mono font-semibold ${dueTone(item.daysLeft)}`}>{item.daysLeft}d</span>
+                      <Link href={`/${endpoint}?edit=${item.assetId}`} className="min-w-0 flex-1 truncate font-medium text-slate-900 hover:text-brand-600 hover:underline dark:text-white">{item.name}</Link>
+                      <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{dueKindLabel(item, copy)}</span>
+                      <span className="shrink-0 font-mono text-xs text-slate-500">{compactDate(item.dueDate)}</span>
+                      {item.kind === 'certificate'
+                        ? <span className="inline-block h-8 w-8" aria-hidden="true" />
+                        : <RenewButton endpoint={endpoint} item={{ id: item.assetId, expireDate: item.dueDate, nextDueDate: item.dueDate, billingCycle: item.billingCycle, status: item.status } as never} renewing={renewals.renewingId === item.assetId} onRenew={(asset) => renewals.renew(endpoint, asset)} copy={copy} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
           {domainStats && <section className="yumi-domain-panel" aria-labelledby="yumi-domain-stats-title">
@@ -224,11 +279,15 @@ export function YumiOverview() {
         </>
       )}
 
+      {renewals.toast && (
+        <RenewalToast toast={renewals.toast} onUndo={renewals.undo} onUpdateAmount={renewals.updateAmount} onClose={() => renewals.setToast(null)} copy={copy} />
+      )}
+
       {selected && (
         <div className="yumi-day-detail" role="status">
           <StatusDot state={selected.day.state} />
           <div className="min-w-0 flex-1">
-            <strong>{selected.name} · {formatDay(selected.day.day, language)}</strong>
+            <strong>{selected.name} · {formatDay(selected.day.day, language, timezone)}</strong>
             <p>{dayDetail(selected.day, language)}</p>
           </div>
           <button type="button" onClick={() => setSelected(null)} aria-label={copy('关闭详情', 'Close detail')}>×</button>
@@ -236,6 +295,13 @@ export function YumiOverview() {
       )}
     </div>
   );
+}
+
+const dueEndpoints: Record<AssetType, RenewableEndpoint> = { vps: 'vps', domain: 'domains', phone: 'phones', subscription: 'subscriptions' };
+
+function dueKindLabel(item: DueItem, copy: (zh: string, en: string) => string) {
+  if (item.kind === 'certificate') return copy('SSL 证书', 'TLS certificate');
+  return item.assetType === 'vps' ? 'VPS' : copy('域名续费', 'Domain renewal');
 }
 
 function DomainStat({ icon, label, value, tone = 'default', mono = false }: { icon: React.ReactNode; label: string; value: string | number; tone?: 'default' | 'warning'; mono?: boolean }) {
@@ -273,18 +339,18 @@ function StatusHistoryLoading() {
   return <div className="status-history-strip is-loading" aria-hidden="true">{Array.from({ length: 90 }, (_, index) => <span key={index} />)}</div>;
 }
 
-function formatDay(day: string, language: string) {
-  return day.includes('T') ? formatStatusHour(day, language) : formatStatusDay(day, language);
+function formatDay(day: string, language: string, timeZone?: string) {
+  return day.includes('T') ? formatStatusHour(day, language, timeZone) : formatStatusDay(day, language);
 }
 
-function formatStatusHour(value: string, language: string) {
+function formatStatusHour(value: string, language: string, timeZone = 'Asia/Shanghai') {
   return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
-    timeZone: APP_TIME_ZONE
+    timeZone
   }).format(new Date(value));
 }
 
@@ -299,8 +365,8 @@ function axisStartLabel(window: StatusWindow, language: string) {
   return language === 'zh' ? `${days} 天前` : `${days} days ago`;
 }
 
-function dayTitle(day: StatusDay, language: string) {
-  return `${formatDay(day.day, language)}: ${dayDetail(day, language)}`;
+function dayTitle(day: StatusDay, language: string, timeZone?: string) {
+  return `${formatDay(day.day, language, timeZone)}: ${dayDetail(day, language)}`;
 }
 
 function dayDetail(day: StatusDay, language: string) {

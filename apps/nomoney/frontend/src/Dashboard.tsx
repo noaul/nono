@@ -93,7 +93,7 @@ const buildDueColumns = (
       <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="font-medium text-slate-950 hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-300">{item.name}</Link>
     ) },
     { key: 'type', header: copy('类型', 'Type'), render: (item) => (
-      <span className="text-xs text-slate-500">{assetTypeLabels[item.assetType]}{item.kind === 'keepalive' ? copy(' · 保号', ' · keep-alive') : ''}</span>
+      <span className="text-xs text-slate-500">{assetTypeLabels[item.assetType]}{item.kind === 'keepalive' ? copy(' · 保号', ' · keep-alive') : item.kind === 'certificate' ? copy(' · SSL 证书', ' · TLS certificate') : ''}</span>
     ) },
     { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{item.kind === 'keepalive' && !item.amountMinorUnits ? '-' : formatMoney(item.amountMinorUnits, item.currency)}</span> },
     { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{item.kind === 'keepalive' ? '-' : copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</span> },
@@ -102,7 +102,7 @@ const buildDueColumns = (
     { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
-        {item.kind !== 'keepalive' && (
+        {(item.kind ?? 'renewal') === 'renewal' && (
           <RenewButton endpoint={assetEndpoints[item.assetType]} item={dueItemAsAsset(item)} renewing={renewal.renewingKey === item.id} onRenew={() => renewal.onRenew(item)} copy={copy} />
         )}
         <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('打开', 'Open')} aria-label={copy('打开', 'Open')}>

@@ -10,8 +10,9 @@ import { runReminderScan } from './reminders.js';
 import { getSettings } from './settings.js';
 import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
 import { migrateStoredSecrets } from './secret-migration.js';
-import type { AssetType, ProductMode } from './types.js';
+import type { AppContext, AssetType, ProductMode } from './types.js';
 import { runAutoRenewals } from './renewals.js';
+import { runDomainChecks } from './domain-checks.js';
 import { migrateYumiData, waitForDatabaseFile } from './yumi-migration.js';
 import { runStatusSweep } from './status.js';
 
@@ -61,7 +62,7 @@ const db = await createDatabase({
   product
 });
 
-const context = {
+const context: AppContext = {
   db,
   product,
   jwtSecret: jwtSecret ?? 'development-only-secret',
@@ -73,7 +74,7 @@ const context = {
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   cookiePath: process.env.COOKIE_PATH ?? '/',
   now: () => new Date(),
-  mailer: createSmtpMailer()
+  mailer: createSmtpMailer(() => getSettings(context))
 };
 
 function resolvePublicOrigin(value: string | undefined): string | undefined {
@@ -108,7 +109,11 @@ cron.schedule('7 * * * *', () => {
   } catch (error) {
     console.error('Auto-renewal run failed', error);
   }
-  runReminderScan(context, productTypes).catch((error) => {
+  // Domain checks only touch entries not refreshed recently, so hourly runs are cheap.
+  const domainChecks = product === 'yumi'
+    ? runDomainChecks(context).catch((error) => console.error('Domain checks failed', error))
+    : Promise.resolve();
+  domainChecks.then(() => runReminderScan(context, productTypes)).catch((error) => {
     console.error('Reminder scan failed', error);
   });
 }, { timezone: 'UTC' });

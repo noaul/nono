@@ -1,10 +1,11 @@
 import type { AppContext } from './types.js';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from './secret-crypto.js';
+import { sensitiveSettingKeys } from './settings.js';
 
 const assetSecrets = [
   { table: 'vps', columns: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] }
 ] as const;
-const settingSecrets = ['webdavPassword', 'webdavEncryptionKey'] as const;
+const settingSecrets = sensitiveSettingKeys;
 
 export function migrateStoredSecrets(context: AppContext): number {
   let migrated = 0;

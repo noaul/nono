@@ -85,6 +85,10 @@ export const assetPageConfigs: AssetPageConfig[] = [
       { key: 'probeUrl', label: '探针接口', type: 'text' },
       { key: 'probePort', label: '探针端口', type: 'number' },
       { key: 'probeApiKey', label: '探针密钥', type: 'text' },
+      { key: 'ipv6Address', label: 'IPv6 地址', type: 'text' },
+      { key: 'panelUrl', label: '控制面板', type: 'text' },
+      { key: 'trafficQuotaGb', label: '月流量额度（GB）', type: 'number' },
+      { key: 'trafficResetDay', label: '流量重置日', type: 'number' },
       { key: 'expireDate', label: '到期日', type: 'date' }
     ]
   },

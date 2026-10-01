@@ -7,12 +7,14 @@ import { registerAssetRoutes } from './assets.js';
 import { registerExpenseRoutes } from './expenses.js';
 import { registerDashboardRoutes } from './dashboard.js';
 import { registerSettingsRoutes } from './settings.js';
+import { registerNotifyRoutes } from './notifier.js';
 import { registerReminderRoutes } from './reminders.js';
 import { buildEncryptedBackupEnvelope, registerBackupRoutes, registerInternalBackupRoutes } from './backup.js';
 import { registerAccountRoutes } from './accounts.js';
 import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
 import { registerStatusRoutes } from './status.js';
+import { registerDomainCheckRoutes } from './domain-checks.js';
 import { registerInternalNotificationRoutes } from './internal-notifications.js';
 
 export function createApp(context: AppContext) {
@@ -64,9 +66,12 @@ export function createApp(context: AppContext) {
   registerRenewalRoutes(api, context, [...allowedTypes]);
   if (product !== 'yumi') registerAccountRoutes(api, context);
   registerExpenseRoutes(api, context, [...allowedTypes]);
-  if (product !== 'yumi') registerDashboardRoutes(api, context, [...allowedTypes]);
+  // Yumi has its own status overview; it only uses the due list.
+  registerDashboardRoutes(api, context, [...allowedTypes], { summary: product !== 'yumi' });
   if (product === 'yumi') registerStatusRoutes(api, context);
+  if (product !== 'nomoney') registerDomainCheckRoutes(api, context);
   registerSettingsRoutes(api, context);
+  registerNotifyRoutes(api, context);
   registerReminderRoutes(api, context, [...allowedTypes]);
   registerBackupRoutes(api, context);
   api.get('/export/json', (_req, res) => {

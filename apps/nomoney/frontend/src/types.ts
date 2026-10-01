@@ -34,6 +34,9 @@ export interface StatusOverview {
     currentState: DailyStatusState;
     uptimePercent: number | null;
     history: StatusDay[];
+    latencyMs?: number | null;
+    lastError?: string | null;
+    lastCheckedAt?: string | null;
   }>;
   domainStats: {
     total: number;
@@ -159,7 +162,7 @@ export interface DashboardCategoryCost {
 }
 
 export interface DueItem {
-  kind?: 'renewal' | 'keepalive';
+  kind?: 'renewal' | 'keepalive' | 'certificate';
   assetType: AssetType;
   assetId: number;
   name: string;
@@ -194,6 +197,14 @@ export interface SettingsValue {
   webdavEncryptionKey: string;
   webdavPasswordSet?: boolean;
   webdavEncryptionKeySet?: boolean;
+  webhookUrl: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+  barkUrl: string;
+  outageAlertsEnabled: boolean;
+  diskAlertPercent: number;
+  telegramBotTokenSet?: boolean;
+  barkUrlSet?: boolean;
 }
 
 export interface ListMeta {

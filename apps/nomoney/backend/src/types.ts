@@ -69,6 +69,8 @@ export interface AppContext {
   fetch?: typeof fetch;
   privateOutboundHosts?: string[];
   sshRunner?: SshRunner;
+  /** Reads a host's TLS certificate; injectable for tests. */
+  certificateProbe?: (hostname: string) => Promise<{ validTo: string; issuer: string | null }>;
 }
 
 export type AuthedHandler = RequestHandler;

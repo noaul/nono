@@ -99,6 +99,8 @@ type MonitorSnapshot = {
   load1: number | null;
   uptimeSeconds: number | null;
   updatedAt: string;
+  /** Why the probe could not be read; only set when offline. */
+  error?: string;
 };
 
 const vpsSshActionSchema = z.object({
@@ -240,9 +242,15 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'monitorUpdatedAt', db: 'monitor_updated_at' },
       { api: 'startDate', db: 'start_date' },
       { api: 'expireDate', db: 'expire_date' },
+      { api: 'panelUrl', db: 'panel_url' },
+      { api: 'ipv6Address', db: 'ipv6_address' },
+      { api: 'trafficQuotaGb', db: 'traffic_quota_gb' },
+      { api: 'trafficResetDay', db: 'traffic_reset_day' },
+      { api: 'trafficUsedBytes', db: 'traffic_used_bytes' },
+      { api: 'trafficPeriodStart', db: 'traffic_period_start' },
       ...commonFields
     ],
-    searchable: ['name', 'provider', 'ip_address', 'location', 'os', 'tags', 'notes'],
+    searchable: ['name', 'provider', 'ip_address', 'ipv6_address', 'location', 'os', 'tags', 'notes'],
     displayField: 'name',
     dueFields: ['expire_date', 'next_due_date']
   },
@@ -263,6 +271,13 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'domainExtension', db: 'domain_extension' },
       { api: 'rarityScore', db: 'rarity_score' },
       { api: 'expireDate', db: 'expire_date' },
+      { api: 'rdapExpireDate', db: 'rdap_expire_date' },
+      { api: 'rdapCheckedAt', db: 'rdap_checked_at' },
+      { api: 'rdapError', db: 'rdap_error' },
+      { api: 'sslExpiresAt', db: 'ssl_expires_at' },
+      { api: 'sslIssuer', db: 'ssl_issuer' },
+      { api: 'sslCheckedAt', db: 'ssl_checked_at' },
+      { api: 'sslError', db: 'ssl_error' },
       ...commonFields
     ],
     searchable: ['domain_name', 'registrar', 'registrar_account', 'dns_provider', 'purpose', 'domain_extension', 'tags', 'notes'],
@@ -1292,8 +1307,8 @@ export async function refreshVpsMonitor(
       throw new Error(`Probe returned HTTP ${response.status}`);
     }
     snapshot = normalizeMonitorPayload(await response.json(), now);
-  } catch {
-    snapshot = offlineMonitorSnapshot(now);
+  } catch (error) {
+    snapshot = { ...offlineMonitorSnapshot(now), error: describeProbeError(error) };
   }
 
   context.db.run(
@@ -1378,6 +1393,12 @@ function isOfflineMonitorPayload(payload: unknown): boolean {
   if (record.stat === false || record.stat === 0) return true;
   const stat = asRecord(record.stat);
   return stat?.online === false || stat?.offline === true;
+}
+
+function describeProbeError(error: unknown): string {
+  if (!(error instanceof Error)) return 'Probe unavailable';
+  if (error.name === 'AbortError' || /timed? ?out/i.test(error.message)) return 'Probe timed out';
+  return error.message.slice(0, 160) || 'Probe unavailable';
 }
 
 function offlineMonitorSnapshot(updatedAt: string): MonitorSnapshot {
@@ -1561,8 +1582,14 @@ function calculateVpsSummary(rows: Array<Record<string, unknown>>, riskWithin30D
   let memoryTotal = 0;
   let memoryCount = 0;
   let totalTrafficBytes = 0;
+  const monthlyCost: Partial<Record<Currency, number>> = {};
 
   for (const row of rows) {
+    if (stringValue(row.status) === 'active') {
+      const currency = normalizeCurrency(row.currency);
+      monthlyCost[currency] = (monthlyCost[currency] ?? 0)
+        + predictedMonthly(Number(row.amount_minor_units ?? 0), normalizeBillingCycle(row.billing_cycle));
+    }
     if (stringValue(row.probe_url)) configured += 1;
     const status = stringValue(row.monitor_status);
     if (status === 'online') online += 1;
@@ -1587,6 +1614,7 @@ function calculateVpsSummary(rows: Array<Record<string, unknown>>, riskWithin30D
     avgCpu: cpuCount ? roundMetric(cpuTotal / cpuCount) : null,
     avgMemory: memoryCount ? roundMetric(memoryTotal / memoryCount) : null,
     totalTrafficBytes,
+    monthlyCost,
     riskWithin30Days
   };
 }

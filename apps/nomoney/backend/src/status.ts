@@ -3,6 +3,7 @@ import type { AppContext } from './types.js';
 import { assetConfigs, getAssetOrThrow, refreshVpsMonitor } from './assets.js';
 import { asyncHandler, HttpError } from './http.js';
 import { getSettings } from './settings.js';
+import { notify } from './notifier.js';
 import { toIsoDate } from './utils.js';
 
 export type StatusSampleState = 'up' | 'degraded' | 'down';
@@ -56,6 +57,7 @@ export async function runStatusSweep(context: AppContext) {
     "SELECT id FROM vps WHERE archived_at IS NULL AND status != 'cancelled' AND probe_url IS NOT NULL AND probe_url != '' ORDER BY id"
   );
   const results: Array<{ vpsId: number; state: StatusSampleState }> = [];
+  const alerts: StatusAlert[] = [];
   for (let index = 0; index < rows.length; index += 4) {
     const batch = rows.slice(index, index + 4);
     results.push(...await Promise.all(batch.map(async (row) => {
@@ -67,12 +69,121 @@ export async function runStatusSweep(context: AppContext) {
         'SELECT state FROM vps_status_samples WHERE vps_id = ? ORDER BY sampled_at DESC LIMIT 1', [id]
       )?.state;
       const state: StatusSampleState = monitor.status === 'online' ? 'up' : previous === 'degraded' || previous === 'down' ? 'down' : 'degraded';
-      recordStatusSample(context, id, state, Date.now() - startedAt, monitor.status === 'online' ? null : 'Probe unavailable');
+      recordStatusSample(context, id, state, Date.now() - startedAt, monitor.status === 'online' ? null : monitor.error ?? 'Probe unavailable');
+      if (monitor.status === 'online') accumulateTraffic(context, id, monitor.netTotalInBytes, monitor.netTotalOutBytes);
+      alerts.push(...evaluateAlerts(context, id, String(item.name ?? `VPS #${id}`), state, monitor.diskPercent, monitor.error));
       return { vpsId: id, state };
     })));
   }
   pruneStatusHistory(context);
-  return { checked: results.length, results };
+  const delivered = alerts.length ? await sendAlerts(context, alerts) : [];
+  return { checked: results.length, results, alerts: alerts.map((alert) => ({ ...alert, delivered: delivered.some((item) => item.ok) })) };
+}
+
+/**
+ * Keeps a per-billing-period traffic counter. Probes report totals since boot,
+ * so each sweep adds the growth since the previous reading (or the whole
+ * total after a reboot reset it) and the counter restarts on the reset day.
+ */
+export function accumulateTraffic(context: AppContext, vpsId: number, totalIn: number | null, totalOut: number | null): void {
+  if (totalIn === null && totalOut === null) return;
+  const total = Number(totalIn ?? 0) + Number(totalOut ?? 0);
+  const row = context.db.get<{ traffic_reset_day: number | null; traffic_used_bytes: number | null; traffic_last_total_bytes: number | null; traffic_period_start: string | null }>(
+    'SELECT traffic_reset_day, traffic_used_bytes, traffic_last_total_bytes, traffic_period_start FROM vps WHERE id = ?', [vpsId]
+  );
+  if (!row) return;
+  const periodStart = trafficPeriodStart(toIsoDate(context.now(), getSettings(context).timezone), row.traffic_reset_day ?? 1);
+  const last = row.traffic_last_total_bytes;
+  const delta = last === null ? 0 : total >= last ? total - last : total;
+  const used = row.traffic_period_start === periodStart ? Number(row.traffic_used_bytes ?? 0) + delta : delta;
+  context.db.run(
+    'UPDATE vps SET traffic_used_bytes = ?, traffic_last_total_bytes = ?, traffic_period_start = ? WHERE id = ?',
+    [used, total, periodStart, vpsId]
+  );
+}
+
+export function trafficPeriodStart(today: string, resetDay: number): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const start = day >= resetDay ? { year, month } : { year: month === 1 ? year - 1 : year, month: month === 1 ? 12 : month - 1 };
+  return `${start.year}-${String(start.month).padStart(2, '0')}-${String(resetDay).padStart(2, '0')}`;
+}
+
+type StatusAlert = { vpsId: number; name: string; kind: 'down' | 'recovered' | 'disk' | 'traffic'; detail: string };
+
+/**
+ * Turns one sweep result into alert transitions. Alerts fire once per incident:
+ * `down` when a node reaches the down state, `recovered` when it is back up, and
+ * `disk` when usage crosses the threshold (re-armed after it drops 5 points below).
+ */
+export function evaluateAlerts(
+  context: AppContext,
+  vpsId: number,
+  name: string,
+  state: StatusSampleState,
+  diskPercent: number | null,
+  error?: string
+): StatusAlert[] {
+  const settings = getSettings(context);
+  const row = context.db.get<{
+    alert_down_since: string | null;
+    alert_disk_at: string | null;
+    alert_traffic_period: string | null;
+    traffic_quota_gb: number | null;
+    traffic_used_bytes: number | null;
+    traffic_period_start: string | null;
+  }>(
+    'SELECT alert_down_since, alert_disk_at, alert_traffic_period, traffic_quota_gb, traffic_used_bytes, traffic_period_start FROM vps WHERE id = ?', [vpsId]
+  );
+  if (!row) return [];
+  const now = context.now().toISOString();
+  const alerts: StatusAlert[] = [];
+  if (state === 'down' && !row.alert_down_since) {
+    context.db.run('UPDATE vps SET alert_down_since = ? WHERE id = ?', [now, vpsId]);
+    if (settings.outageAlertsEnabled) alerts.push({ vpsId, name, kind: 'down', detail: error ?? 'Probe unavailable' });
+  } else if (state === 'up' && row.alert_down_since) {
+    context.db.run('UPDATE vps SET alert_down_since = NULL WHERE id = ?', [vpsId]);
+    const minutes = Math.max(1, Math.round((Date.parse(now) - Date.parse(row.alert_down_since)) / 60_000));
+    if (settings.outageAlertsEnabled) alerts.push({ vpsId, name, kind: 'recovered', detail: `${minutes}` });
+  }
+  const threshold = settings.diskAlertPercent;
+  if (threshold > 0 && diskPercent !== null) {
+    if (diskPercent >= threshold && !row.alert_disk_at) {
+      context.db.run('UPDATE vps SET alert_disk_at = ? WHERE id = ?', [now, vpsId]);
+      alerts.push({ vpsId, name, kind: 'disk', detail: `${Math.round(diskPercent)}` });
+    } else if (diskPercent < threshold - 5 && row.alert_disk_at) {
+      context.db.run('UPDATE vps SET alert_disk_at = NULL WHERE id = ?', [vpsId]);
+    }
+  }
+  // One warning per billing period once 90% of the traffic quota is used.
+  const quotaBytes = Number(row.traffic_quota_gb ?? 0) * 1024 ** 3;
+  if (quotaBytes > 0 && row.traffic_period_start && row.alert_traffic_period !== row.traffic_period_start) {
+    const ratio = Number(row.traffic_used_bytes ?? 0) / quotaBytes;
+    if (ratio >= 0.9) {
+      context.db.run('UPDATE vps SET alert_traffic_period = ? WHERE id = ?', [row.traffic_period_start, vpsId]);
+      alerts.push({ vpsId, name, kind: 'traffic', detail: `${Math.round(ratio * 100)}` });
+    }
+  }
+  return alerts;
+}
+
+async function sendAlerts(context: AppContext, alerts: StatusAlert[]) {
+  const en = getSettings(context).language === 'en';
+  const lines = alerts.map((alert) => {
+    if (alert.kind === 'down') return en ? `DOWN  ${alert.name}: ${alert.detail}` : `宕机  ${alert.name}：${alert.detail}`;
+    if (alert.kind === 'recovered') return en ? `UP    ${alert.name}: back after ${alert.detail} min` : `恢复  ${alert.name}：中断约 ${alert.detail} 分钟`;
+    if (alert.kind === 'traffic') return en ? `TRAFFIC ${alert.name}: ${alert.detail}% of this period's quota used` : `流量  ${alert.name}：本周期已用 ${alert.detail}%`;
+    return en ? `DISK  ${alert.name}: ${alert.detail}% used` : `磁盘  ${alert.name}：已用 ${alert.detail}%`;
+  });
+  const downCount = alerts.filter((alert) => alert.kind === 'down').length;
+  const subject = downCount
+    ? (en ? `[Yumi] ${downCount} server(s) down` : `[Yumi] ${downCount} 台服务器宕机`)
+    : (en ? '[Yumi] Server status changed' : '[Yumi] 服务器状态变化');
+  try {
+    return await notify(context, { subject, text: lines.join('\n') });
+  } catch (error) {
+    console.error('Yumi alert delivery failed', error);
+    return [];
+  }
 }
 
 export function recordStatusSample(
@@ -121,7 +232,8 @@ export function buildStatusOverview(context: AppContext, requestedWindow: Status
   const vps = context.db.all<Record<string, unknown>>(
     "SELECT id, name, provider, location, probe_url, monitor_status, monitor_updated_at FROM vps WHERE archived_at IS NULL AND status != 'cancelled' ORDER BY name"
   );
-  const items = vps.map((row) => {
+  const items = vps.map((row) => ({ ...buildStatusItem(row), ...latestSample(context, Number(row.id)) }));
+  function buildStatusItem(row: Record<string, unknown>) {
     if (hourly) return buildHourlyStatusItem(context, row, periods, start, end, now);
     const dailyRows = context.db.all<Record<string, unknown>>(
       'SELECT * FROM vps_status_daily WHERE vps_id = ? AND day >= ? AND day <= ? ORDER BY day',
@@ -155,12 +267,24 @@ export function buildStatusOverview(context: AppContext, requestedWindow: Status
       uptimePercent: measured ? roundPercent(((totals.up + totals.degraded) / measured) * 100) : null,
       history
     };
-  });
+  }
   return {
     overallStatus: classifyOverallStatus(items.filter((item) => item.configured).map((item) => item.currentState)),
     range: { start, end, days, window, unit: hourly ? 'hour' : 'day' },
     items,
     domainStats: buildDomainStats(context)
+  };
+}
+
+/** Latest probe latency and failure reason, shown next to the node in the overview. */
+function latestSample(context: AppContext, vpsId: number) {
+  const row = context.db.get<{ latency_ms: number | null; detail: string | null; state: StatusSampleState; sampled_at: string }>(
+    'SELECT latency_ms, detail, state, sampled_at FROM vps_status_samples WHERE vps_id = ? ORDER BY sampled_at DESC LIMIT 1', [vpsId]
+  );
+  return {
+    latencyMs: row?.state === 'up' && row.latency_ms !== null ? Number(row.latency_ms) : null,
+    lastError: row && row.state !== 'up' ? row.detail : null,
+    lastCheckedAt: row?.sampled_at ?? null
   };
 }
 

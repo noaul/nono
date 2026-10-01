@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { CloudDownload, Download, LockKeyhole, Mail, Play, Save } from 'lucide-react';
+import { Bell, CloudDownload, Download, LockKeyhole, Mail, Play, Save } from 'lucide-react';
 import type { ListResponse, ReminderLogItem, SettingsValue } from './types';
 import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
@@ -29,8 +29,20 @@ const defaultSettings: SettingsValue = {
   webdavPath: productBackupName,
   webdavFolderPath: '',
   webdavBackupFilename: '',
-  webdavEncryptionKey: ''
+  webdavEncryptionKey: '',
+  webhookUrl: '',
+  telegramBotToken: '',
+  telegramChatId: '',
+  barkUrl: '',
+  outageAlertsEnabled: true,
+  diskAlertPercent: 90
 };
+
+type NotifyResult = { channel: 'email' | 'webhook' | 'telegram' | 'bark'; ok: boolean; error?: string };
+
+function channelLabel(channel: NotifyResult['channel'], copy: (zh: string, en: string) => string) {
+  return { email: copy('邮件', 'Email'), webhook: 'Webhook', telegram: 'Telegram', bark: 'Bark' }[channel];
+}
 
 export function SettingsPage() {
   const { copy, language, setLanguage } = useI18n();
@@ -88,6 +100,21 @@ export function SettingsPage() {
       showMessage(copy('测试邮件已发送', 'Test email sent'), 'success');
     } catch (err) {
       showMessage(err instanceof ApiError ? err.message : copy('测试邮件失败', 'Test email failed'), 'danger');
+    }
+  };
+
+  const testNotify = async () => {
+    setMessage('');
+    try {
+      const response = await api.post<{ results: NotifyResult[] }>('/api/settings/test-notify', {});
+      if (response.results.length === 0) {
+        showMessage(copy('还没有配置任何通知渠道。', 'No notification channel is configured yet.'), 'info');
+        return;
+      }
+      const summary = response.results.map((result) => `${channelLabel(result.channel, copy)} ${result.ok ? '✓' : `✗ ${result.error ?? ''}`}`).join('  ·  ');
+      showMessage(summary, response.results.every((result) => result.ok) ? 'success' : 'danger');
+    } catch (err) {
+      showMessage(err instanceof ApiError ? err.message : copy('测试失败', 'Test failed'), 'danger');
     }
   };
 
@@ -186,9 +213,26 @@ export function SettingsPage() {
               <Field label="From"><input className={inputClass} value={settings.smtpFrom} onChange={(e) => setSettings({ ...settings, smtpFrom: e.target.value })} /></Field>
               <Field label="To"><input className={inputClass} value={settings.smtpTo} onChange={(e) => setSettings({ ...settings, smtpTo: e.target.value })} /></Field>
             </div>
+            <div className="border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{copy('其他通知渠道', 'Other channels')}</h4>
+              <p className="mt-1 text-xs text-slate-400">{copy('到期提醒和服务器告警会同时发到所有已配置的渠道，任一渠道成功即算已送达。', 'Reminders and server alerts go to every configured channel; one success counts as delivered.')}</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Telegram Bot Token" hint={settings.telegramBotTokenSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : undefined}><input className={inputClass} type="password" autoComplete="off" value={settings.telegramBotToken} placeholder={settings.telegramBotTokenSet ? copy('已保存', 'Saved') : '123456:ABC…'} onChange={(e) => setSettings({ ...settings, telegramBotToken: e.target.value })} /></Field>
+              <Field label="Telegram Chat ID"><input className={`${inputClass} font-mono`} value={settings.telegramChatId} placeholder="123456789" onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })} /></Field>
+              <Field label={copy('Bark 推送地址', 'Bark URL')} hint={settings.barkUrlSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : copy('如 https://api.day.app/你的Key', 'e.g. https://api.day.app/<key>')}><input className={inputClass} type="password" autoComplete="off" value={settings.barkUrl} placeholder={settings.barkUrlSet ? copy('已保存', 'Saved') : 'https://api.day.app/…'} onChange={(e) => setSettings({ ...settings, barkUrl: e.target.value })} /></Field>
+              <Field label="Webhook" hint={copy('POST JSON：subject、text、content。', 'POSTs JSON with subject, text and content.')}><input className={inputClass} type="url" value={settings.webhookUrl} placeholder="https://hooks.example.com/…" onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })} /></Field>
+            </div>
+            {product === 'yumi' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label={copy('宕机告警', 'Outage alerts')} hint={copy('连续两次探测失败（约 10 分钟）时通知，恢复后再通知一次。', 'Sent after two failed checks in a row (about 10 minutes), and again on recovery.')}><select className={inputClass} value={String(settings.outageAlertsEnabled)} onChange={(e) => setSettings({ ...settings, outageAlertsEnabled: e.target.value === 'true' })}><option value="true">{copy('开启', 'Enabled')}</option><option value="false">{copy('关闭', 'Disabled')}</option></select></Field>
+                <Field label={copy('磁盘告警阈值（%）', 'Disk alert threshold (%)')} hint={copy('0 表示关闭。', '0 turns it off.')}><input className={`${inputClass} font-mono`} type="number" min="0" max="100" value={settings.diskAlertPercent} onChange={(e) => setSettings({ ...settings, diskAlertPercent: Number(e.target.value) })} /></Field>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button type="submit"><Save size={16} />{copy('保存设置', 'Save settings')}</Button>
               <Button type="button" variant="secondary" onClick={testEmail}><Mail size={16} />{copy('测试邮件', 'Test email')}</Button>
+              <Button type="button" variant="secondary" onClick={testNotify}><Bell size={16} />{copy('测试全部渠道', 'Test all channels')}</Button>
               <Button type="button" variant="secondary" onClick={runReminder}><Play size={16} />{copy('手动扫描', 'Run scan')}</Button>
             </div>
           </form>

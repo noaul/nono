@@ -5,6 +5,7 @@ import type { AppContext, AssetType } from './types.js';
 import { assetConfigs } from './assets.js';
 import { collectDueItems, type DueItem } from './dashboard.js';
 import { getSettings } from './settings.js';
+import { notify } from './notifier.js';
 import { asyncHandler } from './http.js';
 import { toIsoDateTime } from './utils.js';
 
@@ -60,14 +61,16 @@ export async function runReminderScan(context: AppContext, allowedTypes?: AssetT
   const sentAt = toIsoDateTime(context.now());
 
   try {
-    await context.mailer.send({
-      to: settings.smtpTo,
-      from: settings.smtpFrom,
+    const results = await notify(context, {
       subject: settings.language === 'en'
         ? `[${productName(context)}] ${unsent.length} renewals need attention`
         : `[${productName(context)} 到期提醒] ${unsent.length} 个项目需要关注`,
       text: renderDigest(unsent, settings.language, productName(context))
     });
+    // Delivered if any channel got it; a dead webhook should not block email.
+    if (!results.some((result) => result.ok)) {
+      throw new Error(results.map((result) => `${result.channel}: ${result.error}`).join('; ') || 'No notification channel is configured');
+    }
 
     for (const item of unsent) {
       insertReminderLog(context, runId, item, sentAt, 'sent', null);
@@ -158,13 +161,16 @@ function renderDigest(items: DueItem[], language: 'zh' | 'en', product: string):
       ? label(`已逾期 ${-item.daysLeft} 天`, `${-item.daysLeft} days overdue`)
       : item.daysLeft === 0 ? label('今天', 'today') : String(item.daysLeft);
     const keepalive = item.kind === 'keepalive';
+    const certificate = item.kind === 'certificate';
+    const suffix = keepalive ? label('（保号）', ' (keep-alive)') : certificate ? label('（SSL 证书）', ' (TLS certificate)') : '';
+    const dateLabel = keepalive ? label('保号截止', 'Keep-alive deadline') : certificate ? label('证书到期', 'Certificate expires') : label('到期/扣费日期', 'Due date');
     lines.push(
-      `- ${type}: ${item.name}${keepalive ? label('（保号）', ' (keep-alive)') : ''}`,
-      `  ${keepalive ? label('保号截止', 'Keep-alive deadline') : label('到期/扣费日期', 'Due date')}: ${item.dueDate}`,
+      `- ${type}: ${item.name}${suffix}`,
+      `  ${dateLabel}: ${item.dueDate}`,
       `  ${label('剩余天数', 'Days left')}: ${days}`,
-      keepalive && !item.amountMinorUnits ? '' : `  ${keepalive ? label('最低保号金额', 'Minimum top-up') : label('金额', 'Amount')}: ${formatMoney(item.amountMinorUnits, item.currency)}`,
+      certificate || (keepalive && !item.amountMinorUnits) ? '' : `  ${keepalive ? label('最低保号金额', 'Minimum top-up') : label('金额', 'Amount')}: ${formatMoney(item.amountMinorUnits, item.currency)}`,
       item.autoRenew ? `  ${label('已开启自动续费', 'Auto-renew is on')}` : '',
-      item.renewalUrl ? `  ${label('续费链接', 'Renewal link')}: ${item.renewalUrl}` : ''
+      !certificate && item.renewalUrl ? `  ${label('续费链接', 'Renewal link')}: ${item.renewalUrl}` : ''
     );
   }
   return lines.filter(Boolean).join('\n');

@@ -66,6 +66,10 @@ const EN_LABELS: Record<string, string> = {
   设备限制: 'Device limit',
   '账号 / 邮箱': 'Account / email',
   '分类': 'Category',
+  'IPv6 地址': 'IPv6 address',
+  '控制面板': 'Control panel',
+  '月流量额度（GB）': 'Monthly traffic quota (GB)',
+  '流量重置日': 'Traffic reset day',
   电话卡: 'SIM cards',
   订阅: 'Subscriptions',
 };

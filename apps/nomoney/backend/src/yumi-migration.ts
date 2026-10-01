@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createDatabase } from './db.js';
 import { decryptSecret, encryptSecret } from './secret-crypto.js';
 import type { DbClient, DbValue } from './types.js';
+import { sensitiveSettingKeys } from './settings.js';
 
 const migrationVersion = 1;
 const migrationSetting = 'yumiMigrationVersion';
@@ -138,7 +139,7 @@ function reencryptSettingRow(row: Record<string, unknown>, options: YumiMigratio
   if (['webdavPath', 'webdavBackupFilename'].includes(String(row.key))) {
     return { ...row, value: JSON.stringify('yumi-backup.json.enc') };
   }
-  if (!['webdavPassword', 'webdavEncryptionKey'].includes(String(row.key))) return row;
+  if (!(sensitiveSettingKeys as readonly string[]).includes(String(row.key))) return row;
   try {
     const stored = JSON.parse(String(row.value ?? '""'));
     if (typeof stored !== 'string' || !stored) return row;
