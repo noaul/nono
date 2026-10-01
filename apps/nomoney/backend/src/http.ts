@@ -34,7 +34,7 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
     res.status(400).json({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Invalid request body',
+        message: describeZodError(error),
         details: z.flattenError(error)
       }
     });
@@ -48,6 +48,11 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
       message: 'Unexpected server error'
     }
   });
+}
+
+function describeZodError(error: ZodError): string {
+  const fields = [...new Set(error.issues.map((issue) => issue.path.join('.')).filter(Boolean))];
+  return fields.length ? `Invalid request body: ${fields.slice(0, 5).join(', ')}` : 'Invalid request body';
 }
 
 export class HttpError extends Error {

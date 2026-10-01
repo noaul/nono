@@ -610,7 +610,7 @@ describe('asset APIs', () => {
     const sshCalls: Array<Record<string, unknown>> = [];
     (context as typeof context & { sshRunner: (options: any) => Promise<{ stdout: string; stderr: string; code: number | null }> }).sshRunner = async (options) => {
       sshCalls.push(options);
-      return { stdout: 'moneypulse-ssh-ok\n', stderr: '', code: 0 };
+      return { stdout: 'SSH OK Linux 6.8.0 x86_64\n', stderr: '', code: 0 };
     };
 
     await agent.post('/api/vps').send({
@@ -645,7 +645,7 @@ describe('asset APIs', () => {
         username: 'admin',
         authType: 'password',
         password: 'typed-password',
-        command: 'printf moneypulse-ssh-ok'
+        command: 'echo "SSH OK $(uname -srm 2>/dev/null)"'
       })
     ]);
     expect(response.body).toMatchObject({
@@ -653,7 +653,7 @@ describe('asset APIs', () => {
       testedAt: '2026-05-22T01:00:00.000Z',
       item: {
         sshLastTestStatus: 'success',
-        sshLastTestMessage: 'moneypulse-ssh-ok',
+        sshLastTestMessage: 'SSH OK Linux 6.8.0 x86_64',
         sshLastTestedAt: '2026-05-22T01:00:00.000Z'
       }
     });
@@ -665,7 +665,7 @@ describe('asset APIs', () => {
     context.sshRunner = async (options) => {
       sshCalls.push({ ...options });
       return {
-        stdout: 'moneypulse-ssh-ok\n',
+        stdout: 'SSH OK Linux 6.8.0 x86_64\n',
         stderr: '',
         code: 0,
         hostFingerprint: 'SHA256:server-host-key'

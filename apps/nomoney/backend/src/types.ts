@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 
-export type Currency = 'CNY' | 'USD' | 'GBP' | 'EUR' | 'CAD';
+export type Currency = 'CNY' | 'USD' | 'HKD' | 'JPY' | 'GBP' | 'EUR' | 'CAD' | 'SGD' | 'AUD';
 export type BillingCycle = 'monthly' | 'quarterly' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
 export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';

@@ -7,8 +7,14 @@ const currencySymbols: Record<Currency, string> = {
   USD: '$',
   GBP: '£',
   EUR: '€',
-  CAD: 'CA$'
+  CAD: 'CA$',
+  HKD: 'HK$',
+  JPY: 'JP¥',
+  SGD: 'S$',
+  AUD: 'A$'
 };
+
+export const currencies = Object.keys(currencySymbols) as Currency[];
 
 export const APP_TIME_ZONE = 'Asia/Shanghai';
 

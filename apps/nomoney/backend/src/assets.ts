@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AppContext, AssetType, BillingCycle, Currency, DbValue, SshAuthType, SshExecOptions } from './types.js';
 import { asyncHandler, HttpError, parseBody, parsePatchBody } from './http.js';
 import { domainSchema, phoneSchema, subscriptionSchema, vpsSchema } from './schemas.js';
-import { daysBetween, parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
+import { currencies, daysBetween, parseJsonArray, toIsoDate, toIsoDateTime } from './utils.js';
 import { billingCycleSchema, currencySchema, statusSchema } from './schemas.js';
 import { getSettings } from './settings.js';
 import { runSshCommand } from './ssh.js';
@@ -316,6 +316,9 @@ const listQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0)
 });
 
+// Reports the remote kernel so a successful test also shows what is on the other end.
+const sshTestCommand = 'echo "SSH OK $(uname -srm 2>/dev/null)"';
+
 export function registerAssetRoutes(router: Router, context: AppContext, allowedTypes?: AssetType[]): void {
   const configs = assetConfigs.filter((config) => !allowedTypes || allowedTypes.includes(config.type));
   router.get('/assets/lookup', (_req, res) => {
@@ -493,8 +496,8 @@ export function registerAssetRoutes(router: Router, context: AppContext, allowed
           const actionItem = mergeActionItem(item, body);
           const testedAt = toIsoDateTime(context.now());
           try {
-            const result = await executeVpsSsh(context, actionItem, 'printf moneypulse-ssh-ok', 20_000);
-            const message = normalizeActionMessage(result.stdout || result.stderr || 'moneypulse-ssh-ok');
+            const result = await executeVpsSsh(context, actionItem, sshTestCommand, 20_000);
+            const message = normalizeActionMessage(result.stdout || result.stderr || 'SSH OK');
             const hostFingerprint = fingerprintForPersistentHost(item, actionItem, result.hostFingerprint);
             context.db.run(
               `UPDATE ${config.table}
@@ -752,7 +755,7 @@ export function normalizeBillingCycle(value: unknown): BillingCycle {
 }
 
 export function normalizeCurrency(value: unknown): Currency {
-  if (value === 'USD' || value === 'GBP' || value === 'EUR' || value === 'CAD') return value;
+  if (typeof value === 'string' && (currencies as readonly string[]).includes(value)) return value as Currency;
   return 'CNY';
 }
 
@@ -1786,7 +1789,7 @@ async function convertCurrencyTotals(
 }
 
 function currenciesWithValues(values: Partial<Record<Currency, number>>): Currency[] {
-  return (['CNY', 'USD', 'GBP', 'EUR', 'CAD'] as Currency[]).filter((currency) => Number(values[currency] ?? 0) > 0);
+  return [...currencies].filter((currency) => Number(values[currency] ?? 0) > 0);
 }
 
 function nextCalendarMonthWindow(now: Date, timeZone: string): { start: string; end: string } {

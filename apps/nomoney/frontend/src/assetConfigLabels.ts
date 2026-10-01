@@ -65,6 +65,7 @@ const EN_LABELS: Record<string, string> = {
   订阅内容: 'Includes',
   设备限制: 'Device limit',
   '账号 / 邮箱': 'Account / email',
+  '分类': 'Category',
   电话卡: 'SIM cards',
   订阅: 'Subscriptions',
 };

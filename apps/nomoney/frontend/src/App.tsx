@@ -4,6 +4,7 @@ import type { User } from './types';
 import { api, ApiError } from './api';
 import { assetPageConfigs } from './assetConfig';
 import { product, productMeta } from './product';
+import { loadPreferences } from './preferences';
 
 const LoginPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.LoginPage })));
 const SetupPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.SetupPage })));
@@ -33,6 +34,7 @@ export default function App() {
       try {
         const me = await api.get<{ user: User }>('/api/auth/me');
         setAuth({ status: 'authenticated', user: me.user });
+        loadPreferences().catch(() => undefined);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) { setAuth({ status: 'anonymous', user: null }); return; }
         throw error;
@@ -41,7 +43,11 @@ export default function App() {
     loadAuth().catch(() => setAuth({ status: 'anonymous', user: null }));
   }, []);
 
-  const onAuthenticated = (user: User) => { setAuth({ status: 'authenticated', user }); navigate('/dashboard'); };
+  const onAuthenticated = (user: User) => {
+    setAuth({ status: 'authenticated', user });
+    loadPreferences().catch(() => undefined);
+    navigate('/dashboard');
+  };
 
   if (auth.status === 'loading') {
     return (

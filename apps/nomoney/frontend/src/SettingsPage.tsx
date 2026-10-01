@@ -6,12 +6,13 @@ import { withBasePath } from './base-path';
 import { Button, DataTable, Field, PageHeader, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { readStoredLanguage, useI18n } from './i18n';
 import { product } from './product';
-import { formatShanghaiDateTime } from './format';
+import { currencies, formatShanghaiDateTime } from './format';
+import { setPreferences } from './preferences';
 
 const productBackupName = product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
 
 const defaultSettings: SettingsValue = {
-  reminderDays: product === 'yumi' ? [3, 1, 0] : [30, 14, 7, 3, 1, 0],
+  reminderDays: [30, 14, 7, 3, 1, 0],
   reminderEnabled: true,
   defaultCurrency: 'CNY',
   timezone: 'Asia/Shanghai',
@@ -33,6 +34,7 @@ const defaultSettings: SettingsValue = {
 export function SettingsPage() {
   const { copy, language, setLanguage } = useI18n();
   const [settings, setSettings] = useState(defaultSettings);
+  const [reminderDaysText, setReminderDaysText] = useState(defaultSettings.reminderDays.join(','));
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [logs, setLogs] = useState<ReminderLogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export function SettingsPage() {
     ]);
     const nextLanguage = readStoredLanguage() ?? settingsResponse.settings.language ?? language;
     setSettings({ ...settingsResponse.settings, language: nextLanguage });
+    setReminderDaysText(settingsResponse.settings.reminderDays.join(','));
     setLanguage(nextLanguage);
     setLogs(logResponse.items);
     setLoading(false);
@@ -63,9 +66,14 @@ export function SettingsPage() {
     e.preventDefault();
     setMessage('');
     try {
-      const response = await api.put<{ settings: SettingsValue }>('/api/settings', settings);
+      const reminderDays = [...new Set(reminderDaysText.split(/[,，\s]+/).filter(Boolean).map(Number))]
+        .filter((value) => Number.isInteger(value) && value >= 0 && value <= 365)
+        .sort((a, b) => b - a);
+      const response = await api.put<{ settings: SettingsValue }>('/api/settings', { ...settings, reminderDays });
       setSettings(response.settings);
+      setReminderDaysText(response.settings.reminderDays.join(','));
       setLanguage(response.settings.language);
+      setPreferences({ defaultCurrency: response.settings.defaultCurrency, timezone: response.settings.timezone });
       showMessage(copy('设置已保存', 'Settings saved'), 'success');
     } catch (err) {
       showMessage(err instanceof ApiError ? err.message : copy('保存失败', 'Save failed'), 'danger');
@@ -134,9 +142,9 @@ export function SettingsPage() {
   };
 
   const logColumns: DataTableColumn<ReminderLogItem>[] = [
-    { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <span className="font-mono text-xs text-slate-500">{item.assetType} #{item.assetId}</span> },
+    { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <span className="text-xs text-slate-700 dark:text-slate-300">{item.assetName ?? `${item.assetType} #${item.assetId}`}</span> },
     { key: 'due', header: copy('到期日', 'Due date'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.dueDate}</span> },
-    { key: 'days', header: copy('提前', 'Lead time'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.daysBefore}d</span> },
+    { key: 'days', header: copy('提前', 'Lead time'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.daysBefore < 0 ? copy(`逾期 ${-item.daysBefore}d`, `${-item.daysBefore}d overdue`) : `${item.daysBefore}d`}</span> },
     { key: 'sent', header: copy('发送时间', 'Sent at'), align: 'right', render: (item) => <span className="font-mono text-xs text-slate-500">{formatShanghaiDateTime(item.sentAt, language)}</span> },
     { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> }
   ];
@@ -164,9 +172,9 @@ export function SettingsPage() {
           </div>
           <form onSubmit={saveSettings} className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label={copy('提醒天数', 'Reminder days')}><input className={inputClass} value={settings.reminderDays.join(',')} onChange={(e) => setSettings({ ...settings, reminderDays: e.target.value.split(',').map((v) => Number(v.trim())).filter((v) => Number.isFinite(v)) })} /></Field>
-              <Field label={copy('提醒开关', 'Reminders')}><select className={inputClass} value={String(settings.reminderEnabled)} onChange={(e) => setSettings({ ...settings, reminderEnabled: e.target.value === 'true' })}><option value="true">Enabled</option><option value="false">Disabled</option></select></Field>
-              <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}><option>CNY</option><option>USD</option><option>GBP</option><option>EUR</option><option>CAD</option></select></Field>
+              <Field label={copy('提醒天数', 'Reminder days')} hint={copy('逗号分隔，如 30,7,1,0；漏发会在下次补发，逾期后还会在 1/7/14/30 天各提醒一次。', 'Comma-separated, e.g. 30,7,1,0. Missed days are caught up; overdue items are re-sent at 1/7/14/30 days.')}><input className={inputClass} inputMode="numeric" value={reminderDaysText} onChange={(e) => setReminderDaysText(e.target.value)} /></Field>
+              <Field label={copy('提醒开关', 'Reminders')}><select className={inputClass} value={String(settings.reminderEnabled)} onChange={(e) => setSettings({ ...settings, reminderEnabled: e.target.value === 'true' })}><option value="true">{copy('开启', 'Enabled')}</option><option value="false">{copy('关闭', 'Disabled')}</option></select></Field>
+              <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
               <Field label={copy('时区', 'Timezone')}><input className={inputClass} value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} /></Field>
             </div>
             <div className="grid gap-4 md:grid-cols-2">

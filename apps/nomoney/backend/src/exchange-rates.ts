@@ -1,4 +1,5 @@
 import type { Currency } from './types.js';
+import { currencies } from './utils.js';
 
 export type ExchangeRates = {
   base: Currency;
@@ -6,7 +7,7 @@ export type ExchangeRates = {
   date: string | null;
 };
 
-const supportedCurrencies = new Set<Currency>(['CNY', 'USD', 'GBP', 'EUR', 'CAD']);
+const supportedCurrencies = new Set<Currency>(currencies);
 
 export async function fetchExchangeRates(
   fetcher: typeof fetch | undefined,

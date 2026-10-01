@@ -1,13 +1,14 @@
 import type { Router } from 'express';
 import { z } from 'zod';
-import type { AppContext } from './types.js';
+import type { AppContext, Currency } from './types.js';
+import { currencies } from './utils.js';
 import { asyncHandler, parseBody } from './http.js';
 import { decryptSecret, encryptSecret } from './secret-crypto.js';
 
 export interface Settings {
   reminderDays: number[];
   reminderEnabled: boolean;
-  defaultCurrency: 'CNY' | 'USD' | 'GBP' | 'EUR' | 'CAD';
+  defaultCurrency: Currency;
   timezone: string;
   language: 'zh' | 'en';
   smtpHost: string;
@@ -32,7 +33,7 @@ export type PublicSettings = Settings & {
 const settingsSchema = z.object({
   reminderDays: z.array(z.number().int().min(0).max(365)).optional(),
   reminderEnabled: z.boolean().optional(),
-  defaultCurrency: z.enum(['CNY', 'USD', 'GBP', 'EUR', 'CAD']).optional(),
+  defaultCurrency: z.enum(currencies).optional(),
   timezone: z.string().trim().min(1).optional(),
   language: z.enum(['zh', 'en']).optional(),
   smtpHost: z.string().optional(),
@@ -107,12 +108,9 @@ export function getSettings(context: AppContext): Settings {
   }
 
   const defaultBackupPath = context.product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
-  const savedReminderDays = settings.reminderDays ?? [30, 14, 7, 3, 1, 0];
-  const reminderDays = context.product === 'yumi'
-    ? savedReminderDays.filter((days) => days <= 3)
-    : savedReminderDays;
+  const reminderDays: number[] = Array.isArray(settings.reminderDays) ? settings.reminderDays : [30, 14, 7, 3, 1, 0];
   return {
-    reminderDays: reminderDays.length ? reminderDays : [3, 1, 0],
+    reminderDays: reminderDays.length ? reminderDays : [30, 14, 7, 3, 1, 0],
     reminderEnabled: settings.reminderEnabled ?? true,
     defaultCurrency: settings.defaultCurrency ?? 'CNY',
     timezone: settings.timezone ?? 'Asia/Shanghai',

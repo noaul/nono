@@ -16,10 +16,9 @@ import {
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AssetType, Currency, DashboardCategoryCost, DashboardSummary, DueItem } from './types';
 import { api } from './api';
-import { compactDate, currentShanghaiYear, dueTone, formatCycle, formatMoney } from './format';
+import { compactDate, currentShanghaiYear, dueTone, formatCycle, formatMoney, currencies } from './format';
 import { DataTable, EmptyState, MetricCard, PageHeader, Skeleton, StateBanner, StatusBadge, type DataTableColumn } from './ui';
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 
 type CategoryDefinition = {
   assetType: AssetType;

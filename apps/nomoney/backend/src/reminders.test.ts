@@ -1,3 +1,4 @@
+import { activeThreshold } from './reminders.js';
 import { describe, expect, setupAgent, test } from './test-utils.js';
 
 describe('reminders', () => {
@@ -27,7 +28,7 @@ describe('reminders', () => {
     expect(firstRun.body.sent).toBe(true);
     expect(firstRun.body.items).toHaveLength(1);
     expect(context.mailer.sent).toHaveLength(1);
-    expect(context.mailer.sent[0].subject).toContain('资产到期提醒');
+    expect(context.mailer.sent[0].subject).toContain('到期提醒');
 
     const secondRun = await agent.post('/api/reminders/run-now');
     expect(secondRun.status).toBe(200);
@@ -102,28 +103,46 @@ describe('reminders', () => {
     expect(context.mailer.sent).toEqual([]);
   });
 
-  test('caps Yumi domain and VPS reminder lead time at three days', async () => {
+  test('honours long Yumi lead times and catches up a missed reminder day', async () => {
     const { agent, context } = await setupAgent('yumi');
 
     await agent.put('/api/settings').send({
-      reminderDays: [30, 14, 7, 4, 3, 1, 0],
+      reminderDays: [30, 7, 3],
       reminderEnabled: true,
       smtpTo: 'owner@example.com',
       smtpFrom: 'yumi@example.com'
     });
     await agent.post('/api/domains').send({
-      domainName: 'three-days.example', registrar: 'Cloudflare', amountMinorUnits: 1200,
-      currency: 'USD', billingCycle: 'annual', expireDate: '2026-05-25', status: 'active'
+      domainName: 'twenty-days.example', registrar: 'Cloudflare', amountMinorUnits: 1299,
+      currency: 'USD', billingCycle: 'annual', expireDate: '2026-06-11', status: 'active'
     });
     await agent.post('/api/vps').send({
-      name: 'four-days', provider: 'Example', amountMinorUnits: 1200,
-      currency: 'USD', billingCycle: 'annual', expireDate: '2026-05-26', status: 'active'
+      name: 'far-away', provider: 'Example', amountMinorUnits: 1200,
+      currency: 'USD', billingCycle: 'annual', expireDate: '2026-08-26', status: 'active'
     });
 
     const response = await agent.post('/api/reminders/run-now');
 
-    expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['three-days.example']);
-    expect((await agent.get('/api/settings')).body.settings.reminderDays).toEqual([3, 1, 0]);
-    expect(context.mailer.sent).toHaveLength(1);
+    expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['twenty-days.example']);
+    expect((await agent.get('/api/settings')).body.settings.reminderDays).toEqual([30, 7, 3]);
+    expect(context.mailer.sent[0].subject).toContain('Yumi');
+    expect(context.mailer.sent[0].text).toContain('$12.99 USD');
+    expect(context.mailer.sent[0].text).toContain('域名: twenty-days.example');
+
+    const logs = await agent.get('/api/reminders/logs');
+    expect(logs.body.items[0]).toMatchObject({ daysBefore: 30, assetName: 'twenty-days.example' });
+
+    expect((await agent.post('/api/reminders/run-now')).body.sent).toBe(false);
+  });
+
+  test('picks the reminder mark an item currently falls in, including overdue marks', () => {
+    const marks = [30, 14, 7, 3, 1, 0];
+    expect(activeThreshold(12, marks)).toBe(14);
+    expect(activeThreshold(7, marks)).toBe(7);
+    expect(activeThreshold(0, marks)).toBe(0);
+    expect(activeThreshold(45, marks)).toBeNull();
+    expect(activeThreshold(-1, marks)).toBe(-1);
+    expect(activeThreshold(-10, marks)).toBe(-7);
+    expect(activeThreshold(-31, marks)).toBeNull();
   });
 });

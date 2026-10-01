@@ -7,6 +7,7 @@ import { createApp } from './app.js';
 import { createDatabase } from './db.js';
 import { createSmtpMailer } from './mailer.js';
 import { runReminderScan } from './reminders.js';
+import { getSettings } from './settings.js';
 import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
 import { migrateStoredSecrets } from './secret-migration.js';
 import type { ProductMode } from './types.js';
@@ -94,15 +95,24 @@ app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-cron.schedule(
-  '0 9 * * *',
-  () => {
-    runReminderScan(context, product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription']).catch((error) => {
-      console.error('Reminder scan failed', error);
-    });
-  },
-  { timezone: process.env.TZ ?? 'Asia/Shanghai' }
-);
+// Hourly, gated on the configured time zone: settings can change the zone at
+// runtime, and a run missed while the service was down is picked up later the
+// same day. Already-sent reminders are deduplicated by reminder_logs.
+cron.schedule('7 * * * *', () => {
+  const settings = getSettings(context);
+  if (localHour(context.now(), settings.timezone) < 9) return;
+  runReminderScan(context, product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription']).catch((error) => {
+    console.error('Reminder scan failed', error);
+  });
+}, { timezone: 'UTC' });
+
+function localHour(date: Date, timeZone: string): number {
+  try {
+    return Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone }).format(date));
+  } catch {
+    return date.getUTCHours();
+  }
+}
 
 if (product === 'yumi') {
   cron.schedule('*/5 * * * *', () => {

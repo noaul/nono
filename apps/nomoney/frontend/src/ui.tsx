@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useCallback, useEffect } from 'react';
 import clsx from 'clsx';
 import { AlertCircle, Inbox, Loader2, X } from 'lucide-react';
 import type { AssetStatus } from './types';
@@ -152,27 +153,48 @@ export function Drawer({
   open,
   onClose,
   children,
-  footer
+  footer,
+  error,
+  dirty = false
 }: {
   title: string;
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
   footer: React.ReactNode;
+  error?: string;
+  dirty?: boolean;
 }) {
   const { copy } = useI18n();
+  const requestClose = useCallback(() => {
+    if (dirty && !window.confirm(copy('有未保存的修改，确定放弃？', 'Discard unsaved changes?'))) return;
+    onClose();
+  }, [copy, dirty, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) requestClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, requestClose]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65" onClick={onClose} />
-      <aside className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
+      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65" onClick={requestClose} />
+      <aside role="dialog" aria-modal="true" aria-label={title} className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
           <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
-          <IconButton onClick={onClose} title={copy('关闭', 'Close')}>
+          <IconButton onClick={requestClose} title={copy('关闭', 'Close')}>
             <X size={16} />
           </IconButton>
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {error && <div className="mb-4"><StateBanner tone="danger">{error}</StateBanner></div>}
+          {children}
+        </div>
         <footer className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-white/10">{footer}</footer>
       </aside>
     </div>

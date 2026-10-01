@@ -5,10 +5,11 @@ import type { AssetPageConfig } from './assetConfig';
 import { useLayoutActions } from './Layout';
 import type { AssetItem, AssetStatus, BillingCycle, Currency, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
-import { compactDate, daysLeft, dueTone, formatCycle, formatMoney } from './format';
+import { compactDate, daysLeft, dueTone, formatCycle, formatMoney, currencies } from './format';
 import { Button, DataTable, Drawer, EmptyState, Field, IconButton, ProgressBar, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { commonDomainExtensions, composeDomainName, dnsProviderLink, dnsProviderProfiles, domainLink, domainPrefix, findDnsProviderProfile, findRegistrarProfile, inferDomainExtension, normalizeDomainExtension, registrarProfiles, stringValue } from './domainRegistrars';
 import { useI18n } from './i18n';
+import { getDefaultCurrency } from './preferences';
 import { formatVpsCapacity } from './vps-capacity';
 import { assetLabel, assetSingular } from './assetConfigLabels';
 
@@ -97,7 +98,6 @@ type PhoneVisualAccent = {
   chart: string[];
 };
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const cycles: BillingCycle[] = ['monthly', 'quarterly', 'annual', 'biennial'];
 const domainCycles: BillingCycle[] = ['annual', 'biennial'];
 const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
@@ -223,7 +223,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [purchaseType, setPurchaseType] = useState(isSubscription ? 'subscription' : '');
   const [domainExtension, setDomainExtension] = useState('');
   const [registrarAccount, setRegistrarAccount] = useState('');
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>('CNY');
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>(getDefaultCurrency);
   const [sort, setSort] = useState(isDomain ? 'expireDate' : 'dueDate');
   const [direction, setDirection] = useState<'asc' | 'desc'>(isDomain ? 'asc' : 'asc');
   const [offset, setOffset] = useState(0);
@@ -232,6 +232,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [form, setForm] = useState<FormState>(() => initialForm(config));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const formSnapshot = useRef('');
   const [duplicatingDomainId, setDuplicatingDomainId] = useState<number | null>(null);
   const [duplicatedDomainId, setDuplicatedDomainId] = useState<number | null>(null);
   const [duplicatingPhoneId, setDuplicatingPhoneId] = useState<number | null>(null);
@@ -663,19 +665,24 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     const nextForm = initialForm(config);
     if (isPhone) nextForm.phoneType = phoneType === 'foreign' ? 'foreign' : 'domestic';
     if (isSubscription) nextForm.purchaseType = purchaseType === 'buyout' ? 'buyout' : 'subscription';
-    setForm(nextForm);
-    setDrawerOpen(true);
+    openForm(null, nextForm);
   };
 
   const openEdit = (item: AssetItem) => {
+    openForm(item, assetToForm(config, item));
+  };
+
+  const openForm = (item: AssetItem | null, nextForm: FormState) => {
     setEditing(item);
-    setForm(assetToForm(config, item));
+    setForm(nextForm);
+    formSnapshot.current = JSON.stringify(nextForm);
+    setFormError('');
     setDrawerOpen(true);
   };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setFormError('');
     setSubmitting(true);
     try {
       const payload = formToPayload(config, form);
@@ -684,7 +691,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setDrawerOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : copy('保存失败', 'Failed to save'));
+      setFormError(err instanceof ApiError ? err.message : copy('保存失败', 'Failed to save'));
     } finally {
       setSubmitting(false);
     }
@@ -1107,7 +1114,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           ) : (
             <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">{copy('未归档', 'Not archived')}</option>
-              {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
+              {statusOptions(copy)}
             </select>
           )}
           <select className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -1219,6 +1226,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        error={formError}
+        dirty={!submitting && JSON.stringify(form) !== formSnapshot.current}
         title={isDomain ? (editing ? copy('编辑域名', 'Edit domain') : copy('新增域名', 'Add domain')) : isVps ? (editing ? copy('编辑 VPS', 'Edit VPS') : copy('新增 VPS', 'Add VPS')) : isPhone ? (editing ? copy('编辑电话卡', 'Edit phone card') : copy('新增电话卡', 'Add phone card')) : (editing ? copy(`编辑${config.singular}`, `Edit ${assetSingular(config.singular, language)}`) : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`))}
         footer={<><Button variant="secondary" onClick={() => setDrawerOpen(false)}>{copy('取消', 'Cancel')}</Button><Button type="submit" form="asset-form" disabled={submitting}>{submitting ? copy('保存中', 'Saving') : copy('保存', 'Save')}</Button></>}
       >
@@ -1256,8 +1265,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
               </Section>
               <Section title={copy('状态与备注', 'Status and notes')}>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-                  <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
+                  <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statusOptions(copy)}</select></Field>
+                  <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">{copy('开启', 'On')}</option><option value="false">{copy('关闭', 'Off')}</option></select></Field>
                 </div>
                 <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
                 <Field label={copy('续费链接', 'Renewal URL')}><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>
@@ -1703,8 +1712,8 @@ function PhoneFormSections({
           <Field label={copy('扣费日', 'Billing day')}><input className={`${inputClass} font-mono`} type="number" min="1" max="31" value={String(form.billingDay ?? '')} onChange={(e) => updateForm('billingDay', e.target.value)} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
+          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statusOptions(copy)}</select></Field>
+          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">{copy('开启', 'On')}</option><option value="false">{copy('关闭', 'Off')}</option></select></Field>
         </div>
         <Field label={copy('备注', 'Notes')}><textarea className={`${inputClass} h-24 py-2.5`} value={String(form.notes ?? '')} onChange={(e) => updateForm('notes', e.target.value)} /></Field>
       </Section>
@@ -1726,7 +1735,7 @@ function VpsCommandPanel({
   return (
     <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <VpsStat icon={<Server size={17} />} label={copy('在线节点', 'Online nodes')} value={`${stats.online}/${stats.total}`} detail={copy(`${stats.offline} 台离线或异常`, `${stats.offline} offline or failing`)} tone={stats.offline > 0 ? 'warning' : 'success'} />
-      <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${stats.total}`} detail={copy('dstatus / neko 风格接口', 'dstatus / neko-style endpoints')} tone="brand" />
+      <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${stats.total}`} detail={copy('已接入探针的节点', 'Nodes reporting via probe')} tone="brand" />
       <VpsStat icon={<Activity size={17} />} label={copy('平均负载', 'Average load')} value={formatPercent(stats.avgCpu)} detail={copy(`内存均值 ${formatPercent(stats.avgMemory)}`, `Memory average ${formatPercent(stats.avgMemory)}`)} tone={stats.avgCpu !== null && stats.avgCpu >= 80 ? 'danger' : 'brand'} />
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
         <div className="flex items-start justify-between gap-3">
@@ -2004,6 +2013,16 @@ function MonitorDot({ status }: { status: string }) {
   return <span className={`h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ${cls}`} />;
 }
 
+const subscriptionCategorySuggestions = [
+  { zh: '影音娱乐', en: 'Streaming' },
+  { zh: '软件工具', en: 'Software' },
+  { zh: 'AI 服务', en: 'AI' },
+  { zh: '云服务', en: 'Cloud' },
+  { zh: '网络 / VPN', en: 'Network' },
+  { zh: '学习阅读', en: 'Learning' },
+  { zh: '会员', en: 'Membership' }
+];
+
 function SubscriptionFormSections({
   form,
   updateForm,
@@ -2030,7 +2049,15 @@ function SubscriptionFormSections({
             </select>
           </Field>
         </div>
-        <Field label={copy('服务商', 'Provider')}><input className={inputClass} value={String(form.provider ?? '')} onChange={(e) => updateForm('provider', e.target.value)} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={copy('服务商', 'Provider')}><input className={inputClass} value={String(form.provider ?? '')} onChange={(e) => updateForm('provider', e.target.value)} /></Field>
+          <Field label={copy('分类', 'Category')}>
+            <input className={inputClass} list="subscription-categories" placeholder={copy('如：影音、软件、云服务', 'e.g. Streaming, Software')} value={String(form.category ?? '')} onChange={(e) => updateForm('category', e.target.value)} />
+            <datalist id="subscription-categories">
+              {subscriptionCategorySuggestions.map((item) => <option key={item.zh} value={copy(item.zh, item.en)} />)}
+            </datalist>
+          </Field>
+        </div>
         {isBuyout ? (
           <>
             <div className="grid grid-cols-2 gap-3">
@@ -2063,8 +2090,8 @@ function SubscriptionFormSections({
 
       <Section title={copy('状态与备注', 'Status and notes')}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          {!isBuyout && <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>}
+          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statusOptions(copy)}</select></Field>
+          {!isBuyout && <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">{copy('开启', 'On')}</option><option value="false">{copy('关闭', 'Off')}</option></select></Field>}
         </div>
         <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
         {!isBuyout && <Field label={copy('续费链接', 'Renewal link')}><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>}
@@ -2209,8 +2236,8 @@ function VpsFormSections({
 
       <Section title={copy('状态与备注', 'Status and notes')}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
+          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statusOptions(copy)}</select></Field>
+          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">{copy('开启', 'On')}</option><option value="false">{copy('关闭', 'Off')}</option></select></Field>
         </div>
         <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
         <Field label={copy('续费链接', 'Renewal link')}><input className={inputClass} value={String(form.renewalUrl ?? '')} onChange={(e) => updateForm('renewalUrl', e.target.value)} /></Field>
@@ -2547,8 +2574,8 @@ function DomainFormSections({
 
       <Section title={copy('状态与备注', 'Status and notes')}>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></Field>
-          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">ON</option><option value="false">OFF</option></select></Field>
+          <Field label={copy('状态', 'Status')}><select className={inputClass} value={String(form.status)} onChange={(e) => updateForm('status', e.target.value)}>{statusOptions(copy)}</select></Field>
+          <Field label={copy('自动续费', 'Auto renew')}><select className={inputClass} value={String(form.autoRenew)} onChange={(e) => updateForm('autoRenew', e.target.value === 'true')}><option value="true">{copy('开启', 'On')}</option><option value="false">{copy('关闭', 'Off')}</option></select></Field>
         </div>
         <Field label={copy('支付方式', 'Payment method')}><input className={inputClass} value={String(form.paymentMethod ?? '')} onChange={(e) => updateForm('paymentMethod', e.target.value)} /></Field>
         <Field label={copy('用途', 'Purpose')}><input className={inputClass} value={String(form.purpose ?? '')} onChange={(e) => updateForm('purpose', e.target.value)} placeholder={copy('主站 / 邮箱 / 停放 / 转售', 'Main site / email / parking / resale')} /></Field>
@@ -2738,7 +2765,7 @@ function AssetCardView({
 function initialForm(config: AssetPageConfig): FormState {
   const base: FormState = {
     amount: '',
-    currency: 'CNY',
+    currency: getDefaultCurrency(),
     billingCycle: config.endpoint === 'domains' ? 'annual' : 'monthly',
     nextDueDate: '',
     status: 'active',
@@ -2861,7 +2888,6 @@ function formToPayload(config: AssetPageConfig, form: FormState): Record<string,
     }
   }
   if (config.endpoint === 'subscriptions') {
-    payload.category = null;
     if (payload.purchaseType === 'buyout') {
       payload.account = null;
       payload.billingCycle = 'annual';
@@ -2871,6 +2897,18 @@ function formToPayload(config: AssetPageConfig, form: FormState): Record<string,
     }
   }
   return payload;
+}
+
+const statusLabels: Record<AssetStatus, [string, string]> = {
+  active: ['使用中', 'Active'],
+  paused: ['暂停', 'Paused'],
+  expired: ['已过期', 'Expired'],
+  cancelled: ['已取消', 'Cancelled'],
+  archived: ['已归档', 'Archived']
+};
+
+function statusOptions(copy: (zh: string, en: string) => string) {
+  return statuses.map((value) => <option key={value} value={value}>{copy(...statusLabels[value])}</option>);
 }
 
 function nil(value: unknown): string | null | boolean {

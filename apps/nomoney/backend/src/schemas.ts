@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { currencies } from './utils.js';
 
-export const currencySchema = z.enum(['CNY', 'USD', 'GBP', 'EUR', 'CAD']);
+export const currencySchema = z.enum(currencies);
 export const billingCycleSchema = z.enum(['monthly', 'quarterly', 'annual', 'biennial']);
 const domainBillingCycleSchema = z.enum(['annual', 'biennial']);
 export const statusSchema = z.enum(['active', 'paused', 'expired', 'cancelled', 'archived']);

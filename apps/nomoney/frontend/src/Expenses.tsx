@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CalendarRange, Pencil, Plus, ReceiptText, Server, Trash2, WalletCards } from 'lucide-react';
 import type { AssetLookupItem, AssetType, Currency, ExpenseItem, ListMeta, ListResponse } from './types';
 import { api, ApiError } from './api';
-import { compactDate, currentShanghaiYear, formatMoney, shanghaiDateKey } from './format';
+import { getDefaultCurrency } from './preferences';
+import { compactDate, currentShanghaiYear, formatMoney, shanghaiDateKey, currencies } from './format';
 import { Button, DataTable, Drawer, EmptyState, Field, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
@@ -19,7 +20,6 @@ type ExpenseForm = {
   notes: string;
 };
 
-const currencies: Currency[] = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'];
 const assetTypes: AssetType[] = ['vps', 'domain'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
 const currentYear = currentShanghaiYear();
@@ -80,7 +80,7 @@ export function Expenses() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ ...initialForm, assetKey: assetOptions[0] ? toAssetKey(assetOptions[0].assetType, assetOptions[0].assetId) : '' });
+    setForm({ ...initialForm, currency: getDefaultCurrency(), assetKey: assetOptions[0] ? toAssetKey(assetOptions[0].assetType, assetOptions[0].assetId) : '' });
     setDrawerOpen(true);
   };
 

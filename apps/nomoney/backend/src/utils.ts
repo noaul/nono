@@ -1,6 +1,6 @@
 import type { BillingCycle, Currency } from './types.js';
 
-export const currencies = ['CNY', 'USD', 'GBP', 'EUR', 'CAD'] as const satisfies readonly Currency[];
+export const currencies = ['CNY', 'USD', 'HKD', 'JPY', 'GBP', 'EUR', 'CAD', 'SGD', 'AUD'] as const satisfies readonly Currency[];
 export const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
 
 export function toIsoDate(date: Date, timeZone = process.env.TZ || DEFAULT_TIME_ZONE): string {

@@ -237,6 +237,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
           </div>
         </header>
         <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pb-6 pt-3 sm:px-6 lg:pb-7 lg:pt-4">
+          {topbarActions && <div className="mb-3 flex flex-wrap items-center gap-2 sm:hidden">{topbarActions}</div>}
           <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
         </main>
       </div>

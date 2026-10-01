@@ -118,6 +118,7 @@ export const assetPageConfigs: AssetPageConfig[] = [
       { key: 'name', label: '名称', type: 'text', required: true },
       { key: 'purchaseType', label: '类型', type: 'text', required: true },
       { key: 'provider', label: '服务商', type: 'text' },
+      { key: 'category', label: '分类', type: 'text' },
       { key: 'account', label: '账号 / 邮箱', type: 'text' },
       { key: 'email', label: '邮箱', type: 'text' },
       { key: 'phoneNumber', label: '手机号', type: 'text' },
