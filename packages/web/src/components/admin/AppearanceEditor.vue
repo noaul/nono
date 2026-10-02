@@ -220,9 +220,6 @@ function fieldKind(key: AppearanceKey) {
               >
                 <span class="control-label">
                   {{ fieldLabel(key) }}
-                  <em v-if="changedKeys.has(key)" class="changed-dot" :title="t('appearance.editor.changed')">
-                    {{ t('appearance.editor.changed') }}
-                  </em>
                   <output v-if="fieldKind(key) === 'number'">{{ displayValue(key) }}</output>
                 </span>
 
@@ -497,11 +494,23 @@ function fieldKind(key: AppearanceKey) {
   position: relative;
 }
 
+/* One setting per row: a two-column grid mixed sliders, swatches and switches of different heights
+   and read as clutter. */
 .control-grid {
   display: grid;
-  gap: 8px 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
+}
+
+.control-grid > .control {
+  border-top: 1px solid var(--ae-line);
+  padding: 9px 0;
+}
+
+.control-grid > .control:first-child {
+  border-top: 0;
+  padding-top: 2px;
 }
 
 .control {
@@ -526,19 +535,11 @@ function fieldKind(key: AppearanceKey) {
   margin-left: auto;
 }
 
-/* A quiet marker, so a wall of controls still shows at a glance which ones were touched. */
-.changed-dot {
-  background: rgba(var(--accent-rgb, 15, 118, 110), 0.16);
-  border-radius: 999px;
-  color: var(--ae-accent);
-  font-size: 9.5px;
-  font-style: normal;
-  font-weight: 600;
-  padding: 1px 5px;
-}
 
 .control-color,
-.control-toggle {
+.control-toggle,
+.control-segmented,
+.control-enum {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -546,8 +547,14 @@ function fieldKind(key: AppearanceKey) {
 }
 
 .control-color .control-label,
-.control-toggle .control-label {
+.control-toggle .control-label,
+.control-segmented .control-label,
+.control-enum .control-label {
   flex: 1;
+}
+
+.control-label {
+  font-size: 12px;
 }
 
 .color-control {
@@ -637,10 +644,6 @@ function fieldKind(key: AppearanceKey) {
 }
 
 @media (max-width: 680px) {
-  .control-grid {
-    grid-template-columns: 1fr;
-  }
-
   .head-tools {
     width: 100%;
   }

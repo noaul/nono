@@ -63,7 +63,9 @@ describe('AppearanceSettingsDrawer', () => {
     apiRequest.mockResolvedValue({ ...site, backgroundColor: '#cfdcee', fontColor: '#3a3029' });
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
 
-    expect(wrapper.findAll('[data-testid^="theme-"]')).toHaveLength(6);
+    expect(wrapper.findAll('[data-testid^="theme-"]')).toHaveLength(4);
+    expect(wrapper.find('[data-testid="theme-starlit-night"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="theme-clear-day"]').exists()).toBe(false);
     await wrapper.get('[data-testid="theme-winter-glow"]').trigger('click');
     // The editor is generated from the schema, so a control is addressed by its setting key.
     const colorInput = (key: string) =>
@@ -87,7 +89,7 @@ describe('AppearanceSettingsDrawer', () => {
       bookmarkTextColor: '#3f352f',
       pageTitleColor: '#3a3029',
     });
-    expect(Object.keys(payload.settings.appearance)).toHaveLength(23);
+    expect(Object.keys(payload.settings.appearance)).toHaveLength(24);
     expect(wrapper.emitted('saved')).toHaveLength(1);
   });
 
@@ -102,7 +104,7 @@ describe('AppearanceSettingsDrawer', () => {
 
   it('restores and persists the scene intensity dial next to the theme wall', async () => {
     apiRequest.mockResolvedValue(site);
-    const savedSite = { ...site, settings: { ...site.settings, theme: { id: 'starlit-night', accent: '#f0b86e', sceneIntensity: 60 } } };
+    const savedSite = { ...site, settings: { ...site.settings, theme: { id: 'winter-glow', accent: '#f0b86e', sceneIntensity: 60 } } };
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site: savedSite } });
 
     const dial = wrapper.get('[data-testid="scene-intensity"]');
@@ -116,7 +118,7 @@ describe('AppearanceSettingsDrawer', () => {
     await vi.waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
 
     const payload = JSON.parse(apiRequest.mock.calls[0][1].body);
-    expect(payload.settings.theme).toMatchObject({ id: 'starlit-night', sceneIntensity: 40 });
+    expect(payload.settings.theme).toMatchObject({ id: 'winter-glow', sceneIntensity: 40 });
   });
 
   it('persists up to three named user presets', async () => {
@@ -287,7 +289,7 @@ describe('schema-driven appearance editor', () => {
     });
     await withScene.get('[data-testid="drawer-tab-texture"]').trigger('click');
     expect(withScene.find('[data-testid="appearance-group-scene"]').exists()).toBe(true);
-    expect(withScene.findAll('[data-testid^="control-"]')).toHaveLength(23);
+    expect(withScene.findAll('[data-testid^="control-"]')).toHaveLength(24);
     // No advanced drawer: everything that is left is worth showing.
     expect(wrapper.find('.advanced-block').exists()).toBe(false);
     expect(wrapper.findAll('[data-testid^="control-"]').every((control) => control.isVisible())).toBe(true);
@@ -356,18 +358,15 @@ describe('schema-driven appearance editor', () => {
     expect(wrapper.find('[data-testid="control-fontFamily"] select').exists()).toBe(true);
   });
 
-  it('offers size and speed for every scene and hides the group for static themes', async () => {
+  it('offers size and speed for every scene', async () => {
     const wrapper = mountDrawer();
 
-    for (const id of ['summer-breeze', 'verdant-leaves', 'rainy-world']) {
+    for (const id of ['summer-breeze', 'winter-glow', 'verdant-leaves', 'rainy-world']) {
       await wrapper.get(`[data-testid="theme-${id}"]`).trigger('click');
       expect(wrapper.find('[data-testid="control-sceneSpeed"]').exists(), id).toBe(true);
       expect(wrapper.find('[data-testid="control-sceneParticleSize"]').exists(), id).toBe(true);
       expect(wrapper.find('[data-testid="control-sceneCollision"]').exists(), id).toBe(false);
     }
-
-    await wrapper.get('[data-testid="theme-starlit-night"]').trigger('click');
-    expect(wrapper.find('[data-testid="appearance-group-scene"]').exists()).toBe(false);
   });
 
   it('resets the scene group back to the shipped speed', async () => {

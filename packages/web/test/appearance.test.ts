@@ -21,6 +21,8 @@ describe('appearance settings', () => {
       cardRadius: 24,
       cardOpacity: 12,
       cardBlur: 32,
+      // No saved search blur yet, so it inherits the folders' value as before the split.
+      searchBlur: 32,
       searchColor: '#a1b2c3',
       searchOpacity: 38,
       bookmarkTextColor: '#112233',
@@ -30,7 +32,7 @@ describe('appearance settings', () => {
   });
 
   it('keeps only the short editable set and ignores every retired key in old payloads', () => {
-    expect(Object.keys(appearanceDefaults)).toHaveLength(23);
+    expect(Object.keys(appearanceDefaults)).toHaveLength(24);
     const settings = getAppearanceSettings({
       appearance: {
         categoryTextColor: '#334455', tabColor: '#a1b2c3', adminBlur: 6,
@@ -65,6 +67,7 @@ describe('appearance settings', () => {
       ...appearanceDefaults,
       density: 'compact',
       cardBlur: 24,
+      searchBlur: 10,
       bookmarkTextColor: '#123456',
       pageTitleColor: '#abcdef',
     });
@@ -78,7 +81,15 @@ describe('appearance settings', () => {
       expect(vars[`${name}-rgb`]).toBe('18, 52, 86');
     }
     expect(vars['--public-description-text']).toBe('#abcdef');
-    expect(vars['--public-search-blur']).toBe('24px');
+    // Folders and the search bar / NoTab strip are frosted independently.
+    expect(vars['--public-card-blur']).toBe('24px');
+    expect(vars['--public-search-blur']).toBe('10px');
+  });
+
+  it('carries the old shared blur over to the new search blur only when none was saved', () => {
+    expect(getAppearanceSettings({ appearance: { cardBlur: 12 } })).toMatchObject({ cardBlur: 12, searchBlur: 12 });
+    expect(getAppearanceSettings({ appearance: { cardBlur: 12, searchBlur: 6 } })).toMatchObject({ cardBlur: 12, searchBlur: 6 });
+    expect(getAppearanceSettings({})).toMatchObject({ cardBlur: appearanceDefaults.cardBlur, searchBlur: appearanceDefaults.searchBlur });
   });
 
   it('keeps the default centered notab strip reachable when it overflows on mobile', () => {

@@ -9,7 +9,7 @@ type AppearanceSettings = Record<string, AppearanceValue>;
 const numericAppearanceFields: Record<string, readonly [number, number, number]> = {
   maxContentWidth: [2600, 960, 3200], folderColumns: [4, 1, 6], searchMaxWidth: [760, 360, 1200],
   cardRadius: [8, 0, 24], cardOpacity: [26, 12, 90], cardBlur: [18, 0, 32],
-  searchOpacity: [34, 12, 90], searchHeight: [52, 38, 76],
+  searchOpacity: [34, 12, 90], searchBlur: [20, 0, 32], searchHeight: [52, 38, 76],
   backgroundBrightness: [100, 40, 140], backgroundBlur: [0, 0, 40], backgroundOverlay: [0, 0, 100],
   sceneParticleSize: [100, 50, 200], sceneSpeed: [100, 25, 200], bookmarkTextSize: [14, 12, 18],
 };
@@ -55,7 +55,10 @@ function normalizeHex(value: unknown, fallback: string) {
 }
 
 function normalizeAppearance(input: unknown) {
-  const source = isRecord(input) ? input : {};
+  const source = isRecord(input) ? { ...input } : {};
+  // The search bar and NoTab used to share the folders' blur; the Web keeps that look for settings
+  // saved before the split, so the server must not fill in its own default first.
+  if (source.searchBlur === undefined && source.cardBlur !== undefined) source.searchBlur = source.cardBlur;
   const result: AppearanceSettings = {};
   for (const [key, [fallback, min, max]] of Object.entries(numericAppearanceFields)) {
     result[key] = normalizeNumber(source[key], fallback, min, max);

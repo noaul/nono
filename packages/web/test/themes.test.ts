@@ -25,26 +25,22 @@ describe('public themes', () => {
     expect(sceneSource).not.toContain("addEventListener('scroll', measureLedges");
   });
 
-  it('ships six seasonal presets with unique ids and complete visual tokens', () => {
+  it('ships four seasonal presets with unique ids and complete visual tokens', () => {
     // Names live in the catalogues now, so assert both locales resolve rather than one literal.
     expect(PUBLIC_THEMES.map((theme) => translate('zh', theme.nameKey))).toEqual([
       '夏日清爽',
       '冬日暖暖',
       '绿叶芬芳',
-      '星光闪耀',
-      '万物明朗',
       '雨落万物',
     ]);
     expect(PUBLIC_THEMES.map((theme) => translate('en', theme.nameKey))).toEqual([
       'Summer Breeze',
       'Winter Glow',
       'Verdant Leaves',
-      'Starlit Night',
-      'Clear Day',
       'Rainy World',
     ]);
     const ids = new Set(PUBLIC_THEMES.map((theme) => theme.id));
-    expect(ids.size).toBe(6);
+    expect(ids.size).toBe(4);
     for (const theme of PUBLIC_THEMES) {
       expect(['light', 'dark']).toContain(theme.tone);
       expect(theme.backgroundColor).toMatch(/^#[0-9a-f]{6}$/i);
@@ -73,7 +69,7 @@ describe('public themes', () => {
       expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
       expect(theme.appearance.pageTitleColor).toBe(theme.fontColor);
-      expect(Object.keys(theme.appearance)).toHaveLength(23);
+      expect(Object.keys(theme.appearance)).toHaveLength(24);
     }
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.searchColor)).size).toBeGreaterThan(3);
@@ -82,7 +78,10 @@ describe('public themes', () => {
 
   it('resolves current ids and migrates legacy ids without breaking saved settings', () => {
     expect(translate('zh', getTheme('verdant-leaves')!.nameKey)).toBe('绿叶芬芳');
-    expect(getTheme('midnight-glass')?.id).toBe('starlit-night');
+    expect(getTheme('midnight-glass')?.id).toBe('winter-glow');
+    // 星光闪耀 and 万物明朗 were withdrawn; sites that chose them still resolve to a theme.
+    expect(getTheme('starlit-night')?.id).toBe('winter-glow');
+    expect(getTheme('clear-day')?.id).toBe('summer-breeze');
     expect(getTheme('warm-paper')?.id).toBe('winter-glow');
     expect(getTheme('nope')).toBeUndefined();
   });
@@ -127,12 +126,10 @@ describe('public themes', () => {
     expect(getSceneIntensity({ theme: { sceneIntensity: 'nope' } })).toBe(100);
   });
 
-  it('keeps only the rain, snow, leaves, and bubbles scenes; the rest are static themes', () => {
-    const scenes = Object.fromEntries(PUBLIC_THEMES.map((theme) => [theme.id, theme.scene?.kind ?? null]));
-    expect(new Set(Object.values(scenes).filter(Boolean))).toEqual(new Set(['rain', 'snow', 'leaves', 'bubbles']));
-    expect(scenes['starlit-night']).toBeNull();
-    expect(scenes['clear-day']).toBeNull();
-    expect(themeCssVars(getTheme('clear-day')!)['--public-scene-opacity']).toBe('0');
+  it('gives every preset one of the rain, snow, leaves, and bubbles scenes', () => {
+    const scenes = PUBLIC_THEMES.map((theme) => theme.scene?.kind ?? null);
+    expect(new Set(scenes)).toEqual(new Set(['rain', 'snow', 'leaves', 'bubbles']));
+    expect(PUBLIC_THEMES.every((theme) => theme.appearance.searchBlur === theme.appearance.cardBlur)).toBe(true);
   });
 
   it('drops the scene controls from the editor for a static theme', () => {

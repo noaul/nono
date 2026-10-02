@@ -244,9 +244,10 @@ describe('NavigationPage public workflow', () => {
     const style = wrapper.get('.nav-page').attributes('style');
 
     expect(style).toContain('--public-card-radius: 16px');
-    // The search bar keeps the stylesheet radius and follows the panel blur now.
+    // The search bar keeps the stylesheet radius; its blur is its own setting again.
     expect(style).not.toContain('--public-search-radius');
-    expect(style).toContain('--public-search-blur: 20px');
+    expect(style).toContain('--public-card-blur: 20px');
+    expect(style).toContain('--public-search-blur: 8px');
     expect(style).not.toContain('--public-modal-');
     expect(style).not.toContain('--public-tab-');
     expect(style).not.toContain('--admin-surface-radius');
@@ -295,9 +296,9 @@ describe('NavigationPage public workflow', () => {
     const offWrapper = await mountNavigationPage();
     expect(offWrapper.find('[data-testid="theme-scene"]').exists()).toBe(false);
 
-    // Static themes draw nothing whatever the dial says.
+    // A theme without a scene (none ship today; an unknown id stands in) draws nothing.
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
-      theme: { id: 'starlit-night', sceneIntensity: 100 },
+      theme: { id: 'no-such-theme', sceneIntensity: 100 },
     }));
     const staticWrapper = await mountNavigationPage();
     expect(staticWrapper.find('[data-testid="theme-scene"]').exists()).toBe(false);

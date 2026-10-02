@@ -22,7 +22,7 @@ export interface AppearanceSettings {
   folderColumns: number;
   searchMaxWidth: number;
 
-  // -- Panels ----------------------------------------------------------------------------------
+  // -- Folder cards --------------------------------------------------------------------------
   cardColor: string;
   cardRadius: number;
   cardOpacity: number;
@@ -31,6 +31,7 @@ export interface AppearanceSettings {
   // -- Search bar and NoTab tabs -------------------------------------------------------------
   searchColor: string;
   searchOpacity: number;
+  searchBlur: number;
   searchHeight: number;
   notabAlign: NotabAlign;
 
@@ -119,22 +120,23 @@ export const APPEARANCE_FIELDS: { [K in AppearanceKey]: FieldFor<AppearanceSetti
   folderColumns: { kind: 'number', group: 'layout', default: 4, min: 1, max: 6, format: 'raw', cssVar: '--public-folder-columns' },
   searchMaxWidth: { kind: 'number', group: 'layout', default: 760, min: 360, max: 1200, step: 10, format: 'px', cssVar: '--public-search-max-width' },
 
-  // -- Panels ----------------------------------------------------------------------------------
+  // -- Folder cards (the "panel" names predate the split from the search bar's frosting) --------
   cardColor: { kind: 'color', group: 'folders', default: '#f7f8fb', cssVar: '--public-card-color' },
-  cardRadius: { kind: 'number', group: 'folders', default: 8, min: 0, max: 24, format: 'px', cssVar: '--public-card-radius' },
   cardOpacity: { kind: 'number', group: 'folders', default: 26, min: 12, max: 90, format: 'ratio', cssVar: '--public-card-opacity' },
   cardBlur: { kind: 'number', group: 'folders', default: 18, min: 0, max: 32, format: 'px', cssVar: '--public-card-blur' },
+  cardRadius: { kind: 'number', group: 'folders', default: 8, min: 0, max: 24, format: 'px', cssVar: '--public-card-radius' },
 
   // -- Search bar and NoTab tabs -------------------------------------------------------------
   searchColor: { kind: 'color', group: 'search', default: '#f7f8fb', cssVar: '--public-search-color' },
   searchOpacity: { kind: 'number', group: 'search', default: 34, min: 12, max: 90, format: 'ratio', cssVar: '--public-search-opacity' },
+  searchBlur: { kind: 'number', group: 'search', default: 20, min: 0, max: 32, format: 'px', cssVar: '--public-search-blur' },
   searchHeight: { kind: 'number', group: 'search', default: 52, min: 38, max: 76, format: 'px', cssVar: '--public-search-height' },
   notabAlign: { kind: 'enum', group: 'search', default: 'center', options: ['left', 'center'] },
 
   // -- Background ----------------------------------------------------------------------------
   backgroundImageEnabled: { kind: 'toggle', group: 'background', default: true },
-  backgroundBrightness: { kind: 'number', group: 'background', default: 100, min: 40, max: 140, format: 'percent', cssVar: '--public-bg-brightness' },
   backgroundBlur: { kind: 'number', group: 'background', default: 0, min: 0, max: 40, format: 'px', cssVar: '--public-bg-blur' },
+  backgroundBrightness: { kind: 'number', group: 'background', default: 100, min: 40, max: 140, format: 'percent', cssVar: '--public-bg-brightness' },
   backgroundOverlay: { kind: 'number', group: 'background', default: 0, min: 0, max: 100, format: 'ratio', cssVar: '--public-bg-overlay' },
 
   // -- Dynamic scenes ------------------------------------------------------------------------
@@ -235,8 +237,11 @@ function hexToRgb(hex: string) {
 
 /** Normalizes saved settings; keys that are no longer in the table are simply ignored. */
 export function getAppearanceSettings(settings?: Record<string, unknown> | null): AppearanceSettings {
-  const saved = isRecord(settings?.appearance) ? settings.appearance : {};
+  const saved = isRecord(settings?.appearance) ? { ...settings.appearance } : {};
   const result: Record<string, unknown> = {};
+  // The search bar and NoTab used to share the folders' blur; keep that look for settings saved
+  // before they got a slider of their own.
+  if (saved.searchBlur === undefined && saved.cardBlur !== undefined) saved.searchBlur = saved.cardBlur;
 
   for (const key of FIELD_KEYS) {
     const field: AppearanceField = APPEARANCE_FIELDS[key];
@@ -296,8 +301,6 @@ export function toAppearanceCssVars(appearance: AppearanceSettings): Record<stri
     setColor(vars, name, appearance.bookmarkTextColor);
   }
   setColor(vars, '--public-description-text', appearance.pageTitleColor);
-  // The search bar and NoTab strip share the panels' frosting rather than a blur of their own.
-  vars['--public-search-blur'] = `${appearance.cardBlur}px`;
 
   vars['--public-font-family'] = fontStack(appearance);
   // Plain `center` lets the flex line overflow equally on both sides; since a scrollable LTR

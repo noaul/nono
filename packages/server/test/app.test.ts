@@ -747,7 +747,7 @@ describe('NoNo Fastify app', () => {
     });
     // Only the editable set is stored; retired and derived keys are dropped on save.
     const saved = updated.json().data.settings.appearance;
-    expect(Object.keys(saved)).toHaveLength(23);
+    expect(Object.keys(saved)).toHaveLength(24);
     for (const retired of ['notabTextColor', 'folderGapX', 'categoryTextColor', 'tabColor', 'adminBlur']) {
       expect(saved).not.toHaveProperty(retired);
     }
