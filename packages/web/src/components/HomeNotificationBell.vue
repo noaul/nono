@@ -387,6 +387,7 @@ onBeforeUnmount(() => {
     bottom: 0;
     left: 0;
     max-height: min(78dvh, 620px);
+    padding-bottom: var(--nono-safe-bottom, 0px);
     position: fixed;
     right: 0;
     top: auto;

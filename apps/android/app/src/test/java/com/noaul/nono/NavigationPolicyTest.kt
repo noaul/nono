@@ -49,7 +49,14 @@ class NavigationPolicyTest {
     }
 
     @Test
-    fun onlyTheNoDeskHomeIsEdgeToEdge() {
+    fun wallpaperHomesAreEdgeToEdge() {
+        assertTrue(policy.isEdgeToEdge("https://noaul.com/"))
+        assertTrue(policy.isEdgeToEdge("https://noaul.com"))
+        assertTrue(policy.isEdgeToEdge("https://noaul.com/noaul"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/login?next=%2Fnodesk%2F"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/privacy"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/admin"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/nostar/"))
         assertTrue(policy.isEdgeToEdge("https://noaul.com/nodesk"))
         assertTrue(policy.isEdgeToEdge("https://noaul.com/nodesk/?settings=backups"))
         assertFalse(policy.isEdgeToEdge("https://noaul.com/nodesk/blog/post"))

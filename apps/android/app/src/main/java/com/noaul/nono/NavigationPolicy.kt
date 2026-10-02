@@ -36,14 +36,22 @@ class NavigationPolicy(baseUrl: String) {
     fun resolve(path: String): String = base.resolve(path).toString()
 
     /**
-     * The NoDesk home is a full-bleed wallpaper and positions its controls with the injected
-     * safe-area variables, so it is drawn under the status and gesture bars. Every other page keeps
-     * its content clear of them.
+     * The NoDesk home and the public navigation page (`/` and `/<username>`) are full-bleed
+     * wallpapers that position their controls with the injected safe-area variables, so they are
+     * drawn under the status and gesture bars. Every other page keeps its content clear of them.
      */
     fun isEdgeToEdge(raw: String?): Boolean {
         val uri = raw?.let { runCatching { URI(it.trim()) }.getOrNull() } ?: return false
         if (uri.host == null || !isSameOrigin(uri)) return false
-        return (uri.rawPath ?: "").trimEnd('/') == "/nodesk"
+        val path = (uri.rawPath ?: "").trimEnd('/')
+        if (path == "" || path == "/nodesk") return true
+        val segment = path.removePrefix("/")
+        return !segment.contains('/') && segment.lowercase() !in reservedRootPaths
+    }
+
+    private companion object {
+        /** Root paths that are apps or SPA pages rather than a user's navigation page. */
+        val reservedRootPaths = setOf("login", "setup", "privacy", "register", "admin", "api", "nodesk", "nomoney", "yumi", "nostar", "blog", "clipper")
     }
 
     private fun isSameOrigin(uri: URI): Boolean =

@@ -226,6 +226,9 @@ class MainActivity : ComponentActivity() {
         bottomBand.setBackgroundColor(bottom)
         // Side cutouts in landscape show the root, so match the page there too.
         root.setBackgroundColor(top)
+        // In 3-button navigation the system draws a translucent scrim behind the buttons; drop it on
+        // the full-bleed page so the wallpaper shows through, keep it elsewhere for contrast.
+        window.isNavigationBarContrastEnforced = !edge
         WindowCompat.getInsetsController(window, root).apply {
             isAppearanceLightStatusBars = if (edge) !(pageDark ?: night) else isLightColor(top)
             isAppearanceLightNavigationBars = if (edge) !(pageDark ?: night) else isLightColor(bottom)
