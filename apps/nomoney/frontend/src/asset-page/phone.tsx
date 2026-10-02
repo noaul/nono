@@ -156,7 +156,7 @@ export function PhoneCommandPanel({
     ? stats.foreignCountryCounts.map(({ country, count }) => `${country} ${count}`).join(' / ')
     : '-';
   return (
-    <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <section className="motion-list grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
       <DomainStat icon={<Phone size={17} />} label={copy('电话卡总数', 'Phone cards')} value={stats.total} detail={copy(`国内 ${stats.domestic} / 国外 ${stats.foreign}`, `${stats.domestic} domestic / ${stats.foreign} foreign`)} />
       <DomainStat icon={<Signal size={17} />} label={copy('总月花费', 'Monthly total')} value={formatMoneyTotals(stats.monthlyTotal)} detail={copy('按当前筛选结果合计', 'Total for the current filter')} mono />
       <DomainStat icon={<Database size={17} />} label={copy('国内运营商', 'Domestic carriers')} value={<CountPills entries={stats.carrierCounts} labelKey="carrier" />} detail={carrierSummary} />

@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ContactRound, Globe2, House, Languages, LayoutDashboard, LogOut, Menu, Moon, NotebookPen, ReceiptText, Repeat2, Server, Settings, Smartphone, Star, Sun, Trash2, X } from 'lucide-react';
+import { ContactRound, Ellipsis, Globe2, House, Languages, LayoutDashboard, LogOut, Moon, NotebookPen, ReceiptText, Repeat2, Server, Settings, Smartphone, Star, Sun, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
@@ -25,6 +25,9 @@ const yumiNavOrder = ['/dashboard', '/expenses', '/vps', '/domains', '/trash', '
 const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/expenses', '/accounts', '/trash', '/settings'];
 const activeNavOrder = product === 'yumi' ? yumiNavOrder : noMoneyNavOrder;
 const productNavItems = activeNavOrder.map((path) => navItems.find((item) => item.to === path)!);
+// Phones get a bottom tab bar with the four everyday pages; the rest stay in the 更多 drawer.
+const mobileTabOrder = product === 'yumi' ? ['/dashboard', '/vps', '/domains', '/expenses'] : ['/dashboard', '/subscriptions', '/phones', '/expenses'];
+const mobileTabs = mobileTabOrder.map((path) => navItems.find((item) => item.to === path)!);
 
 // The rest of the NoNo family lives on the same origin, outside this app's router base.
 const nonoApps = [
@@ -215,9 +218,6 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
       <div className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 py-2 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <button ref={mobileTriggerRef} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] md:hidden" onClick={() => setMobileOpen(true)} aria-label={copy('菜单', 'Menu')}>
-              <Menu size={20} />
-            </button>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : productMeta.name}</h1>
               <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</p>
@@ -237,11 +237,28 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
             </IconButton>
           </div>
         </header>
-        <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pb-6 pt-3 sm:px-6 lg:pb-7 lg:pt-4">
+        <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pt-3 sm:px-6 md:pb-6 lg:pb-7 lg:pt-4">
           {topbarActions && <div className="mb-3 flex flex-wrap items-center gap-2 sm:hidden">{topbarActions}</div>}
           <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
         </main>
       </div>
+
+      <nav className="nomoney-tabbar fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[color:var(--ui-border)] bg-[var(--ui-surface)] md:hidden" aria-label={copy('主导航', 'Main navigation')}>
+        {mobileTabs.map((item) => {
+          const Icon = item.icon;
+          const active = location.startsWith(item.to);
+          return (
+            <Link key={item.to} href={item.to} aria-current={active ? 'page' : undefined} className={clsx('flex flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium', active ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400')}>
+              <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+              <span>{language === 'zh' ? item.labelZh : item.labelEn}</span>
+            </Link>
+          );
+        })}
+        <button ref={mobileTriggerRef} type="button" onClick={() => setMobileOpen(true)} className={clsx('flex flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium', !mobileTabs.some((item) => location.startsWith(item.to)) ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400')}>
+          <Ellipsis size={20} />
+          <span>{copy('更多', 'More')}</span>
+        </button>
+      </nav>
     </div>
   );
 }

@@ -212,7 +212,7 @@ export function Dashboard() {
         description={copy('电话卡与订阅的循环成本、实际支出、买断投入和近期到期风险集中展示。', 'Recurring costs, real spend, one-off outlay, and upcoming renewal risk for SIM cards and subscriptions.')}
       />
 
-      <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="motion-list grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4">
         <MetricCard icon={<CircleDollarSign size={18} />} color="brand" label={copy('本月预测', 'Monthly forecast')} value={<ConvertedMoney total={summary.converted?.predictedMonthly} values={summary.predictedMonthly} />} detail={<MoneyBreakdown values={summary.predictedMonthly} total={summary.converted?.predictedMonthly} fallback={copy('按计费周期折算', 'Normalised by billing cycle')} />} />
         <MetricCard icon={<TrendingUp size={18} />} color="success" label={copy('年度预测', 'Yearly forecast')} value={<ConvertedMoney total={summary.converted?.predictedYearly} values={summary.predictedYearly} />} detail={<MoneyBreakdown values={summary.predictedYearly} total={summary.converted?.predictedYearly} fallback={copy('活跃循环资产的全年成本', 'Full-year cost of active recurring assets')} />} />
         <MetricCard icon={<BarChart3 size={18} />} color="warning" label={year === currentShanghaiYear() ? copy('年度实际', 'Yearly actual') : copy(`${year} 年实际`, `${year} actual`)} value={<ConvertedMoney total={summary.converted?.actualYearly} values={summary.actualYearly} />} detail={<MoneyBreakdown values={summary.actualYearly} total={summary.converted?.actualYearly} fallback={copy('标记已付或自动续费后计入', 'Counted when marked paid or auto-renewed')} />} />

@@ -139,11 +139,11 @@ export function MetricCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-          <div className="mt-2 font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{value}</div>
+          <div className="mt-1.5 font-mono text-lg font-semibold tracking-tight text-slate-950 sm:mt-2 sm:text-2xl dark:text-white">{value}</div>
         </div>
-        <div className={clsx('flex h-9 w-9 items-center justify-center rounded-xl border', tone[color])}>{icon}</div>
+        <div className={clsx('hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border sm:flex', tone[color])}>{icon}</div>
       </div>
-      {detail && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{detail}</p>}
+      {detail && <div className="mt-2 text-[11px] text-slate-500 sm:mt-3 sm:text-xs dark:text-slate-400">{detail}</div>}
     </div>
   );
 }

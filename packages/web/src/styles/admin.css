@@ -1559,3 +1559,116 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Bookmarks on phones: one compact row per link (checkbox | name, URL and folder | status and
+ * actions) instead of the generic eight-line label/value card. Rows being edited and the
+ * new-bookmark row keep the stacked form layout because they need every input.
+ */
+@media (max-width: 767px) {
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) {
+    align-items: center;
+    column-gap: var(--ui-space-2);
+    grid-template-columns: 28px minmax(0, 1fr) auto !important;
+    padding: var(--ui-space-2) var(--ui-space-3);
+    row-gap: 2px;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > [data-label] {
+    display: block;
+    padding: 0;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > [data-label]::before {
+    content: none;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .selection-cell {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .sort-cell {
+    display: none;
+  }
+
+  .bookmark-table.is-sorting .admin-table-row:not(:has(.inline-link-input)) > .sort-cell {
+    display: block;
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .bookmark-table.is-sorting .admin-table-row:not(:has(.inline-link-input)) > .selection-cell {
+    display: none;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > :nth-child(3) {
+    font-size: 14.5px;
+    font-weight: 600;
+    grid-column: 2;
+    grid-row: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .url-cell {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    grid-column: 2;
+    grid-row: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > :nth-child(5) {
+    color: var(--ui-text-subtle);
+    font-size: 11.5px;
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > :nth-child(6) {
+    display: none;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .link-health-cell {
+    font-size: 11.5px;
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .row-actions {
+    display: flex;
+    gap: 4px;
+    grid-column: 3;
+    grid-row: 2 / span 2;
+    justify-content: flex-end;
+  }
+
+  .bookmark-table .admin-table-row:not(:has(.inline-link-input)) > .row-actions .icon-button {
+    height: 32px;
+    width: 32px;
+  }
+}
+
+/* Dashboard shortcuts on phones: two compact tiles per row instead of tall full-width cards. */
+@media (max-width: 767px) {
+  .dashboard-primary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-primary-action {
+    gap: var(--ui-space-2);
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding: var(--ui-space-3);
+  }
+
+  .dashboard-primary-action > svg:last-child,
+  .dashboard-primary-action .dashboard-action-copy small {
+    display: none;
+  }
+}

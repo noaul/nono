@@ -726,7 +726,8 @@ mark {
     --public-bookmark-row-height: 34px;
     --public-bookmark-text-size: 11px;
     --public-bookmark-icon-size: 14px;
-    height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
+    /* A folder with a few links stays short; five rows is still the scrolling cap. */
+    height: auto;
     max-height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
     padding: 8px 3px 10px 8px;
   }
@@ -771,6 +772,19 @@ mark {
   .large-link:hover,
   .large-link:focus-visible {
     transform: none;
+  }
+}
+
+/*
+ * Narrow phones: two readable columns. At three, an 11px label kept only five or six characters
+ * ("MDN Web D…"), which made a page of bookmarks read as a wall of fragments.
+ */
+@media (max-width: 480px) {
+  .large-links {
+    --public-bookmark-row-height: 38px;
+    --public-bookmark-text-size: 13px;
+    --public-bookmark-icon-size: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

@@ -56,17 +56,17 @@ export function VpsCommandPanel({
   copy: (zh: string, en: string) => string;
 }) {
   return (
-    <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <section className="motion-list grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
       <VpsStat icon={<Server size={17} />} label={copy('在线节点', 'Online nodes')} value={`${stats.online}/${stats.total}`} detail={copy(`${stats.offline} 台离线或异常`, `${stats.offline} offline or failing`)} tone={stats.offline > 0 ? 'warning' : 'success'} />
       <VpsStat icon={<Wifi size={17} />} label={copy('探针覆盖', 'Probe coverage')} value={`${stats.configured}/${stats.total}`} detail={copy('已接入探针的节点', 'Nodes reporting via probe')} tone="brand" />
       <VpsStat icon={<Activity size={17} />} label={copy('平均负载', 'Average load')} value={formatPercent(stats.avgCpu)} detail={copy(`内存均值 ${formatPercent(stats.avgMemory)}`, `Memory average ${formatPercent(stats.avgMemory)}`)} tone={stats.avgCpu !== null && stats.avgCpu >= 80 ? 'danger' : 'brand'} />
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
+      <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-xs xl:col-span-1 dark:border-white/10 dark:bg-ink-850">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-slate-500 dark:text-slate-400">{copy('累计流量', 'Total transfer')}</p>
-            <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{formatBytes(stats.totalTrafficBytes)}</div>
+            <div className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl dark:text-white">{formatBytes(stats.totalTrafficBytes)}</div>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-success-500/20 bg-success-500/10 text-success-500"><Database size={17} /></div>
+          <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border sm:flex border-success-500/20 bg-success-500/10 text-success-500"><Database size={17} /></div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <span>
@@ -98,9 +98,9 @@ export function VpsStat({ icon, label, value, detail, tone }: { icon: React.Reac
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-          <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{value}</div>
+          <div className="mt-1 font-mono text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl dark:text-white">{value}</div>
         </div>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${toneClass}`}>{icon}</div>
+        <div className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border sm:flex ${toneClass}`}>{icon}</div>
       </div>
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{detail}</p>
     </div>
@@ -148,6 +148,7 @@ export function VpsNodeCard({
   const netOut = getMonitorNumber(item, monitorState, 'monitorNetOutBps', 'netOutBps');
   const totalIn = getMonitorNumber(item, monitorState, 'monitorNetTotalInBytes', 'netTotalInBytes') ?? 0;
   const totalOut = getMonitorNumber(item, monitorState, 'monitorNetTotalOutBytes', 'netTotalOutBytes') ?? 0;
+  const hasMetrics = [cpu, memory, disk, netIn, netOut].some((value) => value !== null && value !== undefined) || totalIn > 0 || totalOut > 0;
   const ipAddress = stringValue(item.ipAddress) || stringValue(item.sshHost) || '-';
   const canRenew = !['cancelled', 'archived'].includes(item.status);
 
@@ -182,28 +183,35 @@ export function VpsNodeCard({
         </span>
       </button>
 
-      <div className="mt-4 space-y-3">
-        <VpsMetricLine icon={<Cpu size={14} />} label="CPU" total={formatVpsCapacity(item.cpu, 'cpu')} value={cpu} />
-        <VpsMetricLine icon={<Database size={14} />} label={copy('内存', 'Memory')} total={formatVpsCapacity(item.memory, 'memory')} value={memory} />
-        <VpsMetricLine icon={<HardDrive size={14} />} label={copy('硬盘', 'Disk')} total={formatVpsCapacity(item.storage, 'storage')} value={disk} />
-      </div>
+      {/* Without any probe reading the metric rows would all be "-"; one line says so instead. */}
+      {hasMetrics ? <>
+        <div className="mt-4 space-y-3">
+          <VpsMetricLine icon={<Cpu size={14} />} label="CPU" total={formatVpsCapacity(item.cpu, 'cpu')} value={cpu} />
+          <VpsMetricLine icon={<Database size={14} />} label={copy('内存', 'Memory')} total={formatVpsCapacity(item.memory, 'memory')} value={memory} />
+          <VpsMetricLine icon={<HardDrive size={14} />} label={copy('硬盘', 'Disk')} total={formatVpsCapacity(item.storage, 'storage')} value={disk} />
+        </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
-          <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Download size={13} />{copy('下行', 'Down')}</p>
-          <div className="min-w-0 text-right">
-            <p className="truncate font-mono text-xs font-semibold text-success-600 dark:text-success-400">{formatBps(netIn)}</p>
-            <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalIn)}</p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
+            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Download size={13} />{copy('下行', 'Down')}</p>
+            <div className="min-w-0 text-right">
+              <p className="truncate font-mono text-xs font-semibold text-success-600 dark:text-success-400">{formatBps(netIn)}</p>
+              <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalIn)}</p>
+            </div>
+          </div>
+          <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
+            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Upload size={13} />{copy('上行', 'Up')}</p>
+            <div className="min-w-0 text-right">
+              <p className="truncate font-mono text-xs font-semibold text-brand-600 dark:text-brand-400">{formatBps(netOut)}</p>
+              <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalOut)}</p>
+            </div>
           </div>
         </div>
-        <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
-          <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Upload size={13} />{copy('上行', 'Up')}</p>
-          <div className="min-w-0 text-right">
-            <p className="truncate font-mono text-xs font-semibold text-brand-600 dark:text-brand-400">{formatBps(netOut)}</p>
-            <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalOut)}</p>
-          </div>
-        </div>
-      </div>
+      </> : (
+        <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+          {copy('尚无监控数据；配置探针后显示 CPU、内存、硬盘和流量。', 'No monitoring data yet; configure a probe to see CPU, memory, disk and traffic.')}
+        </p>
+      )}
 
       <TrafficQuotaLine item={item} copy={copy} />
 

@@ -114,7 +114,7 @@
 }
 
 @utility card {
-  @apply rounded-xl border border-slate-200 bg-white p-5 shadow-xs transition-all duration-200 ease-out dark:border-white/10 dark:bg-ink-850;
+  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-xs transition-all duration-200 ease-out sm:p-5 dark:border-white/10 dark:bg-ink-850;
 }
 @utility card-hover {
   @apply card hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:hover:border-white/20;
@@ -158,7 +158,8 @@
 
 /* Generate with the utilities so responsive padding can override this mobile baseline. */
 @utility nomoney-page-main {
-  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  /* Clear the phone tab bar (about 3.5rem plus the gesture area); md:pb-* restores desktop spacing. */
+  padding-bottom: calc(5rem + var(--nono-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 /* Tailwind 3 emitted these rules after its utilities. Unlayered CSS would now beat every
@@ -177,6 +178,10 @@
   :focus-visible {
     outline: 2px solid rgb(20 184 166 / 0.72);
     outline-offset: 2px;
+  }
+
+  .nomoney-tabbar {
+    padding-bottom: var(--nono-safe-bottom, env(safe-area-inset-bottom));
   }
 
   .nomoney-mobile-overlay,

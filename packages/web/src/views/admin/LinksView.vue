@@ -1181,9 +1181,21 @@ onMounted(load);
 }
 
 @media (max-width: 720px) {
-  .bulk-list-tools,
-  .bulk-list-tools .button,
+  /* Search on its own line first, then the two tool buttons side by side. */
+  .bulk-list-tools {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .bulk-list-tools .button {
+    width: 100%;
+  }
+
   .bulk-list-tools .admin-search-input {
+    grid-column: 1 / -1;
+    order: -1;
     width: 100%;
   }
 
@@ -1201,24 +1213,37 @@ onMounted(load);
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-surface-radius, 8px);
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
     min-width: 0;
-    padding: 10px;
+    padding: 8px 10px;
   }
 
+  /* One line: icon, name with the link count beneath, actions. The NoTab is already selected in
+     the pills above and the AI hint is an editing detail, so both stay in the editor. */
   .folder-summary-row > * {
-    padding: 6px 8px;
+    padding: 0 4px;
+  }
+
+  .folder-summary-row > :nth-child(1) {
+    grid-row: 1 / span 2;
   }
 
   .folder-summary-row > :nth-child(3),
-  .folder-summary-row > :nth-child(4),
   .folder-summary-row > :nth-child(5) {
-    grid-column: 2 / -1;
+    display: none;
+  }
+
+  .folder-summary-row > :nth-child(4) {
+    color: var(--admin-muted, var(--ui-text-muted));
+    font-size: 12px;
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .folder-summary-row > .row-actions {
     grid-column: 3;
-    grid-row: 1 / 3;
+    grid-row: 1 / span 2;
   }
 
   .folder-summary-name {

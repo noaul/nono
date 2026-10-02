@@ -38,7 +38,7 @@ export function DomainCommandPanel({
   copy: (zh: string, en: string) => string;
 }) {
   return (
-    <section className="motion-list grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <section className="motion-list grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
       <DomainPeriodTotalCard totals={renewalTotals} copy={copy} />
       <DomainStat icon={<ShieldCheck size={17} />} label={copy('注册商', 'Registrars')} value={stats.registrarCount} detail={copy(`${stats.accountCount} 个服务商账号`, `${stats.accountCount} registrar accounts`)} />
       <DomainStat icon={<CalendarClock size={17} />} label={copy('30 天风险', '30-day risk')} value={stats.riskWithin30Days} detail={copy('按续费/到期日期合并判断', 'Calculated from renewal or expiry dates')} />
@@ -59,7 +59,7 @@ export function DomainPeriodTotalCard({ totals, copy }: { totals?: RenewalTotals
   const currency = summary?.convertedTotal.currency ?? totals?.displayCurrency ?? 'CNY';
   const title = mode === 'yearly' ? copy('未来一年续费合计', 'Next 12 months renewals') : copy('下月续费合计', 'Next-month renewals');
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-ink-850">
+    <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-xs xl:col-span-1 dark:border-white/10 dark:bg-ink-850">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-slate-500 dark:text-slate-400">{title}</p>
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-[11px] dark:border-white/10 dark:bg-white/[0.04]">
@@ -107,9 +107,9 @@ export function DomainStat({ icon, label, value, detail, mono = false }: { icon:
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-          <div className={`${mono ? 'font-mono' : 'font-sans'} mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white`}>{value}</div>
+          <div className={`${mono ? 'font-mono' : 'font-sans'} mt-1 text-xl font-semibold tracking-tight sm:text-2xl text-slate-950 dark:text-white`}>{value}</div>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-500/20 bg-brand-500/10 text-brand-500">{icon}</div>
+        <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border sm:flex border-brand-500/20 bg-brand-500/10 text-brand-500">{icon}</div>
       </div>
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{detail}</p>
     </div>

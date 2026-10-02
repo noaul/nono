@@ -1,5 +1,5 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownAZ, ArrowUpAZ, CalendarClock, Check, Copy, ExternalLink, Grid3X3, Link2, List, Pencil, Plus, RefreshCw, Search, ShieldCheck, Terminal, Trash2, X } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, CalendarClock, Check, Copy, ExternalLink, Grid3X3, Link2, List, Pencil, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Terminal, Trash2, X } from 'lucide-react';
 import type { AssetPageConfig } from './assetConfig';
 import { useLayoutActions } from './Layout';
 import type { AssetItem, Currency, ListMeta, ListResponse } from './types';
@@ -1027,6 +1027,9 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     return () => setTopbarActions(null);
   }, [setTopbarActions]);
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [status, vpsType, monitorStatus, category, tag, currency, billingCycle, registrarAccount, domainExtension].filter(Boolean).length;
+
   // "/" focuses search and "n" opens a new entry, unless the user is typing somewhere.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1053,10 +1056,15 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
       {!isPhoneVisual && <section className="card">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] flex-[1_1_240px]">
+          <div className="relative min-w-0 flex-[1_1_160px] sm:min-w-[200px] sm:flex-[1_1_240px]">
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
             <input ref={searchRef} className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : isVps ? copy('搜索节点 / IP / 服务商 / 标签', 'Search nodes, IPs, tags') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
+          {/* Phones show only search; the filters and tools open from here. */}
+          <button type="button" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 sm:hidden" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
+            <SlidersHorizontal size={16} />{copy('筛选', 'Filter')}{activeFilterCount > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] leading-5 text-white">{activeFilterCount}</span>}
+          </button>
+          <div className={filtersOpen ? 'contents' : 'hidden sm:contents'}>
           {isVps ? (
             <>
               <select className={filterClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)} aria-label={copy('类型', 'Type')}>
@@ -1142,6 +1150,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
               <List size={16} />
             </IconButton>
           </div>
+          </div>
         </div>
       </section>}
 
@@ -1157,7 +1166,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       ) : items.length === 0 ? (
         <EmptyState title={copy(`暂无${config.singular}`, `No ${assetSingular(config.singular, language)}s yet`)} description={copy('换个筛选条件，或新增一条资产记录。', 'Try another filter, or add a record.')} action={<Button onClick={openCreate}><Plus size={16} />{copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>} />
       ) : view === 'card' ? (
-        <div className="motion-list grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="motion-list grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {items.map((item) => isDomain
             ? <DomainCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} renewing={renewals.renewingId === item.id} renewed={false} onDuplicate={duplicateEntry} onRenew={renewItem} checkAction={domainCheckAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isVps

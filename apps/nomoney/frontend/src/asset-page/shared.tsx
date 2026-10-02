@@ -158,9 +158,9 @@ export function AssetCardView({
         </div>
         <StatusBadge status={item.status} />
       </div>
-      <div className="mt-5 flex items-end justify-between gap-4">
+      <div className="mt-3 flex items-end justify-between gap-4 sm:mt-5">
         <div>
-          <p className="font-mono text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
+          <p className="font-mono text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
           <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
         </div>
         {left !== null && (
@@ -171,11 +171,11 @@ export function AssetCardView({
         )}
       </div>
       {item.tags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4">
           {item.tags.map((tag) => <span key={tag} className="rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 dark:border-white/10">{tag}</span>)}
         </div>
       )}
-      <div className="mt-5 flex justify-end gap-1 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+      <div className="mt-3 flex justify-end gap-1 border-t border-slate-100 pt-2 sm:mt-5 sm:pt-3 dark:border-white/[0.06]">
         {item.renewalUrl && (
           <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开续费链接', 'Open renewal link')}>
             <ExternalLink size={14} />
