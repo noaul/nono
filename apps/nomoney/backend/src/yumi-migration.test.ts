@@ -37,7 +37,6 @@ describe('NoMoney to Yumi database migration', () => {
     const sourcePath = path.join(directory, 'nomoney.db');
     const targetPath = path.join(directory, 'yumi.db');
     const source = await createDatabase({ persist: true, filePath: sourcePath });
-    source.run("INSERT INTO users (id, username, password_hash, email, session_version, created_at, updated_at) VALUES (7, 'owner', 'hash', 'owner@example.com', 3, '2026-01-01', '2026-01-01')");
     source.run("INSERT INTO vps (id, name, ssh_password, probe_api_key, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (11, 'nc48', ?, ?, 1000, 'USD', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')", [encryptSecret('ssh-secret', oldKey), encryptSecret('probe-secret', oldKey)]);
     source.run("INSERT INTO domains (id, domain_name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (12, 'example.com', 1200, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
     source.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (21, 'vps', 11, 1000, 'USD', '2026-01-02', 'renewal', '2026-01-02', '2026-01-02')");
@@ -55,7 +54,7 @@ describe('NoMoney to Yumi database migration', () => {
     const sourceHashAfter = createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
     const yumi = await createDatabase({ persist: true, filePath: targetPath, product: 'yumi' });
 
-    expect(result).toMatchObject({ migrated: true, counts: { users: 1, vps: 1, domains: 1, expenses: 1, renewalEvents: 1, reminderLogs: 1 } });
+    expect(result).toMatchObject({ migrated: true, counts: { vps: 1, domains: 1, expenses: 1, renewalEvents: 1, reminderLogs: 1 } });
     expect(sourceHashAfter).toBe(sourceHashBefore);
     expect(yumi.get<{ id: number }>('SELECT id FROM vps WHERE id = 11')?.id).toBe(11);
     expect(yumi.get<{ asset_id: number }>('SELECT asset_id FROM expenses WHERE id = 21')?.asset_id).toBe(11);

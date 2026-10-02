@@ -54,16 +54,22 @@ export interface SshExecResult {
 
 export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
 
+export interface SessionUser {
+  id: number;
+  username: string;
+  role: 'admin' | 'user';
+}
+
+export type SessionVerifier = (token: string) => Promise<SessionUser | null>;
+
 export interface AppContext {
   db: DbClient;
   product?: ProductMode;
-  jwtSecret: string;
-  bootstrapToken?: string;
+  /** Resolves a forwarded NoNo session cookie to its user, or null when it is not a live session. */
+  verifySession: SessionVerifier;
   internalToken?: string;
   publicOrigin?: string;
   encryptionKey: string;
-  cookieSecure: boolean;
-  cookiePath: string;
   now: () => Date;
   mailer: Mailer;
   fetch?: typeof fetch;

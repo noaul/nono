@@ -1,331 +1,99 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type { Request, Response, NextFunction, Router } from 'express';
-import { z } from 'zod';
-import type { AppContext } from './types.js';
-import { asyncHandler, HttpError, parseBody } from './http.js';
-import { toIsoDateTime } from './utils.js';
+import type { AppContext, SessionUser, SessionVerifier } from './types.js';
 
-function cookieName(context: AppContext): string {
-  return context.product === 'yumi' ? 'yumi_session' : 'moneypulse_session';
-}
-const authWindowMs = 15 * 60 * 1000;
-export const maxAuthAttempts = 8;
 /**
- * Buckets are keyed per (ip, username) and are otherwise only dropped when that exact key is
- * revisited after lapsing, so an attacker cycling usernames would grow this map without bound.
- * `pruneAuthRateLimit` caps it.
+ * NoMoney and Yumi have no accounts of their own: every request is authorised by the NoNo browser
+ * session that the gateway forwards on the same origin. The products hold one owner's data, so only
+ * a NoNo administrator may use them.
  */
-export const maxAuthRateKeys = 10_000;
-export type AuthAttempt = { count: number; resetAt: number };
-const authAttempts = new WeakMap<AppContext, Map<string, AuthAttempt>>();
-const setupQueues = new WeakMap<AppContext, Promise<void>>();
-
-const setupSchema = z.object({
-  username: z.string().trim().min(1),
-  password: z.string().min(8),
-  email: z.string().email(),
-  bootstrapToken: z.string().optional()
-});
-
-const loginSchema = z.object({
-  username: z.string().trim().min(1),
-  password: z.string().min(1)
-});
-
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8)
-});
+export const nonoSessionCookie = 'nono_session';
 
 export function registerAuthRoutes(router: Router, context: AppContext): void {
-  router.get('/auth/setup-status', (_req, res) => {
-    res.json({ needsSetup: !hasUser(context) });
+  router.get('/auth/me', requireAuth(context), (_req, res) => {
+    res.json({ user: res.locals.user });
   });
-
-  router.post(
-    '/auth/setup',
-    asyncHandler(async (req, res) => {
-      const rateKey = authRateKey(req, 'setup');
-      assertAuthRateLimit(context, rateKey);
-      try {
-        const body = parseBody(setupSchema, req.body);
-        assertBootstrapToken(context.bootstrapToken, body.bootstrapToken);
-        await withSetupLock(context, async () => {
-          if (hasUser(context)) {
-            throw new HttpError(409, 'SETUP_ALREADY_DONE', 'Setup has already been completed');
-          }
-
-          const now = toIsoDateTime(context.now());
-          const passwordHash = await bcrypt.hash(body.password, 10);
-          const id = context.db.insert(
-            `INSERT INTO users (username, password_hash, email, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?)`,
-            [body.username, passwordHash, body.email, now, now]
-          );
-          const user = getPublicUser(context, id);
-          setSessionCookie(res, context, id);
-          clearAuthRateLimit(context, rateKey);
-          res.status(201).json({ user });
-        });
-      } catch (error) {
-        recordFailedAuthAttempt(context, rateKey);
-        throw error;
-      }
-    })
-  );
-
-  router.post(
-    '/auth/login',
-    asyncHandler(async (req, res) => {
-      const body = parseBody(loginSchema, req.body);
-      const rateKey = authRateKey(req, 'login', body.username);
-      assertAuthRateLimit(context, rateKey);
-      const user = context.db.get<{ id: number; username: string; password_hash: string; email: string }>(
-        'SELECT id, username, password_hash, email FROM users WHERE username = ?',
-        [body.username]
-      );
-
-      const passwordMatches = await bcrypt.compare(body.password, user?.password_hash || await absentUserHash());
-      if (!user || !passwordMatches) {
-        recordFailedAuthAttempt(context, rateKey);
-        throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
-      }
-
-      setSessionCookie(res, context, Number(user.id));
-      clearAuthRateLimit(context, rateKey);
-      res.json({ user: getPublicUser(context, Number(user.id)) });
-    })
-  );
-
-  router.post('/auth/logout', (req, res) => {
-    revokeRequestSession(context, req);
-    res.clearCookie(cookieName(context), cookieOptions(context));
-    res.status(204).end();
-  });
-
-  router.get('/auth/me', requireAuth(context), (req, res) => {
-    res.json({ user: getPublicUser(context, Number(res.locals.userId)) });
-  });
-
-  router.put(
-    '/auth/password',
-    requireAuth(context),
-    asyncHandler(async (req, res) => {
-      const body = parseBody(passwordSchema, req.body);
-      const user = context.db.get<{ id: number; password_hash: string }>(
-        'SELECT id, password_hash FROM users WHERE id = ?',
-        [Number(res.locals.userId)]
-      );
-      if (!user || !(await bcrypt.compare(body.currentPassword, user.password_hash))) {
-        throw new HttpError(400, 'INVALID_PASSWORD', 'Current password is incorrect');
-      }
-
-      const passwordHash = await bcrypt.hash(body.newPassword, 10);
-      context.db.run('UPDATE users SET password_hash = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?', [
-        passwordHash,
-        toIsoDateTime(context.now()),
-        Number(user.id)
-      ]);
-      setSessionCookie(res, context, Number(user.id));
-      res.status(204).end();
-    })
-  );
-}
-
-/**
- * The hash of a password nobody holds, derived once on first use at the same cost factor as a real
- * one. An unknown username is compared against this rather than short-circuiting, so a failed login
- * takes the same time either way instead of answering instantly for accounts that do not exist.
- */
-let absentUserPasswordHash: Promise<string> | null = null;
-
-function absentUserHash(): Promise<string> {
-  absentUserPasswordHash ??= bcrypt.hash(randomUUID(), 10);
-  return absentUserPasswordHash;
-}
-
-async function withSetupLock(context: AppContext, operation: () => Promise<void>): Promise<void> {
-  let releaseSetup!: () => void;
-  const previousSetup = setupQueues.get(context) || Promise.resolve();
-  setupQueues.set(context, new Promise<void>((resolve) => {
-    releaseSetup = resolve;
-  }));
-  await previousSetup;
-  try {
-    await operation();
-  } finally {
-    releaseSetup();
-  }
 }
 
 export function requireAuth(context: AppContext) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies?.[cookieName(context)];
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const token = req.cookies?.[nonoSessionCookie];
     if (!token) {
       res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
       return;
     }
 
+    let user: SessionUser | null;
     try {
-      const payload = jwt.verify(token, context.jwtSecret) as { sub: string; sv?: number; jti?: string };
-      const userId = Number(payload.sub);
-      const sessionVersion = Number(payload.sv);
-      const sessionId = String(payload.jti || '');
-      const user = context.db.get<{ session_version: number }>(
-        'SELECT session_version FROM users WHERE id = ?',
-        [userId]
-      );
-      const session = sessionId ? context.db.get<{ jti: string }>(
-        'SELECT jti FROM auth_sessions WHERE jti = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?',
-        [sessionId, userId, toIsoDateTime(context.now())]
-      ) : undefined;
-      if (!user || !session || !Number.isFinite(sessionVersion) || Number(user.session_version) !== sessionVersion) {
-        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
-        return;
-      }
-      res.locals.userId = userId;
-      next();
+      user = await context.verifySession(String(token));
     } catch {
+      res.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'NoNo session service is unavailable' } });
+      return;
+    }
+    if (!user) {
       res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
+      return;
     }
+    if (user.role !== 'admin') {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Administrator permission required' } });
+      return;
+    }
+    res.locals.userId = user.id;
+    res.locals.user = user;
+    next();
   };
 }
 
-function hasUser(context: AppContext): boolean {
-  const row = context.db.get<{ count: number }>('SELECT COUNT(*) as count FROM users');
-  return Number(row?.count ?? 0) > 0;
+interface NonoSessionVerifierOptions {
+  /** Base URL of NoNo's internal listener, e.g. http://127.0.0.1:3001. */
+  baseUrl: string;
+  internalToken: string;
+  fetch?: typeof fetch;
+  ttlMs?: number;
+  now?: () => number;
 }
 
-function getPublicUser(context: AppContext, id: number) {
-  const user = context.db.get<{ id: number; username: string; email: string }>(
-    'SELECT id, username, email FROM users WHERE id = ?',
-    [id]
-  );
-  if (!user) {
-    throw new HttpError(404, 'USER_NOT_FOUND', 'User not found');
-  }
-  return { id: Number(user.id), username: String(user.username), email: String(user.email) };
-}
+const maxCachedSessions = 1_000;
 
-function setSessionCookie(res: Response, context: AppContext, userId: number): void {
-  const sessionVersion = getSessionVersion(context, userId);
-  const sessionId = randomUUID();
-  const createdAt = context.now();
-  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-  context.db.run('DELETE FROM auth_sessions WHERE expires_at <= ?', [toIsoDateTime(createdAt)]);
-  context.db.run(
-    'INSERT INTO auth_sessions (jti, user_id, expires_at, revoked_at, created_at) VALUES (?, ?, ?, NULL, ?)',
-    [sessionId, userId, toIsoDateTime(expiresAt), toIsoDateTime(createdAt)]
-  );
-  const token = jwt.sign({ sub: String(userId), sv: sessionVersion, jti: sessionId }, context.jwtSecret, { expiresIn: '30d' });
-  res.cookie(cookieName(context), token, {
-    ...cookieOptions(context),
-    maxAge: 30 * 24 * 60 * 60 * 1000
-  });
-}
+/**
+ * Asks NoNo who owns a session cookie. Answers are cached briefly by cookie hash so a page load that
+ * fires a dozen API calls costs one round trip; a logout therefore takes effect within `ttlMs`.
+ */
+export function createNonoSessionVerifier(options: NonoSessionVerifierOptions): SessionVerifier {
+  const fetcher = options.fetch ?? fetch;
+  const ttlMs = options.ttlMs ?? 30_000;
+  const now = options.now ?? Date.now;
+  const cache = new Map<string, { user: SessionUser | null; expiresAt: number }>();
 
-function revokeRequestSession(context: AppContext, req: Request): void {
-  const token = req.cookies?.[cookieName(context)];
-  if (!token) return;
-  try {
-    const payload = jwt.verify(token, context.jwtSecret) as { sub?: string; jti?: string };
-    const userId = Number(payload.sub);
-    if (payload.jti && Number.isInteger(userId)) {
-      context.db.run(
-        'UPDATE auth_sessions SET revoked_at = ? WHERE jti = ? AND user_id = ? AND revoked_at IS NULL',
-        [toIsoDateTime(context.now()), payload.jti, userId]
-      );
+  return async (token) => {
+    const key = createHash('sha256').update(token).digest('hex');
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > now()) return cached.user;
+
+    const response = await fetcher(`${options.baseUrl}/api/internal/auth/session`, {
+      headers: {
+        cookie: `${nonoSessionCookie}=${token}`,
+        'x-nono-internal-token': options.internalToken
+      },
+      redirect: 'error',
+      signal: AbortSignal.timeout(3_000)
+    });
+    let user: SessionUser | null = null;
+    if (response.ok) {
+      const body = await response.json() as { data?: { user?: SessionUser } };
+      const candidate = body.data?.user;
+      if (candidate && Number.isInteger(candidate.id)) {
+        user = { id: candidate.id, username: String(candidate.username), role: candidate.role === 'admin' ? 'admin' : 'user' };
+      }
+    } else if (response.status !== 401) {
+      throw new Error(`NoNo session check failed with HTTP ${response.status}`);
     }
-  } catch {
-    // Clearing an invalid cookie remains idempotent.
-  }
-}
 
-function assertBootstrapToken(expected: string | undefined, supplied: string | undefined): void {
-  if (!expected) return;
-  const expectedBuffer = Buffer.from(expected);
-  const suppliedBuffer = Buffer.from(supplied || '');
-  if (expectedBuffer.length !== suppliedBuffer.length || !timingSafeEqual(expectedBuffer, suppliedBuffer)) {
-    throw new HttpError(403, 'INVALID_BOOTSTRAP_TOKEN', 'Invalid bootstrap token');
-  }
-}
-
-function cookieOptions(context: AppContext) {
-  return {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: context.cookieSecure,
-    path: context.cookiePath
+    if (cache.size >= maxCachedSessions) {
+      for (const [cachedKey, entry] of cache) if (entry.expiresAt <= now()) cache.delete(cachedKey);
+      if (cache.size >= maxCachedSessions) cache.clear();
+    }
+    cache.set(key, { user, expiresAt: now() + ttlMs });
+    return user;
   };
-}
-
-function getSessionVersion(context: AppContext, userId: number): number {
-  const row = context.db.get<{ session_version: number }>(
-    'SELECT session_version FROM users WHERE id = ?',
-    [userId]
-  );
-  return Number(row?.session_version ?? 1);
-}
-
-function authRateKey(req: Request, scope: string, username = ''): string {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  return `${scope}:${ip}:${username.trim().toLowerCase()}`;
-}
-
-function rateBuckets(context: AppContext) {
-  let buckets = authAttempts.get(context);
-  if (!buckets) {
-    buckets = new Map();
-    authAttempts.set(context, buckets);
-  }
-  return buckets;
-}
-
-function assertAuthRateLimit(context: AppContext, key: string): void {
-  const now = Date.now();
-  const buckets = rateBuckets(context);
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.delete(key);
-    return;
-  }
-  if (bucket.count >= maxAuthAttempts) {
-    throw new HttpError(429, 'AUTH_RATE_LIMITED', 'Too many authentication attempts. Please try again later.');
-  }
-}
-
-function recordFailedAuthAttempt(context: AppContext, key: string): void {
-  const now = Date.now();
-  const buckets = rateBuckets(context);
-  const bucket = buckets.get(key);
-  if (bucket && bucket.resetAt > now) {
-    bucket.count += 1;
-    return;
-  }
-  if (!buckets.has(key)) pruneAuthRateLimit(buckets, now);
-  buckets.set(key, { count: 1, resetAt: now + authWindowMs });
-}
-
-export function pruneAuthRateLimit(buckets: Map<string, AuthAttempt>, now: number): void {
-  if (buckets.size < maxAuthRateKeys) return;
-
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt <= now) buckets.delete(key);
-  }
-  if (buckets.size < maxAuthRateKeys) return;
-
-  // Nothing had lapsed yet, so shed a batch rather than sweeping again on the very next insert.
-  // Fewest attempts go first, which is what makes shedding safe: a flood of fresh keys carries a
-  // count of 1 and evicts itself, while an account actually approaching its lockout is the last
-  // thing dropped. Soonest-to-expire only breaks ties.
-  const ordered = [...buckets].sort((left, right) => (
-    left[1].count - right[1].count || left[1].resetAt - right[1].resetAt
-  ));
-  for (const [key] of ordered.slice(0, Math.ceil(maxAuthRateKeys / 10))) buckets.delete(key);
-}
-
-function clearAuthRateLimit(context: AppContext, key: string): void {
-  rateBuckets(context).delete(key);
 }

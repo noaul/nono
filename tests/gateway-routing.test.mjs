@@ -62,5 +62,26 @@ test('identifies internal NoMoney and Yumi APIs that must not be routed publicly
   assert.equal(isPublicInternalPath('/NoMoney/API/Internal/vps/1/renew'), true);
   assert.equal(isPublicInternalPath('/nomoney/api/%69nternal/vps/1/renew'), true);
   assert.equal(isPublicInternalPath('/yumi/api/status/overview'), false);
-  assert.equal(isPublicInternalPath('/api/internal/anything'), false);
+  assert.equal(isPublicInternalPath('/api/internal/auth/session'), true);
+  assert.equal(isPublicInternalPath('/api/internals'), false);
+});
+
+test('sends signed-out page loads of NoNo-only apps to the login page', async () => {
+  const { loginRedirectFor } = await import(pathToFileURL(modulePath));
+  const page = (url, extra = {}) => ({ method: 'GET', url, headers: { accept: 'text/html,application/xhtml+xml', ...extra } });
+
+  assert.equal(loginRedirectFor(page('/nomoney/')), '/login?next=%2Fnomoney%2F');
+  assert.equal(loginRedirectFor(page('/yumi/vps?id=2')), '/login?next=%2Fyumi%2Fvps%3Fid%3D2');
+  assert.equal(loginRedirectFor(page('/nostar')), '/login?next=%2Fnostar');
+  assert.equal(loginRedirectFor(page('/admin/links')), '/login?next=%2Fadmin%2Flinks');
+
+  assert.equal(loginRedirectFor(page('/nomoney/', { cookie: 'a=1; nono_session=abc' })), null);
+  assert.equal(loginRedirectFor(page('/nomoney/api/phones')), null);
+  assert.equal(loginRedirectFor(page('/yumi/assets/index.js')), null);
+  assert.equal(loginRedirectFor({ method: 'GET', url: '/nomoney/', headers: { accept: 'application/json' } }), null);
+  assert.equal(loginRedirectFor({ method: 'POST', url: '/admin', headers: { accept: 'text/html' } }), null);
+  assert.equal(loginRedirectFor(page('/')), null);
+  assert.equal(loginRedirectFor(page('/nodesk/blog/post')), null);
+  assert.equal(loginRedirectFor(page('/login')), null);
+  assert.equal(loginRedirectFor(page('/administrator')), null);
 });

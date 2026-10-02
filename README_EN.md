@@ -12,8 +12,8 @@ NoNo is a self-hosted personal workspace for bookmarks, publishing, personal ass
 | --- | --- | --- | --- |
 | **NoNo** | `/`, `/admin` | Public navigation, folders, bookmarks, search, import/export, trash, link checks | NoNo accounts; PostgreSQL |
 | **NoDesk** | `/nodesk` | Articles, images, projects, links, snippets, schedules, home workspace | NoNo administrator session for editing; file volume |
-| **NoMoney** | `/nomoney` | Phone cards, subscriptions, accounts, expenses, expiry and email reminders | Independent accounts; SQLite |
-| **Yumi** | `/yumi` | VPS, domains, renewals, expenses, monitoring | Independent accounts; SQLite |
+| **NoMoney** | `/nomoney` | Phone cards, subscriptions, accounts, expenses, expiry reminders | NoNo administrator sign-in; SQLite |
+| **Yumi** | `/yumi` | VPS, domains, renewals, expenses, monitoring | NoNo administrator sign-in; SQLite |
 | **NoStar** | `/nostar` | GitHub Stars sync, categories, search, README, releases, AI analysis | NoNo session; PostgreSQL |
 | **Chrome extension** | Popup and context menu | Capture the current page, organize with AI, save bookmarks | Dedicated NoNo API Token |
 
@@ -26,7 +26,7 @@ Current navigation:
 - **NoDesk settings** contains account module backups, local downloads, WebDAV, and scheduled backups.
 - **Appearance** includes Chinese/English, light/dark mode, and a reduced set of layout, typography, background, and scene controls. Same-origin apps share some browser preferences.
 
-Separate user, LLM, Token, and folder screens have been consolidated. Music cards and clipping are retired. There is no self-registration page; when an administrator enables registration, the API still creates regular users. NoMoney and Yumi each have independent accounts and do not automatically sign in with NoNo.
+Separate user, LLM, Token, and folder screens have been consolidated. Music cards and clipping are retired. There is no self-registration page; when an administrator enables registration, the API still creates regular users. Every app signs in through NoNo: one sign-in opens NoMoney, Yumi, NoStar and the admin area; signed-out visits redirect to `/login`, and logging out of NoNo logs out everywhere. NoMoney and Yumi are limited to NoNo administrators; NoStar connects GitHub after NoNo sign-in. The NoNo navigation page and NoDesk blog stay public.
 
 ## Quick start
 
@@ -46,14 +46,13 @@ Replace every `replace-with-*` value in `.env`. Generate independent secrets, fo
 | `SESSION_SECRET` | NoNo session secret, at least 32 characters |
 | `BOOTSTRAP_TOKEN` | Independent token required to create the first administrator |
 | `ENCRYPTION_KEY` | NoNo encryption key, 64 hexadecimal characters |
-| `NOMONEY_JWT_SECRET`, `YUMI_JWT_SECRET` | Independent login secrets for each product |
 | `NOMONEY_INTERNAL_TOKEN` | Independent token for protected internal calls |
 | `NOMONEY_ENCRYPTION_KEY`, `YUMI_ENCRYPTION_KEY` | Separate 64-character hexadecimal encryption keys recommended |
 | `NONO_PUBLIC_URL` | Actual browser-facing NoNo URL |
 | `BLOG_PUBLIC_URL` | Same-origin NoDesk URL, usually `https://example.com/nodesk` |
 | `PORT` | Compose binding, default `127.0.0.1:3000` |
 
-For a local HTTP trial, use `NONO_PUBLIC_URL=http://localhost:3000`, `BLOG_PUBLIC_URL=http://localhost:3000/nodesk`, and set `NOMONEY_COOKIE_SECURE=false` and `YUMI_COOKIE_SECURE=false`. Production must use HTTPS and both cookie flags must remain `true`.
+For a local HTTP trial, use `NONO_PUBLIC_URL=http://localhost:3000`, `BLOG_PUBLIC_URL=http://localhost:3000/nodesk`. Production should use HTTPS.
 
 ```bash
 docker compose up -d --build
@@ -61,7 +60,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/readyz
 ```
 
-Open `http://localhost:3000/setup`, supply `BOOTSTRAP_TOKEN`, and create the first administrator. Add bookmarks, configure your site and AI provider, and create a dedicated extension Token. Initialize NoMoney and Yumi accounts separately in their own interfaces.
+Open `http://localhost:3000/setup`, supply `BOOTSTRAP_TOKEN`, and create the first administrator. Add bookmarks, configure your site and AI provider, and create a dedicated extension Token. NoMoney and Yumi need no separate accounts; administrators can use them right after signing in.
 
 Registration is closed by default. Its runtime setting is stored in the database and managed through **Account settings → Users and registration**. Editing `.env` does not override saved configuration. `ALLOW_REGISTRATION` only seeds configuration when running the server directly; the current Compose file does not pass it through.
 
@@ -214,7 +213,7 @@ Gateway variables:
 | Symptom | Check |
 | --- | --- |
 | Missing Compose variables | `.env`, placeholder values, bootstrap token |
-| NoMoney/Yumi returns to login on local HTTP | Local Secure Cookie flags; production must remain HTTPS |
+| NoMoney/Yumi says it cannot verify sign-in | Check that NoNo is ready and `NOMONEY_INTERNAL_TOKEN` is set |
 | Passkey failure | HTTPS, browser origin, RP ID, configured origin |
 | AI returns fallback results | Configuration load, connection test, key, model, final service URL, private-host allowlist |
 | Database connection fails after upgrade | Environment password versus the existing database role password |

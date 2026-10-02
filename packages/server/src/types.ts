@@ -28,6 +28,8 @@ export interface AppServices {
   repo: Repository;
   sessionSecret: string;
   bootstrapToken: string;
+  /** Shared secret NoMoney and Yumi present on /api/internal calls; empty disables those routes. */
+  internalToken: string;
   encryptionKey: string;
   nodeskContentDir: string;
   llmClient?: LlmClient;

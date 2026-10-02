@@ -167,27 +167,9 @@ function migrate(db: DbClient, product: ProductMode): void {
   db.exec(`
     PRAGMA foreign_keys = ON;
 
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      email TEXT NOT NULL,
-      session_version INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS auth_sessions (
-      jti TEXT PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      expires_at TEXT NOT NULL,
-      revoked_at TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user
-      ON auth_sessions(user_id, revoked_at, expires_at);
+    -- Accounts moved to NoNo: these tables held local password hashes and sessions.
+    DROP TABLE IF EXISTS auth_sessions;
+    DROP TABLE IF EXISTS users;
 
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -462,7 +444,6 @@ function migrate(db: DbClient, product: ProductMode): void {
   seedSetting(db, 'productMode', product);
   seedSetting(db, 'statusSampleMinutes', 5);
   seedSetting(db, 'statusRetentionDays', 365);
-  ensureColumn(db, 'users', 'session_version', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn(db, 'accounts', 'login_device', 'TEXT');
   ensureColumn(db, 'accounts', 'archived_at', 'TEXT');
   ensureColumn(db, 'phones', 'phone_type', "TEXT NOT NULL DEFAULT 'domestic'");

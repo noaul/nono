@@ -1,13 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Redirect, Route, Switch, useLocation } from 'wouter';
+import { Redirect, Route, Switch } from 'wouter';
 import type { User } from './types';
 import { api, ApiError } from './api';
 import { assetPageConfigs } from './assetConfig';
 import { product, productMeta } from './product';
 import { loadPreferences } from './preferences';
 
-const LoginPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.LoginPage })));
-const SetupPage = lazy(() => import('./AuthPages').then((module) => ({ default: module.SetupPage })));
 const Layout = lazy(() => import('./Layout').then((module) => ({ default: module.Layout })));
 const Dashboard = lazy(() => import('./Dashboard').then((module) => ({ default: module.Dashboard })));
 const AssetPage = lazy(() => import('./AssetPage').then((module) => ({ default: module.AssetPage })));
@@ -19,35 +17,28 @@ const YumiOverview = lazy(() => import('./YumiOverview').then((module) => ({ def
 
 type AuthState =
   | { status: 'loading'; user: null }
-  | { status: 'needsSetup'; user: null }
-  | { status: 'anonymous'; user: null }
+  | { status: 'forbidden'; user: null }
+  | { status: 'unavailable'; user: null }
   | { status: 'authenticated'; user: User };
+
+/** Signing in happens once, in NoNo; this product only reads the shared NoNo session. */
+export function nonoLoginUrl(location: Pick<Location, 'pathname' | 'search'> = window.location): string {
+  return `/login?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
+}
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading', user: null });
-  const [, navigate] = useLocation();
 
   useEffect(() => {
-    async function loadAuth() {
-      const setup = await api.get<{ needsSetup: boolean }>('/api/auth/setup-status');
-      if (setup.needsSetup) { setAuth({ status: 'needsSetup', user: null }); return; }
-      try {
-        const me = await api.get<{ user: User }>('/api/auth/me');
-        setAuth({ status: 'authenticated', user: me.user });
-        loadPreferences().catch(() => undefined);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) { setAuth({ status: 'anonymous', user: null }); return; }
-        throw error;
-      }
-    }
-    loadAuth().catch(() => setAuth({ status: 'anonymous', user: null }));
+    api.get<{ user: User }>('/api/auth/me').then((me) => {
+      setAuth({ status: 'authenticated', user: me.user });
+      loadPreferences().catch(() => undefined);
+    }).catch((error) => {
+      if (error instanceof ApiError && error.status === 401) { window.location.replace(nonoLoginUrl()); return; }
+      if (error instanceof ApiError && error.status === 403) { setAuth({ status: 'forbidden', user: null }); return; }
+      setAuth({ status: 'unavailable', user: null });
+    });
   }, []);
-
-  const onAuthenticated = (user: User) => {
-    setAuth({ status: 'authenticated', user });
-    loadPreferences().catch(() => undefined);
-    navigate('/dashboard');
-  };
 
   if (auth.status === 'loading') {
     return (
@@ -59,25 +50,29 @@ export default function App() {
     );
   }
 
-  if (auth.status === 'needsSetup') {
+  if (auth.status !== 'authenticated') {
+    const forbidden = auth.status === 'forbidden';
     return (
-      <Suspense fallback={<RouteLoading />}>
-        <Switch><Route path="/setup"><SetupPage onAuthenticated={onAuthenticated} /></Route><Route><Redirect to="/setup" replace /></Route></Switch>
-      </Suspense>
-    );
-  }
-
-  if (auth.status === 'anonymous') {
-    return (
-      <Suspense fallback={<RouteLoading />}>
-        <Switch><Route path="/login"><LoginPage onAuthenticated={onAuthenticated} /></Route><Route><Redirect to="/login" replace /></Route></Switch>
-      </Suspense>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-950 dark:bg-ink-950 dark:text-white">
+        <div className="max-w-sm rounded-xl border border-slate-200 bg-white p-6 text-sm shadow-xs dark:border-white/10 dark:bg-white/[0.04]">
+          <h1 className="text-base font-semibold">{forbidden ? `${productMeta.name} 仅限管理员使用` : `${productMeta.name} 暂时无法验证登录`}</h1>
+          <p className="mt-2 text-slate-500 dark:text-slate-400">
+            {forbidden ? '当前 NoNo 账户不是管理员。请切换到管理员账户后再打开。' : 'NoNo 登录服务没有响应，请稍后重试。'}
+          </p>
+          <div className="mt-4 flex gap-3">
+            <a className="font-medium text-brand-600 hover:underline" href="/">返回 NoNo</a>
+            {forbidden
+              ? <a className="font-medium text-brand-600 hover:underline" href={nonoLoginUrl()}>切换账户</a>
+              : <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => window.location.reload()}>重试</button>}
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
     <Suspense fallback={<RouteLoading />}>
-      <Layout user={auth.user} onLogout={() => { setAuth({ status: 'anonymous', user: null }); navigate('/login'); }}>
+      <Layout user={auth.user}>
         <Switch>
           <Route path="/"><Redirect to="/dashboard" replace /></Route>
           <Route path="/dashboard">{product === 'yumi' ? <YumiOverview /> : <Dashboard />}</Route>

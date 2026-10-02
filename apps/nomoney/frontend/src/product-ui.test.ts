@@ -62,11 +62,16 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(expenses).toContain("['vps', 'domain']");
   });
 
-  it('uses product-aware authentication and backup labels', () => {
-    const auth = fs.readFileSync(path.resolve(process.cwd(), 'src/AuthPages.tsx'), 'utf8');
+  it('signs in through NoNo instead of a product login page', () => {
+    const app = fs.readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf8');
     const settings = fs.readFileSync(path.resolve(process.cwd(), 'src/SettingsPage.tsx'), 'utf8');
-    expect(auth).toContain('productMeta.name');
+    expect(fs.existsSync(path.resolve(process.cwd(), 'src/AuthPages.tsx'))).toBe(false);
+    expect(app).toContain('productMeta.name');
+    expect(app).toContain('window.location.replace(nonoLoginUrl())');
+    expect(app).not.toContain('/api/auth/setup-status');
     expect(settings).toContain('productBackupName');
+    expect(settings).toContain('/admin/account');
+    expect(settings).not.toContain('/api/auth/password');
   });
 
   it('brands the generated HTML for the active product', () => {

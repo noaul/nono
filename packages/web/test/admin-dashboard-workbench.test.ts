@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminLayout from '../src/components/AdminLayout.vue';
 import AdminDashboard from '../src/views/admin/AdminDashboard.vue';
+import { useAuthStore } from '../src/stores/auth';
 
 const apiRequest = vi.fn();
 
@@ -57,6 +58,7 @@ describe('admin dashboard workbench', () => {
   });
 
   it('renders a compact dashboard with prioritised actions and grouped tools', async () => {
+    useAuthStore().user = { id: 1, username: 'admin', role: 'admin' } as never;
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, parentId: null, name: '常用', sortOrder: 1, locked: false },
@@ -102,6 +104,20 @@ describe('admin dashboard workbench', () => {
       '/nodesk',
       '/nomoney',
     ]));
+    wrapper.unmount();
+  });
+
+  it('hides the NoMoney shortcut from accounts that are not administrators', async () => {
+    useAuthStore().user = { id: 2, username: 'reader', role: 'user' } as never;
+    apiRequest.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const wrapper = mount(AdminDashboard, {
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } } },
+    });
+    await flushPromises();
+
+    const destinations = wrapper.findAll('.dashboard-tool-link').map((link) => link.attributes('href'));
+    expect(destinations).toContain('/nodesk');
+    expect(destinations).not.toContain('/nomoney');
     wrapper.unmount();
   });
 });

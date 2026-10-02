@@ -15,14 +15,13 @@ test('packages NoMoney in the combined image', () => {
   assert.match(dockerfile, /apk add --no-cache[^\n]*tzdata/);
 });
 
-test('persists NoMoney data and requires its session secret', () => {
+test('persists NoMoney data and relies on the NoNo session', () => {
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   assert.match(compose, /NOMONEY_INTERNAL_PORT:\s*2030/);
   assert.match(compose, /NOMONEY_DATA_DIR:\s*\/app\/nomoney-data/);
-  assert.match(compose, /NOMONEY_JWT_SECRET:/);
+  assert.doesNotMatch(compose, /NOMONEY_JWT_SECRET|NOMONEY_COOKIE_SECURE/);
   assert.match(compose, /NOMONEY_INTERNAL_TOKEN:/);
   assert.match(compose, /NONO_PUBLIC_URL:\s*\$\{NONO_PUBLIC_URL:\?NONO_PUBLIC_URL is required\}/);
-  assert.match(compose, /NOMONEY_COOKIE_SECURE:\s*\$\{NOMONEY_COOKIE_SECURE:-true\}/);
   assert.match(compose, /nomoney_data:\/app\/nomoney-data/);
   assert.match(compose, /^\s*nomoney_data:\s*$/m);
   assert.match(compose, /wget -qO- http:\/\/127\.0\.0\.1:3000\/readyz/);
@@ -33,7 +32,6 @@ test('binds the application to loopback by default', () => {
   const exampleEnv = fs.readFileSync('.env.example', 'utf8');
   assert.match(compose, /\$\{PORT:-127\.0\.0\.1:3000\}:3000/);
   assert.match(exampleEnv, /^PORT=127\.0\.0\.1:3000$/m);
-  assert.match(exampleEnv, /^NOMONEY_COOKIE_SECURE=true$/m);
   assert.match(exampleEnv, /^TZ=Asia\/Shanghai$/m);
 });
 

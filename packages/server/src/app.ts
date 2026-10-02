@@ -101,6 +101,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     repo,
     sessionSecret: resolveSessionSecret(overrides.sessionSecret),
     bootstrapToken: resolveBootstrapToken(overrides.bootstrapToken),
+    internalToken: overrides.internalToken ?? process.env.NOMONEY_INTERNAL_TOKEN ?? '',
     encryptionKey,
     nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),

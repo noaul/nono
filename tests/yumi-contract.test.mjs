@@ -12,7 +12,7 @@ test('packages and routes Yumi as a separate persisted product', () => {
   assert.match(compose, /YUMI_DATA_DIR:\s*\/app\/yumi-data/);
   assert.match(compose, /yumi_data:\/app\/yumi-data/);
   assert.match(compose, /^\s*yumi_data:\s*$/m);
-  assert.match(compose, /YUMI_JWT_SECRET:/);
+  assert.doesNotMatch(compose, /YUMI_JWT_SECRET|YUMI_COOKIE_SECURE/);
   assert.match(compose, /YUMI_ENCRYPTION_KEY:/);
   assert.match(gateway, /NOMONEY_INTERNAL_TOKEN:\s*process\.env\.NOMONEY_INTERNAL_TOKEN/);
   assert.match(gateway, /NONO_PUBLIC_URL:\s*process\.env\.NONO_PUBLIC_URL/);

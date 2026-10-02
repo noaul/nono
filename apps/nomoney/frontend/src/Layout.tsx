@@ -45,7 +45,7 @@ export function useLayoutActions(): LayoutOutletContext {
   return value;
 }
 
-export function Layout({ user, onLogout, children }: { user: User; onLogout: () => void; children: ReactNode }) {
+export function Layout({ user, children }: { user: User; children: ReactNode }) {
   const [location] = useLocation();
   const { copy, language, toggleLanguage } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -118,9 +118,10 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
     setTheme(setColorModePreference(theme === 'dark' ? 'light' : 'dark'));
   };
 
+  // Logging out ends the shared NoNo session, which signs out every product at once.
   const logout = async () => {
-    await api.post('/api/auth/logout');
-    onLogout();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined);
+    window.location.assign('/login');
   };
 
   const navContent = (
@@ -185,7 +186,7 @@ export function Layout({ user, onLogout, children }: { user: User; onLogout: () 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="text-xs text-slate-500 dark:text-slate-400">{copy('当前登录', 'Signed in as')}</div>
             <div className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-white">{user.username}</div>
-            <div className="truncate text-xs text-slate-400">{user.email}</div>
+            <div className="truncate text-xs text-slate-400">{copy('NoNo 管理员', 'NoNo administrator')}</div>
           </div>
         </div>
       </aside>

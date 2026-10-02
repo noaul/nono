@@ -7,7 +7,7 @@ export type AccountType = 'telegram' | 'whatsapp' | 'signal' | 'wechat' | 'line'
 export interface User {
   id: number;
   username: string;
-  email: string;
+  role: 'admin' | 'user';
 }
 
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';

@@ -26,11 +26,6 @@ const defaultBackupFilename = 'moneypulse-backup.json.enc';
 
 const backupTables: BackupTable[] = [
   {
-    key: 'users',
-    table: 'users',
-    columns: ['id', 'username', 'password_hash', 'email', 'session_version', 'created_at', 'updated_at']
-  },
-  {
     key: 'phones',
     table: 'phones',
     products: ['nomoney'],

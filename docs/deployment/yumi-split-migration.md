@@ -7,14 +7,14 @@ Yumi 与 NoMoney 共用应用源码，但在生产中是两个独立产品进程
 | NoMoney | `/nomoney` | `/nomoney` | `/app/nomoney-data/app.db` |
 | Yumi | `/yumi` | `/yumi` | `/app/yumi-data/app.db` |
 
-NoMoney 只管理电话卡、订阅、账号及相关费用；Yumi 只管理 VPS、域名、续费、相关费用和 Status。两者使用独立 JWT、加密密钥和 WebDAV 备份文件。
+NoMoney 只管理电话卡、订阅、账号及相关费用；Yumi 只管理 VPS、域名、续费、相关费用和 Status。两者使用独立的加密密钥和 WebDAV 备份文件，登录统一由 NoNo 管理员会话完成。
 
 ## 首次升级
 
 1. 在部署前创建并验证完整的生产备份。
-2. 在 `.env` 中加入独立随机的 `YUMI_JWT_SECRET` 和 64 位十六进制 `YUMI_ENCRYPTION_KEY`。
+2. 在 `.env` 中加入 64 位十六进制 `YUMI_ENCRYPTION_KEY`。
 3. 部署新镜像。Yumi 首次启动最多等待 30 秒，直到 NoMoney 数据库可用。
-4. Yumi 从 NoMoney 复制用户、设置、VPS、域名和对应的费用、续费、提醒记录，并用 Yumi 密钥重新加密 VPS 与 WebDAV 凭据。
+4. Yumi 从 NoMoney 复制设置、VPS、域名和对应的费用、续费、提醒记录，并用 Yumi 密钥重新加密 VPS 与 WebDAV 凭据。
 5. 迁移完成后检查 `/yumi/api/readyz`、`/yumi/`、记录数量、VPS 凭据可用性和 Status 探测。
 6. 立即创建并验证首份包含 Yumi 的 v2 四组件全站备份。
 

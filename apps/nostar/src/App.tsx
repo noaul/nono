@@ -14,7 +14,7 @@ import { getStorageScope, setStorageScope } from './services/storageScope';
 import { applyColorMode, watchColorMode } from './utils/colorMode';
 import { htmlLang, watchLocale } from './utils/locale';
 
-const LoginScreen = React.lazy(() => import('./components/LoginScreen').then((module) => ({ default: module.LoginScreen })));
+const GitHubConnectScreen = React.lazy(() => import('./components/GitHubConnectScreen').then((module) => ({ default: module.GitHubConnectScreen })));
 const RepositoriesView = React.lazy(() => import('./views/RepositoriesView'));
 const GistView = React.lazy(() => import('./components/GistView').then((module) => ({ default: module.GistView })));
 const ReleaseTimeline = React.lazy(() => import('./components/ReleaseTimeline').then((module) => ({ default: module.ReleaseTimeline })));
@@ -208,7 +208,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <React.Suspense fallback={<ViewFallback />}>
-        <LoginScreen />
+        <GitHubConnectScreen />
       </React.Suspense>
     );
   }

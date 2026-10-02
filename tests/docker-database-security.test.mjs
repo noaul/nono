@@ -23,9 +23,7 @@ test('refuses to start when any required secret is unset', () => {
     'SESSION_SECRET',
     'BOOTSTRAP_TOKEN',
     'ENCRYPTION_KEY',
-    'NOMONEY_JWT_SECRET',
     'NOMONEY_INTERNAL_TOKEN',
-    'YUMI_JWT_SECRET',
     'YUMI_ENCRYPTION_KEY',
   ]) {
     assert.match(

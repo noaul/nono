@@ -8,7 +8,8 @@ import { logger } from '../services/logger';
 import { safeReadText } from '../utils/clipboardUtils';
 import { formatShanghaiDateTime } from '../utils/dateTime';
 
-export const LoginScreen: React.FC = () => {
+// NoStar is opened after NoNo sign-in; this screen only links a GitHub account to it.
+export const GitHubConnectScreen: React.FC = () => {
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,8 +39,8 @@ export const LoginScreen: React.FC = () => {
         } catch (backendError) {
           logger.warn('authentication', 'Failed to save GitHub token to backend', backendError);
           setError(language === 'zh'
-            ? '已登录，但 GitHub Token 未能保存到后端，README 等后端代理功能可能不可用。'
-            : 'Signed in, but failed to save GitHub token to backend. README and other backend proxy features may be unavailable.');
+            ? '已连接，但 GitHub Token 未能保存到后端，README 等后端代理功能可能不可用。'
+            : 'Connected, but failed to save GitHub token to backend. README and other backend proxy features may be unavailable.');
         }
       }
 

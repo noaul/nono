@@ -74,6 +74,34 @@ describe('NoNo Fastify app', () => {
     expect(response.json()).toEqual({ code: 0, data: { ok: true }, message: '' });
   });
 
+  it('lets NoMoney and Yumi resolve a NoNo browser session through the internal token', async () => {
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, internalToken: 'internal-secret' });
+    const adminCookie = await setupAdmin();
+    const sessionCookie = adminCookie.split(';', 1)[0];
+    const url = '/api/internal/auth/session';
+
+    expect((await app.inject({ method: 'GET', url, headers: { cookie: sessionCookie } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url, headers: { cookie: sessionCookie, 'x-nono-internal-token': 'wrong' } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url, headers: { 'x-nono-internal-token': 'internal-secret' } })).statusCode).toBe(401);
+
+    const ok = await app.inject({ method: 'GET', url, headers: { cookie: sessionCookie, 'x-nono-internal-token': 'internal-secret' } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().data.user).toMatchObject({ username: 'admin', role: 'admin' });
+
+    const created = await app.inject({ method: 'POST', url: '/api/admin/tokens', headers: { cookie: adminCookie }, payload: { name: 'cli', scopes: ['*'] } });
+    const token = created.json().data.token as string;
+    expect(token).toBeTruthy();
+    const bearer = await app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${token}`, 'x-nono-internal-token': 'internal-secret' } });
+    expect(bearer.statusCode).toBe(401);
+  });
+
+  it('disables the internal session route when no internal token is configured', async () => {
+    const adminCookie = await setupAdmin();
+    const response = await app.inject({ method: 'GET', url: '/api/internal/auth/session', headers: { cookie: adminCookie.split(';', 1)[0], 'x-nono-internal-token': '' } });
+    expect(response.statusCode).toBe(401);
+  });
+
   it('separates liveness from dependency readiness', async () => {
     const readyApp = await buildApp({
       repo: new MemoryRepository(false),

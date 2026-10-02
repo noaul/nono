@@ -20,6 +20,7 @@ import {
   Upload,
 } from '@lucide/vue';
 import { apiRequest } from '@/api/client';
+import { useAuthStore } from '@/stores/auth';
 import type { Folder, Link } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 
@@ -52,10 +53,12 @@ const toolShortcuts: Shortcut[] = [
   { labelKey: 'dashboard.aNotifications', detailKey: 'dashboard.aNotificationsHint', to: '/admin/notifications', icon: Bell },
 ];
 
-const appShortcuts: Shortcut[] = [
+const auth = useAuthStore();
+// NoMoney holds the administrator's own data; other NoNo accounts are refused there.
+const appShortcuts = computed<Shortcut[]>(() => [
   { labelKey: 'dashboard.aNodesk', detailKey: 'dashboard.aNodeskHint', to: '/nodesk', icon: BookOpen },
-  { labelKey: 'dashboard.aNoMoney', detailKey: 'dashboard.aNoMoneyHint', to: '/nomoney', icon: CircleDollarSign },
-];
+  ...(auth.isAdmin ? [{ labelKey: 'dashboard.aNoMoney', detailKey: 'dashboard.aNoMoneyHint', to: '/nomoney', icon: CircleDollarSign } as Shortcut] : []),
+]);
 
 onMounted(async () => {
   [folders.value, links.value] = await Promise.all([

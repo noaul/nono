@@ -12,8 +12,8 @@ NoNo 是一个可自托管的个人数字工作台，将网址导航、内容站
 | --- | --- | --- | --- |
 | **NoNo** | `/`、`/admin` | 公开导航、树形文件夹、书签搜索与整理、导入导出、回收站、链接检查 | NoNo 账号；PostgreSQL |
 | **NoDesk** | `/nodesk` | 文章、图片、项目、友链、片段、日程与首页工作台 | 编辑复用 NoNo 管理员登录；文件卷 |
-| **NoMoney** | `/nomoney` | 电话卡、订阅、账号、支出统计、到期与邮件提醒 | 独立账号；SQLite |
-| **Yumi** | `/yumi` | VPS、域名、续费记录、费用、状态监控 | 独立账号；SQLite |
+| **NoMoney** | `/nomoney` | 电话卡、订阅、账号、支出统计、到期提醒 | NoNo 管理员登录；SQLite |
+| **Yumi** | `/yumi` | VPS、域名、续费记录、费用、状态监控 | NoNo 管理员登录；SQLite |
 | **NoStar** | `/nostar` | GitHub Stars 同步、分类、搜索、README、Release、AI 分析 | 复用 NoNo 登录；PostgreSQL |
 | **Chrome 扩展** | 浏览器弹窗、右键菜单 | 提取当前网页、AI 辅助整理、快速保存书签 | NoNo 专用 API Token |
 
@@ -26,7 +26,7 @@ NoNo 支持密码、Passkey、设备会话管理、限权 API Token，以及站�
 - **备份与自动备份**：NoDesk 设置中心，支持当前账户的模块备份、本地下载与 WebDAV。
 - **外观**：中英文、明暗模式及精简后的布局、字体、背景、场景设置；同域应用共享部分浏览器偏好。
 
-旧的独立用户、LLM、Token 和文件夹管理入口已合并；音乐卡片和剪藏功能已退出当前版本。自助注册页面已移除，管理员开启注册后仍可通过 API 创建普通用户。NoMoney、Yumi 的账号彼此独立，也不会随 NoNo 登录自动登录。
+旧的独立用户、LLM、Token 和文件夹管理入口已合并；音乐卡片和剪藏功能已退出当前版本。自助注册页面已移除，管理员开启注册后仍可通过 API 创建普通用户。所有应用统一使用 NoNo 登录：登录一次即可进入 NoMoney、Yumi、NoStar 和后台；未登录时这些入口会跳转到 `/login`，退出 NoNo 即全部退出。NoMoney 和 Yumi 只对 NoNo 管理员开放；NoStar 登录 NoNo 后再连接 GitHub。NoNo 导航页和 NoDesk 博客仍可公开访问。
 
 ## 快速开始
 
@@ -46,14 +46,13 @@ cp .env.example .env
 | `SESSION_SECRET` | NoNo 会话密钥，至少 32 个字符 |
 | `BOOTSTRAP_TOKEN` | 首次创建管理员所需的独立令牌 |
 | `ENCRYPTION_KEY` | NoNo 敏感配置加密密钥，64 位十六进制 |
-| `NOMONEY_JWT_SECRET`、`YUMI_JWT_SECRET` | 两个产品各自的独立登录密钥 |
 | `NOMONEY_INTERNAL_TOKEN` | 产品间受保护接口的独立令牌 |
 | `NOMONEY_ENCRYPTION_KEY`、`YUMI_ENCRYPTION_KEY` | 各自的 64 位十六进制加密密钥；建议分别生成 |
 | `NONO_PUBLIC_URL` | 浏览器访问 NoNo 的实际地址 |
 | `BLOG_PUBLIC_URL` | 同域 NoDesk 地址，通常为 `https://example.com/nodesk` |
 | `PORT` | Compose 端口绑定，默认 `127.0.0.1:3000` |
 
-仅在本机 HTTP 试用时，使用 `NONO_PUBLIC_URL=http://localhost:3000`、`BLOG_PUBLIC_URL=http://localhost:3000/nodesk`，并将 `NOMONEY_COOKIE_SECURE`、`YUMI_COOKIE_SECURE` 设为 `false`。生产环境使用 HTTPS，并保持这两个值为 `true`。
+仅在本机 HTTP 试用时，使用 `NONO_PUBLIC_URL=http://localhost:3000`、`BLOG_PUBLIC_URL=http://localhost:3000/nodesk`。生产环境请使用 HTTPS。
 
 ```bash
 docker compose up -d --build
@@ -61,7 +60,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/readyz
 ```
 
-打开 `http://localhost:3000/setup`，填写 `BOOTSTRAP_TOKEN` 并创建第一个管理员。之后可添加书签、配置站点、设置 AI，以及为扩展创建独立 Token。NoMoney 与 Yumi 分别在各自页面初始化账号。
+打开 `http://localhost:3000/setup`，填写 `BOOTSTRAP_TOKEN` 并创建第一个管理员。之后可添加书签、配置站点、设置 AI，以及为扩展创建独立 Token。NoMoney 与 Yumi 无需单独初始化账号，管理员登录后即可直接使用。
 
 注册默认关闭。运行时注册开关以数据库中的配置为准，在“账户设置 → 用户与注册”修改；修改 `.env` 不会覆盖已保存的配置。`ALLOW_REGISTRATION` 仅参与直接运行服务时的初始配置，当前 Compose 不传入此变量。
 
@@ -214,7 +213,7 @@ npm run package:extension
 | 现象 | 检查项 |
 | --- | --- |
 | Compose 提示变量缺失 | `.env` 是否存在，全部占位值是否替换，首次初始化令牌是否配置 |
-| 本机 HTTP 下 NoMoney/Yumi 登录后仍回到登录页 | 本地试用的 Secure Cookie 开关；生产环境必须 HTTPS |
+| 打开 NoMoney/Yumi 显示“暂时无法验证登录” | 检查 NoNo 服务是否就绪，以及 `NOMONEY_INTERNAL_TOKEN` 是否已配置 |
 | Passkey 无法使用 | HTTPS、访问域名、RP ID、Origin 是否匹配 |
 | AI 分析回退到基础结果 | 配置加载状态、连接测试、密钥和模型、最终服务 URL、私网白名单 |
 | 升级后数据库无法连接 | 环境密码与已有数据库角色密码是否一致 |

@@ -17,11 +17,10 @@
 ```dotenv
 SESSION_SECRET=<long-random-value>
 ENCRYPTION_KEY=<64-hex-characters>
-NOMONEY_JWT_SECRET=<long-random-value>
-NOMONEY_COOKIE_SECURE=true
+NOMONEY_INTERNAL_TOKEN=<long-random-value>
 ```
 
-从独立 MoneyPulse 迁移时，建议将原 `JWT_SECRET` 的值作为 `NOMONEY_JWT_SECRET`，以保持会话签名兼容。不要在终端输出、提交或记录实际密钥。
+NoMoney 不再有独立账号，改用 NoNo 管理员登录；旧的 `JWT_SECRET`/`NOMONEY_JWT_SECRET` 不再使用，升级后本地 `users`、`auth_sessions` 表会被删除。不要在终端输出、提交或记录实际密钥。
 
 ## 切换前备份
 

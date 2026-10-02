@@ -35,9 +35,26 @@ export function isPublicInternalPath(url = '/') {
   } catch {
     return true;
   }
-  return ['/nomoney/api/internal', '/yumi/api/internal'].some(
+  return ['/nomoney/api/internal', '/yumi/api/internal', '/api/internal'].some(
     prefix => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+const signedInApps = ['/nomoney', '/yumi', '/nostar', '/admin'];
+
+/**
+ * A page load of an app that needs NoNo sign-in, made without even a session cookie, goes straight
+ * to the login page instead of loading an app shell that would bounce anyway. The apps still check
+ * the session themselves; this only saves a round trip and a flash of empty UI.
+ */
+export function loginRedirectFor({ method = 'GET', url = '/', headers = {} } = {}) {
+  if (method !== 'GET' && method !== 'HEAD') return null;
+  if (!String(headers.accept || '').includes('text/html')) return null;
+  const pathname = url.split('?', 1)[0];
+  const app = signedInApps.find(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (!app || pathname.startsWith(`${app}/api/`) || pathname.startsWith(`${app}/assets/`)) return null;
+  if (/(?:^|;\s*)nono_session=[^;]+/.test(String(headers.cookie || ''))) return null;
+  return `/login?next=${encodeURIComponent(url)}`;
 }
 
 function stripMountPath(url, mountPath) {

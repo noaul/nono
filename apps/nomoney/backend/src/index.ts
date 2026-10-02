@@ -6,6 +6,7 @@ import cron from 'node-cron';
 import { createApp } from './app.js';
 import { createDatabase } from './db.js';
 import { createSmtpMailer } from './mailer.js';
+import { createNonoSessionVerifier } from './auth.js';
 import { runReminderScan } from './reminders.js';
 import { getSettings } from './settings.js';
 import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
@@ -20,9 +21,8 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const product = (process.env.PRODUCT_MODE === 'yumi' ? 'yumi' : 'nomoney') as ProductMode;
 const port = Number(process.env.PORT ?? 3000);
 const dataDir = process.env.APP_DATA_DIR ?? path.resolve(process.cwd(), 'data');
-const jwtSecret = process.env.JWT_SECRET;
 const internalToken = process.env.NOMONEY_INTERNAL_TOKEN;
-const bootstrapToken = process.env.BOOTSTRAP_TOKEN;
+const nonoInternalUrl = process.env.NONO_INTERNAL_URL || `http://127.0.0.1:${process.env.NONO_INTERNAL_PORT || 3001}`;
 const defaultEncryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const productEncryptionKeyName = product === 'yumi' ? 'YUMI_ENCRYPTION_KEY' : 'NOMONEY_ENCRYPTION_KEY';
 const encryptionKey = (product === 'yumi' ? process.env.YUMI_ENCRYPTION_KEY : process.env.NOMONEY_ENCRYPTION_KEY) || process.env.ENCRYPTION_KEY || (
@@ -34,9 +34,7 @@ const privateOutboundHosts = (process.env.NOMONEY_PRIVATE_OUTBOUND_HOSTS || proc
   .filter(Boolean);
 
 if (process.env.NODE_ENV === 'production') {
-  assertRuntimeSecret(jwtSecret, 'JWT_SECRET');
   assertRuntimeSecret(internalToken, 'NOMONEY_INTERNAL_TOKEN');
-  assertRuntimeSecret(bootstrapToken, 'BOOTSTRAP_TOKEN');
 }
 if (process.env.NODE_ENV === 'production' && (!encryptionKey || encryptionKey === defaultEncryptionKey)) {
   throw new Error(`${productEncryptionKeyName} or ENCRYPTION_KEY is required in production`);
@@ -65,14 +63,11 @@ const db = await createDatabase({
 const context: AppContext = {
   db,
   product,
-  jwtSecret: jwtSecret ?? 'development-only-secret',
+  verifySession: createNonoSessionVerifier({ baseUrl: nonoInternalUrl, internalToken: internalToken ?? '' }),
   internalToken,
-  bootstrapToken,
   publicOrigin: resolvePublicOrigin(process.env.NONO_PUBLIC_URL),
   encryptionKey,
   privateOutboundHosts,
-  cookieSecure: process.env.COOKIE_SECURE === 'true',
-  cookiePath: process.env.COOKIE_PATH ?? '/',
   now: () => new Date(),
   mailer: createSmtpMailer(() => getSettings(context))
 };

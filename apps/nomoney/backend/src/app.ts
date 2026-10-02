@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import type { AppContext } from './types.js';
-import { registerAuthRoutes, requireAuth } from './auth.js';
+import { nonoSessionCookie, registerAuthRoutes, requireAuth } from './auth.js';
 import { registerAssetRoutes } from './assets.js';
 import { registerBulkRoutes } from './bulk-io.js';
 import { registerExpenseRoutes } from './expenses.js';
@@ -97,8 +97,7 @@ function originGuard(context: AppContext): express.RequestHandler {
     }
 
     const origin = req.get('origin');
-    const sessionCookie = context.product === 'yumi' ? 'yumi_session' : 'moneypulse_session';
-    if (req.cookies?.[sessionCookie] && context.publicOrigin) {
+    if (req.cookies?.[nonoSessionCookie] && context.publicOrigin) {
       if (origin === context.publicOrigin) {
         next();
         return;

@@ -1,4 +1,4 @@
-import { describe, expect, setupAgent, test } from './test-utils.js';
+import { adminCookie, describe, expect, setupAgent, test } from './test-utils.js';
 import { buildBackupPayload, restoreBackupPayload } from './backup.js';
 
 describe('backup APIs', () => {
@@ -60,8 +60,7 @@ describe('backup APIs', () => {
     context.product = 'yumi';
     const { createApp } = await import('./app.js');
     const request = (await import('supertest')).default;
-    const agent = request.agent(createApp(context));
-    await agent.post('/api/auth/login').send({ username: 'owner', password: 'correct horse battery staple' });
+    const agent = request.agent(createApp(context)).set('Cookie', adminCookie);
 
     const response = await agent.get('/api/export/json');
 
@@ -150,7 +149,6 @@ describe('backup APIs', () => {
     });
     expect(envelope.ciphertext).toEqual(expect.any(String));
     expect(backup.body.counts).toMatchObject({
-      users: 1,
       phones: 1,
       subscriptions: 1,
       accounts: 1,
@@ -183,11 +181,7 @@ describe('backup APIs', () => {
     const restore = await agent.post('/api/backup/restore').send();
     expect(restore.status).toBe(200);
 
-    await agent.get('/api/phones').expect(401);
-    await agent.post('/api/auth/login').send({
-      username: 'owner',
-      password: 'correct horse battery staple'
-    }).expect(200);
+    // Accounts live in NoNo, so a restore no longer signs the browser out.
 
     const restoredPhones = await agent.get('/api/phones');
     expect(restoredPhones.body.items).toEqual([
@@ -224,8 +218,8 @@ describe('backup APIs', () => {
       })
     ]);
 
-    const restoredUser = context.db.get<{ password_hash: string }>('SELECT password_hash FROM users WHERE username = ?', ['owner']);
-    expect(restoredUser?.password_hash).toMatch(/^\$2/);
+    const leftoverAccounts = context.db.get<{ count: number }>("SELECT COUNT(*) AS count FROM sqlite_master WHERE name IN ('users', 'auth_sessions')");
+    expect(Number(leftoverAccounts?.count)).toBe(0);
 
     const restoredSettings = await agent.get('/api/settings');
     expect(restoredSettings.body.settings).toMatchObject({
@@ -295,8 +289,6 @@ describe('backup file upload', () => {
     const restored = await agent.post('/api/backup/restore-file').send(exported.body).expect(200);
 
     expect(restored.body.ok).toBe(true);
-    // Restoring replaces users and sessions, so the browser has to sign in again.
-    await agent.post('/api/auth/login').send({ username: 'owner', password: 'correct horse battery staple' }).expect(200);
     const list = await agent.get('/api/subscriptions');
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     expect(list.body.items).toEqual([expect.objectContaining({ name: 'Keep me' })]);

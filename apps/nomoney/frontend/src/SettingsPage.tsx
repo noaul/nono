@@ -48,7 +48,6 @@ export function SettingsPage() {
   const { copy, language, setLanguage } = useI18n();
   const [settings, setSettings] = useState(defaultSettings);
   const [reminderDaysText, setReminderDaysText] = useState(defaultSettings.reminderDays.join(','));
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [logs, setLogs] = useState<ReminderLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -173,17 +172,6 @@ export function SettingsPage() {
       await load();
     } catch (err) {
       showMessage(err instanceof ApiError ? err.message : copy('WebDAV 恢复失败', 'WebDAV restore failed'), 'danger');
-    }
-  };
-
-  const changePassword = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.put('/api/auth/password', passwordForm);
-      setPasswordForm({ currentPassword: '', newPassword: '' });
-      showMessage(copy('密码已修改', 'Password changed'), 'success');
-    } catch (err) {
-      showMessage(err instanceof ApiError ? err.message : copy('密码修改失败', 'Password change failed'), 'danger');
     }
   };
 
@@ -315,13 +303,9 @@ export function SettingsPage() {
           <section className="card">
             <div className="mb-5">
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('账户安全', 'Account security')}</h3>
-              <p className="mt-1 text-xs text-slate-500">{copy('修改本地单用户登录密码。', 'Change the local single-user login password.')}</p>
+              <p className="mt-1 text-xs text-slate-500">{copy('登录、密码和 Passkey 统一在 NoNo 账户中管理。', 'Sign-in, password and passkeys are managed in your NoNo account.')}</p>
             </div>
-            <form onSubmit={changePassword} className="space-y-4">
-              <Field label={copy('当前密码', 'Current password')}><input className={inputClass} type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} /></Field>
-              <Field label={copy('新密码', 'New password')}><input className={inputClass} type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} /></Field>
-              <Button type="submit">{copy('修改密码', 'Change password')}</Button>
-            </form>
+            <a className="inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:underline" href="/admin/account">{copy('前往 NoNo 账户设置', 'Open NoNo account settings')}</a>
           </section>
         </div>
       </div>

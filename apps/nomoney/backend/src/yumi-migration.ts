@@ -55,7 +55,6 @@ export async function migrateYumiData(options: YumiMigrationOptions) {
     const target = await createDatabase({ persist: true, filePath: temporaryPath, product: 'yumi' });
     target.exec('BEGIN');
     try {
-      copyTable(source, target, 'users');
       copyTable(source, target, 'settings', undefined, (row) => reencryptSettingRow(row, options));
       copyTable(source, target, 'vps', undefined, (row) => reencryptVpsRow(row, options));
       copyTable(source, target, 'domains');
@@ -173,7 +172,6 @@ function assertRelationships(db: DbClient): void {
 
 function assertCounts(source: DbClient, actual: ReturnType<typeof migrationCounts>): void {
   const expected = {
-    users: count(source, 'users'),
     vps: count(source, 'vps'),
     domains: count(source, 'domains'),
     expenses: filteredCount(source, 'expenses'),
@@ -187,7 +185,6 @@ function assertCounts(source: DbClient, actual: ReturnType<typeof migrationCount
 
 function migrationCounts(db: DbClient) {
   return {
-    users: count(db, 'users'),
     vps: count(db, 'vps'),
     domains: count(db, 'domains'),
     expenses: count(db, 'expenses'),
