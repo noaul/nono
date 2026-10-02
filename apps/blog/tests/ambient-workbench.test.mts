@@ -419,7 +419,10 @@ test('the app dock adds NoNo unless a shortcut already opens it', () => {
 	const yumi = { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false }
 	assert.deepEqual(appDockEntries([yumi]), [NONO_APP_ENTRY, yumi])
 	assert.deepEqual(appDockEntries([]), [NONO_APP_ENTRY])
-	const custom = { id: 'mine', label: '后台', url: '/admin/links', icon: 'link', openInNewTab: false }
-	assert.deepEqual(appDockEntries([custom, yumi]), [custom, yumi])
+	const home = { id: 'home', label: '我的主页', url: '/', icon: 'link', openInNewTab: false }
+	assert.deepEqual(appDockEntries([home, yumi]), [home, yumi])
+	assert.equal(NONO_APP_ENTRY.url, '/')
+	const admin = { id: 'mine', label: '后台', url: '/admin', icon: 'link', openInNewTab: false }
+	assert.deepEqual(appDockEntries([admin]), [NONO_APP_ENTRY, admin])
 	assert.equal(appDockEntries([{ ...yumi, id: 'nono' }]).length, 1)
 })

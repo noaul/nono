@@ -62,6 +62,24 @@ class MainActivity : ComponentActivity() {
     private var pageDark: Boolean? = null
 
     private var rendererGone = false
+
+    private val backCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (BuildConfig.DEBUG) android.util.Log.d("NoNoBack", "canGoBack=${webView.canGoBack()} url=${webView.url}")
+            if (webView.canGoBack()) {
+                hideError()
+                webView.goBack()
+                return
+            }
+            // Hand the root back press to the system. Depending on the Android version that finishes
+            // the activity or only moves it to the background; in the second case a callback left
+            // disabled made every later back press exit the app, so it is switched back on here and
+            // again in onResume.
+            isEnabled = false
+            onBackPressedDispatcher.onBackPressed()
+            isEnabled = true
+        }
+    }
     private var lastUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -117,15 +135,7 @@ class MainActivity : ComponentActivity() {
             download(url, userAgent, contentDisposition, mimeType)
         }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                when {
-                    errorPanel.isVisible && webView.canGoBack() -> { hideError(); webView.goBack() }
-                    webView.canGoBack() -> webView.goBack()
-                    else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
-                }
-            }
-        })
+        onBackPressedDispatcher.addCallback(this, backCallback)
 
         val restored = savedInstanceState?.let { webView.restoreState(it) } != null
         if (handleIntent(intent) || restored) return
@@ -146,6 +156,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        backCallback.isEnabled = true
         samplePageColors()
     }
 

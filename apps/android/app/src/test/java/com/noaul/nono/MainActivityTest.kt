@@ -86,4 +86,14 @@ class MainActivityTest {
         override fun getMethod() = "GET"
         override fun getRequestHeaders() = emptyMap<String, String>()
     }
+
+    @Test
+    fun backOnTheFirstPageLeavesBackHandlingOnForWhenTheUserReturns() {
+        launch().use { scenario ->
+            scenario.onActivity { activity ->
+                activity.onBackPressedDispatcher.onBackPressed()
+                assertEquals(true, activity.onBackPressedDispatcher.hasEnabledCallbacks())
+            }
+        }
+    }
 }
