@@ -29,6 +29,7 @@ import {
 	Smile,
 	Star,
 	SunMedium,
+	Sunrise,
 	Timer,
 	Trash2,
 	WalletCards,
@@ -57,11 +58,12 @@ import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
 import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
+import { summarizeOverview, type TodayRow } from './today-overview-model'
 
-type PanelId = 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
+type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
 type DockActionId = PanelId | 'settings'
 type LoadState = 'loading' | 'ready' | 'unavailable'
-type IntegrationId = 'bookmarks' | 'github' | 'yumi' | 'notifications'
+type IntegrationId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'notifications'
 
 type BookmarkItem = {
 	id: number
@@ -110,6 +112,7 @@ const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
 const DOCK_ITEMS: DockItem[] = [
+	{ id: 'today', label: '今日', icon: Sunrise },
 	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
 	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar' },
 	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi' },
@@ -232,7 +235,9 @@ export default function AmbientWorkbench() {
 	const [repositories, setRepositories] = useState<RepositoryItem[]>([])
 	const [notifications, setNotifications] = useState<NotificationItem[]>([])
 	const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
+	const [todayRows, setTodayRows] = useState<TodayRow[]>([])
 	const [integrationState, setIntegrationState] = useState<Record<IntegrationId, LoadState>>({
+		today: 'loading',
 		bookmarks: 'loading',
 		github: 'loading',
 		yumi: 'loading',
@@ -315,9 +320,22 @@ export default function AmbientWorkbench() {
 		}
 	}
 
+	const loadOverview = async (showLoading = true) => {
+		if (showLoading) updateIntegration('today', 'loading')
+		try {
+			const response = await fetch('/api/admin/overview', { credentials: 'same-origin', cache: 'no-store' })
+			if (!response.ok) throw new Error('Overview unavailable')
+			setTodayRows(summarizeOverview(apiData(await response.json()), BASE_PATH))
+			updateIntegration('today', 'ready')
+		} catch {
+			updateIntegration('today', 'unavailable')
+		}
+	}
+
 	const loadIntegrations = async () => {
-		setIntegrationState({ bookmarks: 'loading', github: 'loading', yumi: 'loading', notifications: 'loading' })
+		setIntegrationState({ today: 'loading', bookmarks: 'loading', github: 'loading', yumi: 'loading', notifications: 'loading' })
 		void loadNotifications(false)
+		void loadOverview(false)
 
 		void fetch('/api/admin/links', { credentials: 'same-origin', cache: 'no-store' })
 			.then(async response => {
@@ -439,6 +457,7 @@ export default function AmbientWorkbench() {
 		void loadWorkbenchNavigation()
 		const refreshNotifications = () => {
 			void loadNotifications()
+			void loadOverview(false)
 		}
 		const pollTimer = window.setInterval(refreshNotifications, 5 * 60 * 1000)
 		window.addEventListener('focus', refreshNotifications)
@@ -784,7 +803,7 @@ export default function AmbientWorkbench() {
 										<ArrowUpRight size={17} />
 									</a>
 								)}
-								{(['bookmarks', 'github', 'yumi'] as PanelId[]).includes(activePanel) && (
+								{(['today', 'bookmarks', 'github', 'yumi'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />
 									</button>
@@ -793,6 +812,10 @@ export default function AmbientWorkbench() {
 						</div>
 
 						<div className='ambient-panel-body'>
+							{activePanel === 'today' && <IntegrationList state={integrationState.today} empty='暂时没有可汇总的内容。' unavailable='登录 NoNo 管理员账户后即可查看今日概览。'>
+								{todayRows.map(row => <ExternalRow key={row.id} title={row.title} subtitle={row.subtitle} href={row.href} icon={<span className={`ambient-severity ambient-today-${row.tone}`}><Circle size={11} fill='currentColor' /></span>} />)}
+							</IntegrationList>}
+
 							{activePanel === 'bookmarks' && <IntegrationList state={integrationState.bookmarks} empty='还没有可显示的书签。' unavailable='登录 NoNo 后即可在这里查看书签。'>
 								{bookmarks.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.name} subtitle={item.clickCount ? `${item.clickCount} 次打开 · ${item.description || new URL(item.url).hostname}` : item.description || new URL(item.url).hostname} href={item.url} icon={<Bookmark size={17} />} onActivate={() => recordBookmarkClick(item.id)} />)}
 							</IntegrationList>}

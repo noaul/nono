@@ -50,6 +50,8 @@ export interface AppServices {
   auditLogService: AuditLogService;
   notificationService: NotificationService;
   notificationDispatcher: NotificationDispatcher;
+  /** Reads NoMoney's or Yumi's internal overview for the NoDesk "today" panel. */
+  productOverviewReader: (product: 'nomoney' | 'yumi') => Promise<Record<string, unknown>>;
   noMoneyClient: NoMoneyClient;
   readinessCheck: () => Promise<ReadinessChecks>;
 }

@@ -48,7 +48,8 @@ import { createNoMoneyClient } from './services/nomoney-client.js';
 import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
 import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
 import { BackupOperationGate, createBackupJobService, gateBackupService } from './services/backup-jobs.service.js';
-import { createLegacyChannelReader, createProductDueReader } from './services/product-due-client.js';
+import { createLegacyChannelReader, createProductDueReader, createProductOverviewReader } from './services/product-due-client.js';
+import { overviewRoutes } from './routes/admin/overview.js';
 import { createNotificationDispatcher } from './services/notification-dispatch.service.js';
 import { registerNotificationDispatchScheduler } from './services/notification-dispatch.scheduler.js';
 import { notificationChannelRoutes } from './routes/admin/notification-channels.js';
@@ -142,6 +143,10 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     auditLogService,
     notificationService,
     notificationDispatcher,
+    productOverviewReader: overrides.productOverviewReader || createProductOverviewReader({
+      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030), yumi: Number(process.env.YUMI_INTERNAL_PORT || 2040) },
+      token: process.env.NOMONEY_INTERNAL_TOKEN || '',
+    }),
     noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
       port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
       serviceName: 'Yumi',
@@ -232,6 +237,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await backupCenterRoutes(app, services);
   await notificationRoutes(app, services);
   await notificationChannelRoutes(app, services);
+  await overviewRoutes(app, services);
   await auditRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);

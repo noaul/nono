@@ -78,3 +78,20 @@ export function createLegacyChannelReader(options: { ports: Record<'nomoney' | '
     return (payload.channels && typeof payload.channels === 'object' ? payload.channels : null) as never;
   };
 }
+
+/** Reads the compact NoMoney or Yumi summary shown in the NoDesk "today" panel. */
+export function createProductOverviewReader(options: { ports: Record<'nomoney' | 'yumi', number>; token: string; fetch?: typeof fetch }) {
+  const request = options.fetch || fetch;
+  return async (product: 'nomoney' | 'yumi'): Promise<Record<string, unknown>> => {
+    if (!options.token) throw serviceError(503, 'Internal authentication is not configured');
+    const response = await request(`http://127.0.0.1:${options.ports[product]}/api/internal/overview`, {
+      headers: { 'x-nono-internal-token': options.token },
+      redirect: 'error',
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) throw serviceError(response.status, `${product} overview is unavailable`);
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw serviceError(502, `${product} returned an invalid overview`);
+    return payload as Record<string, unknown>;
+  };
+}

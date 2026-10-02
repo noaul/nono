@@ -3184,3 +3184,9 @@ a.ambient-small-icon {
 		grid-column: 2 / -1;
 	}
 }
+
+/* NoDesk "today" panel tones. */
+.ambient-today-ok { color: #238b68; }
+.ambient-today-warning { color: #b45309; }
+.ambient-today-critical { color: #c2410c; }
+.ambient-today-muted { color: var(--ambient-muted); }
