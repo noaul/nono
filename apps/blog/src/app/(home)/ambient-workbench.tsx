@@ -38,7 +38,8 @@ import { Github } from '@/components/github-icon'
 import { Children, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
-	filterWorkbenchItems,
+	bookmarkSearchResults,
+	mergeWorkbenchResults,
 	formatFocusDuration,
 	nextFocusDuration,
 	normalizeEvents,
@@ -571,7 +572,26 @@ export default function AmbientWorkbench() {
 		],
 		[bookmarks, events, incompleteTasks, repositories]
 	)
-	const searchResults = useMemo(() => filterWorkbenchItems(searchQuery, searchItems), [searchItems, searchQuery])
+	const [bookmarkHits, setBookmarkHits] = useState<WorkbenchSearchItem[] | null>(null)
+	useEffect(() => {
+		setBookmarkHits(null)
+		const query = searchQuery.trim()
+		if (!query) return
+		const controller = new AbortController()
+		const timer = window.setTimeout(() => {
+			fetch(`/api/admin/links/search?q=${encodeURIComponent(query)}&limit=8`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+				.then(async response => {
+					if (!response.ok) throw new Error('Bookmark search unavailable')
+					setBookmarkHits(bookmarkSearchResults(apiData(await response.json())))
+				})
+				.catch(() => undefined)
+		}, 200)
+		return () => {
+			window.clearTimeout(timer)
+			controller.abort()
+		}
+	}, [searchQuery])
+	const searchResults = useMemo(() => mergeWorkbenchResults(searchQuery, searchItems, bookmarkHits), [bookmarkHits, searchItems, searchQuery])
 
 	const togglePanel = (panel: PanelId) => {
 		setSearchOpen(false)

@@ -98,13 +98,36 @@ const activeFolderLinkCount = computed(() => activeFolderLinks.value.length);
 const linkById = computed(() => new Map(links.value.map((link) => [link.id, link])));
 const selectedCount = computed(() => selectedLinkIds.value.size);
 const allFilteredSelected = computed(() => filteredLinks.value.length > 0 && filteredLinks.value.every((link) => selectedLinkIds.value.has(link.id)));
+// A search spans every folder. The server ranks the matches; until its answer arrives (or if it
+// fails) the already-loaded links are filtered locally so typing never shows an empty table.
+const searchHitIds = ref<number[] | null>(null);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+let searchSequence = 0;
+watch(searchTerm, (value) => {
+  clearTimeout(searchTimer);
+  searchHitIds.value = null;
+  const query = value.trim();
+  if (!query) return;
+  const sequence = ++searchSequence;
+  searchTimer = setTimeout(async () => {
+    try {
+      const result = await apiRequest<{ items: Link[] }>(`/api/admin/links/search?q=${encodeURIComponent(query)}&limit=100`);
+      if (sequence === searchSequence) searchHitIds.value = result.items.map((item) => item.id);
+    } catch {
+      // Keep the local filter.
+    }
+  }, 200);
+});
 const filteredLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
-  const base = sortMode.value
-    ? draftLinkIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link))
-    : activeFolderLinks.value;
-  if (!query) return base;
-  return base.filter((link) => [link.name, link.url, link.description || ''].join(' ').toLowerCase().includes(query));
+  if (sortMode.value) return draftLinkIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link));
+  if (!query) return activeFolderLinks.value;
+  if (searchHitIds.value) return searchHitIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link));
+  const terms = query.split(/\s+/);
+  return links.value.filter((link) => {
+    const haystack = [link.name, link.url, link.description || ''].join(' ').toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  });
 });
 
 function folderTree(rootId: number) {

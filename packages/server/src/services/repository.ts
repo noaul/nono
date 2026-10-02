@@ -70,6 +70,18 @@ export interface LinkRecord {
   updatedAt: Date;
 }
 
+export interface LinkSearchOptions {
+  limit: number;
+  /** Restrict to these folders; omit to search every folder the user owns. */
+  folderIds?: number[];
+}
+
+export type LinkSearchHit = LinkRecord & { score: number };
+
+export function linkSearchTerms(query: string) {
+  return [...new Set(query.toLowerCase().split(/\s+/).filter(Boolean))].slice(0, 8);
+}
+
 export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
 
 export interface TrashItemRecord {
@@ -248,6 +260,8 @@ export interface Repository {
   deleteFolder(userId: number, id: number): Promise<void>;
   deleteFolders(userId: number, ids: number[]): Promise<void>;
   listLinks(userId: number): Promise<LinkRecord[]>;
+  /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
+  searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
   updateLink(userId: number, id: number, input: Partial<LinkRecord>): Promise<LinkRecord>;
   updateLinkHealth(userId: number, updates: LinkHealthUpdate[]): Promise<void>;
@@ -551,6 +565,23 @@ export class MemoryRepository implements Repository {
   async listLinks(userId: number) {
     const folderIds = new Set((await this.listFolders(userId)).map((folder) => folder.id));
     return this.links.filter((link) => folderIds.has(link.folderId)).sort(sortOrder);
+  }
+
+  async searchLinks(userId: number, query: string, options: LinkSearchOptions) {
+    const terms = linkSearchTerms(query);
+    if (!terms.length) return [];
+    const phrase = query.trim().toLowerCase();
+    const allowed = options.folderIds ? new Set(options.folderIds) : null;
+    return (await this.listLinks(userId))
+      .filter((link) => !allowed || allowed.has(link.folderId))
+      .map((link) => ({ link, haystack: `${link.name}\n${link.url}\n${link.description || ''}`.toLowerCase() }))
+      .filter(({ haystack }) => terms.every((term) => haystack.includes(term)))
+      .map(({ link, haystack }) => ({
+        ...link,
+        score: (link.name.toLowerCase().startsWith(phrase) ? 1 : 0) + (haystack.includes(phrase) ? 0.5 : 0),
+      }))
+      .sort((a, b) => b.score - a.score || (b.clickCount || 0) - (a.clickCount || 0) || a.id - b.id)
+      .slice(0, options.limit);
   }
 
   async createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>) {

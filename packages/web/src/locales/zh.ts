@@ -821,7 +821,7 @@ export const zh = {
     checking: '检查中',
     findDuplicates: '查重复',
     searchPaused: '排序时暂停搜索',
-    searchPlaceholder: '搜索名称、链接或介绍',
+    searchPlaceholder: '在全部书签中搜索名称、链接或介绍',
     deselectAll: '取消全选',
     selectAllCurrent: '全选当前',
     healthCheck: '健康检查',

@@ -41,7 +41,7 @@ describe('LinksView admin workflow', () => {
     apiRequest.mockReset();
   });
 
-  it('shows loaded links and filters within the active folder', async () => {
+  it('shows the active folder and searches across every folder', async () => {
     apiRequest
       .mockResolvedValueOnce([
         { id: 1, userId: 1, name: '工具', sortOrder: 100 },
@@ -60,9 +60,19 @@ describe('LinksView admin workflow', () => {
     expect(wrapper.text()).toContain('MDN');
     expect(wrapper.text()).not.toContain('Vue');
 
+    vi.useFakeTimers();
+    apiRequest.mockResolvedValueOnce({ items: [{ id: 12 }, { id: 11 }] });
     await wrapper.get('[data-testid="link-search"]').setValue('docs');
+    // Local filter first, across folders.
     expect(wrapper.text()).not.toContain('GitHub');
     expect(wrapper.text()).toContain('MDN');
+
+    await vi.advanceTimersByTimeAsync(250);
+    await wrapper.vm.$nextTick();
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/links/search?q=docs&limit=100');
+    const names = wrapper.findAll('[data-testid^="link-name-"]').map((node) => node.text());
+    expect(names).toEqual(['Vue', 'MDN']);
+    vi.useRealTimers();
   });
 
   it('removes a deleted link from local state without reloading every list', async () => {

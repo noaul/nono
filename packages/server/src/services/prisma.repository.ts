@@ -1,7 +1,7 @@
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { createPrismaClient } from './prisma-client.js';
 import type { Repository, SiteRecord } from './repository.js';
-import { defaultSite } from './repository.js';
+import { defaultSite, linkSearchTerms } from './repository.js';
 import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 
 export function createPrismaRepository(prisma: PrismaClient = createPrismaClient()): Repository {
@@ -248,6 +248,37 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     },
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
+    },
+    async searchLinks(userId, query, options) {
+      const terms = linkSearchTerms(query);
+      if (!terms.length) return [];
+      // "searchText" is a generated, lower-cased column with a trigram index (see the link_search
+      // migration); it is deliberately absent from schema.prisma, so this query is raw SQL.
+      const params: unknown[] = [userId, query.trim().toLowerCase(), `${escapeLike(query.trim().toLowerCase())}%`];
+      const conditions = terms.map((term) => {
+        params.push(`%${escapeLike(term)}%`);
+        return `l."searchText" LIKE $${params.length}`;
+      });
+      if (options.folderIds) {
+        params.push(options.folderIds);
+        conditions.push(`l."folderId" = ANY($${params.length}::int[])`);
+      }
+      params.push(options.limit);
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT l."id", l."folderId", l."name", l."url", l."icon", l."description", l."sortOrder",
+                l."healthCheckEnabled", l."healthStatus", l."healthStatusCode", l."healthReason",
+                l."healthFinalUrl", l."healthCheckedAt", l."clickCount", l."lastClickedAt",
+                l."createdAt", l."updatedAt",
+                (word_similarity($2, l."searchText")
+                  + CASE WHEN lower(l."name") LIKE $3 THEN 1 ELSE 0 END)::float8 AS "score"
+           FROM "Link" l
+           JOIN "Folder" f ON f."id" = l."folderId"
+          WHERE f."userId" = $1 AND ${conditions.join(' AND ')}
+          ORDER BY "score" DESC, l."clickCount" DESC, l."id" ASC
+          LIMIT $${params.length}`,
+        ...params,
+      );
+      return rows.map((row) => ({ ...row, score: Number(row.score) }));
     },
     async createLink(input) {
       return (await prisma.link.create({ data: prune(input) as any })) as any;
@@ -647,4 +678,8 @@ function assertExactIds(actual: number[], expected: number[]) {
   if (actual.some((id) => !expectedIds.has(id))) {
     throw Object.assign(new Error('Bookmark order changed; reload and try again'), { statusCode: 409 });
   }
+}
+
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }

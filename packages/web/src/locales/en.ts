@@ -819,7 +819,7 @@ export const en: Messages = {
     checking: 'Checking…',
     findDuplicates: 'Find duplicates',
     searchPaused: 'Search is paused while reordering',
-    searchPlaceholder: 'Search name, URL, or description',
+    searchPlaceholder: 'Search all bookmarks by name, URL, or description',
     deselectAll: 'Deselect all',
     selectAllCurrent: 'Select all shown',
     healthCheck: 'Health check',

@@ -6,7 +6,7 @@ import { sendOk } from '../../plugins/responses.js';
 import { normalizeUrl } from '../../services/bookmark.service.js';
 import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
 import { checkLinksHealth, shouldSkipLinkHealthCheck } from '../../services/link-health.service.js';
-import type { LinkRecord } from '../../services/repository.js';
+import type { FolderRecord, LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { numericParam } from '../../utils/route-params.js';
@@ -39,7 +39,31 @@ const linkMoveSchema = z.object({
   targetIds: z.array(z.coerce.number().int().positive()).min(1).max(5000),
 });
 
+const linkSearchSchema = z.object({
+  q: z.string().trim().min(1).max(200),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(30),
+  folderId: z.coerce.number().int().positive().optional(),
+});
+
 export async function linkRoutes(app: FastifyInstance, services: AppServices) {
+  app.get('/api/admin/links/search', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const input = linkSearchSchema.parse(request.query);
+    const folders = await services.repo.listFolders(user.id);
+    const byId = new Map(folders.map((folder) => [folder.id, folder]));
+    let folderIds: number[] | undefined;
+    if (input.folderId) {
+      if (!byId.has(input.folderId)) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+      folderIds = descendantFolderIds(folders, input.folderId);
+    }
+    const hits = await services.repo.searchLinks(user.id, input.q, { limit: input.limit, folderIds });
+    return sendOk(reply, {
+      query: input.q,
+      items: hits.map((hit) => ({ ...hit, folderPath: folderPath(byId, hit.folderId) })),
+    });
+  });
+
   app.get('/api/admin/links', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
@@ -266,4 +290,29 @@ function linkAuditSnapshot(link: LinkRecord) {
     sortOrder: link.sortOrder,
     healthCheckEnabled: link.healthCheckEnabled !== false,
   };
+}
+
+function descendantFolderIds(folders: FolderRecord[], rootId: number) {
+  const ids = new Set([rootId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const folder of folders) {
+      if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        grew = true;
+      }
+    }
+  }
+  return [...ids];
+}
+
+function folderPath(byId: Map<number, FolderRecord>, folderId: number) {
+  const names: string[] = [];
+  const seen = new Set<number>();
+  for (let folder = byId.get(folderId); folder && !seen.has(folder.id); folder = folder.parentId ? byId.get(folder.parentId) : undefined) {
+    seen.add(folder.id);
+    names.unshift(folder.name);
+  }
+  return names;
 }

@@ -159,6 +159,8 @@ model Link {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // The table also has a generated "searchText" column with a trigram index (migration
+  // 20261002010000_link_search). It is left out here on purpose; searchLinks queries it in raw SQL.
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
   @@index([clickCount, lastClickedAt])

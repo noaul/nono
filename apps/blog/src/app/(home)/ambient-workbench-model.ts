@@ -126,6 +126,30 @@ export function filterWorkbenchItems(query: string, items: WorkbenchSearchItem[]
 	return items.filter(item => `${item.title} ${item.subtitle}`.toLocaleLowerCase().includes(normalized)).slice(0, limit)
 }
 
+/**
+ * Tasks, events and repositories are filtered locally; bookmarks come ranked from the server search
+ * once it answers. Until then (`bookmarkHits === null`) every kind is filtered locally.
+ */
+export function mergeWorkbenchResults(query: string, items: WorkbenchSearchItem[], bookmarkHits: WorkbenchSearchItem[] | null, limit = 8): WorkbenchSearchItem[] {
+	if (!query.trim() || !bookmarkHits) return filterWorkbenchItems(query, items, limit)
+	const local = filterWorkbenchItems(query, items.filter(item => item.kind !== 'bookmark'), limit)
+	const localShare = Math.min(local.length, Math.max(limit - bookmarkHits.length, Math.ceil(limit / 2)))
+	return [...local.slice(0, localShare), ...bookmarkHits].slice(0, limit)
+}
+
+/** Maps /api/admin/links/search items to search results, labelled with their folder path. */
+export function bookmarkSearchResults(value: unknown): WorkbenchSearchItem[] {
+	const items = value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items) ? (value as { items: unknown[] }).items : []
+	return items.flatMap(entry => {
+		if (!entry || typeof entry !== 'object') return []
+		const link = entry as Record<string, unknown>
+		if (typeof link.id !== 'number' || typeof link.url !== 'string' || !/^https?:\/\//i.test(link.url)) return []
+		const path = Array.isArray(link.folderPath) ? link.folderPath.filter((name): name is string => typeof name === 'string') : []
+		const title = typeof link.name === 'string' && link.name.trim() ? link.name.trim() : link.url
+		return [{ id: `bookmark:${link.id}`, kind: 'bookmark' as const, title, subtitle: path.length ? `书签 · ${path.join(' / ')}` : '书签', href: link.url }]
+	})
+}
+
 export function sortCommonBookmarks<T extends WorkbenchBookmarkUsage>(bookmarks: T[]): T[] {
 	return [...bookmarks].sort((left, right) => {
 		const clicks = right.clickCount - left.clickCount

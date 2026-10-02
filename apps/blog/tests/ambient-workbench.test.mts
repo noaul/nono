@@ -3,7 +3,9 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+	bookmarkSearchResults,
 	filterWorkbenchItems,
+	mergeWorkbenchResults,
 	formatFocusDuration,
 	getShanghaiClockParts,
 	nextFocusDuration,
@@ -368,4 +370,30 @@ test('keeps dock task and schedule panels separate while the home summary shows 
 	assert.match(picker, /选择小时/)
 	assert.match(styles, /\.ambient-date-time-popover/)
 	assert.match(styles, /\.ambient-date-time-popover \{[\s\S]*position: fixed/)
+})
+
+test('bookmark search results carry their folder path and drop unsafe links', () => {
+	const results = bookmarkSearchResults({ items: [
+		{ id: 1, name: 'GitHub', url: 'https://github.com/', folderPath: ['开发', '工具'] },
+		{ id: 2, name: '', url: 'https://example.com/', folderPath: [] },
+		{ id: 3, name: 'Bad', url: 'javascript:alert(1)' },
+	] })
+	assert.deepEqual(results, [
+		{ id: 'bookmark:1', kind: 'bookmark', title: 'GitHub', subtitle: '书签 · 开发 / 工具', href: 'https://github.com/' },
+		{ id: 'bookmark:2', kind: 'bookmark', title: 'https://example.com/', subtitle: '书签', href: 'https://example.com/' },
+	])
+	assert.deepEqual(bookmarkSearchResults(null), [])
+})
+
+test('server bookmark hits replace the local bookmark filter once they arrive', () => {
+	const items = [
+		{ id: 'task:1', kind: 'task' as const, title: 'git cleanup', subtitle: '任务' },
+		{ id: 'bookmark:9', kind: 'bookmark' as const, title: 'Local git', subtitle: '书签', href: 'https://local.test/' },
+	]
+	const hits = [{ id: 'bookmark:1', kind: 'bookmark' as const, title: 'GitHub', subtitle: '书签', href: 'https://github.com/' }]
+
+	assert.deepEqual(mergeWorkbenchResults('git', items, null).map(item => item.id), ['task:1', 'bookmark:9'])
+	assert.deepEqual(mergeWorkbenchResults('git', items, hits).map(item => item.id), ['task:1', 'bookmark:1'])
+	assert.deepEqual(mergeWorkbenchResults('', items, hits).map(item => item.id), ['task:1', 'bookmark:9'])
+	assert.equal(mergeWorkbenchResults('git', items, Array.from({ length: 10 }, (_, index) => ({ ...hits[0], id: `bookmark:${index}` })), 4).length, 4)
 })
