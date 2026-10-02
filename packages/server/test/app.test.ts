@@ -142,13 +142,8 @@ describe('NoNo Fastify app', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
-  it('permits same-origin framing only for explicit homepage previews', async () => {
-    for (const url of ['/?appearancePreview=1', '/reader?appearancePreview=1', '/alice.smith?appearancePreview=1', '/%E7%94%A8%E6%88%B7?appearancePreview=1']) {
-      const response = await app.inject({ method: 'GET', url });
-      expect(response.headers['content-security-policy']).toContain("frame-ancestors 'self'");
-      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
-    }
-    for (const url of ['/', '/admin?appearancePreview=1', '/login?appearancePreview=1', '/api/auth/session?appearancePreview=1', '/%61dmin?appearancePreview=1', '/nostar/?appearancePreview=1']) {
+  it('keeps homepage framing disabled even with the retired preview query', async () => {
+    for (const url of ['/?appearancePreview=1', '/reader?appearancePreview=1', '/alice.smith?appearancePreview=1', '/%E7%94%A8%E6%88%B7?appearancePreview=1', '/admin?appearancePreview=1']) {
       const response = await app.inject({ method: 'GET', url });
       expect(response.headers['content-security-policy']).toContain("frame-ancestors 'none'");
     }

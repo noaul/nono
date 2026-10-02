@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import '@/styles/public.css';
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from '@lucide/vue';
 import FolderCard from '@/components/FolderCard.vue';
 import HomeNotificationBell from '@/components/HomeNotificationBell.vue';
@@ -30,7 +30,6 @@ const FolderUnlockModal = defineAsyncComponent(() => import('@/components/Folder
 const ThemeScene = defineAsyncComponent(() => import('@/components/ThemeScene.vue'));
 
 const route = useRoute();
-const embeddedPreview = computed(() => route.query?.appearancePreview === '1' && window.parent !== window);
 const auth = useAuthStore();
 const navigation = useNavigationStore();
 const { t, setSiteDefaultLocale } = useI18n();
@@ -43,6 +42,7 @@ const tabsRef = ref<HTMLElement | null>(null);
 const tabIndicatorStyle = ref<Record<string, string>>({ opacity: '0' });
 const tabsScrollable = ref(false);
 const appearanceOpen = ref(false);
+const appearanceDirty = ref(false);
 const appearancePreview = ref<Site | null>(null);
 const unlocking = ref(false);
 // Cards animate in once, on arrival; switching NoTabs or searching afterwards just swaps them.
@@ -55,7 +55,6 @@ const cardsSettled = ref(false);
  */
 function keepActiveTabVisible(nav: HTMLElement, active: HTMLElement) {
   if (nav.scrollWidth <= nav.clientWidth + 1) return;
-  if (embeddedPreview.value) { nav.scrollLeft = active.offsetLeft - nav.clientWidth / 2 + active.clientWidth / 2; return; }
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   active.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', inline: 'nearest', block: 'nearest' });
 }
@@ -99,7 +98,7 @@ const {
 } = useHomeFolders({ payload, query, selectedCategoryId, allTabLabel: () => t('nav.allTab') });
 const visualSite = computed(() => appearancePreview.value || payload.value?.site || null);
 const accessLocked = computed(() => Boolean(payload.value?.access?.required && !payload.value.access.unlocked));
-const canEditAppearance = computed(() => !embeddedPreview.value && auth.authenticated && auth.user?.id === payload.value?.site.userId);
+const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
 const {
   resolvedMode,
   activeTheme,
@@ -261,32 +260,50 @@ function onAppearancePreview(site: Site) {
 
 function closeAppearance() {
   appearanceOpen.value = false;
+  appearanceDirty.value = false;
   appearancePreview.value = null;
 }
 
-function receiveAppearancePreview(event: MessageEvent) {
-  if (!embeddedPreview.value || event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== 'nono:appearance-preview') return;
-  const site = event.data.site as Site | undefined;
-  if (!site || site.id !== payload.value?.site.id || site.userId !== payload.value.site.userId) return;
-  appearancePreview.value = site;
-  const selector = ({ title: '.nav-header', search: '.search-bar', folders: '.large-folder' } as Record<string, string>)[event.data.focus];
-  nextTick(() => {
-    const target = selector && document.querySelector(selector);
-    const inset = event.data.focus === 'folders' ? (document.querySelector('.folder-tabs')?.getBoundingClientRect().height || 0) + 16 : 8;
-    if (target) window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - inset, behavior: 'instant' });
-  });
-  if (event.data.mode === 'light' || event.data.mode === 'dark') {
-    document.documentElement.dataset.colorMode = event.data.mode;
-    window.dispatchEvent(new CustomEvent('nono-color-mode-change'));
+function confirmAppearanceNavigation() {
+  if (!appearanceOpen.value || !appearanceDirty.value) return true;
+  if (!window.confirm(t('appearance.editor.closeConfirm'))) return false;
+  closeAppearance();
+  return true;
+}
+
+function guardAppearanceLink(event: MouseEvent) {
+  const link = (event.target as Element).closest('a[href]');
+  if (!link || link.getAttribute('target') === '_blank' || link.hasAttribute('download')
+    || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (!confirmAppearanceNavigation()) {
+    event.preventDefault();
+    event.stopPropagation();
   }
 }
 
-watch(payload, () => {
-  if (embeddedPreview.value && payload.value) window.parent.postMessage({ type: 'nono:appearance-ready' }, window.location.origin);
+function guardAppearanceUnload(event: BeforeUnloadEvent) {
+  if (!appearanceOpen.value || !appearanceDirty.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+onBeforeRouteLeave(confirmAppearanceNavigation);
+
+async function focusAppearanceArea(area: 'title' | 'search' | 'folders') {
+  await nextTick();
+  const selector = { title: '.nav-header', search: '.search-bar', folders: '.large-folder' }[area];
+  const target = document.querySelector(selector);
+  if (!target) return;
+  const inset = area === 'folders' ? (document.querySelector('.folder-tabs')?.getBoundingClientRect().height || 0) + 24 : 16;
+  window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - inset, behavior: 'instant' });
+}
+
+watch(appearanceOpen, async (open) => {
+  if (open) await focusAppearanceArea('folders');
 });
 
-// Modals own Escape/focus handling; the page only locks body scroll while one is open.
-watch(anyModalOpen, (open) => {
+// Appearance editing keeps the homepage scrollable; blocking modals still lock it.
+watch(() => Boolean(expandedFolder.value || verifying.value || pendingDelete.value), (open) => {
   if (typeof document === 'undefined') return;
   document.body.style.overflow = open ? 'hidden' : '';
 });
@@ -305,7 +322,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  window.addEventListener('message', receiveAppearancePreview);
+  window.addEventListener('beforeunload', guardAppearanceUnload);
   load();
   window.addEventListener('keydown', onGlobalKeydown);
   window.addEventListener('resize', updateTabIndicator);
@@ -340,7 +357,7 @@ watch(
   { immediate: false },
 );
 onUnmounted(() => {
-  window.removeEventListener('message', receiveAppearancePreview);
+  window.removeEventListener('beforeunload', guardAppearanceUnload);
   window.removeEventListener('keydown', onGlobalKeydown);
   window.removeEventListener('resize', updateTabIndicator);
   if (typeof document !== 'undefined') document.body.style.overflow = '';
@@ -351,7 +368,8 @@ onUnmounted(() => {
   <main
     v-if="payload"
     class="nav-page public-glass-page"
-    :class="{ 'embedded-preview': embeddedPreview, 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
+    @click.capture="guardAppearanceLink"
+    :class="{ 'appearance-editing': appearanceOpen, 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
     :data-color-mode="resolvedMode"
     :data-theme-tone="activeTheme?.tone"
@@ -577,6 +595,8 @@ onUnmounted(() => {
       :site="payload.site"
       @close="closeAppearance"
       @preview="onAppearancePreview"
+      @focus="focusAppearanceArea"
+      @dirty="appearanceDirty = $event"
       @saved="onAppearanceSaved"
     />
   </main>

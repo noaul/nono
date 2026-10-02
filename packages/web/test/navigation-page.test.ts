@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: vi.fn(),
   useRoute: () => ({ params: { username: 'admin' }, fullPath: '/' }),
 }));
 

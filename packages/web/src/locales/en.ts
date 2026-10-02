@@ -211,7 +211,6 @@ export const en: Messages = {
       },
     },
     editor: {
-      preview: 'Live preview',
       advanced: 'Advanced details',
       backgroundMissing: 'Add a background image to use these controls',
       searchPlaceholder: 'Search settings',

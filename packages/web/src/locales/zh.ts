@@ -213,7 +213,6 @@ export const zh = {
       },
     },
     editor: {
-      preview: '实时预览',
       advanced: '高级细节',
       backgroundMissing: '尚未设置背景图，这些选项会在添加背景图后生效',
       searchPlaceholder: '搜索设置项',

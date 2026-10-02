@@ -65,44 +65,47 @@ test('bookmark size and density changes affect the actual mobile and desktop pag
   await expect(page.locator('.large-links').first()).toHaveCSS('grid-auto-rows', '46px');
 });
 
-test('keeps a real homepage preview visible while editing and scrolling details', async ({ page }, testInfo) => {
+async function expectExposed(page: Page, selector: string) {
+  await expect.poll(() => page.locator(selector).first().evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return x >= 0 && y >= 0 && x < innerWidth && y < innerHeight && Boolean(hit && (el.contains(hit) || hit.contains(el)));
+  })).toBe(true);
+}
+
+test('previews edits directly on the exposed homepage without a separate frame', async ({ page }, testInfo) => {
   await installSite(page);
-  const preview = page.getByTestId('appearance-live-preview');
-  await expect(preview).toBeVisible();
-  await expect(page.frameLocator('[data-testid="appearance-live-preview"]').locator('.large-links').first()).toBeInViewport();
+  expect(await page.locator('iframe').count()).toBe(0);
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
   await setControl(page, 'cardColor', '#ff0000');
   await setControl(page, 'cardOpacity', '20');
-  const frame = page.frameLocator('[data-testid="appearance-live-preview"]');
-  await expect(frame.locator('.large-links').first()).toHaveCSS('background-color', 'rgba(255, 0, 0, 0.2)');
+  await expect(page.locator('.large-links').first()).toHaveCSS('background-color', 'rgba(255, 0, 0, 0.2)');
+  await expectExposed(page, '.large-link > span:last-child');
   await page.locator('.drawer-scroll').evaluate(el => { el.scrollTop = el.scrollHeight; });
-  await expect(preview).toBeInViewport();
-  expect(await frame.getByTestId('appearance-settings-drawer').count()).toBe(0);
-  const path = testInfo.outputPath('appearance-preview.png');
+  await expectExposed(page, '.large-link > span:last-child');
+  const path = testInfo.outputPath('appearance-page-preview.png');
   await page.screenshot({ path });
-  await testInfo.attach('appearance-preview', { path, contentType: 'image/png' });
+  await testInfo.attach('appearance-page-preview', { path, contentType: 'image/png' });
 });
 
-
-test('advanced details change the rendered page and the pinned preview', async ({ page }) => {
+test('advanced details change the actual homepage', async ({ page }) => {
   await installSite(page);
   await page.getByTestId('appearance-advanced').check();
   for (const [key, value] of Object.entries({ searchRadius: '8', glassBorderWidth: '3', pageTitleSize: '42', folderGapX: '56', pagePaddingX: '64', notabTextColor: '#cc1122' })) {
     await setControl(page, key, value);
   }
   await page.getByTestId('notabOverflow-wrap').click();
-  const frame = page.frameLocator('[data-testid="appearance-live-preview"]');
-  for (const root of [page, frame]) {
-    await expect(root.locator('.search-bar').first()).toHaveCSS('border-radius', '8px');
-    await expect(root.locator('.large-links').first()).toHaveCSS('border-top-width', '3px');
-    await expect(root.locator('.nav-header h1')).toHaveCSS('font-size', '42px');
-    await expect(root.locator('.adaptive-folder-grid')).toHaveCSS('column-gap', '56px');
-    await expect(root.locator('.folder-tabs')).toHaveCSS('flex-wrap', 'wrap');
-    await expect(root.locator('.notab-select').first()).toHaveCSS('color', 'rgba(204, 17, 34, 0.76)');
-  }
+  await expect(page.locator('.search-bar').first()).toHaveCSS('border-radius', '8px');
+  await expect(page.locator('.large-links').first()).toHaveCSS('border-top-width', '3px');
+  await expect(page.locator('.nav-header h1')).toHaveCSS('font-size', '42px');
+  await expect(page.locator('.adaptive-folder-grid')).toHaveCSS('column-gap', '56px');
+  await expect(page.locator('.folder-tabs')).toHaveCSS('flex-wrap', 'wrap');
+  await expect(page.locator('.notab-select').first()).toHaveCSS('color', 'rgba(204, 17, 34, 0.76)');
   const expectedPadding = page.viewportSize()!.width <= 640 ? '32px' : '48px';
   await expect(page.locator('.nav-content').first()).toHaveCSS('padding-left', expectedPadding);
-  await expect(frame.locator('.nav-content').first()).toHaveCSS('padding-left', expectedPadding);
-  await expect.poll(async () => frame.locator('body').evaluate(() => window.innerWidth)).toBe(page.viewportSize()!.width);
+  await expectExposed(page, '.notab-select.active');
 });
 
 test('small and short screens keep preview and detail controls reachable', async ({ page }, testInfo) => {
@@ -111,17 +114,53 @@ test('small and short screens keep preview and detail controls reachable', async
   for (const viewport of [{ width: 320, height: 568 }, { width: 740, height: 360 }]) {
     await page.setViewportSize(viewport);
     await installSite(page);
-    await expect(page.getByTestId('appearance-live-preview')).toBeInViewport();
+    expect(await page.locator('iframe').count()).toBe(0);
+    await setControl(page, 'bookmarkTextSize', '18');
+    await expectExposed(page, '.large-link > span:last-child');
     expect(await page.locator('.drawer-scroll').evaluate(el => el.clientHeight)).toBeGreaterThan(70);
     expect(await page.locator('.appearance-drawer').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.getByTestId('appearance-search').fill('圆角');
     await expect(page.getByTestId('control-searchRadius')).toBeVisible();
     await setControl(page, 'searchRadius', '8');
-    const frame = page.frameLocator('[data-testid="appearance-live-preview"]');
-    await expect(frame.locator('.search-bar')).toHaveCSS('border-radius', '8px');
+    await expect(page.locator('.search-bar')).toHaveCSS('border-radius', '8px');
+    await expectExposed(page, '.search-bar');
     const path = testInfo.outputPath(`appearance-${viewport.width}x${viewport.height}.png`);
     await page.screenshot({ path });
     await testInfo.attach(`appearance-${viewport.width}x${viewport.height}`, { path, contentType: 'image/png' });
   }
   expect(errors).toEqual([]);
+});
+
+test('discarding live edits restores the saved homepage and reopens cleanly', async ({ page }) => {
+  await installSite(page);
+  const saved = await page.locator('.large-links').first().evaluate(el => getComputedStyle(el).backgroundColor);
+  await setControl(page, 'cardColor', '#ff0000');
+  await setControl(page, 'cardOpacity', '20');
+  await expect(page.locator('.large-links').first()).toHaveCSS('background-color', 'rgba(255, 0, 0, 0.2)');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '关闭外观设置', exact: true }).click();
+  await expect(page.getByTestId('appearance-settings-drawer')).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await expect(page.locator('.large-links').first()).toHaveCSS('background-color', saved);
+  await expect(page.locator('.nav-page')).not.toHaveClass(/appearance-editing/);
+  await page.getByTestId('portal-corner-link').click();
+  await expect(page.getByTestId('appearance-save')).toBeDisabled();
+});
+
+test('unsaved edits require confirmation before leaving through the homepage', async ({ page }) => {
+  await installSite(page);
+  await setControl(page, 'pageTitleColor', '#ff0000');
+  let confirmations = 0;
+  page.on('dialog', async dialog => { confirmations++; await dialog.dismiss(); });
+  await page.getByTestId('portal-center-link').click();
+  expect(confirmations).toBe(1);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('appearance-save')).toBeEnabled();
+  await expect(page.locator('.nav-header h1')).toHaveCSS('color', 'rgb(255, 0, 0)');
+  page.removeAllListeners('dialog');
+  page.on('dialog', async dialog => { confirmations++; await dialog.accept(); });
+  await page.route('**/nodesk', route => route.fulfill({ contentType: 'text/html', body: '<p>Destination</p>' }));
+  await page.getByTestId('portal-center-link').click();
+  await expect(page).toHaveURL(/\/nodesk$/);
+  expect(confirmations).toBe(2);
 });

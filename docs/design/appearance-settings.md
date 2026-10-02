@@ -42,19 +42,15 @@ current data alone. Existing retained values resume working; absent values use m
 
 ## Live preview
 
-Edits update the actual homepage immediately. A pinned same-origin iframe also renders
-`NavigationPage.vue` with `appearancePreview=1`, so the preview remains visible while scrolling
-the controls or using a fullscreen mobile drawer. It renders at the current window width and
-scales to fit the panel, preserving desktop columns and responsive behavior. Compact preview
-chrome hides owner actions and the avatar, while content spacing and appearance settings remain
-active. The frame scrolls to the area being adjusted so small previews show the affected
-content instead of cropping it below the header. The drawer backdrop is transparent to preserve the main page's appearance on desktop.
+Edits update the actual homepage immediately; there is no separate preview frame. On desktop,
+the page leaves room for the settings drawer on its right. On phones and narrow tablets, the
+settings drawer occupies the lower 56% of the viewport, leaving the actual homepage visible
+above it. The page remains scrollable and interactive while settings are open. Adjusting a
+control brings the relevant title, search, or folder area into view. Extra bottom space lets
+short pages scroll their content above the mobile sheet.
 
-The frame contains no appearance drawer or editing controls. The message bridge checks both
-origin and window source, and accepts only the currently loaded site's id and owner. Production
-headers allow same-origin framing only for explicit public homepage previews, including encoded
-usernames; reserved module, admin and API routes retain their framing restrictions. Preview
-responses are not cached.
+The transparent, nonblocking backdrop preserves the page's appearance. Close and Escape still
+use the draft-discard flow. All routes retain their ordinary framing restrictions.
 
 ## Save behavior
 
@@ -62,9 +58,10 @@ responses are not cached.
 captures a serialized snapshot before sending the request. The response acknowledges that
 submission; edits made while it is in flight remain dirty and visible. A drawer reopened during
 a request follows the completed save if untouched, or keeps new edits compared against the
-successful submission. Closing dirty asks before discarding changes.
+successful submission. Closing or following a link in the same tab asks before discarding
+changes; refresh and browser navigation use the browser’s unsaved-change prompt.
 
-Header actions remain reachable above the pinned preview and scrolling controls. Save is
+Header actions remain reachable above the scrolling controls. Save is
 disabled for an unchanged draft or an in-flight request. Confirmation appears only when the
 visible draft has actually been saved. Personal presets use the same request lifecycle and
 support up to three named entries.
@@ -80,5 +77,5 @@ wind, depth, blur, applicable collision/splash behavior, reduced motion, and low
 
 Labels, options and editor messages have Chinese and English entries. The English catalogue is
 typed against the Chinese one. Unit tests cover field normalization, compatibility, themes and
-save races; browser regressions measure actual computed styles on desktop/mobile, pinned preview
+save races; browser regressions measure actual computed styles on desktop/mobile, visible homepage
 updates, advanced controls, saved colours after reload, and small/short screen usability.

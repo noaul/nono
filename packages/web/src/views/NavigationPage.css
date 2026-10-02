@@ -9,14 +9,14 @@
   position: relative;
 }
 
-/* The preview uses the actual homepage with compact spacing around its chrome. */
-.embedded-preview.nav-page { padding: 8px 0; }
-.embedded-preview .public-corner-actions,
-.embedded-preview .portal-center-image { display: none; }
-.embedded-preview .header-vibe { padding: 0; }
-.embedded-preview .nav-header { margin: 0; }
-.embedded-preview .nav-header p { margin-top: 2px; }
-.embedded-preview .folder-tabs { margin-top: 0; margin-bottom: 0; }
+/* Editing uses the homepage itself; leave content beside the desktop drawer. */
+@media (min-width: 901px) {
+  .appearance-editing .nav-content {
+    margin-left: 0;
+    margin-right: 512px;
+  }
+}
+.nav-page.appearance-editing { padding-bottom: max(80px, 56dvh); }
 
 .navigation-load-error-page {
   display: grid;

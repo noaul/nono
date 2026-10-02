@@ -15,6 +15,8 @@ const emit = defineEmits<{
   close: [];
   saved: [site: Site, hasPendingEdits: boolean];
   preview: [site: Site];
+  dirty: [value: boolean];
+  focus: [area: 'title' | 'search' | 'folders'];
 }>();
 
 const { t } = useI18n();
@@ -31,30 +33,6 @@ const presetName = ref('');
 const savedSnapshot = ref('');
 let successTimer = 0;
 let draftGeneration = 0;
-const previewFocus = ref<'title' | 'search' | 'folders'>('folders');
-const previewFrame = ref<HTMLIFrameElement | null>(null);
-const viewportWidth = ref(window.innerWidth);
-const previewBounds = ref({ width: window.innerWidth, height: 240 });
-let previewObserver: ResizeObserver | undefined;
-const previewStyle = computed(() => {
-  const scale = previewBounds.value.width / viewportWidth.value;
-  return { width: `${viewportWidth.value}px`, height: `${previewBounds.value.height / scale}px`, transform: `scale(${scale})` };
-});
-function onResize() { viewportWidth.value = window.innerWidth; }
-watch(previewFrame, (frame) => {
-  previewObserver?.disconnect();
-  if (!frame?.parentElement || typeof ResizeObserver === 'undefined') return;
-  previewObserver = new ResizeObserver(([entry]) => {
-    if (entry && entry.contentRect.width > 0) previewBounds.value = { width: entry.contentRect.width, height: entry.contentRect.height };
-  });
-  previewObserver.observe(frame.parentElement);
-});
-const previewUrl = computed(() => {
-  const url = new URL(window.location.href);
-  url.searchParams.set('appearancePreview', '1');
-  return `${url.pathname}${url.search}`;
-});
-
 // The primary panel contains the choices most people use; detailed tuning stays separate.
 type DrawerTab = 'theme' | 'texture';
 const activeTab = ref<DrawerTab>('theme');
@@ -262,6 +240,7 @@ watch(() => props.open, (open) => {
 }, { immediate: true });
 
 watch(dirty, (isDirty) => {
+  emit('dirty', isDirty);
   if (!isDirty) return;
   message.value = '';
   window.clearTimeout(successTimer);
@@ -281,48 +260,28 @@ function draftSite(): Site {
   };
 }
 
-function updateFrame() {
-  if (!props.open) return;
-  previewFrame.value?.contentWindow?.postMessage({
-    type: 'nono:appearance-preview', site: JSON.parse(JSON.stringify(draftSite())),
-    focus: previewFocus.value,
-    mode: document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
-  }, window.location.origin);
-}
-
 function focusPreview(event: Event) {
   const control = (event.target as Element).closest('[data-testid^="control-"]');
   const key = control?.getAttribute('data-testid')?.slice('control-'.length) as AppearanceKey | undefined;
   if (!key || !Object.hasOwn(APPEARANCE_FIELDS, key)) return;
   const group = APPEARANCE_FIELDS[key].group;
-  previewFocus.value = key.startsWith('pageTitle') || key.startsWith('description') ? 'title'
+  const area = key.startsWith('pageTitle') || key.startsWith('description') ? 'title'
     : group === 'search' || key === 'searchMaxWidth' || key.startsWith('search') || key === 'placeholderColor' ? 'search' : 'folders';
-  updateFrame();
-}
-
-function onPreviewReady(event: MessageEvent) {
-  if (event.origin === window.location.origin && event.source === previewFrame.value?.contentWindow && event.data?.type === 'nono:appearance-ready') updateFrame();
+  emit('focus', area);
 }
 
 watch(draftSignature, () => {
   if (!props.open) return;
   emit('preview', draftSite());
-  updateFrame();
 }, { flush: 'post' });
 
-window.addEventListener('resize', onResize);
 window.addEventListener('keydown', onKeydown);
-window.addEventListener('message', onPreviewReady);
 function onColorModeChange() {
   if (props.open && !dirty.value) resetDraft();
-  updateFrame();
 }
 window.addEventListener('nono-color-mode-change', onColorModeChange);
 onBeforeUnmount(() => {
-  previewObserver?.disconnect();
-  window.removeEventListener('resize', onResize);
   window.removeEventListener('keydown', onKeydown);
-  window.removeEventListener('message', onPreviewReady);
   window.removeEventListener('nono-color-mode-change', onColorModeChange);
   window.clearTimeout(successTimer);
 });
@@ -331,7 +290,7 @@ onBeforeUnmount(() => {
 <template>
   <Transition name="appearance-drawer">
     <div v-if="open" class="appearance-backdrop" data-testid="appearance-settings-drawer" @click.self="requestClose">
-      <aside class="appearance-drawer" @input="focusPreview" @change="focusPreview" @click="focusPreview" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+      <aside class="appearance-drawer" @input="focusPreview" @change="focusPreview" @click="focusPreview" role="dialog" aria-labelledby="appearance-title">
         <!-- Sticky: the actions stay reachable however far the panel is scrolled, and the
              bottom action bar is gone, which gives the controls the height back. -->
         <header class="drawer-header">
@@ -403,12 +362,7 @@ onBeforeUnmount(() => {
           </button>
         </nav>
 
-        <!-- Panels stay mounted and toggle with v-show, so switching tabs keeps every draft
-             edit and scroll position instead of remounting the editors. -->
-        <section class="live-preview" :aria-label="t('appearance.editor.preview')">
-          <span>{{ t('appearance.editor.preview') }}</span>
-          <iframe ref="previewFrame" :src="previewUrl" :style="previewStyle" :title="t('appearance.editor.preview')" data-testid="appearance-live-preview" tabindex="-1" @load="updateFrame" />
-        </section>
+        <!-- Both panels stay mounted so switching tabs preserves draft and scroll state. -->
         <div class="drawer-scroll">
           <div v-show="activeTab === 'theme'" class="drawer-panel" role="tabpanel">
             <section class="theme-section">
@@ -578,6 +532,7 @@ onBeforeUnmount(() => {
 .appearance-backdrop {
   background: transparent;
   inset: 0;
+  pointer-events: none;
   overflow: hidden;
   position: fixed;
   z-index: 80;
@@ -593,43 +548,16 @@ onBeforeUnmount(() => {
   box-shadow: var(--drawer-shadow);
   color: var(--drawer-text);
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100dvh;
   margin-left: auto;
+  pointer-events: auto;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   width: min(512px, 100vw);
   -webkit-backdrop-filter: blur(28px) saturate(1.16);
   backdrop-filter: blur(28px) saturate(1.16);
-}
-
-.live-preview {
-  height: clamp(100px, 34dvh, 310px);
-  overflow: hidden;
-  border-bottom: 1px solid var(--drawer-divider);
-  min-width: 0;
-  position: relative;
-}
-.live-preview > span {
-  background: var(--drawer-bg);
-  border-radius: 4px;
-  color: var(--drawer-muted);
-  font-size: 10px;
-  padding: 3px 7px;
-  position: absolute;
-  right: 8px;
-  top: 6px;
-  z-index: 1;
-}
-.live-preview iframe {
-  border: 0;
-  display: block;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  transform-origin: top left;
 }
 
 .drawer-header {
@@ -1236,6 +1164,21 @@ onBeforeUnmount(() => {
   0% { opacity: 0; transform: translateY(0); }
   16% { opacity: 0.85; }
   100% { opacity: 0; transform: translateY(104px); }
+}
+
+/* Keep the actual page above the controls on phones and narrow tablets. */
+@media (max-width: 900px) {
+  .appearance-drawer {
+    border-left: 0;
+    border-top: 1px solid var(--drawer-border);
+    border-radius: 16px 16px 0 0;
+    bottom: 0;
+    height: 56dvh;
+    position: absolute;
+    width: 100%;
+  }
+  .appearance-drawer-enter-from .appearance-drawer,
+  .appearance-drawer-leave-to .appearance-drawer { transform: translateY(100%); }
 }
 
 @media (max-width: 640px) {
