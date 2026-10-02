@@ -75,3 +75,11 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 		entries: visibleEntries
 	}
 }
+
+export const NONO_APP_ENTRY: WorkbenchAppEntry = { id: 'nono', label: 'NoNo', url: '/admin', icon: 'bookmark', openInNewTab: false }
+
+/** The app dock always leads with NoNo itself, unless the saved shortcuts already point at it. */
+export function appDockEntries(entries: WorkbenchAppEntry[]): WorkbenchAppEntry[] {
+	const hasNoNo = entries.some(entry => entry.id === NONO_APP_ENTRY.id || /^\/admin(?:[/?#]|$)/.test(entry.url))
+	return hasNoNo ? entries : [NONO_APP_ENTRY, ...entries]
+}

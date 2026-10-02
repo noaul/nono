@@ -16,7 +16,7 @@ import {
 	sortCommonBookmarks,
 	toggleTask
 } from '../src/app/(home)/ambient-workbench-model.ts'
-import { normalizeWorkbenchNavigation } from '../src/app/(home)/ambient-workbench-settings.ts'
+import { appDockEntries, NONO_APP_ENTRY, normalizeWorkbenchNavigation } from '../src/app/(home)/ambient-workbench-settings.ts'
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -184,7 +184,7 @@ test('keeps private NoDesk data and controls behind the live Nono admin session'
 	assert.match(workbench, /privateWorkbenchVisible && \(focusRunning \?/)
 	assert.match(workbench, /privateWorkbenchVisible && activePanel &&/)
 	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-side-stack/)
-	assert.match(workbench, /workbenchNavigation\.quickEntriesVisible && <aside/)
+	assert.match(workbench, /privateWorkbenchVisible && workbenchNavigation\.quickEntriesVisible && \(\n\t+<nav className='ambient-app-dock/)
 	assert.match(workbench, /privateWorkbenchVisible && <div ref=\{dockRef\} className='ambient-dock-wrap/)
 	assert.match(workbench, /open=\{privateWorkbenchVisible && settingsOpen\}/)
 	assert.match(workbench, /privateWorkbenchVisible && searchOpen &&/)
@@ -253,7 +253,7 @@ test('uses a wider lower search trigger and links integration panels to their pr
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 })
 
-test('places a hover-expanded application rail below the notification rail', async () => {
+test('keeps module entries in a right-hand app dock that leads with NoNo', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
 	const backupCenter = await read('src/app/(home)/ambient-backup-center.tsx')
@@ -261,9 +261,9 @@ test('places a hover-expanded application rail below the notification rail', asy
 	const source = `${workbench}\n${settings}\n${backupCenter}`
 
 	assert.match(source, /className='ambient-side-stack ambient-wakeable'/)
-	assert.match(source, /ambient-notification-rail[\s\S]*ambient-app-rail/)
-	assert.match(source, /onMouseEnter=.*setAppSwitcherOpen\(true\)/)
-	assert.match(source, /aria-label='应用'/)
+	assert.match(workbench, /<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'>/)
+	assert.match(workbench, /dockEntries\.map\(entry =>[\s\S]*ambient-app-dock-label/)
+	assert.doesNotMatch(workbench, /ambient-app-rail|setAppSwitcherOpen/)
 	assert.match(source, /id: 'settings'[\s\S]*icon: Settings/)
 	assert.match(source, /桌面/)
 	assert.match(source, /备份与恢复/)
@@ -271,15 +271,32 @@ test('places a hover-expanded application rail below the notification rail', asy
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/backups/)
 	assert.match(source, /\/api\/admin\/backup-center\/webdav\/restore/)
 	assert.match(source, /\/api\/admin\/backup-center\/local/)
+	assert.match(styles, /\.ambient-app-dock\s*\{[^}]*flex-direction: column;[^}]*position: absolute;[^}]*right: max\(20px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\);[^}]*top: 50%/)
+	assert.match(styles, /\.ambient-app-dock a:hover \.ambient-app-dock-label/)
+	assert.match(styles, /\[data-app-dock='true'\] \.ambient-side-stack\s*\{[^}]*74px/)
+	assert.doesNotMatch(styles, /\.ambient-app-rail|\.ambient-app-list/)
 	assert.match(styles, /\.ambient-side-stack\s*\{[^}]*right: max\(28px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\)/)
-	assert.match(styles, /\.ambient-app-rail\s*\{[^}]*width: min\(300px, calc\(100vw - 56px\)\)/)
-	assert.doesNotMatch(styles, /\.ambient-app-switcher\s*\{[^}]*bottom:/)
 	assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.ambient-side-stack\s*\{[^}]*right: max\(16px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\)/)
-	assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.ambient-command-trigger\s*\{[^}]*left: max\(16px, var\(--nono-safe-left, env\(safe-area-inset-left\)\)\);[^}]*right: max\(68px, calc\(var\(--nono-safe-right, env\(safe-area-inset-right\)\) \+ 68px\)\)/)
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 	assert.match(styles, /\.ambient-settings-dialog/)
 	assert.match(settings, /event\.key !== 'Tab'/)
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
+})
+
+test('phones get a five-button dock, header search and notifications, and a 更多 panel', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	for (const id of ['github', 'yumi', 'focus', 'settings']) {
+		assert.match(workbench, new RegExp(`id: '${id}'[^}]*placement: 'secondary'`))
+	}
+	assert.match(workbench, /\{ id: 'more', label: '更多', icon: LayoutGrid, placement: 'phone-only' \}/)
+	assert.match(workbench, /activePanel === 'more'[\s\S]*<h3>工具<\/h3>[\s\S]*<h3>打开应用<\/h3>/)
+	assert.match(workbench, /ambient-phone-only ambient-bell-button/)
+	assert.match(workbench, /ambient-icon-button ambient-wide-only' onClick=\{\(\) => void toggleFullscreen\(\)\}/)
+	const phone = styles.slice(styles.lastIndexOf('Phones: one clean column'))
+	assert.match(phone, /\.ambient-wide-only,\s*\.ambient-app-dock,\s*\.ambient-command-trigger,\s*\.ambient-dock \.is-secondary\s*\{\s*display: none !important;/)
+	assert.match(phone, /\[data-notifications='collapsed'\] \.ambient-side-stack\s*\{\s*display: none;/)
 })
 
 test('auto-collapses notifications and expands the rail only on hover or keyboard focus', async () => {
@@ -396,4 +413,13 @@ test('server bookmark hits replace the local bookmark filter once they arrive', 
 	assert.deepEqual(mergeWorkbenchResults('git', items, hits).map(item => item.id), ['task:1', 'bookmark:1'])
 	assert.deepEqual(mergeWorkbenchResults('', items, hits).map(item => item.id), ['task:1', 'bookmark:9'])
 	assert.equal(mergeWorkbenchResults('git', items, Array.from({ length: 10 }, (_, index) => ({ ...hits[0], id: `bookmark:${index}` })), 4).length, 4)
+})
+
+test('the app dock adds NoNo unless a shortcut already opens it', () => {
+	const yumi = { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false }
+	assert.deepEqual(appDockEntries([yumi]), [NONO_APP_ENTRY, yumi])
+	assert.deepEqual(appDockEntries([]), [NONO_APP_ENTRY])
+	const custom = { id: 'mine', label: '后台', url: '/admin/links', icon: 'link', openInNewTab: false }
+	assert.deepEqual(appDockEntries([custom, yumi]), [custom, yumi])
+	assert.equal(appDockEntries([{ ...yumi, id: 'nono' }]).length, 1)
 })

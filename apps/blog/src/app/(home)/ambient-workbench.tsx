@@ -14,6 +14,7 @@ import {
 	CloudSun,
 	ExternalLink,
 	Globe2,
+	LayoutGrid,
 	Link2,
 	ListTodo,
 	Maximize2,
@@ -57,10 +58,10 @@ import {
 import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
-import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
+import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 import { summarizeOverview, type TodayRow } from './today-overview-model'
 
-type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
+type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus' | 'more'
 type DockActionId = PanelId | 'settings'
 type LoadState = 'loading' | 'ready' | 'unavailable'
 type IntegrationId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'notifications'
@@ -101,6 +102,8 @@ type DockPanelItem = {
 	icon: typeof Bookmark
 	shortcutHref?: string
 	shortcutLabel?: string
+	/** On phones the dock keeps five buttons; `secondary` items move into the 更多 panel. */
+	placement?: 'secondary' | 'phone-only'
 }
 
 type DockItem = DockPanelItem
@@ -114,12 +117,13 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : 
 const DOCK_ITEMS: DockItem[] = [
 	{ id: 'today', label: '今日', icon: Sunrise },
 	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
-	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar' },
-	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi' },
+	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar', placement: 'secondary' },
+	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi', placement: 'secondary' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
-	{ id: 'focus', label: '专注', icon: Timer },
-	{ id: 'settings', label: '设置', icon: Settings }
+	{ id: 'focus', label: '专注', icon: Timer, placement: 'secondary' },
+	{ id: 'settings', label: '设置', icon: Settings, placement: 'secondary' },
+	{ id: 'more', label: '更多', icon: LayoutGrid, placement: 'phone-only' }
 ]
 
 const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
@@ -219,9 +223,9 @@ export default function AmbientWorkbench() {
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
-	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
 	const [notificationRailExpanded, setNotificationRailExpanded] = useState(false)
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
+	const dockEntries = useMemo(() => appDockEntries(workbenchNavigation.entries), [workbenchNavigation.entries])
 
 	const [tasks, setTasks] = useState<WorkbenchTask[]>([])
 	const [events, setEvents] = useState<WorkbenchEvent[]>([])
@@ -446,7 +450,7 @@ export default function AmbientWorkbench() {
 			setSearchOpen(false)
 			setSearchQuery('')
 			setSettingsOpen(false)
-			setAppSwitcherOpen(false)
+			setNotificationRailExpanded(false)
 			return
 		}
 
@@ -555,7 +559,7 @@ export default function AmbientWorkbench() {
 			if (event.key === 'Escape') {
 				setSearchOpen(false)
 				setActivePanel(null)
-				setAppSwitcherOpen(false)
+				setNotificationRailExpanded(false)
 			}
 		}
 		const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -702,6 +706,7 @@ export default function AmbientWorkbench() {
 			data-session={initialized ? 'ready' : 'loading'}
 			data-notifications={privateWorkbenchVisible ? (notificationRailExpanded ? 'expanded' : 'collapsed') : 'hidden'}
 			data-panel={activePanel ? 'open' : 'closed'}
+			data-app-dock={privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible ? 'true' : 'false'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
 				<div className='ambient-wallpaper' />
@@ -726,11 +731,20 @@ export default function AmbientWorkbench() {
 				</div>}
 
 				<div className='ambient-top-actions'>
+					{privateWorkbenchVisible && <>
+						<button type='button' className='ambient-icon-button ambient-phone-only' onClick={() => setSearchOpen(true)} title='快速搜索' aria-label='打开快速搜索'>
+							<Search size={20} />
+						</button>
+						<button type='button' className='ambient-icon-button ambient-phone-only ambient-bell-button' onClick={() => setNotificationRailExpanded(current => !current)} title='通知' aria-label={notificationUnreadCount ? `通知，${notificationUnreadCount} 条未读` : '通知'} aria-expanded={notificationRailExpanded}>
+							<Bell size={20} />
+							{notificationUnreadCount > 0 && <b className='ambient-dock-badge'>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b>}
+						</button>
+					</>}
 					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: SHANGHAI_TIME_ZONE, month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
 					<button type='button' className='ambient-icon-button' onClick={toggleDim} title={dimmed ? '调亮画面' : '柔和画面'} aria-label={dimmed ? '调亮画面' : '柔和画面'}>
 						{dimmed ? <SunMedium size={20} /> : <Moon size={20} />}
 					</button>
-					<button type='button' className='ambient-icon-button' onClick={() => void toggleFullscreen()} title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
+					<button type='button' className='ambient-icon-button ambient-wide-only' onClick={() => void toggleFullscreen()} title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
 						{isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
 					</button>
 				</div>
@@ -829,6 +843,31 @@ export default function AmbientWorkbench() {
 								<a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>
 							</IntegrationList>}
 
+							{activePanel === 'more' && (
+								<div className='ambient-more-grid'>
+									<h3>工具</h3>
+									{DOCK_ITEMS.filter(item => item.placement === 'secondary').map(item => {
+										const Icon = item.icon
+										return <button type='button' key={item.id} onClick={() => {
+											if (item.id === 'settings') {
+												setActivePanel(null)
+												setSettingsOpen(true)
+												return
+											}
+											setActivePanel(item.id as PanelId)
+										}}>
+											<span className='ambient-dock-icon'><Icon size={22} strokeWidth={1.75} /></span>
+											<span>{item.label}</span>
+										</button>
+									})}
+									{workbenchNavigation.quickEntriesVisible && <h3>打开应用</h3>}
+									{workbenchNavigation.quickEntriesVisible && dockEntries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
+										<span className='ambient-dock-icon'><AppEntryIcon entry={entry} /></span>
+										<span>{entry.label}</span>
+									</a>)}
+								</div>
+							)}
+
 							{activePanel === 'tasks' && (
 								<div className='ambient-local-tool'>
 									<form className='ambient-add-row' onSubmit={addTask}>
@@ -925,35 +964,24 @@ export default function AmbientWorkbench() {
 					</>}
 				</aside>
 
-				{workbenchNavigation.quickEntriesVisible && <aside
-					className={`ambient-app-rail ambient-side-rail${appSwitcherOpen ? ' is-expanded' : ' is-collapsed'}`}
-					aria-label='应用'
-					aria-expanded={appSwitcherOpen}
-					tabIndex={0}
-					onMouseEnter={() => setAppSwitcherOpen(true)}
-					onMouseLeave={() => setAppSwitcherOpen(false)}
-					onFocus={() => setAppSwitcherOpen(true)}
-					onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAppSwitcherOpen(false) }}>
-					<header className='ambient-notification-heading'>
-						<span><AppWindow size={17} /><strong>应用</strong><b>{workbenchNavigation.entries.length}</b></span>
-						<span className='ambient-side-chevron' aria-hidden='true'>{appSwitcherOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
-					</header>
-					{appSwitcherOpen && <nav className='ambient-app-list' aria-label='应用快捷入口'>
-						{workbenchNavigation.entries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined}>
-							<span className='ambient-app-entry-icon'><AppEntryIcon entry={entry} /></span>
-							<span><strong>{entry.label}</strong><small>{entry.url}</small></span>
-							<ArrowUpRight size={15} />
-						</a>)}
-					</nav>}
-				</aside>}
 			</div>}
+
+			{privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible && (
+				<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'>
+					{dockEntries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined} aria-label={entry.label}>
+						<span className='ambient-app-entry-icon'><AppEntryIcon entry={entry} /></span>
+						<span className='ambient-app-dock-label' aria-hidden='true'>{entry.label}</span>
+					</a>)}
+				</nav>
+			)}
 
 			{privateWorkbenchVisible && <div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
 				<nav className='ambient-dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
 						const isActive = item.id === 'settings' ? settingsOpen : activePanel === item.id
-						return <button type='button' key={item.id} className={isActive ? 'is-active' : ''} onClick={() => {
+						const placementClass = item.placement === 'secondary' ? ' is-secondary' : item.placement === 'phone-only' ? ' ambient-phone-only' : ''
+						return <button type='button' key={item.id} className={`${isActive ? 'is-active' : ''}${placementClass}`} onClick={() => {
 							if (item.id === 'settings') {
 								setActivePanel(null)
 								setSettingsOpen(true)
