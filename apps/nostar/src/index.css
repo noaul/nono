@@ -1350,6 +1350,10 @@ textarea::-webkit-resizer {
   display: none;
 }
 
+.nostar-tabbar {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .nostar-sidebar {
     box-shadow: var(--ui-shadow-md);
@@ -1390,12 +1394,46 @@ textarea::-webkit-resizer {
     z-index: 55;
   }
 
+  /* The bottom tab bar replaces the hamburger; 更多 still opens the drawer. */
   .nostar-menu-toggle {
-    display: inline-flex;
+    display: none;
   }
 
   .nostar-main {
+    padding-bottom: calc(60px + var(--nono-safe-bottom, env(safe-area-inset-bottom)));
     padding-left: 0;
+  }
+
+  .nostar-tabbar {
+    background: var(--ui-surface);
+    border-top: 1px solid var(--ui-border);
+    bottom: 0;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    left: 0;
+    padding-bottom: var(--nono-safe-bottom, env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 50;
+  }
+
+  .nostar-tab {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--ui-text-muted);
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    font-weight: 500;
+    gap: 2px;
+    justify-content: center;
+    min-height: 56px;
+  }
+
+  .nostar-tab.is-active {
+    color: var(--ui-accent);
   }
 
   .nostar-topbar {

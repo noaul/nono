@@ -55,16 +55,16 @@ const RepositoriesView = React.memo(({
     : (isActive ? searchResults : repositories);
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+    <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:gap-6">
       <CategorySidebar
         repositories={repositories}
         selectedCategory={selectedCategory}
         onCategorySelect={onCategorySelect}
       />
-      <div className="flex-1 space-y-6">
+      <div className="flex-1 space-y-3 sm:space-y-6">
         <div className="flex flex-wrap justify-end gap-2">
-          <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => setBatchOpen(true)}>{language === 'zh' ? '批量 Star' : 'Batch Star'}</button>
-          <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => {sessionStorage.setItem('gsm:pending-settings-tab', 'lists'); useAppStore.getState().setCurrentView('settings');}} >GitHub Lists</button>
+          <button className="rounded-lg border px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => setBatchOpen(true)}>{language === 'zh' ? '批量 Star' : 'Batch Star'}</button>
+          <button className="rounded-lg border px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm" onClick={() => {sessionStorage.setItem('gsm:pending-settings-tab', 'lists'); useAppStore.getState().setCurrentView('settings');}} >GitHub Lists</button>
         </div>
         {batchOpen && <React.Suspense fallback={<p role="status">{language === 'zh' ? '加载中…' : 'Loading…'}</p>}><BatchStarModal isOpen onClose={() => setBatchOpen(false)} /></React.Suspense>}
         <SearchBar />

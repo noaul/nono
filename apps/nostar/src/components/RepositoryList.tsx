@@ -1017,7 +1017,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
   const { unanalyzedCount, analyzedCount, failedCount } = repositoryStats;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
 
       {/* Similar repositories view banner */}
       {similarView?.active && (
@@ -1030,7 +1030,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
 
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-3 sm:p-4 gap-3 sm:gap-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
 
           {/* AI Analysis Dropdown Button */}
           <div className="relative">
@@ -1121,8 +1121,8 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
 
           {/* Description Toggle - Radio Style - 移动端优化 */}
           {!isLoading && (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <span className="text-xs sm:text-sm text-gray-700 dark:text-text-tertiary">
+            <div className="flex flex-row items-center gap-2 sm:gap-3">
+              <span className="hidden text-xs sm:inline sm:text-sm text-gray-700 dark:text-text-tertiary">
                 {t('显示内容:', 'Display:')}
               </span>
               <div className="flex items-center space-x-3 sm:space-x-4">
@@ -1165,7 +1165,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
         {/* Statistics */}
         <div className={disableCardAnimations ? 'repository-list-syncing' : undefined}>
           <div className="text-xs text-gray-500 dark:text-text-tertiary mt-0.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <div>
                 {t(
                   `第 ${startIndex}-${endIndex} / 共 ${filteredRepositories.length} 个仓库`,

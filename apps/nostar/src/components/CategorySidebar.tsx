@@ -314,24 +314,10 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
   return (
     <>
-      {/* 移动端：始终显示完整侧栏 */}
+      {/* 移动端：一行可横向滑动的分类标签，末尾是添加按钮 */}
       {isMobile ? (
-        <div className="w-full bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-3 sm:p-4 overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-text-primary">
-              {t('应用分类', 'Categories')}
-            </h3>
-            <button
-              onClick={handleAddCategory}
-              className="p-1.5 rounded-lg bg-gray-100 text-gray-700 dark:bg-white/[0.04] dark:text-text-secondary hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary transition-colors"
-              title={t('添加分类', 'Add Category')}
-              aria-label={t('添加分类', 'Add Category')}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-1">
+        <nav className="w-full" aria-label={t('应用分类', 'Categories')}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
             {allCategories.map(category => {
               const count = getCategoryCount(category);
               const isSelected = selectedCategory === category.id;
@@ -355,7 +341,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 >
                   <button
                     onClick={() => handleCategoryClick(category.id)}
-                    className={`relative flex min-w-[140px] items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
+                    className={`relative flex items-center gap-2 rounded-full border border-black/[0.06] px-3 py-1.5 text-left transition-colors dark:border-white/[0.06] ${
                       isSelected
                         ? 'bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-text-primary font-medium'
                         : isDragTarget
@@ -366,12 +352,10 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                     aria-pressed={isSelected}
                     aria-current={isSelected ? 'page' : undefined}
                   >
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <span className="text-base flex-shrink-0">{category.icon}</span>
-                      <span className="text-sm font-medium truncate">{category.name}</span>
-                    </div>
+                    <span className="text-sm flex-shrink-0">{category.icon}</span>
+                    <span className="max-w-[9rem] truncate text-sm font-medium">{category.name}</span>
                     <span
-                      className={`text-xs px-2 py-1 rounded-full shrink-0 ${
+                      className={`text-[11px] px-1.5 py-0.5 rounded-full shrink-0 ${
                         isSelected
                           ? 'bg-gray-200 text-gray-900 dark:bg-white/10 dark:text-text-primary'
                           : isDragTarget
@@ -385,8 +369,16 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 </div>
               );
             })}
+            <button
+              onClick={handleAddCategory}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-500 dark:border-white/15 dark:text-text-secondary"
+              title={t('添加分类', 'Add Category')}
+              aria-label={t('添加分类', 'Add Category')}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
-        </div>
+        </nav>
       ) : (
         /* 桌面端：可折叠侧栏 - sticky定位，滚动时保持可见 */
         <div className="relative flex shrink-0 lg:sticky lg:top-24 lg:self-start z-10">

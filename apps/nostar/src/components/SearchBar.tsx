@@ -980,9 +980,9 @@ export const SearchBar: React.FC = () => {
   });
 
   return (
-    <div className="bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-4 sm:p-6 mb-6">
+    <div className="bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-3 sm:p-6 mb-3 sm:mb-6">
       {/* Search Input */}
-      <div className="relative mb-4 z-40">
+      <div className="relative mb-3 sm:mb-4 z-40">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-text-quaternary w-5 h-5" />
         <input
           ref={searchInputRef}
@@ -998,7 +998,7 @@ export const SearchBar: React.FC = () => {
           onBlur={handleInputBlur}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
-          className="w-full pl-10 pr-24 sm:pr-40 py-3 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary placeholder:text-gray-500 dark:placeholder:text-gray-400"
+          className="w-full pl-10 pr-24 sm:pr-40 py-2.5 sm:py-3 border border-black/[0.06] dark:border-white/[0.04] rounded-lg focus:ring-2 focus:ring-brand-violet focus:border-transparent bg-white dark:bg-white/[0.04] text-gray-900 dark:text-text-primary placeholder:text-gray-500 dark:placeholder:text-gray-400"
         />
 
         {/* Search History Dropdown */}
@@ -1128,18 +1128,19 @@ export const SearchBar: React.FC = () => {
       )}
 
       {/* Filter Controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+            aria-label={t('过滤器', 'Filters')}
+            className={`flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg transition-colors ${
               showFilters || activeFiltersCount > 0
                 ? 'bg-brand-indigo/20 text-gray-700 dark:text-text-secondary dark:bg-brand-indigo/20 '
                 : 'bg-white border border-black/[0.06] text-gray-700 dark:bg-white/[0.04] dark:border-white/[0.04] dark:text-text-secondary hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.08] dark:hover:text-text-primary'
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span>{t('过滤器', 'Filters')}</span>
+            <span className="hidden sm:inline">{t('过滤器', 'Filters')}</span>
             {activeFiltersCount > 0 && (
               <span className="bg-brand-indigo text-white rounded-full px-2 py-0.5 text-xs">
                 {activeFiltersCount}
@@ -1182,9 +1183,10 @@ export const SearchBar: React.FC = () => {
               disabled={isSyncingStars}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 bg-brand-indigo text-white hover:bg-brand-hover"
               title={t('同步星标仓库列表', 'Sync starred repositories')}
+              aria-label={t('同步', 'Sync')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingStars ? 'animate-spin' : ''}`} />
-              <span className="whitespace-nowrap">{t('同步', 'Sync')}</span>
+              <span className="hidden whitespace-nowrap sm:inline">{t('同步', 'Sync')}</span>
             </button>
             <div className="group relative">
               <Clock className="w-4 h-4 text-gray-400 dark:text-text-quaternary cursor-help" />
@@ -1204,7 +1206,7 @@ export const SearchBar: React.FC = () => {
 
       {/* Advanced Filters */}
       {showFilters && (
-        <div className="mt-6 pt-6 border-t border-black/[0.06] dark:border-white/[0.04] space-y-6">
+        <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-black/[0.06] dark:border-white/[0.04] space-y-4 sm:space-y-6">
           {/* Status Filters */}
           <div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-text-primary mb-3">

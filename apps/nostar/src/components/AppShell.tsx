@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BookOpen, Calendar, CircleDollarSign, FileCode2, GitFork, Home, LogOut, Menu, Moon, Search, Settings, Sun,
+  BookOpen, Calendar, CircleDollarSign, Ellipsis, FileCode2, GitFork, Home, LogOut, Menu, Moon, Search, Settings, Sun,
   TrendingUp, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -37,6 +37,9 @@ const NONO_APPS: Array<{ href: string; icon: LucideIcon; labelZh: string; labelE
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** Phones get a bottom tab bar with these pages (when visible); the rest open from 更多. */
+const TAB_BAR_ORDER: HeaderMenuId[] = ['repositories', 'releases', 'subscription', 'gists'];
+
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
     user,
@@ -61,6 +64,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
     [headerMenuConfig],
   );
   const activeMenu = visibleMenus.find((item) => item.id === currentView);
+  const tabMenus = TAB_BAR_ORDER.filter((id) => visibleMenus.some((item) => item.id === id));
 
   // The drawer only exists below md; growing past it closes the drawer rather than stranding it.
   useEffect(() => {
@@ -261,6 +265,24 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
         <main className="nostar-stage">{children}</main>
       </div>
+
+      <nav className="nostar-tabbar" data-testid="nostar-tabbar" aria-label={t('主导航', 'Main navigation')}>
+        {tabMenus.map((id) => {
+          const meta = MENU_META[id];
+          const Icon = meta.icon;
+          const isActive = currentView === id;
+          return (
+            <button key={id} type="button" aria-current={isActive ? 'page' : undefined} className={`nostar-tab${isActive ? ' is-active' : ''}`} onClick={() => setCurrentView(id as AppState['currentView'])}>
+              <Icon className="h-5 w-5" />
+              <span>{t(meta.labelZh, meta.labelEn)}</span>
+            </button>
+          );
+        })}
+        <button type="button" className={`nostar-tab${tabMenus.includes(currentView as HeaderMenuId) ? '' : ' is-active'}`} aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}>
+          <Ellipsis className="h-5 w-5" />
+          <span>{t('更多', 'More')}</span>
+        </button>
+      </nav>
     </div>
   );
 };
