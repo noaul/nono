@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="surface">#F8FAFC</color>
+    <color name="ink">#0F172A</color>
+    <color name="muted">#64748B</color>
+    <!-- The shared NoNo teal accent (docs/design/ui-contract.md). -->
+    <color name="accent">#0D9488</color>
+    <color name="icon_background">#FFFFFF</color>
+</resources>

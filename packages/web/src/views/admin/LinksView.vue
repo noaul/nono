@@ -15,10 +15,14 @@ import { useConfirm } from '@/composables/useConfirm';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
 import { formatShanghaiDateTime } from '@/utils/dateTime';
+import { sharedBookmarkDraft } from '@/utils/sharedBookmark';
+import { useRoute, useRouter } from 'vue-router';
 
 const { t } = useI18n();
 
 const confirmApi = useConfirm();
+const route = useRoute();
+const router = useRouter();
 const folders = ref<Folder[]>([]);
 const links = ref<Link[]>([]);
 const selectedCategoryId = ref<number>(0);
@@ -185,11 +189,24 @@ async function load() {
     ensureCategorySelection();
     ensureCreationSelection();
     selectedLinkIds.value = new Set();
+    openSharedBookmark();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : t('links.loadFailed'));
   } finally {
     isInitialLoading.value = false;
   }
+}
+
+// "Share to NoNo" on Android opens /admin/links?share_url=…; prefill the new-bookmark row once.
+function openSharedBookmark() {
+  const draft = route ? sharedBookmarkDraft(route.query) : null;
+  if (!draft) return;
+  startCreateLink();
+  form.url = draft.url;
+  form.name = draft.name;
+  const { share_url: _url, share_title: _title, ...rest } = route.query;
+  void router?.replace({ query: rest, hash: '#new-bookmark' });
+  setTimeout(() => document.querySelector('[data-testid="new-link-name"]')?.scrollIntoView({ block: 'center' }), 0);
 }
 
 function selectCategory(category: Folder) {

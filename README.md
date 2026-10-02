@@ -16,6 +16,7 @@ NoNo 是一个可自托管的个人数字工作台，将网址导航、内容站
 | **Yumi** | `/yumi` | VPS、域名、续费记录、费用、状态监控 | NoNo 管理员登录；SQLite |
 | **NoStar** | `/nostar` | GitHub Stars 同步、分类、搜索、README、Release、AI 分析 | 复用 NoNo 登录；PostgreSQL |
 | **Chrome 扩展** | 浏览器弹窗、右键菜单 | 提取当前网页、AI 辅助整理、快速保存书签 | NoNo 专用 API Token |
+| **Android 应用** | APK（[apps/android](apps/android/README.md)） | 在手机上使用 NoDesk、NoMoney、Yumi、NoStar 与书签，系统分享收藏网址 | NoNo 登录 |
 
 NoNo 支持密码、Passkey、设备会话管理、限权 API Token，以及站点和文件夹访问密码。NoNo 与 NoStar 可配置 OpenAI/Claude 兼容服务；调用第三方 AI 时，待分析内容会发送到所配置的服务。
 
@@ -227,6 +228,7 @@ npm run package:extension
 packages/server    NoNo/NoStar API、Prisma、认证、备份、后台任务
 packages/web       NoNo Vue 前端
 packages/extension Chrome 扩展
+apps/android       Android 应用（Kotlin + WebView）
 apps/blog          NoDesk Next.js 内容站
 apps/nomoney       NoMoney/Yumi Express + React
 apps/nostar        NoStar React 前端

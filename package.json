@@ -21,6 +21,7 @@
     "build:nostar": "npm --prefix apps/nostar run build",
     "build:all": "npm run build:nono && npm run build:blog && npm run build:nomoney && npm run build:nostar",
     "package:extension": "npm run package -w packages/extension",
+    "build:android": "cd apps/android && ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease",
     "start": "npm run start -w packages/server",
     "test": "npm run test -w packages/server && npm run test -w packages/web && npm run test -w packages/extension",
     "test:e2e": "playwright test",

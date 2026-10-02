@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- androidx.core 1.19+ needs Android Gradle plugin 9.1; stay on the AGP 8.13 line for now. -->
+    <issue id="GradleDependency">
+        <ignore regexp="androidx.core:core-ktx" />
+    </issue>
+</lint>

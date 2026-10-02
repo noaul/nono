@@ -16,6 +16,7 @@ NoNo is a self-hosted personal workspace for bookmarks, publishing, personal ass
 | **Yumi** | `/yumi` | VPS, domains, renewals, expenses, monitoring | NoNo administrator sign-in; SQLite |
 | **NoStar** | `/nostar` | GitHub Stars sync, categories, search, README, releases, AI analysis | NoNo session; PostgreSQL |
 | **Chrome extension** | Popup and context menu | Capture the current page, organize with AI, save bookmarks | Dedicated NoNo API Token |
+| **Android app** | APK ([apps/android](apps/android/README.md)) | NoDesk, NoMoney, Yumi, NoStar and bookmarks on the phone; save links via the system share sheet | NoNo sign-in |
 
 NoNo supports passwords, Passkeys, session management, scoped API Tokens, and site/folder access passwords. NoNo and NoStar support OpenAI/Claude-compatible providers; analysis content is sent to the configured provider.
 

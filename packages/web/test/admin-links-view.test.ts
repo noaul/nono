@@ -2,6 +2,7 @@ import { mount, RouterLinkStub } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SortableList from '../src/components/admin/SortableList.vue';
 import LinksView from '../src/views/admin/LinksView.vue';
+import { createMemoryHistory, createRouter } from 'vue-router';
 
 const apiRequest = vi.fn();
 
@@ -594,5 +595,23 @@ describe('LinksView admin workflow', () => {
     const rows = wrapper.findAll('[data-testid^="link-row-"]');
     expect(rows.map((row) => row.attributes('data-testid'))).toEqual(['link-row-11', 'link-row-10']);
     expect(wrapper.get('[data-testid="save-link-sort"]').attributes('disabled')).toBeUndefined();
+  });
+
+  it('opens a prefilled new bookmark row from an Android share link', async () => {
+    apiRequest
+      .mockResolvedValueOnce([{ id: 1, userId: 1, name: '工具', sortOrder: 100 }])
+      .mockResolvedValueOnce([]);
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/admin/links', component: { template: '<div />' } }] });
+    await router.push('/admin/links?share_url=https%3A%2F%2Fexample.com%2Fpost&share_title=Example%20post');
+    await router.isReady();
+    const wrapper = mount(LinksView, {
+      global: { plugins: [router], stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] }, RouterLink: RouterLinkStub } },
+    });
+    await settle(wrapper);
+    await vi.waitFor(() => expect(router.currentRoute.value.query.share_url).toBeUndefined());
+
+    expect((wrapper.get('[data-testid="new-link-url"]').element as HTMLInputElement).value).toBe('https://example.com/post');
+    expect((wrapper.get('[data-testid="new-link-name"]').element as HTMLInputElement).value).toBe('Example post');
+    expect(router.currentRoute.value.hash).toBe('#new-bookmark');
   });
 });
