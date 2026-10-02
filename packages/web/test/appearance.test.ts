@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { appearanceDefaults, fontStack, getAppearanceSettings, toAppearanceCssVars } from '../src/utils/appearance';
+import { appearanceDefaults, fontStack, getAppearanceSettings, toAppearanceCssVars, toSceneTuning } from '../src/utils/appearance';
 
 describe('appearance settings', () => {
+  it('restores independently adjustable detail values from older sites', () => {
+    const appearance = getAppearanceSettings({ appearance: {
+      density: 'compact', folderGapX: 40, notabTextColor: '#223344', glassHighlight: 90, sceneWind: 150, tabBlur: 7,
+    } });
+    expect(appearance).toMatchObject({ folderGapX: 40, notabTextColor: '#223344', glassHighlight: 90, sceneWind: 150, tabBlur: 7 });
+    expect(toAppearanceCssVars(appearance)).toMatchObject({ '--public-folder-gap-x': '40px', '--public-notab-text': '#223344', '--public-glass-highlight': '0.90' });
+  });
+
+  it('passes advanced physics controls to the scene renderer', () => {
+    const tuning = toSceneTuning(getAppearanceSettings({ appearance: {
+      sceneSpeed: 150, sceneWind: 50, sceneWindDirection: -30, sceneDepth: 80,
+      sceneForegroundBlur: 60, sceneCollision: 20, sceneSplash: 40,
+      sceneReducedMotion: false, sceneLowPerformance: true,
+    } }));
+    expect(tuning).toMatchObject({ speed: 1.5, wind: 0.5, windDirection: -0.3, depth: 0.8,
+      foregroundBlur: 0.6, collision: 0.2, splash: 0.4, followReducedMotion: false, lowPerformance: true });
+  });
+
   it('normalizes saved UI controls and clamps unsafe values', () => {
     expect(getAppearanceSettings({
       appearance: {
@@ -28,19 +46,16 @@ describe('appearance settings', () => {
       bookmarkTextColor: '#112233',
       bookmarkTextSize: 18,
       fontFamily: 'serif',
+      notabTextColor: '#112233', folderTextColor: '#112233', searchTextColor: '#112233', placeholderColor: '#112233',
     });
   });
 
-  it('keeps only the short editable set and ignores every retired key in old payloads', () => {
-    expect(Object.keys(appearanceDefaults)).toHaveLength(24);
-    const settings = getAppearanceSettings({
-      appearance: {
-        categoryTextColor: '#334455', tabColor: '#a1b2c3', adminBlur: 6,
-        notabTextColor: '#223344', folderGapX: 40, glassHighlight: 90, sceneWind: 150, fontFamilyZh: 'songti',
-      },
-    });
-
-    expect(settings).toEqual(appearanceDefaults);
+  it('retains inert old values without emitting them as CSS', () => {
+    const settings = getAppearanceSettings({ appearance: { tabColor: '#a1b2c3', adminBlur: 6, invalidObject: {} } });
+    expect(settings).toMatchObject({ tabColor: '#a1b2c3', adminBlur: 6 });
+    expect(settings).not.toHaveProperty('invalidObject');
+    expect(toAppearanceCssVars(settings)).not.toHaveProperty('--public-tab-color');
+    expect(toAppearanceCssVars(settings)).not.toHaveProperty('--admin-surface-blur');
   });
 
   it('converts appearance values into stable CSS custom properties', () => {
@@ -58,23 +73,22 @@ describe('appearance settings', () => {
       '--public-bookmark-text-size': '14px',
     });
     const names = Object.keys(toAppearanceCssVars(appearanceDefaults));
-    expect(names.filter((name) => /^--public-(category|tab|modal|glass)-/.test(name))).toEqual([]);
+    expect(names.filter((name) => /^--public-(category|tab|modal)-/.test(name))).toEqual([]);
     expect(names).not.toContain('--admin-surface-radius');
   });
 
   it('derives spacing from density and secondary colours from the main ones', () => {
-    const vars = toAppearanceCssVars({
-      ...appearanceDefaults,
+    const vars = toAppearanceCssVars(getAppearanceSettings({ appearance: {
       density: 'compact',
       cardBlur: 24,
       searchBlur: 10,
       bookmarkTextColor: '#123456',
       pageTitleColor: '#abcdef',
-    });
+    } }));
 
     expect(vars['--public-bookmark-row-height']).toBe('30px');
     expect(vars['--public-folder-gap-x']).toBe('12px');
-    expect(vars['--public-line-height']).toBe('1.3');
+    expect(Number(vars['--public-line-height'])).toBe(1.3);
     expect(toAppearanceCssVars(appearanceDefaults)['--public-bookmark-row-height']).toBe('38px');
     for (const name of ['--public-notab-text', '--public-folder-text', '--public-search-text', '--public-placeholder-text']) {
       expect(vars[name]).toBe('#123456');

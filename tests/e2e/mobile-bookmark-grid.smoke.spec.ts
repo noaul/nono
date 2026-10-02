@@ -71,7 +71,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [320, 360, 390, 430]) {
-  test(`keeps a three-column bookmark grid without page overflow at ${width}px`, async ({ page }) => {
+  test(`keeps a readable two-column bookmark grid without page overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.goto('/');
     const card = page.getByTestId('public-folder-card-2');
@@ -81,11 +81,10 @@ for (const width of [320, 360, 390, 430]) {
       const cells = [...el.querySelectorAll('.bookmark-cell')] as HTMLElement[];
       return cells.slice(0, 6).map((cell) => Math.round(cell.getBoundingClientRect().left));
     });
-    // Three columns means the first three cells sit at three distinct x-positions, and the 4th
-    // cell (start of row two) realigns with the 1st column.
+    // Two columns keep names readable; the third cell starts row two at the first column.
     const distinctColumns = new Set(cellLefts.slice(0, 3)).size;
-    expect(distinctColumns).toBe(3);
-    expect(cellLefts[3]).toBe(cellLefts[0]);
+    expect(distinctColumns).toBe(2);
+    expect(cellLefts[2]).toBe(cellLefts[0]);
 
     const overflow = await page.evaluate(() => ({
       bodyScrollWidth: document.body.scrollWidth,

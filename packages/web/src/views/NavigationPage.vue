@@ -30,6 +30,7 @@ const FolderUnlockModal = defineAsyncComponent(() => import('@/components/Folder
 const ThemeScene = defineAsyncComponent(() => import('@/components/ThemeScene.vue'));
 
 const route = useRoute();
+const embeddedPreview = computed(() => route.query?.appearancePreview === '1' && window.parent !== window);
 const auth = useAuthStore();
 const navigation = useNavigationStore();
 const { t, setSiteDefaultLocale } = useI18n();
@@ -54,6 +55,7 @@ const cardsSettled = ref(false);
  */
 function keepActiveTabVisible(nav: HTMLElement, active: HTMLElement) {
   if (nav.scrollWidth <= nav.clientWidth + 1) return;
+  if (embeddedPreview.value) { nav.scrollLeft = active.offsetLeft - nav.clientWidth / 2 + active.clientWidth / 2; return; }
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   active.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', inline: 'nearest', block: 'nearest' });
 }
@@ -97,7 +99,7 @@ const {
 } = useHomeFolders({ payload, query, selectedCategoryId, allTabLabel: () => t('nav.allTab') });
 const visualSite = computed(() => appearancePreview.value || payload.value?.site || null);
 const accessLocked = computed(() => Boolean(payload.value?.access?.required && !payload.value.access.unlocked));
-const canEditAppearance = computed(() => auth.authenticated && auth.user?.id === payload.value?.site.userId);
+const canEditAppearance = computed(() => !embeddedPreview.value && auth.authenticated && auth.user?.id === payload.value?.site.userId);
 const {
   resolvedMode,
   activeTheme,
@@ -247,10 +249,10 @@ function onFolderVerified(links: Link[]) {
   verifying.value = null;
 }
 
-function onAppearanceSaved(site: Site) {
+function onAppearanceSaved(site: Site, hasPendingEdits = false) {
   if (!navigation.payload) return;
   navigation.updateSite(username.value, { ...navigation.payload.site, ...site });
-  appearancePreview.value = null;
+  if (!hasPendingEdits) appearancePreview.value = null;
 }
 
 function onAppearancePreview(site: Site) {
@@ -261,6 +263,27 @@ function closeAppearance() {
   appearanceOpen.value = false;
   appearancePreview.value = null;
 }
+
+function receiveAppearancePreview(event: MessageEvent) {
+  if (!embeddedPreview.value || event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== 'nono:appearance-preview') return;
+  const site = event.data.site as Site | undefined;
+  if (!site || site.id !== payload.value?.site.id || site.userId !== payload.value.site.userId) return;
+  appearancePreview.value = site;
+  const selector = ({ title: '.nav-header', search: '.search-bar', folders: '.large-folder' } as Record<string, string>)[event.data.focus];
+  nextTick(() => {
+    const target = selector && document.querySelector(selector);
+    const inset = event.data.focus === 'folders' ? (document.querySelector('.folder-tabs')?.getBoundingClientRect().height || 0) + 16 : 8;
+    if (target) window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - inset, behavior: 'instant' });
+  });
+  if (event.data.mode === 'light' || event.data.mode === 'dark') {
+    document.documentElement.dataset.colorMode = event.data.mode;
+    window.dispatchEvent(new CustomEvent('nono-color-mode-change'));
+  }
+}
+
+watch(payload, () => {
+  if (embeddedPreview.value && payload.value) window.parent.postMessage({ type: 'nono:appearance-ready' }, window.location.origin);
+});
 
 // Modals own Escape/focus handling; the page only locks body scroll while one is open.
 watch(anyModalOpen, (open) => {
@@ -282,6 +305,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  window.addEventListener('message', receiveAppearancePreview);
   load();
   window.addEventListener('keydown', onGlobalKeydown);
   window.addEventListener('resize', updateTabIndicator);
@@ -316,6 +340,7 @@ watch(
   { immediate: false },
 );
 onUnmounted(() => {
+  window.removeEventListener('message', receiveAppearancePreview);
   window.removeEventListener('keydown', onGlobalKeydown);
   window.removeEventListener('resize', updateTabIndicator);
   if (typeof document !== 'undefined') document.body.style.overflow = '';
@@ -326,7 +351,7 @@ onUnmounted(() => {
   <main
     v-if="payload"
     class="nav-page public-glass-page"
-    :class="{ 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
+    :class="{ 'embedded-preview': embeddedPreview, 'nav-bg-visible': activeBackgroundImage, 'nav-bg-loaded': loadedBackgroundImage && activeBackgroundImage, 'navigation-locked': accessLocked }"
     :style="backgroundStyle"
     :data-color-mode="resolvedMode"
     :data-theme-tone="activeTheme?.tone"

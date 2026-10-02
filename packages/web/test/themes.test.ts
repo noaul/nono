@@ -69,7 +69,7 @@ describe('public themes', () => {
       expect(theme.appearance.bookmarkTextColor).toMatch(/^#[0-9a-f]{6}$/i);
       expect(theme.appearance.cardRadius).toBeGreaterThanOrEqual(0);
       expect(theme.appearance.pageTitleColor).toBe(theme.fontColor);
-      expect(Object.keys(theme.appearance)).toHaveLength(24);
+      expect(Object.keys(theme.appearance)).toHaveLength(77);
     }
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.cardColor)).size).toBeGreaterThan(3);
     expect(new Set(PUBLIC_THEMES.map((theme) => theme.appearance.searchColor)).size).toBeGreaterThan(3);

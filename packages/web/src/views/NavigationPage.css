@@ -9,6 +9,15 @@
   position: relative;
 }
 
+/* The preview uses the actual homepage with compact spacing around its chrome. */
+.embedded-preview.nav-page { padding: 8px 0; }
+.embedded-preview .public-corner-actions,
+.embedded-preview .portal-center-image { display: none; }
+.embedded-preview .header-vibe { padding: 0; }
+.embedded-preview .nav-header { margin: 0; }
+.embedded-preview .nav-header p { margin-top: 2px; }
+.embedded-preview .folder-tabs { margin-top: 0; margin-bottom: 0; }
+
 .navigation-load-error-page {
   display: grid;
   padding: 24px;
@@ -353,7 +362,7 @@
 
 /* A name, not a hero: large enough to anchor the page, quiet enough that the search bar leads. */
 h1 {
-  font-size: 34px;
+  font-size: var(--public-title-text-size, 34px);
   line-height: 1.15;
   margin: 0;
   font-weight: 600;
@@ -368,7 +377,7 @@ h1 {
 
 @media (max-width: 768px) {
   h1 {
-    font-size: 28px;
+    font-size: var(--public-title-text-size, 28px);
   }
 }
 
@@ -422,14 +431,14 @@ h1 {
     rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.28));
   border-radius: var(--public-search-radius, 28px);
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: var(--public-notab-wrap, nowrap);
   gap: var(--public-notab-gap, 4px);
   justify-content: var(--public-notab-justify, safe center);
   margin: 8px auto;
   max-width: min(100%, 1200px);
   min-height: var(--public-notab-height, 38px);
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: var(--public-notab-overflow-x, auto);
   padding: 5px;
   /* Centred strips hug their tabs instead of stretching a mostly empty bar under the search box;
      once the tabs outgrow it the strip reaches max-width and scrolls (or wraps) as before. */
@@ -665,7 +674,7 @@ h1 {
 
 @media (max-width: 1800px) {
   .nav-content {
-    padding: 0 min(24px, var(--public-page-padding-x, 32px));
+    padding: 0 calc(var(--public-page-padding-x, 32px) * 0.75);
   }
 
   .adaptive-folder-grid {
@@ -675,7 +684,7 @@ h1 {
 
 @media (max-width: 1100px) {
   .nav-content {
-    padding: 0 min(20px, var(--public-page-padding-x, 32px));
+    padding: 0 calc(var(--public-page-padding-x, 32px) * 0.625);
   }
 
   .adaptive-folder-grid {
@@ -721,8 +730,8 @@ h1 {
   }
 
   .nav-content {
-    padding: 0 16px;
-    gap: 20px;
+    padding: 0 calc(var(--public-page-padding-x, 32px) * 0.5);
+    gap: var(--public-search-grid-gap, 20px);
   }
 
   .nav-header,
@@ -733,7 +742,7 @@ h1 {
 
   .adaptive-folder-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
+    gap: var(--public-folder-gap-y, 24px) var(--public-folder-gap-x, 20px);
   }
 
   .nav-header {

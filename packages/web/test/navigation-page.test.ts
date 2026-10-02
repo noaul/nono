@@ -221,7 +221,7 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="navigation-entry-clipper"]').exists()).toBe(false);
   });
 
-  it('ignores retired and no-longer-editable keys in saved payloads', async () => {
+  it('renders restored search details while leaving legacy surfaces inert', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {
         cardRadius: 16,
@@ -244,8 +244,7 @@ describe('NavigationPage public workflow', () => {
     const style = wrapper.get('.nav-page').attributes('style');
 
     expect(style).toContain('--public-card-radius: 16px');
-    // The search bar keeps the stylesheet radius; its blur is its own setting again.
-    expect(style).not.toContain('--public-search-radius');
+    expect(style).toContain('--public-search-radius: 18px');
     expect(style).toContain('--public-card-blur: 20px');
     expect(style).toContain('--public-search-blur: 8px');
     expect(style).not.toContain('--public-modal-');
@@ -454,9 +453,9 @@ describe('NavigationPage public workflow', () => {
     window.dispatchEvent(new CustomEvent('nono-color-mode-change', { detail: 'dark' }));
     await wrapper.vm.$nextTick();
     style = wrapper.get('.nav-page').attributes('style');
-    expect(style).toContain('--public-bookmark-text-rgb: 255, 255, 255');
-    expect(style).toContain('--public-folder-text-rgb: 255, 255, 255');
-    expect(style).toContain('--public-notab-text-rgb: 255, 255, 255');
+    expect(style).toContain('--public-bookmark-text-rgb: 17, 17, 17');
+    expect(style).toContain('--public-folder-text-rgb: 34, 34, 34');
+    expect(style).toContain('--public-notab-text-rgb: 34, 34, 34');
     wrapper.unmount();
   });
 

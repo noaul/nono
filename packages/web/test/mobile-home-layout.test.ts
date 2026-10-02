@@ -3,14 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readNavigationPageCss, readNavigationPageSource } from './support/navigation-source';
 
-/**
- * Responsive contracts for the phone homepage. Measured at 320/360/390/430 against the real scoped
- * styles, the pre-fix layout faded away the first and last notab with a 28px edge mask, squared off
- * the notab strip's corners against the theme's own rounded pill, left the inner bookmark list
- * `overflow-y: hidden` unless a folder cleared a link count tuned for three columns, and (in an
- * earlier fix) dropped to one or two bookmark columns instead of the required three. These
- * assertions keep those regressions from coming back.
- */
+/** Mobile homepage contracts; actual geometry and setting changes are covered in Playwright. */
 
 const WEB_ROOT = process.cwd();
 
@@ -90,38 +83,15 @@ describe('mobile notab strip', () => {
 });
 
 describe('mobile folder cards', () => {
-  it('keeps exactly three bookmark columns down to a 320px phone', () => {
-    // The mobile block declares no grid-template-columns of its own, so the unconditional base
-    // rule (three columns at every width) carries through instead of collapsing to one or two.
-    expect(folderCss).toMatch(/\.large-links \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
-    expect(folderMobile).not.toMatch(/\.large-links[^{]*\{[^}]*grid-template-columns/);
+  it('keeps two readable bookmark columns on narrow phones', () => {
+    expect(mediaBlock(folderCss, 480)).toMatch(/grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   });
 
-  it('tightens the bookmark padding, gap and icon but keeps the type readable in three columns', () => {
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-x: 4px;/);
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-gap-y: 4px;/);
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-text-size: 11px;/);
-    expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?--public-bookmark-icon-size: 14px;/);
-    // A tighter cell padding than the desktop `10px 4px 15px 16px` claws room back for the label.
+  it('preserves adjustable bookmark sizes and spacing on phones', () => {
+    for (const key of ['gap-x', 'gap-y', 'text-size', 'icon-size', 'row-height']) {
+      expect(folderMobile).not.toMatch(new RegExp(`--public-bookmark-${key}:`));
+    }
     expect(folderMobile).toMatch(/\.large-links \{[\s\S]*?padding: 8px 3px 10px 8px;/);
-    // At a ~264px card / 3 columns / these tokens, each cell has roughly 80px, of which about
-    // 62px is left for the label after the icon and paddings — five full-width CJK glyphs at the
-    // 11px floor. Fewer than 9px managed, but these can actually be read.
-    const cardWidth = 264;
-    const linksPadding = 3 + 8;
-    const gaps = 4 * 2;
-    const columnWidth = (cardWidth - linksPadding - gaps) / 3;
-    const linkPadding = 3;
-    const iconSize = 14;
-    const iconGap = 2;
-    const textBudget = columnWidth - linkPadding - iconSize - iconGap;
-    const fontSize = 11;
-    expect(fontSize).toBeGreaterThanOrEqual(11);
-    expect(Math.floor(textBudget / fontSize)).toBeGreaterThanOrEqual(5);
-  });
-
-  it('declares no device-specific breakpoint for the bookmark grid', () => {
-    expect(folderMobile).not.toMatch(/max-width:\s*(320|360|375|390|414|430)px/);
   });
 
   it('never hides overflowing links behind a count threshold', () => {

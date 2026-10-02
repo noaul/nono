@@ -95,7 +95,6 @@ test.describe('NoStar browser flows', () => {
     await page.getByLabel('描述',{exact:true}).uncheck();
     await expect(page.locator('html')).toHaveAttribute('data-nostar-font','large');
     await expect(page.locator('html')).toHaveAttribute('data-nostar-reduced-motion','true');
-    if(testInfo.project.name === 'mobile-chromium') await page.getByRole('button',{name:'菜单',exact:true}).click();
     await page.getByRole('button',{name:'仓库',exact:true}).click();
     await expect(card.getByText('A NoStar browser test repository')).toBeHidden();
     await page.getByText('Browser List',{exact:true}).click();

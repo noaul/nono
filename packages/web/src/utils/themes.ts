@@ -181,7 +181,11 @@ const THEME_DEFINITIONS: PublicTheme[] = [
 // cannot ship white headings on a pale background.
 export const PUBLIC_THEMES: PublicTheme[] = THEME_DEFINITIONS.map((theme) => ({
   ...theme,
-  appearance: { ...theme.appearance, pageTitleColor: theme.fontColor },
+  appearance: {
+    ...theme.appearance, pageTitleColor: theme.fontColor, descriptionColor: theme.fontColor,
+    notabTextColor: theme.appearance.bookmarkTextColor, folderTextColor: theme.appearance.bookmarkTextColor,
+    searchTextColor: theme.appearance.bookmarkTextColor, placeholderColor: theme.appearance.bookmarkTextColor,
+  },
 }));
 
 // Retired themes resolve to the closest one still offered. 星光闪耀 (starlit-night) and 万物明朗

@@ -6,6 +6,7 @@ import type { MessageKey } from '@/locales';
 import {
   APPEARANCE_FIELDS,
   APPEARANCE_GROUPS,
+  DENSITY_PRESETS,
   EDITABLE_APPEARANCE_KEYS,
   appearanceDefaults,
   fieldAppliesToScene,
@@ -19,6 +20,7 @@ const props = defineProps<{
   appearance: AppearanceSettings;
   /** Without a scene there is nothing for the scene controls to act on, so that group hides. */
   sceneKind?: SceneKind;
+  hasBackgroundImage?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -28,6 +30,7 @@ const openGroups = reactive<Record<string, boolean>>(
   Object.fromEntries(APPEARANCE_GROUPS.map((group) => [group, true])),
 );
 const query = ref('');
+const showAdvanced = ref(false);
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase());
 const searching = computed(() => normalizedQuery.value.length > 0);
@@ -56,7 +59,9 @@ function matchesQuery(key: AppearanceKey) {
 
 /** Keys in a group that apply to the current scene and survive the current search. */
 function visibleKeys(group: AppearanceGroup) {
-  return allGroupKeys(group).filter((key) => fieldAppliesToScene(key, props.sceneKind) && matchesQuery(key));
+  return allGroupKeys(group).filter((key) =>
+    (showAdvanced.value || searching.value || !APPEARANCE_FIELDS[key].advanced) &&
+    fieldAppliesToScene(key, props.sceneKind) && matchesQuery(key));
 }
 
 /** A group is rendered when it still has something to show under the current search. */
@@ -118,6 +123,7 @@ function enumOptions(key: AppearanceKey): readonly string[] {
 
 function setOption(key: AppearanceKey, option: string) {
   Object.assign(props.appearance, { [key]: option });
+  if (key === 'density') Object.assign(props.appearance, DENSITY_PRESETS[option as AppearanceSettings['density']]);
 }
 
 /** Short choices read better as a segmented control than behind a dropdown. */
@@ -167,6 +173,10 @@ function fieldKind(key: AppearanceKey) {
     </header>
 
     <p class="editor-hint">{{ t('appearance.editor.livePreview') }}</p>
+    <label class="advanced-toggle">
+      <input v-model="showAdvanced" type="checkbox" data-testid="appearance-advanced" />
+      {{ t('appearance.editor.advanced') }}
+    </label>
 
     <p v-if="!visibleGroups.length" class="editor-empty" data-testid="appearance-search-empty">
       {{ t('appearance.editor.searchNoMatch') }}
@@ -206,7 +216,7 @@ function fieldKind(key: AppearanceKey) {
 
         <div v-show="openGroups[group] || searching" class="group-body">
           <small v-if="group === 'background' && !searching" class="group-note">
-            {{ t('appearance.editor.backgroundHint') }}
+            {{ t(hasBackgroundImage ? 'appearance.editor.backgroundHint' : 'appearance.editor.backgroundMissing') }}
           </small>
 
           <div class="control-grid">
@@ -231,6 +241,7 @@ function fieldKind(key: AppearanceKey) {
                   :max="numberField(key)?.max"
                   :step="numberField(key)?.step ?? 1"
                   :style="rangeStyle(key)"
+                  :disabled="group === 'background' && !hasBackgroundImage"
                 />
                 <span v-else-if="fieldKind(key) === 'color'" class="color-control">
                   <input v-model="appearance[key] as string" type="color" />
@@ -255,7 +266,7 @@ function fieldKind(key: AppearanceKey) {
                     {{ optionLabel(key, option) }}
                   </button>
                 </span>
-                <select v-else v-model="appearance[key] as string">
+                <select v-else v-model="appearance[key] as string" :disabled="group === 'background' && !hasBackgroundImage">
                   <option v-for="option in enumOptions(key)" :key="option" :value="option">
                     {{ optionLabel(key, option) }}
                   </option>
@@ -270,6 +281,9 @@ function fieldKind(key: AppearanceKey) {
 </template>
 
 <style scoped>
+.advanced-toggle { align-items: center; color: var(--ae-muted); display: flex; font-size: 12px; gap: 6px; }
+.advanced-toggle input { accent-color: var(--ae-accent); }
+.control input:disabled, .control select:disabled { cursor: default; opacity: 0.45; }
 .appearance-editor {
   --ae-text: #0f172a;
   --ae-muted: #475569;

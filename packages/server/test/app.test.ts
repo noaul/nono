@@ -142,6 +142,18 @@ describe('NoNo Fastify app', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
+  it('permits same-origin framing only for explicit homepage previews', async () => {
+    for (const url of ['/?appearancePreview=1', '/reader?appearancePreview=1', '/alice.smith?appearancePreview=1', '/%E7%94%A8%E6%88%B7?appearancePreview=1']) {
+      const response = await app.inject({ method: 'GET', url });
+      expect(response.headers['content-security-policy']).toContain("frame-ancestors 'self'");
+      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    }
+    for (const url of ['/', '/admin?appearancePreview=1', '/login?appearancePreview=1', '/api/auth/session?appearancePreview=1', '/%61dmin?appearancePreview=1', '/nostar/?appearancePreview=1']) {
+      const response = await app.inject({ method: 'GET', url });
+      expect(response.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    }
+  });
+
   it('does not reflect arbitrary browser origins but allows Chrome extensions', async () => {
     const untrusted = await app.inject({ method: 'GET', url: '/healthz', headers: { origin: 'https://evil.example' } });
     expect(untrusted.headers['access-control-allow-origin']).toBeUndefined();
@@ -745,12 +757,11 @@ describe('NoNo Fastify app', () => {
         density: 'balanced',
       },
     });
-    // Only the editable set is stored; retired and derived keys are dropped on save.
+    // Restored controls stay editable; inert scalar legacy data survives without entering CSS.
     const saved = updated.json().data.settings.appearance;
-    expect(Object.keys(saved)).toHaveLength(24);
-    for (const retired of ['notabTextColor', 'folderGapX', 'categoryTextColor', 'tabColor', 'adminBlur']) {
-      expect(saved).not.toHaveProperty(retired);
-    }
+    expect(saved).toMatchObject({ notabTextColor: '#223344', folderGapX: 40, tabColor: '#DDEEFF' });
+    expect(saved).not.toHaveProperty('categoryTextColor');
+    expect(saved).not.toHaveProperty('adminBlur');
 
     const unsafe = await app.inject({
       method: 'PUT',

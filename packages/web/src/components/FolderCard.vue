@@ -357,7 +357,7 @@ onUnmounted(() => {
 h2 {
   color: var(--public-folder-text, #ffffff);
   font-size: var(--public-folder-text-size, 18px);
-  font-weight: 600;
+  font-weight: calc(var(--public-font-weight, 400) + 200);
   letter-spacing: 0;
   line-height: 1.2;
   margin: 0;
@@ -423,9 +423,9 @@ h2 {
     0 14px var(--public-glass-shadow-spread, 24px)
       rgba(var(--public-shadow-rgb, 0, 0, 0), calc(var(--public-folder-shadow, 0.3) * 0.34));
   transition:
-    background-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+    background-color var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .large-folder:hover .large-links,
@@ -463,11 +463,11 @@ h2 {
   padding: 2px 0 2px 5px;
   width: 100%;
   transition:
-    background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+    background-color var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    color var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform var(--public-hover-duration, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .organize-delete-button,
@@ -573,7 +573,7 @@ h2 {
   border-color: rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   color: var(--public-bookmark-text, #ffffff);
   outline: none;
-  transform: translateY(calc(-1px * var(--public-hover-animation, 1)));
+  transform: translateY(calc(-1px * var(--public-hover-animation, 1))) scale(var(--public-hover-scale, 1));
   box-shadow: 0 8px 18px rgba(var(--public-shadow-rgb, 0, 0, 0), 0.13), inset 0 1px 0 rgba(var(--public-highlight-rgb, 255, 255, 255), 0.18);
 }
 
@@ -585,7 +585,7 @@ h2 {
 
 .large-link span {
   font-size: var(--public-bookmark-text-size, 14px);
-  font-weight: 600;
+  font-weight: calc(var(--public-font-weight, 400) + 200);
   letter-spacing: 0;
   min-width: 0;
   overflow: hidden;
@@ -712,20 +712,8 @@ mark {
     height: auto;
   }
 
-  /*
-   * Three columns stays the default all the way down to a 320px CSS px phone — the grid keeps the
-   * base `repeat(3, minmax(0, 1fr))` track. At a ~264px card that puts each column around 80px, so
-   * the padding, gap and icon shrink to match. Type stops at 11px: 9px fitted two more CJK glyphs
-   * before the ellipsis but was too small to read, and a label that can be read beats one that is
-   * merely longer. These are plain overrides of the same tokens the desktop uses, scoped to
-   * `.large-links` so mobile gets a legible 3-column grid regardless of the desktop values chosen.
-   */
+  /* Phone padding keeps cells readable while inheriting the owner's size and spacing. */
   .large-links {
-    --public-bookmark-gap-x: 4px;
-    --public-bookmark-gap-y: 4px;
-    --public-bookmark-row-height: 34px;
-    --public-bookmark-text-size: 11px;
-    --public-bookmark-icon-size: 14px;
     /* A folder with a few links stays short; five rows is still the scrolling cap. */
     height: auto;
     max-height: calc(var(--public-bookmark-row-height, 38px) * 5 + var(--public-bookmark-gap-y, 4px) * 4 + 18px + var(--public-glass-border-width, 1px) * 2);
@@ -781,9 +769,6 @@ mark {
  */
 @media (max-width: 480px) {
   .large-links {
-    --public-bookmark-row-height: 38px;
-    --public-bookmark-text-size: 13px;
-    --public-bookmark-icon-size: 16px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

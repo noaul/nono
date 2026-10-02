@@ -180,8 +180,8 @@ describe('visual contracts', () => {
     // overriding it, so a site set to 2 columns never widens to 3.
     expect(css).toMatch(/@media \(max-width: 1800px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(min\(3, var\(--public-folder-columns, 4\)\),/);
     expect(css).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?repeat\(min\(2, var\(--public-folder-columns, 4\)\),/);
-    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 16px;/);
-    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?gap:\s*24px;/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.nav-content \{[\s\S]*?padding:\s*0 calc\(var\(--public-page-padding-x, 32px\) \* 0\.5\);/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.adaptive-folder-grid \{[\s\S]*?gap:\s*var\(--public-folder-gap-y, 24px\) var\(--public-folder-gap-x, 20px\);/);
     expect(css).not.toContain('@media (max-width: 820px)');
     expect(css).not.toContain('repeat(auto-fit');
     expect(css).not.toContain('25vw');
@@ -242,12 +242,9 @@ describe('visual contracts', () => {
     expect(source).not.toContain('grid-auto-rows: 58px');
     expect(source).not.toContain('border-radius: 32px');
     expect(source).toMatch(/@media \(max-width: 640px\)[\s\S]*?grid-template-rows: 38px auto/);
-    // Narrow viewports keep the required three-column grid (from the unconditional base rule) but
-    // shrink the cell padding, gap, icon and type so a ~80px column stays legible at 320px.
-    expect(source).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
-    expect(source).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.large-links \{[\s\S]*?--public-bookmark-text-size: 11px;[\s\S]*?height: calc\(var\(--public-bookmark-row-height, 38px\) \* 5 \+ var\(--public-bookmark-gap-y, 4px\) \* 4 \+ 18px \+ var\(--public-glass-border-width, 1px\) \* 2\);/,
-    );
+    // Narrow phones use two columns without overriding custom typography.
+    expect(source).toMatch(/@media \(max-width: 480px\)[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(source).not.toMatch(/--public-bookmark-text-size:\s*\d+px/);
 
     const navigationSource = readNavigationPageSource();
     const searchBarSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SearchBar.vue'), 'utf8');
@@ -503,8 +500,8 @@ describe('visual contracts', () => {
     expect(navigationSource).toContain('--public-overlay-rgb');
     expect(navigationSource).toContain('rgba(var(--public-overlay-rgb, 8, 12, 18)');
     expect(navigationSource).toContain('backgroundOverlayTotal');
-    // Dark mode dims the background image a fixed step harder than the chosen strength.
-    expect(navigationSource).toContain('darkModeExtra');
+    // The background overlay includes the chosen colour-mode strength.
+    expect(navigationSource).toContain('modeOverlay');
     expect(navigationSource).toMatch(/\.folder-tabs \{[\s\S]*?rgba\(var\(--public-search-color-rgb/);
     expect(navigationSource).toMatch(/\.notab-select \{[\s\S]*?font-size:\s*var\(--public-notab-text-size, 15px\)/);
     expect(folderCardSource).toContain('--public-folder-depth');

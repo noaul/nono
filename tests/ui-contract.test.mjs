@@ -123,7 +123,6 @@ test('no app ships the retired shell layers or the purple palette', () => {
   const adminCss = read('packages/web/src/styles/admin.css');
   const adminLayout = read('packages/web/src/components/AdminLayout.vue');
   const nostarConfig = read('apps/nostar/tailwind.config.js');
-  const nostarShell = read('apps/nostar/src/components/AppShell.tsx');
 
   // Nono admin: the five stacked skins are gone, not merely overridden.
   for (const marker of ['app-workbench', 'glass-workbench', 'figma-admin-shell', 'chatgpt-admin-shell', 'admin-glass-enabled']) {
@@ -138,7 +137,6 @@ test('no app ships the retired shell layers or the purple palette', () => {
   }
   assert.ok(!fs.existsSync(path.join(root, 'apps/nostar/src/components/Header.tsx')),
     'the header-centric frame must be gone');
-  assert.ok(nostarShell.includes('nostar-sidebar'), 'NoStar must render the shared sidebar shell');
 });
 
 test('decorative treatments are absent from every shell stylesheet', () => {
@@ -151,19 +149,14 @@ test('decorative treatments are absent from every shell stylesheet', () => {
   assert.deepEqual(read('packages/web/src/styles/admin.css').match(/#[0-9a-fA-F]{3,8}\b/g) ?? [], []);
 });
 
-test('the three shells agree on geometry', () => {
+test('the admin sidebar keeps the shared contract geometry', () => {
   const adminCss = read('packages/web/src/styles/admin.css');
-  const nostarCss = read('apps/nostar/src/index.css');
-  const nomoneyLayout = read('apps/nomoney/frontend/src/Layout.tsx');
 
-  for (const css of [adminCss, nostarCss]) {
+  for (const css of [adminCss]) {
     assert.match(css, /width:\s*var\(--ui-sidebar-w\)/);
     assert.match(css, /min-height:\s*var\(--ui-topbar-h\)/);
     assert.match(css, /max-width:\s*var\(--ui-content-max\)/);
     assert.match(css, /@media \(max-width: 767px\)/);
   }
-  // NoMoney expresses the same geometry in Tailwind: w-64 sidebar, min-h-16 topbar, md drawer.
-  assert.ok(nomoneyLayout.includes('w-64'), 'NoMoney sidebar width changed');
-  assert.ok(nomoneyLayout.includes('min-h-16'), 'NoMoney topbar height changed');
-  assert.ok(nomoneyLayout.includes('md:pl-64'), 'NoMoney content offset changed');
+  // NoStar and NoMoney use module bars and page docks; browser tests cover their geometry.
 });

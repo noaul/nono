@@ -207,6 +207,20 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     if (request.url.startsWith('/api/') && !reply.hasHeader('cache-control')) {
       reply.header('Cache-Control', 'no-store');
     }
+    // Only the public preview may be framed by its own homepage. Admin/API routes keep 'none'.
+    const previewUrl = new URL(request.url, 'http://nono.local');
+    const pathname = previewUrl.pathname;
+    const reserved = new Set(['admin', 'login', 'setup', 'privacy', 'healthz', 'livez', 'readyz', 'nostar', 'nodesk', 'nomoney', 'yumi', 'clipper']);
+    let usernamePath = '';
+    try { usernamePath = decodeURIComponent(pathname.replace(/^\/|\/$/g, '')); } catch { /* Invalid URL encoding is not a public username. */ }
+    const publicPath = pathname === '/' || /^\/[^/]+\/?$/.test(pathname) && Boolean(usernamePath)
+      && !/[\/\\\u0000-\u001f]/.test(usernamePath) && !reserved.has(usernamePath.toLowerCase());
+    if (request.method === 'GET' && publicPath && previewUrl.searchParams.get('appearancePreview') === '1') {
+      const policy = reply.getHeader('content-security-policy');
+      if (typeof policy === 'string') reply.header('Content-Security-Policy', policy.replace("frame-ancestors 'none'", "frame-ancestors 'self'"));
+      reply.header('X-Frame-Options', 'SAMEORIGIN');
+      reply.header('Cache-Control', 'no-store');
+    }
     return payload;
   });
   registerAuditHooks(app, services);

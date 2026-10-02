@@ -34,7 +34,7 @@ export function useHomeAppearance(options: {
     return getTheme(settings?.theme?.id);
   });
   const sceneIntensity = computed(() => getSceneIntensity(visualSite.value?.settings));
-  const appearance = computed(() => getAppearanceSettings(visualSite.value?.settings));
+  const appearance = computed(() => getAppearanceSettings(visualSite.value?.settings, resolvedMode.value));
   const sceneTuning = computed(() => toSceneTuning(appearance.value));
 
   const modeCssVars = computed<Record<string, string>>((): Record<string, string> => {
@@ -49,24 +49,9 @@ export function useHomeAppearance(options: {
       };
     }
     return {
-      '--public-mode-scrim': 'rgba(5, 8, 14, 0.378)',
-      '--public-card-color-rgb': '22, 25, 33',
-      '--public-card-opacity': '0.52',
-      '--public-search-color-rgb': '20, 23, 31',
-      '--public-search-opacity': '0.58',
+      '--public-mode-scrim': `rgba(5, 8, 14, ${(appearance.value.glassDarkOverlay / 100 * 0.9).toFixed(3)})`,
       '--public-page-text': '#f4f6f8',
       '--public-page-text-rgb': '244, 246, 248',
-      '--public-bookmark-text': '#ffffff',
-      '--public-bookmark-text-rgb': '255, 255, 255',
-      '--public-notab-text': '#ffffff',
-      '--public-notab-text-rgb': '255, 255, 255',
-      // Light themes ship dark search text, which vanished on the dark-mode search bar.
-      '--public-search-text': '#ffffff',
-      '--public-search-text-rgb': '255, 255, 255',
-      '--public-placeholder-text': '#ffffff',
-      '--public-placeholder-text-rgb': '255, 255, 255',
-      '--public-folder-text': '#ffffff',
-      '--public-folder-text-rgb': '255, 255, 255',
       '--public-border-rgb': '226, 231, 238',
       '--public-highlight-rgb': '241, 244, 248',
       '--public-hover-rgb': '226, 231, 238',
@@ -85,10 +70,10 @@ export function useHomeAppearance(options: {
     appearance.value.backgroundImageEnabled ? visibleBackgroundImage.value : ''
   ));
 
-  /** Scrim over the background image: the chosen strength, plus a fixed extra 30% in dark mode. */
+  /** Scrim over the background image: the chosen strength plus the configurable colour-mode overlay. */
   const backgroundOverlayTotal = computed(() => {
-    const darkModeExtra = resolvedMode.value === 'dark' ? 30 : 0;
-    return Math.min(1, (appearance.value.backgroundOverlay + darkModeExtra) / 100);
+    const modeOverlay = resolvedMode.value === 'dark' ? appearance.value.overlayDark : appearance.value.overlayLight;
+    return Math.min(1, (appearance.value.backgroundOverlay + modeOverlay) / 100);
   });
 
   const backgroundScrim = computed(() => (

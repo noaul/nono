@@ -25,7 +25,7 @@ const site = {
 };
 
 describe('AppearanceSettingsDrawer', () => {
-  beforeEach(() => apiRequest.mockReset());
+  beforeEach(() => { apiRequest.mockReset(); });
 
   it('combines theme and general preferences into one compact appearance panel', () => {
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
@@ -89,7 +89,7 @@ describe('AppearanceSettingsDrawer', () => {
       bookmarkTextColor: '#3f352f',
       pageTitleColor: '#3a3029',
     });
-    expect(Object.keys(payload.settings.appearance)).toHaveLength(24);
+    expect(Object.keys(payload.settings.appearance)).toHaveLength(77);
     expect(wrapper.emitted('saved')).toHaveLength(1);
   });
 
@@ -172,7 +172,43 @@ describe('AppearanceSettingsDrawer', () => {
 });
 
 describe('appearance header actions', () => {
-  beforeEach(() => apiRequest.mockReset());
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it.each([false, true])('reconciles a reopened drawer after a delayed save (edited: %s)', async (editAfterReopen) => {
+    let resolveSave!: (saved: unknown) => void;
+    apiRequest.mockImplementation(() => new Promise(resolve => { resolveSave = resolve; }));
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    await wrapper.get('[data-testid="control-cardOpacity"] input').setValue('20');
+    await wrapper.get('[data-testid="appearance-save"]').trigger('click');
+    await wrapper.setProps({ open: false });
+    await wrapper.setProps({ open: true });
+    if (editAfterReopen) await wrapper.get('[data-testid="control-cardOpacity"] input').setValue('60');
+    resolveSave({ ...site, settings: { ...site.settings, appearance: { cardOpacity: 20 } } });
+    await vi.waitFor(() => expect(wrapper.emitted('saved')).toHaveLength(1));
+    expect((wrapper.get('[data-testid="control-cardOpacity"] input').element as HTMLInputElement).value).toBe(editAfterReopen ? '60' : '20');
+    expect(wrapper.get('[data-testid="appearance-save"]').attributes('disabled') === undefined).toBe(editAfterReopen);
+    expect(wrapper.emitted('saved')![0][1]).toBe(editAfterReopen);
+    wrapper.unmount();
+  });
+
+  it('keeps edits made during a save dirty and warns before discarding them', async () => {
+    let resolveSave!: (saved: unknown) => void;
+    apiRequest.mockImplementation(() => new Promise(resolve => { resolveSave = resolve; }));
+    const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
+    const opacity = wrapper.get('[data-testid="control-cardOpacity"] input[type="range"]');
+    await opacity.setValue('20');
+    await wrapper.get('[data-testid="appearance-save"]').trigger('click');
+    await opacity.setValue('60');
+    resolveSave({ ...site, settings: { ...site.settings, appearance: { cardOpacity: 20 } } });
+    await vi.waitFor(() => expect(wrapper.get('[data-testid="appearance-save"]').attributes('disabled')).toBeUndefined());
+    expect(wrapper.get('[data-testid="appearance-unsaved"]').isVisible()).toBe(true);
+    expect((opacity.element as HTMLInputElement).value).toBe('60');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await wrapper.get('.drawer-icon-button').trigger('click');
+    expect(wrapper.emitted('close')).toBeUndefined();
+    confirm.mockRestore();
+    wrapper.unmount();
+  });
 
   it('puts Admin, Save, and Close in the header and drops the bottom bar', () => {
     const wrapper = mount(AppearanceSettingsDrawer, { props: { open: true, site } });
@@ -257,7 +293,7 @@ describe('appearance header actions', () => {
 });
 
 describe('schema-driven appearance editor', () => {
-  beforeEach(() => apiRequest.mockReset());
+  beforeEach(() => { apiRequest.mockReset(); });
 
   /**
    * The editor lives in the drawer's second tab, and the panels stay mounted behind `v-show`, so
@@ -289,7 +325,8 @@ describe('schema-driven appearance editor', () => {
     });
     await withScene.get('[data-testid="drawer-tab-texture"]').trigger('click');
     expect(withScene.find('[data-testid="appearance-group-scene"]').exists()).toBe(true);
-    expect(withScene.findAll('[data-testid^="control-"]')).toHaveLength(24);
+    await withScene.get('[data-testid="appearance-advanced"]').setValue(true);
+    expect(withScene.findAll('[data-testid^="control-"]')).toHaveLength(74);
     // No advanced drawer: everything that is left is worth showing.
     expect(wrapper.find('.advanced-block').exists()).toBe(false);
     expect(wrapper.findAll('[data-testid^="control-"]').every((control) => control.isVisible())).toBe(true);
@@ -352,10 +389,12 @@ describe('schema-driven appearance editor', () => {
     await wrapper.get('[data-testid="density-compact"]').trigger('click');
     expect(wrapper.get('[data-testid="density-compact"]').attributes('aria-pressed')).toBe('true');
     expect(wrapper.get('[data-testid="density-balanced"]').attributes('aria-pressed')).toBe('false');
-    // Density is the spacing now: there are no separate gap sliders left to fall out of step.
+    // Density seeds spacing, and advanced controls allow independent adjustments.
     expect(wrapper.find('[data-testid="control-folderGapX"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="control-notabAlign"] select').exists()).toBe(false);
     expect(wrapper.find('[data-testid="control-fontFamily"] select').exists()).toBe(true);
+    await wrapper.get('[data-testid="appearance-advanced"]').setValue(true);
+    expect(wrapper.find('[data-testid="control-folderGapX"]').exists()).toBe(true);
   });
 
   it('offers size and speed for every scene', async () => {

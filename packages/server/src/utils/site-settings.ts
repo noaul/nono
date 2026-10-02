@@ -7,24 +7,44 @@ type AppearanceSettings = Record<string, AppearanceValue>;
 // The cross-workspace API test round-trips the Web defaults so a future catalogue change cannot
 // silently turn into another successful-looking save that is discarded here.
 const numericAppearanceFields: Record<string, readonly [number, number, number]> = {
-  maxContentWidth: [2600, 960, 3200], folderColumns: [4, 1, 6], searchMaxWidth: [760, 360, 1200],
-  cardRadius: [8, 0, 24], cardOpacity: [26, 12, 90], cardBlur: [18, 0, 32],
-  searchOpacity: [34, 12, 90], searchBlur: [20, 0, 32], searchHeight: [52, 38, 76],
-  backgroundBrightness: [100, 40, 140], backgroundBlur: [0, 0, 40], backgroundOverlay: [0, 0, 100],
-  sceneParticleSize: [100, 50, 200], sceneSpeed: [100, 25, 200], bookmarkTextSize: [14, 12, 18],
+  maxContentWidth: [2600, 960, 3200], folderColumns: [4, 1, 6], folderGapX: [20, 4, 64],
+  folderGapY: [24, 4, 64], pagePaddingX: [32, 0, 96], searchMaxWidth: [760, 360, 1200],
+  searchGridGap: [28, 0, 96], cardRadius: [8, 0, 24], cardOpacity: [26, 12, 90],
+  cardBlur: [18, 0, 32], folderTitleGap: [10, 0, 40], folderIconSize: [18, 12, 34],
+  bookmarkIconSize: [20, 12, 36], bookmarkRowHeight: [38, 26, 64], bookmarkGapX: [8, 0, 32],
+  bookmarkGapY: [4, 0, 24], folderShadow: [30, 0, 100], hoverScale: [100, 100, 108],
+  hoverHighlight: [40, 0, 100], searchRadius: [28, 8, 40], searchOpacity: [34, 12, 90],
+  searchBlur: [20, 0, 32], searchHeight: [52, 38, 76], searchIconSize: [18, 12, 28],
+  searchTextSize: [15, 12, 20], notabHeight: [38, 28, 60], notabGap: [4, 0, 24],
+  notabIndicator: [2, 0, 6], glassBorderOpacity: [28, 0, 100], glassBorderWidth: [1, 0, 4],
+  glassShadowStrength: [32, 0, 100], glassShadowSpread: [24, 0, 72], glassSaturation: [120, 60, 200],
+  glassHighlight: [34, 0, 100], glassDarkOverlay: [42, 0, 100], backgroundBrightness: [100, 40, 140],
+  backgroundBlur: [0, 0, 40], backgroundOverlay: [0, 0, 100], overlayLight: [0, 0, 100],
+  overlayDark: [30, 0, 100], sceneParticleSize: [100, 50, 200], sceneSpeed: [100, 25, 200],
+  sceneWind: [100, 0, 200], sceneWindDirection: [0, -100, 100], sceneDepth: [100, 0, 150],
+  sceneForegroundBlur: [100, 0, 200], sceneCollision: [100, 0, 150], sceneSplash: [100, 0, 150],
+  pageTitleSize: [30, 18, 52], descriptionSize: [14, 11, 22], fontWeight: [400, 300, 800],
+  lineHeight: [150, 110, 210], bookmarkTextSize: [14, 12, 18], notabTextSize: [15, 12, 18],
+  folderTextSize: [18, 12, 22],
 };
 
 const colorAppearanceFields: Record<string, string> = {
-  cardColor: '#f7f8fb', searchColor: '#f7f8fb', pageTitleColor: '#ffffff', bookmarkTextColor: '#ffffff',
+  cardColor: '#f7f8fb', searchColor: '#f7f8fb', pageTitleColor: '#ffffff',
+  descriptionColor: '#ffffff', searchTextColor: '#ffffff', placeholderColor: '#ffffff',
+  bookmarkTextColor: '#ffffff', notabTextColor: '#ffffff', folderTextColor: '#ffffff',
 };
 
 const booleanAppearanceFields: Record<string, boolean> = {
-  backgroundImageEnabled: true, sceneEnabled: true,
+  hoverAnimation: true, backgroundImageEnabled: true, sceneEnabled: true,
+  sceneReducedMotion: true, sceneLowPerformance: false,
 };
 
 const enumAppearanceFields: Record<string, readonly [string, ...string[]]> = {
   density: ['balanced', 'compact', 'spacious'], notabAlign: ['center', 'left'],
-  fontFamily: ['system', 'sans', 'serif', 'rounded', 'mono'],
+  notabOverflow: ['scroll', 'wrap'], backgroundPosition: ['center', 'top', 'bottom'],
+  backgroundSize: ['cover', 'contain', 'auto'], fontFamily: ['system', 'sans', 'serif', 'rounded', 'mono'],
+  fontFamilyZh: ['inherit', 'heiti', 'songti', 'kaiti', 'yuanti'],
+  fontFamilyEn: ['inherit', 'inter', 'georgia', 'jetbrains'],
 };
 
 export const appearanceDefaults: AppearanceSettings = {
@@ -56,22 +76,27 @@ function normalizeHex(value: unknown, fallback: string) {
 
 function normalizeAppearance(input: unknown) {
   const source = isRecord(input) ? { ...input } : {};
-  // The search bar and NoTab used to share the folders' blur; the Web keeps that look for settings
-  // saved before the split, so the server must not fill in its own default first.
+  const result: AppearanceSettings = Object.fromEntries(Object.entries(source).filter(([key, value]) =>
+    !['__proto__', 'constructor', 'prototype'].includes(key) &&
+    (typeof value === 'boolean' || typeof value === 'number' && Number.isFinite(value) ||
+      typeof value === 'string' && value.length <= 2048),
+  )) as AppearanceSettings;
+  const densityDefaults: Record<string, Partial<AppearanceSettings>> = {
+    compact: { folderGapX: 12, folderGapY: 14, pagePaddingX: 20, searchGridGap: 16, bookmarkRowHeight: 30, bookmarkGapY: 2, folderTitleGap: 6, notabHeight: 32, lineHeight: 130 },
+    spacious: { folderGapX: 32, folderGapY: 36, pagePaddingX: 48, searchGridGap: 44, bookmarkRowHeight: 46, bookmarkGapY: 8, folderTitleGap: 16, notabHeight: 46, lineHeight: 170 },
+  };
+  const defaults = { ...appearanceDefaults, ...densityDefaults[String(source.density)] };
+  const body = normalizeHex(source.bookmarkTextColor, colorAppearanceFields.bookmarkTextColor);
+  const title = normalizeHex(source.pageTitleColor, colorAppearanceFields.pageTitleColor);
+  Object.assign(defaults, {
+    notabTextColor: normalizeHex(source.categoryTextColor, body), folderTextColor: normalizeHex(source.categoryTextColor, body),
+    searchTextColor: body, placeholderColor: body, descriptionColor: title,
+  });
   if (source.searchBlur === undefined && source.cardBlur !== undefined) source.searchBlur = source.cardBlur;
-  const result: AppearanceSettings = {};
-  for (const [key, [fallback, min, max]] of Object.entries(numericAppearanceFields)) {
-    result[key] = normalizeNumber(source[key], fallback, min, max);
-  }
-  for (const [key, fallback] of Object.entries(colorAppearanceFields)) {
-    result[key] = normalizeHex(source[key], fallback);
-  }
-  for (const [key, fallback] of Object.entries(booleanAppearanceFields)) {
-    result[key] = typeof source[key] === 'boolean' ? source[key] : fallback;
-  }
-  for (const [key, options] of Object.entries(enumAppearanceFields)) {
-    result[key] = typeof source[key] === 'string' && options.includes(source[key]) ? source[key] : options[0];
-  }
+  for (const [key, [, min, max]] of Object.entries(numericAppearanceFields)) result[key] = normalizeNumber(source[key], defaults[key] as number, min, max);
+  for (const key of Object.keys(colorAppearanceFields)) result[key] = normalizeHex(source[key], defaults[key] as string);
+  for (const key of Object.keys(booleanAppearanceFields)) result[key] = typeof source[key] === 'boolean' ? source[key] : defaults[key];
+  for (const [key, options] of Object.entries(enumAppearanceFields)) result[key] = typeof source[key] === 'string' && options.includes(source[key]) ? source[key] : options[0];
   return result;
 }
 

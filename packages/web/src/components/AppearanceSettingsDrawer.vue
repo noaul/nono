@@ -7,13 +7,13 @@ import LanguageControl from '@/components/LanguageControl.vue';
 import { useI18n } from '@/composables/useI18n';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
-import { appearanceDefaults, getAppearanceSettings, type AppearanceSettings } from '@/utils/appearance';
+import { APPEARANCE_FIELDS, appearanceDefaults, getAppearanceSettings, type AppearanceKey, type AppearanceSettings } from '@/utils/appearance';
 import { PUBLIC_THEMES, accentCssVars, getSceneIntensity, getTheme, type PublicTheme } from '@/utils/themes';
 
 const props = defineProps<{ open: boolean; site: Site }>();
 const emit = defineEmits<{
   close: [];
-  saved: [site: Site];
+  saved: [site: Site, hasPendingEdits: boolean];
   preview: [site: Site];
 }>();
 
@@ -30,6 +30,30 @@ const presetName = ref('');
 /** Serialised copy of what is on the server, so "dirty" is a comparison rather than a flag. */
 const savedSnapshot = ref('');
 let successTimer = 0;
+let draftGeneration = 0;
+const previewFocus = ref<'title' | 'search' | 'folders'>('folders');
+const previewFrame = ref<HTMLIFrameElement | null>(null);
+const viewportWidth = ref(window.innerWidth);
+const previewBounds = ref({ width: window.innerWidth, height: 240 });
+let previewObserver: ResizeObserver | undefined;
+const previewStyle = computed(() => {
+  const scale = previewBounds.value.width / viewportWidth.value;
+  return { width: `${viewportWidth.value}px`, height: `${previewBounds.value.height / scale}px`, transform: `scale(${scale})` };
+});
+function onResize() { viewportWidth.value = window.innerWidth; }
+watch(previewFrame, (frame) => {
+  previewObserver?.disconnect();
+  if (!frame?.parentElement || typeof ResizeObserver === 'undefined') return;
+  previewObserver = new ResizeObserver(([entry]) => {
+    if (entry && entry.contentRect.width > 0) previewBounds.value = { width: entry.contentRect.width, height: entry.contentRect.height };
+  });
+  previewObserver.observe(frame.parentElement);
+});
+const previewUrl = computed(() => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('appearancePreview', '1');
+  return `${url.pathname}${url.search}`;
+});
 
 // The primary panel contains the choices most people use; detailed tuning stays separate.
 type DrawerTab = 'theme' | 'texture';
@@ -61,6 +85,7 @@ function draftSignature() {
     theme: { ...theme },
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
+    appearancePresets: userPresets.value,
   });
 }
 
@@ -93,16 +118,17 @@ function readUserPresets(settings?: Record<string, unknown>): UserAppearancePres
   });
 }
 
-function resetDraft() {
-  Object.assign(appearance, getAppearanceSettings(props.site.settings));
-  backgroundColor.value = props.site.backgroundColor || '#090a0f';
-  fontColor.value = props.site.fontColor || '#ffffff';
-  const savedTheme = (props.site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
+function resetDraft(site = props.site) {
+  for (const key of Object.keys(appearance)) Reflect.deleteProperty(appearance, key);
+  Object.assign(appearance, getAppearanceSettings(site.settings, document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light'));
+  backgroundColor.value = site.backgroundColor || '#090a0f';
+  fontColor.value = site.fontColor || '#ffffff';
+  const savedTheme = (site.settings as { theme?: { id?: string; accent?: string } } | null)?.theme;
   const resolved = getTheme(savedTheme?.id);
   theme.id = resolved?.id || savedTheme?.id || '';
   theme.accent = savedTheme?.accent || resolved?.accent || '';
-  theme.sceneIntensity = getSceneIntensity(props.site.settings);
-  userPresets.value = readUserPresets(props.site.settings);
+  theme.sceneIntensity = getSceneIntensity(site.settings);
+  userPresets.value = readUserPresets(site.settings);
   presetName.value = '';
   message.value = '';
   error.value = '';
@@ -152,29 +178,36 @@ async function persist(successMessage = t('appearance.saved')) {
   saving.value = true;
   message.value = '';
   error.value = '';
+  const generation = draftGeneration;
+  const submittedSignature = draftSignature();
+  const submitted = JSON.parse(submittedSignature);
   try {
     const updated = await apiRequest<Site>('/api/admin/site', {
       method: 'PUT',
       body: jsonBody({
-        backgroundColor: backgroundColor.value,
-        fontColor: fontColor.value,
+        backgroundColor: submitted.backgroundColor,
+        fontColor: submitted.fontColor,
         settings: {
           ...(props.site.settings || {}),
-          appearance: { ...appearance },
-          theme: { ...theme },
-          appearancePresets: userPresets.value,
+          appearance: submitted.appearance,
+          theme: submitted.theme,
+          appearancePresets: submitted.appearancePresets,
         },
       }),
     });
-    message.value = successMessage;
-    savedSnapshot.value = draftSignature();
+    // A reopened, untouched drawer follows the completed save. Preserve any new edits
+    // and compare them against the actual submission, including preset changes.
+    if (generation !== draftGeneration && !dirty.value) resetDraft(updated);
+    else savedSnapshot.value = submittedSignature;
+    const hasPendingEdits = props.open && dirty.value;
+    message.value = hasPendingEdits ? '' : successMessage;
     // Brief confirmation: long enough to read, short enough not to linger over the controls.
     window.clearTimeout(successTimer);
     successTimer = window.setTimeout(() => { message.value = ''; }, 2600);
-    emit('saved', updated);
+    emit('saved', updated, hasPendingEdits);
     return true;
   } catch (event) {
-    error.value = event instanceof Error ? event.message : t('common.saveFailed');
+    if (generation === draftGeneration) error.value = event instanceof Error ? event.message : t('common.saveFailed');
     return false;
   } finally {
     saving.value = false;
@@ -197,18 +230,20 @@ async function saveUserPreset() {
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
   };
+  const generation = draftGeneration;
   userPresets.value.push(preset);
   presetName.value = '';
-  if (!await persist(t('appearance.presetSaved', { name }))) {
+  if (!await persist(t('appearance.presetSaved', { name })) && generation === draftGeneration) {
     userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
   }
 }
 
 async function removeUserPreset(preset: UserAppearancePreset) {
   if (saving.value) return;
+  const generation = draftGeneration;
   const previous = [...userPresets.value];
   userPresets.value = userPresets.value.filter((item) => item.id !== preset.id);
-  if (!await persist(t('appearance.presetRemoved', { name: preset.name }))) userPresets.value = previous;
+  if (!await persist(t('appearance.presetRemoved', { name: preset.name })) && generation === draftGeneration) userPresets.value = previous;
 }
 
 /** Asks before discarding unsaved work; a clean drawer closes straight away. */
@@ -222,6 +257,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 watch(() => props.open, (open) => {
+  draftGeneration++;
   if (open) resetDraft();
 }, { immediate: true });
 
@@ -231,9 +267,8 @@ watch(dirty, (isDirty) => {
   window.clearTimeout(successTimer);
 });
 
-watch(draftSignature, () => {
-  if (!props.open) return;
-  emit('preview', {
+function draftSite(): Site {
+  return {
     ...props.site,
     backgroundColor: backgroundColor.value,
     fontColor: fontColor.value,
@@ -243,12 +278,52 @@ watch(draftSignature, () => {
       theme: { ...theme },
       appearancePresets: userPresets.value,
     },
-  });
+  };
+}
+
+function updateFrame() {
+  if (!props.open) return;
+  previewFrame.value?.contentWindow?.postMessage({
+    type: 'nono:appearance-preview', site: JSON.parse(JSON.stringify(draftSite())),
+    focus: previewFocus.value,
+    mode: document.documentElement.dataset.colorMode === 'dark' ? 'dark' : 'light',
+  }, window.location.origin);
+}
+
+function focusPreview(event: Event) {
+  const control = (event.target as Element).closest('[data-testid^="control-"]');
+  const key = control?.getAttribute('data-testid')?.slice('control-'.length) as AppearanceKey | undefined;
+  if (!key || !Object.hasOwn(APPEARANCE_FIELDS, key)) return;
+  const group = APPEARANCE_FIELDS[key].group;
+  previewFocus.value = key.startsWith('pageTitle') || key.startsWith('description') ? 'title'
+    : group === 'search' || key === 'searchMaxWidth' || key.startsWith('search') || key === 'placeholderColor' ? 'search' : 'folders';
+  updateFrame();
+}
+
+function onPreviewReady(event: MessageEvent) {
+  if (event.origin === window.location.origin && event.source === previewFrame.value?.contentWindow && event.data?.type === 'nono:appearance-ready') updateFrame();
+}
+
+watch(draftSignature, () => {
+  if (!props.open) return;
+  emit('preview', draftSite());
+  updateFrame();
 }, { flush: 'post' });
 
+window.addEventListener('resize', onResize);
 window.addEventListener('keydown', onKeydown);
+window.addEventListener('message', onPreviewReady);
+function onColorModeChange() {
+  if (props.open && !dirty.value) resetDraft();
+  updateFrame();
+}
+window.addEventListener('nono-color-mode-change', onColorModeChange);
 onBeforeUnmount(() => {
+  previewObserver?.disconnect();
+  window.removeEventListener('resize', onResize);
   window.removeEventListener('keydown', onKeydown);
+  window.removeEventListener('message', onPreviewReady);
+  window.removeEventListener('nono-color-mode-change', onColorModeChange);
   window.clearTimeout(successTimer);
 });
 </script>
@@ -256,7 +331,7 @@ onBeforeUnmount(() => {
 <template>
   <Transition name="appearance-drawer">
     <div v-if="open" class="appearance-backdrop" data-testid="appearance-settings-drawer" @click.self="requestClose">
-      <aside class="appearance-drawer" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+      <aside class="appearance-drawer" @input="focusPreview" @change="focusPreview" @click="focusPreview" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
         <!-- Sticky: the actions stay reachable however far the panel is scrolled, and the
              bottom action bar is gone, which gives the controls the height back. -->
         <header class="drawer-header">
@@ -330,6 +405,10 @@ onBeforeUnmount(() => {
 
         <!-- Panels stay mounted and toggle with v-show, so switching tabs keeps every draft
              edit and scroll position instead of remounting the editors. -->
+        <section class="live-preview" :aria-label="t('appearance.editor.preview')">
+          <span>{{ t('appearance.editor.preview') }}</span>
+          <iframe ref="previewFrame" :src="previewUrl" :style="previewStyle" :title="t('appearance.editor.preview')" data-testid="appearance-live-preview" tabindex="-1" @load="updateFrame" />
+        </section>
         <div class="drawer-scroll">
           <div v-show="activeTab === 'theme'" class="drawer-panel" role="tabpanel">
             <section class="theme-section">
@@ -443,7 +522,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-show="activeTab === 'texture'" class="drawer-panel" role="tabpanel">
-            <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene?.kind" />
+            <AppearanceEditor :appearance="appearance" :scene-kind="selectedTheme?.scene?.kind" :has-background-image="Boolean(site.backgroundImage)" />
           </div>
         </div>
 
@@ -497,7 +576,7 @@ onBeforeUnmount(() => {
 }
 
 .appearance-backdrop {
-  background: rgba(15, 23, 42, 0.2);
+  background: transparent;
   inset: 0;
   overflow: hidden;
   position: fixed;
@@ -505,7 +584,7 @@ onBeforeUnmount(() => {
 }
 
 :global([data-color-mode='dark'] .appearance-backdrop) {
-  background: rgba(0, 0, 0, 0.46);
+  background: transparent;
 }
 
 .appearance-drawer {
@@ -514,7 +593,7 @@ onBeforeUnmount(() => {
   box-shadow: var(--drawer-shadow);
   color: var(--drawer-text);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   height: 100dvh;
   margin-left: auto;
   max-width: 100%;
@@ -523,6 +602,34 @@ onBeforeUnmount(() => {
   width: min(512px, 100vw);
   -webkit-backdrop-filter: blur(28px) saturate(1.16);
   backdrop-filter: blur(28px) saturate(1.16);
+}
+
+.live-preview {
+  height: clamp(100px, 34dvh, 310px);
+  overflow: hidden;
+  border-bottom: 1px solid var(--drawer-divider);
+  min-width: 0;
+  position: relative;
+}
+.live-preview > span {
+  background: var(--drawer-bg);
+  border-radius: 4px;
+  color: var(--drawer-muted);
+  font-size: 10px;
+  padding: 3px 7px;
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  z-index: 1;
+}
+.live-preview iframe {
+  border: 0;
+  display: block;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform-origin: top left;
 }
 
 .drawer-header {
