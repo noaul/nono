@@ -35,6 +35,17 @@ class NavigationPolicy(baseUrl: String) {
 
     fun resolve(path: String): String = base.resolve(path).toString()
 
+    /**
+     * The NoDesk home is a full-bleed wallpaper and positions its controls with the injected
+     * safe-area variables, so it is drawn under the status and gesture bars. Every other page keeps
+     * its content clear of them.
+     */
+    fun isEdgeToEdge(raw: String?): Boolean {
+        val uri = raw?.let { runCatching { URI(it.trim()) }.getOrNull() } ?: return false
+        if (uri.host == null || !isSameOrigin(uri)) return false
+        return (uri.rawPath ?: "").trimEnd('/') == "/nodesk"
+    }
+
     private fun isSameOrigin(uri: URI): Boolean =
         uri.scheme.equals(scheme, ignoreCase = true) &&
             uri.host.equals(host, ignoreCase = true) &&

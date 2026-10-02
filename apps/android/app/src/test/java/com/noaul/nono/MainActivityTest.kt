@@ -23,9 +23,9 @@ class MainActivityTest {
     private fun webViewOf(activity: MainActivity) = activity.findViewById<WebView>(R.id.web_view)
 
     @Test
-    fun opensNoDeskOnLaunch() {
+    fun opensTheLoginPageThatForwardsToNoDeskOnLaunch() {
         launch().use { scenario ->
-            scenario.onActivity { assertEquals("$base/nodesk/", shadowOf(webViewOf(it)).lastLoadedUrl) }
+            scenario.onActivity { assertEquals("$base/login?next=%2Fnodesk%2F", shadowOf(webViewOf(it)).lastLoadedUrl) }
         }
     }
 
@@ -46,13 +46,13 @@ class MainActivityTest {
     }
 
     @Test
-    fun shareWithoutALinkStillOpensHome() {
+    fun shareWithoutALinkStillOpensTheEntryPage() {
         val share = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .setAction(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_TEXT, "no link here")
         launch(share).use { scenario ->
-            scenario.onActivity { assertEquals("$base/nodesk/", shadowOf(webViewOf(it)).lastLoadedUrl) }
+            scenario.onActivity { assertEquals("$base/login?next=%2Fnodesk%2F", shadowOf(webViewOf(it)).lastLoadedUrl) }
         }
     }
 

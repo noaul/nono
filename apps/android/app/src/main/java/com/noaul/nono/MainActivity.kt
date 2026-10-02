@@ -44,12 +44,22 @@ import androidx.core.view.isVisible
  */
 class MainActivity : ComponentActivity() {
     private val policy = NavigationPolicy(BuildConfig.BASE_URL)
-    private val homeUrl get() = policy.resolve("/nodesk/")
+    // Every launch goes through the NoNo login page: signed out it shows the form, signed in it
+    // forwards straight to NoDesk (the NoDesk home itself is public and has no login entry).
+    private val homeUrl get() = policy.resolve("/login?next=%2Fnodesk%2F")
 
     private lateinit var webView: WebView
     private lateinit var progress: ProgressBar
     private lateinit var errorPanel: View
     private lateinit var errorMessage: TextView
+    private lateinit var root: View
+    private lateinit var topBand: View
+    private lateinit var bottomBand: View
+
+    private var insets: WindowInsetsCompat? = null
+    private var pageTopColor: Int? = null
+    private var pageBottomColor: Int? = null
+    private var pageDark: Boolean? = null
 
     private var rendererGone = false
     private var lastUrl: String? = null
@@ -65,26 +75,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val root = findViewById<View>(R.id.root)
+        root = findViewById(R.id.root)
+        topBand = findViewById(R.id.top_band)
+        bottomBand = findViewById(R.id.bottom_band)
         webView = findViewById(R.id.web_view)
         progress = findViewById(R.id.progress)
         errorPanel = findViewById(R.id.error_panel)
         errorMessage = findViewById(R.id.error_message)
         findViewById<Button>(R.id.retry).setOnClickListener { retry() }
 
-        // One layer consumes the system bars, cutout and keyboard, so web pages need no extra padding
-        // and inputs stay above the keyboard.
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime(),
-            )
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
+            insets = windowInsets
+            applyWindowChrome()
             WindowInsetsCompat.CONSUMED
         }
-        val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        WindowCompat.getInsetsController(window, root).apply {
-            isAppearanceLightStatusBars = !night
-            isAppearanceLightNavigationBars = !night
+        // A tap may toggle a page's light/dark theme; re-read its colours shortly after.
+        @SuppressLint("ClickableViewAccessibility")
+        webView.setOnTouchListener { _, event ->
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP) webView.postDelayed({ samplePageColors() }, 350)
+            false
         }
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
@@ -135,6 +144,11 @@ class MainActivity : ComponentActivity() {
         if (rendererGone) lastUrl?.let { outState.putString(KEY_RESUME_URL, it) } else webView.saveState(outState)
     }
 
+    override fun onResume() {
+        super.onResume()
+        samplePageColors()
+    }
+
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
@@ -149,6 +163,19 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val KEY_RESUME_URL = "resume_url"
+
+        const val SAMPLE_COLORS_SCRIPT = """(function(){
+  function bgAt(x, y) {
+    for (var e = document.elementFromPoint(x, y); e; e = e.parentElement) {
+      var c = getComputedStyle(e).backgroundColor;
+      if (c && c !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(c)) return c;
+    }
+    return '';
+  }
+  var h = document.documentElement, x = window.innerWidth / 2;
+  var dark = h.classList.contains('dark') || h.dataset.theme === 'dark' || getComputedStyle(h).colorScheme === 'dark';
+  return JSON.stringify({ top: bgAt(x, 1), bottom: bgAt(x, window.innerHeight - 2), dark: dark });
+})()"""
     }
 
     /** Opens a shared link in the bookmark editor. Returns true when the intent was handled. */
@@ -163,6 +190,66 @@ class MainActivity : ComponentActivity() {
         hideError()
         webView.loadUrl(policy.resolve(sharedLinkPath(link)))
         return true
+    }
+
+    private val night get() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    /**
+     * Lays the WebView out for the current page. The NoDesk home is drawn edge-to-edge and receives
+     * the bar sizes as CSS variables (--nono-safe-*), because Android WebView before version 140
+     * reports 0 for env(safe-area-inset-*). Other pages stop at the bars, and the bars are painted in
+     * the colours at the top and bottom of the page so they read as part of it.
+     */
+    private fun applyWindowChrome() {
+        val current = insets ?: return
+        val bars = current.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+        val ime = current.getInsets(WindowInsetsCompat.Type.ime()).bottom
+        val edge = policy.isEdgeToEdge(webView.url ?: lastUrl)
+        val bottomInset = if (ime > 0) maxOf(ime, bars.bottom) else bars.bottom
+
+        (webView.layoutParams as android.view.ViewGroup.MarginLayoutParams).apply {
+            if (edge) setMargins(0, 0, 0, if (ime > 0) ime else 0) else setMargins(bars.left, bars.top, bars.right, bottomInset)
+            webView.layoutParams = this
+        }
+        topBand.layoutParams = topBand.layoutParams.apply { height = bars.top }
+        bottomBand.layoutParams = bottomBand.layoutParams.apply { height = bars.bottom }
+        topBand.isVisible = !edge
+        bottomBand.isVisible = !edge && ime == 0
+        (progress.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin = bars.top
+        progress.requestLayout()
+        errorPanel.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+
+        val fallback = getColor(R.color.surface)
+        val top = pageTopColor ?: fallback
+        val bottom = pageBottomColor ?: top
+        topBand.setBackgroundColor(top)
+        bottomBand.setBackgroundColor(bottom)
+        // Side cutouts in landscape show the root, so match the page there too.
+        root.setBackgroundColor(top)
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = if (edge) !(pageDark ?: night) else isLightColor(top)
+            isAppearanceLightNavigationBars = if (edge) !(pageDark ?: night) else isLightColor(bottom)
+        }
+
+        val density = resources.displayMetrics.density
+        fun css(px: Int) = "${(px / density).toInt()}px"
+        val safe = if (edge) mapOf("top" to bars.top, "right" to bars.right, "bottom" to if (ime > 0) 0 else bars.bottom, "left" to bars.left) else mapOf("top" to 0, "right" to 0, "bottom" to 0, "left" to 0)
+        val script = safe.entries.joinToString("") { (side, px) -> "s.setProperty('--nono-safe-$side','${css(px)}');" }
+        if (webView.url?.let { policy.isSameOrigin(it) } == true) {
+            webView.evaluateJavascript("(function(){var s=document.documentElement.style;$script})()", null)
+        }
+    }
+
+    /** Reads the background colours under the top and bottom edges of the page and whether it is in dark mode. */
+    private fun samplePageColors() {
+        if (webView.url?.let { policy.isSameOrigin(it) } != true) return
+        webView.evaluateJavascript(SAMPLE_COLORS_SCRIPT) { result ->
+            val json = runCatching { org.json.JSONObject(org.json.JSONTokener(result).nextValue() as String) }.getOrNull() ?: return@evaluateJavascript
+            pageTopColor = parseCssColor(json.optString("top"))
+            pageBottomColor = parseCssColor(json.optString("bottom"))
+            pageDark = if (json.has("dark")) json.optBoolean("dark") else null
+            applyWindowChrome()
+        }
     }
 
     private fun retry() {
@@ -227,7 +314,21 @@ class MainActivity : ComponentActivity() {
             progress.isVisible = true
         }
 
+        override fun onPageCommitVisible(view: WebView, url: String) {
+            applyWindowChrome()
+            samplePageColors()
+        }
+
+        // Single-page apps change the address without loading a new page.
+        override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+            lastUrl = url
+            applyWindowChrome()
+            view.postDelayed({ samplePageColors() }, 300)
+        }
+
         override fun onPageFinished(view: WebView, url: String) {
+            applyWindowChrome()
+            samplePageColors()
             lastUrl = url
             progress.isVisible = false
             CookieManager.getInstance().flush()

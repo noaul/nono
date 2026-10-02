@@ -66,10 +66,10 @@
 	align-items: center;
 	display: grid;
 	grid-template-columns: minmax(180px, 1fr) minmax(320px, 520px) minmax(180px, 1fr);
-	left: max(28px, env(safe-area-inset-left));
+	left: max(28px, var(--nono-safe-left, env(safe-area-inset-left)));
 	position: absolute;
-	right: max(28px, env(safe-area-inset-right));
-	top: max(22px, env(safe-area-inset-top));
+	right: max(28px, var(--nono-safe-right, env(safe-area-inset-right)));
+	top: max(22px, var(--nono-safe-top, env(safe-area-inset-top)));
 	z-index: 20;
 }
 
@@ -89,8 +89,8 @@
 	display: grid;
 	gap: 10px;
 	position: absolute;
-	right: max(28px, env(safe-area-inset-right));
-	top: max(112px, calc(env(safe-area-inset-top) + 90px));
+	right: max(28px, var(--nono-safe-right, env(safe-area-inset-right)));
+	top: max(112px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 90px));
 	width: min(300px, calc(100vw - 56px));
 	z-index: 24;
 }
@@ -599,7 +599,7 @@
 }
 
 .ambient-dock-wrap {
-	bottom: max(54px, calc(env(safe-area-inset-bottom) + 38px));
+	bottom: max(54px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 38px));
 	left: 50%;
 	position: absolute;
 	transform: translateX(-50%);
@@ -885,7 +885,7 @@
 	background: var(--ambient-glass-strong);
 	border: 1px solid var(--ambient-line);
 	border-radius: 24px;
-	bottom: max(168px, calc(env(safe-area-inset-bottom) + 152px));
+	bottom: max(168px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 152px));
 	box-shadow: var(--ambient-shadow);
 	left: 50%;
 	max-height: min(48vh, 480px);
@@ -2609,7 +2609,7 @@ a.ambient-small-icon {
 	background: rgba(91, 118, 142, 0.18);
 	display: grid;
 	inset: 0;
-	padding: max(88px, calc(env(safe-area-inset-top) + 72px)) 18px 18px;
+	padding: max(88px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 72px)) 18px 18px;
 	place-items: start center;
 	position: fixed;
 	z-index: 80;
@@ -2730,8 +2730,8 @@ a.ambient-small-icon {
 	}
 
 	.ambient-side-stack {
-		right: max(16px, env(safe-area-inset-right));
-		top: max(82px, calc(env(safe-area-inset-top) + 68px));
+		right: max(16px, var(--nono-safe-right, env(safe-area-inset-right)));
+		top: max(82px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 68px));
 		width: min(280px, calc(100vw - 32px));
 	}
 
@@ -2750,7 +2750,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-command-trigger {
-		bottom: max(136px, calc(env(safe-area-inset-bottom) + 120px));
+		bottom: max(136px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 120px));
 		left: 50%;
 		position: fixed;
 		transform: translateX(-50%);
@@ -2767,7 +2767,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-panel {
-		bottom: max(190px, calc(env(safe-area-inset-bottom) + 176px));
+		bottom: max(190px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 176px));
 	}
 
 	.ambient-dock {
@@ -2791,9 +2791,9 @@ a.ambient-small-icon {
 
 @media (max-width: 640px) {
 	.ambient-topbar {
-		left: max(16px, env(safe-area-inset-left));
-		right: max(16px, env(safe-area-inset-right));
-		top: max(14px, env(safe-area-inset-top));
+		left: max(16px, var(--nono-safe-left, env(safe-area-inset-left)));
+		right: max(16px, var(--nono-safe-right, env(safe-area-inset-right)));
+		top: max(14px, var(--nono-safe-top, env(safe-area-inset-top)));
 	}
 
 	.ambient-brand strong {
@@ -2821,7 +2821,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-side-stack {
-		top: max(70px, calc(env(safe-area-inset-top) + 56px));
+		top: max(70px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 56px));
 	}
 
 	.ambient-notification-rail.is-expanded {
@@ -2857,7 +2857,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-dock-wrap {
-		bottom: max(12px, env(safe-area-inset-bottom));
+		bottom: max(12px, var(--nono-safe-bottom, env(safe-area-inset-bottom)));
 		width: calc(100vw - 20px);
 	}
 
@@ -2899,10 +2899,10 @@ a.ambient-small-icon {
 	}
 
 	.ambient-command-trigger {
-		bottom: max(106px, calc(env(safe-area-inset-bottom) + 94px));
+		bottom: max(106px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 94px));
 		height: 40px;
-		left: max(16px, env(safe-area-inset-left));
-		right: max(68px, calc(env(safe-area-inset-right) + 68px));
+		left: max(16px, var(--nono-safe-left, env(safe-area-inset-left)));
+		right: max(68px, calc(var(--nono-safe-right, env(safe-area-inset-right)) + 68px));
 		transform: none;
 		width: auto;
 	}
@@ -2922,7 +2922,7 @@ a.ambient-small-icon {
 
 	.ambient-panel {
 		border-radius: 20px;
-		bottom: max(158px, calc(env(safe-area-inset-bottom) + 142px));
+		bottom: max(158px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 142px));
 		max-height: min(48vh, 440px);
 		width: calc(100vw - 20px);
 	}
@@ -2949,7 +2949,7 @@ a.ambient-small-icon {
 	}
 
 	.ambient-search-backdrop {
-		padding-top: max(68px, calc(env(safe-area-inset-top) + 56px));
+		padding-top: max(68px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 56px));
 	}
 
 	.ambient-search-dialog {

@@ -47,4 +47,14 @@ class NavigationPolicyTest {
         assertEquals(Destination.IN_APP, local.classify("http://10.0.2.2:3000/nodesk"))
         assertEquals(Destination.BROWSER, local.classify("http://10.0.2.2/nodesk"))
     }
+
+    @Test
+    fun onlyTheNoDeskHomeIsEdgeToEdge() {
+        assertTrue(policy.isEdgeToEdge("https://noaul.com/nodesk"))
+        assertTrue(policy.isEdgeToEdge("https://noaul.com/nodesk/?settings=backups"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/nodesk/blog/post"))
+        assertFalse(policy.isEdgeToEdge("https://noaul.com/nomoney/dashboard"))
+        assertFalse(policy.isEdgeToEdge("https://evil.example/nodesk"))
+        assertFalse(policy.isEdgeToEdge(null))
+    }
 }

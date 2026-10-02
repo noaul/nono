@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The root consumes window insets as padding, so it cannot be a <merge>. -->
+<!-- The root receives window insets; MainActivity positions the children from them. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
@@ -11,6 +11,21 @@
         android:id="@+id/web_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <!-- Behind the status and gesture bars on pages that are not edge-to-edge, painted in the page's own colours. -->
+    <View
+        android:id="@+id/top_band"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="@color/surface" />
+
+    <View
+        android:id="@+id/bottom_band"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="bottom"
+        android:background="@color/surface" />
 
     <ProgressBar
         android:id="@+id/progress"

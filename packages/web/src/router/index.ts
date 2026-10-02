@@ -1,3 +1,4 @@
+import { requiresDocumentNavigation, resolveInternalRedirect } from '@/utils/redirect';
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
@@ -61,6 +62,14 @@ router.beforeEach(async (to) => {
   if (!auth.loaded) await auth.loadSession().catch(() => undefined);
   if (to.meta.requiresAuth && !auth.authenticated) return auth.setupRequired ? '/setup' : '/login';
   if (to.meta.requiresAdmin && !auth.isAdmin) return '/admin';
-  if ((to.path === '/login' || to.path === '/setup') && auth.authenticated) return '/admin';
+  if ((to.path === '/login' || to.path === '/setup') && auth.authenticated) {
+    // Already signed in: honour ?next=, so the Android app can always start at /login?next=/nodesk/.
+    const next = resolveInternalRedirect(to.query.next, '/admin');
+    if (requiresDocumentNavigation(next)) {
+      window.location.replace(next);
+      return false;
+    }
+    return next;
+  }
   return true;
 });
