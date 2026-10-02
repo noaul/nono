@@ -33,3 +33,22 @@ cd apps/android && ./gradlew :app:assembleDebug -PnonoDebugBaseUrl=http://10.0.2
 - 侧载安装时允许“安装未知应用”；如出现安全检查，选择继续安装。
 - 若希望应用保持登录、少被回收：设置 → 应用设置 → NoNo → 省电策略选“无限制”（可选）。
 - 分享入口名称为“收藏到 NoNo”。
+
+## 无真机时的测试（Redroid）
+
+开发机和各服务器都没有 `/dev/kvm`，Android 模拟器无法运行。可在内核带 binder 的服务器（如 rn）上用 Redroid 在 Docker 中运行 Android 14：
+
+```bash
+# 服务器上（binder 驱动加载后需重启才能卸载）
+modprobe binder_linux devices=binder,hwbinder,vndbinder
+chmod 666 /dev/binder /dev/hwbinder /dev/vndbinder   # 测完改回 600
+docker run -d --name nono-redroid --privileged --memory 1800m --memory-swap 1800m -p 127.0.0.1:5555:5555 \
+  redroid/redroid:14.0.0_64only-latest androidboot.redroid_width=1080 androidboot.redroid_height=2400 \
+  androidboot.redroid_dpi=440 androidboot.use_memfd=true
+# 开发机上
+ssh -f -N -L 15555:127.0.0.1:5555 rn && adb connect 127.0.0.1:15555
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb exec-out screencap -p > screen.png
+```
+
+debug 包允许 WebView 调试：`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>` 后可用 DevTools 协议导航页面、读取布局。Redroid 自带 WebView 125（低于 140，正好覆盖注入安全区变量的回退路径），但不是澎湃 OS，省电策略、手势细节仍需真机确认。测完 `docker rm -f nono-redroid`。
