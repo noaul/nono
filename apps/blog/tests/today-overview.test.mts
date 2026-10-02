@@ -49,6 +49,23 @@ test('unreadable blocks stay visible as muted rows and a backup failure is criti
 	assert.equal(summarizeOverview(null).length, 6)
 })
 
+test('items due in 8 to 30 days remain visible in both product summaries', () => {
+	for (const daysLeft of [8, 19, 30]) {
+		const due = { buckets: { overdue: 0, today: 0, week: 0, month: 1 }, next: [{ name: '续费项目', daysLeft }] }
+		const rows = summarizeOverview({
+			nomoney: ok({ due }),
+			yumi: ok({ due, status: { overall: 'operational', down: [] } })
+		})
+		for (const id of ['nomoney', 'yumi']) {
+			const row = rows.find(row => row.id === id)!
+			assert.match(row.subtitle, /1 项 8～30 天内到期/)
+			assert.ok(row.subtitle.includes(`最近：续费项目（${daysLeft} 天后到期）`))
+			assert.doesNotMatch(row.subtitle, /没有到期项目/)
+			assert.equal(row.tone, 'ok')
+		}
+	}
+})
+
 test('the workbench opens the today panel from the dock and refreshes it with notifications', async () => {
 	const workbench = await readFile(new URL('../src/app/(home)/ambient-workbench.tsx', import.meta.url), 'utf8')
 	assert.match(workbench, /\{ id: 'today', label: '今日'/)

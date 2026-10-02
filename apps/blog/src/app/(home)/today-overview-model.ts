@@ -33,7 +33,8 @@ function dueSummary(due: Record<string, unknown>) {
 	const overdue = count(buckets.overdue)
 	const today = count(buckets.today)
 	const week = count(buckets.week)
-	const parts = [overdue ? `${overdue} 项逾期` : '', today ? `${today} 项今天到期` : '', week ? `${week} 项 7 天内到期` : ''].filter(Boolean)
+	const month = count(buckets.month)
+	const parts = [overdue ? `${overdue} 项逾期` : '', today ? `${today} 项今天到期` : '', week ? `${week} 项 7 天内到期` : '', month ? `${month} 项 8～30 天内到期` : ''].filter(Boolean)
 	const first = next[0]
 	const firstLabel = first?.name ? `最近：${first.name}（${daysLabel(count(first.daysLeft))}）` : ''
 	return {
