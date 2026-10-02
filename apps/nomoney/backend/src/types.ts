@@ -17,16 +17,21 @@ export interface DbClient {
   save(): void;
 }
 
-export interface MailMessage {
-  to: string;
-  from: string;
+export type NotificationSeverity = 'info' | 'warning' | 'critical';
+
+export interface RelayMessage {
   subject: string;
   text: string;
+  severity: NotificationSeverity;
 }
 
-export interface Mailer {
-  sent: MailMessage[];
-  send(message: MailMessage): Promise<void>;
+/**
+ * Hands a message to NoNo, which owns the notification channels. Resolves once at least one channel
+ * accepted it and rejects otherwise, so callers can keep the message queued and retry.
+ */
+export interface Notifier {
+  sent: RelayMessage[];
+  send(message: RelayMessage): Promise<void>;
 }
 
 export type SshAuthType = 'password' | 'privateKey';
@@ -71,7 +76,7 @@ export interface AppContext {
   publicOrigin?: string;
   encryptionKey: string;
   now: () => Date;
-  mailer: Mailer;
+  notifier: Notifier;
   fetch?: typeof fetch;
   privateOutboundHosts?: string[];
   sshRunner?: SshRunner;

@@ -185,12 +185,6 @@ startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
   NOMONEY_INTERNAL_TOKEN: process.env.NOMONEY_INTERNAL_TOKEN || '',
   NONO_INTERNAL_PORT: String(nonoPort),
   NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
-  SMTP_HOST: process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST || '',
-  SMTP_PORT: process.env.NOMONEY_SMTP_PORT || process.env.SMTP_PORT || '587',
-  SMTP_USER: process.env.NOMONEY_SMTP_USER || process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS || '',
-  SMTP_FROM: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM || '',
-  SMTP_TO: process.env.NOMONEY_SMTP_TO || process.env.SMTP_TO || '',
 });
 startService('yumi', '/app/nomoney', 'backend/dist/index.js', yumiPort, {
   PRODUCT_MODE: 'yumi',
@@ -201,12 +195,6 @@ startService('yumi', '/app/nomoney', 'backend/dist/index.js', yumiPort, {
   NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
   YUMI_ENCRYPTION_KEY: process.env.YUMI_ENCRYPTION_KEY || '',
   NOMONEY_ENCRYPTION_KEY: process.env.NOMONEY_ENCRYPTION_KEY || '',
-  SMTP_HOST: process.env.YUMI_SMTP_HOST || process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST || '',
-  SMTP_PORT: process.env.YUMI_SMTP_PORT || process.env.NOMONEY_SMTP_PORT || process.env.SMTP_PORT || '587',
-  SMTP_USER: process.env.YUMI_SMTP_USER || process.env.NOMONEY_SMTP_USER || process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.YUMI_SMTP_PASS || process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS || '',
-  SMTP_FROM: process.env.YUMI_SMTP_FROM || process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM || '',
-  SMTP_TO: process.env.YUMI_SMTP_TO || process.env.NOMONEY_SMTP_TO || process.env.SMTP_TO || '',
 });
 
 function legacyYumiRedirect(url) {

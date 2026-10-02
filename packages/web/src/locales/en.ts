@@ -470,6 +470,7 @@ export const en: Messages = {
     portalUrlHint: 'Set a blog URL to link both ways',
   },
   notifications: {
+    manageChannels: 'Push channels',
     sourceLinks: 'Bookmarks',
     sourceBackup: 'Backups',
     sourceNodesk: 'NoDesk',

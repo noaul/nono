@@ -55,7 +55,7 @@ import {
 } from './ambient-workbench-model'
 import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
-import { AmbientSettingsCenter } from './ambient-settings-center'
+import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
 import { normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 
 type PanelId = 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus'
@@ -215,7 +215,7 @@ export default function AmbientWorkbench() {
 	const [dimmed, setDimmed] = useState(false)
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
-	const [settingsInitialTab, setSettingsInitialTab] = useState<'desktop' | 'backups'>('desktop')
+	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
 	const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
 	const [notificationRailExpanded, setNotificationRailExpanded] = useState(false)
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
@@ -263,8 +263,9 @@ export default function AmbientWorkbench() {
 	useEffect(() => {
 		if (!privateWorkbenchVisible) return
 		const searchParams = new URLSearchParams(window.location.search)
-		if (searchParams.get('settings') === 'backups') {
-			setSettingsInitialTab('backups')
+		const requested = searchParams.get('settings')
+		if (requested === 'backups' || requested === 'notifications') {
+			setSettingsInitialTab(requested)
 			setSettingsOpen(true)
 		}
 	}, [privateWorkbenchVisible])

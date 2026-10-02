@@ -5,7 +5,7 @@ import express from 'express';
 import cron from 'node-cron';
 import { createApp } from './app.js';
 import { createDatabase } from './db.js';
-import { createSmtpMailer } from './mailer.js';
+import { createNonoNotifier } from './notifier.js';
 import { createNonoSessionVerifier } from './auth.js';
 import { runReminderScan } from './reminders.js';
 import { getSettings } from './settings.js';
@@ -69,7 +69,7 @@ const context: AppContext = {
   encryptionKey,
   privateOutboundHosts,
   now: () => new Date(),
-  mailer: createSmtpMailer(() => getSettings(context))
+  notifier: createNonoNotifier({ baseUrl: nonoInternalUrl, internalToken: internalToken ?? '', product })
 };
 
 function resolvePublicOrigin(value: string | undefined): string | undefined {

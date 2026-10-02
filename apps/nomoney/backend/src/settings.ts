@@ -12,11 +12,6 @@ export interface Settings {
   defaultCurrency: Currency;
   timezone: string;
   language: 'zh' | 'en';
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpFrom: string;
-  smtpTo: string;
   webdavUrl: string;
   webdavUsername: string;
   webdavPassword: string;
@@ -24,23 +19,22 @@ export interface Settings {
   webdavFolderPath: string;
   webdavBackupFilename: string;
   webdavEncryptionKey: string;
-  webhookUrl: string;
-  telegramBotToken: string;
-  telegramChatId: string;
-  barkUrl: string;
   outageAlertsEnabled: boolean;
   diskAlertPercent: number;
 }
 
 /** Stored encrypted and never returned by the API. */
-export const sensitiveSettingKeys = ['webdavPassword', 'webdavEncryptionKey', 'telegramBotToken', 'barkUrl'] as const;
+export const sensitiveSettingKeys = ['webdavPassword', 'webdavEncryptionKey'] as const;
+/**
+ * Notification channels moved to NoNo. These keys may still hold the values a product used before;
+ * NoNo reads them once through /internal/notifications/legacy-channels to import them.
+ */
+const legacyEncryptedKeys = ['telegramBotToken', 'barkUrl'] as const;
 type SensitiveSettingKey = typeof sensitiveSettingKeys[number];
 
 export type PublicSettings = Settings & {
   webdavPasswordSet: boolean;
   webdavEncryptionKeySet: boolean;
-  telegramBotTokenSet: boolean;
-  barkUrlSet: boolean;
 };
 
 const settingsSchema = z.object({
@@ -50,11 +44,6 @@ const settingsSchema = z.object({
   defaultCurrency: z.enum(currencies).optional(),
   timezone: z.string().trim().min(1).optional(),
   language: z.enum(['zh', 'en']).optional(),
-  smtpHost: z.string().optional(),
-  smtpPort: z.number().int().min(1).max(65535).optional(),
-  smtpUser: z.string().optional(),
-  smtpFrom: z.string().optional(),
-  smtpTo: z.string().optional(),
   webdavUrl: z.string().optional(),
   webdavUsername: z.string().optional(),
   webdavPassword: z.string().optional(),
@@ -62,10 +51,6 @@ const settingsSchema = z.object({
   webdavFolderPath: z.string().optional(),
   webdavBackupFilename: z.string().optional(),
   webdavEncryptionKey: z.string().optional(),
-  webhookUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
-  telegramBotToken: z.string().trim().max(200).optional(),
-  telegramChatId: z.string().trim().max(100).optional(),
-  barkUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).nullable().optional(),
   outageAlertsEnabled: z.boolean().optional(),
   diskAlertPercent: z.number().int().min(0).max(100).optional()
 });
@@ -91,20 +76,6 @@ export function registerSettingsRoutes(router: Router, context: AppContext): voi
         );
       }
       res.json({ settings: getPublicSettings(context) });
-    })
-  );
-
-  router.post(
-    '/settings/test-email',
-    asyncHandler(async (_req, res) => {
-      const settings = getSettings(context);
-      await context.mailer.send({
-        to: settings.smtpTo,
-        from: settings.smtpFrom,
-        subject: `${context.product === 'yumi' ? 'Yumi' : 'NoMoney'} test email`,
-        text: `${context.product === 'yumi' ? 'Yumi' : 'NoMoney'} email delivery is configured.`
-      });
-      res.status(204).end();
     })
   );
 }
@@ -136,11 +107,6 @@ export function getSettings(context: AppContext): Settings {
     defaultCurrency: settings.defaultCurrency ?? 'CNY',
     timezone: settings.timezone ?? 'Asia/Shanghai',
     language: settings.language ?? 'zh',
-    smtpHost: settings.smtpHost ?? '',
-    smtpPort: Number(settings.smtpPort ?? 587),
-    smtpUser: settings.smtpUser ?? '',
-    smtpFrom: settings.smtpFrom ?? '',
-    smtpTo: settings.smtpTo ?? '',
     webdavUrl: settings.webdavUrl ?? '',
     webdavUsername: settings.webdavUsername ?? '',
     webdavPassword: settings.webdavPassword ?? '',
@@ -148,10 +114,6 @@ export function getSettings(context: AppContext): Settings {
     webdavFolderPath: settings.webdavFolderPath ?? '',
     webdavBackupFilename: settings.webdavBackupFilename ?? '',
     webdavEncryptionKey: settings.webdavEncryptionKey ?? '',
-    webhookUrl: settings.webhookUrl ?? '',
-    telegramBotToken: settings.telegramBotToken ?? '',
-    telegramChatId: settings.telegramChatId ?? '',
-    barkUrl: settings.barkUrl ?? '',
     outageAlertsEnabled: settings.outageAlertsEnabled ?? true,
     diskAlertPercent: Number(settings.diskAlertPercent ?? 90)
   };
@@ -163,15 +125,38 @@ export function getPublicSettings(context: AppContext): PublicSettings {
     ...settings,
     webdavPassword: '',
     webdavEncryptionKey: '',
-    telegramBotToken: '',
-    barkUrl: '',
     webdavPasswordSet: Boolean(settings.webdavPassword),
-    webdavEncryptionKeySet: Boolean(settings.webdavEncryptionKey),
-    telegramBotTokenSet: Boolean(settings.telegramBotToken),
-    barkUrlSet: Boolean(settings.barkUrl)
+    webdavEncryptionKeySet: Boolean(settings.webdavEncryptionKey)
   };
 }
 
 function isSensitiveSetting(key: string): key is SensitiveSettingKey {
   return (sensitiveSettingKeys as readonly string[]).includes(key);
+}
+
+export interface LegacyChannelSettings {
+  email: { host: string; port: number; user: string; from: string; to: string } | null;
+  webhook: { url: string } | null;
+  telegram: { botToken: string; chatId: string } | null;
+  bark: { url: string } | null;
+}
+
+/** The channel configuration this product used before NoNo took over notifications. */
+export function getLegacyChannelSettings(context: AppContext): LegacyChannelSettings {
+  const raw = Object.fromEntries(context.db.all<{ key: string; value: string }>('SELECT key, value FROM settings').map((row) => {
+    try { return [row.key, JSON.parse(row.value)]; } catch { return [row.key, row.value]; }
+  })) as Record<string, unknown>;
+  const text = (key: string) => {
+    const value = typeof raw[key] === 'string' ? String(raw[key]).trim() : '';
+    return value && (legacyEncryptedKeys as readonly string[]).includes(key) ? decryptSecret(value, context.encryptionKey) : value;
+  };
+  const smtpTo = text('smtpTo');
+  const telegramBotToken = text('telegramBotToken');
+  const telegramChatId = text('telegramChatId');
+  return {
+    email: smtpTo ? { host: text('smtpHost'), port: Number(raw.smtpPort || 587), user: text('smtpUser'), from: text('smtpFrom'), to: smtpTo } : null,
+    webhook: text('webhookUrl') ? { url: text('webhookUrl') } : null,
+    telegram: telegramBotToken && telegramChatId ? { botToken: telegramBotToken, chatId: telegramChatId } : null,
+    bark: text('barkUrl') ? { url: text('barkUrl') } : null
+  };
 }

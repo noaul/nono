@@ -4,6 +4,7 @@ import type { Repository } from './services/repository.js';
 import type { WebAuthnService } from './services/webauthn.service.js';
 import type { BackupService } from './services/backup.service.js';
 import type { NotificationService } from './services/notification.service.js';
+import type { NotificationDispatcher } from './services/notification-dispatch.service.js';
 import type { BackupAutomationService } from './services/backup-automation.service.js';
 import type { AuditLogService } from './services/audit.service.js';
 import type { NoMoneyClient } from './services/nomoney-client.js';
@@ -48,6 +49,7 @@ export interface AppServices {
   backupOperationGate: BackupOperationGate;
   auditLogService: AuditLogService;
   notificationService: NotificationService;
+  notificationDispatcher: NotificationDispatcher;
   noMoneyClient: NoMoneyClient;
   readinessCheck: () => Promise<ReadinessChecks>;
 }

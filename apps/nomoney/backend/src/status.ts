@@ -223,7 +223,7 @@ async function sendAlerts(context: AppContext, alerts: StatusAlert[]) {
     ? (en ? `[Yumi] ${downCount} server(s) down` : `[Yumi] ${downCount} 台服务器宕机`)
     : (en ? '[Yumi] Server status changed' : '[Yumi] 服务器状态变化');
   try {
-    return await notify(context, { subject, text: lines.join('\n') });
+    return await notify(context, { subject, text: lines.join('\n'), severity: downCount ? 'critical' : 'warning' });
   } catch (error) {
     console.error('Yumi alert delivery failed', error);
     return [];

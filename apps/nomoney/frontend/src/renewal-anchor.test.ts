@@ -14,9 +14,10 @@ test('overview renewals use the expiry anchor while displaying a separate paymen
   expect(source).toContain('item={renewalAssetFromDueItem(item)}');
 });
 
-test('Bark settings exposes an explicit remove action with a null clear payload', () => {
+test('notification channels are configured in the NoDesk notification center, not here', () => {
   const source = readFileSync(new URL('./SettingsPage.tsx', import.meta.url), 'utf8');
-  expect(source).toContain('onClick={clearBark}');
-  expect(source).toContain("'/api/settings', { barkUrl: null }");
-  expect(source).toContain("'Remove Bark'");
+  expect(source).toContain('/nodesk/?settings=notifications');
+  expect(source).not.toContain('/api/settings/test-notify');
+  expect(source).not.toContain('barkUrl');
+  expect(source).not.toContain('smtpHost');
 });

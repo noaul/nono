@@ -3,6 +3,7 @@
 import { Archive, Plus, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { AmbientBackupCenter } from './ambient-backup-center'
+import { AmbientNotificationCenter } from './ambient-notification-center'
 import type { WorkbenchAppEntry } from './ambient-workbench-settings'
 
 type Props = {
@@ -12,8 +13,10 @@ type Props = {
 	onQuickEntriesVisibleChange: (visible: boolean) => Promise<void>
 	quickEntries: WorkbenchAppEntry[]
 	onQuickEntriesChange: (entries: WorkbenchAppEntry[]) => Promise<void>
-	initialTab?: 'desktop' | 'backups'
+	initialTab?: SettingsTab
 }
+
+export type SettingsTab = 'desktop' | 'notifications' | 'backups'
 const quickEntryIcons = [
 	{ value: 'app-window', label: '应用' },
 	{ value: 'bookmark', label: '书签' },
@@ -26,7 +29,7 @@ const quickEntryIcons = [
 ]
 
 export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQuickEntriesVisibleChange, quickEntries, onQuickEntriesChange, initialTab = 'desktop' }: Props) {
-	const [tab, setTab] = useState<'desktop' | 'backups'>(initialTab)
+	const [tab, setTab] = useState<SettingsTab>(initialTab)
 	const [savingVisibility, setSavingVisibility] = useState(false)
 	const [savingEntries, setSavingEntries] = useState(false)
 	const [draftEntries, setDraftEntries] = useState<WorkbenchAppEntry[]>(quickEntries)
@@ -134,6 +137,7 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 
 			<div className='ambient-settings-tabs' role='tablist' aria-label='设置分类'>
 				<button type='button' role='tab' aria-selected={tab === 'desktop'} tabIndex={tab === 'desktop' ? 0 : -1} className={tab === 'desktop' ? 'is-active' : ''} onClick={() => setTab('desktop')}>桌面</button>
+				<button type='button' role='tab' aria-selected={tab === 'notifications'} tabIndex={tab === 'notifications' ? 0 : -1} className={tab === 'notifications' ? 'is-active' : ''} onClick={() => setTab('notifications')}>通知中心</button>
 				<button type='button' role='tab' aria-selected={tab === 'backups'} tabIndex={tab === 'backups' ? 0 : -1} className={tab === 'backups' ? 'is-active' : ''} onClick={() => setTab('backups')}>备份中心</button>
 			</div>
 
@@ -164,6 +168,7 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 					</div>
 				</section>}
 
+				{tab === 'notifications' && <AmbientNotificationCenter />}
 				{tab === 'backups' && <AmbientBackupCenter />}
 			</div>
 		</section>

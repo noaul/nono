@@ -185,11 +185,6 @@ export interface SettingsValue {
   defaultCurrency: Currency;
   timezone: string;
   language: 'zh' | 'en';
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpFrom: string;
-  smtpTo: string;
   webdavUrl: string;
   webdavUsername: string;
   webdavPassword: string;
@@ -199,14 +194,8 @@ export interface SettingsValue {
   webdavEncryptionKey: string;
   webdavPasswordSet?: boolean;
   webdavEncryptionKeySet?: boolean;
-  webhookUrl: string;
-  telegramBotToken: string;
-  telegramChatId: string;
-  barkUrl: string;
   outageAlertsEnabled: boolean;
   diskAlertPercent: number;
-  telegramBotTokenSet?: boolean;
-  barkUrlSet?: boolean;
 }
 
 export interface ListMeta {

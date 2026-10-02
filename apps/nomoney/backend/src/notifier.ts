@@ -1,102 +1,47 @@
-import type { Router } from 'express';
-import { z } from 'zod';
-import { asyncHandler, parseBody } from './http.js';
-import { requestOutbound } from './outbound-request.js';
-import { getSettings, type Settings } from './settings.js';
-import type { AppContext } from './types.js';
+import type { AppContext, Notifier, RelayMessage } from './types.js';
 
-export type NotificationChannel = 'email' | 'webhook' | 'telegram' | 'bark';
-export type NotificationResult = { channel: NotificationChannel; ok: boolean; error?: string };
-export type NotificationMessage = { subject: string; text: string };
-
-const testSchema = z.object({ channel: z.enum(['email', 'webhook', 'telegram', 'bark']).optional() });
-
-export function registerNotifyRoutes(router: Router, context: AppContext): void {
-  router.post('/settings/test-notify', asyncHandler(async (req, res) => {
-    const body = parseBody(testSchema, req.body ?? {});
-    const name = context.product === 'yumi' ? 'Yumi' : 'NoMoney';
-    const results = await notify(context, {
-      subject: `${name} test notification`,
-      text: `${name} can deliver notifications to this channel.`
-    }, body.channel ? [body.channel] : undefined);
-    res.json({ results });
-  }));
-}
-
-/** Channels that have enough configuration to attempt a delivery. */
-export function configuredChannels(settings: Settings): NotificationChannel[] {
-  const channels: NotificationChannel[] = [];
-  if (settings.smtpTo) channels.push('email');
-  if (settings.webhookUrl) channels.push('webhook');
-  if (settings.telegramBotToken && settings.telegramChatId) channels.push('telegram');
-  if (settings.barkUrl) channels.push('bark');
-  return channels;
-}
+export type NotificationResult = { channel: 'nono'; ok: boolean; error?: string };
+export type NotificationMessage = Omit<RelayMessage, 'severity'> & { severity?: RelayMessage['severity'] };
 
 /**
- * Sends one message to every configured channel. A failing channel does not
- * stop the others; callers decide what counts as delivered.
+ * Sends one message through NoNo's notification center. Email, webhook, Telegram and Bark are
+ * configured there once for every product; a failure is reported rather than thrown so the caller
+ * can leave reminders and alerts queued for the next run.
  */
-export async function notify(context: AppContext, message: NotificationMessage, only?: NotificationChannel[]): Promise<NotificationResult[]> {
-  const settings = getSettings(context);
-  const channels = configuredChannels(settings).filter((channel) => !only || only.includes(channel));
-  return Promise.all(channels.map(async (channel) => {
-    try {
-      await deliver(context, settings, channel, message);
-      return { channel, ok: true };
-    } catch (error) {
-      return { channel, ok: false, error: error instanceof Error ? error.message : 'Delivery failed' };
+export async function notify(context: AppContext, message: NotificationMessage): Promise<NotificationResult[]> {
+  try {
+    await context.notifier.send({ severity: 'warning', ...message });
+    return [{ channel: 'nono', ok: true }];
+  } catch (error) {
+    return [{ channel: 'nono', ok: false, error: error instanceof Error ? error.message : 'Delivery failed' }];
+  }
+}
+
+interface NonoNotifierOptions {
+  baseUrl: string;
+  internalToken: string;
+  product: 'nomoney' | 'yumi';
+  fetch?: typeof fetch;
+}
+
+export function createNonoNotifier(options: NonoNotifierOptions): Notifier {
+  const fetcher = options.fetch ?? fetch;
+  const sent: RelayMessage[] = [];
+  return {
+    sent,
+    async send(message) {
+      const response = await fetcher(`${options.baseUrl}/api/internal/notifications/relay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-nono-internal-token': options.internalToken },
+        body: JSON.stringify({ product: options.product, ...message }),
+        redirect: 'error',
+        signal: AbortSignal.timeout(30_000)
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { message?: string };
+        throw new Error(body.message || `NoNo notification relay failed with HTTP ${response.status}`);
+      }
+      sent.push(message);
     }
-  }));
-}
-
-async function deliver(context: AppContext, settings: Settings, channel: NotificationChannel, message: NotificationMessage) {
-  if (channel === 'email') {
-    await context.mailer.send({ to: settings.smtpTo, from: settings.smtpFrom, subject: message.subject, text: message.text });
-    return;
-  }
-  if (channel === 'webhook') {
-    await post(context, settings.webhookUrl, {
-      product: context.product ?? 'nomoney',
-      subject: message.subject,
-      text: message.text,
-      // Lets Slack/Discord-style incoming webhooks render the message as-is.
-      content: `${message.subject}\n\n${message.text}`
-    });
-    return;
-  }
-  if (channel === 'telegram') {
-    const url = `https://api.telegram.org/bot${encodeURIComponent(settings.telegramBotToken)}/sendMessage`;
-    for (const text of splitMessage(`${message.subject}\n\n${message.text}`, 4000)) {
-      await post(context, url, { chat_id: settings.telegramChatId, text, disable_web_page_preview: true });
-    }
-    return;
-  }
-  // Bark: https://api.day.app/<key>, which accepts a JSON POST with title/body.
-  for (const body of splitMessage(message.text, 3000)) {
-    await post(context, settings.barkUrl.replace(/\/+$/, ''), {
-      title: message.subject, body, group: context.product === 'yumi' ? 'Yumi' : 'NoMoney'
-    });
-  }
-}
-
-async function post(context: AppContext, url: string, body: unknown) {
-  const response = await requestOutbound(context, url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  }, { timeoutMs: 8_000, maxBytes: 64 * 1024, maxRedirects: 0 });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-}
-
-/** Bound UTF-16 length without splitting a Unicode code point. */
-function splitMessage(text: string, limit: number): string[] {
-  const parts: string[] = [];
-  let part = '';
-  for (const character of text) {
-    if (part.length + character.length > limit) { parts.push(part); part = ''; }
-    part += character;
-  }
-  if (part || !parts.length) parts.push(part);
-  return parts;
+  };
 }

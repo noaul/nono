@@ -55,7 +55,10 @@ test('resolves backend-local production dependencies after runtime image copies'
   const localDependencies = Object.entries(lock.packages)
     .filter(([location, entry]) => location.startsWith('backend/node_modules/') && !entry.dev)
     .map(([location]) => location);
-  assert.ok(localDependencies.includes('backend/node_modules/nodemailer'), 'the production fixture includes the workspace-local mailer');
+  const copiesBackendModules = /^COPY --from=nomoney-runtime-deps \/app\/nomoney\/backend\/node_modules /m.test(dockerfile);
+  // npm only creates backend/node_modules for packages it cannot hoist; copying a directory that
+  // does not exist fails the image build, and skipping one that does breaks the backend at runtime.
+  assert.equal(copiesBackendModules, localDependencies.length > 0, 'the runtime image copies backend/node_modules exactly when the lockfile has backend-local packages');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-runtime-layout-'));
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
   const source = path.join(temporary, 'source');
@@ -71,7 +74,7 @@ test('resolves backend-local production dependencies after runtime image copies'
   for (const copy of dockerfile.matchAll(/^COPY --from=nomoney-runtime-deps \/app\/nomoney\/(\S+) \.\/(\S+)$/gm)) {
     fs.cpSync(path.join(source, copy[1]), path.join(runtime, copy[2]), { recursive: true });
   }
-  const require = createRequire(path.join(runtime, 'nomoney/backend/dist/mailer.js'));
+  const require = createRequire(path.join(runtime, 'nomoney/backend/dist/index.js'));
   for (const location of localDependencies) {
     const name = location.slice('backend/node_modules/'.length);
     assert.doesNotThrow(() => require.resolve(name), `${name} must be available to the deployed backend`);

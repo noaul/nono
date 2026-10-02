@@ -1,9 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { AppServices } from '../types.js';
 import { sendError, sendOk } from '../plugins/responses.js';
-import { isBearerRequest, resolveUser } from '../plugins/auth.js';
+import { isBearerRequest, requireInternalToken, resolveUser, tokensMatch } from '../plugins/auth.js';
 import { assertStrongPassword, loginUser, registerUser, setupAdmin } from '../services/auth.service.js';
 import { publicUser, type UserRecord } from '../services/repository.js';
 import { clearBrowserSession, currentSessionId, issueBrowserSession } from '../services/session.service.js';
@@ -57,9 +56,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
   // NoMoney and Yumi have no accounts; they forward the browser's NoNo cookie here to learn who
   // is signed in. Only the cookie counts: an API token must not unlock the products.
   app.get('/api/internal/auth/session', async (request, reply) => {
-    if (!services.internalToken || !tokensMatch(services.internalToken, request.headers['x-nono-internal-token'])) {
-      return sendError(reply, 401, 'Internal token required');
-    }
+    if (!requireInternalToken(request, reply, services)) return;
     if (isBearerRequest(request)) return sendError(reply, 401, 'A browser session is required');
     const user = await resolveUser(request, services);
     if (!user) return sendError(reply, 401, 'Authentication required');
@@ -80,11 +77,6 @@ function assertBootstrapToken(expected: string, supplied: string | undefined) {
   }
 }
 
-function tokensMatch(expected: string, supplied: string | string[] | undefined) {
-  const expectedBuffer = Buffer.from(expected);
-  const suppliedBuffer = Buffer.from(typeof supplied === 'string' ? supplied : '');
-  return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer);
-}
 
 async function recordUserCreation(services: AppServices, request: FastifyRequest, user: UserRecord, source: 'setup' | 'registration') {
   try {

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, type Component } from 'vue';
 import {
   Activity,
   Bell,
+  BellRing,
   CalendarDays,
   Check,
   CheckCheck,
@@ -334,6 +335,9 @@ onMounted(load);
         >
           <CheckCheck :size="16" /> {{ isMarkingAll ? t('notifications.markingAll') : t('notifications.markAllRead') }}
         </button>
+        <a class="button secondary" data-testid="open-notification-center" href="/nodesk/?settings=notifications">
+          <BellRing :size="16" /> {{ t('notifications.manageChannels') }}
+        </a>
       </header>
 
       <div v-if="isLoading" class="notification-empty">{{ t('notifications.loading') }}</div>

@@ -107,23 +107,23 @@ describe('Yumi outage alerts', () => {
       : new Response('nope', { status: 502 });
 
     await runStatusSweep(context);
-    expect(context.mailer.sent).toHaveLength(0);
+    expect(context.notifier.sent).toHaveLength(0);
 
     const down = await runStatusSweep(context);
     expect(down.alerts).toEqual([expect.objectContaining({ kind: 'down', detail: 'Probe returned HTTP 502', delivered: true })]);
-    expect(context.mailer.sent.at(-1)?.subject).toContain('1 台服务器宕机');
+    expect(context.notifier.sent.at(-1)?.subject).toContain('1 台服务器宕机');
 
     await runStatusSweep(context);
-    expect(context.mailer.sent).toHaveLength(1);
+    expect(context.notifier.sent).toHaveLength(1);
 
     online = true;
     disk = 95;
     const recovered = await runStatusSweep(context);
     expect(recovered.alerts.map((alert) => alert.kind).sort()).toEqual(['disk', 'recovered']);
-    expect(context.mailer.sent).toHaveLength(2);
+    expect(context.notifier.sent).toHaveLength(2);
 
     await runStatusSweep(context);
-    expect(context.mailer.sent).toHaveLength(2);
+    expect(context.notifier.sent).toHaveLength(2);
   });
 });
 

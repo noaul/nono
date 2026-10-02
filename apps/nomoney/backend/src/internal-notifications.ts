@@ -1,6 +1,7 @@
 import type { Router } from 'express';
 import { collectDueItems } from './dashboard.js';
 import { requireInternalToken } from './renewals.js';
+import { getLegacyChannelSettings } from './settings.js';
 import type { AppContext, AssetType } from './types.js';
 
 const productAssetTypes: Record<'nomoney' | 'yumi', AssetType[]> = {
@@ -19,5 +20,9 @@ export function registerInternalNotificationRoutes(router: Router, context: AppC
       status: item.status,
     }));
     res.json({ items });
+  });
+
+  router.get('/internal/notifications/legacy-channels', requireInternalToken(context), (_req, res) => {
+    res.json({ channels: getLegacyChannelSettings(context) });
   });
 }

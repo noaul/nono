@@ -29,6 +29,7 @@ model User {
   passkeys                 PasskeyCredential[]
   webAuthnChallenges       WebAuthnChallenge[]
   notificationStates       NotificationState[]
+  notificationChannels     NotificationChannel[]
   auditLogs                AuditLog[]
   noStarAccount            NoStarAccount?
   noStarRepositories       NoStarRepository[]
@@ -53,6 +54,44 @@ model NotificationState {
   updatedAt   DateTime  @updatedAt
 
   @@unique([userId, key])
+  @@index([userId, updatedAt])
+}
+
+/// Where a user's notifications are pushed. Secret config fields are encrypted with ENCRYPTION_KEY.
+model NotificationChannel {
+  id            Int                    @id @default(autoincrement())
+  userId        Int
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String
+  name          String
+  enabled       Boolean                @default(true)
+  minSeverity   String                 @default("warning")
+  config        Json                   @default("{}")
+  lastSuccessAt DateTime?
+  lastError     String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  deliveries    NotificationDelivery[]
+
+  @@index([userId])
+}
+
+/// One push of one notification to one channel; also what stops a notification being sent twice.
+model NotificationDelivery {
+  id        Int                 @id @default(autoincrement())
+  userId    Int
+  channelId Int
+  channel   NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  key       String
+  source    String
+  title     String
+  status    String
+  error     String?
+  attempts  Int                 @default(1)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([channelId, key])
   @@index([userId, updatedAt])
 }
 
@@ -197,6 +236,8 @@ model AppConfig {
   defaultRole       String  @default("user")
   settings          Json    @default("{}")
   initializedAt     DateTime?
+  /// Set once NoMoney/Yumi channel settings have been imported into NotificationChannel.
+  notificationChannelsImportedAt DateTime?
 }
 
 model BackupAutomation {

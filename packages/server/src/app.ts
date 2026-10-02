@@ -48,7 +48,10 @@ import { createNoMoneyClient } from './services/nomoney-client.js';
 import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
 import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
 import { BackupOperationGate, createBackupJobService, gateBackupService } from './services/backup-jobs.service.js';
-import { createProductDueReader } from './services/product-due-client.js';
+import { createLegacyChannelReader, createProductDueReader } from './services/product-due-client.js';
+import { createNotificationDispatcher } from './services/notification-dispatch.service.js';
+import { registerNotificationDispatchScheduler } from './services/notification-dispatch.scheduler.js';
+import { notificationChannelRoutes } from './routes/admin/notification-channels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -96,6 +99,24 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupService,
     backupAutomationService,
   });
+  const publicAddressResolver = overrides.publicAddressResolver || resolvePublicAddress;
+  const notificationDispatcher = overrides.notificationDispatcher || createNotificationDispatcher({
+    prisma,
+    notificationService,
+    delivery: { encryptionKey, safeRequester, publicAddressResolver, privateOutboundHosts },
+    publicUrl: process.env.NONO_PUBLIC_URL || null,
+    readLegacyChannels: createLegacyChannelReader({
+      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030), yumi: Number(process.env.YUMI_INTERNAL_PORT || 2040) },
+      token: process.env.NOMONEY_INTERNAL_TOKEN || '',
+    }),
+    legacySmtpEnv: {
+      host: process.env.NOMONEY_SMTP_HOST || process.env.SMTP_HOST,
+      port: process.env.NOMONEY_SMTP_PORT || process.env.SMTP_PORT,
+      user: process.env.NOMONEY_SMTP_USER || process.env.SMTP_USER,
+      password: process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS,
+      from: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM,
+    },
+  });
   const services: AppServices = {
     prisma,
     repo,
@@ -106,7 +127,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     nodeskContentDir,
     llmClient: overrides.llmClient || new FetchLlmClient(safeRequester),
     publicFetcher: overrides.publicFetcher || fetchPublicResource,
-    publicAddressResolver: overrides.publicAddressResolver || resolvePublicAddress,
+    publicAddressResolver,
     safeRequester,
     privateOutboundHosts,
     webAuthn: overrides.webAuthn || defaultWebAuthnService,
@@ -120,6 +141,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupOperationGate,
     auditLogService,
     notificationService,
+    notificationDispatcher,
     noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
       port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
       serviceName: 'Yumi',
@@ -209,6 +231,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await backupRoutes(app, services);
   await backupCenterRoutes(app, services);
   await notificationRoutes(app, services);
+  await notificationChannelRoutes(app, services);
   await auditRoutes(app, services);
   await metaRoutes(app, services);
   await aiRoutes(app, services);
@@ -216,6 +239,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await nostarRoutes(app, services);
   registerLinkHealthScheduler(app, services);
   registerBackupAutomationScheduler(app, services);
+  registerNotificationDispatchScheduler(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   // Deny before static handlers: stale files from a previous release must not remain public.

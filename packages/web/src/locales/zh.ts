@@ -472,6 +472,7 @@ export const zh = {
     portalUrlHint: '配置博客地址后即可双向跳转',
   },
   notifications: {
+    manageChannels: '推送渠道',
     sourceLinks: '书签',
     sourceBackup: '备份',
     sourceNodesk: 'NoDesk',

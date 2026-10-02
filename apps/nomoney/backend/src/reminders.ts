@@ -65,7 +65,8 @@ export async function runReminderScan(context: AppContext, allowedTypes?: AssetT
       subject: settings.language === 'en'
         ? `[${productName(context)}] ${unsent.length} renewals need attention`
         : `[${productName(context)} 到期提醒] ${unsent.length} 个项目需要关注`,
-      text: renderDigest(unsent, settings.language, productName(context))
+      text: renderDigest(unsent, settings.language, productName(context)),
+      severity: unsent.some((item) => item.daysLeft < 0) ? 'critical' : 'warning'
     });
     // Delivered if any channel got it; a dead webhook should not block email.
     if (!results.some((result) => result.ok)) {
@@ -84,7 +85,7 @@ export async function runReminderScan(context: AppContext, allowedTypes?: AssetT
         item,
         sentAt,
         'failed',
-        error instanceof Error ? error.message : 'Unknown email error'
+        error instanceof Error ? error.message : 'Unknown delivery error'
       );
     }
     return { sent: false, items: unsent };

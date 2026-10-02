@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AppServices, AuthUser } from '../types.js';
 import { sendError } from './responses.js';
@@ -74,6 +75,19 @@ export async function requireAdminSession(request: FastifyRequest, reply: Fastif
     return null;
   }
   return user;
+}
+
+export function tokensMatch(expected: string, supplied: string | string[] | undefined) {
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(typeof supplied === 'string' ? supplied : '');
+  return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer);
+}
+
+/** Guards /api/internal routes that only NoMoney and Yumi call over loopback. */
+export function requireInternalToken(request: FastifyRequest, reply: FastifyReply, services: AppServices) {
+  if (services.internalToken && tokensMatch(services.internalToken, request.headers['x-nono-internal-token'])) return true;
+  sendError(reply, 401, 'Internal token required');
+  return false;
 }
 
 function publicAuthUser(user: any): AuthUser {

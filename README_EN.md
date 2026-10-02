@@ -21,8 +21,9 @@ NoNo supports passwords, Passkeys, session management, scoped API Tokens, and si
 
 Current navigation:
 
-- **Bookmarks** combines bookmark and folder management. NoTab groups navigation content.
+- **Bookmarks** combines bookmark and folder management; search covers every folder (server-side trigram matching, including CJK substrings). NoTab groups navigation content.
 - **Account settings** contains passwords, Passkeys, API Tokens, LLM configuration, and login devices. Administrators also see **Users and registration**.
+- **Notification center** (NoDesk settings) lists notifications from bookmarks, NoStar, calendar, NoMoney, Yumi and backups, and configures email, Telegram, Bark and webhook channels. New NoNo notifications are pushed as a digest every 5 minutes; NoMoney reminders and Yumi outage alerts go through NoNo to the administrator's channels immediately. The first start after upgrading imports the channels NoMoney/Yumi used before (`NOMONEY_SMTP_*` is only read for that import).
 - **NoDesk settings** contains account module backups, local downloads, WebDAV, and scheduled backups.
 - **Appearance** includes Chinese/English, light/dark mode, and a reduced set of layout, typography, background, and scene controls. Same-origin apps share some browser preferences.
 

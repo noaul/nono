@@ -2,16 +2,15 @@ import { createServer } from 'node:http';
 import { describe, expect, test } from 'vitest';
 import { createTestContext, setupAgent } from './test-utils.js';
 import { requestOutbound } from './outbound-request.js';
-import { configuredChannels, notify } from './notifier.js';
-import { getSettings } from './settings.js';
+import request from 'supertest';
+import { createApp } from './app.js';
+import { createNonoNotifier } from './notifier.js';
+import { encryptSecret } from './secret-crypto.js';
+import { getLegacyChannelSettings } from './settings.js';
 import { renewAsset, runAutoRenewals, undoRenewal } from './renewals.js';
 import { runReminderScan } from './reminders.js';
 
-function setting(context: Awaited<ReturnType<typeof createTestContext>>, key: string, value: unknown) {
-  context.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, JSON.stringify(value)]);
-}
-
-describe('notification delivery regressions', () => {
+describe('outbound request regressions', () => {
   test.each([[204, 'POST'], [205, 'POST'], [304, 'GET'], [200, 'HEAD']])('real HTTP %s %s has a null body', async (status, method) => {
     const server = createServer((_req, res) => { res.writeHead(Number(status)); res.end(); });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -23,43 +22,41 @@ describe('notification delivery regressions', () => {
       const response = await requestOutbound(context, `http://127.0.0.1:${address.port}`, { method: String(method) });
       expect(response.status).toBe(status);
       expect(response.body).toBeNull();
-      if (status === 204) {
-        setting(context, 'webhookUrl', `http://127.0.0.1:${address.port}`);
-        expect(await notify(context, { subject: 'Webhook', text: 'Delivered' })).toEqual([{ channel: 'webhook', ok: true }]);
-      }
     } finally { await new Promise<void>((resolve) => server.close(() => resolve())); }
   });
+});
 
-  test.each(['telegram', 'bark'] as const)('%s sends every Unicode character in bounded complete parts', async (channel) => {
-    const context = await createTestContext();
-    setting(context, 'telegramBotToken', 'token'); setting(context, 'telegramChatId', '123');
-    setting(context, 'barkUrl', 'https://api.day.app/key');
-    const parts: string[] = [];
-    context.fetch = async (_url, init) => {
-      const payload = JSON.parse(String(init?.body)); parts.push(channel === 'telegram' ? payload.text : payload.body);
-      return new Response('{}');
-    };
-    const message = { subject: 'Notice', text: 'a'.repeat(2999) + '😀中文'.repeat(3000) };
-    expect(await notify(context, message, [channel])).toEqual([{ channel, ok: true }]);
-    expect(parts.join('')).toBe(channel === 'telegram' ? `${message.subject}\n\n${message.text}` : message.text);
-    expect(parts.length).toBeGreaterThan(1);
-    for (const part of parts) {
-      expect(part.length).toBeLessThanOrEqual(channel === 'telegram' ? 4000 : 3000);
-      expect(Buffer.from(part, 'utf8').toString('utf8')).toBe(part);
-    }
-  });
-
-  test.each(['telegram', 'bark'] as const)('partial %s failure does not mark a digest sent, then retries successfully', async (channel) => {
+describe('notification relay to NoNo', () => {
+  test('a failed relay does not mark a digest sent, then retries successfully', async () => {
     const { agent, context } = await setupAgent();
-    await agent.put('/api/settings').send(channel === 'telegram' ? { telegramBotToken: 'token', telegramChatId: '123' } : { barkUrl: 'https://api.day.app/key' }).expect(200);
     await agent.post('/api/subscriptions').send({ name: 'Long digest', amountMinorUnits: 1, currency: 'USD', billingCycle: 'monthly', nextDueDate: '2026-05-25', status: 'active' }).expect(201);
-    context.db.run('UPDATE subscriptions SET renewal_url = ?', ['https://example.com/' + 'a'.repeat(9000)]);
-    let calls = 0;
-    context.fetch = async () => new Response('{}', { status: ++calls === 2 ? 500 : 200 });
+    const send = context.notifier.send.bind(context.notifier);
+    context.notifier.send = async () => { throw new Error('No notification channel is configured'); };
     expect((await runReminderScan(context, ['subscription'])).sent).toBe(false);
     expect(context.db.all("SELECT * FROM reminder_logs WHERE status = 'sent'")).toHaveLength(0);
-    context.fetch = async () => new Response('{}');
+    expect(context.db.get<{ error_message: string }>("SELECT error_message FROM reminder_logs WHERE status = 'failed'")?.error_message).toContain('No notification channel');
+    context.notifier.send = send;
     expect((await runReminderScan(context, ['subscription'])).sent).toBe(true);
+    expect(context.notifier.sent[0]).toMatchObject({ severity: 'warning' });
+  });
+
+  test('createNonoNotifier posts to the internal relay and surfaces NoNo errors', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    let status = 200;
+    const notifier = createNonoNotifier({
+      baseUrl: 'http://nono', internalToken: 'secret', product: 'yumi',
+      fetch: (async (url: string, init: RequestInit) => {
+        calls.push({ url, init });
+        return new Response(JSON.stringify({ message: 'all channels failed' }), { status });
+      }) as unknown as typeof fetch
+    });
+    await notifier.send({ subject: 'S', text: 'T', severity: 'critical' });
+    expect(calls[0].url).toBe('http://nono/api/internal/notifications/relay');
+    expect(calls[0].init.headers).toMatchObject({ 'x-nono-internal-token': 'secret' });
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ product: 'yumi', subject: 'S', text: 'T', severity: 'critical' });
+    expect(notifier.sent).toHaveLength(1);
+    status = 502;
+    await expect(notifier.send({ subject: 'S', text: 'T', severity: 'info' })).rejects.toThrow('all channels failed');
   });
 });
 
@@ -78,17 +75,29 @@ test('automatic renewal respects an explicit undo until a manual payment advance
   expect(context.db.all('SELECT * FROM expenses')).toHaveLength(2);
 });
 
-test('Bark blank keeps the encrypted secret and explicit null removes the channel', async () => {
+test('exports the pre-NoNo channel settings once for import and no longer accepts them', async () => {
   const { agent, context } = await setupAgent();
-  await agent.put('/api/settings').send({ barkUrl: 'https://api.day.app/private-key' }).expect(200);
-  const kept = await agent.put('/api/settings').send({ barkUrl: '', language: 'en' }).expect(200);
-  expect(kept.body.settings).toMatchObject({ barkUrl: '', barkUrlSet: true });
-  expect(configuredChannels(getSettings(context))).toContain('bark');
-  const cleared = await agent.put('/api/settings').send({ barkUrl: null }).expect(200);
-  expect(cleared.body.settings).toMatchObject({ barkUrl: '', barkUrlSet: false });
-  expect(configuredChannels(getSettings(context))).not.toContain('bark');
-  expect(JSON.stringify(context.db.all('SELECT * FROM settings'))).not.toContain('private-key');
-  expect((await agent.get('/api/settings')).body.settings.barkUrlSet).toBe(false);
+  const legacy = (key: string, value: unknown) => context.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, JSON.stringify(value)]);
+  legacy('smtpTo', 'ops@example.com'); legacy('smtpHost', 'smtp.example.com'); legacy('smtpPort', 465);
+  legacy('webhookUrl', 'https://hooks.example.com/x');
+  legacy('telegramBotToken', encryptSecret('tg-token', context.encryptionKey)); legacy('telegramChatId', '42');
+  legacy('barkUrl', encryptSecret('https://api.day.app/private-key', context.encryptionKey));
+
+  expect(getLegacyChannelSettings(context)).toEqual({
+    email: { host: 'smtp.example.com', port: 465, user: '', from: '', to: 'ops@example.com' },
+    webhook: { url: 'https://hooks.example.com/x' },
+    telegram: { botToken: 'tg-token', chatId: '42' },
+    bark: { url: 'https://api.day.app/private-key' }
+  });
+  await request(createApp(context)).get('/api/internal/notifications/legacy-channels').expect(401);
+  const exported = await request(createApp(context)).get('/api/internal/notifications/legacy-channels').set('x-nono-internal-token', 'test-internal-token').expect(200);
+  expect(exported.body.channels.telegram.botToken).toBe('tg-token');
+
+  const settings = (await agent.get('/api/settings')).body.settings;
+  for (const key of ['smtpTo', 'webhookUrl', 'telegramBotToken', 'barkUrl', 'barkUrlSet']) expect(settings).not.toHaveProperty(key);
+  await agent.put('/api/settings').send({ webhookUrl: 'https://evil.example/' }).expect(200);
+  expect(getLegacyChannelSettings(context).webhook).toEqual({ url: 'https://hooks.example.com/x' });
+  await agent.post('/api/settings/test-notify').send({}).expect(404);
 });
 
 test('overview due items carry the actual domain renewal anchor through the API', async () => {

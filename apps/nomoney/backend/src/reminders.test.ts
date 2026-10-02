@@ -27,13 +27,13 @@ describe('reminders', () => {
     expect(firstRun.status).toBe(200);
     expect(firstRun.body.sent).toBe(true);
     expect(firstRun.body.items).toHaveLength(1);
-    expect(context.mailer.sent).toHaveLength(1);
-    expect(context.mailer.sent[0].subject).toContain('到期提醒');
+    expect(context.notifier.sent).toHaveLength(1);
+    expect(context.notifier.sent[0].subject).toContain('到期提醒');
 
     const secondRun = await agent.post('/api/reminders/run-now');
     expect(secondRun.status).toBe(200);
     expect(secondRun.body.sent).toBe(false);
-    expect(context.mailer.sent).toHaveLength(1);
+    expect(context.notifier.sent).toHaveLength(1);
 
     const logs = await agent.get('/api/reminders/logs');
     expect(logs.body.items[0]).toMatchObject({
@@ -67,7 +67,7 @@ describe('reminders', () => {
     }
 
     await agent.post('/api/reminders/run-now');
-    expect(context.mailer.sent).toHaveLength(1);
+    expect(context.notifier.sent).toHaveLength(1);
 
     const logs = await agent.get('/api/reminders/logs?limit=2&offset=1');
 
@@ -100,7 +100,7 @@ describe('reminders', () => {
     expect(response.status).toBe(200);
     expect(response.body.sent).toBe(false);
     expect(response.body.items).toEqual([]);
-    expect(context.mailer.sent).toEqual([]);
+    expect(context.notifier.sent).toEqual([]);
   });
 
   test('honours long Yumi lead times and catches up a missed reminder day', async () => {
@@ -125,9 +125,9 @@ describe('reminders', () => {
 
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['twenty-days.example']);
     expect((await agent.get('/api/settings')).body.settings.reminderDays).toEqual([30, 7, 3]);
-    expect(context.mailer.sent[0].subject).toContain('Yumi');
-    expect(context.mailer.sent[0].text).toContain('$12.99 USD');
-    expect(context.mailer.sent[0].text).toContain('域名: twenty-days.example');
+    expect(context.notifier.sent[0].subject).toContain('Yumi');
+    expect(context.notifier.sent[0].text).toContain('$12.99 USD');
+    expect(context.notifier.sent[0].text).toContain('域名: twenty-days.example');
 
     const logs = await agent.get('/api/reminders/logs');
     expect(logs.body.items[0]).toMatchObject({ daysBefore: 30, assetName: 'twenty-days.example' });

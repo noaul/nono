@@ -26,7 +26,7 @@ export async function createTestContext(product?: ProductMode): Promise<AppConte
       headers: { 'content-type': 'application/json' }
     }),
     privateOutboundHosts: [],
-    mailer: {
+    notifier: {
       sent: [],
       async send(message) {
         this.sent.push(message);

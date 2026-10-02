@@ -11,19 +11,6 @@ describe('settings APIs', () => {
     expect(getSettings(yumi).webdavPath).toBe('yumi-backup.json.enc');
   });
 
-  test('brands test email with the active product', async () => {
-    const { agent, context } = await setupAgent('yumi');
-
-    await agent.post('/api/settings/test-email').expect(204);
-
-    expect(context.mailer.sent).toEqual([
-      expect.objectContaining({
-        subject: 'Yumi test email',
-        text: 'Yumi email delivery is configured.'
-      })
-    ]);
-  });
-
   test('redacts stored WebDAV secrets and preserves them when secret fields are blank', async () => {
     const { agent, context } = await setupAgent();
 

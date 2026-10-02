@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Bell, CloudDownload, Download, LockKeyhole, Mail, Play, Save, Upload } from 'lucide-react';
+import { CloudDownload, Download, LockKeyhole, Play, Save, Upload } from 'lucide-react';
 import type { ListResponse, ReminderLogItem, SettingsValue } from './types';
 import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
@@ -18,11 +18,6 @@ const defaultSettings: SettingsValue = {
   defaultCurrency: 'CNY',
   timezone: 'Asia/Shanghai',
   language: 'zh',
-  smtpHost: '',
-  smtpPort: 587,
-  smtpUser: '',
-  smtpFrom: '',
-  smtpTo: '',
   webdavUrl: '',
   webdavUsername: '',
   webdavPassword: '',
@@ -30,19 +25,9 @@ const defaultSettings: SettingsValue = {
   webdavFolderPath: '',
   webdavBackupFilename: '',
   webdavEncryptionKey: '',
-  webhookUrl: '',
-  telegramBotToken: '',
-  telegramChatId: '',
-  barkUrl: '',
   outageAlertsEnabled: true,
   diskAlertPercent: 90
 };
-
-type NotifyResult = { channel: 'email' | 'webhook' | 'telegram' | 'bark'; ok: boolean; error?: string };
-
-function channelLabel(channel: NotifyResult['channel'], copy: (zh: string, en: string) => string) {
-  return { email: copy('邮件', 'Email'), webhook: 'Webhook', telegram: 'Telegram', bark: 'Bark' }[channel];
-}
 
 export function SettingsPage() {
   const { copy, language, setLanguage } = useI18n();
@@ -89,41 +74,6 @@ export function SettingsPage() {
       showMessage(copy('设置已保存', 'Settings saved'), 'success');
     } catch (err) {
       showMessage(err instanceof ApiError ? err.message : copy('保存失败', 'Save failed'), 'danger');
-    }
-  };
-
-  const clearBark = async () => {
-    try {
-      const response = await api.put<{ settings: SettingsValue }>('/api/settings', { barkUrl: null });
-      setSettings((current) => ({ ...current, barkUrl: '', barkUrlSet: response.settings.barkUrlSet }));
-      showMessage(copy('Bark 已移除', 'Bark removed'), 'success');
-    } catch (err) {
-      showMessage(err instanceof ApiError ? err.message : copy('移除失败', 'Failed to remove Bark'), 'danger');
-    }
-  };
-
-  const testEmail = async () => {
-    setMessage('');
-    try {
-      await api.post('/api/settings/test-email');
-      showMessage(copy('测试邮件已发送', 'Test email sent'), 'success');
-    } catch (err) {
-      showMessage(err instanceof ApiError ? err.message : copy('测试邮件失败', 'Test email failed'), 'danger');
-    }
-  };
-
-  const testNotify = async () => {
-    setMessage('');
-    try {
-      const response = await api.post<{ results: NotifyResult[] }>('/api/settings/test-notify', {});
-      if (response.results.length === 0) {
-        showMessage(copy('还没有配置任何通知渠道。', 'No notification channel is configured yet.'), 'info');
-        return;
-      }
-      const summary = response.results.map((result) => `${channelLabel(result.channel, copy)} ${result.ok ? '✓' : `✗ ${result.error ?? ''}`}`).join('  ·  ');
-      showMessage(summary, response.results.every((result) => result.ok) ? 'success' : 'danger');
-    } catch (err) {
-      showMessage(err instanceof ApiError ? err.message : copy('测试失败', 'Test failed'), 'danger');
     }
   };
 
@@ -197,7 +147,7 @@ export function SettingsPage() {
       <PageHeader
         title={copy('设置', 'Settings')}
         eyebrow="System"
-        description={copy('管理提醒策略、邮件投递、WebDAV 备份、语言和账户安全。', 'Manage reminders, email delivery, WebDAV backup, language, and account security.')}
+        description={copy('管理提醒策略、WebDAV 备份和语言；通知渠道在 NoDesk 通知中心统一配置。', 'Manage reminders, WebDAV backup and language; notification channels live in the NoDesk notification center.')}
         actions={(
           <div className="flex flex-wrap gap-2">
             <a className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.07]" href={withBasePath('/api/export/json')}><Download size={16} />{copy('导出加密备份', 'Export encrypted backup')}</a>
@@ -212,8 +162,8 @@ export function SettingsPage() {
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <section className="card">
           <div className="mb-5">
-            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('提醒与邮件', 'Reminders and email')}</h3>
-            <p className="mt-1 text-xs text-slate-500">{copy('配置每日提醒扫描，以及 SMTP 投递信息。', 'Configure reminder scans and SMTP delivery.')}</p>
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('提醒', 'Reminders')}</h3>
+            <p className="mt-1 text-xs text-slate-500">{copy('配置每日提醒扫描。提醒通过 NoNo 推送到你在 NoDesk 通知中心设置的渠道。', 'Configure reminder scans. Reminders are pushed through NoNo to the channels set in the NoDesk notification center.')}</p>
           </div>
           <form onSubmit={saveSettings} className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
@@ -223,22 +173,9 @@ export function SettingsPage() {
               <Field label={copy('默认币种', 'Default currency')}><select className={inputClass} value={settings.defaultCurrency} onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value as SettingsValue['defaultCurrency'] })}>{currencies.map((value) => <option key={value}>{value}</option>)}</select></Field>
               <Field label={copy('时区', 'Timezone')}><input className={inputClass} value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} /></Field>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="SMTP Host"><input className={inputClass} value={settings.smtpHost} onChange={(e) => setSettings({ ...settings, smtpHost: e.target.value })} /></Field>
-              <Field label="SMTP Port"><input className={inputClass} type="number" value={settings.smtpPort} onChange={(e) => setSettings({ ...settings, smtpPort: Number(e.target.value) })} /></Field>
-              <Field label="SMTP User"><input className={inputClass} value={settings.smtpUser} onChange={(e) => setSettings({ ...settings, smtpUser: e.target.value })} /></Field>
-              <Field label="From"><input className={inputClass} value={settings.smtpFrom} onChange={(e) => setSettings({ ...settings, smtpFrom: e.target.value })} /></Field>
-              <Field label="To"><input className={inputClass} value={settings.smtpTo} onChange={(e) => setSettings({ ...settings, smtpTo: e.target.value })} /></Field>
-            </div>
-            <div className="border-t border-slate-100 pt-4 dark:border-white/[0.06]">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{copy('其他通知渠道', 'Other channels')}</h4>
-              <p className="mt-1 text-xs text-slate-400">{copy('到期提醒和服务器告警会同时发到所有已配置的渠道，任一渠道成功即算已送达。', 'Reminders and server alerts go to every configured channel; one success counts as delivered.')}</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Telegram Bot Token" hint={settings.telegramBotTokenSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : undefined}><input className={inputClass} type="password" autoComplete="off" value={settings.telegramBotToken} placeholder={settings.telegramBotTokenSet ? copy('已保存', 'Saved') : '123456:ABC…'} onChange={(e) => setSettings({ ...settings, telegramBotToken: e.target.value })} /></Field>
-              <Field label="Telegram Chat ID"><input className={`${inputClass} font-mono`} value={settings.telegramChatId} placeholder="123456789" onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })} /></Field>
-              <Field label={copy('Bark 推送地址', 'Bark URL')} hint={settings.barkUrlSet ? copy('已保存；留空不会覆盖。', 'Saved; leave blank to keep it.') : copy('如 https://api.day.app/你的Key', 'e.g. https://api.day.app/<key>')}><input className={inputClass} type="password" autoComplete="off" value={settings.barkUrl} placeholder={settings.barkUrlSet ? copy('已保存', 'Saved') : 'https://api.day.app/…'} onChange={(e) => setSettings({ ...settings, barkUrl: e.target.value })} />{settings.barkUrlSet && <button type="button" className="mt-2 text-xs text-danger-600 hover:underline" onClick={clearBark}>{copy('移除 Bark', 'Remove Bark')}</button>}</Field>
-              <Field label="Webhook" hint={copy('POST JSON：subject、text、content。', 'POSTs JSON with subject, text and content.')}><input className={inputClass} type="url" value={settings.webhookUrl} placeholder="https://hooks.example.com/…" onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })} /></Field>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+              {copy('邮件、Telegram、Bark 和 Webhook 渠道已统一移到 NoDesk 通知中心，NoMoney 与 Yumi 共用同一套配置。', 'Email, Telegram, Bark and webhook channels now live in the NoDesk notification center, shared by NoMoney and Yumi.')}
+              {' '}<a className="font-medium text-brand-600 hover:underline" href="/nodesk/?settings=notifications">{copy('打开通知中心', 'Open the notification center')}</a>
             </div>
             {product === 'yumi' && (
               <div className="grid gap-4 md:grid-cols-2">
@@ -248,8 +185,6 @@ export function SettingsPage() {
             )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button type="submit"><Save size={16} />{copy('保存设置', 'Save settings')}</Button>
-              <Button type="button" variant="secondary" onClick={testEmail}><Mail size={16} />{copy('测试邮件', 'Test email')}</Button>
-              <Button type="button" variant="secondary" onClick={testNotify}><Bell size={16} />{copy('测试全部渠道', 'Test all channels')}</Button>
               <Button type="button" variant="secondary" onClick={runReminder}><Play size={16} />{copy('手动扫描', 'Run scan')}</Button>
             </div>
           </form>

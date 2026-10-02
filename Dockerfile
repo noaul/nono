@@ -93,7 +93,6 @@ RUN test -s /app/nodesk-seed/public/images/nodesk-ambient-wallpaper.png
 COPY --from=nomoney-build /app/nomoney/package.json ./nomoney/package.json
 COPY --from=nomoney-build /app/nomoney/backend/package.json ./nomoney/backend/package.json
 COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_modules
-COPY --from=nomoney-runtime-deps /app/nomoney/backend/node_modules ./nomoney/backend/node_modules
 COPY --from=nomoney-build /app/nomoney/backend/dist ./nomoney/backend/dist
 COPY --from=nomoney-build /app/nomoney/backend/public ./nomoney/backend/public
 COPY --from=nomoney-build /app/nomoney/backend/public-yumi ./nomoney/backend/public-yumi

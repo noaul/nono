@@ -39,12 +39,12 @@ test('reminders independently deliver different kinds on the same date and retry
   await agent.post('/api/domains').send(domain).expect(201);
   expect((await runReminderScan(context, ['domain'])).items.map((item) => item.kind)).toEqual(['renewal']);
   context.db.run("UPDATE domains SET ssl_expires_at = '2026-05-25'");
-  const send = context.mailer.send.bind(context.mailer);
-  context.mailer.send = async () => { throw new Error('offline'); };
+  const send = context.notifier.send.bind(context.notifier);
+  context.notifier.send = async () => { throw new Error('offline'); };
   const failed = await runReminderScan(context, ['domain']);
   expect(failed.items.map((item) => item.kind)).toEqual(['certificate']);
   expect(failed.sent).toBe(false);
-  context.mailer.send = send;
+  context.notifier.send = send;
   expect((await runReminderScan(context, ['domain'])).sent).toBe(true);
   expect((await runReminderScan(context, ['domain'])).items).toEqual([]);
   expect(context.db.all("SELECT kind, status FROM reminder_logs ORDER BY id")).toEqual([
@@ -94,7 +94,7 @@ test('failed status alerts survive sweeps and restart, keep true outage duration
     let context = await createTestContext('yumi');
     context.db = await createDatabase({ filePath, persist: true, product: 'yumi' });
     seedVps(context);
-    context.mailer.send = async () => { throw new Error('offline'); };
+    context.notifier.send = async () => { throw new Error('offline'); };
     await runStatusSweep(context);
     expect((await runStatusSweep(context)).alerts).toEqual([expect.objectContaining({ kind: 'down', delivered: false })]);
     context.now = () => new Date('2026-05-22T01:05:00Z');
@@ -110,13 +110,13 @@ test('failed status alerts survive sweeps and restart, keep true outage duration
     restoreBackupPayload(restored, backup);
     expect(restored.db.all('SELECT * FROM pending_status_alerts')).toEqual(context.db.all('SELECT * FROM pending_status_alerts'));
     context.now = () => new Date('2026-05-22T01:30:00Z');
-    context.mailer.send = async (message) => { context.mailer.sent.push(message); };
+    context.notifier.send = async (message) => { context.notifier.sent.push(message); };
     const sent = await runStatusSweep(context);
     expect(sent.alerts.map((alert) => alert.kind).sort()).toEqual(['disk', 'down', 'recovered']);
     expect(sent.alerts.every((alert) => alert.delivered)).toBe(true);
     expect(sent.alerts.find((alert) => alert.kind === 'recovered')?.detail).toBe('12');
     expect((await runStatusSweep(context)).alerts).toEqual([]);
-    expect(context.mailer.sent).toHaveLength(1);
+    expect(context.notifier.sent).toHaveLength(1);
     const legacy = { ...backup }; delete legacy.pendingStatusAlerts;
     restoreBackupPayload(restored, legacy);
     expect(restored.db.all('SELECT * FROM pending_status_alerts')).toEqual([]);
@@ -127,25 +127,25 @@ test('failed disk and traffic alerts retry after usage normalizes and concurrent
   const context = await createTestContext('yumi'); seedVps(context);
   context.db.run("UPDATE vps SET traffic_quota_gb = 1, traffic_used_bytes = 1000000000, traffic_period_start = '2026-05-01'");
   context.fetch = async () => new Response(JSON.stringify({ disk: { percent: 95 } }));
-  context.mailer.send = async () => { throw new Error('offline'); };
+  context.notifier.send = async () => { throw new Error('offline'); };
   expect((await runStatusSweep(context)).alerts.map((alert) => alert.kind).sort()).toEqual(['disk', 'traffic']);
   context.fetch = async () => new Response(JSON.stringify({ disk: { percent: 20 } }));
   context.db.run('UPDATE vps SET traffic_used_bytes = 0');
-  context.mailer.send = async (message) => { context.mailer.sent.push(message); await new Promise((resolve) => setTimeout(resolve, 5)); };
+  context.notifier.send = async (message) => { context.notifier.sent.push(message); await new Promise((resolve) => setTimeout(resolve, 5)); };
   const results = await Promise.all([runStatusSweep(context), runStatusSweep(context)]);
   expect(results[0].alerts.map((alert) => alert.kind).sort()).toEqual(['disk', 'traffic']);
-  expect(context.mailer.sent).toHaveLength(1);
+  expect(context.notifier.sent).toHaveLength(1);
   expect((await runStatusSweep(context)).alerts).toEqual([]);
 });
 
 test.each(['deleted', 'archived', 'cancelled'])('pending alerts for a %s VPS are discarded', async (state) => {
   const context = await createTestContext('yumi'); seedVps(context);
-  context.mailer.send = async () => { throw new Error('offline'); };
+  context.notifier.send = async () => { throw new Error('offline'); };
   await runStatusSweep(context); await runStatusSweep(context);
   if (state === 'deleted') context.db.run('DELETE FROM vps');
   else if (state === 'archived') context.db.run("UPDATE vps SET archived_at = '2026-05-22'");
   else context.db.run("UPDATE vps SET status = 'cancelled'");
-  context.mailer.send = async (message) => { context.mailer.sent.push(message); };
+  context.notifier.send = async (message) => { context.notifier.sent.push(message); };
   expect((await runStatusSweep(context)).alerts).toEqual([]);
   expect(context.db.all('SELECT * FROM pending_status_alerts')).toEqual([]);
 });
@@ -158,7 +158,7 @@ function deferred<T>() {
 
 test.each(['different', 'identical'])('an old delivery cannot acknowledge %s restored alerts with reused IDs', async (content) => {
   const context = await createTestContext('yumi'); seedVps(context);
-  context.mailer.send = async () => { throw new Error('offline'); };
+  context.notifier.send = async () => { throw new Error('offline'); };
   await runStatusSweep(context); await runStatusSweep(context);
   const restored = buildBackupPayload(context);
   const pending = restored.pendingStatusAlerts as Array<Record<string, unknown>>;
@@ -168,7 +168,7 @@ test.each(['different', 'identical'])('an old delivery cannot acknowledge %s res
   }
   const deliveryStarted = deferred<void>();
   const deliveryFinished = deferred<void>();
-  context.mailer.send = async () => {
+  context.notifier.send = async () => {
     deliveryStarted.resolve();
     await deliveryFinished.promise;
   };
@@ -178,10 +178,10 @@ test.each(['different', 'identical'])('an old delivery cannot acknowledge %s res
   deliveryFinished.resolve();
   await oldSweep;
   expect(context.db.all('SELECT * FROM pending_status_alerts')).toEqual(pending);
-  context.mailer.send = async (message) => { context.mailer.sent.push(message); };
+  context.notifier.send = async (message) => { context.notifier.sent.push(message); };
   const retry = await runStatusSweep(context);
   expect(retry.alerts).toEqual([expect.objectContaining({ kind: pending[0].kind, detail: pending[0].detail, delivered: true })]);
-  expect(context.mailer.sent).toHaveLength(1);
+  expect(context.notifier.sent).toHaveLength(1);
   expect(context.db.all('SELECT * FROM pending_status_alerts')).toEqual([]);
 });
 
@@ -203,21 +203,21 @@ test('a probe started before restore cannot overwrite the restored node or produ
   expect(context.db.all('SELECT * FROM vps')).toEqual(restored.vps);
   expect(context.db.all('SELECT * FROM vps_status_samples')).toEqual(restored.vpsStatusSamples);
   expect(context.db.all('SELECT * FROM pending_status_alerts')).toEqual([]);
-  expect(context.mailer.sent).toEqual([]);
+  expect(context.notifier.sent).toEqual([]);
   context.fetch = async () => new Response(JSON.stringify({ disk: { percent: 99 } }));
   expect((await runStatusSweep(context)).alerts).toEqual([expect.objectContaining({ kind: 'disk', delivered: true })]);
-  expect(context.mailer.sent).toHaveLength(1);
+  expect(context.notifier.sent).toHaveLength(1);
 });
 
 test('a rolled-back restore leaves acknowledgement of the existing queue valid', async () => {
   const context = await createTestContext('yumi'); seedVps(context);
-  context.mailer.send = async () => { throw new Error('offline'); };
+  context.notifier.send = async () => { throw new Error('offline'); };
   await runStatusSweep(context); await runStatusSweep(context);
   const invalid = buildBackupPayload(context);
   invalid.pendingStatusAlerts = [{ id: 1 }];
   const deliveryStarted = deferred<void>();
   const deliveryFinished = deferred<void>();
-  context.mailer.send = async () => { deliveryStarted.resolve(); await deliveryFinished.promise; };
+  context.notifier.send = async () => { deliveryStarted.resolve(); await deliveryFinished.promise; };
   const sweep = runStatusSweep(context);
   await deliveryStarted.promise;
   expect(() => restoreBackupPayload(context, invalid)).toThrow();

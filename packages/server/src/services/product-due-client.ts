@@ -60,3 +60,21 @@ function parseDueItem(value: unknown): ProductDueItem | null {
 function serviceError(statusCode: number, message: string) {
   return Object.assign(new Error(message), { statusCode });
 }
+
+/** Reads the channel settings NoMoney or Yumi used before notifications moved to NoNo. */
+export function createLegacyChannelReader(options: { ports: Record<'nomoney' | 'yumi', number>; token: string; fetch?: typeof fetch }) {
+  const request = options.fetch || fetch;
+  return async (product: 'nomoney' | 'yumi') => {
+    if (!options.token) throw serviceError(503, 'Internal authentication is not configured');
+    const response = await request(`http://127.0.0.1:${options.ports[product]}/api/internal/notifications/legacy-channels`, {
+      headers: { 'x-nono-internal-token': options.token },
+      redirect: 'error',
+      signal: AbortSignal.timeout(5_000),
+    });
+    // An older product build without the route simply has nothing to import.
+    if (response.status === 404) return null;
+    if (!response.ok) throw serviceError(response.status, `${product} rejected the legacy channel request`);
+    const payload = await response.json() as { channels?: unknown };
+    return (payload.channels && typeof payload.channels === 'object' ? payload.channels : null) as never;
+  };
+}
