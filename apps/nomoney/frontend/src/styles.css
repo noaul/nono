@@ -158,8 +158,12 @@
 
 /* Generate with the utilities so responsive padding can override this mobile baseline. */
 @utility nomoney-page-main {
-  /* Clear the phone tab bar (about 3.5rem plus the gesture area); md:pb-* restores desktop spacing. */
+  /* Clear the page dock: a tab bar plus the gesture area on phones, a floating bar on wider screens. */
   padding-bottom: calc(5rem + var(--nono-safe-bottom, env(safe-area-inset-bottom)));
+
+  @media (min-width: 768px) {
+    padding-bottom: 6.5rem;
+  }
 }
 
 /* Tailwind 3 emitted these rules after its utilities. Unlayered CSS would now beat every
@@ -180,19 +184,54 @@
     outline-offset: 2px;
   }
 
-  .nomoney-tabbar {
-    padding-bottom: var(--nono-safe-bottom, env(safe-area-inset-bottom));
+  .nomoney-modules {
+    scrollbar-width: none;
   }
 
-  .nomoney-mobile-overlay,
-  .nomoney-mobile-drawer {
-    overscroll-behavior: contain;
+  .nomoney-modules::-webkit-scrollbar {
+    display: none;
   }
 
-  .nomoney-mobile-drawer {
-    max-height: 100dvh;
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-top: env(safe-area-inset-top);
+  /* Phones: a full-width tab bar of five equal cells. */
+  .nomoney-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-top: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+    padding: 0.125rem 0.25rem var(--nono-safe-bottom, env(safe-area-inset-bottom));
+  }
+
+  /* Wider screens: every page in one floating bar, centred above the bottom edge. */
+  @media (min-width: 768px) {
+    .nomoney-dock {
+      left: 50%;
+      right: auto;
+      bottom: 1rem;
+      display: flex;
+      gap: 0.25rem;
+      transform: translateX(-50%);
+      border: 1px solid var(--ui-border);
+      border-radius: 1.25rem;
+      padding: 0.375rem;
+      box-shadow: 0 12px 32px -12px rgb(15 23 42 / 0.28);
+    }
+
+    .nomoney-dock-item {
+      min-width: 4.5rem;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .nomoney-topbar-button {
+      width: 2rem;
+      height: 2rem;
+      border-color: transparent;
+      background: transparent;
+    }
   }
 
   @media (prefers-reduced-motion: no-preference) {

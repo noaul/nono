@@ -7,8 +7,8 @@ describe('NoMoney and Yumi product surfaces', () => {
   it('defines the approved navigation order for both products', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
     expect(source).toContain("product === 'yumi'");
-    expect(source).toContain("['/dashboard', '/expenses', '/vps', '/domains', '/trash', '/settings']");
-    expect(source).toContain("['/dashboard', '/phones', '/subscriptions', '/expenses', '/accounts', '/trash', '/settings']");
+    expect(source).toContain("['/dashboard', '/vps', '/domains', '/expenses', '/trash', '/settings']");
+    expect(source).toContain("['/dashboard', '/subscriptions', '/phones', '/expenses', '/accounts', '/trash', '/settings']");
   });
 
   it('uses a status-first Yumi overview with no cost components', () => {

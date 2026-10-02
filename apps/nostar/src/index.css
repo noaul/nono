@@ -1089,15 +1089,15 @@ textarea::-webkit-resizer {
 }
 
 /* ==========================================================================
-   Application shell — mirrors the NoNo admin and NoMoney frame.
-   Geometry and colour come from design-tokens.css; nothing here is NoStar-specific
-   beyond the icon. See docs/design/ui-contract.md.
+   Application shell — the same frame as NoMoney and Yumi: modules on top, pages in a dock.
+   Geometry and colour come from design-tokens.css; nothing here is NoStar-specific.
+   See docs/design/ui-contract.md.
    ========================================================================== */
 .nostar-shell {
   background: var(--ui-canvas);
   color: var(--ui-text);
   min-height: 100dvh;
-  /* The drawer must never push the page sideways. */
+  /* A wide module bar or dock must never push the page sideways. */
   overflow-x: hidden;
 }
 
@@ -1107,179 +1107,17 @@ textarea::-webkit-resizer {
   outline-offset: 2px;
 }
 
-.nostar-sidebar {
-  background: var(--ui-surface);
-  border-right: 1px solid var(--ui-border);
-  display: flex;
-  flex-direction: column;
-  inset: 0 auto 0 0;
-  position: fixed;
-  width: var(--ui-sidebar-w);
-  z-index: 40;
-}
-
-.nostar-brand {
-  align-items: center;
-  border-bottom: 1px solid var(--ui-border);
-  display: flex;
-  flex: 0 0 auto;
-  gap: var(--ui-space-3);
-  height: var(--ui-topbar-h);
-  padding: 0 var(--ui-space-4);
-}
-
-.nostar-brand-logo {
-  border-radius: var(--ui-radius-sm);
-  flex: 0 0 auto;
-  height: 30px;
-  object-fit: cover;
-  width: 30px;
-}
-
-.nostar-brand-name {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-.nostar-drawer-close {
-  display: none;
-}
-
-.nostar-nav {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--ui-space-3);
-}
-
-.nostar-nav-item {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: var(--ui-radius-sm);
-  color: var(--ui-text-muted);
-  cursor: pointer;
-  display: flex;
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
-  gap: var(--ui-space-3);
-  height: var(--ui-control-h);
-  min-width: 0;
-  padding: 0 var(--ui-space-3);
-  text-align: left;
-  transition:
-    background-color var(--ui-dur-base) var(--ui-ease),
-    color var(--ui-dur-base) var(--ui-ease);
-  width: 100%;
-}
-
-.nostar-nav-item:hover {
-  background: var(--ui-surface-sunken);
-  color: var(--ui-text);
-}
-
-/* Active row is a solid inverted block, matching the other two apps. */
-.nostar-nav-item.is-active {
-  background: var(--ui-text);
-  color: var(--ui-canvas);
-  font-weight: 600;
-}
-
-.nostar-nav-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Links out to the rest of NoNo: deliberately quieter than the app's own navigation. */
-.nostar-apps {
-  border-top: 1px solid var(--ui-border);
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--ui-space-2) var(--ui-space-3);
-}
-
-.nostar-apps-link {
-  align-items: center;
-  border-radius: var(--ui-radius-sm);
-  color: var(--ui-text-subtle);
-  display: flex;
-  font-size: 12.5px;
-  font-weight: 500;
-  gap: var(--ui-space-3);
-  height: var(--ui-control-h-sm);
-  min-width: 0;
-  padding: 0 var(--ui-space-3);
-  text-decoration: none;
-  transition:
-    background-color var(--ui-dur-base) var(--ui-ease),
-    color var(--ui-dur-base) var(--ui-ease);
-}
-
-.nostar-apps-link:hover {
-  background: var(--ui-surface-sunken);
-  color: var(--ui-text);
-}
-
-.nostar-operator {
-  align-items: center;
-  background: var(--ui-surface-sunken);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
-  display: flex;
-  flex: 0 0 auto;
-  gap: var(--ui-space-2);
-  margin: var(--ui-space-3);
-  min-width: 0;
-  padding: var(--ui-space-2) var(--ui-space-3);
-}
-
-.nostar-apps + .nostar-operator {
-  margin-top: var(--ui-space-1);
-}
-
-.nostar-operator-avatar {
-  border-radius: 50%;
-  flex: 0 0 auto;
-  height: 26px;
-  width: 26px;
-}
-
-.nostar-operator-name {
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nostar-main {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  min-width: 0;
-  padding-left: var(--ui-sidebar-w);
-}
-
+/* Top bar: every NoNo module on the left (NoStar highlighted), theme and logout on the right. */
 .nostar-topbar {
   align-items: center;
   background: var(--ui-surface);
   border-bottom: 1px solid var(--ui-border);
   display: flex;
-  gap: var(--ui-space-4);
+  gap: var(--ui-space-2);
+  height: 48px;
   justify-content: space-between;
-  min-height: var(--ui-topbar-h);
-  padding: var(--ui-space-2) var(--ui-space-5);
+  /* Lines the module bar up with the centred content column. */
+  padding: 0 max(var(--ui-space-5), calc((100% - var(--ui-content-max)) / 2 + var(--ui-space-5)));
   position: sticky;
   top: 0;
   z-index: 30;
@@ -1288,30 +1126,58 @@ textarea::-webkit-resizer {
 .nostar-topbar-title {
   align-items: center;
   display: flex;
-  gap: var(--ui-space-3);
+  flex: 1 1 auto;
+  gap: 2px;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-/* The topbar carries the page's only h1. */
-.nostar-page-title {
-  font-size: 16px;
+.nostar-topbar-title::-webkit-scrollbar {
+  display: none;
+}
+
+.nostar-module {
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 10px;
+  text-decoration: none;
+  transition:
+    background-color var(--ui-dur-base) var(--ui-ease),
+    color var(--ui-dur-base) var(--ui-ease);
+}
+
+.nostar-module:hover {
+  background: var(--ui-surface-sunken);
+  color: var(--ui-text);
+}
+
+/* The module being viewed is a solid inverted block, matching NoMoney and Yumi. */
+.nostar-module.is-active {
+  background: var(--ui-text);
+  color: var(--ui-canvas);
   font-weight: 600;
-  letter-spacing: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .nostar-topbar-actions {
   align-items: center;
   display: flex;
   flex: 0 0 auto;
-  gap: var(--ui-space-2);
+  gap: var(--ui-space-1);
 }
 
-.nostar-icon-button,
-.nostar-menu-toggle {
+.nostar-operator-avatar {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 26px;
+  margin-right: var(--ui-space-1);
+  width: 26px;
+}
+
+.nostar-icon-button {
   align-items: center;
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
@@ -1327,121 +1193,222 @@ textarea::-webkit-resizer {
   width: var(--ui-icon-btn);
 }
 
-.nostar-icon-button:hover,
-.nostar-menu-toggle:hover {
+.nostar-icon-button:hover {
   background: var(--ui-surface-sunken);
   color: var(--ui-text);
 }
 
-.nostar-menu-toggle {
-  display: none;
+.nostar-main {
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: var(--ui-content-max);
+  min-height: calc(100dvh - 48px);
+  min-width: 0;
+  /* Clears the floating dock. */
+  padding-bottom: 96px;
+}
+
+.nostar-page-head {
+  padding: var(--ui-space-4) var(--ui-space-5) 0;
+}
+
+.nostar-page-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nostar-stage {
   flex: 1 1 auto;
-  margin: 0 auto;
-  max-width: var(--ui-content-max);
   min-width: 0;
-  padding: var(--ui-space-5);
+  padding: var(--ui-space-4) var(--ui-space-5) var(--ui-space-5);
   width: 100%;
 }
 
-.nostar-backdrop {
-  display: none;
+/* Wider screens: every page in one floating bar, centred above the bottom edge. */
+.nostar-dock {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 20px;
+  bottom: 16px;
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.28);
+  display: flex;
+  gap: 4px;
+  left: 50%;
+  padding: 6px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 50;
 }
 
-.nostar-tabbar {
-  display: none;
+.nostar-tab {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  gap: 2px;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 72px;
+  padding: 4px 8px;
+  transition:
+    background-color var(--ui-dur-base) var(--ui-ease),
+    color var(--ui-dur-base) var(--ui-ease);
 }
 
+.nostar-tab:hover {
+  color: var(--ui-text);
+}
+
+.nostar-tab.is-active {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+
+.nostar-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nostar-more {
+  display: none;
+  position: relative;
+}
+
+/* 更多 opens its pages right above itself. */
+.nostar-more-menu {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  bottom: calc(100% + 8px);
+  box-shadow: var(--ui-shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  position: absolute;
+  right: 6px;
+  width: 176px;
+}
+
+.nostar-more-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: var(--ui-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  gap: var(--ui-space-3);
+  height: 44px;
+  padding: 0 var(--ui-space-3);
+  text-align: left;
+}
+
+.nostar-more-item:hover {
+  background: var(--ui-surface-sunken);
+}
+
+.nostar-more-item.is-active {
+  color: var(--ui-accent);
+}
+
+/* Phones: a full-width tab bar of up to five cells. */
 @media (max-width: 767px) {
-  .nostar-sidebar {
-    box-shadow: var(--ui-shadow-md);
-    transform: translateX(-100%);
-    transition: transform var(--ui-dur-slow) var(--ui-ease);
-    visibility: hidden;
-    width: min(288px, 86vw);
-    z-index: 60;
+  .nostar-topbar {
+    gap: var(--ui-space-1);
+    padding: 0 var(--ui-space-2);
   }
 
-  .nostar-sidebar.is-mobile-open {
-    transform: translateX(0);
-    visibility: visible;
+  .nostar-topbar-title {
+    gap: 0;
   }
 
-  .nostar-drawer-close {
-    align-items: center;
-    background: transparent;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-sm);
-    color: var(--ui-text-muted);
-    cursor: pointer;
-    display: inline-flex;
-    height: var(--ui-icon-btn);
-    justify-content: center;
-    position: absolute;
-    right: var(--ui-space-3);
-    top: calc((var(--ui-topbar-h) - var(--ui-icon-btn)) / 2);
-    width: var(--ui-icon-btn);
+  .nostar-module {
+    font-size: 12px;
+    padding: 6px;
   }
 
-  .nostar-backdrop {
-    background: rgba(15, 23, 42, 0.5);
-    border: 0;
-    display: block;
-    inset: 0;
-    position: fixed;
-    z-index: 55;
+  .nostar-topbar-actions {
+    gap: 0;
   }
 
-  /* The bottom tab bar replaces the hamburger; 更多 still opens the drawer. */
-  .nostar-menu-toggle {
+  .nostar-operator-avatar {
     display: none;
   }
 
-  .nostar-main {
-    padding-bottom: calc(60px + var(--nono-safe-bottom, env(safe-area-inset-bottom)));
-    padding-left: 0;
-  }
-
-  .nostar-tabbar {
-    background: var(--ui-surface);
-    border-top: 1px solid var(--ui-border);
-    bottom: 0;
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    grid-auto-flow: column;
-    left: 0;
-    padding-bottom: var(--nono-safe-bottom, env(safe-area-inset-bottom));
-    position: fixed;
-    right: 0;
-    z-index: 50;
-  }
-
-  .nostar-tab {
-    align-items: center;
+  .nostar-icon-button {
     background: transparent;
-    border: 0;
-    color: var(--ui-text-muted);
-    display: flex;
-    flex-direction: column;
-    font-size: 11px;
-    font-weight: 500;
-    gap: 2px;
-    justify-content: center;
-    min-height: 56px;
+    border-color: transparent;
+    height: 32px;
+    width: 32px;
   }
 
-  .nostar-tab.is-active {
-    color: var(--ui-accent);
+  .nostar-main {
+    padding-bottom: calc(64px + var(--nono-safe-bottom, env(safe-area-inset-bottom)));
   }
 
-  .nostar-topbar {
-    padding: var(--ui-space-2) var(--ui-space-4);
+  .nostar-page-head {
+    padding: var(--ui-space-3) var(--ui-space-4) 0;
   }
 
   .nostar-stage {
-    padding: var(--ui-space-4);
+    padding: var(--ui-space-3) var(--ui-space-4) var(--ui-space-4);
+  }
+
+  .nostar-dock {
+    border-radius: 0;
+    border-width: 1px 0 0;
+    bottom: 0;
+    box-shadow: none;
+    display: grid;
+    gap: 0;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    left: 0;
+    padding: 2px 4px var(--nono-safe-bottom, env(safe-area-inset-bottom));
+    right: 0;
+    transform: none;
+  }
+
+  .nostar-tab {
+    min-height: 56px;
+    min-width: 0;
+    order: var(--nostar-phone-order, 0);
+  }
+
+  .nostar-tab.is-active {
+    background: transparent;
+  }
+
+  .nostar-tab.is-overflow {
+    display: none;
+  }
+
+  .nostar-more {
+    display: flex;
+    order: 99;
+  }
+
+  .nostar-more > .nostar-tab {
+    width: 100%;
   }
 }
 

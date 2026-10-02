@@ -108,29 +108,29 @@ Dark mode drops both to near-transparent and relies on borders instead.
 
 ### Breakpoints
 
-`sm 640` · `md 768` · `lg 1024` · `xl 1280`. The sidebar collapses to a drawer below `md`.
+`sm 640` · `md 768` · `lg 1024` · `xl 1280`. Below `md` the admin sidebar collapses to a drawer
+and the app dock becomes a tab bar.
 
 ## Shell
 
-Desktop:
+The NoNo admin keeps a fixed sidebar (`--ui-sidebar-w`) that becomes a drawer below `md`. NoMoney,
+Yumi and NoStar share one frame at every width instead:
 
-- fixed sidebar, `--ui-sidebar-w`, bordered right, brand block `--ui-topbar-h` tall
-- sticky topbar, `--ui-topbar-h`, bordered bottom, page title left, actions right
-- content centred at `--ui-content-max`
-- nav rows `40px`, `--ui-radius-sm`, icon + label; **active row is a solid inverted block**
-  (ink background, canvas text) rather than a tinted pill
-
-Mobile (below `md`):
-
-- sidebar becomes a drawer over a dimmed backdrop
-- `role="dialog"`, `aria-modal="true"`, focus moves into the drawer on open
-- Escape closes; navigating closes; focus returns to the trigger
-- body scroll locked while open; no horizontal page overflow at any width
+- a sticky module bar, `48px`, bordered bottom: every NoNo module (NoNo, NoDesk, NoMoney, Yumi,
+  NoStar) on the left, **the one being viewed a solid inverted block**; theme and logout on the
+  right (language too, from `sm`)
+- the page title (the page's `h1`) and page actions above the content, centred at
+  `--ui-content-max`
+- a page dock at the bottom: a floating centred bar from `md`, a full-width tab bar of five cells
+  below it, clear of `--nono-safe-bottom`
+- on phones the dock holds four pages; the rest open from 更多 as a menu directly above the
+  button, closed by Escape, an outside tap or navigation
+- no horizontal page overflow at any width
 
 ## Prohibited
 
 Gradients, decorative glass/backdrop-blur skins, nested cards, oversized headings, pill-heavy
-navigation, and per-app hard-coded palettes. A page has exactly one visible `h1`, in the topbar.
+navigation, and per-app hard-coded palettes. A page has exactly one visible `h1`.
 
 ## How each app consumes the contract
 
@@ -141,7 +141,7 @@ directly. The older `--admin-*` names survive as aliases declared once in `token
 at the contract; they hold no values of their own, so there is no second source of truth. View
 scoped styles keep only page-specific grid, column and responsive rules.
 
-**NoStar** (`apps/nostar`) — `AppShell.tsx` renders the sidebar/topbar/drawer and `index.css`
+**NoStar** (`apps/nostar`) — `AppShell.tsx` renders the module bar, title and dock and `index.css`
 styles it from the tokens. The header-centric frame and `Header.tsx` are gone. Because the app
 had ~56 files on a bespoke Linear palette, `tailwind.config.js` now resolves every themed colour
 name through `rgb(var(--ui-*-rgb) / <alpha-value>)` instead of a literal. That re-skins the whole
@@ -150,7 +150,7 @@ app from one place and keeps `bg-brand-indigo/20`-style opacity modifiers workin
 site had to change.
 
 **NoMoney** (`apps/nomoney/frontend`) — imports the tokens, and its Tailwind `brand` scale is the
-contract teal, so every `brand-*` class follows the one accent. The topbar, sidebar, page header
+contract teal, so every `brand-*` class follows the one accent. The module bar, dock, page header
 and drawers are solid token surfaces; backdrops dim without blurring.
 
 ## Shared preferences
@@ -170,4 +170,4 @@ The browser extension cannot read the site's storage, so it follows `prefers-col
 ## Moving between apps
 
 NoNo's NoTab strip links out to NoMoney, Yumi and NoStar, and NoDesk has a portal back to NoNo.
-NoMoney and NoStar carry a quiet Apps group at the foot of the sidebar linking to the others.
+NoMoney, Yumi and NoStar list every module in their top module bar.

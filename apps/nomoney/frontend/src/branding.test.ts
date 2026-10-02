@@ -15,13 +15,13 @@ describe('NoMoney branding', () => {
     const layout = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
     const styles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
-    expect(layout).toContain('role="dialog"');
-    expect(layout).toContain('aria-modal="true"');
+    // 更多 opens a menu above the dock instead of a drawer, and closes on Escape or an outside tap.
+    expect(layout).toContain('role="menu"');
+    expect(layout).toContain('aria-haspopup="menu"');
     expect(layout).toContain("event.key === 'Escape'");
-    expect(layout).toContain("event.key !== 'Tab'");
-    expect(layout).toContain("document.body.style.overflow = 'hidden'");
-    expect(layout).toContain("window.addEventListener('resize', closeMobileNavigationAtDesktop)");
-    expect(layout).toContain('window.innerWidth >= 768');
+    expect(layout).toContain("document.addEventListener('pointerdown', onPointerDown)");
+    expect(layout).toContain('bottom-full');
+    expect(layout).not.toContain('<aside');
     expect(styles).toContain('scrollbar-gutter: stable');
     expect(styles).toContain('touch-action: manipulation');
     expect(styles).toContain('prefers-reduced-motion: reduce');
@@ -45,6 +45,8 @@ describe('NoMoney branding', () => {
     expect(layout).toContain("href: '/'");
     expect(layout).toContain("href: '/nodesk'");
     expect(layout).toContain("href: '/nostar/'");
-    expect(layout).toContain("'NoNo 主页'");
+    expect(layout).toContain("href: '/nomoney/'");
+    expect(layout).toContain("href: '/yumi/'");
+    expect(layout).toContain("aria-current={active ? 'page' : undefined}");
   });
 });

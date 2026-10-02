@@ -9,8 +9,8 @@ import { useAppStore } from '../store/useAppStore';
 
 /**
  * NoStar used to be header-centric with its own purple/Linear visual language. These tests hold
- * the shared shell in place: a fixed sidebar and sticky topbar on desktop, the same accessible
- * drawer on mobile, and geometry that comes from the shared UI contract.
+ * the shared shell in place: the NoNo module bar on top, the page dock at the bottom (floating on
+ * wide screens, a tab bar on phones), and geometry that comes from the shared UI contract.
  */
 
 vi.mock('../hooks/useDialog', () => ({
@@ -61,16 +61,17 @@ describe('NoStar application shell', () => {
     document.body.style.overflow = '';
   });
 
-  it('renders the sidebar, topbar and stage instead of a page header', () => {
+  it('renders the module bar, page title, stage and dock', () => {
     render(<AppShell><div>content</div></AppShell>);
 
     expect(screen.getByTestId('nostar-shell')).toBeTruthy();
-    expect(screen.getByTestId('nostar-sidebar')).toBeTruthy();
     expect(document.querySelector('.nostar-topbar')).toBeTruthy();
     expect(document.querySelector('.nostar-stage')).toBeTruthy();
+    expect(screen.getByTestId('nostar-dock')).toBeTruthy();
+    expect(document.querySelector('aside')).toBeNull();
   });
 
-  it('drives the sidebar from the configurable visible menus, in order', () => {
+  it('drives the dock from the configurable visible menus, in order', () => {
     seedStore({
       headerMenuConfig: [
         { id: 'settings', visible: true, order: 0 },
@@ -80,9 +81,10 @@ describe('NoStar application shell', () => {
     });
     render(<AppShell><div /></AppShell>);
 
-    const items = Array.from(document.querySelectorAll('.nostar-nav-item')).map((n) => n.getAttribute('data-testid'));
-    // Hidden menus stay hidden; the configured order is respected.
+    const items = Array.from(screen.getByTestId('nostar-dock').querySelectorAll('[data-testid^="nav-"]')).map((n) => n.getAttribute('data-testid'));
+    // Hidden menus stay hidden; the configured order is respected; two pages need no 更多.
     expect(items).toEqual(['nav-settings', 'nav-repositories']);
+    expect(screen.queryByTestId('nostar-more')).toBeNull();
   });
 
   it('marks the current view and switches on selection', () => {
@@ -93,7 +95,7 @@ describe('NoStar application shell', () => {
     expect(setCurrentView).toHaveBeenCalledWith('releases');
   });
 
-  it('renders one h1, in the topbar, tracking the active view', () => {
+  it('renders one h1, above the stage, tracking the active view', () => {
     render(<AppShell><div /></AppShell>);
 
     const headings = document.querySelectorAll('h1');
@@ -102,64 +104,36 @@ describe('NoStar application shell', () => {
     expect(headings[0].textContent).toBe('仓库');
   });
 
-  it('opens the drawer with dialog semantics and locks body scroll', async () => {
+  it('keeps four preferred pages on phones and moves the rest behind 更多', () => {
     render(<AppShell><div /></AppShell>);
-    const sidebar = screen.getByTestId('nostar-sidebar');
 
-    expect(sidebar.getAttribute('role')).toBeNull();
-    fireEvent.click(screen.getByTestId('nostar-menu-toggle'));
-
-    expect(sidebar.getAttribute('role')).toBe('dialog');
-    expect(sidebar.getAttribute('aria-modal')).toBe('true');
-    expect(sidebar.className).toContain('is-mobile-open');
-    expect(screen.getByTestId('nostar-backdrop')).toBeTruthy();
-    await waitFor(() => expect(document.body.style.overflow).toBe('hidden'));
+    const overflow = Array.from(document.querySelectorAll('.nostar-tab.is-overflow')).map((n) => n.getAttribute('data-testid'));
+    expect(overflow).toEqual(['nav-forks', 'nav-settings']);
+    expect(screen.getByTestId('nav-releases').style.getPropertyValue('--nostar-phone-order')).toBe('1');
   });
 
-  it('closes the drawer on Escape, backdrop, and menu selection', async () => {
+  it('opens 更多 as a menu right above the button and closes it on Escape, outside taps and selection', async () => {
     render(<AppShell><div /></AppShell>);
-    const sidebar = screen.getByTestId('nostar-sidebar');
-    const open = () => fireEvent.click(screen.getByTestId('nostar-menu-toggle'));
+    const more = screen.getByTestId('nostar-more');
 
-    open();
-    fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(sidebar.className).not.toContain('is-mobile-open'));
-
-    open();
-    fireEvent.click(screen.getByTestId('nostar-backdrop'));
-    await waitFor(() => expect(sidebar.className).not.toContain('is-mobile-open'));
-
-    open();
-    fireEvent.click(screen.getByTestId('nav-gists'));
-    await waitFor(() => expect(sidebar.className).not.toContain('is-mobile-open'));
-    // Body scroll is released once the drawer is closed.
-    await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
-  });
-
-  it('makes the rest of the app inert and hidden while the drawer is open', async () => {
-    render(<AppShell><div /></AppShell>);
-    const main = screen.getByTestId('nostar-main');
-
-    expect(main.hasAttribute('inert')).toBe(false);
-    expect(main.getAttribute('aria-hidden')).toBeNull();
-
-    fireEvent.click(screen.getByTestId('nostar-menu-toggle'));
-    expect(main.hasAttribute('inert')).toBe(true);
-    expect(main.getAttribute('aria-hidden')).toBe('true');
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    const menu = screen.getByTestId('nostar-more-menu');
+    expect(menu.getAttribute('role')).toBe('menu');
+    expect(menu.parentElement?.contains(more)).toBe(true);
+    expect(Array.from(menu.querySelectorAll('[role="menuitem"]')).map((n) => n.textContent)).toEqual(['复刻', '设置']);
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(main.hasAttribute('inert')).toBe(false));
-    expect(main.getAttribute('aria-hidden')).toBeNull();
-  });
+    await waitFor(() => expect(screen.queryByTestId('nostar-more-menu')).toBeNull());
 
-  it('returns focus to the trigger when the drawer closes', async () => {
-    render(<AppShell><div /></AppShell>);
-    const trigger = screen.getByTestId('nostar-menu-toggle');
+    fireEvent.click(more);
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.queryByTestId('nostar-more-menu')).toBeNull());
 
-    fireEvent.click(trigger);
-    await waitFor(() => expect(document.activeElement).not.toBe(trigger));
-    fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: '设置' }));
+    expect(setCurrentView).toHaveBeenCalledWith('settings');
+    await waitFor(() => expect(screen.queryByTestId('nostar-more-menu')).toBeNull());
   });
 
   it('still renders only one h1 when real markdown is composed into it', async () => {
@@ -217,22 +191,15 @@ describe('NoStar application shell', () => {
     }
   });
 
-  it('links back to the rest of NoNo from the sidebar, in the UI language', () => {
+  it('lists every NoNo module at the top and highlights NoStar', () => {
     render(<AppShell><div /></AppShell>);
     const apps = screen.getByTestId('nostar-apps');
     const links = Array.from(apps.querySelectorAll('a')).map((a) => [a.getAttribute('href'), a.textContent]);
 
     expect(apps.getAttribute('aria-label')).toBe('NoNo 应用');
-    expect(links).toEqual([['/', 'NoNo 主页'], ['/nodesk', 'NoDesk'], ['/nomoney', 'NoMoney']]);
-    // It sits between the app's own navigation and the user card.
-    expect(apps.previousElementSibling?.classList.contains('nostar-nav')).toBe(true);
-    expect(apps.nextElementSibling?.classList.contains('nostar-operator')).toBe(true);
-  });
-
-  it('labels the NoNo home link in English when the UI is English', () => {
-    seedStore({ language: 'en' });
-    render(<AppShell><div /></AppShell>);
-    expect(screen.getByTestId('nostar-apps').querySelector('a[href="/"]')?.textContent).toBe('NoNo Home');
+    expect(links).toEqual([['/', 'NoNo'], ['/nodesk', 'NoDesk'], ['/nomoney/', 'NoMoney'], ['/yumi/', 'Yumi'], ['/nostar/', 'NoStar']]);
+    expect(apps.querySelector('[aria-current="page"]')?.textContent).toBe('NoStar');
+    expect(apps.closest('header')).toBeTruthy();
   });
 
   it('keeps the theme toggle and logout in the topbar', () => {
@@ -246,22 +213,21 @@ describe('NoStar application shell', () => {
 });
 
 describe('NoStar visual contract', () => {
-  it('takes every shell dimension from the shared tokens', () => {
+  it('takes the shell dimensions from the shared tokens', () => {
     const css = read('src/index.css');
 
-    expect(css).toMatch(/\.nostar-sidebar \{[\s\S]*?width:\s*var\(--ui-sidebar-w\)/);
-    expect(css).toMatch(/\.nostar-main \{[\s\S]*?padding-left:\s*var\(--ui-sidebar-w\)/);
-    expect(css).toMatch(/\.nostar-topbar \{[\s\S]*?min-height:\s*var\(--ui-topbar-h\)/);
     expect(css).toMatch(/\.nostar-topbar \{[\s\S]*?position:\s*sticky/);
-    expect(css).toMatch(/\.nostar-stage \{[\s\S]*?max-width:\s*var\(--ui-content-max\)/);
-    expect(css).toMatch(/\.nostar-nav-item \{[\s\S]*?height:\s*var\(--ui-control-h\)/);
+    expect(css).toMatch(/\.nostar-main \{[\s\S]*?max-width:\s*var\(--ui-content-max\)/);
+    expect(css).toMatch(/\.nostar-icon-button \{[\s\S]*?height:\s*var\(--ui-icon-btn\)/);
+    expect(css).not.toContain('--ui-sidebar-w');
   });
 
-  it('becomes a drawer only below the md breakpoint', () => {
+  it('floats the dock on wide screens and pins it full width below the md breakpoint', () => {
     const css = read('src/index.css');
 
-    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.nostar-sidebar \{[\s\S]*?transform:\s*translateX\(-100%\)/);
-    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.nostar-main \{[\s\S]*?padding-left:\s*0/);
+    expect(css).toMatch(/\.nostar-dock \{[\s\S]*?position:\s*fixed[\s\S]*?transform:\s*translateX\(-50%\)/);
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.nostar-dock \{[\s\S]*?left:\s*0[\s\S]*?right:\s*0/);
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*?\.nostar-tab\.is-overflow \{[\s\S]*?display:\s*none/);
     expect(css).toMatch(/\.nostar-shell \{[\s\S]*?overflow-x:\s*hidden/);
     expect(read('src/components/AppShell.tsx')).toContain('window.innerWidth >= 768');
   });
@@ -295,7 +261,6 @@ describe('NoStar visual contract', () => {
 
   it('keeps the NoStar mark but at a size that fits where it is shown', () => {
     const shell = read('src/components/AppShell.tsx');
-    expect(shell).toContain('./icon.png');
     expect(shell).toContain('NoStar');
     // The same artwork was a 1.1MB 1024px raster while only ever shown at 30px.
     expect(fs.statSync(path.resolve(process.cwd(), 'public/icon.png')).size).toBeLessThan(32 * 1024);

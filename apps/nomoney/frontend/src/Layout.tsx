@@ -1,39 +1,38 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ContactRound, Ellipsis, Globe2, House, Languages, LayoutDashboard, LogOut, Moon, NotebookPen, ReceiptText, Repeat2, Server, Settings, Smartphone, Star, Sun, Trash2, X } from 'lucide-react';
+import { ContactRound, Ellipsis, Globe2, Languages, LayoutDashboard, LogOut, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, Trash2 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
-import { api } from './api';
 import { IconButton } from './ui';
 import { useI18n } from './i18n';
 import { product, productMeta } from './product';
 import { COLOR_MODE_CHANGE_EVENT, currentColorMode, setColorModePreference, type ResolvedColorMode } from './color-mode';
 
 const navItems = [
-  { to: '/dashboard', labelZh: product === 'yumi' ? '总览' : '控制台', labelEn: product === 'yumi' ? 'Overview' : 'Dashboard', icon: LayoutDashboard, hint: 'Overview' },
-  { to: '/phones', labelZh: '电话卡', labelEn: 'SIM cards', icon: Smartphone, hint: 'SIM' },
-  { to: '/vps', labelZh: 'VPS', labelEn: 'VPS', icon: Server, hint: 'Compute' },
-  { to: '/domains', labelZh: '域名', labelEn: 'Domains', icon: Globe2, hint: 'DNS' },
-  { to: '/subscriptions', labelZh: '订阅', labelEn: 'Subscriptions', icon: Repeat2, hint: 'SaaS' },
-  { to: '/accounts', labelZh: '账号', labelEn: 'Accounts', icon: ContactRound, hint: 'Apps' },
-  { to: '/expenses', labelZh: '费用', labelEn: 'Expenses', icon: ReceiptText, hint: 'Ledger' },
-  { to: '/trash', labelZh: '回收站', labelEn: 'Recycle bin', icon: Trash2, hint: 'Deleted' },
-  { to: '/settings', labelZh: '设置', labelEn: 'Settings', icon: Settings, hint: 'System' }
+  { to: '/dashboard', labelZh: product === 'yumi' ? '总览' : '控制台', labelEn: product === 'yumi' ? 'Overview' : 'Dashboard', icon: LayoutDashboard },
+  { to: '/phones', labelZh: '电话卡', labelEn: 'SIM cards', icon: Smartphone },
+  { to: '/vps', labelZh: 'VPS', labelEn: 'VPS', icon: Server },
+  { to: '/domains', labelZh: '域名', labelEn: 'Domains', icon: Globe2 },
+  { to: '/subscriptions', labelZh: '订阅', labelEn: 'Subscriptions', icon: Repeat2 },
+  { to: '/accounts', labelZh: '账号', labelEn: 'Accounts', icon: ContactRound },
+  { to: '/expenses', labelZh: '费用', labelEn: 'Expenses', icon: ReceiptText },
+  { to: '/trash', labelZh: '回收站', labelEn: 'Recycle bin', icon: Trash2 },
+  { to: '/settings', labelZh: '设置', labelEn: 'Settings', icon: Settings }
 ];
 
-const yumiNavOrder = ['/dashboard', '/expenses', '/vps', '/domains', '/trash', '/settings'];
-const noMoneyNavOrder = ['/dashboard', '/phones', '/subscriptions', '/expenses', '/accounts', '/trash', '/settings'];
-const activeNavOrder = product === 'yumi' ? yumiNavOrder : noMoneyNavOrder;
-const productNavItems = activeNavOrder.map((path) => navItems.find((item) => item.to === path)!);
-// Phones get a bottom tab bar with the four everyday pages; the rest stay in the 更多 drawer.
-const mobileTabOrder = product === 'yumi' ? ['/dashboard', '/vps', '/domains', '/expenses'] : ['/dashboard', '/subscriptions', '/phones', '/expenses'];
-const mobileTabs = mobileTabOrder.map((path) => navItems.find((item) => item.to === path)!);
+// The dock lists the everyday pages first. Phones show those four and keep the rest above 更多.
+const yumiNavOrder = ['/dashboard', '/vps', '/domains', '/expenses', '/trash', '/settings'];
+const noMoneyNavOrder = ['/dashboard', '/subscriptions', '/phones', '/expenses', '/accounts', '/trash', '/settings'];
+const productNavItems = (product === 'yumi' ? yumiNavOrder : noMoneyNavOrder).map((path) => navItems.find((item) => item.to === path)!);
+const PHONE_DOCK_SIZE = 4;
 
-// The rest of the NoNo family lives on the same origin, outside this app's router base.
-const nonoApps = [
-  { href: '/', labelZh: 'NoNo 主页', labelEn: 'NoNo home', icon: House },
-  { href: '/nodesk', labelZh: 'NoDesk', labelEn: 'NoDesk', icon: NotebookPen },
-  { href: '/nostar/', labelZh: 'NoStar', labelEn: 'NoStar', icon: Star }
+// Every NoNo module shares this origin, outside this app's router base. The one being viewed is highlighted.
+const nonoModules = [
+  { id: 'nono', href: '/', label: 'NoNo' },
+  { id: 'nodesk', href: '/nodesk', label: 'NoDesk' },
+  { id: 'nomoney', href: '/nomoney/', label: 'NoMoney' },
+  { id: 'yumi', href: '/yumi/', label: 'Yumi' },
+  { id: 'nostar', href: '/nostar/', label: 'NoStar' }
 ];
 
 export type LayoutOutletContext = {
@@ -48,16 +47,22 @@ export function useLayoutActions(): LayoutOutletContext {
   return value;
 }
 
+/**
+ * The same frame at every width: the NoNo module switcher on top, then the page title and its
+ * actions, and the page dock at the bottom (a tab bar on phones, a floating bar on wider screens).
+ */
 export function Layout({ user, children }: { user: User; children: ReactNode }) {
   const [location] = useLocation();
   const { copy, language, toggleLanguage } = useI18n();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const mobileDrawerRef = useRef<HTMLElement | null>(null);
-  const mobileTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [theme, setTheme] = useState<ResolvedColorMode>(currentColorMode);
   const current = useMemo(() => productNavItems.find((item) => location.startsWith(item.to)), [location]);
   const outletContext = useMemo<LayoutOutletContext>(() => ({ setTopbarActions }), []);
+  const label = (item: (typeof navItems)[number]) => (language === 'zh' ? item.labelZh : item.labelEn);
+  const overflowItems = productNavItems.slice(PHONE_DOCK_SIZE);
+  const overflowActive = overflowItems.some((item) => location.startsWith(item.to));
 
   useEffect(() => {
     const syncTheme = (event: Event) => setTheme((event as CustomEvent<ResolvedColorMode>).detail);
@@ -65,57 +70,29 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
     return () => window.removeEventListener(COLOR_MODE_CHANGE_EVENT, syncTheme);
   }, []);
 
+  useEffect(() => setMoreOpen(false), [location]);
+
+  // The 更多 menu closes on an outside tap, Escape, or when the dock widens enough to show everything.
   useEffect(() => {
-    const closeMobileNavigationAtDesktop = () => {
-      if (window.innerWidth >= 768) setMobileOpen(false);
+    if (!moreOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
     };
-
-    window.addEventListener('resize', closeMobileNavigationAtDesktop);
-    return () => window.removeEventListener('resize', closeMobileNavigationAtDesktop);
-  }, []);
-
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const drawer = mobileDrawerRef.current;
-    const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    document.body.style.overflow = 'hidden';
-    drawer?.querySelector<HTMLElement>(focusableSelector)?.focus();
-
     const onKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setMobileOpen(false);
-        return;
-      }
-      if (event.key !== 'Tab' || !drawer) return;
-      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector));
-      if (!focusable.length) {
-        event.preventDefault();
-        drawer.focus();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!drawer.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      if (event.key === 'Escape') setMoreOpen(false);
     };
-
+    const onResize = () => {
+      if (window.innerWidth >= 768) setMoreOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('keydown', onKeydown);
+    window.addEventListener('resize', onResize);
     return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('keydown', onKeydown);
-      document.body.style.overflow = previousOverflow;
-      mobileTriggerRef.current?.focus();
+      window.removeEventListener('resize', onResize);
     };
-  }, [mobileOpen]);
+  }, [moreOpen]);
 
   const toggleTheme = () => {
     setTheme(setColorModePreference(theme === 'dark' ? 'light' : 'dark'));
@@ -127,137 +104,115 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
     window.location.assign('/login');
   };
 
-  const navContent = (
-    <nav className="space-y-1 px-3 py-3">
-      {productNavItems.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.to}
-            href={item.to}
-            onClick={() => setMobileOpen(false)}
-            className={clsx(
-                'group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition',
-                location.startsWith(item.to)
-                  ? 'bg-slate-950 text-white shadow-xs dark:bg-white dark:text-slate-950'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
-              )}
-          >
-            <Icon size={17} />
-            <span className="flex-1">{language === 'zh' ? item.labelZh : item.labelEn}</span>
-            <span className="hidden text-[11px] font-normal text-slate-400 lg:inline">{item.hint}</span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
-
-  const appLinks = (
-    <nav aria-label={copy('NoNo 应用', 'NoNo apps')} className="px-3 py-2">
-      <p className="px-3 pb-1 text-[11px] font-medium text-[color:var(--ui-text-subtle)]">{copy('应用', 'Apps')}</p>
-      {nonoApps.map((app) => {
-        const Icon = app.icon;
-        return (
-          <a
-            key={app.href}
-            href={app.href}
-            className="flex h-8 items-center gap-2.5 rounded-lg px-3 text-[13px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-sunken)] hover:text-[color:var(--ui-text)]"
-          >
-            <Icon size={15} aria-hidden="true" />
-            <span className="truncate">{copy(app.labelZh, app.labelEn)}</span>
-          </a>
-        );
-      })}
-    </nav>
+  const dockItemClass = (active: boolean) => clsx(
+    'nomoney-dock-item flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-colors',
+    active ? 'text-brand-600 dark:text-brand-400 md:bg-brand-500/10' : 'text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'
   );
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-ink-950">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[color:var(--ui-border)] bg-[var(--ui-surface)] md:flex">
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-white/10">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-xs font-semibold text-white dark:border-white/10 dark:bg-white dark:text-slate-950">
-            {productMeta.initials}
-          </div>
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">{productMeta.name}</div>
-            <div className="font-mono text-[11px] text-slate-400">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</div>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{navContent}</div>
-        {appLinks}
-        <div className="shrink-0 border-t border-slate-200 p-3 dark:border-white/10">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="text-xs text-slate-500 dark:text-slate-400">{copy('当前登录', 'Signed in as')}</div>
-            <div className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-white">{user.username}</div>
-            <div className="truncate text-xs text-slate-400">{copy('NoNo 管理员', 'NoNo administrator')}</div>
-          </div>
-        </div>
-      </aside>
-
-      {mobileOpen && (
-        <div className="nomoney-mobile-overlay fixed inset-0 z-50 md:hidden">
-          <button aria-label={copy('关闭', 'Close')} className="absolute inset-0 bg-slate-950/65" onClick={() => setMobileOpen(false)} />
-          <aside ref={mobileDrawerRef} className="nomoney-mobile-drawer absolute inset-y-0 left-0 flex w-72 flex-col border-r border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-2xl" role="dialog" aria-modal="true" aria-label={copy('主导航', 'Main navigation')} tabIndex={-1}>
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
-                  {productMeta.initials}
-                </div>
-                <span className="text-sm font-semibold">{productMeta.name}</span>
-              </div>
-              <IconButton onClick={() => setMobileOpen(false)} title={copy('关闭', 'Close')}>
-                <X size={16} />
-              </IconButton>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">{navContent}</div>
-            <div className="shrink-0 border-t border-slate-200 dark:border-white/10">{appLinks}</div>
-          </aside>
-        </div>
-      )}
-
-      <div className="min-w-0 md:pl-64">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 py-2 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 dark:text-white">{current ? (language === 'zh' ? current.labelZh : current.labelEn) : productMeta.name}</h1>
-              <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</p>
-            </div>
-          </div>
-          <div className="flex min-w-0 items-center justify-end gap-2">
-            {topbarActions && <div className="hidden min-w-0 flex-wrap items-center justify-end gap-2 sm:flex">{topbarActions}</div>}
-            <IconButton onClick={toggleLanguage} title={copy('切换语言', 'Switch language')}>
+      <header className="nomoney-topbar sticky top-0 z-30 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)]">
+        <div className="mx-auto flex h-12 max-w-7xl items-center gap-1 px-2 sm:gap-2 sm:px-6">
+          <nav aria-label={copy('NoNo 应用', 'NoNo apps')} className="nomoney-modules flex min-w-0 flex-1 items-center overflow-x-auto sm:gap-0.5">
+            {nonoModules.map((module) => {
+              const active = module.id === product;
+              return (
+                <a
+                  key={module.id}
+                  href={module.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={clsx(
+                    'shrink-0 rounded-lg px-[7px] py-1.5 text-xs transition-colors sm:px-2.5 sm:text-[13px]',
+                    active
+                      ? 'bg-slate-950 font-semibold text-white dark:bg-white dark:text-slate-950'
+                      : 'font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
+                  )}
+                >
+                  {module.label}
+                </a>
+              );
+            })}
+          </nav>
+          <div className="flex shrink-0 items-center sm:gap-1">
+            <IconButton className="nomoney-topbar-button max-sm:hidden" onClick={toggleLanguage} title={copy('切换语言', 'Switch language')}>
               <Languages size={16} />
               <span className="sr-only">{language === 'zh' ? '中文' : 'English'}</span>
             </IconButton>
-            <IconButton onClick={toggleTheme} title={copy('切换主题', 'Toggle theme')}>
+            <IconButton className="nomoney-topbar-button" onClick={toggleTheme} title={copy('切换主题', 'Toggle theme')}>
               {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
             </IconButton>
-            <IconButton onClick={logout} title={copy('登出', 'Log out')}>
+            <IconButton className="nomoney-topbar-button" onClick={logout} title={copy(`登出 ${user.username}`, `Log out ${user.username}`)}>
               <LogOut size={16} />
             </IconButton>
           </div>
-        </header>
-        <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pt-3 sm:px-6 md:pb-6 lg:pb-7 lg:pt-4">
-          {topbarActions && <div className="mb-3 flex flex-wrap items-center gap-2 sm:hidden">{topbarActions}</div>}
-          <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
-        </main>
-      </div>
+        </div>
+      </header>
 
-      <nav className="nomoney-tabbar fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[color:var(--ui-border)] bg-[var(--ui-surface)] md:hidden" aria-label={copy('主导航', 'Main navigation')}>
-        {mobileTabs.map((item) => {
+      <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pt-3 sm:px-6 lg:pt-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{current ? label(current) : productMeta.name}</h1>
+            <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</p>
+          </div>
+          {topbarActions && <div className="flex min-w-0 flex-wrap items-center gap-2">{topbarActions}</div>}
+        </div>
+        <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
+      </main>
+
+      <nav className="nomoney-dock" aria-label={copy('主导航', 'Main navigation')}>
+        {productNavItems.map((item, index) => {
           const Icon = item.icon;
           const active = location.startsWith(item.to);
           return (
-            <Link key={item.to} href={item.to} aria-current={active ? 'page' : undefined} className={clsx('flex flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium', active ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400')}>
+            <Link key={item.to} href={item.to} aria-current={active ? 'page' : undefined} className={clsx(dockItemClass(active), index >= PHONE_DOCK_SIZE && 'max-md:hidden')}>
               <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-              <span>{language === 'zh' ? item.labelZh : item.labelEn}</span>
+              <span className="max-w-full truncate">{label(item)}</span>
             </Link>
           );
         })}
-        <button ref={mobileTriggerRef} type="button" onClick={() => setMobileOpen(true)} className={clsx('flex flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium', !mobileTabs.some((item) => location.startsWith(item.to)) ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400')}>
-          <Ellipsis size={20} />
-          <span>{copy('更多', 'More')}</span>
-        </button>
+        {overflowItems.length > 0 && (
+          <div ref={moreRef} className="relative flex md:hidden">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+              className={clsx(dockItemClass(overflowActive || moreOpen), 'w-full')}
+            >
+              <Ellipsis size={20} />
+              <span>{copy('更多', 'More')}</span>
+            </button>
+            {moreOpen && (
+              <div role="menu" className="nomoney-more-menu motion-fade-in absolute bottom-full right-1.5 mb-2 w-44 rounded-2xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-1.5 shadow-lg">
+                {overflowItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = location.startsWith(item.to);
+                  return (
+                    <Link
+                      key={item.to}
+                      href={item.to}
+                      role="menuitem"
+                      aria-current={active ? 'page' : undefined}
+                      className={clsx(
+                        'flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium',
+                        active ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400' : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]'
+                      )}
+                    >
+                      <Icon size={17} />
+                      {label(item)}
+                    </Link>
+                  );
+                })}
+                {/* Phones have no room for the language switch in the module bar; it lives here. */}
+                <div className="my-1 border-t border-[color:var(--ui-border)] sm:hidden" />
+                <button type="button" role="menuitem" onClick={() => { toggleLanguage(); setMoreOpen(false); }} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06] sm:hidden">
+                  <Languages size={17} />
+                  {language === 'zh' ? 'English' : '中文'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
     </div>
   );
