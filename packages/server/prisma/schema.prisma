@@ -31,6 +31,7 @@ model User {
   notificationStates       NotificationState[]
   notificationChannels     NotificationChannel[]
   mobileDevices            MobileDevice[]
+  mobileEvents             MobileEvent[]
   auditLogs                AuditLog[]
   mobileBookmarkRequests   MobileBookmarkRequest[]
   noStarAccount            NoStarAccount?
@@ -136,10 +137,63 @@ model MobileDevice {
   lastRegisteredAt       DateTime     @default(now())
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
+  pushAttempts           MobilePushAttempt[]
 
   @@unique([provider, registrationHash])
   @@unique([userId, installationId])
   @@index([sessionId])
+}
+
+/// A pushable event for one user. (userId, source, eventId) is the source's stable identity, so
+/// discovering or relaying the same event again never creates a second set of pushes.
+model MobileEvent {
+  id         Int                 @id @default(autoincrement())
+  userId     Int
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source     String
+  eventId    String
+  severity   String
+  /// Shown only to the signed-in owner on the landing page; never sent to the push vendor.
+  title      String              @default("")
+  targetPath String
+  occurredAt DateTime
+  expiresAt  DateTime
+  createdAt  DateTime            @default(now())
+  attempts   MobilePushAttempt[]
+
+  @@unique([userId, source, eventId])
+  @@index([userId, eventId])
+  @@index([expiresAt])
+}
+
+/// Durable outbox row: one push of one event to one device. Workers lease rows with
+/// FOR UPDATE SKIP LOCKED, call the vendor outside the transaction and finish the row only while
+/// they still hold the lease (leaseToken).
+model MobilePushAttempt {
+  id                String       @id @default(uuid())
+  eventRowId        Int
+  event             MobileEvent  @relation(fields: [eventRowId], references: [id], onDelete: Cascade)
+  deviceId          String
+  device            MobileDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  userId            Int
+  /// pending | sending | accepted | failed | canceled | expired. "accepted" means the vendor took it,
+  /// not that the phone showed it.
+  status            String       @default("pending")
+  attempts          Int          @default(0)
+  nextAttemptAt     DateTime     @default(now())
+  leaseUntil        DateTime?
+  leaseToken        String?
+  providerMessageId String?
+  errorCode         String?
+  acceptedAt        DateTime?
+  openedAt          DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([eventRowId, deviceId])
+  @@index([status, nextAttemptAt])
+  @@index([deviceId, status])
+  @@index([userId, updatedAt])
 }
 
 model PasskeyCredential {

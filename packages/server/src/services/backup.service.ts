@@ -15,6 +15,12 @@ export const DISABLE_RESTORED_MOBILE_DEVICES_SQL = `DO $$ BEGIN
   IF to_regclass('public."MobileDevice"') IS NOT NULL THEN
     UPDATE "MobileDevice" SET "enabled" = false, "disabledReason" = 'restored', "updatedAt" = CURRENT_TIMESTAMP WHERE "enabled" = true;
   END IF;
+  IF to_regclass('public."MobilePushAttempt"') IS NOT NULL THEN
+    UPDATE "MobilePushAttempt" SET "status" = 'canceled', "errorCode" = 'restored', "leaseToken" = NULL, "leaseUntil" = NULL, "updatedAt" = CURRENT_TIMESTAMP WHERE "status" IN ('pending', 'sending');
+  END IF;
+  IF to_regclass('public."MobileEvent"') IS NOT NULL THEN
+    UPDATE "MobileEvent" SET "expiresAt" = LEAST("expiresAt", CURRENT_TIMESTAMP);
+  END IF;
 END $$;`;
 
 export interface BackupComponentRecord {

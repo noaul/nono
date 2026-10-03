@@ -8,6 +8,7 @@ import { createPrismaClient } from '../../packages/server/src/services/prisma-cl
 import { createPrismaRepository } from '../../packages/server/src/services/prisma.repository.ts';
 import { createPrismaMobileStore } from '../../packages/server/src/services/mobile-store.prisma.ts';
 import { createMobileDeviceService } from '../../packages/server/src/services/mobile-devices.service.ts';
+import { createMobilePushOutbox } from '../../packages/server/src/services/mobile-push-outbox.service.ts';
 import { DISABLE_RESTORED_MOBILE_DEVICES_SQL } from '../../packages/server/src/services/backup.service.ts';
 
 const integrationKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -172,11 +173,35 @@ try {
     await devices.register(owner.id, again.id, input);
     assert.equal((await devices.getEligibleDevices(owner.id, new Date())).length, 1);
     assert.deepEqual(await devices.getEligibleDevices(owner.id, new Date(expiresAt.getTime() + 1)), [], 'an expired session is not eligible');
+    const pendingEvent = (await store.upsertEvent({ userId: owner.id, source: 'links', eventId: 'restore-event', severity: 'warning', title: 'Restored', targetPath: '/admin/links', occurredAt: new Date(), expiresAt })).event;
+    await store.createAttempts(pendingEvent, [bound.deviceId], new Date());
     await prisma.$executeRawUnsafe(DISABLE_RESTORED_MOBILE_DEVICES_SQL);
+    assert.equal((await store.findAttempt(pendingEvent.id, bound.deviceId))?.status, 'canceled', 'restoring cancels stale outbox work');
     assert.equal((await prisma.mobileDevice.findUniqueOrThrow({ where: { id: bound.deviceId } })).disabledReason, 'restored');
     assert.deepEqual(await devices.getEligibleDevices(owner.id, new Date()), [], 'restored devices come back disabled');
     await devices.register(owner.id, again.id, input);
     assert.equal((await devices.getEligibleDevices(owner.id, new Date())).length, 1, 're-registering re-enables a restored device');
+
+    assert.equal((await store.findAttempt(pendingEvent.id, bound.deviceId))?.status, 'canceled', 'rebind cannot revive restored queue');
+    let sends = 0;
+    const outbox = createMobilePushOutbox({ store, devices, provider: { name: 'fake', async send() { sends++; await new Promise(resolve => setTimeout(resolve, 20)); return { status: 'accepted', providerMessageId: 'integration' }; } } });
+    const event = { userId: owner.id, source: 'links' as const, eventId: 'concurrent-event', severity: 'warning' as const, targetPath: '/admin/links', occurredAt: new Date(), expiresAt };
+    await Promise.all(Array.from({ length: 8 }, () => outbox.enqueue(event)));
+    assert.equal(await prisma.mobileEvent.count({ where: { eventId: event.eventId } }), 1);
+    assert.equal(await prisma.mobilePushAttempt.count({ where: { event: { eventId: event.eventId } } }), 1);
+    await Promise.all(Array.from({ length: 4 }, () => outbox.runBatch()));
+    assert.equal(sends, 1, 'SKIP LOCKED must prevent concurrent duplicate sends');
+    const leaseEvent = (await store.upsertEvent({ ...event, eventId: 'lease-event', title: '' })).event;
+    await store.createAttempts(leaseEvent, [bound.deviceId], new Date());
+    const leaseTime = new Date();
+    const [first] = await store.leaseAttempts(leaseTime, 1, new Date(leaseTime.getTime() + 1000), 'old-owner');
+    assert.equal(await store.finishAttempt(first.attempt.id, 'old-owner', { status: 'accepted', providerMessageId: 'late' }, new Date(leaseTime.getTime() + 1001)), false, 'expired lease rejects an outcome before reclamation');
+    const [second] = await store.leaseAttempts(new Date(leaseTime.getTime() + 1001), 1, new Date(leaseTime.getTime() + 2000), 'new-owner');
+    assert.equal(second.attempt.id, first.attempt.id);
+    assert.equal(second.attempt.attempts, 2);
+    assert.equal(await store.finishAttempt(first.attempt.id, 'old-owner', { status: 'accepted', providerMessageId: 'stale' }, new Date()), false);
+    assert.equal(await store.finishAttempt(first.attempt.id, 'new-owner', { status: 'accepted', providerMessageId: 'current' }, new Date()), true);
+    console.log('PASS PostgreSQL concurrent enqueue, SKIP LOCKED send, lease recovery, stale owner rejection and restored queue cancellation');
 
     await prisma.user.delete({ where: { id: owner.id } });
     assert.equal(await prisma.mobileDevice.count({ where: { userId: owner.id } }), 0);
