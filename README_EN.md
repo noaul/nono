@@ -28,7 +28,7 @@ Current navigation:
 - **NoDesk settings** contains account module backups, local downloads, WebDAV, and scheduled backups.
 - **Appearance** includes Chinese/English, light/dark mode, and a reduced set of layout, typography, background, and scene controls. Same-origin apps share some browser preferences.
 
-Separate user, LLM, Token, and folder screens have been consolidated. Music cards and clipping are retired. There is no self-registration page; when an administrator enables registration, the API still creates regular users. Every app signs in through NoNo: one sign-in opens NoMoney, Yumi, NoStar and the admin area; signed-out visits redirect to `/login`, and logging out of NoNo logs out everywhere. NoMoney and Yumi are limited to NoNo administrators; NoStar connects GitHub after NoNo sign-in. The NoNo navigation page and NoDesk blog stay public.
+Separate user, LLM, Token, and folder screens have been consolidated. Music cards and clipping are retired. There is no self-registration page; when an administrator enables registration, the API still creates regular users. Every app signs in through NoNo: one sign-in opens NoMoney, Yumi, NoStar and the admin area; signed-out visits redirect to `/login`, and logging out of NoNo logs out everywhere. NoMoney and Yumi are limited to NoNo administrators; NoStar connects GitHub after NoNo sign-in. The NoNo navigation page and NoDesk workbench stay public.
 
 ## Quick start
 
@@ -51,10 +51,12 @@ Replace every `replace-with-*` value in `.env`. Generate independent secrets, fo
 | `NOMONEY_INTERNAL_TOKEN` | Independent token for protected internal calls |
 | `NOMONEY_ENCRYPTION_KEY`, `YUMI_ENCRYPTION_KEY` | Separate 64-character hexadecimal encryption keys recommended |
 | `NONO_PUBLIC_URL` | Actual browser-facing NoNo URL |
-| `BLOG_PUBLIC_URL` | Same-origin NoDesk URL, usually `https://example.com/nodesk` |
+| `NODESK_PUBLIC_URL` | Same-origin NoDesk URL, usually `https://example.com/nodesk` |
 | `PORT` | Compose binding, default `127.0.0.1:3000` |
 
-For a local HTTP trial, use `NONO_PUBLIC_URL=http://localhost:3000`, `BLOG_PUBLIC_URL=http://localhost:3000/nodesk`. Production should use HTTPS.
+For a local HTTP trial, use `NONO_PUBLIC_URL=http://localhost:3000`, `NODESK_PUBLIC_URL=http://localhost:3000/nodesk`. Production should use HTTPS.
+
+When upgrading, rename `BLOG_PUBLIC_URL` and `BLOG_NAVIGATION_URL` in the deployment environment to `NODESK_PUBLIC_URL` and `NODESK_NAVIGATION_URL`, keeping their values. Source and runtime paths are now `apps/nodesk` and `/app/nodesk`. Articles, writing, RSS, and `/blog` redirects are retired. Existing friend content is copied to its new paths; historical articles remain in the data volume.
 
 ```bash
 docker compose up -d --build
@@ -147,7 +149,7 @@ See [Full backup and restore](docs/deployment/full-backup-restore.md), [NoMoney 
 
 ## Development and verification
 
-Install Node.js 24.15+, npm, PostgreSQL, and the pnpm version declared in `apps/blog/package.json`. Root npm workspaces contain only `packages/*`; each `apps/*` project has its own lockfile.
+Install Node.js 24.15+, npm, PostgreSQL, and the pnpm version declared in `apps/nodesk/package.json`. Root npm workspaces contain only `packages/*`; each `apps/*` project has its own lockfile.
 
 ```bash
 npm run install:all
@@ -169,7 +171,7 @@ In another terminal, run `npm run dev:web` and open `http://localhost:5173`. Vit
 | Command | Purpose |
 | --- | --- |
 | `npm test` | NoNo server, web and extension tests |
-| `npm run test:blog` | NoDesk tests |
+| `npm run test:nodesk` | NoDesk tests |
 | `npm run test:nomoney` | NoMoney/Yumi frontend and backend tests |
 | `npm run test:nostar` | NoStar tests |
 | `npm run test:gateway` | Gateway, deployment, backup and restore contracts |
@@ -228,7 +230,7 @@ Gateway variables:
 packages/server    NoNo/NoStar API, Prisma, authentication, backups, jobs
 packages/web       NoNo Vue frontend
 packages/extension Chrome extension
-apps/blog          NoDesk Next.js content site
+apps/nodesk          NoDesk Next.js content site
 apps/nomoney       NoMoney/Yumi Express + React
 apps/nostar        NoStar React frontend
 docker             Gateway and container entry

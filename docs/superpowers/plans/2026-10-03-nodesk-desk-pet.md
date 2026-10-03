@@ -23,27 +23,27 @@
 - 层级：z-index 32，高于 dock（30）和面板（25），低于搜索遮罩（80）和设置中心（90）。设计稿写的是 28，但那样会低于 dock，所以以本计划为准。
 - 视口左右边只做反弹，不能攀爬：攀爬视口边缘没有终点。这一点修正了设计稿。
 - 顶栏本身没有可见背景，不作为地形，改为标记搜索框 `.ambient-command-trigger`。时钟地形标记的是 `.ambient-time` 数字块。
-- 在 `apps/blog` 下用 `npm test`、`npm run typecheck` 和 `node node_modules/next/dist/bin/next build` 验证（容器里没有 pnpm）。
+- 在 `apps/nodesk` 下用 `npm test`、`npm run typecheck` 和 `node node_modules/next/dist/bin/next build` 验证（容器里没有 pnpm）。
 - 提交时使用 `git -c user.name=noaul -c user.email=aosinap@gmail.com commit`，提交到 main，用户要求后再推送。
 
 ## File Structure
 
-- Create `apps/blog/src/app/(home)/desk-pet/desk-pet-model.ts`：类型、地形、物理与行为、外部动作（拖拽、点击）、说话选择。
-- Create `apps/blog/tests/desk-pet.test.mts`：模型单测和源码契约测试。
-- Create `apps/blog/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：SVG 角色。
-- Create `apps/blog/src/app/(home)/desk-pet/desk-pet.tsx`：rAF 循环、地形读取、指针、气泡和联动。
-- Create `apps/blog/src/styles/desk-pet.css`：图层、姿态动画、配色、气泡和 reduced motion。
-- Modify `apps/blog/src/styles/globals.css`：引入 `desk-pet.css`。
-- Modify `apps/blog/src/app/(home)/ambient-workbench.tsx`：添加地形标记、开关状态和渲染 `<DeskPet>`。
-- Modify `apps/blog/src/app/(home)/ambient-settings-center.tsx`：添加宠物开关。
+- Create `apps/nodesk/src/app/(home)/desk-pet/desk-pet-model.ts`：类型、地形、物理与行为、外部动作（拖拽、点击）、说话选择。
+- Create `apps/nodesk/tests/desk-pet.test.mts`：模型单测和源码契约测试。
+- Create `apps/nodesk/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：SVG 角色。
+- Create `apps/nodesk/src/app/(home)/desk-pet/desk-pet.tsx`：rAF 循环、地形读取、指针、气泡和联动。
+- Create `apps/nodesk/src/styles/desk-pet.css`：图层、姿态动画、配色、气泡和 reduced motion。
+- Modify `apps/nodesk/src/styles/globals.css`：引入 `desk-pet.css`。
+- Modify `apps/nodesk/src/app/(home)/ambient-workbench.tsx`：添加地形标记、开关状态和渲染 `<DeskPet>`。
+- Modify `apps/nodesk/src/app/(home)/ambient-settings-center.tsx`：添加宠物开关。
 
 ---
 
 ### Task 1: 宠物模型（地形、物理、行为、说话）
 
 **Files:**
-- Create: `apps/blog/src/app/(home)/desk-pet/desk-pet-model.ts`
-- Test: `apps/blog/tests/desk-pet.test.mts`
+- Create: `apps/nodesk/src/app/(home)/desk-pet/desk-pet-model.ts`
+- Test: `apps/nodesk/tests/desk-pet.test.mts`
 
 **Interfaces:**
 - Produces（Task 2 使用）：
@@ -56,7 +56,7 @@
   - `surfaceRotation(surface): number`
   - `chooseSpeech(context, rng): Speech | null`
 
-- [ ] **Step 1: 写失败测试** `apps/blog/tests/desk-pet.test.mts`
+- [ ] **Step 1: 写失败测试** `apps/nodesk/tests/desk-pet.test.mts`
 
 ```ts
 import assert from 'node:assert/strict'
@@ -253,10 +253,10 @@ test('wires the pet into the workbench and the settings center', async () => {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cd apps/blog && npm test -- 2>&1 | tail -20`（`npm test` 会运行 `tests/*.test.mts`）
+Run: `cd apps/nodesk && npm test -- 2>&1 | tail -20`（`npm test` 会运行 `tests/*.test.mts`）
 Expected: `desk-pet.test.mts` 因 `Cannot find module .../desk-pet-model.ts` 失败。
 
-- [ ] **Step 3: 实现模型** `apps/blog/src/app/(home)/desk-pet/desk-pet-model.ts`
+- [ ] **Step 3: 实现模型** `apps/nodesk/src/app/(home)/desk-pet/desk-pet-model.ts`
 
 ```ts
 /**
@@ -781,13 +781,13 @@ export function chooseSpeech(context: SpeechContext, rng: Rng): Speech | null {
 
 - [ ] **Step 4: 运行模型测试确认通过**
 
-Run: `cd apps/blog && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/desk-pet.test.mts`
+Run: `cd apps/nodesk && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/desk-pet.test.mts`
 Expected: 只有最后一条契约测试（`wires the pet into the workbench...`）失败，其余都通过。契约测试要到 Task 3 才会通过。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/blog/src/app/\(home\)/desk-pet/desk-pet-model.ts apps/blog/tests/desk-pet.test.mts
+git add apps/nodesk/src/app/\(home\)/desk-pet/desk-pet-model.ts apps/nodesk/tests/desk-pet.test.mts
 git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): desk pet terrain, physics and behaviour model"
 ```
 
@@ -796,10 +796,10 @@ git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): 
 ### Task 2: SVG 角色、样式和客户端组件
 
 **Files:**
-- Create: `apps/blog/src/app/(home)/desk-pet/desk-pet-sprite.tsx`
-- Create: `apps/blog/src/app/(home)/desk-pet/desk-pet.tsx`
-- Create: `apps/blog/src/styles/desk-pet.css`
-- Modify: `apps/blog/src/styles/globals.css`（在 `@import './ambient-workbench.css';` 之后添加 `@import './desk-pet.css';`）
+- Create: `apps/nodesk/src/app/(home)/desk-pet/desk-pet-sprite.tsx`
+- Create: `apps/nodesk/src/app/(home)/desk-pet/desk-pet.tsx`
+- Create: `apps/nodesk/src/styles/desk-pet.css`
+- Modify: `apps/nodesk/src/styles/globals.css`（在 `@import './ambient-workbench.css';` 之后添加 `@import './desk-pet.css';`）
 
 **Interfaces:**
 - Consumes：Task 1 的全部导出。
@@ -1104,7 +1104,7 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 }
 ```
 
-- [ ] **Step 3: 写样式** `apps/blog/src/styles/desk-pet.css`
+- [ ] **Step 3: 写样式** `apps/nodesk/src/styles/desk-pet.css`
 
 ```css
 .desk-pet-layer {
@@ -1406,13 +1406,13 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 
 - [ ] **Step 5: 类型检查**
 
-Run: `cd apps/blog && npm run typecheck`
+Run: `cd apps/nodesk && npm run typecheck`
 Expected: 无错误。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add apps/blog/src/app/\(home\)/desk-pet apps/blog/src/styles/desk-pet.css apps/blog/src/styles/globals.css
+git add apps/nodesk/src/app/\(home\)/desk-pet apps/nodesk/src/styles/desk-pet.css apps/nodesk/src/styles/globals.css
 git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): desk pet sprite, styles and animation loop"
 ```
 
@@ -1421,8 +1421,8 @@ git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): 
 ### Task 3: 接入工作台和设置中心
 
 **Files:**
-- Modify: `apps/blog/src/app/(home)/ambient-workbench.tsx`
-- Modify: `apps/blog/src/app/(home)/ambient-settings-center.tsx`
+- Modify: `apps/nodesk/src/app/(home)/ambient-workbench.tsx`
+- Modify: `apps/nodesk/src/app/(home)/ambient-settings-center.tsx`
 
 **Interfaces:**
 - Consumes：Task 2 的 `DeskPet` props。
@@ -1486,18 +1486,18 @@ git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): 
 
 - [ ] **Step 3: 运行全部测试和类型检查**
 
-Run: `cd apps/blog && npm test && npm run typecheck`
+Run: `cd apps/nodesk && npm test && npm run typecheck`
 Expected: 全部通过，包括 `desk-pet.test.mts` 的契约测试。
 
 - [ ] **Step 4: 构建**
 
-Run: `cd apps/blog && node node_modules/next/dist/bin/next build`
+Run: `cd apps/nodesk && node node_modules/next/dist/bin/next build`
 Expected: 构建成功。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/blog/src/app/\(home\)/ambient-workbench.tsx apps/blog/src/app/\(home\)/ambient-settings-center.tsx
+git add apps/nodesk/src/app/\(home\)/ambient-workbench.tsx apps/nodesk/src/app/\(home\)/ambient-settings-center.tsx
 git -c user.name=noaul -c user.email=aosinap@gmail.com commit -m "feat(nodesk): put the desk pet on the ambient workbench"
 ```
 

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BackupOperationGate, createBackupJobService } from '../src/services/backup-jobs.service.js';
-import { runBackupJob } from '../../../apps/blog/src/app/(home)/backup-job-client';
+import { runBackupJob } from '../../../apps/nodesk/src/app/(home)/backup-job-client';
 
 const directories: string[] = [];
 async function directory() { const path = await mkdtemp(join(tmpdir(), 'nono-jobs-test-')); directories.push(path); return path; }

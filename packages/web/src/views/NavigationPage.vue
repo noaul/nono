@@ -168,7 +168,7 @@ const {
 watch(() => payload.value?.site.settings, (settings) => {
   setSiteDefaultLocale(getSiteDefaultLocale(settings));
 }, { immediate: true });
-const portal = computed(() => getPortalSettings(payload.value?.site.settings, import.meta.env.VITE_BLOG_URL));
+const portal = computed(() => getPortalSettings(payload.value?.site.settings, import.meta.env.VITE_NODESK_URL));
 const portalHref = computed(() => (portal.value.enabled ? portal.value.url : ''));
 const portalTarget = computed(() => (portal.value.openInNewTab ? '_blank' : undefined));
 const portalRel = computed(() => (portal.value.openInNewTab ? 'noreferrer' : undefined));

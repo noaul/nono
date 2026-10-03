@@ -28,10 +28,10 @@
 
 - Modify `desk-pet-model.ts`：加入上面列的所有模型能力。
 - Modify `desk-pet-social.ts`：不需要改。`isFree` 只认 idle、walk、run，所以 dizzy、ouch、peek 状态的宠物自然不会被社交逻辑选中。
-- Rewrite `desk-pet-sprite.tsx`、`desk-pet.tsx`、`apps/blog/src/styles/desk-pet.css`。
+- Rewrite `desk-pet-sprite.tsx`、`desk-pet.tsx`、`apps/nodesk/src/styles/desk-pet.css`。
 - Tests：
-  - `apps/blog/tests/desk-pet.test.mts`：新增用例，并更新 `world()`、`awake` 和抛掷相关的断言。
-  - `apps/blog/tests/desk-pet-social.test.mts`：测试用的 terrain 和 input 补上新增字段。
+  - `apps/nodesk/tests/desk-pet.test.mts`：新增用例，并更新 `world()`、`awake` 和抛掷相关的断言。
+  - `apps/nodesk/tests/desk-pet-social.test.mts`：测试用的 terrain 和 input 补上新增字段。
 
 ---
 

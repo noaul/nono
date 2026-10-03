@@ -1,0 +1,86 @@
+import { toBase64Utf8, getRef, createTree, createCommit, updateRef, createBlob, type TreeItem } from '@/lib/github-client'
+import { fileToBase64NoPrefix, hashFileSHA256 } from '@/lib/file-utils'
+import { getAuthToken } from '@/lib/auth'
+import { GITHUB_CONFIG } from '@/consts'
+import type { Friend } from '../grid-view'
+import type { AvatarItem } from '../components/avatar-upload-dialog'
+import { getFileExt } from '@/lib/utils'
+import { toast } from 'sonner'
+import { localeCopy as copy } from '@/i18n/language'
+
+export type PushFriendsParams = {
+	friends: Friend[]
+	avatarItems?: Map<string, AvatarItem>
+}
+
+export async function pushFriends(params: PushFriendsParams): Promise<void> {
+	const { friends, avatarItems } = params
+
+	// 获取认证 token（自动从全局认证状态获取）
+	const token = await getAuthToken()
+
+	toast.info(copy('正在获取分支信息...', 'Fetching branch info…'))
+	const refData = await getRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, `heads/${GITHUB_CONFIG.BRANCH}`)
+	const latestCommitSha = refData.sha
+
+	const commitMessage = `更新朋友列表`
+
+	toast.info(copy('正在准备文件...', 'Preparing files…'))
+
+	const treeItems: TreeItem[] = []
+	const uploadedHashes = new Set<string>()
+	let updatedFriends = [...friends]
+
+	// Process avatar uploads
+	if (avatarItems && avatarItems.size > 0) {
+		toast.info(copy('正在上传头像...', 'Uploading avatar…'))
+		for (const [url, avatarItem] of avatarItems.entries()) {
+			if (avatarItem.type === 'file') {
+				const hash = avatarItem.hash || (await hashFileSHA256(avatarItem.file))
+				const ext = getFileExt(avatarItem.file.name)
+				const filename = `${hash}${ext}`
+				const publicPath = `/images/friends/${filename}`
+
+				if (!uploadedHashes.has(hash)) {
+					const path = `public/images/friends/${filename}`
+					const contentBase64 = await fileToBase64NoPrefix(avatarItem.file)
+					const blobData = await createBlob(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, contentBase64, 'base64')
+					treeItems.push({
+						path,
+						mode: '100644',
+						type: 'blob',
+						sha: blobData.sha
+					})
+					uploadedHashes.add(hash)
+				}
+
+				// Update friend avatar URL
+				updatedFriends = updatedFriends.map(b => (b.url === url ? { ...b, avatar: publicPath } : b))
+			}
+		}
+	}
+
+	// Create blob for friends list.json
+	const friendsJson = JSON.stringify(updatedFriends, null, '\t')
+	const friendsBlob = await createBlob(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, toBase64Utf8(friendsJson), 'base64')
+	treeItems.push({
+		path: 'src/app/friends/list.json',
+		mode: '100644',
+		type: 'blob',
+		sha: friendsBlob.sha
+	})
+
+	// Create tree
+	toast.info(copy('正在创建文件树...', 'Creating file tree…'))
+	const treeData = await createTree(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, treeItems, latestCommitSha)
+
+	// Create commit
+	toast.info(copy('正在创建提交...', 'Creating commit…'))
+	const commitData = await createCommit(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, commitMessage, treeData.sha, [latestCommitSha])
+
+	// Update branch reference
+	toast.info(copy('正在更新分支...', 'Updating branch…'))
+	await updateRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, `heads/${GITHUB_CONFIG.BRANCH}`, commitData.sha)
+
+	toast.success(copy('发布成功！', 'Published'))
+}

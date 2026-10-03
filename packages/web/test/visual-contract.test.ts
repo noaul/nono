@@ -691,8 +691,8 @@ describe('visual contracts', () => {
     const navigation = readNavigationPageSource();
     const adminLayout = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AdminLayout.vue'), 'utf8');
     const tokens = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
-    const blogLayout = fs.readFileSync(path.join(root, 'apps/blog/src/app/layout.tsx'), 'utf8');
-    const blogTheme = fs.readFileSync(path.join(root, 'apps/blog/src/styles/theme.css'), 'utf8');
+    const blogLayout = fs.readFileSync(path.join(root, 'apps/nodesk/src/app/layout.tsx'), 'utf8');
+    const blogTheme = fs.readFileSync(path.join(root, 'apps/nodesk/src/styles/theme.css'), 'utf8');
 
     expect(navigation).not.toContain('<ColorModeControl');
     expect(navigation).not.toContain('<LanguageControl');

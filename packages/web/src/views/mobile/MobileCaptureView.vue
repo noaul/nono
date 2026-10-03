@@ -7,6 +7,7 @@ import { ApiError, apiRequest, jsonBody } from '@/api/client';
 import type { Folder, Link } from '@/api/types';
 import { useI18n } from '@/composables/useI18n';
 import { normalizeCaptureUrl, notifyCaptureSaved, subscribeCapture, type PendingCapture } from '@/mobile/capture';
+import { dismissPendingCapture, requestPendingCapture } from '@/mobile/shell';
 
 const LAST_FOLDER_KEY = 'nono:mobile-capture-folder';
 
@@ -61,6 +62,7 @@ onMounted(() => {
     }
     if (next.requestId !== capture.value?.requestId) startEditing(next);
   });
+  requestPendingCapture();
 });
 onBeforeUnmount(() => unsubscribe?.());
 
@@ -94,24 +96,27 @@ function writeStorage(key: string, value: string) {
 
 async function save() {
   if (!capture.value || !canSave.value) return;
+  const savingRequestId = capture.value.requestId;
   saveState.value = 'saving';
   saveError.value = '';
   try {
     const link = await apiRequest<Link>('/api/mobile/bookmarks', {
       method: 'POST',
       body: jsonBody({
-        requestId: capture.value.requestId,
+        requestId: savingRequestId,
         folderId: form.folderId,
         name: form.name.trim(),
         url: form.url.trim(),
         description: form.description.trim(),
       }),
     });
+    notifyCaptureSaved(savingRequestId);
+    if (capture.value?.requestId !== savingRequestId) return;
     saved.value = link;
     saveState.value = 'saved';
     writeStorage(LAST_FOLDER_KEY, String(form.folderId));
-    notifyCaptureSaved(capture.value.requestId);
   } catch (event) {
+    if (capture.value?.requestId !== savingRequestId) return;
     saveError.value = saveErrorMessage(event);
     saveState.value = 'error';
   }
@@ -206,6 +211,7 @@ function saveErrorMessage(event: unknown) {
       </div>
 
       <div class="mobile-capture-actions">
+        <button class="button secondary" type="button" data-testid="capture-dismiss" :disabled="saveState === 'saving'" @click="dismissPendingCapture(capture.requestId)">{{ t('common.cancel') }}</button>
         <button class="button" type="submit" data-testid="capture-save" :disabled="!canSave">
           {{ saveState === 'saving' ? t('common.saving') : saveState === 'error' ? t('mobileCapture.retrySave') : t('common.save') }}
         </button>
@@ -225,7 +231,7 @@ function saveErrorMessage(event: unknown) {
 .mobile-capture-hint { color: var(--ui-danger); font-size: 12px; }
 .mobile-capture-optional { color: var(--ui-text-subtle); font-weight: 400; }
 .mobile-capture-retry { display: grid; gap: var(--ui-space-2); justify-items: start; }
-.mobile-capture-actions { display: flex; justify-content: flex-end; }
+.mobile-capture-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .mobile-capture-actions .button { min-width: 120px; }
 .mobile-capture-summary { display: grid; font-size: 13px; gap: 4px 12px; grid-template-columns: max-content minmax(0, 1fr); margin: 0; }
 .mobile-capture-summary dt { color: var(--ui-text-muted); }

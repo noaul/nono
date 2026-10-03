@@ -165,7 +165,7 @@ The live API briefly returned rate-limited admin data after reorder saves. The a
 | `npm run test -w packages/server -- -t sorting` | 3 passed, 15 skipped | 2.699 s |
 | `npm test` | 15 files, 74 tests passed | 22.162 s |
 | `npm run build` | server, web, and extension built | 16.900 s |
-| `pnpm --dir apps/blog check` | 16 tests, typecheck, and Next build passed | 56.213 s |
+| `pnpm --dir apps/nodesk check` | 16 tests, typecheck, and Next build passed | 56.213 s |
 | `npm audit --json` | failed: 1 high and 1 low vulnerability | 4.771 s |
 
 The audit findings are pre-existing development-tool advisories: Vite `7.3.3` is affected by Windows path/UNC handling advisories, and its esbuild dependency is affected by a low-severity Windows development-server advisory. Dependency upgrades are outside this baseline-only change.

@@ -34,7 +34,7 @@ onMounted(async () => {
   try {
     const site = await apiRequest<Site>('/api/admin/site');
     Object.assign(form, site, { settings: { ...(site.settings || {}) } });
-    Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_BLOG_URL));
+    Object.assign(portal, getPortalSettings(site.settings, import.meta.env.VITE_NODESK_URL));
     const savedSearchEngines = getSearchEngineSettings(site.settings, site.searchUrlTemplate);
     searchEngines.defaultId = savedSearchEngines.defaultId;
     searchEngines.items = savedSearchEngines.items.map((item) => ({
@@ -227,7 +227,7 @@ function setDefaultSearchEngine(id: string) {
             </div>
             <div class="field">
               <label>{{ t('site.portalUrl') }}</label>
-              <input v-model="portal.url" data-testid="portal-url" type="url" placeholder="https://blog.example.com" />
+              <input v-model="portal.url" data-testid="portal-url" type="url" placeholder="https://example.com/nodesk" />
             </div>
             <div class="field wide">
               <label>{{ t('site.portalImage') }}</label>

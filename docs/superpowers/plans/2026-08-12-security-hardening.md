@@ -13,11 +13,11 @@
 ### Task 1: Sanitize Nodesk Markdown
 
 **Files:**
-- Modify: `apps/blog/src/lib/markdown-renderer.ts`
-- Modify: `apps/blog/src/hooks/use-markdown-render.tsx`
-- Modify: `apps/blog/next.config.ts`
-- Modify: `apps/blog/package.json`
-- Test: `apps/blog/tests/markdown-security.test.mts`
+- Modify: `apps/nodesk/src/lib/markdown-renderer.ts`
+- Modify: `apps/nodesk/src/hooks/use-markdown-render.tsx`
+- Modify: `apps/nodesk/next.config.ts`
+- Modify: `apps/nodesk/package.json`
+- Test: `apps/nodesk/tests/markdown-security.test.mts`
 
 - [x] Add failing tests proving raw frames, active elements, event attributes, and unsafe URL schemes are removed before React parsing.
 - [x] Add a maintained HTML sanitizer with an explicit Markdown allowlist and sanitize the final rendered HTML.

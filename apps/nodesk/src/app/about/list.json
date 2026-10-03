@@ -1,0 +1,5 @@
+{
+	"title": "关于 NoDesk",
+	"description": "自托管的个人桌面与实用工具",
+	"content": "NoDesk 是 NoNo 的个人桌面，提供日程、任务、桌宠和常用工具。\n\n项目、图片、朋友、分享和片段可以通过 NoNo 管理员账户编辑，内容保存在自己的服务器。\n\n## 技术栈\n\n- Next.js\n- React\n- TypeScript\n- Tailwind CSS\n- Motion"
+}

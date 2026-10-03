@@ -35,8 +35,8 @@ services:
     build:
       context: .
       args:
-        VITE_BLOG_URL: ${BLOG_NAVIGATION_URL:-/nodesk}
-        NEXT_PUBLIC_SITE_URL: ${BLOG_PUBLIC_URL:-http://localhost:3000/nodesk}
+        VITE_NODESK_URL: ${NODESK_NAVIGATION_URL:-/nodesk}
+        NEXT_PUBLIC_SITE_URL: ${NODESK_PUBLIC_URL:-http://localhost:3000/nodesk}
         NEXT_PUBLIC_NONO_URL: ${NONO_NAVIGATION_URL:-/}
         NEXT_PUBLIC_BASE_PATH: /nodesk
     container_name: nono

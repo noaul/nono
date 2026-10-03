@@ -59,4 +59,15 @@ describe('mobile bridge (page side)', () => {
     expect(parseFromApp(JSON.stringify({ v: 1, requestId: 'a', type: 'shell.exec', payload: {} }))).toBeNull();
     expect(parseFromApp(JSON.stringify({ v: 1, requestId: 'a', type: 'ui.back' }))).toEqual({ v: 1, requestId: 'a', type: 'ui.back', payload: {} });
   });
+
+  it('negotiates capabilities and detaches its listener on disposal', () => {
+    const { port, deliver } = fakePort();
+    const bridge = connectMobileBridge({ port, onBack: () => true })!;
+    expect(bridge.supports('download.request')).toBe(false);
+    deliver({ v: 1, requestId: 'hello-1', type: 'bridge.ready', payload: { version: 1, capabilities: ['download.request', 'ui.back'] } });
+    expect(bridge.supports('download.request')).toBe(true);
+    expect(bridge.supports('missing')).toBe(false);
+    bridge.dispose();
+    expect(bridge.supports('download.request')).toBe(false);
+  });
 });

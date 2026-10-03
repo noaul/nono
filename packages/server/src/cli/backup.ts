@@ -24,7 +24,7 @@ export function parseBackupCliArgs(argv: string[]): BackupCliOptions {
 }
 
 export async function runBackupCli(options: BackupCliOptions) {
-  const nodeskContentDir = process.env.NODESK_CONTENT_DIR || path.resolve(process.cwd(), '../../../apps/blog');
+  const nodeskContentDir = process.env.NODESK_CONTENT_DIR || path.resolve(process.cwd(), '../../../apps/nodesk');
   const service = createBackupServiceFromEnv(nodeskContentDir);
   if (options.command === 'create') {
     const backup = await service.create();

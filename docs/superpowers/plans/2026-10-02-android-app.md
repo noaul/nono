@@ -10,11 +10,20 @@
 
 **Spec:** [Android 设计草案](../specs/2026-10-02-android-app-design.md)。
 
-**进度（2026-10-02）：** v0.1 已在 `apps/android` 实现：单 WebView 外壳、导航边界、返回、系统栏/键盘、错误页、渲染进程重建、文件选择、站内直接下载、分享预填书签页；单元与 Robolectric 测试 13 项通过，签名 release APK 已构建。工具链锁定为 JDK 17、Gradle 8.14.5、AGP 8.13.2、Kotlin 2.2.21、compile/target SDK 36、minSdk 29。尚未在小米真机验证（Task 0），Task 2/3 的消息桥、Task 4 的幂等接口、Task 5～9 未开始。其余新增文件、接口和类型仍为计划内容。
+**进度（2026-10-03，续接实现）：**
 
-**进度（2026-10-03）：**
-- NoDesk 任务/日程已改为经服务器同步（`/api/admin/nodesk/planner`，存于站点设置并随账户备份）。Task 2 的“退出前提示本机任务/日程将被清理”和 Task 5 的本机任务 JSON 导出因此取消；退出只需清理 WebView 会话与待分享内容。
-- 小米开发者账号与真机尚未提供：Task 3～8 中不依赖二者的代码先行实现，小米服务端适配器用测试替身验证；凡需真机或小米控制台的步骤（Task 0、Task 8 真机验证、Task 9 观察）保持未勾选，不以 Redroid 结果代替。
+| 范围 | 当前状态 |
+| --- | --- |
+| Android 外壳、来源校验、网页返回协调 | 已实现；NoNo 与 NoDesk 网页已接消息桥，桌面弹层先关闭 |
+| 分享收藏（Task 4） | 服务端幂等接口、网页编辑页、原生私有暂存/24 小时过期/保存确认已接通；网址不进入页面 query |
+| 文件（Task 5） | SAF 上传/下载，逐跳同源 HTTPS 校验、256 MiB 上限、取消及异常清理；NoDesk 备份使用原生下载，普通浏览器维持原流程 |
+| 会话（Task 2） | 成功注销后清理原生 Cookie、站点存储、待分享及历史；恢复只读 GET 路径，不恢复 POST 表单 |
+| 推送基础设施（Task 6～7） | 设备绑定、会话资格检查、持久化去重/租约/重试及查询接口；没有生产推送适配器，默认关闭，未接入业务事件发现 |
+| 小米 SDK/生产推送（Task 8） | 延后：用户没有开发者账号，无法注册企业开发者；不要求用户提供不可获得的账号。现有 Bark/Telegram 通道继续使用 |
+| 本地 Android 通知 | 不需要企业开发者账号，但尚未实现；与厂商远程推送分开规划，不用后台轮询冒充即时推送 |
+| 真机与发布（Task 0、9） | 尚未在目标澎湃 OS 真机验收，也未完成 48 小时观察；自动测试与 APK 构建不替代真机结果 |
+
+NoDesk 任务/日程已经通过 `/api/admin/nodesk/planner` 同步并随账户备份，因此原计划中的退出前本地任务导出已取消。详细本轮测试记录见 `docs/quality/android`。下方细项保留为完整路线，未勾选项不表示已通过验收。
 
 ## Global Constraints
 
@@ -213,7 +222,7 @@ await expect(page).toHaveURL(/\/nomoney\/dashboard$/);
 
 ## Task 3：返回手势、键盘和页面适配
 
-**Files:** Create `web/BackCoordinator.kt`、`web/NonoMessageBridge.kt`、`packages/web/src/mobile/bridge.ts`、`apps/blog/src/lib/mobile-bridge.ts`、`apps/nomoney/frontend/src/mobile-bridge.ts`、`apps/nostar/src/services/mobileBridge.ts`；Modify `apps/blog/src/app/(home)/ambient-workbench.tsx`、`apps/blog/src/styles/ambient-workbench.css`、`apps/nomoney/frontend/src/App.tsx`、`apps/nomoney/frontend/src/styles.css`、`apps/nostar/src/App.tsx`、必要的现有弹窗组件；Create `tests/e2e/mobile-shell.spec.ts`。各前端适配文件只封装同一协议及自身路由/弹层状态，协议契约集中记录并用同一组输入验证，避免四套不兼容命名。
+**Files:** Create `web/BackCoordinator.kt`、`web/NonoMessageBridge.kt`、`packages/web/src/mobile/bridge.ts`、`apps/nodesk/src/lib/mobile-bridge.ts`、`apps/nomoney/frontend/src/mobile-bridge.ts`、`apps/nostar/src/services/mobileBridge.ts`；Modify `apps/nodesk/src/app/(home)/ambient-workbench.tsx`、`apps/nodesk/src/styles/ambient-workbench.css`、`apps/nomoney/frontend/src/App.tsx`、`apps/nomoney/frontend/src/styles.css`、`apps/nostar/src/App.tsx`、必要的现有弹窗组件；Create `tests/e2e/mobile-shell.spec.ts`。各前端适配文件只封装同一协议及自身路由/弹层状态，协议契约集中记录并用同一组输入验证，避免四套不兼容命名。
 
 **Interfaces:** 消息结构 `{v:1,requestId,type,payload}`；`ui.backState` 的 payload 为 `{canHandle:boolean}`，Android 在手势提交后发送 `ui.back`，页面用相同 requestId 回复 `{handled:boolean}`，处理成功后不再执行 WebView 后退。最大等待 500ms，迟到回复丢弃；超时释放操作状态，该手势不再追加历史回退，避免页面已处理但回复迟到时后退两次。明确回复 `handled:false` 才走一次历史回退。
 
@@ -342,7 +351,7 @@ cd apps/android
 ```bash
 npm run test -w packages/server -- --run test/mobile-devices.test.ts test/mobile-bookmarks.test.ts test/mobile-push-outbox.test.ts test/account-security.test.ts test/notification-dispatch.test.ts
 npm run test -w packages/web -- --run test/mobile-login-return.test.ts
-npm --prefix apps/blog test
+npm --prefix apps/nodesk test
 npm --prefix apps/nomoney test
 npm run test:gateway
 npm run build:all
@@ -381,7 +390,7 @@ Android 设备测试需要任务 0 登记的设备；队列集成测试必须有
 
 ## 6. 后续版本的边界
 
-**v0.3 建议优先做任务/日程跨设备同步。** 增加按用户保存的服务端任务和日程、版本号及删除标记；已有 localStorage 数据经用户预览后一次性导入，不能自动覆盖服务器内容。服务端成为通知日程的唯一数据源后，手机和桌面提醒才可一致。
+**任务/日程跨设备同步已实现。** 后续日程提醒应以服务器数据为准；原生本地通知、推送通道与真机省电行为需要分别验收。
 
 **Passkey、桌面小组件和生物识别锁单独验收。** 生物识别只保护本机界面，不能替代服务器会话；Passkey 必须在目标 ROM/凭据提供器环境验证。小组件展示最少信息，刷新频率接受系统后台调度限制。
 

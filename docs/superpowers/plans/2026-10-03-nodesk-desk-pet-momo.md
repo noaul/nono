@@ -21,22 +21,22 @@
 
 ## File Structure
 
-- Modify `apps/blog/src/app/(home)/desk-pet/desk-pet-model.ts`：加入 Species、头顶平台、路线搜索、restSlot 和导出的指令函数。
-- Create `apps/blog/src/app/(home)/desk-pet/desk-pet-social.ts`：社交协调器。
-- Create `apps/blog/src/app/(home)/desk-pet/desk-pet-prefs.ts`：开关偏好的读取和迁移。
-- Modify `apps/blog/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：加入 Momo 的 SVG，按物种选择角色。
-- Modify `apps/blog/src/app/(home)/desk-pet/desk-pet.tsx`：`DeskPet` 改为 `DeskPets`，驱动多只宠物。
-- Modify `apps/blog/src/styles/desk-pet.css`：物种配色、Momo 的部件和动画。
+- Modify `apps/nodesk/src/app/(home)/desk-pet/desk-pet-model.ts`：加入 Species、头顶平台、路线搜索、restSlot 和导出的指令函数。
+- Create `apps/nodesk/src/app/(home)/desk-pet/desk-pet-social.ts`：社交协调器。
+- Create `apps/nodesk/src/app/(home)/desk-pet/desk-pet-prefs.ts`：开关偏好的读取和迁移。
+- Modify `apps/nodesk/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：加入 Momo 的 SVG，按物种选择角色。
+- Modify `apps/nodesk/src/app/(home)/desk-pet/desk-pet.tsx`：`DeskPet` 改为 `DeskPets`，驱动多只宠物。
+- Modify `apps/nodesk/src/styles/desk-pet.css`：物种配色、Momo 的部件和动画。
 - Modify `ambient-workbench.tsx`、`ambient-settings-center.tsx`：接入两个开关。
 - Tests：
-  - 重写 `apps/blog/tests/desk-pet.test.mts`
-  - 新增 `apps/blog/tests/desk-pet-social.test.mts`
+  - 重写 `apps/nodesk/tests/desk-pet.test.mts`
+  - 新增 `apps/nodesk/tests/desk-pet-social.test.mts`
 
 ---
 
 ### Task 1: 多物种模型、头顶平台与路线
 
-**Files:** Modify `desk-pet-model.ts`; Test `apps/blog/tests/desk-pet.test.mts`
+**Files:** Modify `desk-pet-model.ts`; Test `apps/nodesk/tests/desk-pet.test.mts`
 
 **Interfaces（Produces）：**
 - 类型 `Species`；常量 `NONO`、`MOMO`、`SPECIES`、`PET_PLATFORM_PREFIX`。
@@ -45,7 +45,7 @@
 - `travelToPlatform(s, platform, x, terrain, forceFly?)`，返回 `PetState | null`。
 - `nextHop`、`headPlatform`、`withPeerHeads`、`isPetPlatform`、`setGoal`、`runTo`、`holdStill`、`restX`。
 
-- [ ] **Step 1: 重写测试** `apps/blog/tests/desk-pet.test.mts`
+- [ ] **Step 1: 重写测试** `apps/nodesk/tests/desk-pet.test.mts`
 
 ```ts
 import assert from 'node:assert/strict'
@@ -333,7 +333,7 @@ test('wires both pets into the workbench and the settings center', async () => {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cd apps/blog && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/desk-pet.test.mts`
+Run: `cd apps/nodesk && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/desk-pet.test.mts`
 Expected: 因为 `NONO`、`MOMO`、`headPlatform` 等导出还不存在，模块加载失败。
 
 - [ ] **Step 3: 重写模型** `desk-pet-model.ts`
@@ -1004,14 +1004,14 @@ export function chooseSpeech(context: SpeechContext, rng: Rng): Speech | null {
 
 **Files:**
 - Create `desk-pet-social.ts`、`desk-pet-prefs.ts`
-- Test `apps/blog/tests/desk-pet-social.test.mts`
+- Test `apps/nodesk/tests/desk-pet-social.test.mts`
 
 **Interfaces（Produces）：**
 - `SocialState`、`SocialSpeech`
 - `createSocial(rng)`、`socialStep(pets, social, dt, terrain, input, rng)`、`isFree(pet)`
 - `PetPrefs`、`PET_PREFS_KEY`、`LEGACY_PET_KEY`、`readPetPrefs(stored, legacy)`
 
-- [ ] **Step 1: 写失败测试** `apps/blog/tests/desk-pet-social.test.mts`
+- [ ] **Step 1: 写失败测试** `apps/nodesk/tests/desk-pet-social.test.mts`
 
 ```ts
 import assert from 'node:assert/strict'

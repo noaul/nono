@@ -1,5 +1,5 @@
-const blogPublicPrefixes = ['/blogs/', '/images/', '/live2d/', '/music/'];
-const blogPublicFiles = new Set(['/favicon.png', '/manifest.json']);
+const nodeskPublicPrefixes = ['/images/', '/live2d/', '/music/'];
+const nodeskPublicFiles = new Set(['/favicon.png', '/manifest.json']);
 const versionedAvatarPath = /^\/images\/avatar-[a-f0-9]{64}\.webp$/i;
 
 export function targetFor(url = '/', ports) {
@@ -14,15 +14,15 @@ export function targetFor(url = '/', ports) {
   }
 
   if (url === '/nodesk' || url.startsWith('/nodesk/') || url.startsWith('/nodesk?')) {
-    return { name: 'blog', port: ports.blog, path: url };
+    return { name: 'nodesk', port: ports.nodesk, path: url };
   }
 
   const pathname = url.split('?', 1)[0];
   if (versionedAvatarPath.test(pathname)) {
     return { name: 'nono', port: ports.nono, path: url };
   }
-  if (blogPublicFiles.has(pathname) || blogPublicPrefixes.some(prefix => pathname.startsWith(prefix))) {
-    return { name: 'blog', port: ports.blog, path: `/nodesk${url}` };
+  if (nodeskPublicFiles.has(pathname) || nodeskPublicPrefixes.some(prefix => pathname.startsWith(prefix))) {
+    return { name: 'nodesk', port: ports.nodesk, path: `/nodesk${url}` };
   }
 
   return { name: 'nono', port: ports.nono, path: url };
@@ -62,4 +62,12 @@ function stripMountPath(url, mountPath) {
   if (url.startsWith(`${mountPath}?`)) return `/${url.slice(mountPath.length)}`;
   if (url.startsWith(`${mountPath}/`)) return url.slice(mountPath.length) || '/';
   return null;
+}
+
+export function isRetiredNodeskPath(url = '/') {
+  let pathname;
+  try { pathname = decodeURIComponent(url.split('?', 1)[0]).toLowerCase(); }
+  catch { return false; }
+  return ['/blog', '/blogs', '/nodesk/blog', '/nodesk/blogs', '/nodesk/write', '/nodesk/rss.xml']
+    .some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }

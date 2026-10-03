@@ -4,7 +4,7 @@
 
 ## 目标
 
-在 NoDesk 首页环境桌面（`apps/blog/src/app/(home)/ambient-workbench.tsx`）加一只小团子精灵。它把桌面上的组件当作地形：在顶边上走、跑、跳，沿侧边爬，挂在底边，在组件之间飞；可以被鼠标拖拽和抛出；会跟随桌面状态睡觉、跑到打开的面板上、对新通知做出反应，偶尔冒说话气泡。
+在 NoDesk 首页环境桌面（`apps/nodesk/src/app/(home)/ambient-workbench.tsx`）加一只小团子精灵。它把桌面上的组件当作地形：在顶边上走、跑、跳，沿侧边爬，挂在底边，在组件之间飞；可以被鼠标拖拽和抛出；会跟随桌面状态睡觉、跑到打开的面板上、对新通知做出反应，偶尔冒说话气泡。
 
 不做：多只宠物、换装或换皮肤、服务端存储宠物状态、在 NoDesk 以外的页面出现、Live2D。
 
@@ -118,16 +118,16 @@
 
 ## 文件
 
-- `apps/blog/src/app/(home)/desk-pet/desk-pet-model.ts`：地形提取、物理 `step`、行为决策、`pickSpeech`。纯函数，无 DOM 依赖。
-- `apps/blog/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：SVG 角色（部件和表情）。
-- `apps/blog/src/app/(home)/desk-pet/desk-pet.tsx`：客户端组件，负责 rAF 循环、读取地形、指针拖拽、气泡和状态联动。
-- `apps/blog/src/styles/desk-pet.css`：部件动画、pose 和颜色变量。在 `globals.css` 中引入。
+- `apps/nodesk/src/app/(home)/desk-pet/desk-pet-model.ts`：地形提取、物理 `step`、行为决策、`pickSpeech`。纯函数，无 DOM 依赖。
+- `apps/nodesk/src/app/(home)/desk-pet/desk-pet-sprite.tsx`：SVG 角色（部件和表情）。
+- `apps/nodesk/src/app/(home)/desk-pet/desk-pet.tsx`：客户端组件，负责 rAF 循环、读取地形、指针拖拽、气泡和状态联动。
+- `apps/nodesk/src/styles/desk-pet.css`：部件动画、pose 和颜色变量。在 `globals.css` 中引入。
 - 修改 `ambient-workbench.tsx`：给地形组件加 `data-pet-terrain`，渲染 `<DeskPet>`，读写宠物开关。
 - 修改 `ambient-settings-center.tsx`：新增开关 props 和对应 UI。
 
 ## 测试
 
-- `apps/blog/tests/desk-pet.test.mts`（`node --test`，注入种子随机数）覆盖：
+- `apps/nodesk/tests/desk-pet.test.mts`（`node --test`，注入种子随机数）覆盖：
   - 地形提取：过滤小尺寸和隐藏的组件；平台、墙、底边的划分正确。
   - 物理：从高处下落会落到下方平台的顶边；从下方向上穿过平台不会被挡住；被抛出撞墙会反弹。
   - 跳跃或飞行的选择阈值。
@@ -136,5 +136,5 @@
   - reduced motion 下宠物不移动。
   - `pickSpeech`：专注期间不随机说话；文案长度不超过上限；即将到来事项的文案正确。
 - 源码契约测试：`ambient-settings-center.tsx` 包含宠物开关；`ambient-workbench.tsx` 至少标记了时钟块、面板和 dock 三个地形组件。
-- 在 `apps/blog` 中运行 `npm test`、`npm run typecheck`，再 `next build`。
+- 在 `apps/nodesk` 中运行 `npm test`、`npm run typecheck`，再 `next build`。
 - 本地起服务，用 Playwright 在 1440×900 和 393×851 两种尺寸下截图，并做一次拖拽检查：宠物可见，打开面板后会跑到面板上，拖拽抛出后能落回平台。

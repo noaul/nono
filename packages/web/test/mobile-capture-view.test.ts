@@ -113,6 +113,24 @@ describe('MobileCaptureView', () => {
     expect(wrapper.get('[data-testid="capture-saved"]').text()).toContain('没有重复保存');
   });
 
+  it('does not clear a newer share when the preceding save completes', async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    apiRequest.mockResolvedValueOnce(folders).mockImplementationOnce(() => new Promise(resolve => { resolveSave = resolve; }));
+    const acknowledged = vi.fn();
+    const stop = onCaptureSaved(acknowledged);
+    receiveCapture({ requestId, url: 'https://example.com/first' });
+    const wrapper = await mountView();
+    await wrapper.get('[data-testid="capture-form"]').trigger('submit');
+    receiveCapture({ requestId: 'new-share-request', url: 'https://example.com/second', title: 'Second' });
+    resolveSave({ id: 9, folderId: 2, name: 'First', url: 'https://example.com/first' });
+    await flushPromises();
+    expect(acknowledged).toHaveBeenCalledWith(requestId);
+    expect(acknowledged).not.toHaveBeenCalledWith('new-share-request');
+    expect(wrapper.find('[data-testid="capture-saved"]').exists()).toBe(false);
+    expect((wrapper.get('#capture-url').element as HTMLInputElement).value).toBe('https://example.com/second');
+    stop();
+  });
+
   it('keeps the form and allows a retry after a failed save', async () => {
     apiRequest
       .mockResolvedValueOnce(folders)

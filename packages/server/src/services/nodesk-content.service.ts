@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const PUBLIC_RESOURCES = {
   about: 'src/app/about/list.json',
-  bloggers: 'src/app/bloggers/list.json',
+  friends: 'src/app/friends/list.json',
   pictures: 'src/app/pictures/list.json',
   projects: 'src/app/projects/list.json',
   share: 'src/app/share/list.json',
@@ -13,22 +13,17 @@ const PUBLIC_RESOURCES = {
   site: 'src/config/site-content.json',
   'site-content': 'src/config/site-content.json',
   'card-styles': 'src/config/card-styles.json',
-  blogs: 'public/blogs/index.json',
-  'blog-categories': 'public/blogs/categories.json',
 } as const;
 
-const APP_LIST_PATH = /^src\/app\/(about|bloggers|pictures|projects|share|snippets)\/list\.json$/;
+const APP_LIST_PATH = /^src\/app\/(about|friends|pictures|projects|share|snippets)\/list\.json$/;
 const CONFIG_PATH = /^src\/config\/(site-content|card-styles)\.json$/;
-const BLOG_ROOT_PATH = /^public\/blogs\/(index|categories)\.json$/;
-const BLOG_CONTENT_PATH = /^public\/blogs\/[^/]+\/(index\.md|config\.json|[^/]+\.(avif|gif|jpe?g|png|webp))$/i;
-const IMAGE_PATH = /^public\/images\/(art|background|blogger|pictures|project|share|social-buttons)\/[^/]+\.(avif|gif|jpe?g|png|svg|webp)$/i;
+const IMAGE_PATH = /^public\/images\/(art|background|friends|pictures|project|share|social-buttons)\/[^/]+\.(avif|gif|jpe?g|png|svg|webp)$/i;
 const ROOT_IMAGE_PATH = /^public\/(favicon\.png|images\/avatar(?:-[a-f0-9]{64})?\.(avif|gif|jpe?g|png|webp))$/i;
 
 const LIST_DIRECTORIES = [
-  /^src\/app\/(about|bloggers|pictures|projects|share|snippets)$/,
+  /^src\/app\/(about|friends|pictures|projects|share|snippets)$/,
   /^src\/config$/,
-  /^public\/blogs(?:\/[^/]+)?$/,
-  /^public\/images\/(art|background|blogger|pictures|project|share|social-buttons)$/,
+  /^public\/images\/(art|background|friends|pictures|project|share|social-buttons)$/,
 ];
 
 export type NodeskBatchFile = {
@@ -175,7 +170,7 @@ export class NodeskContentStore {
 }
 
 function isAllowedFile(logicalPath: string) {
-  return APP_LIST_PATH.test(logicalPath) || CONFIG_PATH.test(logicalPath) || BLOG_ROOT_PATH.test(logicalPath) || BLOG_CONTENT_PATH.test(logicalPath) || IMAGE_PATH.test(logicalPath) || ROOT_IMAGE_PATH.test(logicalPath);
+  return APP_LIST_PATH.test(logicalPath) || CONFIG_PATH.test(logicalPath) || IMAGE_PATH.test(logicalPath) || ROOT_IMAGE_PATH.test(logicalPath);
 }
 
 function normalizeLogicalPath(input: string) {

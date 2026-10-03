@@ -12,7 +12,7 @@ node_modules
 **/.env.*
 !**/.env.example
 design-qa*
-apps/blog/design-qa*
+apps/nodesk/design-qa*
 docs/quality/screenshots
 npm-debug.log*
 pnpm-debug.log*

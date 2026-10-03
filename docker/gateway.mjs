@@ -1,17 +1,18 @@
 import http from 'node:http';
+import { migrateNodeskFriends } from './migrate-nodesk-content.mjs';
 import { spawn } from 'node:child_process';
-import { isPublicInternalPath, loginRedirectFor, targetFor } from './gateway-routing.mjs';
+import { isPublicInternalPath, isRetiredNodeskPath, loginRedirectFor, targetFor } from './gateway-routing.mjs';
 import { forwardedHeaders } from './gateway-headers.mjs';
 import { maintenanceAllowed } from './gateway-maintenance.mjs';
 
 const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
-const blogPort = numberFromEnv('BLOG_INTERNAL_PORT', 2025);
+const nodeskPort = numberFromEnv('NODESK_INTERNAL_PORT', 2025);
 const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
 const yumiPort = numberFromEnv('YUMI_INTERNAL_PORT', 2040);
 const upstreamTimeoutMs = numberFromEnv('GATEWAY_UPSTREAM_TIMEOUT_MS', 30_000);
 const children = new Set();
-const servicePorts = { nono: nonoPort, blog: blogPort, nomoney: nomoneyPort, yumi: yumiPort };
+const servicePorts = { nono: nonoPort, nodesk: nodeskPort, nomoney: nomoneyPort, yumi: yumiPort };
 const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
 const trustedProxyAddresses = (process.env.GATEWAY_TRUSTED_PROXY_ADDRESSES || '')
   .split(',')
@@ -56,7 +57,7 @@ function proxyRequest(request, response) {
   }
   delete request.headers['x-nono-maintenance-token'];
   const url = request.url || '/';
-  if (isPublicInternalPath(url)) {
+  if (isPublicInternalPath(url) || isRetiredNodeskPath(url)) {
     response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify({ error: 'not_found' }));
     return;
@@ -70,11 +71,6 @@ function proxyRequest(request, response) {
   const legacyYumiPath = legacyYumiRedirect(url);
   if (legacyYumiPath) {
     response.writeHead(308, { location: legacyYumiPath });
-    response.end();
-    return;
-  }
-  if (url === '/blog' || url.startsWith('/blog/') || url.startsWith('/blog?')) {
-    response.writeHead(308, { location: url.replace('/blog', '/nodesk') });
     response.end();
     return;
   }
@@ -177,8 +173,10 @@ function shutdown(exitCode = 0) {
   setTimeout(() => process.exit(exitCode), 1500).unref();
 }
 
+await migrateNodeskFriends(process.env.NODESK_CONTENT_DIR || '/app/nodesk-content');
+
 startService('nono', '/app/nono', 'packages/server/dist/server.js', nonoPort);
-startService('blog', '/app/blog', 'server.js', blogPort);
+startService('nodesk', '/app/nodesk', 'server.js', nodeskPort);
 startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
   PRODUCT_MODE: 'nomoney',
   APP_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',

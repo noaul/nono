@@ -30,7 +30,7 @@
 
 ## Task 2: Retire client/extension entry points and isolate artifacts
 
-**Files:** `packages/extension/**`, `packages/web/**`, NoDesk clipping integration in `apps/blog/**` except backup-center component.
+**Files:** `packages/extension/**`, `packages/web/**`, NoDesk clipping integration in `apps/nodesk/**` except backup-center component.
 
 - [ ] Add failing behavioral tests that context menus and extension workflow expose bookmarks only, and navigation/search do not expose clipping.
 - [ ] Remove clipping extraction, settings and extension controls while retaining bookmark capture/AI; remove NoDesk clipping calls and token selection controls.
@@ -49,7 +49,7 @@
 
 ## Task 4: Backup job lifecycle and concurrency
 
-**Files:** backup-center routes/service and tests, new job service/tests, `apps/blog/src/app/(home)/ambient-backup-center.tsx` and its direct clients/tests.
+**Files:** backup-center routes/service and tests, new job service/tests, `apps/nodesk/src/app/(home)/ambient-backup-center.tsx` and its direct clients/tests.
 
 - [ ] Test immediate 202 acceptance while an operation remains deferred; completion/failure polling; same request id deduplication; concurrent restore rejection; admin-session authorization.
 - [ ] Implement bounded job records, authenticated polling/result download, interruption semantics and operation exclusion. Preserve existing adapter behavior and remove retired Clipper module from backup-center service.

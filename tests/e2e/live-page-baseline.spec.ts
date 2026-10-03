@@ -10,14 +10,14 @@ test.describe('live RN page baseline', () => {
   test.skip(!liveEnabled, 'Set E2E_LIVE and E2E_AUTH_TOKEN to run live page acceptance.');
   test.use({ extraHTTPHeaders: { authorization: `Bearer ${authToken}` } });
 
-  for (const route of ['/admin/folders', '/admin/links', '/blog']) {
+  for (const route of ['/admin/folders', '/admin/links', '/nodesk']) {
     test(`${route} renders without horizontal overflow`, async ({ page }, testInfo) => {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('load');
 
-      if (route === '/blog') {
+      if (route === '/nodesk') {
         await expect(page.getByRole('main')).toBeVisible();
-        await expect(page.getByTestId('portal-corner-link')).toBeVisible();
+        await expect(page.locator('.ambient-brand')).toBeVisible();
       } else if (route === '/admin/folders') {
         await expect(page.getByTestId('start-folder-sort')).toBeVisible();
         await expect(page.getByText('正在加载文件夹')).toBeHidden();

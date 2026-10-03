@@ -28,7 +28,7 @@ NoNo 支持密码、Passkey、设备会话管理、限权 API Token，以及站�
 - **备份与自动备份**：NoDesk 设置中心，支持当前账户的模块备份、本地下载与 WebDAV。
 - **外观**：中英文、明暗模式及精简后的布局、字体、背景、场景设置；同域应用共享部分浏览器偏好。
 
-旧的独立用户、LLM、Token 和文件夹管理入口已合并；音乐卡片和剪藏功能已退出当前版本。自助注册页面已移除，管理员开启注册后仍可通过 API 创建普通用户。所有应用统一使用 NoNo 登录：登录一次即可进入 NoMoney、Yumi、NoStar 和后台；未登录时这些入口会跳转到 `/login`，退出 NoNo 即全部退出。NoMoney 和 Yumi 只对 NoNo 管理员开放；NoStar 登录 NoNo 后再连接 GitHub。NoNo 导航页和 NoDesk 博客仍可公开访问。
+旧的独立用户、LLM、Token 和文件夹管理入口已合并；音乐卡片和剪藏功能已退出当前版本。自助注册页面已移除，管理员开启注册后仍可通过 API 创建普通用户。所有应用统一使用 NoNo 登录：登录一次即可进入 NoMoney、Yumi、NoStar 和后台；未登录时这些入口会跳转到 `/login`，退出 NoNo 即全部退出。NoMoney 和 Yumi 只对 NoNo 管理员开放；NoStar 登录 NoNo 后再连接 GitHub。NoNo 导航页和 NoDesk 工作台仍可公开访问。
 
 ## 快速开始
 
@@ -51,10 +51,12 @@ cp .env.example .env
 | `NOMONEY_INTERNAL_TOKEN` | 产品间受保护接口的独立令牌 |
 | `NOMONEY_ENCRYPTION_KEY`、`YUMI_ENCRYPTION_KEY` | 各自的 64 位十六进制加密密钥；建议分别生成 |
 | `NONO_PUBLIC_URL` | 浏览器访问 NoNo 的实际地址 |
-| `BLOG_PUBLIC_URL` | 同域 NoDesk 地址，通常为 `https://example.com/nodesk` |
+| `NODESK_PUBLIC_URL` | 同域 NoDesk 地址，通常为 `https://example.com/nodesk` |
 | `PORT` | Compose 端口绑定，默认 `127.0.0.1:3000` |
 
-仅在本机 HTTP 试用时，使用 `NONO_PUBLIC_URL=http://localhost:3000`、`BLOG_PUBLIC_URL=http://localhost:3000/nodesk`。生产环境请使用 HTTPS。
+仅在本机 HTTP 试用时，使用 `NONO_PUBLIC_URL=http://localhost:3000`、`NODESK_PUBLIC_URL=http://localhost:3000/nodesk`。生产环境请使用 HTTPS。
+
+从旧版本升级时，将部署环境中的 `BLOG_PUBLIC_URL`、`BLOG_NAVIGATION_URL` 分别改为 `NODESK_PUBLIC_URL`、`NODESK_NAVIGATION_URL`，保留原来的值。镜像内路径为 `/app/nodesk`，源码为 `apps/nodesk`；文章、写作和 RSS 已移除，旧 `/blog` 地址返回 404。已有友链内容会自动复制到新路径，历史文章数据仍保留在原数据卷中。
 
 ```bash
 docker compose up -d --build
@@ -147,7 +149,7 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 ## 本地开发与测试
 
-需要 Node.js 24.15+、npm、NoDesk 使用的 pnpm（版本见 `apps/blog/package.json`），以及 PostgreSQL。根目录 npm workspaces 只包含 `packages/*`；三个 `apps/*` 项目分别保留锁文件。
+需要 Node.js 24.15+、npm、NoDesk 使用的 pnpm（版本见 `apps/nodesk/package.json`），以及 PostgreSQL。根目录 npm workspaces 只包含 `packages/*`；三个 `apps/*` 项目分别保留锁文件。
 
 ```bash
 npm run install:all
@@ -169,7 +171,7 @@ PORT=3000 node --env-file=.env --import tsx packages/server/src/server.ts
 | 命令 | 用途 |
 | --- | --- |
 | `npm test` | NoNo API、Web、扩展测试 |
-| `npm run test:blog` | NoDesk 测试 |
+| `npm run test:nodesk` | NoDesk 测试 |
 | `npm run test:nomoney` | NoMoney/Yumi 前后端测试 |
 | `npm run test:nostar` | NoStar 测试 |
 | `npm run test:gateway` | 网关、部署、备份与恢复契约测试 |
@@ -229,7 +231,7 @@ packages/server    NoNo/NoStar API、Prisma、认证、备份、后台任务
 packages/web       NoNo Vue 前端
 packages/extension Chrome 扩展
 apps/android       Android 应用（Kotlin + WebView）
-apps/blog          NoDesk Next.js 内容站
+apps/nodesk        NoDesk Next.js 工作台
 apps/nomoney       NoMoney/Yumi Express + React
 apps/nostar        NoStar React 前端
 docker             网关与容器入口

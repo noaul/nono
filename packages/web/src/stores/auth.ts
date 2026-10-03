@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { SessionPayload, User } from '@/api/types';
+import { clearNativeSession } from '@/mobile/shell';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -50,6 +51,7 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       await apiRequest('/api/auth/logout', { method: 'POST' });
       this.user = null;
+      clearNativeSession();
     },
   },
 });

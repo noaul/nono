@@ -43,6 +43,18 @@ describe('NoDesk local content API', () => {
     expect(response.json().data).toEqual([{ name: 'Seed project' }]);
   });
 
+  it('removes article resources and refuses reads or writes to retained article files', async () => {
+    await fs.mkdir(path.join(contentDir, 'public/blogs/example'), { recursive: true });
+    await fs.writeFile(path.join(contentDir, 'public/blogs/example/index.md'), 'Existing article');
+    for (const resource of ['blogs', 'blog-categories']) {
+      expect((await app.inject({ method: 'GET', url: `/api/nodesk/content/${resource}` })).statusCode).toBe(404);
+    }
+    const articlePath = 'public/blogs/example/index.md';
+    expect((await app.inject({ method: 'GET', url: `/api/admin/nodesk/files?path=${encodeURIComponent(articlePath)}`, headers: { cookie } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'POST', url: '/api/admin/nodesk/files/batch', headers: { cookie }, payload: { files: [{ path: articlePath, contentBase64: null }] } })).statusCode).toBe(400);
+    expect(await fs.readFile(path.join(contentDir, articlePath), 'utf8')).toBe('Existing article');
+  });
+
   it('keeps calendar events out of public NoDesk site content', async () => {
     await fs.mkdir(path.join(contentDir, 'src/config'), { recursive: true });
     await fs.writeFile(path.join(contentDir, 'src/config/site-content.json'), JSON.stringify({

@@ -9,7 +9,7 @@ const modulePath = path.resolve('docker/gateway-routing.mjs');
 test('routes NoMoney requests and strips the public mount path', async () => {
   assert.equal(fs.existsSync(modulePath), true);
   const { targetFor } = await import(pathToFileURL(modulePath));
-  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
+  const ports = { nono: 3001, nodesk: 2025, nomoney: 2030, yumi: 2040 };
 
   assert.deepEqual(targetFor('/nomoney', ports), { name: 'nomoney', port: 2030, path: '/' });
   assert.deepEqual(targetFor('/nomoney/dashboard', ports), { name: 'nomoney', port: 2030, path: '/dashboard' });
@@ -22,7 +22,7 @@ test('routes NoMoney requests and strips the public mount path', async () => {
 
 test('routes Yumi requests to its isolated service', async () => {
   const { targetFor } = await import(pathToFileURL(modulePath));
-  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
+  const ports = { nono: 3001, nodesk: 2025, nomoney: 2030, yumi: 2040 };
   assert.deepEqual(targetFor('/yumi', ports), { name: 'yumi', port: 2040, path: '/' });
   assert.deepEqual(targetFor('/yumi/api/status/overview?days=90', ports), {
     name: 'yumi', port: 2040, path: '/api/status/overview?days=90',
@@ -32,11 +32,11 @@ test('routes Yumi requests to its isolated service', async () => {
 test('keeps Nodesk and Nono routing behavior intact', async () => {
   assert.equal(fs.existsSync(modulePath), true);
   const { targetFor } = await import(pathToFileURL(modulePath));
-  const ports = { nono: 3001, blog: 2025, nomoney: 2030, yumi: 2040 };
+  const ports = { nono: 3001, nodesk: 2025, nomoney: 2030, yumi: 2040 };
 
-  assert.deepEqual(targetFor('/nodesk', ports), { name: 'blog', port: 2025, path: '/nodesk' });
+  assert.deepEqual(targetFor('/nodesk', ports), { name: 'nodesk', port: 2025, path: '/nodesk' });
   assert.deepEqual(targetFor('/images/avatar.png', ports), {
-    name: 'blog',
+    name: 'nodesk',
     port: 2025,
     path: '/nodesk/images/avatar.png',
   });
@@ -66,6 +66,16 @@ test('identifies internal NoMoney and Yumi APIs that must not be routed publicly
   assert.equal(isPublicInternalPath('/api/internals'), false);
 });
 
+test('retires article pages, feeds and legacy URLs while keeping desktop tools', async () => {
+  const { isRetiredNodeskPath } = await import(pathToFileURL(modulePath));
+  for (const url of ['/blog', '/blog/old?x=1', '/blogs/old/index.md', '/nodesk/blog/post', '/nodesk/%62log/post', '/nodesk/write', '/nodesk/write/old', '/nodesk/rss.xml']) {
+    assert.equal(isRetiredNodeskPath(url), true, url);
+  }
+  for (const url of ['/nodesk', '/nodesk/friends', '/nodesk/projects', '/nodesk/snippets', '/nodesk/images/pictures/photo.webp']) {
+    assert.equal(isRetiredNodeskPath(url), false, url);
+  }
+});
+
 test('sends signed-out page loads of NoNo-only apps to the login page', async () => {
   const { loginRedirectFor } = await import(pathToFileURL(modulePath));
   const page = (url, extra = {}) => ({ method: 'GET', url, headers: { accept: 'text/html,application/xhtml+xml', ...extra } });
@@ -81,7 +91,14 @@ test('sends signed-out page loads of NoNo-only apps to the login page', async ()
   assert.equal(loginRedirectFor({ method: 'GET', url: '/nomoney/', headers: { accept: 'application/json' } }), null);
   assert.equal(loginRedirectFor({ method: 'POST', url: '/admin', headers: { accept: 'text/html' } }), null);
   assert.equal(loginRedirectFor(page('/')), null);
-  assert.equal(loginRedirectFor(page('/nodesk/blog/post')), null);
+  assert.equal(loginRedirectFor(page('/nodesk/projects')), null);
   assert.equal(loginRedirectFor(page('/login')), null);
   assert.equal(loginRedirectFor(page('/administrator')), null);
+});
+
+ test('retired article assets no longer route to NoDesk', () => {
+  const ports = { nono: 3001, nodesk: 2025, nomoney: 2030, yumi: 2040 };
+  return import('../docker/gateway-routing.mjs').then(({ targetFor }) => {
+    assert.equal(targetFor('/blogs/example/index.md', ports).name, 'nono');
+  });
 });

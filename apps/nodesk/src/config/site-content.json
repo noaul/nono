@@ -1,0 +1,41 @@
+{
+	"meta": {
+		"title": "NoDesk",
+		"description": "A self-hosted desktop for plans, tools, and friends",
+		"username": "NoNo",
+		"avatarUrl": "/images/avatar.png"
+	},
+	"portal": {
+		"enabled": true,
+		"url": "",
+		"label": "返回网址导航",
+		"imageUrl": "/images/avatar.png",
+		"openInNewTab": false
+	},
+	"theme": {
+		"colorBrand": "#35bfab",
+		"colorPrimary": "#5B423F",
+		"colorSecondary": "#8b7667",
+		"colorBrandSecondary": "#eec25e",
+		"colorBg": "#d4e8f3",
+		"colorBorder": "#ffffff",
+		"colorCard": "#ffffff99"
+	},
+	"backgroundColors": [
+		"#EDDD62",
+		"#9EE7D1",
+		"#84D68A",
+		"#88E6E5",
+		"#a7f3d0"
+	],
+	"backgroundImages": [
+		{
+			"id": "bing-daily",
+			"url": "https://api.dujin.org/bing/1920.php"
+		}
+	],
+	"currentBackgroundImageId": "bing-daily",
+	"hideEditButton": false,
+	"enableChristmas": false,
+	"calendarEvents": []
+}

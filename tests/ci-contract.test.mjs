@@ -8,7 +8,7 @@ test('provides one documented command for every independent lockfile', () => {
   const bootstrap = packageJson.scripts['install:all'];
 
   assert.match(bootstrap, /^npm ci/);
-  assert.match(bootstrap, /pnpm --dir apps\/blog install --frozen-lockfile/);
+  assert.match(bootstrap, /pnpm --dir apps\/nodesk install --frozen-lockfile/);
   assert.match(bootstrap, /npm --prefix apps\/nomoney ci/);
   assert.match(bootstrap, /npm --prefix apps\/nostar ci/);
   assert.match(readme, /npm run install:all/);
@@ -66,7 +66,7 @@ test('runs every test suite inside the image build so a failing suite stops the 
   const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
   const suites = {
     'nono-test': /RUN npm test && touch \/tmp\/tests-passed/,
-    'blog-test': /RUN pnpm test && touch \/tmp\/tests-passed/,
+    'nodesk-test': /RUN pnpm test && touch \/tmp\/tests-passed/,
     'nomoney-test': /RUN npm test && touch \/tmp\/tests-passed/,
     'nostar-test': /RUN npm test -- --run && touch \/tmp\/tests-passed/,
     'repo-test': /RUN npm run test:gateway && touch \/tmp\/tests-passed/,
