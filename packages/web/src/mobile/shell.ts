@@ -18,11 +18,12 @@ export function dismissPendingCapture(requestId: string) {
   clearCapture();
 }
 
-/** Called after successful server logout; the native side clears its private state too. */
+/** Older APKs and ordinary browsers cannot promise native local cleanup. */
 export function canClearNativeSession() {
   return connectMobileShell()?.supports('session.clear') === true;
 }
 
+/** Clear after server logout or explicit confirmation of a local-only logout. */
 export function clearNativeSession() {
   clearCapture();
   connectMobileShell()?.send('session.clear');

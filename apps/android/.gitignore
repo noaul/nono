@@ -4,3 +4,6 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+
+# Kotlin local compiler state
+.kotlin/

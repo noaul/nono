@@ -13,7 +13,7 @@ object BridgeProtocol {
     private val REQUEST_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
 
     /** What a page may send to the app. */
-    val INBOUND = setOf("bridge.hello", "ui.backState", "ui.backResult", "capture.saved", "capture.dismissed", "download.request")
+    val INBOUND = setOf("bridge.hello", "ui.backState", "ui.backResult", "capture.request", "capture.saved", "capture.dismissed", "download.request", "session.clear")
 
     data class Message(val type: String, val requestId: String, val payload: JSONObject)
 

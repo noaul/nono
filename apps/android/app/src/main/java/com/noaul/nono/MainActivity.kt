@@ -1,7 +1,7 @@
 package com.noaul.nono
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
@@ -9,7 +9,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
-import android.os.Environment
+import android.provider.DocumentsContract
+import android.webkit.WebStorage
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
@@ -31,6 +32,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -39,6 +41,10 @@ import androidx.core.view.isVisible
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.noaul.nono.capture.PendingCaptureStore
+import com.noaul.nono.files.DownloadCoordinator
+import com.noaul.nono.files.DownloadPolicy
+import com.noaul.nono.session.SafeRoute
 import com.noaul.nono.web.BackCoordinator
 import com.noaul.nono.web.BridgeProtocol
 import org.json.JSONArray
@@ -70,6 +76,28 @@ class MainActivity : ComponentActivity() {
     private var pageDark: Boolean? = null
 
     private var rendererGone = false
+    private val captures by lazy { PendingCaptureStore(getSharedPreferences("pending-capture", MODE_PRIVATE)) }
+    private val routePreferences by lazy { getSharedPreferences("safe-route", MODE_PRIVATE) }
+    private val downloadPolicy = DownloadPolicy(BuildConfig.BASE_URL)
+    private var pendingDownload: String? = null
+    private var activeDownload: DownloadCoordinator? = null
+    private var downloadDialog: AlertDialog? = null
+    private var clearHistoryAfterLoad = false
+    private var destroyed = false
+    private var clearingSession = false
+    private var sessionGeneration = 0
+    private var bridgeInstalled = false
+    private fun isActiveSession(generation: Int) =
+        !destroyed && !rendererGone && !clearingSession && generation == sessionGeneration
+    private val downloadTarget = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val url = pendingDownload
+        pendingDownload = null
+        val uri = result.data?.data
+        if (result.resultCode == RESULT_OK && uri != null) {
+            if (url == null || uri.scheme != "content") deletePartial(uri) else saveDownload(url, uri)
+        }
+    }
+
 
     /** Exact origin the bridge accepts messages from, e.g. https://noaul.com. */
     private val trustedOrigin = java.net.URI(BuildConfig.BASE_URL).let { "${it.scheme}://${it.rawAuthority}" }
@@ -84,7 +112,6 @@ class MainActivity : ComponentActivity() {
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-            if (BuildConfig.DEBUG) android.util.Log.d("NoNoBack", "canGoBack=${webView.canGoBack()} url=${webView.url}")
             // Open dialogs and panels close first (the page answers over the bridge); then history.
             back.onBack()
         }
@@ -162,11 +189,11 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, backCallback)
         installBridge()
 
-        val restored = savedInstanceState?.let { webView.restoreState(it) } != null
-        if (handleIntent(intent) || restored) return
-        // After a renderer crash only the page address survives; reopen it if it is ours.
-        val resumeUrl = savedInstanceState?.getString(KEY_RESUME_URL)?.takeIf { policy.isSameOrigin(it) }
-        webView.loadUrl(resumeUrl ?: homeUrl)
+        pendingDownload = savedInstanceState?.getString("pending_download")?.takeIf(downloadPolicy::allows)
+        if (savedInstanceState == null && handleIntent(intent)) return
+        val resumeUrl = safeResumeUrl(savedInstanceState?.getString(KEY_RESUME_URL)
+            ?: routePreferences.getString(KEY_RESUME_URL, null))
+        webView.loadUrl(if (captures.get() != null) policy.resolve("/mobile/capture") else resumeUrl ?: homeUrl)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -176,7 +203,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (rendererGone) lastUrl?.let { outState.putString(KEY_RESUME_URL, it) } else webView.saveState(outState)
+        safeResumeUrl(lastUrl)?.let { outState.putString(KEY_RESUME_URL, it) }
+        pendingDownload?.let { outState.putString("pending_download", it) }
     }
 
     override fun onResume() {
@@ -191,6 +219,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        destroyed = true
+        activeDownload?.cancel()
+        downloadDialog?.dismiss()
         fileCallback?.onReceiveValue(null)
         fileCallback = null
         if (!rendererGone) webView.destroy()
@@ -222,13 +253,27 @@ class MainActivity : ComponentActivity() {
      */
     private fun installBridge() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        val generation = sessionGeneration
+        bridgeInstalled = true
         WebViewCompat.addWebMessageListener(webView, BRIDGE_NAME, setOf(trustedOrigin)) { _, message, sourceOrigin, isMainFrame, replyProxy ->
+            if (!isActiveSession(generation)) return@addWebMessageListener
             val parsed = BridgeProtocol.parse(message.data, sourceOrigin.toString(), trustedOrigin, isMainFrame) ?: return@addWebMessageListener
-            pageReply = replyProxy
+            if (parsed.type != "bridge.hello" && pageReply == null) return@addWebMessageListener
             when (parsed.type) {
-                "bridge.hello" -> postToPage("bridge.ready", parsed.requestId, JSONObject()
-                    .put("version", BridgeProtocol.VERSION)
-                    .put("capabilities", JSONArray(listOf("ui.back"))))
+                "bridge.hello" -> {
+                    pageReply = replyProxy
+                    postToPage("bridge.ready", parsed.requestId, JSONObject()
+                        .put("version", BridgeProtocol.VERSION)
+                        .put("capabilities", JSONArray(listOf("ui.back", "capture.pending", "download.request", "session.clear"))))
+                    deliverCapture()
+                }
+                "capture.request" -> deliverCapture()
+                "capture.saved", "capture.dismissed" -> {
+                    if (isCapturePage()) captures.acknowledge(parsed.payload.optString("requestId"))
+                }
+                "download.request" -> download(parsed.payload.optString("url"), webView.settings.userAgentString,
+                    null, parsed.payload.optString("mimeType", "application/octet-stream"), parsed.payload.optString("filename"))
+                "session.clear" -> clearSession()
                 "ui.backState" -> back.pageCanHandle = parsed.payload.optBoolean("canHandle")
                 "ui.backResult" -> back.onResult(parsed.requestId, parsed.payload.optBoolean("handled"))
             }
@@ -242,15 +287,22 @@ class MainActivity : ComponentActivity() {
 
     /** Opens a shared link in the bookmark editor. Returns true when the intent was handled. */
     private fun handleIntent(intent: Intent?): Boolean {
-        if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("text/") != true) return false
+        if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return false
         val link = parseSharedLink(intent.getStringExtra(Intent.EXTRA_TEXT), intent.getStringExtra(Intent.EXTRA_SUBJECT))
         if (link == null) {
             Toast.makeText(this, R.string.share_no_link, Toast.LENGTH_SHORT).show()
-            if (webView.url == null) webView.loadUrl(homeUrl)
+            if (!clearingSession && webView.url == null) webView.loadUrl(homeUrl)
             return true
         }
+        try { captures.save(link) } catch (_: Exception) {
+            Toast.makeText(this, "无法暂存分享内容，请重试", Toast.LENGTH_LONG).show()
+            return true
+        }
+        // Do not replay ACTION_SEND (and generate a new request ID) after recreation.
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        intent.removeExtra(Intent.EXTRA_SUBJECT)
         hideError()
-        webView.loadUrl(policy.resolve(sharedLinkPath(link)))
+        if (!clearingSession) webView.loadUrl(policy.resolve(sharedLinkPath(link)))
         return true
     }
 
@@ -341,32 +393,128 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Direct downloads from the NoNo origin go through the system download manager with the session
-     * cookie. Pages that build files in the browser (blob: URLs) are not supported in this version.
-     */
-    private fun download(url: String, userAgent: String, contentDisposition: String?, mimeType: String?) {
-        if (!policy.isSameOrigin(url)) {
-            if (url.startsWith("http://") || url.startsWith("https://")) openOutside(url)
-            else Toast.makeText(this, R.string.download_unsupported, Toast.LENGTH_LONG).show()
+    private fun isCapturePage(): Boolean = webView.url?.let {
+        policy.isSameOrigin(it) && it.toUri().path?.trimEnd('/') == "/mobile/capture"
+    } == true
+
+    private fun deliverCapture() {
+        if (!isCapturePage()) return
+        val pending = captures.get() ?: return
+        postToPage("capture.pending", pending.requestId, JSONObject().put("requestId", pending.requestId)
+            .put("url", pending.url).put("title", pending.title ?: JSONObject.NULL))
+    }
+
+    /** Reload a GET route, never WebView's saved POST or form state. Drop URL query and fragment. */
+    private fun safeResumeUrl(raw: String?): String? = SafeRoute(trustedOrigin).restore(raw)
+
+    private fun clearSession() {
+        if (clearingSession || destroyed || rendererGone) return
+        clearingSession = true
+        val generation = ++sessionGeneration
+        activeDownload?.cancel()
+        pendingDownload = null
+        captures.clear()
+        routePreferences.edit { clear() }
+        fileCallback?.onReceiveValue(null)
+        fileCallback = null
+        webView.stopLoading()
+        if (bridgeInstalled && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.removeWebMessageListener(webView, BRIDGE_NAME)
+            bridgeInstalled = false
+        }
+        pageReply = null
+        back.reset()
+        WebStorage.getInstance().deleteAllData()
+        webView.clearCache(true)
+        webView.clearFormData()
+        webView.clearHistory()
+        lastUrl = null
+        // Drop the old document immediately; its retired callbacks cannot repopulate session state.
+        webView.loadUrl("about:blank")
+        CookieManager.getInstance().removeAllCookies {
+            CookieManager.getInstance().flush()
+            if (!destroyed && !rendererGone && clearingSession && sessionGeneration == generation) {
+                clearingSession = false
+                webView.webViewClient = NonoWebViewClient()
+                installBridge()
+                clearHistoryAfterLoad = true
+                webView.loadUrl(if (captures.get() != null) policy.resolve("/mobile/capture") else homeUrl)
+            }
+        }
+    }
+
+    private fun download(url: String, userAgent: String, contentDisposition: String?, mimeType: String?, suggestedName: String? = null) {
+        if (clearingSession || destroyed || rendererGone) return
+        if (!downloadPolicy.allows(url)) {
+            Toast.makeText(this, R.string.download_unsupported, Toast.LENGTH_LONG).show()
             return
         }
-        val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
-        val request = DownloadManager.Request(url.toUri())
-            .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url) ?: "")
-            .addRequestHeader("User-Agent", userAgent)
-            .setMimeType(mimeType)
-            .setTitle(filename)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-        getSystemService(DownloadManager::class.java).enqueue(request)
-        Toast.makeText(this, getString(R.string.download_started, filename), Toast.LENGTH_SHORT).show()
+        if (pendingDownload != null || activeDownload != null) {
+            Toast.makeText(this, "请先完成或取消当前下载", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val filename = downloadPolicy.filename(suggestedName?.takeIf { it.isNotBlank() }
+            ?: URLUtil.guessFileName(url, contentDisposition, mimeType))
+        pendingDownload = url
+        try {
+            downloadTarget.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType(mimeType?.takeIf { it.contains('/') } ?: "application/octet-stream")
+                .putExtra(Intent.EXTRA_TITLE, filename))
+        } catch (_: ActivityNotFoundException) {
+            pendingDownload = null
+            Toast.makeText(this, R.string.no_app_for_link, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun deletePartial(uri: Uri): Boolean {
+        if (uri.scheme != "content") return false
+        return runCatching { DocumentsContract.deleteDocument(contentResolver, uri) }.getOrDefault(false)
+    }
+
+    private fun saveDownload(url: String, uri: Uri) {
+        val transfer = DownloadCoordinator(downloadPolicy, { CookieManager.getInstance().getCookie(it) })
+        activeDownload = transfer
+        val dialog = AlertDialog.Builder(this).setTitle("正在保存文件").setMessage("连接中…")
+            .setNegativeButton("取消") { _, _ -> transfer.cancel() }
+            .setOnCancelListener { transfer.cancel() }.create()
+        downloadDialog = dialog
+        dialog.show()
+        Thread({
+            var failure: Exception? = null
+            var removed = true
+            try {
+                var lastProgressAt = 0L
+                transfer.save(url,
+                    { contentResolver.openOutputStream(uri, "wt") ?: throw java.io.IOException("Cannot open document") },
+                    { removed = deletePartial(uri) }) { bytes, total ->
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        if (now - lastProgressAt >= 200) {
+                            lastProgressAt = now
+                            runOnUiThread {
+                                if (!destroyed) dialog.setMessage(if (total > 0) "${bytes * 100 / total}%" else "已保存 ${bytes / 1024} KiB")
+                            }
+                        }
+                }
+            } catch (error: Exception) {
+                failure = error
+            }
+            runOnUiThread {
+                activeDownload = null
+                downloadDialog = null
+                dialog.dismiss()
+                if (!destroyed) Toast.makeText(this,
+                    if (failure == null) "文件已保存" else if (!removed) "保存失败，请删除所选位置的未完成文件" else "保存失败或已取消；文件上限 256 MiB，可在浏览器重试",
+                    Toast.LENGTH_LONG).show()
+            }
+        }, "nono-export").start()
     }
 
     // onRenderProcessGone is implemented below; the androidx.webkit lint check still reports it.
     @SuppressLint("MissingOnRenderProcessGone")
     private inner class NonoWebViewClient : WebViewClient() {
+        private val generation = sessionGeneration
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            if (!isActiveSession(generation)) return true
             val url = request.url.toString()
             return when (policy.classify(url)) {
                 Destination.IN_APP -> false
@@ -376,6 +524,7 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+            if (!isActiveSession(generation)) return
             progress.isVisible = true
             // A new document announces its own layers and reply channel again.
             back.reset()
@@ -383,32 +532,37 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onPageCommitVisible(view: WebView, url: String) {
+            if (!isActiveSession(generation)) return
             applyWindowChrome()
             samplePageColors()
         }
 
         // Single-page apps change the address without loading a new page.
         override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+            if (!isActiveSession(generation)) return
             lastUrl = url
             applyWindowChrome()
             view.postDelayed({ samplePageColors() }, 300)
         }
 
         override fun onPageFinished(view: WebView, url: String) {
+            if (!isActiveSession(generation)) return
             applyWindowChrome()
             samplePageColors()
             lastUrl = url
+            safeResumeUrl(url)?.let { routePreferences.edit { putString(KEY_RESUME_URL, it) } }
+            if (clearHistoryAfterLoad) { view.clearHistory(); clearHistoryAfterLoad = false }
             progress.isVisible = false
             CookieManager.getInstance().flush()
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            if (request.isForMainFrame) showError(getString(R.string.error_network, error.description))
+            if (isActiveSession(generation) && request.isForMainFrame) showError(getString(R.string.error_network, error.description))
         }
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
             // The gateway answers 502/503/504 with JSON while NoNo restarts or is in maintenance.
-            if (request.isForMainFrame && response.statusCode >= 500) {
+            if (isActiveSession(generation) && request.isForMainFrame && response.statusCode >= 500) {
                 showError(getString(R.string.error_server, response.statusCode))
             }
         }
@@ -427,7 +581,7 @@ class MainActivity : ComponentActivity() {
         @SuppressLint("WebViewClientOnReceivedSslError")
         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
             handler.cancel()
-            showError(getString(R.string.error_certificate))
+            if (isActiveSession(generation)) showError(getString(R.string.error_certificate))
         }
     }
 

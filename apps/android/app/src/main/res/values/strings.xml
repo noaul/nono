@@ -3,8 +3,7 @@
     <string name="share_label">收藏到 NoNo</string>
     <string name="share_no_link">分享的内容里没有找到网址</string>
     <string name="no_app_for_link">没有可以打开这个链接的应用</string>
-    <string name="download_started">开始下载 %1$s</string>
-    <string name="download_unsupported">这个文件由网页生成，当前版本无法在应用内下载，请在浏览器中打开 NoNo 完成下载。</string>
+    <string name="download_unsupported">此下载地址暂不支持在应用内保存，请在浏览器中打开 NoNo 完成下载。</string>
     <string name="error_title">无法打开 NoNo</string>
     <string name="error_network">网络连接失败（%1$s）。请检查网络后重试。</string>
     <string name="error_server">服务器暂时不可用（HTTP %1$d），可能正在维护或重启。</string>

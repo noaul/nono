@@ -30,7 +30,7 @@ class MainActivityTest {
     }
 
     @Test
-    fun sharedLinkOpensThePrefilledBookmarkEditor() {
+    fun sharedLinkOpensPrivateCapturePage() {
         val share = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .setAction(Intent.ACTION_SEND)
             .setType("text/plain")
@@ -38,7 +38,7 @@ class MainActivityTest {
         launch(share).use { scenario ->
             scenario.onActivity {
                 assertEquals(
-                    "$base/admin/links?share_url=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1&share_title=%E5%A5%BD%E6%96%87",
+                    "$base/mobile/capture",
                     shadowOf(webViewOf(it)).lastLoadedUrl,
                 )
             }
@@ -75,6 +75,38 @@ class MainActivityTest {
                 assertEquals(true, client.shouldOverrideUrlLoading(webView, request("javascript:alert(1)")))
                 assertNull(app.nextStartedActivity)
             }
+        }
+    }
+
+    @Test
+    fun recreationDoesNotCreateANewCaptureOrRestoreFormState() {
+        val share = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+            .setAction(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, "https://example.com/private?key=secret")
+        var requestId: String? = null
+        launch(share).use { scenario ->
+            scenario.onActivity {
+                val store = com.noaul.nono.capture.PendingCaptureStore(it.getSharedPreferences("pending-capture", 0))
+                requestId = store.get()!!.requestId
+            }
+            scenario.recreate()
+            scenario.onActivity {
+                val store = com.noaul.nono.capture.PendingCaptureStore(it.getSharedPreferences("pending-capture", 0))
+                assertEquals(requestId, store.get()!!.requestId)
+                assertEquals("$base/mobile/capture", shadowOf(webViewOf(it)).lastLoadedUrl)
+            }
+        }
+    }
+
+    @Test
+    fun restartRestoresOnlySafeGetPathWithoutQueryOrFormData() {
+        launch().use { scenario ->
+            scenario.onActivity {
+                shadowOf(webViewOf(it)).webViewClient.onPageFinished(webViewOf(it), "$base/nomoney/domains?secret=private")
+            }
+        }
+        launch().use { scenario ->
+            scenario.onActivity { assertEquals("$base/nomoney/domains", shadowOf(webViewOf(it)).lastLoadedUrl) }
         }
     }
 

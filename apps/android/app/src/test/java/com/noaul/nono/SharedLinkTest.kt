@@ -33,11 +33,15 @@ class SharedLinkTest {
     }
 
     @Test
-    fun buildsAnEncodedBookmarkPath() {
-        assertEquals(
-            "/admin/links?share_url=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1%26c%3D2&share_title=%E6%A0%87%E9%A2%98%20A",
-            sharedLinkPath(SharedLink("https://example.com/a?b=1&c=2", "标题 A")),
-        )
-        assertEquals("/admin/links?share_url=https%3A%2F%2Fx.test%2F", sharedLinkPath(SharedLink("https://x.test/", null)))
+    fun capturePathNeverIncludesSharedContent() {
+        assertEquals("/mobile/capture", sharedLinkPath(SharedLink("https://example.com/?secret=token", "Private title")))
+    }
+
+    @Test
+    fun rejectsOversizeOrMalformedInputInsteadOfTruncatingIt() {
+        assertNull(parseSharedLink("https://example.com/ " + "a".repeat(16384), null))
+        assertNull(parseSharedLink("https://example.com/ " + "中".repeat(6000), null))
+        assertNull(parseSharedLink("https://", null))
+        assertNull(parseSharedLink("https://user:password@example.com/", null))
     }
 }
