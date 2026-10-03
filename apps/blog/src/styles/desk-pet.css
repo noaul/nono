@@ -283,10 +283,89 @@
 	100% { opacity: 0; transform: translateY(-10px); }
 }
 
+/* Momo, the orange cat */
+.desk-pet[data-species='momo'] {
+	--pet-body-top: #ffd09c;
+	--pet-body-bottom: #f29a4b;
+	--pet-blush: #ff9e9e;
+	--pet-belly: #fff6ec;
+	--pet-stripe: #d9782a;
+	--pet-ink: #3a2414;
+}
+
+.ambient-workbench[data-dimmed='true'] .desk-pet[data-species='momo'] {
+	--pet-body-top: #d8ad7f;
+	--pet-body-bottom: #bf7a3f;
+	--pet-belly: #e3d8cc;
+	--pet-blush: #d48c8c;
+}
+
+.desk-pet-ear,
+.desk-pet-tail {
+	fill: var(--pet-body-bottom);
+	stroke: color-mix(in srgb, var(--pet-ink) 24%, transparent);
+	stroke-linejoin: round;
+	stroke-width: 0.7;
+}
+
+.desk-pet-ear-inner {
+	fill: #ffb9b0;
+}
+
+.desk-pet-belly {
+	fill: var(--pet-belly);
+}
+
+.desk-pet[data-species='momo'] .desk-pet-foot {
+	fill: var(--pet-belly);
+}
+
+.desk-pet-stripe {
+	fill: none;
+	stroke: var(--pet-stripe);
+	stroke-linecap: round;
+	stroke-width: 1.4;
+}
+
+.desk-pet-nose {
+	fill: #ff8f9a;
+}
+
+.desk-pet-whisker {
+	fill: none;
+	stroke: color-mix(in srgb, var(--pet-ink) 45%, transparent);
+	stroke-linecap: round;
+	stroke-width: 0.6;
+}
+
+.desk-pet-tail {
+	animation: desk-pet-tail 2.2s ease-in-out infinite;
+	transform-origin: 35px 29px;
+}
+
+.desk-pet:is([data-pose='walk'], [data-pose='climb']) .desk-pet-tail { animation-duration: 0.9s; }
+.desk-pet[data-pose='run'] .desk-pet-tail { animation: none; transform: rotate(-24deg); }
+.desk-pet:is([data-pose='fall'], [data-pose='drag'], [data-pose='jump']) .desk-pet-tail { animation: none; transform: rotate(-38deg); }
+.desk-pet[data-pose='sleep'] .desk-pet-tail { animation: none; transform: rotate(38deg); }
+.desk-pet[data-species='momo'][data-pose='land'] .desk-pet-figure { animation: desk-pet-land-hard 0.2s ease-out; }
+.desk-pet[data-species='momo'][data-pose='sleep'] .desk-pet-figure { transform: scale(1.1, 0.8); }
+
+@keyframes desk-pet-tail {
+	0%, 100% { transform: rotate(-6deg); }
+	50% { transform: rotate(10deg); }
+}
+
+@keyframes desk-pet-land-hard {
+	0% { transform: scale(1.26, 0.72); }
+	60% { transform: scale(0.96, 1.05); }
+	100% { transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.desk-pet .desk-pet-figure,
 	.desk-pet .desk-pet-foot,
 	.desk-pet .desk-pet-wing,
+	.desk-pet .desk-pet-tail,
 	.desk-pet .desk-pet-fx::before {
 		animation: none !important;
 	}

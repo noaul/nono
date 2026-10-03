@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AmbientBackupCenter } from './ambient-backup-center'
 import { AmbientNotificationCenter } from './ambient-notification-center'
 import type { WorkbenchAppEntry } from './ambient-workbench-settings'
+import type { PetPrefs } from './desk-pet/desk-pet-prefs'
 
 type Props = {
 	open: boolean
@@ -14,8 +15,8 @@ type Props = {
 	quickEntries: WorkbenchAppEntry[]
 	onQuickEntriesChange: (entries: WorkbenchAppEntry[]) => Promise<void>
 	initialTab?: SettingsTab
-	petVisible: boolean
-	onPetVisibleChange: (visible: boolean) => void
+	pets: PetPrefs
+	onPetChange: (id: keyof PetPrefs, visible: boolean) => void
 }
 
 export type SettingsTab = 'desktop' | 'notifications' | 'backups'
@@ -30,7 +31,7 @@ const quickEntryIcons = [
 	{ value: 'link', label: '链接' }
 ]
 
-export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQuickEntriesVisibleChange, quickEntries, onQuickEntriesChange, initialTab = 'desktop', petVisible, onPetVisibleChange }: Props) {
+export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQuickEntriesVisibleChange, quickEntries, onQuickEntriesChange, initialTab = 'desktop', pets, onPetChange }: Props) {
 	const [tab, setTab] = useState<SettingsTab>(initialTab)
 	const [savingVisibility, setSavingVisibility] = useState(false)
 	const [savingEntries, setSavingEntries] = useState(false)
@@ -171,10 +172,15 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 				</section>}
 
 				{tab === 'desktop' && <section className='ambient-settings-section'>
-					<div className='ambient-settings-section-copy'><h3>桌面宠物</h3><p>小团子 Nono 会在桌面组件上走动、跳跃和飞行。</p></div>
+					<div className='ambient-settings-section-copy'><h3>桌面宠物</h3><p>两只都打开时，它们会打招呼、追逐和叠罗汉。只对当前浏览器生效。</p></div>
 					<label className='ambient-settings-toggle'>
-						<span><strong>显示桌面宠物</strong><small>只对当前浏览器生效。</small></span>
-						<input type='checkbox' checked={petVisible} onChange={event => onPetVisibleChange(event.target.checked)} />
+						<span><strong>显示 Nono</strong><small>小团子，会飞。</small></span>
+						<input type='checkbox' checked={pets.nono} onChange={event => onPetChange('nono', event.target.checked)} />
+						<i aria-hidden='true' />
+					</label>
+					<label className='ambient-settings-toggle'>
+						<span><strong>显示 Momo</strong><small>橘猫，跳得高。</small></span>
+						<input type='checkbox' checked={pets.momo} onChange={event => onPetChange('momo', event.target.checked)} />
 						<i aria-hidden='true' />
 					</label>
 				</section>}

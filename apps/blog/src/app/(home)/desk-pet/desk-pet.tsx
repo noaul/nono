@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
-	PET_SIZE,
-	PET_SIZE_COMPACT,
 	cheer,
 	chooseSpeech,
 	createPet,
@@ -13,16 +11,19 @@ import {
 	startDrag,
 	step,
 	surfaceRotation,
+	withPeerHeads,
 	type PetInput,
-	type PetSize,
 	type PetState,
+	type Species,
 	type SpeechTrigger,
 	type Terrain
 } from './desk-pet-model'
+import { createSocial, socialStep, type SocialState } from './desk-pet-social'
 import { DeskPetSprite } from './desk-pet-sprite'
 
 type Props = {
 	rootRef: React.RefObject<HTMLElement | null>
+	species: Species[]
 	sleepy: boolean
 	panelKey: string | null
 	notificationUnreadCount: number
@@ -45,7 +46,9 @@ const THROW_SAMPLE_MS = 100
 const LOOK_RANGE = 400
 
 type PointerSample = { x: number; y: number; t: number }
-type DragSession = { pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; startedAt: number; dragging: boolean; samples: PointerSample[] }
+type DragSession = { petId: string; pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; startedAt: number; dragging: boolean; samples: PointerSample[] }
+
+const restSlot = (index: number, count: number) => count < 2 ? 0 : index === 0 ? -1 : 1
 
 function effectiveOpacity(element: HTMLElement, root: HTMLElement) {
 	let opacity = 1
@@ -57,16 +60,16 @@ function effectiveOpacity(element: HTMLElement, root: HTMLElement) {
 	return opacity
 }
 
-function readTerrain(root: HTMLElement, size: PetSize): Terrain {
+function readTerrain(root: HTMLElement, petHeight: number): Terrain {
 	const sources = Array.from(root.querySelectorAll<HTMLElement>('[data-pet-terrain]')).map(element => ({
 		id: element.dataset.petTerrain || '',
 		rect: element.getBoundingClientRect(),
 		opacity: effectiveOpacity(element, root)
 	}))
-	return extractTerrain(sources, { width: root.clientWidth, height: root.clientHeight }, size.height)
+	return extractTerrain(sources, { width: root.clientWidth, height: root.clientHeight }, petHeight)
 }
 
-function paint(pet: HTMLDivElement | null, bubble: HTMLDivElement | null, state: PetState, viewportWidth: number) {
+function paint(pet: HTMLDivElement | undefined, bubble: HTMLDivElement | undefined, state: PetState, viewportWidth: number) {
 	if (!pet) return
 	pet.style.transform = `translate3d(${state.x - state.width / 2}px, ${state.y - state.height / 2}px, 0) rotate(${surfaceRotation(state.surface)}deg)`
 	if (pet.dataset.pose !== state.pose) pet.dataset.pose = state.pose
@@ -81,33 +84,48 @@ function paint(pet: HTMLDivElement | null, bubble: HTMLDivElement | null, state:
 		: `translate3d(${x}px, ${state.y - reach - 8}px, 0) translate(-50%, -100%)`
 }
 
-export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, upcomingTitle, focusRunning, hour, reducedMotion, hidden }: Props) {
-	const petRef = useRef<HTMLDivElement>(null)
-	const bubbleRef = useRef<HTMLDivElement>(null)
-	const stateRef = useRef<PetState | null>(null)
+export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnreadCount, upcomingTitle, focusRunning, hour, reducedMotion, hidden }: Props) {
+	const petEls = useRef(new Map<string, HTMLDivElement>())
+	const bubbleEls = useRef(new Map<string, HTMLDivElement>())
+	const petsRef = useRef<PetState[]>([])
+	const socialRef = useRef<SocialState>(createSocial(Math.random))
 	const terrainRef = useRef<Terrain | null>(null)
 	const dragRef = useRef<DragSession | null>(null)
 	const [compact, setCompact] = useState(false)
-	const [speech, setSpeech] = useState<string | null>(null)
-	const inputRef = useRef<PetInput>({ sleepy, panelKey, reducedMotion, compact })
+	const [speech, setSpeech] = useState<Record<string, string>>({})
+	const inputRef = useRef({ sleepy, panelKey, reducedMotion, compact })
 	inputRef.current = { sleepy, panelKey, reducedMotion, compact }
 	const contextRef = useRef({ upcomingTitle, focusRunning, hour })
 	contextRef.current = { upcomingTitle, focusRunning, hour }
-	const speechRef = useRef({ pageStartMs: 0, lastIdleSpeechMs: null as number | null, lastBreakMs: null as number | null, timer: 0 })
+	const speechRef = useRef({ pageStartMs: 0, lastIdleSpeechMs: null as number | null, lastBreakMs: null as number | null, timers: new Map<string, number>(), pending: new Set<number>() })
+	const speciesKey = species.map(item => item.id).join(',')
+	const firstPetId = species[0]?.id ?? null
 
-	const speak = (trigger: SpeechTrigger) => {
+	const say = (petId: string, text: string) => {
+		const memory = speechRef.current
+		setSpeech(current => ({ ...current, [petId]: text }))
+		window.clearTimeout(memory.timers.get(petId))
+		memory.timers.set(petId, window.setTimeout(() => setSpeech(current => {
+			const next = { ...current }
+			delete next[petId]
+			return next
+		}), SPEECH_DURATION_MS))
+	}
+
+	const speak = (trigger: SpeechTrigger, petId: string | null) => {
+		if (!petId) return
 		const nowMs = Date.now()
 		const memory = speechRef.current
 		const result = chooseSpeech({ trigger, nowMs, pageStartMs: memory.pageStartMs, lastIdleSpeechMs: memory.lastIdleSpeechMs, lastBreakMs: memory.lastBreakMs, ...contextRef.current }, Math.random)
 		if (!result) return
 		if (trigger === 'idle') memory.lastIdleSpeechMs = nowMs
 		if (result.kind === 'break') memory.lastBreakMs = nowMs
-		setSpeech(result.text)
-		window.clearTimeout(memory.timer)
-		memory.timer = window.setTimeout(() => setSpeech(null), SPEECH_DURATION_MS)
+		say(petId, result.text)
 	}
 	const speakRef = useRef(speak)
 	speakRef.current = speak
+	const sayRef = useRef(say)
+	sayRef.current = say
 
 	useEffect(() => {
 		const query = window.matchMedia(COMPACT_QUERY)
@@ -120,10 +138,11 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 	useEffect(() => {
 		const memory = speechRef.current
 		memory.pageStartMs = Date.now()
-		const greeting = window.setTimeout(() => speakRef.current('greeting'), GREETING_DELAY_MS)
+		const greeting = window.setTimeout(() => speakRef.current('greeting', petsRef.current[0]?.id ?? null), GREETING_DELAY_MS)
 		return () => {
 			window.clearTimeout(greeting)
-			window.clearTimeout(memory.timer)
+			memory.timers.forEach(timer => window.clearTimeout(timer))
+			memory.pending.forEach(timer => window.clearTimeout(timer))
 		}
 	}, [])
 
@@ -132,17 +151,21 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 		const previous = previousUnreadRef.current
 		previousUnreadRef.current = notificationUnreadCount
 		if (notificationUnreadCount <= previous || Date.now() - speechRef.current.pageStartMs < NOTIFICATION_GRACE_MS) return
-		if (stateRef.current) stateRef.current = cheer(stateRef.current)
-		speakRef.current('notification')
-	}, [notificationUnreadCount])
+		petsRef.current = petsRef.current.map(cheer)
+		speakRef.current('notification', firstPetId)
+	}, [notificationUnreadCount, firstPetId])
 
 	useEffect(() => {
 		const root = rootRef.current
-		if (!root || hidden) return
-		const size = compact ? PET_SIZE_COMPACT : PET_SIZE
-		const refresh = () => { terrainRef.current = readTerrain(root, size) }
+		if (!root || hidden || !species.length) return
+		const tallest = Math.max(...species.map(item => (compact ? item.compactSize : item.size).height))
+		const refresh = () => { terrainRef.current = readTerrain(root, tallest) }
 		refresh()
-		if (!stateRef.current || stateRef.current.width !== size.width) stateRef.current = createPet(terrainRef.current!, size, Math.random)
+		petsRef.current = species.map((item, index) => {
+			const size = compact ? item.compactSize : item.size
+			const existing = petsRef.current.find(pet => pet.id === item.id && pet.width === size.width)
+			return existing ?? createPet(terrainRef.current!, item, Math.random, { compact, restSlot: restSlot(index, species.length) })
+		})
 
 		let frame = 0
 		let last = performance.now()
@@ -150,11 +173,27 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 			frame = requestAnimationFrame(tick)
 			const dt = Math.min(0.05, (now - last) / 1000)
 			last = now
-			if (document.hidden || !stateRef.current || !terrainRef.current) return
-			const result = step(stateRef.current, dt, terrainRef.current, inputRef.current, Math.random)
-			stateRef.current = result.state
-			paint(petRef.current, bubbleRef.current, result.state, terrainRef.current.width)
-			if (result.events.includes('speak')) speakRef.current('idle')
+			const terrain = terrainRef.current
+			if (document.hidden || !terrain) return
+			const pets = petsRef.current
+			const input = inputRef.current
+			const stepped = pets.map((pet, index) => {
+				const petInput: PetInput = { ...input, restSlot: restSlot(index, pets.length) }
+				const result = step(pet, dt, withPeerHeads(terrain, pets, pet), petInput, Math.random)
+				if (result.events.includes('speak')) speakRef.current('idle', pet.id)
+				return result.state
+			})
+			const social = socialStep(stepped, socialRef.current, dt, terrain, input, Math.random)
+			socialRef.current = social.social
+			petsRef.current = social.pets
+			for (const line of social.speech) {
+				const timer = window.setTimeout(() => {
+					speechRef.current.pending.delete(timer)
+					sayRef.current(line.petId, line.text)
+				}, line.delayMs)
+				speechRef.current.pending.add(timer)
+			}
+			for (const pet of social.pets) paint(petEls.current.get(pet.id), bubbleEls.current.get(pet.id), pet, terrain.width)
 		}
 		frame = requestAnimationFrame(tick)
 
@@ -162,15 +201,16 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 		const observer = new ResizeObserver(refresh)
 		observer.observe(root)
 		const look = (event: PointerEvent) => {
-			const pet = petRef.current
-			const state = stateRef.current
-			if (!pet || !state) return
-			const dx = event.clientX - state.x
-			const dy = event.clientY - state.y
-			const distance = Math.hypot(dx, dy)
-			const near = distance > 1 && distance < LOOK_RANGE
-			pet.style.setProperty('--pet-look-x', `${near ? (dx / distance) * 1.6 : 0}px`)
-			pet.style.setProperty('--pet-look-y', `${near ? (dy / distance) * 1.2 : 0}px`)
+			for (const pet of petsRef.current) {
+				const element = petEls.current.get(pet.id)
+				if (!element) continue
+				const dx = event.clientX - pet.x
+				const dy = event.clientY - pet.y
+				const distance = Math.hypot(dx, dy)
+				const near = distance > 1 && distance < LOOK_RANGE
+				element.style.setProperty('--pet-look-x', `${near ? (dx / distance) * 1.6 : 0}px`)
+				element.style.setProperty('--pet-look-y', `${near ? (dy / distance) * 1.2 : 0}px`)
+			}
 		}
 		window.addEventListener('pointermove', look, { passive: true })
 		return () => {
@@ -179,67 +219,82 @@ export function DeskPet({ rootRef, sleepy, panelKey, notificationUnreadCount, up
 			observer.disconnect()
 			window.removeEventListener('pointermove', look)
 		}
-	}, [rootRef, hidden, compact])
+		// `speciesKey` stands in for `species`, which is a fresh array on every render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [rootRef, hidden, compact, speciesKey])
 
 	useEffect(() => {
 		const root = rootRef.current
-		if (!root || hidden) return
-		const size = compact ? PET_SIZE_COMPACT : PET_SIZE
+		if (!root || hidden || !species.length) return
+		const tallest = Math.max(...species.map(item => (compact ? item.compactSize : item.size).height))
 		// Panels animate in and idle fades take ~0.9s; measure again once they settle.
-		const timers = [320, 1000].map(delay => window.setTimeout(() => { terrainRef.current = readTerrain(root, size) }, delay))
+		const timers = [320, 1000].map(delay => window.setTimeout(() => { terrainRef.current = readTerrain(root, tallest) }, delay))
 		return () => timers.forEach(timer => window.clearTimeout(timer))
-	}, [rootRef, hidden, compact, panelKey, sleepy])
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [rootRef, hidden, compact, speciesKey, panelKey, sleepy])
 
-	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		const state = stateRef.current
-		if (!state || event.button !== 0) return
+	const updatePet = (petId: string, change: (pet: PetState) => PetState) => {
+		petsRef.current = petsRef.current.map(pet => pet.id === petId ? change(pet) : pet)
+		const pet = petsRef.current.find(item => item.id === petId)
+		if (pet) paint(petEls.current.get(petId), bubbleEls.current.get(petId), pet, terrainRef.current?.width ?? window.innerWidth)
+	}
+
+	const onPointerDown = (petId: string, event: ReactPointerEvent<HTMLDivElement>) => {
+		const pet = petsRef.current.find(item => item.id === petId)
+		if (!pet || event.button !== 0 || dragRef.current) return
 		event.currentTarget.setPointerCapture(event.pointerId)
 		const t = performance.now()
-		dragRef.current = { pointerId: event.pointerId, offsetX: event.clientX - state.x, offsetY: event.clientY - state.y, startX: event.clientX, startY: event.clientY, startedAt: t, dragging: false, samples: [{ x: event.clientX, y: event.clientY, t }] }
+		dragRef.current = { petId, pointerId: event.pointerId, offsetX: event.clientX - pet.x, offsetY: event.clientY - pet.y, startX: event.clientX, startY: event.clientY, startedAt: t, dragging: false, samples: [{ x: event.clientX, y: event.clientY, t }] }
 	}
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
 		const drag = dragRef.current
-		const state = stateRef.current
-		if (!drag || !state || drag.pointerId !== event.pointerId) return
+		if (!drag || drag.pointerId !== event.pointerId) return
 		const t = performance.now()
 		drag.samples = [...drag.samples.filter(sample => t - sample.t <= THROW_SAMPLE_MS), { x: event.clientX, y: event.clientY, t }]
 		if (!drag.dragging && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < CLICK_DISTANCE) return
-		const next = drag.dragging ? state : startDrag(state)
+		const starting = !drag.dragging
 		drag.dragging = true
-		stateRef.current = dragTo(next, event.clientX - drag.offsetX, event.clientY - drag.offsetY)
-		paint(petRef.current, bubbleRef.current, stateRef.current, terrainRef.current?.width ?? window.innerWidth)
+		updatePet(drag.petId, pet => dragTo(starting ? startDrag(pet) : pet, event.clientX - drag.offsetX, event.clientY - drag.offsetY))
 	}
 
 	const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
 		const drag = dragRef.current
-		const state = stateRef.current
-		if (!drag || !state || drag.pointerId !== event.pointerId) return
+		if (!drag || drag.pointerId !== event.pointerId) return
 		dragRef.current = null
 		if (drag.dragging) {
 			const first = drag.samples[0]
 			const last = drag.samples[drag.samples.length - 1]
 			const seconds = Math.max(0.016, (last.t - first.t) / 1000)
 			const throwing = event.type === 'pointerup' && drag.samples.length > 1
-			stateRef.current = releaseDrag(state, throwing ? (last.x - first.x) / seconds : 0, throwing ? (last.y - first.y) / seconds : 0)
+			updatePet(drag.petId, pet => releaseDrag(pet, throwing ? (last.x - first.x) / seconds : 0, throwing ? (last.y - first.y) / seconds : 0))
 			return
 		}
-		if (event.type === 'pointerup' && performance.now() - drag.startedAt < CLICK_DURATION_MS) stateRef.current = cheer(state)
+		if (event.type === 'pointerup' && performance.now() - drag.startedAt < CLICK_DURATION_MS) updatePet(drag.petId, cheer)
 	}
 
 	return <div className='desk-pet-layer' aria-hidden='true' data-hidden={hidden ? 'true' : 'false'}>
-		<div
-			ref={petRef}
-			className='desk-pet'
-			data-pose='idle'
-			data-facing='right'
-			style={compact ? { width: PET_SIZE_COMPACT.width, height: PET_SIZE_COMPACT.height } : { width: PET_SIZE.width, height: PET_SIZE.height }}
-			onPointerDown={onPointerDown}
-			onPointerMove={onPointerMove}
-			onPointerUp={endPointer}
-			onPointerCancel={endPointer}>
-			<DeskPetSprite />
-		</div>
-		<div ref={bubbleRef} className='desk-pet-bubble' data-visible={speech ? 'true' : 'false'}>{speech}</div>
+		{species.map(item => {
+			const size = compact ? item.compactSize : item.size
+			return <div
+				key={item.id}
+				ref={element => { if (element) petEls.current.set(item.id, element); else petEls.current.delete(item.id) }}
+				className='desk-pet'
+				data-species={item.id}
+				data-pose='idle'
+				data-facing='right'
+				style={{ width: size.width, height: size.height }}
+				onPointerDown={event => onPointerDown(item.id, event)}
+				onPointerMove={onPointerMove}
+				onPointerUp={endPointer}
+				onPointerCancel={endPointer}>
+				<DeskPetSprite species={item} />
+			</div>
+		})}
+		{species.map(item => <div
+			key={`${item.id}-bubble`}
+			ref={element => { if (element) bubbleEls.current.set(item.id, element); else bubbleEls.current.delete(item.id) }}
+			className='desk-pet-bubble'
+			data-visible={speech[item.id] ? 'true' : 'false'}>{speech[item.id]}</div>)}
 	</div>
 }

@@ -58,7 +58,9 @@ import {
 import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
-import { DeskPet } from './desk-pet/desk-pet'
+import { DeskPets } from './desk-pet/desk-pet'
+import { SPECIES } from './desk-pet/desk-pet-model'
+import { LEGACY_PET_KEY, PET_PREFS_KEY, readPetPrefs, type PetPrefs } from './desk-pet/desk-pet-prefs'
 import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 import { summarizeOverview, type TodayRow } from './today-overview-model'
 
@@ -112,7 +114,6 @@ type DockItem = DockPanelItem
 const TASKS_STORAGE_KEY = 'nodesk.ambient.tasks.v1'
 const EVENTS_STORAGE_KEY = 'nodesk.ambient.events.v1'
 const DIM_STORAGE_KEY = 'nodesk.ambient.dim.v1'
-const PET_STORAGE_KEY = 'nodesk.ambient.pet.v1'
 const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
@@ -223,7 +224,8 @@ export default function AmbientWorkbench() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
 	const [dimmed, setDimmed] = useState(false)
-	const [petVisible, setPetVisible] = useState(true)
+	const [petPrefs, setPetPrefs] = useState<PetPrefs>({ nono: true, momo: true })
+	const visiblePets = useMemo(() => SPECIES.filter(item => petPrefs[item.id as keyof PetPrefs]), [petPrefs])
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
@@ -435,7 +437,7 @@ export default function AmbientWorkbench() {
 
 	useEffect(() => {
 		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
-		setPetVisible(localStorage.getItem(PET_STORAGE_KEY) !== 'false')
+		setPetPrefs(readPetPrefs(localStorage.getItem(PET_PREFS_KEY), localStorage.getItem(LEGACY_PET_KEY)))
 	}, [])
 
 	useEffect(() => {
@@ -683,9 +685,10 @@ export default function AmbientWorkbench() {
 		})
 	}
 
-	const changePetVisible = (visible: boolean) => {
-		localStorage.setItem(PET_STORAGE_KEY, String(visible))
-		setPetVisible(visible)
+	const changePetVisible = (id: keyof PetPrefs, visible: boolean) => {
+		const next = { ...petPrefs, [id]: visible }
+		localStorage.setItem(PET_PREFS_KEY, JSON.stringify(next))
+		setPetPrefs(next)
 	}
 
 	const toggleFullscreen = async () => {
@@ -1013,8 +1016,9 @@ export default function AmbientWorkbench() {
 				</div>
 			</div>}
 
-			{privateWorkbenchVisible && petVisible && <DeskPet
+			{privateWorkbenchVisible && visiblePets.length > 0 && <DeskPets
 				rootRef={workbenchRef}
+				species={visiblePets}
 				sleepy={idleDepth !== 'awake' || dimmed}
 				panelKey={activePanel}
 				notificationUnreadCount={notificationUnreadCount}
@@ -1033,8 +1037,8 @@ export default function AmbientWorkbench() {
 				onQuickEntriesVisibleChange={saveQuickEntriesVisibility}
 				quickEntries={workbenchNavigation.entries}
 				onQuickEntriesChange={saveQuickEntries}
-				petVisible={petVisible}
-				onPetVisibleChange={changePetVisible}
+				pets={petPrefs}
+				onPetChange={changePetVisible}
 			/>
 
 			<AnimatePresence>
