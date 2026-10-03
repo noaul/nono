@@ -99,6 +99,22 @@ try {
       assert.equal((await app.inject({ method: 'GET', url, headers })).statusCode, 404);
     }
     console.log('PASS real database setup, cookie auth, tenant isolation, bookmark trash/restore, token scopes and retired APIs');
+
+    // Import runs as one transaction with createMany batches; prove it against real PostgreSQL.
+    const before = { folders: await prisma.folder.count(), links: await prisma.link.count() };
+    const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>
+      <DT><H3>Imported</H3><DL><p>
+        <DT><A HREF="https://import.example/one">One</A>
+        <DT><H3>Nested</H3><DL><p><DT><A HREF="https://import.example/two">Two</A></DL><p>
+      </DL><p>
+    </DL><p>`;
+    const imported = await app.inject({ method: 'POST', url: '/api/admin/bookmarks/import', headers, payload: { html } });
+    assert.equal(imported.statusCode, 200, imported.body);
+    assert.equal(await prisma.folder.count(), before.folders + 2);
+    assert.equal(await prisma.link.count(), before.links + 2);
+    const nested = await prisma.folder.findFirst({ where: { name: 'Nested' }, include: { parent: true } });
+    assert.equal(nested?.parent?.name, 'Imported');
+    console.log('PASS bookmark import commits nested folders and links in one transaction');
   } finally { await app.close(); }
 } finally {
   await prisma.$disconnect();
