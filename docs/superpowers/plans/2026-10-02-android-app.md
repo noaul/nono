@@ -12,6 +12,10 @@
 
 **进度（2026-10-02）：** v0.1 已在 `apps/android` 实现：单 WebView 外壳、导航边界、返回、系统栏/键盘、错误页、渲染进程重建、文件选择、站内直接下载、分享预填书签页；单元与 Robolectric 测试 13 项通过，签名 release APK 已构建。工具链锁定为 JDK 17、Gradle 8.14.5、AGP 8.13.2、Kotlin 2.2.21、compile/target SDK 36、minSdk 29。尚未在小米真机验证（Task 0），Task 2/3 的消息桥、Task 4 的幂等接口、Task 5～9 未开始。其余新增文件、接口和类型仍为计划内容。
 
+**进度（2026-10-03）：**
+- NoDesk 任务/日程已改为经服务器同步（`/api/admin/nodesk/planner`，存于站点设置并随账户备份）。Task 2 的“退出前提示本机任务/日程将被清理”和 Task 5 的本机任务 JSON 导出因此取消；退出只需清理 WebView 会话与待分享内容。
+- 小米开发者账号与真机尚未提供：Task 3～8 中不依赖二者的代码先行实现，小米服务端适配器用测试替身验证；凡需真机或小米控制台的步骤（Task 0、Task 8 真机验证、Task 9 观察）保持未勾选，不以 Redroid 结果代替。
+
 ## Global Constraints
 
 - 生产站点固定为 `https://noaul.com`；调试服务地址仅可通过 debug 构建配置提供。
@@ -201,7 +205,7 @@ await expect(page).toHaveURL(/\/nomoney\/dashboard$/);
 
 - [ ] 复用 WebView CookieManager 的持久化存储，flush 在登录状态变化后执行；不把 Cookie 拷贝到 JavaScript、localStorage 或 APK 固定配置。
 - [ ] 只保存安全 URL 和必要 UI 状态，进程重启恢复 GET 页面；服务端会话失效时重新登录，不重放 POST。忽略自动恢复的敏感表单内容。
-- [ ] 实现退出前对本机未同步任务/日程将被清理的提示，并允许取消退出；导出选项在 Task 5 文件功能可用后接入。在线先注销，再清理 WebView Cookie、站点存储、待分享和页面历史；离线清理与提示规则相同，设备远端撤销在 Task 6 接入。
+- [ ] ~~实现退出前对本机未同步任务/日程将被清理的提示~~（2026-10-03 起任务/日程经服务器同步，不再需要）。在线先注销，再清理 WebView Cookie、站点存储、待分享和页面历史；离线清理与提示规则相同，设备远端撤销在 Task 6 接入。
 - [ ] 真实检查一次登录跨五个入口、强制结束进程后重开、服务端撤销会话、密码修改、退出后后退按钮。保留 NoMoney/Yumi 当前最长 30 秒缓存边界。
 - [ ] 运行上述 Web 测试、现有账户安全测试及 Android 会话测试，独立提交：`feat(android): reuse NoNo sessions and restore safe routes`。
 
@@ -249,7 +253,7 @@ await expect(page).toHaveURL(/\/nomoney\/dashboard$/);
 - [ ] 下载逐跳验证同源 HTTPS 与允许路径；只给本站附加会话 Cookie，跨源跳转中止。检查状态码、Content-Type、Content-Disposition，清理文件名中的路径部分。
 - [ ] 流式写入、显示进度及取消。下载大小默认上限 256 MiB，超过后明确提示在浏览器完成；该数值作为产品限制记录，不默默截断。
 - [ ] 验证书签导入、JSON/CSV 导出和备份下载实际入口。blob 导出需要适配时采用站内端点或受限分块协议，禁止任意脚本与无限 base64 传输。
-- [ ] 为退出提示补充本机任务/日程的 JSON 导出，显式用户操作后保存；该导出使用限定 schema、1 MiB 上限和只写入用户选择文件的专用消息 `localData.export`，同时更新桥 allowlist 及拒绝越权的测试。
+- [ ] ~~为退出提示补充本机任务/日程的 JSON 导出~~（已改为服务器同步，取消），显式用户操作后保存；该导出使用限定 schema、1 MiB 上限和只写入用户选择文件的专用消息 `localData.export`，同时更新桥 allowlist 及拒绝越权的测试。
 - [ ] 独立提交：`feat(android): support scoped file picking and downloads`。
 
 **验收：** 目标手机能导入一个测试文件、导出并重新打开文件；取消操作可恢复，外站拿不到登录凭据。
