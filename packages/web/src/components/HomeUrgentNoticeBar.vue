@@ -46,8 +46,8 @@ defineEmits<{
 <style scoped>
 .home-urgent-bar {
   align-items: stretch;
-  backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  backdrop-filter: blur(var(--public-search-blur, 20px));
   background: var(--public-notification-surface, rgba(8, 12, 18, 0.92));
   border: 1px solid rgba(var(--public-notification-border-rgb, 255, 255, 255), 0.18);
   border-radius: var(--public-card-radius, 8px);

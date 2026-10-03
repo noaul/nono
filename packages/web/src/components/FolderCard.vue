@@ -295,7 +295,7 @@ onUnmounted(() => {
 
 <style scoped>
 .large-folder {
-  animation: folder-card-enter 0.32s var(--ui-ease) both;
+  animation: folder-card-enter 0.32s var(--ui-ease) backwards;
   animation-delay: var(--enter-delay, 0ms);
   display: grid;
   gap: var(--public-folder-title-gap, 12px);
@@ -390,8 +390,8 @@ h2 {
 
 .large-links {
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
-  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
   -webkit-backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
+  backdrop-filter: blur(var(--public-card-blur, 18px)) saturate(var(--public-glass-saturation, 120%));
   border: var(--public-glass-border-width, 1px) solid
     rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.28));
   border-radius: var(--public-card-radius, 8px);

@@ -228,8 +228,8 @@ onBeforeUnmount(() => {
 
 .home-notification-trigger {
   align-items: center;
-  backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.3);
   border-radius: 8px;
@@ -271,8 +271,8 @@ onBeforeUnmount(() => {
 }
 
 .home-notification-panel {
-  backdrop-filter: blur(26px);
   -webkit-backdrop-filter: blur(26px);
+  backdrop-filter: blur(26px);
   background: var(--public-notification-surface, rgba(8, 12, 18, 0.92));
   border: 1px solid rgba(var(--public-notification-border-rgb, 255, 255, 255), 0.2);
   border-radius: 8px;

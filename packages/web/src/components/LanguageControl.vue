@@ -119,8 +119,8 @@ onBeforeUnmount(() => {
 
 .language-trigger {
   align-items: center;
-  backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
   background: var(--color-mode-surface, rgba(255, 255, 255, 0.34));
   border: 1px solid var(--color-mode-border, rgba(255, 255, 255, 0.3));
   border-radius: 8px;
@@ -148,8 +148,8 @@ onBeforeUnmount(() => {
 }
 
 .language-popover {
-  backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
   background: var(--color-mode-popover, rgba(20, 22, 28, 0.92));
   border: 1px solid var(--color-mode-border, rgba(255, 255, 255, 0.16));
   border-radius: 8px;

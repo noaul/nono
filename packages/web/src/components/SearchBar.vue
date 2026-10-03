@@ -199,8 +199,8 @@ defineExpose({
   --search-inner-radius: max(3px, calc(var(--public-search-radius, 28px) - var(--search-inset) - 1px));
   --search-ink-rgb: var(--public-search-text-rgb, var(--public-bookmark-text-rgb, 255, 255, 255));
   align-items: center;
-  backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(var(--public-glass-saturation, 120%));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(var(--public-glass-saturation, 120%));
+  backdrop-filter: blur(var(--public-search-blur, 20px)) saturate(var(--public-glass-saturation, 120%));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: var(--public-glass-border-width, 1px) solid
     rgba(var(--public-border-rgb, 255, 255, 255), var(--public-glass-border-opacity, 0.28));

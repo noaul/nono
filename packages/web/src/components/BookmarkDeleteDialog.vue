@@ -79,8 +79,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .bookmark-delete-backdrop {
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   background: rgba(var(--public-overlay-rgb, 8, 12, 18), 0.48);
   display: grid;
   inset: 0;

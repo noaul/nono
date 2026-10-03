@@ -1,6 +1,6 @@
 .public-empty-state {
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), var(--public-card-opacity, 0.26));
   border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.28);
   border-radius: var(--nono-radius-md);

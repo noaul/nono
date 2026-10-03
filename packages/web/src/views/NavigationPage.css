@@ -26,8 +26,8 @@
 
 .bookmark-drag-preview {
   align-items: center;
-  backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   background: rgba(var(--public-card-color-rgb, 247, 248, 251), calc(var(--public-card-opacity, 0.26) + 0.42));
   border: 1px solid rgba(var(--public-border-rgb, 255, 255, 255), 0.56);
   border-radius: 8px;
@@ -58,8 +58,8 @@
 }
 
 .bookmark-message {
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   background: rgba(var(--public-overlay-rgb), 0.9);
   border: 1px solid rgba(var(--accent-bright-rgb), 0.42);
   border-radius: 8px;
@@ -181,8 +181,8 @@
 
 .organize-toolbar {
   align-items: center;
-  backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  backdrop-filter: blur(var(--public-search-blur, 20px));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), calc(var(--public-search-opacity, 0.34) + 0.14));
   border: 1px solid rgba(var(--accent-bright-rgb), 0.48);
   border-radius: var(--public-card-radius, 8px);
@@ -253,8 +253,8 @@
 
 .portal-corner-link {
   align-items: center;
-  backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: 1px solid rgba(var(--public-border-rgb), 0.3);
   border-radius: 8px;
@@ -424,8 +424,8 @@ h1 {
 }
 
 .folder-tabs {
-  backdrop-filter: blur(var(--public-search-blur, 20px));
   -webkit-backdrop-filter: blur(var(--public-search-blur, 20px));
+  backdrop-filter: blur(var(--public-search-blur, 20px));
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: var(--public-glass-border-width, 1px) solid
     rgba(var(--public-border-rgb), var(--public-glass-border-opacity, 0.28));
@@ -693,8 +693,8 @@ h1 {
 }
 
 .folder-load-more {
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   background: rgba(var(--public-search-color-rgb, 247, 248, 251), var(--public-search-opacity, 0.34));
   border: 1px solid rgba(var(--public-border-rgb), 0.28);
   border-radius: 8px;

@@ -190,12 +190,36 @@ describe('visual contracts', () => {
     expect(folderCardSource).toContain('content-visibility: auto');
   });
 
+  it('keeps the standard backdrop-filter after its -webkit- twin so the CSS minifier keeps it', () => {
+    // lightningcss (Vite's CSS minifier) treats a later -webkit-backdrop-filter as overriding an
+    // earlier backdrop-filter and drops the standard one, which leaves Chromium with no blur at all.
+    const sourceFiles = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(full);
+      return /\.(vue|css)$/.test(entry.name) ? [full] : [];
+    });
+    const misordered = sourceFiles(path.resolve(process.cwd(), 'src')).flatMap((file) => {
+      const blocks = fs.readFileSync(file, 'utf8').match(/\{[^{}]*\}/g) || [];
+      return blocks
+        .filter((block) => {
+          const standard = block.search(/(^|[\s;{])backdrop-filter\s*:/);
+          const prefixed = block.indexOf('-webkit-backdrop-filter');
+          return standard !== -1 && prefixed !== -1 && standard < prefixed;
+        })
+        .map(() => path.relative(process.cwd(), file));
+    });
+    expect(misordered).toEqual([]);
+  });
+
   it('keeps each public folder as a compact glass bookmark card', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/FolderCard.vue'), 'utf8');
 
     expect(source).toContain('folder-glass-panel');
+    // A `both` fill keeps the finished opacity animation on the card, which makes it a backdrop
+    // root in Chromium: the glass then blurs nothing behind it and the folder blur setting is lost.
+    expect(source).toMatch(/animation: folder-card-enter [^;]* backwards;/);
     // Desktop card: three bookmarks per row, five visible rows, then an inner vertical scrollbar.
     // Narrow viewports derive their own column count; see the mobile assertions below.
     expect(source).toContain('grid-template-rows: 38px auto');
