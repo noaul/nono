@@ -203,6 +203,17 @@ test('Momo gives up on a goal it cannot reach', () => {
 	assert.deepEqual(state.surface, { kind: 'platform', id: FLOOR_ID })
 })
 
+test('Momo takes a big leap to the clock or a panel when no route exists', () => {
+	const terrain = world([{ id: 'clock', y: 150, x1: 100, x2: 300 }, { id: 'dock', y: 760, x1: 50, x2: 350 }])
+
+	const asleep = run(placeOn(terrain, 'dock', 200, MOMO), 5, terrain, { ...awake, sleepy: true }).state
+	assert.equal(asleep.pose, 'sleep')
+	assert.deepEqual(asleep.surface, { kind: 'platform', id: 'clock' })
+
+	const wander = step(setGoal(placeOn(terrain, 'dock', 200, MOMO), 'clock'), FRAME, terrain, awake, constant(0.5)).state
+	assert.equal(wander.goalId, null)
+})
+
 test('lands on another pet, rides along and falls when the carrier leaves', () => {
 	const terrain = world([])
 	const carrier = placeOn(terrain, FLOOR_ID, 500, MOMO)

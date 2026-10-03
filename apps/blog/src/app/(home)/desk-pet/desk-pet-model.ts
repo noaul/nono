@@ -458,7 +458,11 @@ function decideIfDue(s: PetState, dt: number, platform: Platform, terrain: Terra
 		const x = goal.id === REST_ID && input.sleepy
 			? restX(goal, s, input.restSlot)
 			: (goal.x1 + goal.x2) / 2 + (rng() - 0.5) * (goal.x2 - goal.x1) * 0.5
-		return travelToPlatform({ ...s, goalTries: s.goalTries + 1 }, goal, x, terrain, s.goalTries >= 1) ?? giveUpGoal(s, input)
+		const travel = travelToPlatform({ ...s, goalTries: s.goalTries + 1 }, goal, x, terrain, s.goalTries >= 1)
+		if (travel) return travel
+		// The clock and an opened panel are worth a leap past the usual reach; idle wanders are not.
+		if (goal.id === REST_ID || goal.id === PANEL_ID) return jumpTo({ ...s, goalTries: s.goalTries + 1 }, goal, clamp(x, goal.x1 + s.width / 2, goal.x2 - s.width / 2))
+		return giveUpGoal(s, input)
 	}
 	const decisionIn = s.decisionIn - dt
 	if (decisionIn > 0) return { ...s, decisionIn }

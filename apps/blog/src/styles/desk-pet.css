@@ -344,8 +344,8 @@
 }
 
 .desk-pet:is([data-pose='walk'], [data-pose='climb']) .desk-pet-tail { animation-duration: 0.9s; }
-.desk-pet[data-pose='run'] .desk-pet-tail { animation: none; transform: rotate(-24deg); }
-.desk-pet:is([data-pose='fall'], [data-pose='drag'], [data-pose='jump']) .desk-pet-tail { animation: none; transform: rotate(-38deg); }
+.desk-pet[data-pose='run'] .desk-pet-tail { animation: none; transform: rotate(22deg); }
+.desk-pet:is([data-pose='fall'], [data-pose='drag'], [data-pose='jump']) .desk-pet-tail { animation: none; transform: rotate(-8deg) scale(1.05); }
 .desk-pet[data-pose='sleep'] .desk-pet-tail { animation: none; transform: rotate(38deg); }
 .desk-pet[data-species='momo'][data-pose='land'] .desk-pet-figure { animation: desk-pet-land-hard 0.2s ease-out; }
 .desk-pet[data-species='momo'][data-pose='sleep'] .desk-pet-figure { transform: scale(1.1, 0.8); }
