@@ -1,6 +1,7 @@
 .git
 .github
 .superpowers
+.claude
 backups
 node_modules
 **/node_modules

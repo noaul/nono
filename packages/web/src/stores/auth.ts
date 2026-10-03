@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { SessionPayload, User } from '@/api/types';
-import { clearNativeSession } from '@/mobile/shell';
+import { canClearNativeSession, clearNativeSession } from '@/mobile/shell';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -48,10 +48,16 @@ export const useAuthStore = defineStore('auth', {
       const result = await apiRequest<{ user: User }>('/api/auth/register', { method: 'POST', body: jsonBody(input) });
       return result.user;
     },
-    async logout() {
-      await apiRequest('/api/auth/logout', { method: 'POST' });
+    async logout(confirmLocal?: () => Promise<boolean>) {
+      try {
+        await apiRequest('/api/auth/logout', { method: 'POST' });
+      } catch (error) {
+        if (!canClearNativeSession()) throw error;
+        if (!confirmLocal || !(await confirmLocal())) return false;
+      }
       this.user = null;
       clearNativeSession();
+      return true;
     },
   },
 });

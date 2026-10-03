@@ -940,6 +940,9 @@ export const zh = {
     saveChanges: '保存变更',
   },
   admin: {
+    localSignOut: '仅退出这台手机',
+    localSignOutHint: '无法连接服务器。这会清除手机上的登录和暂存内容，但服务器会话尚未撤销；恢复联网后可在设备管理中撤销。是否继续？',
+    signOutFailed: '退出失败，请重试',
     sectionOperations: '运营',
     sectionSystem: '系统',
     navDashboard: '总览',

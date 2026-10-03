@@ -23,6 +23,8 @@ import LanguageControl from '@/components/LanguageControl.vue';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import type { Component } from 'vue';
 import { useI18n } from '@/composables/useI18n';
+import { useConfirm } from '@/composables/useConfirm';
+import { notifyError } from '@/composables/useToasts';
 import type { MessageKey } from '@/locales';
 
 const props = withDefaults(defineProps<{ title?: string }>(), {
@@ -139,8 +141,16 @@ watch(() => route?.path, () => {
 
 async function logout() {
   userMenuOpen.value = false;
-  await auth.logout();
-  await router.push('/login');
+  try {
+    const signedOut = await auth.logout(() => useConfirm().confirm({
+      title: t('admin.localSignOut'),
+      message: t('admin.localSignOutHint'),
+      confirmText: t('admin.localSignOut'),
+    }));
+    if (signedOut !== false) await router.push('/login');
+  } catch (error) {
+    notifyError(error instanceof Error ? error.message : t('admin.signOutFailed'));
+  }
 }
 </script>
 

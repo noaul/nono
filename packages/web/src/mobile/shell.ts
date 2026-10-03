@@ -19,6 +19,10 @@ export function dismissPendingCapture(requestId: string) {
 }
 
 /** Called after successful server logout; the native side clears its private state too. */
+export function canClearNativeSession() {
+  return connectMobileShell()?.supports('session.clear') === true;
+}
+
 export function clearNativeSession() {
   clearCapture();
   connectMobileShell()?.send('session.clear');

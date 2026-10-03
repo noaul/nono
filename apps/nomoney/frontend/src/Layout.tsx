@@ -3,7 +3,9 @@ import { ContactRound, Ellipsis, Globe2, Languages, LayoutDashboard, LogOut, Moo
 import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
-import { IconButton } from './ui';
+import { IconButton, StateBanner } from './ui';
+import { connectMobileBridge, type MobileBridge } from './mobile/bridge';
+import { logoutSharedSession } from './mobile/session';
 import { useI18n } from './i18n';
 import { product, productMeta } from './product';
 import { COLOR_MODE_CHANGE_EVENT, currentColorMode, setColorModePreference, type ResolvedColorMode } from './color-mode';
@@ -56,6 +58,15 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
   const { copy, language, toggleLanguage } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement | null>(null);
+  const mobileBridge = useRef<MobileBridge | null>(null);
+  const [logoutPending, setLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
+
+  useEffect(() => {
+    const bridge = connectMobileBridge({ onBack: () => false });
+    mobileBridge.current = bridge;
+    return () => { bridge?.dispose(); mobileBridge.current = null; };
+  }, []);
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [theme, setTheme] = useState<ResolvedColorMode>(currentColorMode);
   const current = useMemo(() => productNavItems.find((item) => location.startsWith(item.to)), [location]);
@@ -100,8 +111,23 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
 
   // Logging out ends the shared NoNo session, which signs out every product at once.
   const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined);
-    window.location.assign('/login');
+    if (logoutPending) return;
+    setLogoutPending(true);
+    setLogoutError('');
+    try {
+      await logoutSharedSession({
+        bridge: mobileBridge.current,
+        navigate: url => window.location.assign(url),
+        confirmLocalLogout: () => window.confirm(copy(
+          '无法连接服务器，远端会话未确认撤销。是否仅退出此设备并清除本机数据？联网后请在账户设置中撤销远端会话。',
+          'The server could not be reached, so remote session revocation is unconfirmed. Sign out of this device and clear local data only? Revoke the remote session in account settings when connected.'
+        )),
+      });
+    } catch {
+      setLogoutError(copy('退出失败，当前页面已保留。请检查网络后重试。', 'Could not sign out. This page is still open; check the connection and try again.'));
+    } finally {
+      setLogoutPending(false);
+    }
   };
 
   const dockItemClass = (active: boolean) => clsx(
@@ -141,7 +167,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
             <IconButton className="nomoney-topbar-button" onClick={toggleTheme} title={copy('切换主题', 'Toggle theme')}>
               {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
             </IconButton>
-            <IconButton className="nomoney-topbar-button" onClick={logout} title={copy(`登出 ${user.username}`, `Log out ${user.username}`)}>
+            <IconButton className="nomoney-topbar-button" onClick={logout} disabled={logoutPending} title={copy(`登出 ${user.username}`, `Log out ${user.username}`)}>
               <LogOut size={16} />
             </IconButton>
           </div>
@@ -156,6 +182,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
           </div>
           {topbarActions && <div className="flex min-w-0 flex-wrap items-center gap-2">{topbarActions}</div>}
         </div>
+        {logoutError && <StateBanner tone="danger">{logoutError}</StateBanner>}
         <LayoutActionsContext.Provider value={outletContext}>{children}</LayoutActionsContext.Provider>
       </main>
 

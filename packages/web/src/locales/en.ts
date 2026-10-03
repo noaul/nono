@@ -938,6 +938,9 @@ export const en: Messages = {
     saveChanges: 'Save changes',
   },
   admin: {
+    localSignOut: 'Sign out this phone only',
+    localSignOutHint: 'The server could not be reached. This clears the login and pending content on this phone, but does not revoke the server session. You can revoke it in device settings when online. Continue?',
+    signOutFailed: 'Could not sign out. Please retry.',
     sectionOperations: 'Operations',
     sectionSystem: 'System',
     navDashboard: 'Overview',
