@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { FLOOR_ID, MOMO, NONO, createPet, step, withPeerHeads, type PetInput, type PetState, type Platform, type Species, type Terrain } from '../src/app/(home)/desk-pet/desk-pet-model.ts'
+import { FLOOR_ID, MOMO, NONO, createPet, resolveCollisions, step, withPeerHeads, type PetInput, type PetState, type Platform, type Species, type Terrain } from '../src/app/(home)/desk-pet/desk-pet-model.ts'
 import { createSocial, socialStep, type SocialState } from '../src/app/(home)/desk-pet/desk-pet-social.ts'
 import { readPetPrefs } from '../src/app/(home)/desk-pet/desk-pet-prefs.ts'
 
@@ -85,6 +85,35 @@ test('one pet jumps onto the other and rides on its head', () => {
 		pets = pets.map(pet => step(pet, 1 / 60, withPeerHeads(terrain, pets, pet), petInput, constant(0.5)).state)
 	}
 	assert.deepEqual(pets[0].surface, { kind: 'platform', id: 'pet:momo' })
+})
+
+function live(pets: PetState[], social: SocialState, seconds: number, input: PetInput, rng = constant(0.5)) {
+	let current = pets
+	let state = social
+	for (let elapsed = 0; elapsed < seconds; elapsed += 1 / 60) {
+		const stepped = current.map((pet, index) => step(pet, 1 / 60, withPeerHeads(terrain, current, pet), { ...input, restSlot: index === 0 ? -1 : 1 }, rng).state)
+		const result = socialStep(stepped, state, 1 / 60, terrain, input, rng)
+		state = result.social
+		current = resolveCollisions(result.pets).pets
+	}
+	return { pets: current, social: state }
+}
+
+test('pets crossing on the way to bed still reach their own sides', () => {
+	const pets = [placeOn('clock', 660, NONO), placeOn('clock', 440, MOMO)]
+	const { pets: asleep } = live(pets, quiet(), 8, { ...petInput, sleepy: true })
+
+	assert.deepEqual(asleep.map(pet => pet.pose), ['sleep', 'sleep'])
+	assert.ok(asleep[0].x < asleep[1].x)
+})
+
+test('a chaser can catch up even though pets cannot overlap', () => {
+	const chase = { chaserId: 'nono', targetId: 'momo', time: 0 }
+	const pets = [placeOn('clock', 430, NONO), { ...placeOn('clock', 660, MOMO), decisionIn: 99 }]
+	const { social } = live(pets, quiet({ chase }), 6, petInput)
+
+	assert.equal(social.chase, null)
+	assert.ok(social.nextChaseIn > 50)
 })
 
 test('reads pet preferences with a legacy fallback', () => {

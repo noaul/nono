@@ -577,28 +577,51 @@ function decideOnHead(s: PetState, rng: Rng): PetState {
 	return { ...setPose(s, 'crouch'), facing: side, launch: { vx: side === 'left' ? -140 : 140, vy: -300 } }
 }
 
+type Choice = 'walk' | 'look' | 'hop' | 'climb' | 'far' | 'peek' | 'speak'
+
+/** Relative chance of each idle choice; climbing depends on the species and is halved on phones. */
+function choiceWeights(s: PetState, input: PetInput): Array<[Choice, number]> {
+	return [
+		['walk', 0.32],
+		['look', 0.22],
+		['hop', 0.14],
+		['climb', s.species.climbWeight * (input.compact ? 0.5 : 1)],
+		['far', 0.1],
+		['peek', 0.1],
+		['speak', 0.04]
+	]
+}
+
 function decide(s: PetState, platform: Platform, terrain: Terrain, input: PetInput, rng: Rng, events: PetEvent[]): PetState {
-	const roll = rng()
-	const climbWeight = s.species.climbWeight * (input.compact ? 0.5 : 1)
-	if (roll < 0.35) return startWalk(s, platform, rng)
-	if (roll < 0.6) return { ...s, facing: flip(s.facing), decisionIn: 1.5 + rng() * 1.5 }
-	if (roll < 0.75) {
-		const near = terrain.platforms.filter(other => other.id !== platform.id && !isPetPlatform(other.id) && canJump(s, other, clamp(s.x, other.x1, other.x2)))
-		if (!near.length) return startWalk(s, platform, rng)
-		const target = pickOne(near, rng)
-		return travelToPlatform(s, target, clamp(s.x + (rng() - 0.5) * 160, target.x1, target.x2), terrain) ?? startWalk(s, platform, rng)
+	const weights = choiceWeights(s, input)
+	let roll = rng() * weights.reduce((sum, [, weight]) => sum + weight, 0)
+	const choice = weights.find(([, weight]) => (roll -= weight) < 0)?.[0] ?? 'speak'
+	switch (choice) {
+		case 'walk':
+			return startWalk(s, platform, rng)
+		case 'look':
+			return { ...s, facing: flip(s.facing), decisionIn: 1.5 + rng() * 1.5 }
+		case 'hop': {
+			const near = terrain.platforms.filter(other => other.id !== platform.id && !isPetPlatform(other.id) && canJump(s, other, clamp(s.x, other.x1, other.x2)))
+			if (!near.length) return startWalk(s, platform, rng)
+			const target = pickOne(near, rng)
+			return travelToPlatform(s, target, clamp(s.x + (rng() - 0.5) * 160, target.x1, target.x2), terrain) ?? startWalk(s, platform, rng)
+		}
+		case 'climb':
+			return startClimb(s, platform, terrain, rng)
+		case 'far': {
+			const others = terrain.platforms.filter(other => other.id !== platform.id && !isPetPlatform(other.id))
+			if (!others.length) return startWalk(s, platform, rng)
+			const target = pickOne(others, rng)
+			if (!s.species.canFly) return setGoal(s, target.id)
+			return travelToPlatform(s, target, target.x1 + (target.x2 - target.x1) * rng(), terrain, true) ?? startWalk(s, platform, rng)
+		}
+		case 'peek':
+			return startPeek(s, terrain, rng) ?? startWalk(s, platform, rng)
+		default:
+			events.push('speak')
+			return s
 	}
-	if (roll < 0.75 + climbWeight) return startClimb(s, platform, terrain, rng)
-	if (roll < 0.85 + climbWeight) {
-		const others = terrain.platforms.filter(other => other.id !== platform.id && !isPetPlatform(other.id))
-		if (!others.length) return startWalk(s, platform, rng)
-		const target = pickOne(others, rng)
-		if (!s.species.canFly) return setGoal(s, target.id)
-		return travelToPlatform(s, target, target.x1 + (target.x2 - target.x1) * rng(), terrain, true) ?? startWalk(s, platform, rng)
-	}
-	if (roll < 0.93 + climbWeight) return startPeek(s, terrain, rng) ?? startWalk(s, platform, rng)
-	events.push('speak')
-	return s
 }
 
 function startWalk(s: PetState, platform: Platform, rng: Rng): PetState {
@@ -842,6 +865,8 @@ export function peekClip(s: PetState, terrain: Terrain) {
 
 const ridesOn = (rider: PetState, carrier: PetState) => rider.surface.kind === 'platform' && rider.surface.id === `${PET_PLATFORM_PREFIX}${carrier.id}`
 const canCollide = (s: PetState) => s.pose !== 'drag' && s.flight === null && (s.surface.kind === 'platform' || s.surface.kind === 'air')
+/** Pets on their way somewhere, or asleep, squeeze past each other instead of shoving. */
+const passesBy = (s: PetState) => s.goalId !== null || s.pose === 'sleep'
 
 /** Keeps pets from overlapping: neighbours on a platform shove apart, anything moving knocks the other away. */
 export function resolveCollisions(pets: PetState[]): { pets: PetState[]; bumps: string[] } {
@@ -858,6 +883,7 @@ export function resolveCollisions(pets: PetState[]): { pets: PetState[]; bumps: 
 			const reachY = ((a.height + b.height) / 2) * COLLIDE_FACTOR
 			if (Math.abs(dx) >= reachX || Math.abs(dy) > reachY * COLLIDE_VERTICAL) continue
 			const grounded = a.surface.kind === 'platform' && b.surface.kind === 'platform'
+			if (grounded && (passesBy(a) || passesBy(b))) continue
 			const [hitA, hitB] = grounded ? shove(a, b, dx, reachX) : knock(a, b, dx, dy, reachX)
 			if (!grounded || a.pose !== 'ouch') bumps.push(a.id)
 			if (!grounded || b.pose !== 'ouch') bumps.push(b.id)

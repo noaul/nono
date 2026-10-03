@@ -5,15 +5,22 @@ import {
 	cheer,
 	chooseSpeech,
 	createPet,
+	createShake,
 	dragTo,
 	extractTerrain,
+	feedShake,
+	makeDizzy,
+	peekClip,
 	releaseDrag,
+	resolveCollisions,
 	startDrag,
 	step,
 	surfaceRotation,
 	withPeerHeads,
 	type PetInput,
 	type PetState,
+	type Point,
+	type ShakeMeter,
 	type Species,
 	type SpeechTrigger,
 	type Terrain
@@ -44,9 +51,12 @@ const CLICK_DISTANCE = 5
 const CLICK_DURATION_MS = 250
 const THROW_SAMPLE_MS = 100
 const LOOK_RANGE = 400
+const OUCH_GAP_MS = 5000
+const SLING_DRAW = 240
+const DIZZY_LINES = ['晕乎乎…', '眼冒金星～', '别晃啦！']
 
 type PointerSample = { x: number; y: number; t: number }
-type DragSession = { petId: string; pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; startedAt: number; dragging: boolean; samples: PointerSample[] }
+type DragSession = { petId: string; pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; startedAt: number; dragging: boolean; samples: PointerSample[]; shake: ShakeMeter }
 
 const restSlot = (index: number, count: number) => count < 2 ? 0 : index === 0 ? -1 : 1
 
@@ -69,13 +79,32 @@ function readTerrain(root: HTMLElement, petHeight: number): Terrain {
 	return extractTerrain(sources, { width: root.clientWidth, height: root.clientHeight }, petHeight)
 }
 
-function paint(pet: HTMLDivElement | undefined, bubble: HTMLDivElement | undefined, state: PetState, viewportWidth: number) {
+function setData(element: HTMLElement, key: string, value: string) {
+	if (element.dataset[key] !== value) element.dataset[key] = value
+}
+
+function paint(pet: HTMLDivElement | undefined, bubble: HTMLDivElement | undefined, state: PetState, terrain: Terrain | null) {
 	if (!pet) return
-	pet.style.transform = `translate3d(${state.x - state.width / 2}px, ${state.y - state.height / 2}px, 0) rotate(${surfaceRotation(state.surface)}deg)`
-	if (pet.dataset.pose !== state.pose) pet.dataset.pose = state.pose
-	if (pet.dataset.facing !== state.facing) pet.dataset.facing = state.facing
-	if (pet.dataset.ready !== 'true') pet.dataset.ready = 'true'
+	const rotation = surfaceRotation(state.surface) + (state.pose === 'tumble' ? state.spin : 0)
+	pet.style.transform = `translate3d(${state.x - state.width / 2}px, ${state.y - state.height / 2}px, 0) rotate(${rotation}deg)`
+	const clip = terrain ? peekClip(state, terrain) : null
+	const clipPath = clip ? `inset(${clip.top}px ${clip.right}px ${clip.bottom}px ${clip.left}px)` : ''
+	if (pet.dataset.clip !== clipPath) {
+		pet.dataset.clip = clipPath
+		pet.style.clipPath = clipPath
+	}
+	const pull = state.tension ? Math.min(1, Math.hypot(state.tension.x, state.tension.y) / SLING_DRAW) : 0
+	setData(pet, 'tense', pull > 0.02 ? 'true' : 'false')
+	if (pull > 0.02 && state.tension) {
+		pet.style.setProperty('--pet-tension', pull.toFixed(3))
+		pet.style.setProperty('--pet-tension-angle', `${Math.atan2(state.tension.y, state.tension.x)}rad`)
+	}
+	setData(pet, 'pose', state.pose)
+	setData(pet, 'facing', state.facing)
+	setData(pet, 'dizzy', state.dizzyFor > 0 ? 'true' : 'false')
+	setData(pet, 'ready', 'true')
 	if (!bubble) return
+	const viewportWidth = terrain?.width ?? window.innerWidth
 	const reach = Math.max(state.width, state.height) / 2
 	const x = Math.min(viewportWidth - 96, Math.max(96, state.x))
 	const below = state.y - reach < 64
@@ -91,6 +120,8 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 	const socialRef = useRef<SocialState>(createSocial(Math.random))
 	const terrainRef = useRef<Terrain | null>(null)
 	const dragRef = useRef<DragSession | null>(null)
+	const pointerRef = useRef<Point | null>(null)
+	const ouchRef = useRef(new Map<string, number>())
 	const [compact, setCompact] = useState(false)
 	const [speech, setSpeech] = useState<Record<string, string>>({})
 	const inputRef = useRef({ sleepy, panelKey, reducedMotion, compact })
@@ -124,6 +155,14 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 	}
 	const speakRef = useRef(speak)
 	speakRef.current = speak
+
+	/** Reactions that come from physics rather than from the speech schedule. */
+	const react = (before: PetState | undefined, after: PetState) => {
+		if (before && before.dizzyFor === 0 && after.dizzyFor > 0) say(after.id, DIZZY_LINES[Math.floor(Math.random() * DIZZY_LINES.length)])
+		else if (before && before.pose !== 'tumble' && after.pose === 'tumble' && before.pose === 'drag') say(after.id, '咻——！')
+	}
+	const reactRef = useRef(react)
+	reactRef.current = react
 	const sayRef = useRef(say)
 	sayRef.current = say
 
@@ -178,14 +217,22 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 			const pets = petsRef.current
 			const input = inputRef.current
 			const stepped = pets.map((pet, index) => {
-				const petInput: PetInput = { ...input, restSlot: restSlot(index, pets.length), pointer: null }
+				const petInput: PetInput = { ...input, restSlot: restSlot(index, pets.length), pointer: pointerRef.current }
 				const result = step(pet, dt, withPeerHeads(terrain, pets, pet), petInput, Math.random)
 				if (result.events.includes('speak')) speakRef.current('idle', pet.id)
 				return result.state
 			})
 			const social = socialStep(stepped, socialRef.current, dt, terrain, input, Math.random)
 			socialRef.current = social.social
-			petsRef.current = social.pets
+			const collided = resolveCollisions(social.pets)
+			const nowMs = Date.now()
+			for (const id of new Set(collided.bumps)) {
+				if (nowMs - (ouchRef.current.get(id) ?? 0) < OUCH_GAP_MS) continue
+				ouchRef.current.set(id, nowMs)
+				sayRef.current(id, '哎哟')
+			}
+			collided.pets.forEach((pet, index) => reactRef.current(pets[index], pet))
+			petsRef.current = collided.pets
 			for (const line of social.speech) {
 				const timer = window.setTimeout(() => {
 					speechRef.current.pending.delete(timer)
@@ -193,7 +240,7 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 				}, line.delayMs)
 				speechRef.current.pending.add(timer)
 			}
-			for (const pet of social.pets) paint(petEls.current.get(pet.id), bubbleEls.current.get(pet.id), pet, terrain.width)
+			for (const pet of collided.pets) paint(petEls.current.get(pet.id), bubbleEls.current.get(pet.id), pet, terrain)
 		}
 		frame = requestAnimationFrame(tick)
 
@@ -201,6 +248,7 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 		const observer = new ResizeObserver(refresh)
 		observer.observe(root)
 		const look = (event: PointerEvent) => {
+			pointerRef.current = { x: event.clientX, y: event.clientY }
 			for (const pet of petsRef.current) {
 				const element = petEls.current.get(pet.id)
 				if (!element) continue
@@ -234,9 +282,12 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 	}, [rootRef, hidden, compact, speciesKey, panelKey, sleepy])
 
 	const updatePet = (petId: string, change: (pet: PetState) => PetState) => {
+		const before = petsRef.current.find(item => item.id === petId)
 		petsRef.current = petsRef.current.map(pet => pet.id === petId ? change(pet) : pet)
 		const pet = petsRef.current.find(item => item.id === petId)
-		if (pet) paint(petEls.current.get(petId), bubbleEls.current.get(petId), pet, terrainRef.current?.width ?? window.innerWidth)
+		if (!pet) return
+		react(before, pet)
+		paint(petEls.current.get(petId), bubbleEls.current.get(petId), pet, terrainRef.current)
 	}
 
 	const onPointerDown = (petId: string, event: ReactPointerEvent<HTMLDivElement>) => {
@@ -244,7 +295,7 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 		if (!pet || event.button !== 0 || dragRef.current) return
 		event.currentTarget.setPointerCapture(event.pointerId)
 		const t = performance.now()
-		dragRef.current = { petId, pointerId: event.pointerId, offsetX: event.clientX - pet.x, offsetY: event.clientY - pet.y, startX: event.clientX, startY: event.clientY, startedAt: t, dragging: false, samples: [{ x: event.clientX, y: event.clientY, t }] }
+		dragRef.current = { petId, pointerId: event.pointerId, offsetX: event.clientX - pet.x, offsetY: event.clientY - pet.y, startX: event.clientX, startY: event.clientY, startedAt: t, dragging: false, samples: [{ x: event.clientX, y: event.clientY, t }], shake: createShake(event.clientX, event.clientY, t) }
 	}
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -255,7 +306,13 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 		if (!drag.dragging && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < CLICK_DISTANCE) return
 		const starting = !drag.dragging
 		drag.dragging = true
-		updatePet(drag.petId, pet => dragTo(starting ? startDrag(pet) : pet, event.clientX - drag.offsetX, event.clientY - drag.offsetY))
+		const shake = feedShake(drag.shake, event.clientX, event.clientY, t)
+		drag.shake = shake.meter
+		const bounds = terrainRef.current ?? { width: window.innerWidth, height: window.innerHeight }
+		updatePet(drag.petId, pet => {
+			const moved = dragTo(starting ? startDrag(pet) : pet, event.clientX - drag.offsetX, event.clientY - drag.offsetY, bounds)
+			return shake.shaken ? makeDizzy(moved) : moved
+		})
 	}
 
 	const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {

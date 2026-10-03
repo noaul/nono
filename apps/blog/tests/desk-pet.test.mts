@@ -410,6 +410,20 @@ test('hides behind a component, peeks out, ducks from the pointer and leaves', (
 	assert.deepEqual(run(leaving, 3, terrain, awake).state.surface, { kind: 'platform', id: 'panel' })
 })
 
+test('both pets sometimes decide to go and peek', () => {
+	const block: Block = { id: 'near', left: 600, top: 650, right: 800, bottom: 760 }
+	const terrain = blockWorld([block])
+	for (const species of [NONO, MOMO]) {
+		const pet = { ...placeOn(terrain, FLOOR_ID, 400, species), decisionIn: 0 }
+		const rolls = Array.from({ length: 100 }, (_, index) => index / 100)
+		const peeks = rolls.filter(roll => {
+			const next = step(pet, FRAME, terrain, awake, () => roll).state
+			return next.flight?.surface.kind === 'peek'
+		})
+		assert.ok(peeks.length >= 5, `${species.id} peeked on ${peeks.length} of 100 rolls`)
+	}
+})
+
 test('Momo only peeks behind components it can leap to', () => {
 	const near: Block = { id: 'near', left: 600, top: 650, right: 800, bottom: 760 }
 	const far: Block = { id: 'far', left: 600, top: 60, right: 800, bottom: 160 }

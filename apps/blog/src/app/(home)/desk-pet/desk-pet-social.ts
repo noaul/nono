@@ -35,7 +35,8 @@ const STACK_DISTANCE = 90
 const STACK_CHANCE = 0.08
 const STACK_COOLDOWN = 45
 const STACK_WAIT = 2.5
-const CATCH_DISTANCE = 36
+/** Wider than the collision gap, which keeps pets on a platform at least ~39px apart. */
+const CATCH_DISTANCE = 44
 const FLEE_DISTANCE = 120
 const CHASE_TIMEOUT = 12
 const REPLY_DELAY_MS = 1200
