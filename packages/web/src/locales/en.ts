@@ -877,6 +877,7 @@ export const en: Messages = {
     updated: 'Bookmark updated',
     updateFailed: 'Could not update the bookmark',
     created: 'Bookmark created',
+    alreadySaved: 'Already saved as “{name}”',
     deleteTitle: 'Delete bookmark',
     deleteConfirm: 'Delete “{name}”? It disappears from the public page immediately.',
     deleted: 'Bookmark deleted',

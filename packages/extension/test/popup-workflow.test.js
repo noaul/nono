@@ -81,6 +81,12 @@ describe('extension popup workflow helpers', () => {
     expect(payload).toEqual({ folderId: 2, name: 'Custom', nameMode: 'auto', url: 'https://example.com/', description: 'Desc' });
   });
 
+  it('asks the server for another copy only when the user chose to', () => {
+    const page = { url: 'https://example.com/', title: 'Example', description: '' };
+    expect(buildQuickSavePayload(page, { folderId: '2' })).not.toHaveProperty('allowDuplicate');
+    expect(buildQuickSavePayload(page, { folderId: '2', allowDuplicate: true })).toMatchObject({ allowDuplicate: true });
+  });
+
   it('builds an update payload for an existing duplicate', () => {
     const payload = buildUpdateBookmarkPayload(
       { url: 'https://example.com/', title: 'Example', description: 'Page description' },
@@ -88,6 +94,7 @@ describe('extension popup workflow helpers', () => {
     );
 
     expect(payload).toEqual({ folderId: 4, name: 'Updated', url: 'https://example.com/', description: 'Fresh description' });
+    expect(buildUpdateBookmarkPayload({ url: 'https://example.com/', title: 'Example' }, { folderId: '4', allowDuplicate: true })).not.toHaveProperty('allowDuplicate');
   });
 
   it('compacts page titles into recognizable bookmark names', () => {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AppServices } from '../../types.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
-import { normalizeUrl } from '../../services/bookmark.service.js';
+import { duplicateUrlKey, normalizeUrl } from '../../services/bookmark.service.js';
 import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
 import { checkLinksHealth, shouldSkipLinkHealthCheck } from '../../services/link-health.service.js';
 import type { FolderRecord, LinkRecord } from '../../services/repository.js';
@@ -30,6 +30,8 @@ const linkCreateSchema = z.object({
   icon: z.string().max(2048).optional().default(''),
   description: z.string().max(2000).optional().default(''),
   sortOrder: z.coerce.number().finite().optional(),
+  /** Save even when the URL is already bookmarked ("save another copy"). */
+  allowDuplicate: z.boolean().optional().default(false),
 });
 
 const linkMoveSchema = z.object({
@@ -77,6 +79,13 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
     const url = normalizeUrl(body.url);
+    if (!body.allowDuplicate) {
+      const existing = await services.repo.findLinkByUrl(user.id, url);
+      if (existing) {
+        setAuditContext(request, { skip: true });
+        return sendOk(reply, { ...existing, existing: true });
+      }
+    }
     const name = body.nameMode === 'manual' ? String(body.name || '').trim() || shortenBookmarkName('', url) : shortenBookmarkName(body.name, url);
     const created = await services.repo.createLink({
       folderId: folder.id,
@@ -124,7 +133,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const links = await services.repo.listLinks(user.id);
     const groups = new Map<string, typeof links>();
     for (const link of links) {
-      const key = normalizeUrl(link.url).toLowerCase();
+      const key = duplicateUrlKey(link.url);
       groups.set(key, [...(groups.get(key) || []), link]);
     }
     return sendOk(reply, {

@@ -276,14 +276,15 @@ async function saveBookmark() {
   }
   setBusy(saveButton, true, t('saving'));
   try {
-    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value });
-    const created = await request('/api/admin/links', payload);
+    // The duplicate warning is showing, so pressing save means "save another copy".
+    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value, allowDuplicate: Boolean(duplicateLink) });
+    const { existing, ...saved } = await request('/api/admin/links', payload);
     await rememberFolder(folderId);
-    links = [created, ...links];
-    duplicateLink = findDuplicateLink(links, pageInfo.url);
+    if (!links.some((link) => String(link.id) === String(saved.id))) links = [saved, ...links];
+    duplicateLink = existing ? saved : findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
-    setStatus(t('saved'), 'success');
-    chrome.action.setBadgeText({ text: 'OK' });
+    setStatus(existing ? t('alreadySaved', { name: saved.name }) : t('saved'), 'success');
+    chrome.action.setBadgeText({ text: existing ? '✓' : 'OK' });
   } catch (error) {
     setStatus(error.message || t('saveFailed'), 'error');
   } finally {

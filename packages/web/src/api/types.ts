@@ -74,6 +74,8 @@ export interface Link {
   healthCheckEnabled?: boolean;
   clickCount?: number;
   lastClickedAt?: string | null;
+  /** Set on a create response when the URL was already bookmarked and nothing was saved. */
+  existing?: boolean;
 }
 
 export interface NavigationPayload {

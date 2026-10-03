@@ -879,6 +879,7 @@ export const zh = {
     updated: '书签已更新',
     updateFailed: '书签更新失败',
     created: '书签已新增',
+    alreadySaved: '已收藏过：{name}',
     deleteTitle: '删除书签',
     deleteConfirm: '确定删除「{name}」吗？这个操作会立即从公开导航页移除该链接。',
     deleted: '书签已删除',

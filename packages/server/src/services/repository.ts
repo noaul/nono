@@ -320,6 +320,8 @@ export interface Repository {
   /** Owned links among `ids`, in display order; ids the user does not own are dropped. */
   getLinksByIds(userId: number, ids: number[]): Promise<LinkRecord[]>;
   listFolderLinks(userId: number, folderId: number): Promise<LinkRecord[]>;
+  /** Oldest owned link whose URL equals `url` ignoring case (see duplicateUrlKey). */
+  findLinkByUrl(userId: number, url: string): Promise<LinkRecord | null>;
   /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
   searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
@@ -667,6 +669,11 @@ export class MemoryRepository implements Repository {
   async listFolderLinks(userId: number, folderId: number) {
     if (!await this.getFolder(userId, folderId)) return [];
     return this.links.filter((link) => link.folderId === folderId).sort(sortOrder);
+  }
+
+  async findLinkByUrl(userId: number, url: string) {
+    const key = url.toLowerCase();
+    return (await this.listLinks(userId)).filter((link) => link.url.toLowerCase() === key).sort((a, b) => a.id - b.id)[0] || null;
   }
 
   async searchLinks(userId: number, query: string, options: LinkSearchOptions) {

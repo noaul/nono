@@ -5,6 +5,7 @@ import LinksView from '../src/views/admin/LinksView.vue';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
 const apiRequest = vi.fn();
+const toasts = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyInfo: vi.fn() }));
 
 vi.mock('@/api/client', () => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
@@ -15,10 +16,7 @@ vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
 }));
 
-vi.mock('@/composables/useToasts', () => ({
-  notifySuccess: vi.fn(),
-  notifyError: vi.fn(),
-}));
+vi.mock('@/composables/useToasts', () => toasts);
 
 function mountLinksView(props: { mode?: 'create' | 'manage' } = {}) {
   return mount(LinksView, {
@@ -396,6 +394,30 @@ describe('LinksView admin workflow', () => {
       }),
     });
     expect(wrapper.get('[data-testid="link-row-20"]').text()).toContain('Maps');
+  });
+
+  it('points at the existing bookmark instead of adding a duplicate row', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工作', parentId: null, sortOrder: 100 },
+        { id: 2, userId: 1, name: '开发', parentId: 1, sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([{ id: 20, folderId: 2, name: 'Maps', url: 'https://maps.example/', description: '', icon: '', sortOrder: 10 }])
+      .mockResolvedValueOnce({ id: 20, folderId: 2, name: 'Maps', url: 'https://maps.example/', description: '', icon: '', sortOrder: 10, existing: true });
+    toasts.notifySuccess.mockClear();
+    toasts.notifyInfo.mockClear();
+
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+    await wrapper.get('[data-testid="add-link-row"]').trigger('click');
+    await wrapper.get('[data-testid="new-link-name"]').setValue('Maps again');
+    await wrapper.get('[data-testid="new-link-url"]').setValue('https://maps.example/');
+    await wrapper.get('[data-testid="save-new-link"]').trigger('click');
+    await settle(wrapper);
+
+    expect(wrapper.findAll('[data-testid="link-row-20"]')).toHaveLength(1);
+    expect(toasts.notifySuccess).not.toHaveBeenCalled();
+    expect(toasts.notifyInfo).toHaveBeenCalledWith(expect.stringContaining('Maps'));
   });
 
   it('selects all visible bookmarks for batch deletion', async () => {

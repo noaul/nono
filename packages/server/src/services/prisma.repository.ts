@@ -281,6 +281,12 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     async listFolderLinks(userId, folderId) {
       return (await prisma.link.findMany({ where: { folderId, folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
     },
+    async findLinkByUrl(userId, url) {
+      return (await prisma.link.findFirst({
+        where: { folder: { userId }, url: { equals: url, mode: 'insensitive' } },
+        orderBy: { id: 'asc' },
+      })) as any;
+    },
     async searchLinks(userId, query, options) {
       const terms = linkSearchTerms(query);
       if (!terms.length) return [];

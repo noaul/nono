@@ -12,7 +12,7 @@ import SortableList from '@/components/admin/SortableList.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { BulkLinkResult, DuplicateLinkGroup, Folder, Link, LinkHealthResult, LinkHealthSummary } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
-import { notifyError, notifySuccess } from '@/composables/useToasts';
+import { notifyError, notifyInfo, notifySuccess } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
 import { formatShanghaiDateTime } from '@/utils/dateTime';
 import { sharedBookmarkDraft } from '@/utils/sharedBookmark';
@@ -437,11 +437,14 @@ async function save() {
     const saved = form.id
       ? await apiRequest<Link>(`/api/admin/links/${form.id}`, { method: 'PUT', body: jsonBody(payload) })
       : await apiRequest<Link>('/api/admin/links', { method: 'POST', body: jsonBody(payload) });
-    links.value = form.id ? links.value.map((link) => (link.id === saved.id ? saved : link)) : [...links.value, saved];
-    selectedCategoryId.value = categoryIdForFolder(saved.folderId);
-    selectedFolderId.value = saved.folderId;
-    message.value = form.id ? t('links.updated') : t('links.created');
-    notifySuccess(message.value);
+    const { existing, ...link } = saved;
+    if (form.id) links.value = links.value.map((item) => (item.id === link.id ? link : item));
+    else if (!links.value.some((item) => item.id === link.id)) links.value = [...links.value, link];
+    selectedCategoryId.value = categoryIdForFolder(link.folderId);
+    selectedFolderId.value = link.folderId;
+    message.value = existing ? t('links.alreadySaved', { name: link.name }) : form.id ? t('links.updated') : t('links.created');
+    if (existing) notifyInfo(message.value);
+    else notifySuccess(message.value);
     reset();
   } catch (event) {
     const text = event instanceof Error ? event.message : t('common.saveFailed');

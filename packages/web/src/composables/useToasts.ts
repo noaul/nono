@@ -55,6 +55,10 @@ export function notifySuccess(message: string, options?: ToastOptions) {
   return useToasts().push(message, 'success', options);
 }
 
+export function notifyInfo(message: string) {
+  return useToasts().push(message, 'info');
+}
+
 export function notifyError(message: string) {
   return useToasts().push(message, 'error');
 }

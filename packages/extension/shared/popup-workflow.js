@@ -88,11 +88,12 @@ export function buildQuickSavePayload(pageInfo, fields) {
     nameMode: fields.nameMode === 'manual' ? 'manual' : 'auto',
     url: pageInfo.url,
     description: String(fields.description || pageInfo.description || '').trim(),
+    ...(fields.allowDuplicate ? { allowDuplicate: true } : {}),
   };
 }
 
 export function buildUpdateBookmarkPayload(pageInfo, fields) {
-  const { nameMode: _nameMode, ...payload } = buildQuickSavePayload(pageInfo, fields);
+  const { nameMode: _nameMode, allowDuplicate: _allowDuplicate, ...payload } = buildQuickSavePayload(pageInfo, fields);
   return payload;
 }
 
