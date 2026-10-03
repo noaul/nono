@@ -4,36 +4,43 @@ import test from 'node:test'
 
 import {
 	FLOOR_ID,
-	PET_SIZE,
+	MOMO,
+	NONO,
 	SPEECH_MAX_LENGTH,
 	cheer,
 	chooseSpeech,
 	createPet,
 	extractTerrain,
+	headPlatform,
 	releaseDrag,
+	runTo,
+	setGoal,
 	startDrag,
 	step,
 	surfaceRotation,
 	travelToPlatform,
+	withPeerHeads,
 	type PetInput,
 	type PetState,
 	type Platform,
+	type Species,
 	type SpeechContext,
 	type Terrain
 } from '../src/app/(home)/desk-pet/desk-pet-model.ts'
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 const constant = (value: number) => () => value
-const awake: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false }
+const awake: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false, restSlot: 0 }
 const FRAME = 1 / 60
 
 function world(platforms: Platform[], extra: Partial<Terrain> = {}): Terrain {
 	return { width: 1000, height: 800, platforms: [{ id: FLOOR_ID, y: 800, x1: 0, x2: 1000 }, ...platforms], walls: [], ceilings: [], ...extra }
 }
 
-function placeOn(terrain: Terrain, id: string, x: number): PetState {
+function placeOn(terrain: Terrain, id: string, x: number, species: Species = NONO): PetState {
 	const platform = terrain.platforms.find(item => item.id === id)!
-	return { ...createPet(terrain, PET_SIZE, constant(0.5)), x, y: platform.y - PET_SIZE.height / 2, surface: { kind: 'platform', id } }
+	const pet = createPet(terrain, species, constant(0.5))
+	return { ...pet, x, y: platform.y - pet.height / 2, surface: { kind: 'platform', id } }
 }
 
 function run(state: PetState, seconds: number, terrain: Terrain, input: PetInput) {
@@ -50,6 +57,7 @@ function run(state: PetState, seconds: number, terrain: Terrain, input: PetInput
 const clock: Platform = { id: 'clock', y: 300, x1: 400, x2: 700 }
 const upcoming: Platform = { id: 'upcoming', y: 420, x1: 450, x2: 650 }
 const panel: Platform = { id: 'panel', y: 500, x1: 300, x2: 800 }
+const platformById = (terrain: Terrain, id: string) => terrain.platforms.find(item => item.id === id)!
 
 test('turns visible element rects into platforms, walls and ceilings', () => {
 	const terrain = extractTerrain([
@@ -57,7 +65,7 @@ test('turns visible element rects into platforms, walls and ceilings', () => {
 		{ id: 'search', rect: { left: 300, top: 20, width: 400, height: 44 }, opacity: 1 },
 		{ id: 'dock', rect: { left: 300, top: 650, width: 400, height: 96 }, opacity: 0.24 },
 		{ id: 'chip', rect: { left: 100, top: 200, width: 30, height: 20 }, opacity: 1 }
-	], { width: 1000, height: 800 }, PET_SIZE.height)
+	], { width: 1000, height: 800 }, NONO.size.height)
 
 	assert.deepEqual(terrain.platforms.map(item => item.id), [FLOOR_ID, 'clock'])
 	assert.deepEqual(terrain.walls.map(item => `${item.id}:${item.side}`), ['clock:left', 'clock:right', 'search:left', 'search:right'])
@@ -66,29 +74,29 @@ test('turns visible element rects into platforms, walls and ceilings', () => {
 
 test('falls onto the platform below and stands on its top edge', () => {
 	const terrain = world([{ id: 'dock', y: 600, x1: 300, x2: 700 }])
-	const pet: PetState = { ...createPet(terrain, PET_SIZE, constant(0.5)), x: 500, y: 100, surface: { kind: 'air' }, pose: 'fall' }
+	const pet: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 500, y: 100, surface: { kind: 'air' }, pose: 'fall' }
 	const { state } = run(pet, 3, terrain, awake)
 
 	assert.deepEqual(state.surface, { kind: 'platform', id: 'dock' })
-	assert.equal(state.y, 600 - PET_SIZE.height / 2)
+	assert.equal(state.y, 600 - NONO.size.height / 2)
 })
 
 test('passes up through a platform and lands on it on the way down', () => {
 	const terrain = world([{ id: 'dock', y: 600, x1: 300, x2: 700 }])
-	const pet: PetState = { ...createPet(terrain, PET_SIZE, constant(0.5)), x: 500, y: 700, vy: -900, surface: { kind: 'air' }, pose: 'jump' }
+	const pet: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 500, y: 700, vy: -900, surface: { kind: 'air' }, pose: 'jump' }
 
 	const rising = run(pet, 0.2, terrain, awake).state
 	assert.equal(rising.surface.kind, 'air')
-	assert.ok(rising.y + PET_SIZE.height / 2 < 600)
+	assert.ok(rising.y + NONO.size.height / 2 < 600)
 	assert.deepEqual(run(rising, 2, terrain, awake).state.surface, { kind: 'platform', id: 'dock' })
 })
 
 test('bounces off the viewport edge and caps throw speed', () => {
 	const terrain = world([])
-	const pet: PetState = { ...createPet(terrain, PET_SIZE, constant(0.5)), x: 960, y: 300, vx: 2000, surface: { kind: 'air' }, pose: 'fall' }
+	const pet: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 960, y: 300, vx: 2000, surface: { kind: 'air' }, pose: 'fall' }
 	const { state } = step(pet, FRAME, terrain, awake, constant(0.5))
 
-	assert.equal(state.x, 1000 - PET_SIZE.width / 2)
+	assert.equal(state.x, 1000 - NONO.size.width / 2)
 	assert.ok(state.vx < 0)
 	assert.equal(releaseDrag(startDrag(pet), 5000, 0).vx, 2200)
 })
@@ -97,11 +105,11 @@ test('jumps to near platforms and flies to far ones', () => {
 	const terrain = world([{ id: 'a', y: 600, x1: 100, x2: 300 }, { id: 'b', y: 500, x1: 400, x2: 600 }, { id: 'c', y: 200, x1: 800, x2: 950 }])
 	const pet = placeOn(terrain, 'a', 200)
 
-	const near = travelToPlatform(pet, terrain.platforms.find(item => item.id === 'b')!, 450)
+	const near = travelToPlatform(pet, platformById(terrain, 'b'), 450, terrain)!
 	assert.equal(near.pose, 'crouch')
 	assert.deepEqual(run(near, 2, terrain, awake).state.surface, { kind: 'platform', id: 'b' })
 
-	const far = travelToPlatform(pet, terrain.platforms.find(item => item.id === 'c')!, 870)
+	const far = travelToPlatform(pet, platformById(terrain, 'c'), 870, terrain)!
 	assert.equal(far.pose, 'fly')
 	assert.ok(far.flight)
 	assert.deepEqual(run(far, 3, terrain, awake).state.surface, { kind: 'platform', id: 'c' })
@@ -163,6 +171,88 @@ test('rotates the sprite to hug walls and ceilings', () => {
 	assert.equal(surfaceRotation({ kind: 'ceiling', id: 'clock' }), 180)
 })
 
+test('Momo drops without gliding while Nono opens its wings', () => {
+	const terrain = world([])
+	const falling = (species: Species): PetState => ({ ...createPet(terrain, species, constant(0.5)), x: 500, y: 60, surface: { kind: 'air' }, pose: 'fall' })
+
+	const momo = run(falling(MOMO), 0.6, terrain, awake).state
+	assert.equal(momo.pose, 'fall')
+	assert.ok(momo.vy > 200)
+
+	const nono = run(falling(NONO), 0.6, terrain, awake).state
+	assert.equal(nono.pose, 'fly')
+	assert.ok(nono.vy <= 200)
+})
+
+test('Momo hops from platform to platform to reach a far goal, Nono flies there', () => {
+	const terrain = world([{ id: 'a', y: 650, x1: 100, x2: 300 }, { id: 'b', y: 420, x1: 150, x2: 350 }, { id: 'c', y: 200, x1: 600, x2: 800 }])
+
+	const momo = run(setGoal(placeOn(terrain, FLOOR_ID, 500, MOMO), 'c'), 15, terrain, awake).state
+	assert.deepEqual(momo.surface, { kind: 'platform', id: 'c' })
+	assert.equal(momo.goalId, null)
+
+	const nono = step(setGoal(placeOn(terrain, FLOOR_ID, 500), 'c'), FRAME, terrain, awake, constant(0.5)).state
+	assert.equal(nono.pose, 'fly')
+})
+
+test('Momo gives up on a goal it cannot reach', () => {
+	const terrain = world([{ id: 'high', y: 300, x1: 100, x2: 200 }])
+	const { state } = step(setGoal(placeOn(terrain, FLOOR_ID, 500, MOMO), 'high'), FRAME, terrain, awake, constant(0.5))
+
+	assert.equal(state.goalId, null)
+	assert.deepEqual(state.surface, { kind: 'platform', id: FLOOR_ID })
+})
+
+test('lands on another pet, rides along and falls when the carrier leaves', () => {
+	const terrain = world([])
+	const carrier = placeOn(terrain, FLOOR_ID, 500, MOMO)
+	const head = headPlatform(carrier)!
+	assert.equal(head.id, 'pet:momo')
+
+	const dropped: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 505, y: 400, surface: { kind: 'air' }, pose: 'fall' }
+	const rider = run(dropped, 2, withPeerHeads(terrain, [carrier, dropped], dropped), awake).state
+	assert.deepEqual(rider.surface, { kind: 'platform', id: 'pet:momo' })
+	assert.equal(rider.y, head.y - NONO.size.height / 2)
+
+	const moved = { ...carrier, x: 560 }
+	const carried = step(rider, FRAME, withPeerHeads(terrain, [moved, rider], rider), awake, constant(0.5)).state
+	assert.equal(carried.x, 560)
+	assert.equal(withPeerHeads(terrain, [moved, carried], moved).platforms.some(item => item.id === 'pet:nono'), false)
+
+	const lifted = startDrag(moved)
+	const fell = step(carried, FRAME, withPeerHeads(terrain, [lifted, carried], carried), awake, constant(0.5)).state
+	assert.equal(fell.pose, 'fall')
+})
+
+test('hops down from a head after a while', () => {
+	const terrain = world([])
+	const carrier = placeOn(terrain, FLOOR_ID, 500, MOMO)
+	const head = headPlatform(carrier)!
+	const rider: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 500, y: head.y - NONO.size.height / 2, surface: { kind: 'platform', id: head.id } }
+
+	const { state } = run(rider, 8, withPeerHeads(terrain, [carrier, rider], rider), awake)
+	assert.deepEqual(state.surface, { kind: 'platform', id: FLOOR_ID })
+})
+
+test('two pets sleep side by side on the clock', () => {
+	const terrain = world([clock, upcoming])
+	const nono = run(placeOn(terrain, 'upcoming', 550), 8, terrain, { ...awake, sleepy: true, restSlot: -1 }).state
+	const momo = run(placeOn(terrain, 'upcoming', 560, MOMO), 8, terrain, { ...awake, sleepy: true, restSlot: 1 }).state
+
+	assert.equal(nono.pose, 'sleep')
+	assert.equal(momo.pose, 'sleep')
+	assert.deepEqual([nono.surface, momo.surface], [{ kind: 'platform', id: 'clock' }, { kind: 'platform', id: 'clock' }])
+	assert.ok(momo.x - nono.x >= (NONO.size.width + MOMO.size.width) / 2 - 6)
+})
+
+test('runs along its own platform on command', () => {
+	const terrain = world([clock])
+	const pet = runTo(placeOn(terrain, 'clock', 500), 2000, platformById(terrain, 'clock'))
+
+	assert.equal(pet.pose, 'run')
+	assert.equal(pet.walkTo, 700 - NONO.size.width / 2)
+})
+
 test('chooses short, well-timed speech', () => {
 	const base: SpeechContext = { trigger: 'idle', nowMs: 10 * 60_000, pageStartMs: 0, lastIdleSpeechMs: null, lastBreakMs: null, hour: 8, upcomingTitle: null, focusRunning: false }
 
@@ -179,12 +269,13 @@ test('chooses short, well-timed speech', () => {
 	assert.equal(chooseSpeech(base, constant(0.9))?.kind, 'chatter')
 })
 
-test('wires the pet into the workbench and the settings center', async () => {
+test('wires both pets into the workbench and the settings center', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
 
 	for (const id of ['search', 'clock', 'upcoming', 'panel', 'notifications', 'appdock', 'dock']) assert.match(workbench, new RegExp(`data-pet-terrain='${id}'`))
-	assert.match(workbench, /nodesk\.ambient\.pet\.v1/)
-	assert.match(workbench, /<DeskPet/)
-	assert.match(settings, /显示桌面宠物/)
+	assert.match(workbench, /readPetPrefs/)
+	assert.match(workbench, /<DeskPets/)
+	assert.match(settings, /显示 Nono/)
+	assert.match(settings, /显示 Momo/)
 })
