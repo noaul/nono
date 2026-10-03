@@ -11,15 +11,22 @@ export type Platform = { id: string; y: number; x1: number; x2: number }
 /** `side` is the element side the wall belongs to; a pet on a left wall sits left of the element. */
 export type Wall = { id: string; side: Side; x: number; y1: number; y2: number }
 export type Ceiling = { id: string; y: number; x1: number; x2: number }
-export type Terrain = { width: number; height: number; platforms: Platform[]; walls: Wall[]; ceilings: Ceiling[] }
+/** The full box of a component: tumbling pets bounce off it and peeking pets hide behind it. */
+export type Block = { id: string; left: number; top: number; right: number; bottom: number }
+export type Terrain = { width: number; height: number; platforms: Platform[]; walls: Wall[]; ceilings: Ceiling[]; blocks: Block[] }
+export type Point = { x: number; y: number }
+export type PeekSide = Side | 'top'
+/** `tuck` is 0 when peeking out and 1 when fully hidden; `wait` keeps it hidden after the pointer came close. */
+export type Peek = { offset: number; tuck: number; until: number; wait: number }
 
-export type Pose = 'idle' | 'walk' | 'run' | 'crouch' | 'jump' | 'land' | 'climb' | 'hang' | 'fly' | 'fall' | 'drag' | 'happy' | 'sleep' | 'stretch'
+export type Pose = 'idle' | 'walk' | 'run' | 'crouch' | 'jump' | 'land' | 'climb' | 'hang' | 'fly' | 'fall' | 'drag' | 'happy' | 'sleep' | 'stretch' | 'tumble' | 'ouch' | 'peek' | 'dizzy'
 export type Surface =
 	| { kind: 'platform'; id: string }
 	| { kind: 'wall'; id: string; side: Side }
 	| { kind: 'ceiling'; id: string }
+	| { kind: 'peek'; id: string; side: PeekSide }
 	| { kind: 'air' }
-export type Flight = { fromX: number; fromY: number; toX: number; toY: number; t: number; duration: number; surface: Surface }
+export type Flight = { fromX: number; fromY: number; toX: number; toY: number; t: number; duration: number; surface: Surface; arc: number }
 export type PetSize = { width: number; height: number }
 
 export type Species = {
@@ -37,8 +44,8 @@ export type Species = {
 
 export const NONO: Species = {
 	id: 'nono',
-	size: { width: 44, height: 38 },
-	compactSize: { width: 34, height: 29 },
+	size: { width: 48, height: 42 },
+	compactSize: { width: 36, height: 32 },
 	canFly: true,
 	walkSpeed: 40,
 	runSpeed: 110,
@@ -50,8 +57,8 @@ export const NONO: Species = {
 
 export const MOMO: Species = {
 	id: 'momo',
-	size: { width: 46, height: 40 },
-	compactSize: { width: 36, height: 31 },
+	size: { width: 50, height: 44 },
+	compactSize: { width: 38, height: 34 },
 	canFly: false,
 	walkSpeed: 45,
 	runSpeed: 160,
@@ -86,10 +93,16 @@ export type PetState = PetSize & {
 	goalTries: number
 	goalAge: number
 	lastPanelKey: string | null
+	dizzyFor: number
+	/** Degrees of spin while tumbling. */
+	spin: number
+	/** How far a drag pulls past the screen edge, which winds the slingshot. */
+	tension: Point | null
+	peek: Peek | null
 }
 
 /** `restSlot` spreads several pets across the clock when they go to sleep (-1 left, 0 centre, 1 right). */
-export type PetInput = { sleepy: boolean; panelKey: string | null; reducedMotion: boolean; compact: boolean; restSlot: number }
+export type PetInput = { sleepy: boolean; panelKey: string | null; reducedMotion: boolean; compact: boolean; restSlot: number; pointer: Point | null }
 export type PetEvent = 'speak'
 export type Rng = () => number
 
@@ -99,7 +112,6 @@ export const PANEL_ID = 'panel'
 export const PET_PLATFORM_PREFIX = 'pet:'
 
 export const GRAVITY = 1800
-const MAX_THROW_SPEED = 2200
 const BOUNCE = 0.4
 const GLIDE_AFTER = 0.4
 const GLIDE_SPEED = 200
@@ -116,6 +128,35 @@ const MIN_OPACITY = 0.5
 const MIN_PLATFORM_WIDTH = 48
 const MIN_WALL_HEIGHT = 40
 const MIN_CEILING_WIDTH = 60
+const OUCH_TIME = 0.35
+const DIZZY_IMPACT = 1100
+const DIZZY_SECONDS = 3
+const KNOCK_DIZZY_SECONDS = 2.5
+const COLLIDE_FACTOR = 0.8
+const COLLIDE_VERTICAL = 0.55
+const KNOCK_RESTITUTION = 0.6
+const KNOCK_TUMBLE_SPEED = 900
+const HARD_THROW_SPEED = 1800
+const MAX_TUMBLE_SPEED = 2600
+const TUMBLE_GRAVITY = 0.85
+const TUMBLE_RESTITUTION = 0.72
+const TUMBLE_FLOOR_FRICTION = 0.92
+const TUMBLE_END_SPEED = 220
+const TUMBLE_MIN_TIME = 0.5
+const TUMBLE_SPIN = 1.2
+const SLING_MIN = 30
+const SLING_POWER = 14
+const SLING_MAX_TENSION = 240
+const PEEK_SIDE_VISIBLE = 0.38
+const PEEK_TOP_VISIBLE = 0.6
+const PEEK_NEAR = 120
+const PEEK_SHOW_SPEED = 1 / 0.9
+const PEEK_HIDE_SPEED = 1 / 0.25
+const PEEK_ARRIVE_WAIT = 0.6
+const LEAP_ARC = 90
+const SHAKE_SPEED = 900
+const SHAKE_WINDOW_MS = 1200
+const SHAKE_REVERSALS = 4
 
 /** Clamps into [min, max]; a range narrower than the pet collapses to its midpoint. */
 const clamp = (value: number, min: number, max: number) => min > max ? (min + max) / 2 : Math.min(max, Math.max(min, value))
@@ -127,10 +168,12 @@ export function extractTerrain(sources: TerrainSource[], viewport: { width: numb
 	const platforms: Platform[] = [{ id: FLOOR_ID, y: viewport.height, x1: 0, x2: viewport.width }]
 	const walls: Wall[] = []
 	const ceilings: Ceiling[] = []
+	const blocks: Block[] = []
 	for (const { id, rect, opacity } of sources) {
 		if (opacity < MIN_OPACITY || rect.width <= 0 || rect.height <= 0) continue
 		const right = rect.left + rect.width
 		const bottom = rect.top + rect.height
+		blocks.push({ id, left: rect.left, top: rect.top, right, bottom })
 		if (rect.top >= petHeight + 4 && rect.width >= MIN_PLATFORM_WIDTH) platforms.push({ id, y: rect.top, x1: rect.left, x2: right })
 		if (rect.height >= MIN_WALL_HEIGHT) {
 			if (rect.left >= petHeight) walls.push({ id, side: 'left', x: rect.left, y1: rect.top, y2: bottom })
@@ -138,7 +181,7 @@ export function extractTerrain(sources: TerrainSource[], viewport: { width: numb
 		}
 		if (rect.width >= MIN_CEILING_WIDTH && bottom < viewport.height - petHeight) ceilings.push({ id, y: bottom, x1: rect.left, x2: right })
 	}
-	return { width: viewport.width, height: viewport.height, platforms, walls, ceilings }
+	return { width: viewport.width, height: viewport.height, platforms, walls, ceilings, blocks }
 }
 
 /** The top of a standing pet, which other pets can land and ride on. */
@@ -165,6 +208,7 @@ export function surfaceRotation(surface: Surface) {
 }
 
 const findPlatform = (terrain: Terrain, id: string) => terrain.platforms.find(item => item.id === id)
+const findBlock = (terrain: Terrain, id: string) => terrain.blocks.find(item => item.id === id)
 const floorOf = (terrain: Terrain): Platform => findPlatform(terrain, FLOOR_ID) ?? { id: FLOOR_ID, y: terrain.height, x1: 0, x2: terrain.width }
 const restPlatform = (terrain: Terrain) => findPlatform(terrain, REST_ID) ?? floorOf(terrain)
 const bottomOf = (s: PetState) => s.y + s.height / 2
@@ -189,12 +233,13 @@ function standOn(s: PetState, platform: Platform, x: number): PetState {
 		walkTo: null,
 		edge: null,
 		launch: null,
-		flight: null
+		flight: null,
+		peek: null
 	}
 }
 
 function fallFrom(s: PetState, vx = 0): PetState {
-	return { ...setPose(s, 'fall'), surface: { kind: 'air' }, vx, vy: 0, walkTo: null, edge: null, launch: null, flight: null }
+	return { ...setPose(s, 'fall'), surface: { kind: 'air' }, vx, vy: 0, walkTo: null, edge: null, launch: null, flight: null, peek: null }
 }
 
 function wallAnchor(s: PetState, wall: Wall, y: number) {
@@ -228,7 +273,11 @@ export function createPet(terrain: Terrain, species: Species, rng: Rng, options:
 		goalId: null,
 		goalTries: 0,
 		goalAge: 0,
-		lastPanelKey: null
+		lastPanelKey: null,
+		dizzyFor: 0,
+		spin: 0,
+		tension: null,
+		peek: null
 	}
 	const rest = restPlatform(terrain)
 	const spread = (rest.x2 - rest.x1) * 0.25
@@ -258,10 +307,10 @@ function jumpTo(s: PetState, platform: Platform, toX: number): PetState {
 	}
 }
 
-function flyTo(s: PetState, toX: number, toY: number, surface: Surface): PetState {
+function flyTo(s: PetState, toX: number, toY: number, surface: Surface, pose: Pose = 'fly', arc = FLIGHT_ARC): PetState {
 	const duration = clamp(Math.hypot(toX - s.x, toY - s.y) / 500, 0.8, 1.6)
 	return {
-		...setPose(s, 'fly'),
+		...setPose(s, pose),
 		facing: toX < s.x ? 'left' : 'right',
 		surface: { kind: 'air' },
 		vx: 0,
@@ -269,7 +318,7 @@ function flyTo(s: PetState, toX: number, toY: number, surface: Surface): PetStat
 		walkTo: null,
 		edge: null,
 		launch: null,
-		flight: { fromX: s.x, fromY: s.y, toX, toY, t: 0, duration, surface }
+		flight: { fromX: s.x, fromY: s.y, toX, toY, t: 0, duration, surface, arc }
 	}
 }
 
@@ -332,18 +381,62 @@ export function holdStill(s: PetState, seconds: number): PetState {
 }
 
 export function startDrag(s: PetState): PetState {
-	return { ...setPose(s, 'drag'), surface: { kind: 'air' }, vx: 0, vy: 0, walkTo: null, edge: null, launch: null, flight: null }
+	return { ...setPose(s, 'drag'), surface: { kind: 'air' }, vx: 0, vy: 0, walkTo: null, edge: null, launch: null, flight: null, peek: null, tension: null, spin: 0 }
 }
 
-export function dragTo(s: PetState, x: number, y: number): PetState {
-	const facing = x < s.x - 1 ? 'left' : x > s.x + 1 ? 'right' : s.facing
-	return { ...s, x, y, facing }
+/** Follows the pointer; with `bounds`, the pet stops at the screen edge and the overshoot winds the slingshot. */
+export function dragTo(s: PetState, x: number, y: number, bounds?: { width: number; height: number }): PetState {
+	const cx = bounds ? clamp(x, s.width / 2, bounds.width - s.width / 2) : x
+	const cy = bounds ? clamp(y, s.height / 2, bounds.height - s.height / 2) : y
+	const facing = cx < s.x - 1 ? 'left' : cx > s.x + 1 ? 'right' : s.facing
+	const pullX = x - cx
+	const pullY = y - cy
+	const length = Math.hypot(pullX, pullY)
+	const scale = length > SLING_MAX_TENSION ? SLING_MAX_TENSION / length : 1
+	return { ...s, x: cx, y: cy, facing, tension: length > 0 ? { x: pullX * scale, y: pullY * scale } : null }
 }
 
+/** Lets go: a wound slingshot or a hard throw sends the pet tumbling, anything else just drops. */
 export function releaseDrag(s: PetState, vx: number, vy: number): PetState {
+	const tension = s.tension
+	const base = { ...s, tension: null }
+	if (tension && Math.hypot(tension.x, tension.y) > SLING_MIN) return launchTumble(base, -tension.x * SLING_POWER, -tension.y * SLING_POWER)
+	if (Math.hypot(vx, vy) > HARD_THROW_SPEED) return launchTumble(base, vx, vy)
+	return { ...setPose(base, 'fall'), surface: { kind: 'air' }, vx, vy }
+}
+
+/** Bounces around like a ball until it slows down. */
+export function launchTumble(s: PetState, vx: number, vy: number): PetState {
 	const speed = Math.hypot(vx, vy)
-	const scale = speed > MAX_THROW_SPEED ? MAX_THROW_SPEED / speed : 1
-	return { ...setPose(s, 'fall'), surface: { kind: 'air' }, vx: vx * scale, vy: vy * scale }
+	const scale = speed > MAX_TUMBLE_SPEED ? MAX_TUMBLE_SPEED / speed : 1
+	return { ...setPose(s, 'tumble'), surface: { kind: 'air' }, vx: vx * scale, vy: vy * scale, walkTo: null, edge: null, launch: null, flight: null, peek: null, tension: null }
+}
+
+export function makeDizzy(s: PetState, seconds = DIZZY_SECONDS): PetState {
+	return { ...s, dizzyFor: Math.max(s.dizzyFor, seconds) }
+}
+
+/** Direction changes of a drag at speed; enough of them in a short window means the pet was shaken. */
+export type ShakeMeter = { x: number; y: number; t: number; dirX: number; dirY: number; reversals: number[] }
+
+export function createShake(x: number, y: number, t: number): ShakeMeter {
+	return { x, y, t, dirX: 0, dirY: 0, reversals: [] }
+}
+
+export function feedShake(meter: ShakeMeter, x: number, y: number, t: number): { meter: ShakeMeter; shaken: boolean } {
+	const seconds = (t - meter.t) / 1000
+	if (seconds <= 0) return { meter, shaken: false }
+	const reversals = meter.reversals.filter(time => t - time <= SHAKE_WINDOW_MS)
+	const track = (velocity: number, previous: number) => {
+		if (Math.abs(velocity) < SHAKE_SPEED) return previous
+		const direction = Math.sign(velocity)
+		if (previous !== 0 && direction !== previous) reversals.push(t)
+		return direction
+	}
+	const dirX = track((x - meter.x) / seconds, meter.dirX)
+	const dirY = track((y - meter.y) / seconds, meter.dirY)
+	const shaken = reversals.length >= SHAKE_REVERSALS
+	return { meter: { x, y, t, dirX, dirY, reversals: shaken ? [] : reversals }, shaken }
 }
 
 /** A poke or a new notification: hop for joy, or stretch awake if asleep. */
@@ -355,12 +448,13 @@ export function cheer(s: PetState): PetState {
 
 export function step(prev: PetState, dt: number, terrain: Terrain, input: PetInput, rng: Rng): { state: PetState; events: PetEvent[] } {
 	const events: PetEvent[] = []
-	let s: PetState = { ...prev, poseTime: prev.poseTime + dt, goalAge: prev.goalId ? prev.goalAge + dt : 0 }
+	let s: PetState = { ...prev, poseTime: prev.poseTime + dt, goalAge: prev.goalId ? prev.goalAge + dt : 0, dizzyFor: Math.max(0, prev.dizzyFor - dt) }
 	if (s.pose === 'drag') return { state: s, events }
 	if (input.reducedMotion) return { state: restInPlace(s, terrain, input), events }
 	s = followGoals(reattach(s, terrain), input)
 	const surface = s.surface
-	if (surface.kind === 'air') s = s.flight ? stepFlight(s, dt, terrain) : stepAir(s, dt, terrain)
+	if (surface.kind === 'air') s = s.pose === 'tumble' ? stepTumble(s, dt, terrain) : s.flight ? stepFlight(s, dt, terrain) : stepAir(s, dt, terrain)
+	else if (surface.kind === 'peek') s = stepPeek(s, dt, terrain, input, rng)
 	else if (surface.kind === 'wall') s = stepWall(s, dt, terrain, rng)
 	else if (surface.kind === 'ceiling') s = s.poseTime >= s.hangFor ? fallFrom(s) : s
 	else s = stepPlatform(s, dt, findPlatform(terrain, surface.id)!, terrain, input, rng, events)
@@ -370,7 +464,7 @@ export function step(prev: PetState, dt: number, terrain: Terrain, input: PetInp
 function restInPlace(s: PetState, terrain: Terrain, input: PetInput): PetState {
 	const rest = restPlatform(terrain)
 	const placed = standOn(s, rest, restX(rest, s, input.restSlot))
-	return setPose(placed, input.sleepy ? 'sleep' : 'idle')
+	return { ...setPose(placed, input.sleepy ? 'sleep' : 'idle'), spin: 0, tension: null }
 }
 
 /** Re-snaps to a surface that moved, or drops the pet when it vanished. Riders stay centred on their carrier. */
@@ -389,6 +483,7 @@ function reattach(s: PetState, terrain: Terrain): PetState {
 		if (!wall || s.y < wall.y1 - s.width || s.y > wall.y2 + s.width) return fallFrom(s)
 		return { ...s, x: wallAnchor(s, wall, s.y).x }
 	}
+	if (surface.kind === 'peek') return findBlock(terrain, surface.id) && s.peek ? s : fallFrom(s)
 	if (surface.kind === 'ceiling') {
 		const ceiling = terrain.ceilings.find(item => item.id === surface.id)
 		if (!ceiling || s.x < ceiling.x1 - 2 || s.x > ceiling.x2 + 2) return fallFrom(s)
@@ -413,7 +508,12 @@ function followGoals(s: PetState, input: PetInput): PetState {
 }
 
 function stepPlatform(s: PetState, dt: number, platform: Platform, terrain: Terrain, input: PetInput, rng: Rng, events: PetEvent[]): PetState {
+	if (s.dizzyFor > 0 && ['idle', 'walk', 'run', 'happy'].includes(s.pose)) return { ...setPose(s, 'dizzy'), walkTo: null, edge: null }
 	switch (s.pose) {
+		case 'dizzy':
+			return s.dizzyFor > 0 ? s : setPose(s, 'idle')
+		case 'ouch':
+			return s.poseTime >= OUCH_TIME ? setPose(s, 'idle') : s
 		case 'crouch':
 			if (s.poseTime < CROUCH_TIME) return s
 			return s.launch ? { ...setPose(s, 'jump'), surface: { kind: 'air' }, vx: s.launch.vx, vy: s.launch.vy, launch: null } : setPose(s, 'idle')
@@ -496,6 +596,7 @@ function decide(s: PetState, platform: Platform, terrain: Terrain, input: PetInp
 		if (!s.species.canFly) return setGoal(s, target.id)
 		return travelToPlatform(s, target, target.x1 + (target.x2 - target.x1) * rng(), terrain, true) ?? startWalk(s, platform, rng)
 	}
+	if (roll < 0.93 + climbWeight) return startPeek(s, terrain, rng) ?? startWalk(s, platform, rng)
 	events.push('speak')
 	return s
 }
@@ -598,7 +699,7 @@ function stepFlight(s: PetState, dt: number, terrain: Terrain): PetState {
 	return {
 		...s,
 		x: flight.fromX + (flight.toX - flight.fromX) * eased,
-		y: flight.fromY + (flight.toY - flight.fromY) * eased - Math.sin(Math.PI * t) * FLIGHT_ARC,
+		y: flight.fromY + (flight.toY - flight.fromY) * eased - Math.sin(Math.PI * t) * flight.arc,
 		flight: { ...flight, t }
 	}
 }
@@ -613,7 +714,186 @@ function finishFlight(s: PetState, surface: Surface, terrain: Terrain): PetState
 		if (!wall) return fallFrom(s)
 		return { ...setPose(s, 'climb'), ...wallAnchor(s, wall, s.y), surface, vx: 0, vy: 0, climbDir: 'up' }
 	}
+	if (surface.kind === 'peek') {
+		const block = findBlock(terrain, surface.id)
+		if (!block || !s.peek) return fallFrom(s)
+		const facing = surface.side === 'top' ? s.facing : surface.side
+		return placePeek({ ...setPose(s, 'peek'), surface, vx: 0, vy: 0, facing }, block, surface.side)
+	}
 	return fallFrom(s)
+}
+
+/** Bouncing like a ball off every component edge and the screen; a hard hit leaves the pet dizzy. */
+function stepTumble(s: PetState, dt: number, terrain: Terrain): PetState {
+	let vx = s.vx
+	let vy = s.vy + GRAVITY * TUMBLE_GRAVITY * dt
+	let x = s.x + vx * dt
+	let y = s.y + vy * dt
+	const radius = Math.min(s.width, s.height) / 2
+	let hardest = 0
+	if (x < radius) { hardest = Math.max(hardest, -vx); x = radius; vx = Math.abs(vx) * TUMBLE_RESTITUTION }
+	if (x > terrain.width - radius) { hardest = Math.max(hardest, vx); x = terrain.width - radius; vx = -Math.abs(vx) * TUMBLE_RESTITUTION }
+	if (y < radius) { hardest = Math.max(hardest, -vy); y = radius; vy = Math.abs(vy) * TUMBLE_RESTITUTION }
+	if (y > terrain.height - radius) {
+		hardest = Math.max(hardest, vy)
+		y = terrain.height - radius
+		vy = -Math.abs(vy) * TUMBLE_RESTITUTION
+		vx *= TUMBLE_FLOOR_FRICTION
+	}
+	for (const block of terrain.blocks) {
+		let nx = x - clamp(x, block.left, block.right)
+		let ny = y - clamp(y, block.top, block.bottom)
+		const distance = Math.hypot(nx, ny)
+		if (distance >= radius) continue
+		let depth: number
+		if (distance > 0) {
+			nx /= distance
+			ny /= distance
+			depth = radius - distance
+		} else {
+			// The centre is inside the box: leave through the nearest side.
+			const exits: Array<[number, number, number]> = [[x - block.left, -1, 0], [block.right - x, 1, 0], [y - block.top, 0, -1], [block.bottom - y, 0, 1]]
+			const [gap, ex, ey] = exits.sort((a, b) => a[0] - b[0])[0]
+			nx = ex
+			ny = ey
+			depth = gap + radius
+		}
+		x += nx * depth
+		y += ny * depth
+		const normalSpeed = vx * nx + vy * ny
+		if (normalSpeed >= 0) continue
+		hardest = Math.max(hardest, -normalSpeed)
+		vx -= (1 + TUMBLE_RESTITUTION) * normalSpeed * nx
+		vy -= (1 + TUMBLE_RESTITUTION) * normalSpeed * ny
+	}
+	let next: PetState = { ...s, x, y, vx, vy, spin: (s.spin + vx * dt * TUMBLE_SPIN) % 360, facing: vx < -10 ? 'left' : vx > 10 ? 'right' : s.facing }
+	if (hardest > DIZZY_IMPACT) next = makeDizzy(next)
+	if (s.poseTime > TUMBLE_MIN_TIME && Math.hypot(vx, vy) < TUMBLE_END_SPEED) return { ...setPose(next, 'fall'), spin: 0 }
+	return next
+}
+
+/** Spots behind each side and the top of a component that are on screen for this pet. */
+export function startPeek(s: PetState, terrain: Terrain, rng: Rng): PetState | null {
+	const spots = terrain.blocks.flatMap(block => {
+		const sides: PeekSide[] = []
+		if (block.left >= s.width) sides.push('left')
+		if (block.right <= terrain.width - s.width) sides.push('right')
+		if (block.top >= s.height + 4) sides.push('top')
+		return sides.map(side => ({ block, side }))
+	})
+	if (!spots.length) return null
+	const { block, side } = pickOne(spots, rng)
+	const offset = side === 'top'
+		? block.left + (block.right - block.left) * (0.2 + rng() * 0.6)
+		: block.top + Math.min((block.bottom - block.top) / 2, 40)
+	const hidden = placePeek({ ...s, peek: { offset, tuck: 1, until: 6 + rng() * 6, wait: PEEK_ARRIVE_WAIT } }, block, side)
+	const surface: Surface = { kind: 'peek', id: block.id, side }
+	if (s.species.canFly) return { ...flyTo(s, hidden.x, hidden.y, surface), peek: hidden.peek }
+	const tooFar = Math.abs(hidden.x - s.x) > s.species.jumpReachX || bottomOf(s) - (hidden.y + s.height / 2) > s.species.jumpReachUp
+	if (tooFar || s.surface.kind !== 'platform') return null
+	return { ...flyTo(s, hidden.x, hidden.y, surface, 'jump', LEAP_ARC), peek: hidden.peek }
+}
+
+/** Puts a peeking pet at its spot: `tuck` slides it from showing part of its face to fully behind the box. */
+function placePeek(s: PetState, block: Block, side: PeekSide): PetState {
+	const peek = s.peek!
+	if (side === 'top') {
+		const visible = PEEK_TOP_VISIBLE * (1 - peek.tuck)
+		return { ...s, x: clamp(peek.offset, block.left + s.width / 2, block.right - s.width / 2), y: block.top - visible * s.height + s.height / 2 }
+	}
+	const visible = PEEK_SIDE_VISIBLE * (1 - peek.tuck)
+	const y = clamp(peek.offset, block.top + s.height / 2, block.bottom - s.height / 2)
+	return { ...s, y, x: side === 'left' ? block.left - visible * s.width + s.width / 2 : block.right + visible * s.width - s.width / 2 }
+}
+
+function stepPeek(s: PetState, dt: number, terrain: Terrain, input: PetInput, rng: Rng): PetState {
+	const surface = s.surface as Extract<Surface, { kind: 'peek' }>
+	const block = findBlock(terrain, surface.id)!
+	const peek = s.peek!
+	const until = s.goalId || input.sleepy ? Math.min(0, peek.until - dt) : peek.until - dt
+	const near = input.pointer !== null && Math.hypot(input.pointer.x - s.x, input.pointer.y - s.y) < PEEK_NEAR
+	const wait = near ? Math.max(peek.wait, 1.5 + rng() * 1.5) : Math.max(0, peek.wait - dt)
+	const hide = wait > 0 || until <= 0
+	const tuck = hide ? Math.min(1, peek.tuck + PEEK_HIDE_SPEED * dt) : Math.max(0, peek.tuck - PEEK_SHOW_SPEED * dt)
+	const placed = placePeek({ ...s, peek: { ...peek, tuck, until, wait } }, block, surface.side)
+	return until <= 0 && tuck >= 1 ? leavePeek(placed, block, terrain) : placed
+}
+
+/** Pops out from behind the box and hops onto its top. */
+function leavePeek(s: PetState, block: Block, terrain: Terrain): PetState {
+	const top = findPlatform(terrain, block.id)
+	const base: PetState = { ...setPose(s, 'jump'), surface: { kind: 'air' }, peek: null, flight: null }
+	if (!top) return fallFrom(base)
+	const x = clamp(s.x, top.x1 + s.width / 2, top.x2 - s.width / 2)
+	return { ...base, ...jumpVelocity(s.x, bottomOf(s), x, top.y) }
+}
+
+/** Where the part of a peeking pet inside its component's box is cut away, in px from each side. */
+export function peekClip(s: PetState, terrain: Terrain) {
+	if (s.surface.kind !== 'peek') return null
+	const block = findBlock(terrain, s.surface.id)
+	if (!block) return null
+	const cut = { top: 0, right: 0, bottom: 0, left: 0 }
+	if (s.surface.side === 'left') cut.right = Math.max(0, s.x + s.width / 2 - block.left)
+	else if (s.surface.side === 'right') cut.left = Math.max(0, block.right - (s.x - s.width / 2))
+	else cut.bottom = Math.max(0, s.y + s.height / 2 - block.top)
+	return cut
+}
+
+const ridesOn = (rider: PetState, carrier: PetState) => rider.surface.kind === 'platform' && rider.surface.id === `${PET_PLATFORM_PREFIX}${carrier.id}`
+const canCollide = (s: PetState) => s.pose !== 'drag' && s.flight === null && (s.surface.kind === 'platform' || s.surface.kind === 'air')
+
+/** Keeps pets from overlapping: neighbours on a platform shove apart, anything moving knocks the other away. */
+export function resolveCollisions(pets: PetState[]): { pets: PetState[]; bumps: string[] } {
+	const next = [...pets]
+	const bumps: string[] = []
+	for (let i = 0; i < next.length; i++) {
+		for (let j = i + 1; j < next.length; j++) {
+			const a = next[i]
+			const b = next[j]
+			if (!canCollide(a) || !canCollide(b) || ridesOn(a, b) || ridesOn(b, a)) continue
+			const dx = b.x - a.x
+			const dy = b.y - a.y
+			const reachX = ((a.width + b.width) / 2) * COLLIDE_FACTOR
+			const reachY = ((a.height + b.height) / 2) * COLLIDE_FACTOR
+			if (Math.abs(dx) >= reachX || Math.abs(dy) > reachY * COLLIDE_VERTICAL) continue
+			const grounded = a.surface.kind === 'platform' && b.surface.kind === 'platform'
+			const [hitA, hitB] = grounded ? shove(a, b, dx, reachX) : knock(a, b, dx, dy, reachX)
+			if (!grounded || a.pose !== 'ouch') bumps.push(a.id)
+			if (!grounded || b.pose !== 'ouch') bumps.push(b.id)
+			next[i] = hitA
+			next[j] = hitB
+		}
+	}
+	return { pets: next, bumps }
+}
+
+function shove(a: PetState, b: PetState, dx: number, reachX: number): [PetState, PetState] {
+	const push = (reachX - Math.abs(dx)) / 2
+	const direction = dx === 0 ? 1 : Math.sign(dx)
+	const hit = (s: PetState, away: number): PetState => ({ ...setPose(s, 'ouch'), x: s.x + away * push, walkTo: null, edge: null, launch: null, facing: away < 0 ? 'left' : 'right' })
+	return [hit(a, -direction), hit(b, direction)]
+}
+
+function knock(a: PetState, b: PetState, dx: number, dy: number, reachX: number): [PetState, PetState] {
+	const distance = Math.hypot(dx, dy) || 1
+	const nx = dx === 0 && dy === 0 ? 1 : dx / distance
+	const ny = dx === 0 && dy === 0 ? 0 : dy / distance
+	const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny
+	const speed = Math.hypot(a.vx - b.vx, a.vy - b.vy)
+	const impulse = closing > 0 ? ((1 + KNOCK_RESTITUTION) * closing) / 2 : 0
+	const push = Math.max(0, reachX - Math.abs(dx)) / 2
+	const direction = dx === 0 ? 1 : Math.sign(dx)
+	const send = (s: PetState, sign: number): PetState => {
+		const vx = s.vx + sign * impulse * nx
+		const vy = s.vy + sign * impulse * ny
+		const x = s.x + sign * direction * push
+		const moved: PetState = s.surface.kind === 'air'
+			? { ...s, x, vx, vy }
+			: { ...setPose(s, speed > KNOCK_TUMBLE_SPEED ? 'tumble' : 'fall'), surface: { kind: 'air' }, x, vx, vy: Math.min(vy, -160), walkTo: null, edge: null, launch: null }
+		return speed > DIZZY_IMPACT ? makeDizzy(moved, KNOCK_DIZZY_SECONDS) : moved
+	}
+	return [send(a, -1), send(b, 1)]
 }
 
 export type SpeechTrigger = 'greeting' | 'idle' | 'notification'

@@ -178,7 +178,7 @@ export function DeskPets({ rootRef, species, sleepy, panelKey, notificationUnrea
 			const pets = petsRef.current
 			const input = inputRef.current
 			const stepped = pets.map((pet, index) => {
-				const petInput: PetInput = { ...input, restSlot: restSlot(index, pets.length) }
+				const petInput: PetInput = { ...input, restSlot: restSlot(index, pets.length), pointer: null }
 				const result = step(pet, dt, withPeerHeads(terrain, pets, pet), petInput, Math.random)
 				if (result.events.includes('speak')) speakRef.current('idle', pet.id)
 				return result.state

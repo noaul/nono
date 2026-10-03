@@ -7,9 +7,9 @@ import { readPetPrefs } from '../src/app/(home)/desk-pet/desk-pet-prefs.ts'
 
 const constant = (value: number) => () => value
 const awake = { sleepy: false, reducedMotion: false }
-const petInput: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false, restSlot: 0 }
+const petInput: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false, restSlot: 0, pointer: null }
 const clock: Platform = { id: 'clock', y: 300, x1: 400, x2: 700 }
-const terrain: Terrain = { width: 1000, height: 800, platforms: [{ id: FLOOR_ID, y: 800, x1: 0, x2: 1000 }, clock], walls: [], ceilings: [] }
+const terrain: Terrain = { width: 1000, height: 800, platforms: [{ id: FLOOR_ID, y: 800, x1: 0, x2: 1000 }, clock], walls: [], ceilings: [], blocks: [] }
 
 function placeOn(id: string, x: number, species: Species): PetState {
 	const platform = terrain.platforms.find(item => item.id === id)!

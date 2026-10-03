@@ -10,16 +10,25 @@ import {
 	cheer,
 	chooseSpeech,
 	createPet,
+	createShake,
+	dragTo,
 	extractTerrain,
+	feedShake,
 	headPlatform,
+	launchTumble,
+	makeDizzy,
+	peekClip,
 	releaseDrag,
+	resolveCollisions,
 	runTo,
 	setGoal,
 	startDrag,
+	startPeek,
 	step,
 	surfaceRotation,
 	travelToPlatform,
 	withPeerHeads,
+	type Block,
 	type PetInput,
 	type PetState,
 	type Platform,
@@ -30,11 +39,11 @@ import {
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 const constant = (value: number) => () => value
-const awake: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false, restSlot: 0 }
+const awake: PetInput = { sleepy: false, panelKey: null, reducedMotion: false, compact: false, restSlot: 0, pointer: null }
 const FRAME = 1 / 60
 
 function world(platforms: Platform[], extra: Partial<Terrain> = {}): Terrain {
-	return { width: 1000, height: 800, platforms: [{ id: FLOOR_ID, y: 800, x1: 0, x2: 1000 }, ...platforms], walls: [], ceilings: [], ...extra }
+	return { width: 1000, height: 800, platforms: [{ id: FLOOR_ID, y: 800, x1: 0, x2: 1000 }, ...platforms], walls: [], ceilings: [], blocks: [], ...extra }
 }
 
 function placeOn(terrain: Terrain, id: string, x: number, species: Species = NONO): PetState {
@@ -98,7 +107,9 @@ test('bounces off the viewport edge and caps throw speed', () => {
 
 	assert.equal(state.x, 1000 - NONO.size.width / 2)
 	assert.ok(state.vx < 0)
-	assert.equal(releaseDrag(startDrag(pet), 5000, 0).vx, 2200)
+	const thrown = releaseDrag(startDrag(pet), 5000, 0)
+	assert.equal(thrown.pose, 'tumble')
+	assert.equal(thrown.vx, 2600)
 })
 
 test('jumps to near platforms and flies to far ones', () => {
@@ -278,6 +289,135 @@ test('chooses short, well-timed speech', () => {
 	assert.ok(upcomingSpeech?.text.startsWith('等下有：'))
 	assert.ok(Array.from(upcomingSpeech!.text).length <= SPEECH_MAX_LENGTH)
 	assert.equal(chooseSpeech(base, constant(0.9))?.kind, 'chatter')
+})
+
+const blockWorld = (blocks: Block[], platforms: Platform[] = []): Terrain => world([...platforms, ...blocks.map(block => ({ id: block.id, y: block.top, x1: block.left, x2: block.right }))], { blocks })
+
+test('keeps the full box of every visible component', () => {
+	const terrain = extractTerrain([
+		{ id: 'clock', rect: { left: 400, top: 300, width: 300, height: 120 }, opacity: 1 },
+		{ id: 'dock', rect: { left: 300, top: 650, width: 400, height: 96 }, opacity: 0.24 }
+	], { width: 1000, height: 800 }, NONO.size.height)
+
+	assert.deepEqual(terrain.blocks, [{ id: 'clock', left: 400, top: 300, right: 700, bottom: 420 }])
+})
+
+test('pets on the same platform push each other apart with an ouch', () => {
+	const terrain = world([])
+	const nono = placeOn(terrain, FLOOR_ID, 500)
+	const momo = placeOn(terrain, FLOOR_ID, 520, MOMO)
+	const { pets, bumps } = resolveCollisions([nono, momo])
+
+	assert.deepEqual(pets.map(pet => pet.pose), ['ouch', 'ouch'])
+	assert.ok(pets[1].x - pets[0].x >= (NONO.size.width + MOMO.size.width) / 2 * 0.8 - 0.01)
+	assert.deepEqual(bumps, ['nono', 'momo'])
+	assert.deepEqual(resolveCollisions(pets).bumps, [])
+})
+
+test('a rider is not a collision', () => {
+	const terrain = world([])
+	const momo = placeOn(terrain, FLOOR_ID, 500, MOMO)
+	const head = headPlatform(momo)!
+	const nono: PetState = { ...createPet(terrain, NONO, constant(0.5)), x: 500, y: head.y - NONO.size.height / 2, surface: { kind: 'platform', id: head.id } }
+
+	assert.deepEqual(resolveCollisions([nono, momo]).bumps, [])
+})
+
+test('a pet flying into a standing one knocks it over and both see stars', () => {
+	const terrain = world([])
+	const momo = placeOn(terrain, FLOOR_ID, 500, MOMO)
+	const nono: PetState = { ...placeOn(terrain, FLOOR_ID, 470), surface: { kind: 'air' }, pose: 'tumble', vx: 1500, y: momo.y }
+	const { pets } = resolveCollisions([nono, momo])
+
+	assert.equal(pets[1].surface.kind, 'air')
+	assert.ok(pets[1].vx > 0)
+	assert.ok(pets[0].vx < 1500)
+	assert.ok(pets[0].dizzyFor > 0 && pets[1].dizzyFor > 0)
+})
+
+test('a hard shake makes a pet dizzy, and it wobbles until it recovers', () => {
+	let meter = createShake(0, 0, 0)
+	let shaken = false
+	for (let index = 1; index <= 6 && !shaken; index++) {
+		const result = feedShake(meter, index % 2 ? 60 : 0, 0, index * 40)
+		meter = result.meter
+		shaken = result.shaken
+	}
+	assert.equal(shaken, true)
+	assert.equal(feedShake(createShake(0, 0, 0), 10, 0, 100).shaken, false)
+
+	const terrain = world([])
+	const dizzy = step(makeDizzy(placeOn(terrain, FLOOR_ID, 500), 3), FRAME, terrain, awake, constant(0.5)).state
+	assert.equal(dizzy.pose, 'dizzy')
+	assert.equal(run(dizzy, 3.2, terrain, awake).state.pose, 'idle')
+})
+
+test('pulling a pet past the screen edge winds a slingshot that launches it back', () => {
+	const terrain = world([])
+	const held = dragTo(startDrag(placeOn(terrain, FLOOR_ID, 500)), -100, 400, { width: 1000, height: 800 })
+
+	assert.equal(held.x, NONO.size.width / 2)
+	assert.ok(held.tension && held.tension.x < -100)
+	const launched = releaseDrag(held, 0, 0)
+	assert.equal(launched.pose, 'tumble')
+	assert.ok(launched.vx > 1500)
+	assert.equal(launched.tension, null)
+	assert.equal(releaseDrag(dragTo(startDrag(placeOn(terrain, FLOOR_ID, 500)), 300, 400, { width: 1000, height: 800 }), 100, 0).pose, 'fall')
+})
+
+test('a tumbling pet bounces off components and the screen, and a hard hit makes it dizzy', () => {
+	const block: Block = { id: 'panel', left: 600, top: 300, right: 900, bottom: 600 }
+	const terrain = blockWorld([block])
+	const pet = createPet(terrain, NONO, constant(0.5))
+
+	const intoSide = step(launchTumble({ ...pet, x: 570, y: 450 }, 1500, 0), FRAME, terrain, awake, constant(0.5)).state
+	assert.ok(intoSide.vx < 0)
+	assert.ok(intoSide.x <= 600 - Math.min(NONO.size.width, NONO.size.height) / 2 + 0.01)
+	assert.ok(intoSide.dizzyFor > 0)
+
+	const intoTop = step(launchTumble({ ...pet, x: 300, y: 30 }, 0, -600), FRAME, terrain, awake, constant(0.5)).state
+	assert.ok(intoTop.vy > 0)
+	assert.equal(intoTop.dizzyFor, 0)
+
+	const settled = run(launchTumble({ ...pet, x: 300, y: 200 }, 900, -400), 12, terrain, awake).state
+	assert.equal(settled.surface.kind, 'platform')
+	assert.notEqual(settled.pose, 'tumble')
+})
+
+test('hides behind a component, peeks out, ducks from the pointer and leaves', () => {
+	const block: Block = { id: 'panel', left: 600, top: 300, right: 900, bottom: 600 }
+	const terrain = blockWorld([block])
+	const start = placeOn(terrain, FLOOR_ID, 400)
+
+	const flying = startPeek(start, terrain, constant(0))!
+	assert.equal(flying.pose, 'fly')
+	assert.deepEqual(flying.flight?.surface, { kind: 'peek', id: 'panel', side: 'left' })
+
+	const peeking = run(flying, 3.5, terrain, awake).state
+	assert.equal(peeking.pose, 'peek')
+	assert.equal(peeking.peek?.tuck, 0)
+	assert.equal(peeking.facing, 'left')
+	const clip = peekClip(peeking, terrain)!
+	assert.ok(Math.abs(clip.right - NONO.size.width * 0.62) < 0.01)
+	assert.equal(clip.left, 0)
+
+	const ducked = run(peeking, 0.4, terrain, { ...awake, pointer: { x: peeking.x - 40, y: peeking.y } }).state
+	assert.equal(ducked.peek?.tuck, 1)
+	assert.ok(peekClip(ducked, terrain)!.right >= NONO.size.width)
+
+	const leaving = run({ ...peeking, peek: { ...peeking.peek!, until: 0.01 } }, 0.5, terrain, awake).state
+	assert.equal(leaving.surface.kind, 'air')
+	assert.deepEqual(run(leaving, 3, terrain, awake).state.surface, { kind: 'platform', id: 'panel' })
+})
+
+test('Momo only peeks behind components it can leap to', () => {
+	const near: Block = { id: 'near', left: 600, top: 650, right: 800, bottom: 760 }
+	const far: Block = { id: 'far', left: 600, top: 60, right: 800, bottom: 160 }
+	const momo = placeOn(blockWorld([near]), FLOOR_ID, 400, MOMO)
+
+	const leap = startPeek(momo, blockWorld([near]), constant(0))!
+	assert.equal(leap.pose, 'jump')
+	assert.equal(startPeek(momo, blockWorld([far]), constant(0.99)), null)
 })
 
 test('wires both pets into the workbench and the settings center', async () => {
