@@ -1,10 +1,11 @@
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { createPrismaClient } from './prisma-client.js';
 import type { Repository, SiteRecord } from './repository.js';
-import { defaultSite, importLinkFields, linkSearchTerms, resolveImportFolderId } from './repository.js';
+import { decodeTrashCursor, defaultSite, importLinkFields, linkSearchTerms, resolveImportFolderId, trashPage } from './repository.js';
 import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 
 const IMPORT_LINK_CHUNK = 1000;
+const TRASH_SUMMARY_SELECT = { id: true, userId: true, kind: true, entityId: true, label: true, deletedAt: true } as const;
 
 export function createPrismaRepository(prisma: PrismaClient = createPrismaClient()): Repository {
   return {
@@ -385,8 +386,21 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     async deleteLinks(userId, ids) {
       await trashPrismaLinks(prisma, userId, ids);
     },
-    async listTrashItems(userId) {
-      return (await prisma.trashItem.findMany({ where: { userId }, orderBy: { deletedAt: 'desc' } })) as any;
+    async listTrashItems(userId, options) {
+      const after = options.cursor ? decodeTrashCursor(options.cursor) : null;
+      const [rows, total] = await Promise.all([
+        prisma.trashItem.findMany({
+          where: {
+            userId,
+            ...(after ? { OR: [{ deletedAt: { lt: after.deletedAt } }, { deletedAt: after.deletedAt, id: { lt: after.id } }] } : {}),
+          },
+          orderBy: [{ deletedAt: 'desc' }, { id: 'desc' }],
+          take: options.limit + 1,
+          select: TRASH_SUMMARY_SELECT,
+        }),
+        prisma.trashItem.count({ where: { userId } }),
+      ]);
+      return trashPage(rows as any, options.limit, total);
     },
     async restoreTrashItem(userId, id) {
       return (await prisma.$transaction(async (transaction) => {
@@ -426,11 +440,16 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
       })) as any;
     },
     async permanentlyDeleteTrashItem(userId, id) {
-      const deleted = await prisma.trashItem.deleteMany({ where: { id, userId } });
-      if (!deleted.count) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+      const item = await prisma.trashItem.findFirst({ where: { id, userId }, select: TRASH_SUMMARY_SELECT });
+      const deleted = item ? await prisma.trashItem.deleteMany({ where: { id, userId } }) : { count: 0 };
+      if (!item || !deleted.count) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+      return item as any;
     },
     async emptyTrash(userId) {
       return (await prisma.trashItem.deleteMany({ where: { userId } })).count;
+    },
+    async purgeTrashBefore(cutoff) {
+      return (await prisma.trashItem.deleteMany({ where: { deletedAt: { lt: cutoff } } })).count;
     },
     async listTokens(userId) {
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;

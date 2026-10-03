@@ -41,6 +41,7 @@ import { createBackupServiceFromEnv, type BackupRecord, type BackupService } fro
 import { createBackupAutomationService } from './services/backup-automation.service.js';
 import { registerBackupAutomationScheduler } from './services/backup-automation.scheduler.js';
 import { registerLinkHealthScheduler } from './services/link-health.scheduler.js';
+import { registerTrashRetentionScheduler } from './services/trash-retention.scheduler.js';
 import { createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
@@ -244,6 +245,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await nodeskRoutes(app, services);
   await nostarRoutes(app, services);
   registerLinkHealthScheduler(app, services);
+  registerTrashRetentionScheduler(app, services);
   registerBackupAutomationScheduler(app, services);
   registerNotificationDispatchScheduler(app, services);
 

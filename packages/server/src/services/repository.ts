@@ -119,6 +119,35 @@ export interface TrashItemRecord {
   deletedAt: Date;
 }
 
+export type TrashItemSummary = Omit<TrashItemRecord, 'payload'>;
+
+export interface TrashListOptions {
+  limit: number;
+  /** Opaque cursor from a previous page's nextCursor. */
+  cursor?: string | null;
+}
+
+export interface TrashItemPage {
+  items: TrashItemSummary[];
+  nextCursor: string | null;
+  total: number;
+}
+
+export function encodeTrashCursor(item: { deletedAt: Date; id: string }) {
+  return Buffer.from(JSON.stringify([item.deletedAt.toISOString(), item.id])).toString('base64url');
+}
+
+export function decodeTrashCursor(cursor: string) {
+  try {
+    const [deletedAt, id] = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    const date = new Date(deletedAt);
+    if (typeof id === 'string' && id && !Number.isNaN(date.getTime())) return { deletedAt: date, id };
+  } catch {
+    // Falls through to the 400 below.
+  }
+  throw Object.assign(new Error('Invalid trash cursor'), { statusCode: 400 });
+}
+
 export type LinkHealthStatus = 'ok' | 'redirected' | 'restricted' | 'broken' | 'timeout' | 'invalid';
 
 export interface LinkHealthUpdate {
@@ -301,10 +330,13 @@ export interface Repository {
   moveLink(userId: number, id: number, targetFolderId: number, sourceIds: number[], targetIds: number[]): Promise<LinkRecord>;
   deleteLink(userId: number, id: number): Promise<void>;
   deleteLinks(userId: number, ids: number[]): Promise<void>;
-  listTrashItems(userId: number): Promise<TrashItemRecord[]>;
+  /** Newest first, ordered by (deletedAt, id) descending; payloads are not loaded. */
+  listTrashItems(userId: number, options: TrashListOptions): Promise<TrashItemPage>;
   restoreTrashItem(userId: number, id: string): Promise<TrashItemRecord>;
-  permanentlyDeleteTrashItem(userId: number, id: string): Promise<void>;
+  permanentlyDeleteTrashItem(userId: number, id: string): Promise<TrashItemSummary>;
   emptyTrash(userId: number): Promise<number>;
+  /** Retention purge across every user. */
+  purgeTrashBefore(cutoff: Date): Promise<number>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
@@ -740,10 +772,16 @@ export class MemoryRepository implements Repository {
     this.links = this.links.filter((item) => !deletedIds.has(item.id));
   }
 
-  async listTrashItems(userId: number) {
-    return this.trashItems
+  async listTrashItems(userId: number, options: TrashListOptions) {
+    const after = options.cursor ? decodeTrashCursor(options.cursor) : null;
+    const owned = this.trashItems
       .filter((item) => item.userId === userId)
-      .sort((left, right) => right.deletedAt.getTime() - left.deletedAt.getTime());
+      .sort((left, right) => right.deletedAt.getTime() - left.deletedAt.getTime() || (right.id < left.id ? -1 : right.id > left.id ? 1 : 0));
+    const rows = owned
+      .filter((item) => !after || item.deletedAt < after.deletedAt || (item.deletedAt.getTime() === after.deletedAt.getTime() && item.id < after.id))
+      .slice(0, options.limit + 1)
+      .map(({ payload: _payload, ...summary }) => summary);
+    return trashPage(rows, options.limit, owned.length);
   }
 
   async restoreTrashItem(userId: number, id: string) {
@@ -770,15 +808,23 @@ export class MemoryRepository implements Repository {
   }
 
   async permanentlyDeleteTrashItem(userId: number, id: string) {
-    const before = this.trashItems.length;
-    this.trashItems = this.trashItems.filter((item) => item.userId !== userId || item.id !== id);
-    if (this.trashItems.length === before) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+    const item = this.trashItems.find((entry) => entry.userId === userId && entry.id === id);
+    if (!item) throw Object.assign(new Error('Trash item not found'), { statusCode: 404 });
+    this.trashItems = this.trashItems.filter((entry) => entry !== item);
+    const { payload: _payload, ...summary } = item;
+    return summary;
   }
 
   async emptyTrash(userId: number) {
     const count = this.trashItems.filter((item) => item.userId === userId).length;
     this.trashItems = this.trashItems.filter((item) => item.userId !== userId);
     return count;
+  }
+
+  async purgeTrashBefore(cutoff: Date) {
+    const before = this.trashItems.length;
+    this.trashItems = this.trashItems.filter((item) => item.deletedAt >= cutoff);
+    return before - this.trashItems.length;
   }
 
   async listTokens(userId: number) {
@@ -946,6 +992,12 @@ export class MemoryRepository implements Repository {
     if (!link) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     return link;
   }
+}
+
+/** `rows` holds up to limit + 1 entries; the extra one only signals that another page exists. */
+export function trashPage(rows: TrashItemSummary[], limit: number, total: number): TrashItemPage {
+  const items = rows.slice(0, limit);
+  return { items, nextCursor: rows.length > limit && items.length ? encodeTrashCursor(items[items.length - 1]) : null, total };
 }
 
 export function importLinkFields(item: BookmarkImportLink) {

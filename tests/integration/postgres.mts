@@ -86,8 +86,9 @@ try {
     const deleted = await app.inject({ method: 'DELETE', url: `/api/admin/links/${link.json().data.id}`, headers });
     assert.equal(deleted.statusCode, 200, deleted.body);
     const trash = (await app.inject({ method: 'GET', url: '/api/admin/trash', headers })).json().data;
-    assert.equal(trash.length, 1);
-    const restored = await app.inject({ method: 'POST', url: `/api/admin/trash/${trash[0].id}/restore`, headers });
+    assert.equal(trash.items.length, 1);
+    assert.equal(trash.total, 1);
+    const restored = await app.inject({ method: 'POST', url: `/api/admin/trash/${trash.items[0].id}/restore`, headers });
     assert.equal(restored.statusCode, 200, restored.body);
     const token = await app.inject({ method: 'POST', url: '/api/admin/tokens', headers, payload: { name: 'Test' } });
     assert.equal(token.statusCode, 200, token.body);

@@ -5,7 +5,7 @@ import { Folder, Layers3, Link2, RotateCcw, Trash2 } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import { apiRequest } from '@/api/client';
-import type { TrashItem, TrashItemKind } from '@/api/types';
+import type { TrashItem, TrashItemKind, TrashPage } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToasts } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
@@ -15,9 +15,13 @@ const { t } = useI18n();
 
 type TrashFilter = 'all' | TrashItemKind;
 
+const PAGE_SIZE = 50;
 const items = ref<TrashItem[]>([]);
+const total = ref(0);
+const nextCursor = ref<string | null>(null);
 const filter = ref<TrashFilter>('all');
 const loading = ref(true);
+const loadingMore = ref(false);
 const workingIds = ref(new Set<string>());
 const emptying = ref(false);
 const error = ref('');
@@ -37,16 +41,44 @@ const kindMeta: Record<TrashItemKind, { labelKey: MessageKey; icon: Component }>
 };
 const filteredItems = computed(() => filter.value === 'all' ? items.value : items.value.filter((item) => item.kind === filter.value));
 
+function fetchPage(cursor: string | null) {
+  return apiRequest<TrashPage>(`/api/admin/trash?limit=${PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+}
+
 async function load() {
   loading.value = true;
   error.value = '';
   try {
-    items.value = await apiRequest<TrashItem[]>('/api/admin/trash');
+    const page = await fetchPage(null);
+    items.value = page.items;
+    total.value = page.total;
+    nextCursor.value = page.nextCursor;
   } catch (event) {
     error.value = event instanceof Error ? event.message : t('trash.loadFailed');
   } finally {
     loading.value = false;
   }
+}
+
+async function loadMore() {
+  if (!nextCursor.value || loadingMore.value) return;
+  loadingMore.value = true;
+  try {
+    const page = await fetchPage(nextCursor.value);
+    const seen = new Set(items.value.map((item) => item.id));
+    items.value = [...items.value, ...page.items.filter((item) => !seen.has(item.id))];
+    total.value = page.total;
+    nextCursor.value = page.nextCursor;
+  } catch (event) {
+    toasts.push(event instanceof Error ? event.message : t('trash.loadFailed'), 'error');
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+function dropItem(id: string) {
+  items.value = items.value.filter((entry) => entry.id !== id);
+  total.value = Math.max(0, total.value - 1);
 }
 
 function setWorking(id: string, active: boolean) {
@@ -62,7 +94,7 @@ async function restore(item: TrashItem) {
   setWorking(item.id, true);
   try {
     await apiRequest(`/api/admin/trash/${item.id}/restore`, { method: 'POST' });
-    items.value = items.value.filter((entry) => entry.id !== item.id);
+    dropItem(item.id);
     toasts.push(t('trash.restored', { kind: t(kindMeta[item.kind].labelKey) }), 'success');
   } catch (event) {
     toasts.push(event instanceof Error ? event.message : t('trash.restoreFailed'), 'error');
@@ -82,7 +114,7 @@ async function removePermanently(item: TrashItem) {
   setWorking(item.id, true);
   try {
     await apiRequest(`/api/admin/trash/${item.id}`, { method: 'DELETE' });
-    items.value = items.value.filter((entry) => entry.id !== item.id);
+    dropItem(item.id);
     toasts.push(t('trash.deletedForever'), 'success');
   } catch (event) {
     toasts.push(event instanceof Error ? event.message : t('nav.deleteFailed'), 'error');
@@ -92,10 +124,10 @@ async function removePermanently(item: TrashItem) {
 }
 
 async function emptyTrash() {
-  if (!items.value.length || emptying.value) return;
+  if (!total.value || emptying.value) return;
   if (!await confirmApi.confirm({
     title: t('trash.emptyTrash'),
-    message: t('trash.emptyMessage', { count: items.value.length }),
+    message: t('trash.emptyMessage', { count: total.value }),
     confirmText: t('trash.empty'),
     tone: 'danger',
   })) return;
@@ -103,6 +135,8 @@ async function emptyTrash() {
   try {
     await apiRequest('/api/admin/trash', { method: 'DELETE' });
     items.value = [];
+    total.value = 0;
+    nextCursor.value = null;
     toasts.push(t('trash.emptied'), 'success');
   } catch (event) {
     toasts.push(event instanceof Error ? event.message : t('trash.emptyFailed'), 'error');
@@ -136,8 +170,8 @@ onMounted(load);
           >{{ t(entry.labelKey) }}</button>
         </div>
         <div class="trash-toolbar-actions">
-          <span class="trash-count">{{ t('trash.itemCount', { count: filteredItems.length }) }}</span>
-          <button class="button danger" type="button" :disabled="!items.length || emptying" @click="emptyTrash">
+          <span class="trash-count">{{ t('trash.itemCount', { count: filter === 'all' ? total : filteredItems.length }) }}</span>
+          <button class="button danger" type="button" :disabled="!total || emptying" @click="emptyTrash">
             <Trash2 :size="17" /> {{ emptying ? t('trash.emptying') : t('trash.emptyTrash') }}
           </button>
         </div>
@@ -173,6 +207,11 @@ onMounted(load);
           </div>
         </article>
       </div>
+      <div v-if="!loading && nextCursor" class="trash-more">
+        <button class="button secondary" type="button" data-testid="trash-load-more" :disabled="loadingMore" @click="loadMore">
+          {{ loadingMore ? t('trash.loadingMore') : t('trash.loadMore') }}
+        </button>
+      </div>
     </section>
   </div>
 </template>
@@ -194,6 +233,7 @@ onMounted(load);
 .trash-main span, .trash-empty { color: var(--admin-text-muted); font-size: 12px; }
 .trash-actions { display: flex; gap: 6px; }
 .trash-empty { margin: 0; padding: 28px 4px; text-align: center; }
+.trash-more { display: flex; justify-content: center; padding-top: 14px; }
 @media (max-width: 640px) {
   .trash-toolbar { align-items: stretch; flex-direction: column; }
   .trash-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; }

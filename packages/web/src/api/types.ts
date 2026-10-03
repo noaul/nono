@@ -147,6 +147,12 @@ export interface TrashItem {
   deletedAt: string;
 }
 
+export interface TrashPage {
+  items: TrashItem[];
+  nextCursor: string | null;
+  total: number;
+}
+
 export interface ApiToken {
   id: number;
   name: string;
