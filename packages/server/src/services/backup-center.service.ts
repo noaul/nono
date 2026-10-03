@@ -13,6 +13,7 @@ const BATCH_VERSION = 1;
 const LOCAL_BUNDLE_KIND = 'nono.local-backup-bundle';
 const LOCAL_MODULE_KIND = 'nono.local-module-backup';
 const INDEX_PATH = '/nono/batches/index.json';
+const WEBDAV_TRANSFER_TIMEOUT_MS = 10 * 60_000;
 const BATCH_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 
 export interface BackupModuleAdapter {
@@ -122,7 +123,8 @@ export function createBackupCenterService(options: {
         ...(contentType ? { 'content-type': contentType } : {}),
       },
       maxBytes: method === 'GET' ? 256 * 1024 * 1024 : 1024 * 1024,
-      timeoutMs: 60_000,
+      // A slow WebDAV host can sit silent for minutes while it stores a large module (NoDesk images are 200 MB+).
+      timeoutMs: method === 'PUT' || method === 'GET' ? WEBDAV_TRANSFER_TIMEOUT_MS : 60_000,
       maxRedirects: 0,
       allowPrivateHosts: options.allowPrivateHosts,
     });

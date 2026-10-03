@@ -18,6 +18,20 @@ export function backup(run, options, args, safety = false) {
   return run('docker', ['compose', 'run', '--rm', '--no-deps', '-T', ...(safety ? ['--env', 'BACKUP_DIR=/app/backups/deployment-safety'] : []), '--entrypoint', 'node', 'app', BACKUP_CLI, ...args], { ...options, capture: true });
 }
 
+/** Every deploy adds a ~200 MB snapshot; keep this many (including the newest) and delete the rest. */
+export const SAFETY_BACKUPS_KEPT = 5;
+
+export async function pruneSafetyBackups(run, options, protectedId = '', keep = SAFETY_BACKUPS_KEPT) {
+  const output = await backup(run, options, ['list'], true);
+  const { backups = [] } = JSON.parse(output.stdout.trim().split(/\r?\n/).at(-1) || '{}');
+  const stale = backups
+    .filter((record) => record.id !== protectedId)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(Math.max(0, keep - (protectedId ? 1 : 0)));
+  for (const record of stale) await backup(run, options, ['delete', '--id', record.id], true);
+  return stale.map((record) => record.id);
+}
+
 export async function snapshot(run, options) {
   // The historical CLI's create command runs retention. Call the stable service
   // directly so producing a rollback snapshot never deletes older backups.

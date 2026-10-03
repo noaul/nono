@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { acceptDeployment } from './accept-deployment.mjs';
-import { inspectImage, backup, snapshot, safetyContext, assertMaintenance } from './compose-safety.mjs';
+import { inspectImage, backup, snapshot, safetyContext, assertMaintenance, pruneSafetyBackups } from './compose-safety.mjs';
 import { runCli } from './run-cli.mjs';
 
 export { runCli } from './run-cli.mjs';
@@ -118,6 +118,13 @@ export async function deployCompose({
     await waitForAcceptance({ baseUrl, headers: context.headers, accept, wait, attempts: acceptanceAttempts, log });
     releaseStarted = true;
     await context.file(true);
+    try {
+      const removed = await pruneSafetyBackups(run, context.publicOptions, safetyBackupId);
+      if (removed.length) log(`removed ${removed.length} old safety backups`);
+    } catch (cleanupError) {
+      // The release is already accepted; a leftover snapshot is only wasted disk.
+      log(`safety backup cleanup failed: ${errorText(cleanupError)}`);
+    }
     return { previousCommit, currentCommit, imageTag, safetyBackupId, rolledBack: false };
   } catch (deploymentError) {
     if (releaseStarted) throw new Error(`Ingress release uncertain; accepted data was NOT rolled back: ${errorText(deploymentError)}`);

@@ -40,7 +40,29 @@ NoDesk 的 WebDAV/本地导出与恢复通过后台任务执行，接口立即�
 
 轮询和启动延迟可通过 `BACKUP_AUTOMATION_POLL_SECONDS` 与 `BACKUP_AUTOMATION_START_DELAY_SECONDS` 调整，默认均为 `60` 秒。轮询最小值为 `10` 秒；日常部署无需修改。
 
-下载后的归档应保存到另一台服务器或受控对象存储。仅保留同一服务器上的 Docker 卷无法应对整机磁盘损坏。
+## 异地副本
+
+后台配置了 WebDAV 后，自动备份按计划把各模块备份上传到 WebDAV 的 `/nono/` 目录，这就是平时的异地副本。“备份与恢复”页显示最近一次成功和失败的时间与原因；自动备份失败也会进入通知中心。
+
+- 上传和下载单个模块时，连接允许静默 10 分钟：NoDesk 图片超过 200 MB，较慢的 WebDAV 服务在收完文件后可能要很久才响应。其他 WebDAV 请求仍为 60 秒。
+- 服务器上的全站归档（`backup:create`）仍只在本机卷中。需要整库灾难恢复的副本时，下载归档后另行保存到其他服务器或受控对象存储。
+
+### 部署密钥
+
+WebDAV 和全站归档都不包含 `.env`；在新服务器上恢复时必须使用原来的密钥。修改 `.env` 后，在服务器上用你自己的口令加密一份，再把生成的文件和备份放在一起（例如上传到 WebDAV 或网盘）：
+
+```bash
+cd /opt/nono
+read -rs NONO_SECRETS_PASSPHRASE && export NONO_SECRETS_PASSPHRASE
+npm run secrets:seal -- --dir /opt/nono --out /root/nono-env.sealed.json
+```
+
+口令至少 12 个字符，只保存在你自己那里，丢失后无法解开。在任意装有 Node 的机器上还原：
+
+```bash
+read -rs NONO_SECRETS_PASSPHRASE && export NONO_SECRETS_PASSPHRASE
+node scripts/sealed-secrets.mjs open --in nono-env.sealed.json > .env
+```
 
 ## 恢复
 
@@ -59,7 +81,7 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 1. 深度校验目标归档、归档路径、四个组件的 SHA-256、PostgreSQL TOC 和两套 SQLite 完整性。
 2. 锁定当前不可变应用镜像并停止业务容器，阻止继续写入。
-3. 使用临时容器创建并验证停写后的安全快照，保存至 `/app/backups/deployment-safety`，不参与常规保留策略。
+3. 使用临时容器创建并验证停写后的安全快照，保存至 `/app/backups/deployment-safety`，不参与常规保留策略。部署成功后只保留最近 5 份安全快照，更早的会被删除；清理失败只记录日志，不影响部署结果。
 4. 恢复 PostgreSQL、清空并恢复 NoDesk、原子替换 NoMoney 与 Yumi 数据库。
 5. 在隔离端口启动，使用维护凭证验收；重新绑定正常端口后仍保持维护模式，再次验收后才开放访问。
 6. 开放访问前失败时停止应用，恢复步骤 3 的安全快照并再次验收。开放操作结果不确定时不覆盖数据，应先人工确认现场。
@@ -85,6 +107,6 @@ npm run backup:verify -- --dir /opt/nono --id 20260718T140000Z
 ## 安全边界
 
 - 全站归档本身未额外加密，包含密码哈希和业务数据，应限制文件访问并使用加密存储传输。
-- 归档不包含 `.env`、TLS 证书或反向代理配置；这些文件需要单独加密备份。
+- 归档不包含 `.env`、TLS 证书或反向代理配置；`.env` 用 `npm run secrets:seal` 加密后单独保存（见“部署密钥”），证书和反向代理配置需要另行备份。
 - 网页端只提供当前账户的模块备份与恢复任务；完整数据库与数据卷的灾难恢复必须从服务器执行，不通过普通 Web 请求覆盖全站数据。
 - 删除 Docker 卷会删除备份。不要使用带 `-v` 的 Compose 清理命令，除非已经确认异地副本可用。

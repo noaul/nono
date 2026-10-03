@@ -82,7 +82,7 @@ test('running image gets a Compose-safe local rollback tag', async () => {
   ]);
 });
 
-export function deploymentFixture(t, { initial = false, fail = '', state = '[{"migration_name":"001_initial","finished_at":"2026-01-01","rolled_back_at":null}]', runningMajor = '18', configuredImage = 'postgres:18-alpine' } = {}) {
+export function deploymentFixture(t, { initial = false, fail = '', state = '[{"migration_name":"001_initial","finished_at":"2026-01-01","rolled_back_at":null}]', runningMajor = '18', configuredImage = 'postgres:18-alpine', safetyBackups = [] } = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-deploy-test-'));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   for (const [name, sql] of [['001_initial', 'CREATE TABLE example(id INT);'], ['002_retire', 'DROP TABLE example;']]) {
@@ -106,6 +106,7 @@ export function deploymentFixture(t, { initial = false, fail = '', state = '[{"m
     if (text.includes('compose config --format json')) return { stdout: JSON.stringify({ services: { postgres: { image: configuredImage } } }) };
     if (text.includes('psql')) return { stdout: state };
     if (text.includes('.create()')) return { stdout: '{"id":"20260905T120000Z"}' };
+    if (text.includes('backup.js list')) return { stdout: JSON.stringify({ backups: safetyBackups }) };
     return { stdout: '' };
   };
   return { calls, options: { cwd, baseUrl: 'http://127.0.0.1:8188', imageRepository: 'nono-app', skipPull: false, allowDestructiveMigrations: true, run, accept: async (options) => { calls.push({ text: 'accept', ...options }); }, fetchImpl: async () => ({ status: 503 }), wait: async () => {}, acceptanceAttempts: 1, log: () => {} } };
@@ -309,4 +310,31 @@ test('safety snapshot bypasses CLI retention so pre-upgrade backups cannot be pr
   assert.match(calls[0].at(-1), /createBackupServiceFromEnv/);
   assert.ok(calls[0].includes('BACKUP_DIR=/app/backups/deployment-safety'));
   assert.ok(calls[1].includes('BACKUP_DIR=/app/backups/deployment-safety'));
+});
+
+const safetyRecord = (id, createdAt) => ({ id, createdAt, status: 'verified' });
+
+test('a successful deploy keeps only the newest deployment safety backups', async (t) => {
+  const safetyBackups = [
+    safetyRecord('20260905T120000Z', '2026-09-05T12:00:00.000Z'),
+    ...Array.from({ length: 7 }, (_, index) => safetyRecord(`2026090${index + 1}T000000Z`, `2026-09-0${index + 1}T00:00:00.000Z`)),
+  ];
+  const { options, calls } = deploymentFixture(t, { safetyBackups });
+  const result = await deployCompose(options);
+
+  assert.equal(result.rolledBack, false);
+  const deletions = calls.filter((c) => c.text.includes('backup.js delete'));
+  assert.deepEqual(deletions.map((c) => c.args.at(-1)), ['20260903T000000Z', '20260902T000000Z', '20260901T000000Z']);
+  assert.ok(deletions.every((c) => c.text.includes('BACKUP_DIR=/app/backups/deployment-safety')));
+  assert.ok(calls.findIndex((c) => c.text.includes('backup.js delete')) > calls.findLastIndex((c) => c.text === 'accept'));
+});
+
+test('a failing safety-backup cleanup does not fail an accepted deploy', async (t) => {
+  const safetyBackups = Array.from({ length: 8 }, (_, index) => safetyRecord(`2026090${index + 1}T000000Z`, `2026-09-0${index + 1}T00:00:00.000Z`));
+  const { options } = deploymentFixture(t, { safetyBackups, fail: 'backup.js delete' });
+  const logged = [];
+  const result = await deployCompose({ ...options, log: (line) => logged.push(line) });
+
+  assert.equal(result.rolledBack, false);
+  assert.ok(logged.some((line) => /safety backup cleanup failed/.test(line)));
 });

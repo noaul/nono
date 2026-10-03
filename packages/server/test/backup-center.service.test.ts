@@ -99,6 +99,19 @@ describe('backup center service', () => {
     expect((await center.listWebDavBatches())[0].id).toBe(batch.id);
   });
 
+  it('gives large uploads time for a slow WebDAV server to store them', async () => {
+    const center = service();
+    await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
+    await center.backupToWebDav(7, BACKUP_MODULES);
+
+    const timeouts = (method: string) => request.mock.calls
+      .filter(([, options]) => (options?.method || 'GET') === method)
+      .map(([, options]) => options.timeoutMs);
+    expect(timeouts('PUT').length).toBeGreaterThan(0);
+    expect(timeouts('PUT').every((value) => value >= 10 * 60_000)).toBe(true);
+    expect(timeouts('MKCOL').every((value) => value === 60_000)).toBe(true);
+  });
+
   it('keeps WebDAV batches distinct when two backups start in the same second', async () => {
     const center = service();
     await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
