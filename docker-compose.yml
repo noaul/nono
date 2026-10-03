@@ -1,8 +1,16 @@
+# Docker's default json-file logs grow without bound; cap each container at 5 x 10 MB.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:18-alpine
     container_name: nono-postgres
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-nono}
       POSTGRES_USER: ${POSTGRES_USER:-nono}
@@ -33,6 +41,7 @@ services:
         NEXT_PUBLIC_BASE_PATH: /nodesk
     container_name: nono
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres:
         condition: service_healthy
