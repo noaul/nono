@@ -276,7 +276,7 @@ export class AIService {
           if (text.length > 0) {
             responseBodyPreview = text.length > 4000 ? text.slice(0, 4000) + '...[truncated]' : text;
           }
-        } catch { /* body not readable */ }
+        } catch { /* Best-effort body preview for debug logs; the response itself is handled below. */ }
         if (!response.ok) {
           const errorDetail = await this.extractErrorDetail(response);
           this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {
@@ -386,7 +386,7 @@ export class AIService {
           if (text.length > 0) {
             responseBodyPreview = text.length > 4000 ? text.slice(0, 4000) + '...[truncated]' : text;
           }
-        } catch { /* body not readable */ }
+        } catch { /* Best-effort body preview for debug logs; the response itself is handled below. */ }
         if (!response.ok) {
           const errorDetail = await this.extractErrorDetail(response);
           this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {
@@ -478,7 +478,7 @@ ${options.user}` : options.user;
         if (text.length > 0) {
           responseBodyPreview = text.length > 4000 ? text.slice(0, 4000) + '...[truncated]' : text;
         }
-      } catch { /* body not readable */ }
+      } catch { /* Best-effort body preview for debug logs; the response itself is handled below. */ }
       if (!response.ok) {
         const errorDetail = await this.extractErrorDetail(response);
         this.logAIRequestDebug(startTime, { apiType, model, configId }, { error: 'request failed' }, {

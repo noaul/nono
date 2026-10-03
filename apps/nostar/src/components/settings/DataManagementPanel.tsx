@@ -1187,7 +1187,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed.length : 0;
       }
-    } catch { /* ignore */ }
+    } catch { /* Unreadable search history only affects this counter; show 0. */ }
     return 0;
   })();
 

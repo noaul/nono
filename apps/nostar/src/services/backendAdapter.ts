@@ -53,7 +53,8 @@ class BackendAdapter {
             }
           }
         } catch {
-          // Try next URL
+          // Probe failed (network, timeout, non-JSON): try the next candidate URL.
+          // If none answers, init() logs it and the app runs in local-only mode.
         } finally {
           clearTimeout(timeoutId);
         }
@@ -145,7 +146,7 @@ class BackendAdapter {
           if (text.length > 0) {
             responseBody = text.length > 4000 ? text.slice(0, 4000) + '...[truncated]' : text;
           }
-        } catch { /* body not readable */ }
+        } catch { /* Best-effort body preview for debug logs; the response itself is handled below. */ }
         logger.debug('backendAdapter', 'Backend request', {
           method, path, status: response.status, durationMs: Date.now() - startTime,
           requestHeaders, requestBody, responseHeaders, responseBody,
@@ -214,7 +215,7 @@ class BackendAdapter {
       } else if (data.message) {
         detail = data.message;
       }
-    } catch { /* body not JSON */ }
+    } catch { /* Error body is not JSON: fall back to the status-based message. */ }
     const translated = translateBackendError(code, `${fallbackPrefix}: ${res.status}`);
     const error = aiResponseError(res, detail ? `${translated} - ${detail}` : translated) as Error & { statusCode?: number; code?: string };
     if (code) error.code = code;

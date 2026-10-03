@@ -36,7 +36,7 @@ const safeLocalStorageRemove = (key: string): void => {
   try {
     window.localStorage.removeItem(key);
   } catch {
-    // ignore
+    // Cleanup of an already-migrated legacy copy; a leftover key is harmless.
   }
 };
 

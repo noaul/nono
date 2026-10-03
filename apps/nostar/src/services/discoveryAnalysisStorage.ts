@@ -138,7 +138,7 @@ export const discoveryAnalysisStorage = {
           try {
             result.set(key, JSON.parse(raw) as DiscoveryAnalysisData);
           } catch {
-            // skip corrupted entries
+            // Corrupt cached analysis: skip it; it is simply re-analysed on demand.
           }
           cursor.continue();
         };

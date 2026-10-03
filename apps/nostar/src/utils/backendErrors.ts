@@ -70,7 +70,7 @@ function getCurrentLanguage(): 'zh' | 'en' {
       const lang = parsed.state?.language;
       if (lang === 'en') return 'en';
     }
-  } catch { /* ignore */ }
+  } catch { /* Unreadable persisted state: fall back to the default language. */ }
   return 'zh';
 }
 

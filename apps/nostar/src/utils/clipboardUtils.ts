@@ -95,7 +95,7 @@ export const safeWriteText = async (text: string): Promise<{ success: boolean; e
         return { success: true };
       }
     } catch {
-      // 降级方案失败，返回错误
+      // 降级方案失败：继续往下返回 { success: false }，由调用方提示用户
     }
 
     return {

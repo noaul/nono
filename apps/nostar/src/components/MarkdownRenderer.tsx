@@ -411,7 +411,8 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
         a.click();
         document.body.removeChild(a);
       } catch {
-        // fallback failed
+        // Plain-link fallback failed too; nothing else to try and the image
+        // is still shown inline, so there is no actionable error to surface.
       }
     } finally {
       if (objectUrl) URL.revokeObjectURL(objectUrl);

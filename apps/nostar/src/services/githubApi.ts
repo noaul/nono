@@ -288,7 +288,7 @@ export class GitHubApiService {
         if (text.length > 0) {
           responseBody = text.length > 4000 ? text.slice(0, 4000) + '...[truncated]' : text;
         }
-      } catch { /* body not readable */ }
+      } catch { /* Best-effort body preview for debug logs; the response itself is handled below. */ }
       logger.debug('githubApi', 'API request', {
         method, endpoint, status: finalResponse.status, durationMs: Date.now() - startTime,
         rateLimitRemaining: finalResponse.headers.get('x-ratelimit-remaining'),
@@ -463,7 +463,7 @@ export class GitHubApiService {
         try {
           const content = await this.getGistFileRaw(file.raw_url, signal);
           files[filename] = { ...file, content, truncated: false };
-        } catch { /* 单文件失败不影响其他文件 */ }
+        } catch { /* 单文件失败不影响其他文件：该文件保持无内容，其余照常显示 */ }
       }));
       return { ...existing, files };
     }
@@ -487,7 +487,7 @@ export class GitHubApiService {
       if (!response.ok) {
         // 尝试从 JSON 错误体提取消息
         let detail = response.statusText;
-        try { const data = await response.json(); detail = (data as { error?: string }).error || detail; } catch { /* ignore */ }
+        try { const data = await response.json(); detail = (data as { error?: string }).error || detail; } catch { /* Error body is not JSON: keep statusText as the detail. */ }
         throw new Error(`GitHub raw proxy error: ${response.status} ${detail}`);
       }
       return response.text();
