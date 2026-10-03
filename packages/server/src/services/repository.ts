@@ -82,6 +82,31 @@ export function linkSearchTerms(query: string) {
   return [...new Set(query.toLowerCase().split(/\s+/).filter(Boolean))].slice(0, 8);
 }
 
+export interface BookmarkImportFolder {
+  /** Plan-local key; children reference their parent's key, so parents must come first. */
+  key: string;
+  parentKey: string | null;
+  name: string;
+  icon: string;
+  sortOrder: number;
+}
+
+export interface BookmarkImportLink {
+  /** Either a folder created by this import (folderKey) or an existing owned folder (folderId). */
+  folderKey?: string | null;
+  folderId?: number | null;
+  name: string;
+  url: string;
+  icon: string;
+  description: string;
+  sortOrder: number;
+}
+
+export interface BookmarkImportPlan {
+  folders: BookmarkImportFolder[];
+  links: BookmarkImportLink[];
+}
+
 export type TrashItemKind = 'bookmark' | 'folder' | 'notab';
 
 export interface TrashItemRecord {
@@ -259,6 +284,8 @@ export interface Repository {
   reorderFolders(userId: number, ids: number[]): Promise<void>;
   deleteFolder(userId: number, id: number): Promise<void>;
   deleteFolders(userId: number, ids: number[]): Promise<void>;
+  /** Writes a whole import or nothing. */
+  importBookmarkPlan(userId: number, plan: BookmarkImportPlan): Promise<{ folders: number; links: number }>;
   listLinks(userId: number): Promise<LinkRecord[]>;
   getLink(userId: number, id: number): Promise<LinkRecord | null>;
   /** Owned links among `ids`, in display order; ids the user does not own are dropped. */
@@ -564,6 +591,28 @@ export class MemoryRepository implements Repository {
     }
     this.folders = this.folders.filter((folder) => !ids.has(folder.id));
     this.links = this.links.filter((link) => !ids.has(link.folderId));
+  }
+
+  async importBookmarkPlan(userId: number, plan: BookmarkImportPlan) {
+    const folders = [...this.folders];
+    const links = [...this.links];
+    try {
+      const idByKey = new Map<string, number>();
+      for (const item of plan.folders) {
+        const parentId = item.parentKey ? idByKey.get(item.parentKey) : null;
+        if (parentId === undefined) throw new Error(`Import folder ${item.parentKey} is not created before its children`);
+        const folder = await this.createFolder({ userId, parentId, name: item.name, icon: item.icon, description: '', sortOrder: item.sortOrder, passwordHash: null, passwordHint: null });
+        idByKey.set(item.key, folder.id);
+      }
+      for (const item of plan.links) {
+        await this.createLink({ ...importLinkFields(item), folderId: resolveImportFolderId(item, idByKey) });
+      }
+    } catch (error) {
+      this.folders = folders;
+      this.links = links;
+      throw error;
+    }
+    return { folders: plan.folders.length, links: plan.links.length };
   }
 
   async listLinks(userId: number) {
@@ -897,6 +946,16 @@ export class MemoryRepository implements Repository {
     if (!link) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     return link;
   }
+}
+
+export function importLinkFields(item: BookmarkImportLink) {
+  return { name: item.name, url: item.url, icon: item.icon, description: item.description, sortOrder: item.sortOrder };
+}
+
+export function resolveImportFolderId(item: BookmarkImportLink, idByKey: Map<string, number>) {
+  const folderId = item.folderKey ? idByKey.get(item.folderKey) : item.folderId;
+  if (!folderId) throw Object.assign(new Error('No target folder available'), { statusCode: 400 });
+  return folderId;
 }
 
 export function nextId(items: Array<{ id: number }>) {

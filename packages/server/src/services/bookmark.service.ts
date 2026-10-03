@@ -1,4 +1,4 @@
-import type { FolderRecord, LinkRecord, Repository } from './repository.js';
+import type { BookmarkImportPlan, FolderRecord, LinkRecord, Repository } from './repository.js';
 import { createSortOrder } from '../utils/sort-order.js';
 
 export interface BookmarkImportPreview {
@@ -51,6 +51,8 @@ export function exportBookmarksHtml(folders: FolderRecord[], links: LinkRecord[]
   return `${lines.join('\n')}\n`;
 }
 
+const FALLBACK_FOLDER_KEY = '__import_fallback__';
+
 export async function importBookmarks(repo: Repository, userId: number, html: string, selection?: BookmarkImportSelection) {
   const parsed = parseBookmarksHtml(html);
   const selectedFolderTempIds = selectedIds(selection?.folderTempIds, parsed.folders.map((folder) => folder.tempId));
@@ -61,32 +63,25 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
   const folders = await repo.listFolders(userId);
   const links = await repo.listLinks(userId);
   const existingUrls = new Set(links.map((link) => link.url.toLowerCase()));
-  const tempToId = new Map<string, number>();
   const summary = { addedFolders: 0, addedLinks: 0, skippedDuplicates: 0, skippedInvalid: 0 };
+  const plan: BookmarkImportPlan = { folders: [], links: [] };
 
   for (const [index, item] of selectedFolders.entries()) {
-    const selectedParentTempId = nearestSelectedFolder(item.parentTempId, selectedFolderTempIds, folderByTempId);
-    const folder = await repo.createFolder({
-      userId,
-      parentId: selectedParentTempId ? tempToId.get(selectedParentTempId) || null : null,
+    plan.folders.push({
+      key: item.tempId,
+      parentKey: nearestSelectedFolder(item.parentTempId, selectedFolderTempIds, folderByTempId),
       name: item.name,
       icon: '',
-      description: '',
       sortOrder: createSortOrder(index),
-      passwordHash: null,
-      passwordHint: null,
     });
-    tempToId.set(item.tempId, folder.id);
-    summary.addedFolders += 1;
   }
 
-  let fallbackFolderId = folders[0]?.id;
-  if (!fallbackFolderId && selectedLinks.length > 0) {
-    fallbackFolderId = selectedFolders[0] ? tempToId.get(selectedFolders[0].tempId) : undefined;
-    if (!fallbackFolderId) {
-      const folder = await repo.createFolder({ userId, parentId: null, name: '导入书签', icon: 'folder', description: '', sortOrder: createSortOrder(), passwordHash: null, passwordHint: null });
-      fallbackFolderId = folder.id;
-      summary.addedFolders += 1;
+  let fallback: { folderId?: number; folderKey?: string } | null = folders[0] ? { folderId: folders[0].id } : null;
+  if (!fallback && selectedLinks.length > 0) {
+    if (selectedFolders[0]) fallback = { folderKey: selectedFolders[0].tempId };
+    else {
+      plan.folders.push({ key: FALLBACK_FOLDER_KEY, parentKey: null, name: '导入书签', icon: 'folder', sortOrder: createSortOrder() });
+      fallback = { folderKey: FALLBACK_FOLDER_KEY };
     }
   }
 
@@ -101,10 +96,10 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       summary.skippedDuplicates += 1;
       continue;
     }
-    if (!fallbackFolderId) throw Object.assign(new Error('No target folder available'), { statusCode: 400 });
+    if (!fallback) throw Object.assign(new Error('No target folder available'), { statusCode: 400 });
     const selectedFolderTempId = nearestSelectedFolder(item.folderTempId, selectedFolderTempIds, folderByTempId);
-    await repo.createLink({
-      folderId: selectedFolderTempId ? tempToId.get(selectedFolderTempId) || fallbackFolderId : fallbackFolderId,
+    plan.links.push({
+      ...(selectedFolderTempId ? { folderKey: selectedFolderTempId } : fallback),
       name: item.name,
       url: normalizedUrl,
       icon: normalizeImportedIcon(item.icon),
@@ -112,9 +107,11 @@ export async function importBookmarks(repo: Repository, userId: number, html: st
       sortOrder: createSortOrder(index),
     });
     existingUrls.add(key);
-    summary.addedLinks += 1;
   }
 
+  const written = plan.folders.length || plan.links.length ? await repo.importBookmarkPlan(userId, plan) : { folders: 0, links: 0 };
+  summary.addedFolders = written.folders;
+  summary.addedLinks = written.links;
   return summary;
 }
 

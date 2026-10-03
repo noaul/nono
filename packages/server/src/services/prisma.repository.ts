@@ -1,8 +1,10 @@
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { createPrismaClient } from './prisma-client.js';
 import type { Repository, SiteRecord } from './repository.js';
-import { defaultSite, linkSearchTerms } from './repository.js';
+import { defaultSite, importLinkFields, linkSearchTerms, resolveImportFolderId } from './repository.js';
 import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
+
+const IMPORT_LINK_CHUNK = 1000;
 
 export function createPrismaRepository(prisma: PrismaClient = createPrismaClient()): Repository {
   return {
@@ -245,6 +247,25 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     },
     async deleteFolders(userId, ids) {
       await trashPrismaFolders(prisma, userId, ids);
+    },
+    async importBookmarkPlan(userId, plan) {
+      return prisma.$transaction(async (transaction) => {
+        const idByKey = new Map<string, number>();
+        // Folders go one by one because children need their parent's generated id.
+        for (const item of plan.folders) {
+          const parentId = item.parentKey ? idByKey.get(item.parentKey) : null;
+          if (parentId === undefined) throw new Error(`Import folder ${item.parentKey} is not created before its children`);
+          const folder = await transaction.folder.create({
+            data: { userId, parentId, name: item.name, icon: item.icon, description: '', sortOrder: item.sortOrder, passwordHash: null, passwordHint: null },
+          });
+          idByKey.set(item.key, folder.id);
+        }
+        const links = plan.links.map((item) => ({ ...importLinkFields(item), folderId: resolveImportFolderId(item, idByKey) }));
+        for (let start = 0; start < links.length; start += IMPORT_LINK_CHUNK) {
+          await transaction.link.createMany({ data: links.slice(start, start + IMPORT_LINK_CHUNK) });
+        }
+        return { folders: plan.folders.length, links: links.length };
+      }, { maxWait: 10_000, timeout: 120_000 });
     },
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
