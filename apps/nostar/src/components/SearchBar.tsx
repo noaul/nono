@@ -698,6 +698,8 @@ export const SearchBar: React.FC = () => {
       setSearchFilters({ query: searchQuery });
     } catch (error) {
       logger.errorFromError('search', 'Search failed', error);
+      const detail = error instanceof Error ? error.message : String(error);
+      toast(`${t('搜索失败', 'Search failed')}: ${detail}`, 'error');
     } finally {
       setIsSearching(false);
       setSearchPhase(null);

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NetworkPanel } from './NetworkPanel';
 import { useAppStore } from '../../store/useAppStore';
 import { backend } from '../../services/backendAdapter';
@@ -22,6 +22,13 @@ const mockFetch = (handler: (call: FetchCall) => Response | Promise<Response>) =
     return handler(call);
   });
   return calls;
+};
+
+// Render and let the on-mount settings load settle so it cannot race the click.
+const renderLoaded = async (calls: FetchCall[]) => {
+  render(<NetworkPanel t={(_zh, en) => en} />);
+  await waitFor(() => expect(calls.filter((c) => c.method === 'GET')).toHaveLength(2));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
 const settingsGet = (call: FetchCall) => {
@@ -51,6 +58,37 @@ describe('NetworkPanel (web)', () => {
     expect(await screen.findByText('Proxy connection successful')).toBeInTheDocument();
     expect(calls.some((c) => c.method === 'POST' && c.url === '/api/nostar/settings/proxy/test')).toBe(true);
     expect(electronTest).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the proxy switch and tells the user when NoNo rejects it', async () => {
+    const calls = mockFetch((call) => call.method === 'PUT' ? json({ error: 'nope' }, 500) : settingsGet(call));
+    await renderLoaded(calls);
+    const toggle = screen.getByRole('switch', { name: 'Enable network proxy' });
+    fireEvent.click(toggle);
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.stringMatching(/proxy/i), 'error'));
+    expect(useAppStore.getState().proxyConfig.enabled).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Enable network proxy' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('rolls back the remote download switch and tells the user when saving fails', async () => {
+    const calls = mockFetch((call) => {
+      if (call.method === 'PUT') throw new TypeError('Failed to fetch');
+      return settingsGet(call);
+    });
+    await renderLoaded(calls);
+    fireEvent.click(screen.getByRole('switch', { name: 'Enable remote download' }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.stringMatching(/remote download/i), 'error'));
+    expect(useAppStore.getState().rpcDownloadConfig.enabled).toBe(false);
+    expect(screen.getByRole('switch', { name: 'Enable remote download' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('keeps a successful switch without an error', async () => {
+    const calls = mockFetch((call) => call.method === 'PUT' ? json({ ok: true }) : settingsGet(call));
+    await renderLoaded(calls);
+    fireEvent.click(screen.getByRole('switch', { name: 'Enable remote download' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true));
+    expect(useAppStore.getState().rpcDownloadConfig.enabled).toBe(true);
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it('hides the proxy card when NoNo is unreachable', () => {

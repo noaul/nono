@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SearchBar } from './SearchBar';
 import { useAppStore } from '../store/useAppStore';
@@ -9,9 +9,10 @@ vi.mock('../store/useAppStore', () => ({
   getAllCategories: vi.fn(() => []),
 }));
 
+const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock('../hooks/useDialog', () => ({
   useDialog: () => ({
-    toast: vi.fn(),
+    toast: toastMock,
     confirm: vi.fn(),
   }),
 }));
@@ -236,5 +237,22 @@ describe('SearchBar', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('tells the user when an AI search fails instead of silently keeping old results', async () => {
+    const setSearchResults = vi.fn();
+    currentState = createStoreState({
+      repositories: [createRepository({ id: 1 })],
+      setSearchResults,
+    });
+    mockUseAppStore.mockReturnValue(currentState as ReturnType<typeof useAppStore>);
+
+    render(<SearchBar />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'react' } });
+    setSearchResults.mockImplementation(() => { throw new Error('store write failed'); });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.stringContaining('store write failed'), 'error'));
   });
 });

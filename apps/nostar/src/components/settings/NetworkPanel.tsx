@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Wifi, Download, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { backend } from '../../services/backendAdapter';
+import { useDialog } from '../../hooks/useDialog';
 import { testRpcDownload } from '../../services/rpcDownloadService';
 import type { ProxyConfig, ProxyType, RpcDownloadConfig } from '../../types';
 
@@ -11,6 +12,7 @@ interface NetworkPanelProps {
 
 export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
   const { proxyConfig, setProxyConfig, rpcDownloadConfig, setRpcDownloadConfig, backendApiSecret } = useAppStore();
+  const { toast } = useDialog();
 
   // --- Proxy state ---
   const [form, setForm] = useState<ProxyConfig>(proxyConfig);
@@ -88,7 +90,10 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
             });
           }
         }
-      } catch { /* best effort */ }
+      } catch {
+        // Background load on open: the panel keeps the locally stored values,
+        // and any save/test the user triggers reports its own error.
+      }
     };
     loadNetworkConfig();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -222,23 +227,58 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
 
   const rpcHasChanges = JSON.stringify(rpcForm) !== JSON.stringify(rpcDownloadConfig);
 
+  // PUT a settings document to NoNo; throws when the request fails or is rejected.
+  const putSetting = async (path: string, body: unknown) => {
+    const base = await getRpcBaseUrl();
+    const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (backendApiSecret) {
+      authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
+    }
+    const resp = await fetch(`${base}${path}`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      throw new Error(`Backend returned ${resp.status}`);
+    }
+  };
+
+  const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
   const handleRpcToggle = async () => {
+    const previousForm = rpcForm;
+    const previousConfig = rpcDownloadConfig;
     const newForm = { ...rpcForm, enabled: !rpcForm.enabled };
     setRpcForm(newForm);
     setRpcDownloadConfig(newForm);
     if (backend.isAvailable) {
       try {
-        const base = await getRpcBaseUrl();
-        const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (backendApiSecret) {
-          authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
-        }
-        await fetch(`${base}/settings/rpc-download`, {
-          method: 'PUT',
-          headers: authHeaders,
-          body: JSON.stringify(newForm),
-        });
-      } catch { /* best effort */ }
+        await putSetting('/settings/rpc-download', newForm);
+      } catch (e) {
+        // Roll back so the switch reflects what NoNo actually has.
+        setRpcForm(previousForm);
+        setRpcDownloadConfig(previousConfig);
+        toast(`${t('保存远程下载设置失败', 'Failed to save remote download setting')}: ${errorMessage(e)}`, 'error');
+      }
+    }
+  };
+
+  const handleProxyToggle = async () => {
+    const previousForm = form;
+    const previousConfig = proxyConfig;
+    const newForm = { ...form, enabled: !form.enabled };
+    setForm(newForm);
+    setProxyConfig(newForm);
+    if (backend.isAvailable) {
+      try {
+        await putSetting('/settings/proxy', newForm);
+      } catch (e) {
+        // Roll back so the switch reflects what NoNo actually has.
+        setForm(previousForm);
+        setProxyConfig(previousConfig);
+        toast(`${t('保存代理设置失败', 'Failed to save proxy setting')}: ${errorMessage(e)}`, 'error');
+      }
     }
   };
 
@@ -259,25 +299,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
             role="switch"
             aria-checked={form.enabled}
             aria-label={t('启用网络代理', 'Enable network proxy')}
-            onClick={async () => {
-              const newForm = { ...form, enabled: !form.enabled };
-              setForm(newForm);
-              setProxyConfig(newForm);
-              if (backend.isAvailable) {
-                try {
-                  const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-                  if (backendApiSecret) {
-                    authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
-                  }
-                  const base = await getRpcBaseUrl();
-                  await fetch(`${base}/settings/proxy`, {
-                    method: 'PUT',
-                    headers: authHeaders,
-                    body: JSON.stringify(newForm),
-                  });
-                } catch { /* best effort */ }
-              }
-            }}
+            onClick={handleProxyToggle}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.enabled ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
             <span

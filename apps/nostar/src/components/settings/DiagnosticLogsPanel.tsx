@@ -21,6 +21,7 @@ import { maskUrlDomain } from '../../utils/logSanitizer';
 import { inferEventType, EVENT_TYPE_LABELS, LogEventType } from '../../utils/logEventTypes';
 import { version as appVersion } from '../../../package.json';
 import { useAppStore } from '../../store/useAppStore';
+import { useDialog } from '../../hooks/useDialog';
 
 interface DiagnosticLogsPanelProps {
   t: (zh: string, en: string) => string;
@@ -239,6 +240,8 @@ const DataBlock: React.FC<{ data: unknown; emptyText: string }> = ({ data, empty
 // ─── Main Panel ────────────────────────────────────────────────
 export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) => {
   const language = useAppStore.getState().language;
+  const { toast } = useDialog();
+  const errorDetail = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   // Debug mode state
   const [frontendDebug, setFrontendDebug] = useState(() => {
@@ -266,7 +269,9 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
           setBackendDebug(data.debugMode);
           sessionStorage.setItem('gsm:backend-debug', String(data.debugMode));
         }
-      } catch { /* Backend unreachable */ }
+      } catch {
+        // Background read on open: the switch just stays OFF; toggling it reports errors.
+      }
     };
     fetchDebugState();
   }, [backendAvailable]);
@@ -344,7 +349,10 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
           const totalHeader = res.headers.get('X-Log-Count');
           setBackendLogCount(totalHeader ? parseInt(totalHeader) || 0 : logs.length);
         }
-      } catch { /* Backend unreachable */ }
+      } catch {
+        // 10s background poll: a toast here would repeat forever while NoNo is down.
+        // The manual Refresh button reports failures instead.
+      }
     };
     fetchBackend();
     const interval = setInterval(fetchBackend, 10000);
@@ -414,13 +422,14 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
         body: JSON.stringify({ enabled: next }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setBackendDebug(data.debugMode);
-        sessionStorage.setItem('gsm:backend-debug', String(data.debugMode));
-      }
-    } catch { /* Backend unreachable */ }
-  }, [backendDebug]);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setBackendDebug(data.debugMode);
+      sessionStorage.setItem('gsm:backend-debug', String(data.debugMode));
+    } catch (e) {
+      toast(`${t('切换后端调试失败', 'Failed to toggle backend debug')}: ${errorDetail(e)}`, 'error');
+    }
+  }, [backendDebug, toast, t]);
 
   // Clear logs
   const handleClear = useCallback(async () => {
@@ -428,11 +437,14 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     if ((selectedScope === 'backend' || selectedScope === 'all') && backendAvailable) {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        await fetch('/api/nostar/logs', { method: 'DELETE', headers: { Authorization: `Bearer ${secret}` } });
+        const res = await fetch('/api/nostar/logs', { method: 'DELETE', headers: { Authorization: `Bearer ${secret}` } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setBackendEntries([]); setBackendLogCount(0);
-      } catch { /* Backend unreachable */ }
+      } catch (e) {
+        toast(`${t('清空后端日志失败', 'Failed to clear backend logs')}: ${errorDetail(e)}`, 'error');
+      }
     }
-  }, [selectedScope, backendAvailable]);
+  }, [selectedScope, backendAvailable, toast, t]);
 
   // Refresh
   const handleRefresh = useCallback(async () => {
@@ -440,14 +452,15 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
     try {
       const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
       const res = await fetch('/api/nostar/logs?limit=2000', { headers: { Authorization: `Bearer ${secret}` } });
-      if (res.ok) {
-        const raw = await res.json();
-        setBackendEntries(Array.isArray(raw) ? raw : []);
-        const totalHeader = res.headers.get('X-Log-Count');
-        setBackendLogCount(totalHeader ? parseInt(totalHeader) || 0 : raw.length);
-      }
-    } catch { /* Backend unreachable */ } finally { setIsRefreshing(false); }
-  }, []);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const raw = await res.json();
+      setBackendEntries(Array.isArray(raw) ? raw : []);
+      const totalHeader = res.headers.get('X-Log-Count');
+      setBackendLogCount(totalHeader ? parseInt(totalHeader) || 0 : raw.length);
+    } catch (e) {
+      toast(`${t('刷新后端日志失败', 'Failed to refresh backend logs')}: ${errorDetail(e)}`, 'error');
+    } finally { setIsRefreshing(false); }
+  }, [toast, t]);
 
   // Export
   const handleExport = useCallback(async () => {
@@ -461,12 +474,18 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
       const frontendLogs = selectedScope !== 'backend'
         ? logger.getEntries({ level: minLevelName }).filter(e => selectedLevels.has(e.level)) : [];
       let backendLogs: LogEntry[] = [];
+      let backendLogsError: string | null = null;
       if (selectedScope !== 'frontend' && backendAvailable) {
         try {
           const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
           const res = await fetch(`/api/nostar/logs?limit=2000&level=${minLevelName}`, { headers: { Authorization: `Bearer ${secret}` } });
-          if (res.ok) { const raw = await res.json(); backendLogs = Array.isArray(raw) ? raw.filter((e: LogEntry) => selectedLevels.has(e.level)) : []; }
-        } catch { /* Backend unreachable */ }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const raw = await res.json();
+          backendLogs = Array.isArray(raw) ? raw.filter((e: LogEntry) => selectedLevels.has(e.level)) : [];
+        } catch (e) {
+          // Still export the frontend logs, but say the backend part is missing.
+          backendLogsError = errorDetail(e);
+        }
       }
       const state = useAppStore.getState();
       const environment = {
@@ -487,14 +506,20 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
         appVersion, environment,
         sanitizationNote: t('所有 Token、API Key、密码、邮箱已脱敏为 ***格式', 'All tokens, API keys, passwords, and emails have been masked as ***<last4>'),
         frontendLogs, backendLogs,
+        ...(backendLogsError ? { backendLogsError } : {}),
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url;
       a.download = `nostar-logs-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    } catch { /* Export failed */ } finally { setIsExporting(false); }
-  }, [selectedScope, selectedLevels, backendAvailable, frontendDebug, backendDebug, t]);
+      if (backendLogsError) {
+        toast(`${t('已导出前端日志，但后端日志获取失败', 'Exported frontend logs, but backend logs could not be fetched')}: ${backendLogsError}`, 'warning');
+      }
+    } catch (e) {
+      toast(`${t('导出日志失败', 'Failed to export logs')}: ${errorDetail(e)}`, 'error');
+    } finally { setIsExporting(false); }
+  }, [selectedScope, selectedLevels, backendAvailable, frontendDebug, backendDebug, t, toast]);
 
   const toggleLevel = useCallback((level: LogLevel) => {
     setSelectedLevels(prev => { const next = new Set(prev); if (next.has(level)) next.delete(level); else next.add(level); return next; });
@@ -531,7 +556,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
                   {t('开启后将记录所有前端 HTTP 请求详情（方法、路径、状态码、耗时）', 'Records all frontend HTTP request details (method, path, status, duration)')}
                 </p>
               </div>
-              <button onClick={toggleFrontendDebug} className={`p-2 rounded-lg transition-colors ${frontendDebug ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+              <button onClick={toggleFrontendDebug} aria-label={t('切换前端调试', 'Toggle frontend debug')} aria-pressed={frontendDebug} className={`p-2 rounded-lg transition-colors ${frontendDebug ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                 {frontendDebug ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
               </button>
             </div>
@@ -545,7 +570,7 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
                 </div>
                 <p className="text-sm text-gray-500 dark:text-text-tertiary mt-1">{t('开启后将记录所有后端 HTTP 请求详情', 'Records all backend HTTP request details')}</p>
               </div>
-              <button onClick={backendAvailable ? toggleBackendDebug : undefined} disabled={!backendAvailable}
+              <button onClick={backendAvailable ? toggleBackendDebug : undefined} disabled={!backendAvailable} aria-label={t('切换后端调试', 'Toggle backend debug')} aria-pressed={backendDebug}
                 className={`p-2 rounded-lg transition-colors ${!backendAvailable ? 'opacity-50 cursor-not-allowed' : ''} ${backendDebug ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                 {backendDebug ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
               </button>

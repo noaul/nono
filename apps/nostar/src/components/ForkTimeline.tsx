@@ -389,6 +389,14 @@ export const ForkTimeline: React.FC = () => {
       setWorkflowsMap(prev => ({ ...prev, [forkId]: workflows }));
     } catch (error) {
       console.error('Failed to load workflows:', error);
+      // Collapse the panel so an empty list is not mistaken for "no workflows".
+      setExpandedWorkflows(prev => {
+        const next = new Set(prev);
+        next.delete(forkId);
+        return next;
+      });
+      const detail = error instanceof Error ? error.message : String(error);
+      toast(language === 'zh' ? `加载工作流失败：${detail}` : `Failed to load workflows: ${detail}`, 'error');
     } finally {
       setLoadingWorkflows(prev => {
         const newSet = new Set(prev);

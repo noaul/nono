@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../services/logger';
 import { backend } from '../services/backendAdapter';
 import { useAppStore } from '../store/useAppStore';
+import { useDialog } from '../hooks/useDialog';
 
 /**
  * Global debug mode indicator — fixed bottom-right corner.
@@ -12,6 +13,8 @@ export const DebugModeIndicator: React.FC = () => {
   const [frontendDebug, setFrontendDebug] = useState(() => sessionStorage.getItem('gsm:frontend-debug') === 'true');
   const [backendDebug, setBackendDebug] = useState(() => sessionStorage.getItem('gsm:backend-debug') === 'true');
   const setCurrentView = useAppStore(s => s.setCurrentView);
+  const language = useAppStore(s => s.language);
+  const { toast } = useDialog();
 
   // Sync with sessionStorage changes (e.g. from DiagnosticLogsPanel)
   useEffect(() => {
@@ -36,18 +39,27 @@ export const DebugModeIndicator: React.FC = () => {
     setFrontendDebug(false);
 
     // Disable backend debug
+    let backendDebugOff = true;
     if (backend.isAvailable) {
       try {
         const secret = sessionStorage.getItem('github-stars-manager-backend-secret');
-        await fetch('/api/nostar/logs/debug', {
+        const res = await fetch('/api/nostar/logs/debug', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
           body: JSON.stringify({ enabled: false }),
         });
-      } catch { /* Backend unreachable */ }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (e) {
+        // Keep the BE badge: the server is most likely still logging in debug mode.
+        backendDebugOff = false;
+        const detail = e instanceof Error ? e.message : String(e);
+        toast(language === 'zh' ? `关闭后端调试失败：${detail}` : `Failed to turn off backend debug: ${detail}`, 'error');
+      }
     }
-    sessionStorage.setItem('gsm:backend-debug', 'false');
-    setBackendDebug(false);
+    if (backendDebugOff) {
+      sessionStorage.setItem('gsm:backend-debug', 'false');
+      setBackendDebug(false);
+    }
 
     // Navigate to settings → logs tab
     // Store in sessionStorage BEFORE switching view so the new SettingsPanel
@@ -56,7 +68,7 @@ export const DebugModeIndicator: React.FC = () => {
     setCurrentView('settings');
     // Also dispatch event as a backup for same-instance navigation
     window.dispatchEvent(new CustomEvent('gsm:navigate-to-settings-tab', { detail: { tab: 'logs' } }));
-  }, [setCurrentView]);
+  }, [setCurrentView, toast, language]);
 
   if (!frontendDebug && !backendDebug) return null;
 

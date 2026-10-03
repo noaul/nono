@@ -159,6 +159,8 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         const backupData = JSON.parse(backupContent);
         useAppStore.setState(readBatchTwoSettings(backupData));
         const backupIncludedKeys = backupData.includeKeysInBackup ?? true;
+        // Sections that failed to restore; each is independent, so keep going and report them at the end.
+        const failedSections: string[] = [];
 
         if (Array.isArray(backupData.repositories)) {
           setRepositories(backupData.repositories);
@@ -205,6 +207,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复自定义分类时发生问题：', e);
+          failedSections.push(t('自定义分类', 'custom categories'));
         }
 
         try {
@@ -244,6 +247,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复 AI 配置时发生问题：', e);
+          failedSections.push(t('AI 配置', 'AI configs'));
         }
 
         try {
@@ -279,6 +283,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复 WebDAV 配置时发生问题：', e);
+          failedSections.push(t('WebDAV 配置', 'WebDAV configs'));
         }
 
         try {
@@ -294,6 +299,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复代理配置时发生问题：', e);
+          failedSections.push(t('代理配置', 'proxy config'));
         }
 
         try {
@@ -309,6 +315,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复远程下载配置时发生问题：', e);
+          failedSections.push(t('远程下载配置', 'remote download config'));
         }
 
         try {
@@ -317,6 +324,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
           }
         } catch (e) {
           console.warn('恢复后端 API 密钥时发生问题：', e);
+          failedSections.push(t('后端 API 密钥', 'backend API secret'));
         }
 
         // Legacy backups omit these fields: retain existing preferences in that case.
@@ -335,10 +343,15 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ t }) => {
         if (backupData.activeWebDAVConfig === null || current.webdavConfigs.some(config => config.id === backupData.activeWebDAVConfig)) current.setActiveWebDAVConfig(backupData.activeWebDAVConfig);
         useAppStore.setState(next);
 
-        toast(t(
+        const restoredSummary = t(
           `已从备份恢复数据：仓库 ${backupData.repositories?.length ?? 0}，发布 ${backupData.releases?.length ?? 0}，自定义分类 ${backupData.customCategories?.length ?? 0}。`,
           `Data restored from backup: repositories ${backupData.repositories?.length ?? 0}, releases ${backupData.releases?.length ?? 0}, custom categories ${backupData.customCategories?.length ?? 0}.`
-        ), 'success');
+        );
+        if (failedSections.length > 0) {
+          toast(`${restoredSummary} ${t('以下部分未能恢复', 'These parts could not be restored')}: ${failedSections.join(', ')}`, 'warning');
+        } else {
+          toast(restoredSummary, 'success');
+        }
       } catch (error) {
         console.error('Restore failed:', error);
         toast(`${t('恢复失败', 'Restore failed')}: ${(error as Error).message}`, 'error');

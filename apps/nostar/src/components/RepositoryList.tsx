@@ -15,6 +15,7 @@ import { resolveCategoryAssignment, getAICategory, getDefaultCategory, computeCu
 import { forceSyncToBackend } from '../services/autoSync';
 import { logger } from '../services/logger';
 import { useDialog } from '../hooks/useDialog';
+import { unstarResultToast } from '../utils/bulkResult';
 
 interface RepositoryListProps {
   repositories: Repository[];
@@ -634,11 +635,8 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
           }
 
           await forceSyncToBackend();
-          toast(language === 'zh'
-            ? `成功取消 ${successIds.length} 个仓库的 Star`
-            : `Successfully unstarred ${successIds.length} repositories`,
-            'success'
-          );
+          const result = unstarResultToast(language, successIds.length, repos.length);
+          toast(result.message, result.type);
           break;
         }
 

@@ -5,7 +5,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { backend } from '../../services/backendAdapter';
 import { WebDAVService } from '../../services/webdavService';
 vi.unmock('../../store/useAppStore');
-vi.mock('../../hooks/useDialog', () => ({useDialog: () => ({toast: vi.fn(), confirm: async () => true})}));
+const {toastMock} = vi.hoisted(() => ({toastMock: vi.fn()}));
+vi.mock('../../hooks/useDialog', () => ({useDialog: () => ({toast: toastMock, confirm: async () => true})}));
 const dav = {id: 'dav-1', name: 'DAV', url: 'https://dav.example', username: 'alice', password: 'secret', path: '/', isActive: true};
 describe('WebDAV backup completeness', () => {
   beforeEach(() => {
@@ -45,6 +46,21 @@ describe('WebDAV backup completeness', () => {
     expect(useAppStore.getState().defaultCategoryOverrides).toEqual({});
     expect(useAppStore.getState().categoryOrder).toEqual([]);
     expect(useAppStore.getState().webdavConfigs[0].password).toBe('secret');
+  });
+  it('warns instead of reporting full success when part of a restore fails', async () => {
+    toastMock.mockReset();
+    const original = useAppStore.getState().addAIConfig;
+    useAppStore.setState({addAIConfig: () => { throw new Error('quota exceeded'); }});
+    try {
+      vi.spyOn(WebDAVService.prototype, 'listFiles').mockResolvedValue(['github-stars-backup-2026-09-30.json']);
+      vi.spyOn(WebDAVService.prototype, 'downloadFile').mockResolvedValue(JSON.stringify({repositories: [], releases: [], aiConfigs: [{id: 'ai-1', name: 'AI', apiType: 'openai', baseUrl: 'https://ai.example', apiKey: '***', model: 'm', isActive: false}]}));
+      render(<BackupPanel t={zh => zh}/>);
+      fireEvent.click(screen.getByText('开始恢复'));
+      await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.stringContaining('AI'), 'warning'));
+      expect(toastMock.mock.calls.some(([, type]) => type === 'success')).toBe(false);
+    } finally {
+      useAppStore.setState({addAIConfig: original});
+    }
   });
   it('keeps newer preferences when restoring a legacy backup without those fields', async () => {
     vi.spyOn(WebDAVService.prototype, 'listFiles').mockResolvedValue(['github-stars-backup-2026-09-30.json']);

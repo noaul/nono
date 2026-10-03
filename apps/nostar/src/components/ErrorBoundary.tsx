@@ -17,6 +17,7 @@ interface State {
   error: Error | null;
   errorInfo: React.ErrorInfo | null;
   showDetails: boolean;
+  copyStatus: 'idle' | 'copied' | 'failed';
 }
 
 const getLocalizedStrings = () => {
@@ -34,17 +35,18 @@ const getLocalizedStrings = () => {
     browserHint: lang === 'zh' ? '建议使用的浏览器：' : 'Recommended browsers:',
     copyError: lang === 'zh' ? '复制错误信息' : 'Copy Error Info',
     copied: lang === 'zh' ? '已复制！' : 'Copied!',
+    copyFailed: lang === 'zh' ? '复制失败，请手动选择下方文字' : 'Copy failed, select the text below manually',
   };
 };
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false };
+    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false, copyStatus: 'idle' };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorInfo: null, showDetails: false };
+    return { hasError: true, error, errorInfo: null, showDetails: false, copyStatus: 'idle' };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -78,15 +80,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
     try {
       await navigator.clipboard.writeText(errorText);
+      this.setState({ copyStatus: 'copied' });
     } catch (e) {
       logger.errorFromError('ui.errorBoundary', 'Failed to copy', e);
+      // No toast provider out here (this boundary wraps it), so report on the button itself.
+      this.setState({ copyStatus: 'failed' });
     }
   };
 
   render() {
     if (this.state.hasError) {
       const strings = getLocalizedStrings();
-      const { error, errorInfo, showDetails } = this.state;
+      const { error, errorInfo, showDetails, copyStatus } = this.state;
       const HeadingTag = this.props.headingLevel ?? 'h1';
 
       return (
@@ -112,7 +117,7 @@ export class ErrorBoundary extends Component<Props, State> {
                       onClick={this.handleCopyError}
                       className="text-xs px-2 py-1 bg-gray-100 dark:bg-white/[0.04] text-gray-700 dark:text-text-secondary rounded-sm hover:bg-gray-100 dark:hover:bg-white/[0.08] transition-colors"
                     >
-                      {strings.copyError}
+                      {copyStatus === 'copied' ? strings.copied : copyStatus === 'failed' ? strings.copyFailed : strings.copyError}
                     </button>
                   </div>
                   <p className="text-sm text-gray-700 dark:text-text-secondary font-mono break-words">

@@ -170,6 +170,21 @@ describe('ForkTimeline owner filtering', () => {
     });
   });
 
+  it('tells the user when a fork\'s workflows cannot be loaded', async () => {
+    const baseImpl = MockGitHubApiService.getMockImplementation()!;
+    MockGitHubApiService.mockImplementation(function MockWorkflowFailure(...args: unknown[]) {
+      const api = (baseImpl as (...a: unknown[]) => GitHubApiService)(...args);
+      return { ...api, getRepositoryWorkflows: vi.fn().mockRejectedValue(new Error('403 Forbidden')) } as unknown as GitHubApiService;
+    });
+
+    render(<ForkTimeline />);
+    fireEvent.click(await screen.findByRole('button', { name: '显示工作流' }));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(expect.stringContaining('403 Forbidden'), 'error');
+    });
+  });
+
   it('warns when organization owners cannot be loaded', async () => {
     MockGitHubApiService.mockImplementation(function MockFailingGitHubApiService() {
       return {
