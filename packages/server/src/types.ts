@@ -10,6 +10,7 @@ import type { AuditLogService } from './services/audit.service.js';
 import type { NoMoneyClient } from './services/nomoney-client.js';
 import type { BackupCenterService } from './services/backup-center.service.js';
 import type { BackupJobService, BackupOperationGate } from './services/backup-jobs.service.js';
+import type { MobilePushOutbox } from './services/mobile-push-outbox.service.js';
 import type { MobileStore } from './services/mobile-store.js';
 import type { MobileDeviceService } from './services/mobile-devices.service.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
@@ -57,6 +58,7 @@ export interface AppServices {
   noMoneyClient: NoMoneyClient;
   mobileStore: MobileStore;
   mobileDevices: MobileDeviceService;
+  mobilePushOutbox: MobilePushOutbox;
   readinessCheck: () => Promise<ReadinessChecks>;
 }
 

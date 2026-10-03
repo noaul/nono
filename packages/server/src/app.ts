@@ -55,6 +55,9 @@ import { overviewRoutes } from './routes/admin/overview.js';
 import { createNotificationDispatcher } from './services/notification-dispatch.service.js';
 import { registerNotificationDispatchScheduler } from './services/notification-dispatch.scheduler.js';
 import { notificationChannelRoutes } from './routes/admin/notification-channels.js';
+import { mobileNotificationRoutes } from './routes/mobile/notifications.js';
+import { mobileAppLinkRoutes } from './routes/mobile/app-links.js';
+import { createMobilePushOutbox } from './services/mobile-push-outbox.service.js';
 import { mobileDeviceRoutes } from './routes/mobile/devices.js';
 import { MemoryRepository } from './services/repository.js';
 import { MemoryMobileStore } from './services/mobile-store.js';
@@ -127,6 +130,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   });
   const mobileStore = overrides.mobileStore || (repo instanceof MemoryRepository ? new MemoryMobileStore(repo) : createPrismaMobileStore(prisma));
   const mobileDevices = overrides.mobileDevices || createMobileDeviceService({ store: mobileStore, encryptionKey });
+  const mobilePushOutbox = overrides.mobilePushOutbox || createMobilePushOutbox({ store: mobileStore, devices: mobileDevices });
   const services: AppServices = {
     prisma,
     repo,
@@ -162,6 +166,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     }),
     mobileStore,
     mobileDevices,
+    mobilePushOutbox,
     readinessCheck: overrides.readinessCheck || createReadinessCheck(prisma, nodeskStore),
   };
 
@@ -250,6 +255,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await notificationRoutes(app, services);
   await notificationChannelRoutes(app, services);
   await mobileDeviceRoutes(app, services);
+  await mobileNotificationRoutes(app, services);
+  await mobileAppLinkRoutes(app);
   await overviewRoutes(app, services);
   await auditRoutes(app, services);
   await metaRoutes(app, services);
