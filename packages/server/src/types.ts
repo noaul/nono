@@ -10,6 +10,8 @@ import type { AuditLogService } from './services/audit.service.js';
 import type { NoMoneyClient } from './services/nomoney-client.js';
 import type { BackupCenterService } from './services/backup-center.service.js';
 import type { BackupJobService, BackupOperationGate } from './services/backup-jobs.service.js';
+import type { MobileStore } from './services/mobile-store.js';
+import type { MobileDeviceService } from './services/mobile-devices.service.js';
 import type { fetchPublicResource, requestSafeResource, resolvePublicAddress } from './utils/safe-fetch.js';
 
 export type Role = 'admin' | 'user';
@@ -53,6 +55,8 @@ export interface AppServices {
   /** Reads NoMoney's or Yumi's internal overview for the NoDesk "today" panel. */
   productOverviewReader: (product: 'nomoney' | 'yumi') => Promise<Record<string, unknown>>;
   noMoneyClient: NoMoneyClient;
+  mobileStore: MobileStore;
+  mobileDevices: MobileDeviceService;
   readinessCheck: () => Promise<ReadinessChecks>;
 }
 

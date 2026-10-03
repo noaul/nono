@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBackupService } from '../src/services/backup.service.js';
+import { createBackupService, DISABLE_RESTORED_MOBILE_DEVICES_SQL } from '../src/services/backup.service.js';
 
 const backupId = '20260718T140000Z';
 
@@ -129,6 +129,24 @@ describe('backup restoration', () => {
     expect(fs.readFileSync(path.join(nodeskContentDir, 'restored.md'), 'utf8')).toBe('restored nodesk');
     expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('new sqlite');
     expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('new yumi sqlite');
+  });
+
+  it('disables restored phone bindings right after the database restore', async () => {
+    await expect(makeService().restore(backupId)).resolves.toMatchObject({ id: backupId });
+
+    const restoreIndex = calls.findIndex((call) => call.command === 'pg_restore' && !call.args.includes('--list'));
+    const disableIndex = calls.findIndex((call) => call.command === 'psql');
+    expect(disableIndex).toBeGreaterThan(restoreIndex);
+    const disable = calls[disableIndex];
+    expect(disable.args).toEqual(expect.arrayContaining(['--set=ON_ERROR_STOP=1', '--dbname=nono', DISABLE_RESTORED_MOBILE_DEVICES_SQL]));
+    expect(disable.args.join(' ')).not.toContain('secret-password');
+    expect(disable.env?.PGPASSWORD).toBe('secret-password');
+    expect(DISABLE_RESTORED_MOBILE_DEVICES_SQL).toContain('UPDATE "MobileDevice" SET "enabled" = false');
+  });
+
+  it('does not touch phone bindings in a drill', async () => {
+    await expect(makeService().drill(backupId)).resolves.toMatchObject({ id: backupId });
+    expect(calls.some((call) => call.command === 'psql')).toBe(false);
   });
 
   it('drills a restore into isolated temporary targets without touching production data', async () => {

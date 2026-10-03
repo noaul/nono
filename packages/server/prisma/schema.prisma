@@ -30,6 +30,7 @@ model User {
   webAuthnChallenges       WebAuthnChallenge[]
   notificationStates       NotificationState[]
   notificationChannels     NotificationChannel[]
+  mobileDevices            MobileDevice[]
   auditLogs                AuditLog[]
   mobileBookmarkRequests   MobileBookmarkRequest[]
   noStarAccount            NoStarAccount?
@@ -106,9 +107,39 @@ model AuthSession {
   lastSeenAt DateTime @default(now())
   expiresAt  DateTime
   createdAt  DateTime @default(now())
+  mobileDevices MobileDevice[]
 
   @@index([userId, createdAt])
   @@index([expiresAt])
+}
+
+/// A phone that receives push notifications for one account. The vendor registration token is
+/// encrypted with ENCRYPTION_KEY; registrationHash (keyed HMAC) only enforces uniqueness. A device
+/// is eligible for delivery only while it is enabled, unrevoked and its browser session is alive,
+/// so every way a session ends (logout, password change, manual revoke, expiry, user deletion)
+/// also stops pushes.
+model MobileDevice {
+  id                     String       @id @default(uuid())
+  userId                 Int
+  user                   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId              String?
+  session                AuthSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  installationId         String
+  provider               String
+  registrationCiphertext String
+  registrationHash       String
+  revokeTokenHash        String
+  enabled                Boolean      @default(true)
+  revokedAt              DateTime?
+  disabledReason         String?
+  appVersion             String
+  lastRegisteredAt       DateTime     @default(now())
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([provider, registrationHash])
+  @@unique([userId, installationId])
+  @@index([sessionId])
 }
 
 model PasskeyCredential {

@@ -5,6 +5,12 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { buildApp } from '../../packages/server/src/app.ts';
 import { createPrismaClient } from '../../packages/server/src/services/prisma-client.ts';
+import { createPrismaRepository } from '../../packages/server/src/services/prisma.repository.ts';
+import { createPrismaMobileStore } from '../../packages/server/src/services/mobile-store.prisma.ts';
+import { createMobileDeviceService } from '../../packages/server/src/services/mobile-devices.service.ts';
+import { DISABLE_RESTORED_MOBILE_DEVICES_SQL } from '../../packages/server/src/services/backup.service.ts';
+
+const integrationKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 // Explicit disposable targets only. This suite resets public in the selected database.
 const connection = process.env.NONO_INTEGRATION_DATABASE_URL;
@@ -135,6 +141,47 @@ try {
     assert.equal(await prisma.link.count(), linksBeforeShare + 1);
     console.log('PASS concurrent mobile saves with one requestId create exactly one bookmark');
   } finally { await app.close(); }
+
+  // Phone bindings: session deletion must reach push eligibility through the real foreign keys.
+  {
+    const repo = createPrismaRepository(prisma);
+    const store = createPrismaMobileStore(prisma);
+    const devices = createMobileDeviceService({ store, encryptionKey: integrationKey });
+    const owner = await prisma.user.create({ data: { username: 'phone-owner', email: 'phone@example.test', displayName: 'Phone', passwordHash: 'not-a-login', role: 'user' } });
+    const intruder = await prisma.user.create({ data: { username: 'phone-intruder', email: 'intruder@example.test', displayName: 'Intruder', passwordHash: 'not-a-login', role: 'user' } });
+    const expiresAt = new Date(Date.now() + 86_400_000);
+    const phone = await repo.createSession(owner.id, { expiresAt });
+    const desktop = await repo.createSession(owner.id, { expiresAt });
+    const input = { installationId: 'integration-install', provider: 'xiaomi' as const, registrationId: 'integration-regid', appVersion: '0.2.0' };
+    const bound = await devices.register(owner.id, phone.id, input);
+    const rotated = await devices.register(owner.id, phone.id, { ...input, registrationId: 'integration-regid-2' });
+    assert.equal(rotated.deviceId, bound.deviceId);
+    assert.equal(await prisma.mobileDevice.count(), 1);
+    assert.equal(devices.decryptRegistration(await prisma.mobileDevice.findUniqueOrThrow({ where: { id: bound.deviceId } })), 'integration-regid-2');
+    const intruderSession = await repo.createSession(intruder.id, { expiresAt });
+    await assert.rejects(devices.register(intruder.id, intruderSession.id, { ...input, registrationId: 'integration-regid-2' }), (error: any) => error.statusCode === 409);
+    assert.deepEqual((await devices.getEligibleDevices(owner.id, new Date())).map(item => item.id), [bound.deviceId]);
+
+    await repo.deleteOtherSessions(owner.id, desktop.id);
+    const orphaned = await prisma.mobileDevice.findUniqueOrThrow({ where: { id: bound.deviceId } });
+    assert.equal(orphaned.sessionId, null, 'deleting the session sets MobileDevice.sessionId to NULL');
+    assert.deepEqual(await devices.getEligibleDevices(owner.id, new Date()), []);
+    assert.deepEqual(await store.eligibleDeviceUserIds(new Date()), []);
+
+    const again = await repo.createSession(owner.id, { expiresAt });
+    await devices.register(owner.id, again.id, input);
+    assert.equal((await devices.getEligibleDevices(owner.id, new Date())).length, 1);
+    assert.deepEqual(await devices.getEligibleDevices(owner.id, new Date(expiresAt.getTime() + 1)), [], 'an expired session is not eligible');
+    await prisma.$executeRawUnsafe(DISABLE_RESTORED_MOBILE_DEVICES_SQL);
+    assert.equal((await prisma.mobileDevice.findUniqueOrThrow({ where: { id: bound.deviceId } })).disabledReason, 'restored');
+    assert.deepEqual(await devices.getEligibleDevices(owner.id, new Date()), [], 'restored devices come back disabled');
+    await devices.register(owner.id, again.id, input);
+    assert.equal((await devices.getEligibleDevices(owner.id, new Date())).length, 1, 're-registering re-enables a restored device');
+
+    await prisma.user.delete({ where: { id: owner.id } });
+    assert.equal(await prisma.mobileDevice.count({ where: { userId: owner.id } }), 0);
+    console.log('PASS phone bindings follow session deletion, expiry, restore and account deletion');
+  }
 } finally {
   await prisma.$disconnect();
   await fs.rm(temporary, { recursive: true, force: true });

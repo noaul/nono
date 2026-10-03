@@ -7,6 +7,15 @@ const BACKUP_KIND = 'nono.full-backup';
 const BACKUP_VERSION = 2;
 type BackupComponent = 'postgres' | 'nodesk' | 'nomoney' | 'yumi';
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
+/**
+ * Restored phone bindings come back disabled; the phone has to register again from a live session.
+ * Guarded so restoring into a database that predates the mobile tables still succeeds.
+ */
+export const DISABLE_RESTORED_MOBILE_DEVICES_SQL = `DO $$ BEGIN
+  IF to_regclass('public."MobileDevice"') IS NOT NULL THEN
+    UPDATE "MobileDevice" SET "enabled" = false, "disabledReason" = 'restored', "updatedAt" = CURRENT_TIMESTAMP WHERE "enabled" = true;
+  END IF;
+END $$;`;
 
 export interface BackupComponentRecord {
   filename: string;
@@ -241,6 +250,14 @@ class FileBackupService implements BackupService {
         '--no-acl',
         `--dbname=${postgresEnv.PGDATABASE}`,
         path.join(workspace, 'postgres.dump'),
+      ], { env: { ...process.env, ...postgresEnv } });
+      // An old backup must not bring back a phone binding that was revoked after it was taken.
+      await this.options.run('psql', [
+        '--no-psqlrc',
+        '--set=ON_ERROR_STOP=1',
+        `--dbname=${postgresEnv.PGDATABASE}`,
+        '--command',
+        DISABLE_RESTORED_MOBILE_DEVICES_SQL,
       ], { env: { ...process.env, ...postgresEnv } });
 
       const nodeskArchive = path.join(workspace, 'nodesk.tar.gz');

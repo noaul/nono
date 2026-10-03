@@ -55,6 +55,11 @@ import { overviewRoutes } from './routes/admin/overview.js';
 import { createNotificationDispatcher } from './services/notification-dispatch.service.js';
 import { registerNotificationDispatchScheduler } from './services/notification-dispatch.scheduler.js';
 import { notificationChannelRoutes } from './routes/admin/notification-channels.js';
+import { mobileDeviceRoutes } from './routes/mobile/devices.js';
+import { MemoryRepository } from './services/repository.js';
+import { MemoryMobileStore } from './services/mobile-store.js';
+import { createPrismaMobileStore } from './services/mobile-store.prisma.js';
+import { createMobileDeviceService } from './services/mobile-devices.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -120,6 +125,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       from: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM,
     },
   });
+  const mobileStore = overrides.mobileStore || (repo instanceof MemoryRepository ? new MemoryMobileStore(repo) : createPrismaMobileStore(prisma));
+  const mobileDevices = overrides.mobileDevices || createMobileDeviceService({ store: mobileStore, encryptionKey });
   const services: AppServices = {
     prisma,
     repo,
@@ -153,6 +160,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
       serviceName: 'Yumi',
     }),
+    mobileStore,
+    mobileDevices,
     readinessCheck: overrides.readinessCheck || createReadinessCheck(prisma, nodeskStore),
   };
 
@@ -240,6 +249,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await backupCenterRoutes(app, services);
   await notificationRoutes(app, services);
   await notificationChannelRoutes(app, services);
+  await mobileDeviceRoutes(app, services);
   await overviewRoutes(app, services);
   await auditRoutes(app, services);
   await metaRoutes(app, services);
