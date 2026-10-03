@@ -36,6 +36,14 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import com.noaul.nono.web.BackCoordinator
+import com.noaul.nono.web.BridgeProtocol
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
 
 /**
  * NoNo for Android, version 0.1: one WebView showing the existing NoDesk, NoMoney, Yumi, NoStar and
@@ -63,22 +71,38 @@ class MainActivity : ComponentActivity() {
 
     private var rendererGone = false
 
+    /** Exact origin the bridge accepts messages from, e.g. https://noaul.com. */
+    private val trustedOrigin = java.net.URI(BuildConfig.BASE_URL).let { "${it.scheme}://${it.rawAuthority}" }
+    /** Reply channel of the current page's main frame; null until it says hello. */
+    private var pageReply: JavaScriptReplyProxy? = null
+    private val back = BackCoordinator(
+        send = { requestId -> postToPage("ui.back", requestId) },
+        fallback = { historyBack() },
+        schedule = { delayMs, action -> webView.postDelayed(action, delayMs) },
+        newRequestId = { "back-" + UUID.randomUUID().toString().take(12) },
+    )
+
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
             if (BuildConfig.DEBUG) android.util.Log.d("NoNoBack", "canGoBack=${webView.canGoBack()} url=${webView.url}")
-            if (webView.canGoBack()) {
-                hideError()
-                webView.goBack()
-                return
-            }
-            // Hand the root back press to the system. Depending on the Android version that finishes
-            // the activity or only moves it to the background; in the second case a callback left
-            // disabled made every later back press exit the app, so it is switched back on here and
-            // again in onResume.
-            isEnabled = false
-            onBackPressedDispatcher.onBackPressed()
-            isEnabled = true
+            // Open dialogs and panels close first (the page answers over the bridge); then history.
+            back.onBack()
         }
+    }
+
+    private fun historyBack() {
+        if (webView.canGoBack()) {
+            hideError()
+            webView.goBack()
+            return
+        }
+        // Hand the root back press to the system. Depending on the Android version that finishes
+        // the activity or only moves it to the background; in the second case a callback left
+        // disabled made every later back press exit the app, so it is switched back on here and
+        // again in onResume.
+        backCallback.isEnabled = false
+        onBackPressedDispatcher.onBackPressed()
+        backCallback.isEnabled = true
     }
     private var lastUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -136,6 +160,7 @@ class MainActivity : ComponentActivity() {
         }
 
         onBackPressedDispatcher.addCallback(this, backCallback)
+        installBridge()
 
         val restored = savedInstanceState?.let { webView.restoreState(it) } != null
         if (handleIntent(intent) || restored) return
@@ -174,6 +199,8 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val KEY_RESUME_URL = "resume_url"
+        /** Name of the object the bridge injects into NoNo pages: `window.NonoBridge`. */
+        const val BRIDGE_NAME = "NonoBridge"
 
         const val SAMPLE_COLORS_SCRIPT = """(function(){
   function bgAt(x, y) {
@@ -187,6 +214,30 @@ class MainActivity : ComponentActivity() {
   var dark = h.classList.contains('dark') || h.dataset.theme === 'dark' || getComputedStyle(h).colorScheme === 'dark';
   return JSON.stringify({ top: bgAt(x, 1), bottom: bgAt(x, window.innerHeight - 2), dark: dark });
 })()"""
+    }
+
+    /**
+     * Page ↔ app messages (protocol v1). WebViews without origin-checked message listeners get no
+     * bridge at all, and the app keeps plain history back navigation.
+     */
+    private fun installBridge() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(webView, BRIDGE_NAME, setOf(trustedOrigin)) { _, message, sourceOrigin, isMainFrame, replyProxy ->
+            val parsed = BridgeProtocol.parse(message.data, sourceOrigin.toString(), trustedOrigin, isMainFrame) ?: return@addWebMessageListener
+            pageReply = replyProxy
+            when (parsed.type) {
+                "bridge.hello" -> postToPage("bridge.ready", parsed.requestId, JSONObject()
+                    .put("version", BridgeProtocol.VERSION)
+                    .put("capabilities", JSONArray(listOf("ui.back"))))
+                "ui.backState" -> back.pageCanHandle = parsed.payload.optBoolean("canHandle")
+                "ui.backResult" -> back.onResult(parsed.requestId, parsed.payload.optBoolean("handled"))
+            }
+        }
+    }
+
+    private fun postToPage(type: String, requestId: String, payload: JSONObject = JSONObject()) {
+        val reply = pageReply ?: return
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) reply.postMessage(BridgeProtocol.encode(type, requestId, payload))
     }
 
     /** Opens a shared link in the bookmark editor. Returns true when the intent was handled. */
@@ -326,6 +377,9 @@ class MainActivity : ComponentActivity() {
 
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             progress.isVisible = true
+            // A new document announces its own layers and reply channel again.
+            back.reset()
+            pageReply = null
         }
 
         override fun onPageCommitVisible(view: WebView, url: String) {
