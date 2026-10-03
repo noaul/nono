@@ -30,6 +30,7 @@ import { backupCenterRoutes } from './routes/admin/backup-center.js';
 import { notificationRoutes } from './routes/admin/notifications.js';
 import { auditRoutes } from './routes/admin/audit.js';
 import { trashRoutes } from './routes/admin/trash.js';
+import { mobileBookmarkRoutes } from './routes/mobile/bookmarks.js';
 import { responsePlugin, sendError, sendOk } from './plugins/responses.js';
 import { registerAuditHooks } from './plugins/audit.js';
 import { createPrismaRepository } from './services/prisma.repository.js';
@@ -230,6 +231,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await folderRoutes(app, services);
   await linkRoutes(app, services);
   await trashRoutes(app, services);
+  await mobileBookmarkRoutes(app, services);
   await bookmarkRoutes(app, services);
   await tokenRoutes(app, services);
   await userRoutes(app, services);

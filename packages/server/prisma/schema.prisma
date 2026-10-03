@@ -31,6 +31,7 @@ model User {
   notificationStates       NotificationState[]
   notificationChannels     NotificationChannel[]
   auditLogs                AuditLog[]
+  mobileBookmarkRequests   MobileBookmarkRequest[]
   noStarAccount            NoStarAccount?
   noStarRepositories       NoStarRepository[]
   noStarReleases           NoStarRelease[]
@@ -203,6 +204,24 @@ model Link {
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
   @@index([clickCount, lastClickedAt])
+}
+
+/// Idempotency record for POST /api/mobile/bookmarks: a retried share with the same requestId
+/// returns the bookmark it first produced instead of saving it again.
+model MobileBookmarkRequest {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestId   String
+  contentHash String
+  /// Not a foreign key: the bookmark may go to the trash and come back with the same id.
+  linkId      Int?
+  /// "created" or "existing" (the URL was already bookmarked, so nothing new was saved).
+  outcome     String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, requestId])
+  @@index([createdAt])
 }
 
 model TrashItem {

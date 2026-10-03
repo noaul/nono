@@ -115,6 +115,25 @@ try {
     const nested = await prisma.folder.findFirst({ where: { name: 'Nested' }, include: { parent: true } });
     assert.equal(nested?.parent?.name, 'Imported');
     console.log('PASS bookmark import commits nested folders and links in one transaction');
+
+    // Mobile share saves: the (userId, requestId) unique key must hold under real concurrency.
+    const shareFolder = folderResponse.json().data.id;
+    const share = { requestId: 'c8d1e2f3-0a4b-4c5d-8e6f-7a8b9c0d1e2f', folderId: shareFolder, name: 'Shared', url: 'https://share.example/concurrent' };
+    const linksBeforeShare = await prisma.link.count();
+    const concurrent = await Promise.all(Array.from({ length: 6 }, () => app.inject({ method: 'POST', url: '/api/mobile/bookmarks', headers, payload: share })));
+    for (const response of concurrent) assert.equal(response.statusCode, 200, response.body);
+    assert.equal(new Set(concurrent.map(response => response.json().data.id)).size, 1);
+    const retried = await app.inject({ method: 'POST', url: '/api/mobile/bookmarks', headers, payload: share });
+    assert.equal(retried.json().data.id, concurrent[0].json().data.id);
+    assert.equal(await prisma.link.count(), linksBeforeShare + 1);
+    assert.equal(await prisma.mobileBookmarkRequest.count({ where: { requestId: share.requestId } }), 1);
+    const conflict = await app.inject({ method: 'POST', url: '/api/mobile/bookmarks', headers, payload: { ...share, name: 'Changed' } });
+    assert.equal(conflict.statusCode, 409, conflict.body);
+    const foreign = await app.inject({ method: 'POST', url: '/api/mobile/bookmarks', headers, payload: { ...share, requestId: 'd9e2f3a4-1b5c-4d6e-9f7a-8b9c0d1e2f3a', folderId: foreignFolder.id } });
+    assert.equal(foreign.statusCode, 404, foreign.body);
+    assert.equal(await prisma.mobileBookmarkRequest.count(), 1);
+    assert.equal(await prisma.link.count(), linksBeforeShare + 1);
+    console.log('PASS concurrent mobile saves with one requestId create exactly one bookmark');
   } finally { await app.close(); }
 } finally {
   await prisma.$disconnect();

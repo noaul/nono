@@ -70,7 +70,7 @@ export function classifyAuditMutation(method: string, rawUrl: string) {
 
 function classifyResource(pathname: string) {
   if (pathname.startsWith('/api/admin/folders')) return 'folder';
-  if (pathname.startsWith('/api/admin/links') || pathname.startsWith('/api/admin/bookmarks')) return 'bookmark';
+  if (pathname.startsWith('/api/admin/links') || pathname.startsWith('/api/admin/bookmarks') || pathname.startsWith('/api/mobile/bookmarks')) return 'bookmark';
   if (pathname.startsWith('/api/admin/site')) return 'site';
   if (pathname.startsWith('/api/admin/users')) return 'user';
   if (pathname.startsWith('/api/admin/config')) return 'system';

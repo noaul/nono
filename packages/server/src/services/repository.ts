@@ -285,6 +285,34 @@ export interface AuditLogPage {
   pageSize: number;
 }
 
+export type MobileBookmarkOutcome = 'created' | 'existing';
+
+export interface MobileBookmarkRequestRecord {
+  id: number;
+  userId: number;
+  requestId: string;
+  contentHash: string;
+  linkId: number | null;
+  outcome: MobileBookmarkOutcome;
+  createdAt: Date;
+}
+
+export interface MobileBookmarkSaveInput {
+  requestId: string;
+  contentHash: string;
+  folderId: number;
+  link: Omit<LinkRecord, 'id' | 'folderId' | 'createdAt' | 'updatedAt'>;
+}
+
+/**
+ * `saved`: this call claimed the requestId and either created the bookmark or found the URL already
+ * bookmarked. `claimed`: another call already holds the requestId (seen before or lost the race on the
+ * unique key); the caller reads the stored request and replays it.
+ */
+export type MobileBookmarkSaveResult =
+  | { status: 'saved'; outcome: MobileBookmarkOutcome; link: LinkRecord }
+  | { status: 'claimed' };
+
 export interface Repository {
   getConfig(): Promise<AppConfigRecord>;
   updateConfig(input: Partial<AppConfigRecord>): Promise<AppConfigRecord>;
@@ -359,6 +387,9 @@ export interface Repository {
   deletePasskey(userId: number, id: string): Promise<void>;
   createWebAuthnChallenge(input: Omit<WebAuthnChallengeRecord, 'id' | 'createdAt'>): Promise<WebAuthnChallengeRecord>;
   consumeWebAuthnChallenge(id: string, type: WebAuthnChallengeRecord['type'], userId: number | null): Promise<WebAuthnChallengeRecord | null>;
+  findMobileBookmarkRequest(userId: number, requestId: string): Promise<MobileBookmarkRequestRecord | null>;
+  /** One transaction: claim (userId, requestId), check folder ownership, reuse a same-URL bookmark or create one. */
+  saveMobileBookmark(userId: number, input: MobileBookmarkSaveInput): Promise<MobileBookmarkSaveResult>;
 }
 
 export function publicUser(user: UserRecord) {
@@ -415,6 +446,7 @@ export class MemoryRepository implements Repository {
   passkeys: PasskeyCredentialRecord[] = [];
   webAuthnChallenges: WebAuthnChallengeRecord[] = [];
   auditLogs: AuditLogRecord[] = [];
+  mobileBookmarkRequests: MobileBookmarkRequestRecord[] = [];
   config: AppConfigRecord = { id: 1, allowRegistration: false, defaultRole: 'user', settings: {}, initializedAt: null };
   backupAutomation: BackupAutomationRecord = defaultBackupAutomation();
   auditConfig: AuditConfigRecord = defaultAuditConfig();
@@ -425,6 +457,28 @@ export class MemoryRepository implements Repository {
 
   async getConfig() {
     return this.config;
+  }
+
+  async findMobileBookmarkRequest(userId: number, requestId: string) {
+    return this.mobileBookmarkRequests.find((item) => item.userId === userId && item.requestId === requestId) || null;
+  }
+
+  async saveMobileBookmark(userId: number, input: MobileBookmarkSaveInput): Promise<MobileBookmarkSaveResult> {
+    // No await before the claim is pushed, so concurrent calls behave like the unique key in PostgreSQL.
+    if (this.mobileBookmarkRequests.some((item) => item.userId === userId && item.requestId === input.requestId)) return { status: 'claimed' };
+    const folder = this.folders.find((item) => item.userId === userId && item.id === input.folderId);
+    if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+    const userFolderIds = new Set(this.folders.filter((item) => item.userId === userId).map((item) => item.id));
+    const key = input.link.url.toLowerCase();
+    const existing = this.links
+      .filter((link) => userFolderIds.has(link.folderId) && link.url.toLowerCase() === key)
+      .sort((a, b) => a.id - b.id)[0];
+    const now = new Date();
+    const link: LinkRecord = existing || { ...input.link, folderId: folder.id, healthCheckEnabled: input.link.healthCheckEnabled ?? true, clickCount: 0, id: nextId(this.links), createdAt: now, updatedAt: now };
+    if (!existing) this.links.push(link);
+    const outcome: MobileBookmarkOutcome = existing ? 'existing' : 'created';
+    this.mobileBookmarkRequests.push({ id: nextId(this.mobileBookmarkRequests), userId, requestId: input.requestId, contentHash: input.contentHash, linkId: link.id, outcome, createdAt: now });
+    return { status: 'saved', outcome, link };
   }
 
   async updateConfig(input: Partial<AppConfigRecord>) {

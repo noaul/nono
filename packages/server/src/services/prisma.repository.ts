@@ -1,6 +1,6 @@
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { createPrismaClient } from './prisma-client.js';
-import type { Repository, SiteRecord } from './repository.js';
+import type { MobileBookmarkOutcome, Repository, SiteRecord } from './repository.js';
 import { decodeTrashCursor, defaultSite, importLinkFields, linkSearchTerms, resolveImportFolderId, trashPage } from './repository.js';
 import { generateApiToken, generateSessionToken, hashApiToken, hashSessionToken } from '../utils/crypto.js';
 
@@ -317,6 +317,33 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
         ...params,
       );
       return rows.map((row) => ({ ...row, score: Number(row.score) }));
+    },
+    async findMobileBookmarkRequest(userId, requestId) {
+      return (await prisma.mobileBookmarkRequest.findUnique({ where: { userId_requestId: { userId, requestId } } })) as any;
+    },
+    async saveMobileBookmark(userId, input) {
+      try {
+        return await prisma.$transaction(async (transaction) => {
+          // Claim the requestId first: a concurrent save with the same id waits on the unique index
+          // and then fails with P2002 once this transaction commits, before it can create a link.
+          const claim = await transaction.mobileBookmarkRequest.create({
+            data: { userId, requestId: input.requestId, contentHash: input.contentHash, outcome: 'created' },
+          });
+          const folder = await transaction.folder.findFirst({ where: { id: input.folderId, userId }, select: { id: true } });
+          if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+          const existing = await transaction.link.findFirst({
+            where: { folder: { userId }, url: { equals: input.link.url, mode: 'insensitive' } },
+            orderBy: { id: 'asc' },
+          });
+          const link = existing || await transaction.link.create({ data: prune({ ...input.link, folderId: folder.id }) as any });
+          const outcome: MobileBookmarkOutcome = existing ? 'existing' : 'created';
+          await transaction.mobileBookmarkRequest.update({ where: { id: claim.id }, data: { linkId: link.id, outcome } });
+          return { status: 'saved' as const, outcome, link: link as any };
+        });
+      } catch (error) {
+        if ((error as { code?: string })?.code === 'P2002') return { status: 'claimed' as const };
+        throw error;
+      }
     },
     async createLink(input) {
       return (await prisma.link.create({ data: prune(input) as any })) as any;
