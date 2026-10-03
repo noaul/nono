@@ -18,6 +18,7 @@ const AccountView = () => import('@/views/admin/AccountView.vue');
 const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
 const TrashView = () => import('@/views/admin/TrashView.vue');
+const MobileCaptureView = () => import('@/views/mobile/MobileCaptureView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +31,8 @@ export const router = createRouter({
     { path: '/login', component: LoginView },
     { path: '/setup', component: SetupView },
     { path: '/privacy', component: PrivacyView },
+    // The shared URL arrives in-page (src/mobile/capture.ts), never in this route's query.
+    { path: '/mobile/capture', component: MobileCaptureView, meta: { requiresAuth: true, returnAfterLogin: true } },
     {
       path: '/admin',
       component: AdminLayout,
@@ -60,7 +63,11 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (!auth.loaded) await auth.loadSession().catch(() => undefined);
-  if (to.meta.requiresAuth && !auth.authenticated) return auth.setupRequired ? '/setup' : '/login';
+  if (to.meta.requiresAuth && !auth.authenticated) {
+    if (auth.setupRequired) return '/setup';
+    // Path only: query and hash are never carried into ?next=.
+    return to.meta.returnAfterLogin ? { path: '/login', query: { next: to.path } } : '/login';
+  }
   if (to.meta.requiresAdmin && !auth.isAdmin) return '/admin';
   if ((to.path === '/login' || to.path === '/setup') && auth.authenticated) {
     // Already signed in: honour ?next=, so the Android app can always start at /login?next=/nodesk/.

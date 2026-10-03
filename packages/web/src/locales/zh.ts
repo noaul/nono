@@ -970,6 +970,28 @@ export const zh = {
     viewHome: '查看主页',
     signOut: '退出登录',
   },
+  mobileCapture: {
+    title: '保存到 NoNo',
+    emptyTitle: '没有待保存的分享',
+    emptyBody: '在其他应用中选择“分享”并选中 NoNo，链接会出现在这里。',
+    openBookmarks: '打开收藏管理',
+    name: '标题',
+    namePlaceholder: '留空时根据网址生成',
+    url: '网址',
+    invalidUrl: '请输入以 http:// 或 https:// 开头、不超过 4096 个字符的网址',
+    description: '说明',
+    folder: '文件夹',
+    noFolders: '还没有文件夹，请先在收藏管理中创建',
+    foldersFailed: '文件夹加载失败',
+    retrySave: '重试保存',
+    saved: '已保存到 {folder}',
+    alreadySaved: '此网址已在 {folder} 中，没有重复保存',
+    saveFailed: '保存失败',
+    networkFailed: '网络连接失败，内容仍保留，可稍后重试保存',
+    sessionExpired: '登录已失效，请重新登录后再保存',
+    conflict: '这条分享已用不同内容保存过，请重新分享',
+    gone: '这条分享保存的书签已被删除',
+  },
 };
 
 // No `as const`: the type carries the catalogue's *shape* (which drives MessageKey and checks
