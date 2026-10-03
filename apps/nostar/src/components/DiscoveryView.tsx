@@ -503,10 +503,6 @@ export const DiscoveryView: React.FC = React.memo(() => {
   const autoFetchChannelRef = useRef<string | null>(null);
 
   const t = useCallback((zh: string, en: string) => language === 'zh' ? zh : en, [language]);
-  const isDesktopSafeMode = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.protocol === 'file:' || navigator.userAgent.includes('Electron');
-  }, []);
   const safeDiscoveryChannels = useMemo(
     () => Array.isArray(discoveryChannels) ? discoveryChannels.filter(Boolean) : [],
     [discoveryChannels]
@@ -1119,12 +1115,10 @@ export const DiscoveryView: React.FC = React.memo(() => {
           {/* 内容区域 */}
           <div 
             ref={scrollContainerRef}
-            className={`flex-1 overflow-y-auto space-y-4 pr-2 ${isDesktopSafeMode ? 'bg-white dark:bg-panel-dark' : ''}`}
+            className="flex-1 overflow-y-auto space-y-4 pr-2"
           >
             {selectedDiscoveryChannel === 'search' && (
-              <div className={isDesktopSafeMode
-                ? 'bg-white dark:bg-panel-dark rounded-lg border border-black/[0.06] dark:border-white/[0.04] p-4 space-y-4'
-                : 'bg-white/80 dark:bg-panel-dark/80  rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-5 space-y-4 shadow-xs shadow-gray-200/50 dark:shadow-gray-900/20'}>
+              <div className="bg-white/80 dark:bg-panel-dark/80  rounded-xl border border-black/[0.06] dark:border-white/[0.04] p-5 space-y-4 shadow-xs shadow-gray-200/50 dark:shadow-gray-900/20">
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-text-tertiary" />
@@ -1139,9 +1133,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
                   <button
                     onClick={handleSearch}
                     disabled={!searchInput.trim() || currentIsLoading}
-                    className={isDesktopSafeMode
-                      ? 'px-5 py-2.5 rounded-lg bg-brand-indigo text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium'
-                      : 'px-5 py-2.5 rounded-xl bg-brand-indigo text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-brand-indigo/25 hover:shadow-lg hover:shadow-brand-indigo/30 transition-all duration-200 flex items-center gap-2 font-medium'}
+                    className="px-5 py-2.5 rounded-xl bg-brand-indigo text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-brand-indigo/25 hover:shadow-lg hover:shadow-brand-indigo/30 transition-all duration-200 flex items-center gap-2 font-medium"
                   >
                     <Search className="w-4 h-4" />
                     <span className="hidden sm:inline">{t('搜索', 'Search')}</span>
@@ -1216,15 +1208,9 @@ export const DiscoveryView: React.FC = React.memo(() => {
               <div className="flex flex-col items-center justify-center py-16 gap-5 text-center">
                 {selectedDiscoveryChannel === 'search' ? (
                   <>
-                    {isDesktopSafeMode ? (
-                      <div className="w-16 h-16 rounded-xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
-                        {currentChannelIconNode}
-                      </div>
-                    ) : (
-                      <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
-                        {currentChannelStyle.largeIcon}
-                      </div>
-                    )}
+                    <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
+                      {currentChannelStyle.largeIcon}
+                    </div>
                     <div className="space-y-2 max-w-xs">
                       <p className="text-gray-700 dark:text-text-tertiary font-medium text-base">
                         {t('搜索发现', 'Search & Discover')}
@@ -1236,15 +1222,9 @@ export const DiscoveryView: React.FC = React.memo(() => {
                   </>
                 ) : (
                   <>
-                    {isDesktopSafeMode ? (
-                      <div className="w-16 h-16 rounded-xl bg-light-surface dark:bg-panel-dark flex items-center justify-center text-gray-700 dark:text-text-secondary border border-black/[0.06] dark:border-white/[0.04]">
-                        {currentChannelIconNode}
-                      </div>
-                    ) : (
-                      <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
-                        {currentChannelStyle.largeIcon}
-                      </div>
-                    )}
+                    <div className={`w-20 h-20 rounded-xl bg-light-surface dark:bg-surface-3 flex items-center justify-center shadow-md ${currentChannelStyle.shadow}`}>
+                      {currentChannelStyle.largeIcon}
+                    </div>
                     <div className="space-y-2 max-w-xs">
                       <p className="text-gray-700 dark:text-text-tertiary font-medium text-base">
                         {t('暂无数据', 'No data yet')}
@@ -1256,9 +1236,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
                     <button
                       onClick={() => refreshChannel(selectedDiscoveryChannel, 1, false)}
                       disabled={currentIsLoading}
-                      className={isDesktopSafeMode
-                        ? 'px-6 py-2.5 rounded-lg bg-brand-indigo text-white hover:bg-brand-hover transition-colors flex items-center gap-2 text-sm font-medium'
-                        : 'px-6 py-2.5 rounded-xl bg-brand-indigo text-white hover:bg-brand-hover shadow-xs transition-all duration-200 flex items-center gap-2 text-sm font-medium'}
+                      className="px-6 py-2.5 rounded-xl bg-brand-indigo text-white hover:bg-brand-hover shadow-xs transition-all duration-200 flex items-center gap-2 text-sm font-medium"
                     >
                       <RefreshCw className="w-4 h-4" />
                       {t('立即刷新', 'Refresh Now')}
@@ -1269,10 +1247,10 @@ export const DiscoveryView: React.FC = React.memo(() => {
             )}
 
             {allRepos.length > 0 && (
-              <div className={isDesktopSafeMode ? 'space-y-3' : 'space-y-4'}>
+              <div className="space-y-4">
                 {allRepos.map((repo, index) => (
                   <div key={repo.id} data-repo-index={index}>
-                    <SubscriptionRepoCard repo={repo} desktopSafeMode={isDesktopSafeMode} />
+                    <SubscriptionRepoCard repo={repo} />
                   </div>
                 ))}
               </div>
@@ -1308,9 +1286,7 @@ export const DiscoveryView: React.FC = React.memo(() => {
 
             {/* Page Info */}
             {!currentIsLoading && allRepos.length > 0 && (
-              <div className={isDesktopSafeMode
-                ? 'flex items-center justify-between py-3.5 px-5 bg-light-bg dark:bg-panel-dark rounded-lg border border-black/[0.06] dark:border-white/[0.04] text-sm'
-                : 'flex items-center justify-between py-3.5 px-5 bg-light-surface dark:bg-white/[0.03] rounded-xl border border-black/[0.04] dark:border-white/[0.04] text-sm'}>
+              <div className="flex items-center justify-between py-3.5 px-5 bg-light-surface dark:bg-white/[0.03] rounded-xl border border-black/[0.04] dark:border-white/[0.04] text-sm">
                 <div className="flex items-center gap-2 text-gray-700 dark:text-text-tertiary">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-violet" />
                   <span>

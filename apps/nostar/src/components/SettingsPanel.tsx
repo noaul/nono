@@ -15,7 +15,6 @@ import {
   Search,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { isElectron } from '../services/electronProxy';
 import { backend } from '../services/backendAdapter';
 import {
   GeneralPanel,
@@ -332,7 +331,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       label: t('诊断日志', 'Diagnostic Logs'),
       icon: <ScrollText className="w-5 h-5" />,
     },
-    ...((isElectron() || backend.isAvailable) ? [{
+    ...(backend.isAvailable ? [{
       id: 'network' as SettingsTab,
       label: t('网络设置', 'Network'),
       icon: <Wifi className="w-5 h-5" />,

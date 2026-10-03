@@ -469,10 +469,8 @@ export const DiagnosticLogsPanel: React.FC<DiagnosticLogsPanelProps> = ({ t }) =
         } catch { /* Backend unreachable */ }
       }
       const state = useAppStore.getState();
-      const isElectron = typeof window !== 'undefined' && window.electronAPI;
       const environment = {
-        platform: isElectron ? 'electron' : 'web',
-        electronVersion: isElectron ? navigator.userAgent.match(/Electron\/([\d.]+)/)?.[1] ?? 'unknown' : null,
+        platform: 'web',
         osPlatform: navigator.platform,
         screenResolution: `${screen.width}x${screen.height}`,
         backendAvailable,

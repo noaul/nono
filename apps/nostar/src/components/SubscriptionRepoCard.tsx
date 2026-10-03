@@ -14,10 +14,9 @@ interface SubscriptionRepoCardProps {
   repo: DiscoveryRepo;
   onStar?: (repo: DiscoveryRepo) => void;
   onAnalyze?: (repo: DiscoveryRepo) => void;
-  desktopSafeMode?: boolean;
 }
 
-export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo, onStar, onAnalyze, desktopSafeMode = false }) => {
+export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo, onStar, onAnalyze }) => {
   const language = useAppStore(state => state.language);
   const githubToken = useAppStore(state => state.githubToken);
   const aiConfigs = useAppStore(state => state.aiConfigs);
@@ -337,11 +336,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
     <>
     <div 
       onClick={handleCardClick}
-      className={`bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] p-5 transition-all duration-200 ${
-        desktopSafeMode
-          ? 'rounded-lg hover:shadow-md hover:border-black/[0.06] dark:border-white/[0.04] dark:hover:border-black/[0.06] dark:border-white/[0.04] hover:-translate-y-0.5 cursor-pointer'
-          : 'rounded-xl hover:shadow-lg hover:border-black/[0.06] dark:border-white/[0.04] dark:hover:border-black/[0.06] dark:border-white/[0.04] hover:-translate-y-0.5 cursor-pointer'
-      }`}
+      className="bg-white dark:bg-panel-dark border border-black/[0.06] dark:border-white/[0.04] p-5 transition-all duration-200 rounded-xl hover:shadow-lg hover:border-black/[0.06] dark:border-white/[0.04] dark:hover:border-black/[0.06] dark:border-white/[0.04] hover:-translate-y-0.5 cursor-pointer"
       style={{ userSelect: 'none' }}
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
@@ -358,7 +353,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex items-center gap-2 min-w-0">
-              {!desktopSafeMode && repo.owner?.avatar_url && (
+              {repo.owner?.avatar_url && (
                 <img
                   src={repo.owner.avatar_url}
                   alt={repo.owner.login}

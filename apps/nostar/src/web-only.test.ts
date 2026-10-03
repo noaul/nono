@@ -23,4 +23,8 @@ describe('web-only NoStar build', () => {
   it('never fetches the upstream version manifest', () => {
     expect(offendersFor(/version-info\.xml|useAutoUpdateCheck|UpdateNotificationBanner|UpdateChecker|updateService/)).toEqual([]);
   });
+
+  it('has no Electron-only branches', () => {
+    expect(offendersFor(/electronProxy|isElectron|electronAPI|electronVersion|DesktopSafeMode|desktopSafeMode|includes\('Electron'\)/)).toEqual([]);
+  });
 });

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Wifi, Download, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { backend } from '../../services/backendAdapter';
-import { isElectron, electronProxy } from '../../services/electronProxy';
 import { testRpcDownload } from '../../services/rpcDownloadService';
 import type { ProxyConfig, ProxyType, RpcDownloadConfig } from '../../types';
 
@@ -94,7 +93,8 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
     loadNetworkConfig();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canUseProxy = isElectron() || backend.isAvailable;
+  // The proxy is applied by the NoNo server, so the card needs it reachable.
+  const canUseProxy = backend.isAvailable;
 
   // --- Proxy handlers ---
 
@@ -105,13 +105,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
 
     setSaving(true);
     setTestResult(null);
-    const previousConfig = proxyConfig;
     try {
-      // Sync to Electron first (if applicable)
-      if (isElectron()) {
-        await electronProxy.setProxy(form);
-      }
-
       // Sync to backend (if applicable)
       if (backend.isAvailable) {
         const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -132,10 +126,6 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
       // Only persist locally after remote sync succeeds
       setProxyConfig(form);
     } catch (e) {
-      // Rollback: restore Electron proxy to previous state
-      if (isElectron()) {
-        try { await electronProxy.setProxy(previousConfig); } catch { /* best effort */ }
-      }
       setTestResult({ success: false, error: e instanceof Error ? e.message : t('保存失败', 'Save failed') });
     } finally {
       setSaving(false);
@@ -146,10 +136,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
     setTesting(true);
     setTestResult(null);
     try {
-      if (isElectron()) {
-        const result = await electronProxy.testProxy(form);
-        setTestResult(result);
-      } else if (backend.isAvailable) {
+      if (backend.isAvailable) {
         const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
         if (backendApiSecret) {
           authHeaders['Authorization'] = `Bearer ${backendApiSecret}`;
@@ -257,7 +244,7 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
 
   return (
     <div className="space-y-4">
-      {/* Network Proxy Card — only available with backend or Electron */}
+      {/* Network Proxy Card — only available with the NoNo backend */}
       {canUseProxy && (
       <div className="p-6 bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04]">
         <div className="flex items-center justify-between mb-4">
@@ -289,9 +276,6 @@ export const NetworkPanel: React.FC<NetworkPanelProps> = ({ t }) => {
                     body: JSON.stringify(newForm),
                   });
                 } catch { /* best effort */ }
-              }
-              if (isElectron()) {
-                try { await electronProxy.setProxy(newForm); } catch { /* best effort */ }
               }
             }}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.enabled ? 'bg-brand-indigo' : 'bg-gray-300 dark:bg-gray-600'}`}
