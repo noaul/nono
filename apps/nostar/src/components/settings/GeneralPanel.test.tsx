@@ -4,8 +4,15 @@ import { GeneralPanel } from './GeneralPanel';
 import { useAppStore } from '../../store/useAppStore';
 
 vi.unmock('../../store/useAppStore');
-vi.mock('../UpdateChecker', () => ({ UpdateChecker: () => null }));
 afterEach(cleanup);
+
+it('shows the current version without an upstream update check', () => {
+  useAppStore.setState({ language: 'en' });
+  render(<GeneralPanel t={(_zh, en) => en} />);
+  expect(screen.queryByText('Check for Updates')).toBeNull();
+  expect(screen.queryByRole('button', { name: /check/i })).toBeNull();
+  expect(screen.getByText(/Current Version: v/)).toBeInTheDocument();
+});
 
 it('switches translation engine from General settings independently of interface language', () => {
   useAppStore.setState({ language: 'en', translationEngine: 'microsoft' });

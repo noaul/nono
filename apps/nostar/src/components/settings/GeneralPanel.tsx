@@ -1,7 +1,6 @@
 import { Github, Twitter } from '../BrandIcons';
 import React from 'react';
 import { Globe, Package, Mail, ExternalLink, Languages } from 'lucide-react';
-import { UpdateChecker } from '../UpdateChecker';
 import { useAppStore } from '../../store/useAppStore';
 import { version } from '../../../package.json';
 import { PROJECT_REPO_URL } from '../../constants/project';
@@ -104,21 +103,13 @@ export const GeneralPanel: React.FC<GeneralPanelProps> = ({ t }) => {
         <div className="flex items-center space-x-3 mb-4">
           <Package className="w-5 h-5 text-gray-700 dark:text-text-secondary " />
           <h4 className="font-medium text-gray-900 dark:text-text-primary">
-            {t('检查更新', 'Check for Updates')}
+            {t('版本', 'Version')}
           </h4>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-700 dark:text-text-tertiary mb-1">
-              {t(`当前版本: v${version}`, `Current Version: v${version}`)}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-text-tertiary">
-              {t('检查是否有新版本可用', 'Check if a new version is available')}
-            </p>
-          </div>
-          <UpdateChecker />
-        </div>
+        <p className="text-sm text-gray-700 dark:text-text-tertiary">
+          {t(`当前版本: v${version}`, `Current Version: v${version}`)}
+        </p>
       </div>
 
       <div className="p-6 bg-white dark:bg-panel-dark rounded-xl border border-black/[0.06] dark:border-white/[0.04]">

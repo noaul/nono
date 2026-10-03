@@ -5,9 +5,7 @@ import { BackToTop } from './components/BackToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppStore } from './store/useAppStore';
 import { copy } from './i18n';
-import { useAutoUpdateCheck } from './hooks/useAutoUpdateCheck';
 import { logger } from './services/logger';
-import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { backend } from './services/backendAdapter';
 import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
 import { getStorageScope, setStorageScope } from './services/storageScope';
@@ -51,8 +49,6 @@ function App() {
     document.documentElement.dataset.nostarReducedMotion = String(displayPreferences.reducedMotion);
     return () => { delete document.documentElement.dataset.nostarFont; delete document.documentElement.dataset.nostarReducedMotion; };
   }, [displayPreferences.fontSize, displayPreferences.reducedMotion]);
-
-  useAutoUpdateCheck();
 
   useEffect(() => {
     let cancelled = false;
@@ -215,7 +211,6 @@ function App() {
 
   return (
     <AppShell>
-      <UpdateNotificationBanner />
       <React.Suspense fallback={<ViewFallback />}>
         {currentViewContent}
       </React.Suspense>

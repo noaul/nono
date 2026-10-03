@@ -452,9 +452,6 @@ export interface AppState {
   readmeModalOpen: boolean;
   headerMenuConfig: HeaderMenuItem[];
   
-  // Update
-  updateNotification: UpdateNotification | null;
-
   // Analysis Progress
   analysisProgress: AnalysisProgress
 
@@ -514,14 +511,6 @@ export interface AppState {
   subscriptionLastRefresh: Record<string, string | null>;
   subscriptionIsLoading: Record<string, boolean>;
   subscriptionChannels: SubscriptionChannel[];
-}
-
-export interface UpdateNotification {
-  version: string;
-  releaseDate: string;
-  changelog: string[];
-  downloadUrl: string;
-  dismissed: boolean;
 }
 
 export interface AnalysisProgress {

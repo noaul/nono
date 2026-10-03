@@ -26,7 +26,6 @@ import {
   GitHubUser,
   Category,
   AssetFilter,
-  UpdateNotification,
   AnalysisProgress,
   DiscoveryChannel,
   DiscoveryChannelId,
@@ -414,10 +413,6 @@ interface AppActions {
   // Hydration state
   setHasHydrated: (hydrated: boolean) => void;
   
-  // Update actions
-  setUpdateNotification: (notification: UpdateNotification | null) => void;
-  dismissUpdateNotification: () => void;
-
   // Update Analysis Progress
   setAnalysisProgress: (newProgress: AnalysisProgress) => void;
 
@@ -1210,7 +1205,6 @@ export const useAppStore = create<AppState & AppActions>()(
       displayPreferences: normalizeDisplayPreferences(defaultDisplayPreferences),
       categoryListIdMap: {},
       githubListMemberships: {},
-      updateNotification: null,
       analysisProgress: { current: 0, total: 0 },
       backendApiSecret: readSessionBackendSecret(),
       proxyConfig: { enabled: false, type: 'http', host: '', port: 7890 },
@@ -2112,9 +2106,6 @@ export const useAppStore = create<AppState & AppActions>()(
       // Hydration state
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       
-      // Update actions
-      setUpdateNotification: (notification) => set({ updateNotification: notification }),
-      dismissUpdateNotification: () => set({ updateNotification: null }),
       setAnalysisProgress: (newProgress) => set({ analysisProgress: newProgress }),
       setBackendApiSecret: (backendApiSecret) => {
         writeSessionBackendSecret(backendApiSecret);
