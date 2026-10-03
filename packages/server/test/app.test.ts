@@ -514,6 +514,25 @@ describe('NoNo Fastify app', () => {
     expect(unlocked.json().data.links[0]).not.toHaveProperty('healthReason');
   });
 
+  it('rate-limits folder password guesses like the site unlock', async () => {
+    const cookie = await setupAdmin();
+    const folder = await app.inject({
+      method: 'POST',
+      url: '/api/admin/folders',
+      headers: { cookie },
+      payload: { name: 'Private', password: 'Folder2026!' },
+    });
+    const url = `/api/navigation/admin/folder/${folder.json().data.id}/verify`;
+
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 11; attempt++) {
+      statuses.push((await app.inject({ method: 'POST', url, payload: { password: `guess-${attempt}` } })).statusCode);
+    }
+
+    expect(statuses.slice(0, 10).every((status) => status !== 429)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
   it('does not let another signed-in user bypass a protected navigation site', async () => {
     const ownerCookie = await setupAdmin();
     const otherUser = await setupUser(ownerCookie);

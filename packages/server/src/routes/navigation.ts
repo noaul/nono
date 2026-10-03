@@ -168,7 +168,10 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     });
   });
 
-  app.post('/api/navigation/:username/folder/:id/verify', async (request, reply) => {
+  // Same budget as the site unlock: folder passwords must not be guessable at the global rate.
+  app.post('/api/navigation/:username/folder/:id/verify', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const site = await findNavigationSite(services, (request.params as any).username);
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const access = await navigationAccess(request, site, services);
