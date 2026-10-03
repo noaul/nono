@@ -3335,3 +3335,13 @@ a.ambient-small-icon {
 		bottom: max(100px, calc(var(--nono-safe-bottom, env(safe-area-inset-bottom)) + 88px));
 	}
 }
+
+.ambient-sync-note {
+	background: color-mix(in srgb, #e8a33d 14%, transparent);
+	border-radius: 10px;
+	color: var(--ambient-ink);
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 0 0 10px;
+	padding: 7px 10px;
+}

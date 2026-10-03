@@ -63,6 +63,7 @@ import { SPECIES } from './desk-pet/desk-pet-model'
 import { LEGACY_PET_KEY, PET_PREFS_KEY, readPetPrefs, type PetPrefs } from './desk-pet/desk-pet-prefs'
 import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 import { summarizeOverview, type TodayRow } from './today-overview-model'
+import { PLANNER_SAVE_DELAY_MS, plannerKey, readRemotePlanner, reconcilePlanner, type PlannerSnapshot } from './planner-sync'
 
 type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus' | 'more'
 type DockActionId = PanelId | 'settings'
@@ -240,6 +241,13 @@ export default function AmbientWorkbench() {
 	const [eventDate, setEventDate] = useState(() => localDateKey(nextHourDate()))
 	const [eventTime, setEventTime] = useState(nextHourKey)
 	const [storageReady, setStorageReady] = useState(false)
+	const [plannerSyncReady, setPlannerSyncReady] = useState(false)
+	const [plannerSyncFailed, setPlannerSyncFailed] = useState(false)
+	/** Content last known to match the server; edits that differ from it are saved. */
+	const syncedPlannerKeyRef = useRef<string | null>(null)
+	const plannerSaveTimerRef = useRef(0)
+	const plannerRef = useRef<PlannerSnapshot>({ tasks: [], events: [] })
+	plannerRef.current = { tasks, events }
 
 	const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([])
 	const [repositories, setRepositories] = useState<RepositoryItem[]>([])
@@ -413,6 +421,23 @@ export default function AmbientWorkbench() {
 		}
 	}
 
+	const loadPlanner = async (local: PlannerSnapshot = plannerRef.current) => {
+		try {
+			const response = await fetch('/api/admin/nodesk/planner', { credentials: 'same-origin', cache: 'no-store' })
+			if (!response.ok) return
+			const remote = readRemotePlanner(apiData(await response.json()))
+			// Edits still waiting to be saved win over a refresh.
+			if (!remote || plannerSaveTimerRef.current) return
+			const { snapshot, upload } = reconcilePlanner(local, remote)
+			syncedPlannerKeyRef.current = upload ? null : plannerKey(snapshot)
+			setTasks(snapshot.tasks)
+			setEvents(snapshot.events)
+			setPlannerSyncReady(true)
+		} catch {
+			// Offline: keep working from the local cache; the next window focus retries.
+		}
+	}
+
 	const saveQuickEntriesVisibility = async (visible: boolean) => {
 		const response = await fetch('/api/admin/nodesk/workbench', {
 			method: 'PUT',
@@ -443,6 +468,8 @@ export default function AmbientWorkbench() {
 	useEffect(() => {
 		if (!privateWorkbenchVisible) {
 			setStorageReady(false)
+			setPlannerSyncReady(false)
+			syncedPlannerKeyRef.current = null
 			setTasks([])
 			setEvents([])
 			setTaskTitle('')
@@ -461,14 +488,17 @@ export default function AmbientWorkbench() {
 			return
 		}
 
-		setTasks(parseStored(TASKS_STORAGE_KEY, normalizeTasks))
-		setEvents(parseStored(EVENTS_STORAGE_KEY, normalizeEvents))
+		const localPlanner = { tasks: parseStored(TASKS_STORAGE_KEY, normalizeTasks), events: parseStored(EVENTS_STORAGE_KEY, normalizeEvents) }
+		setTasks(localPlanner.tasks)
+		setEvents(localPlanner.events)
 		setStorageReady(true)
+		void loadPlanner(localPlanner)
 		void loadIntegrations()
 		void loadWorkbenchNavigation()
 		const refreshNotifications = () => {
 			void loadNotifications()
 			void loadOverview(false)
+			void loadPlanner()
 		}
 		const pollTimer = window.setInterval(refreshNotifications, 5 * 60 * 1000)
 		window.addEventListener('focus', refreshNotifications)
@@ -489,6 +519,30 @@ export default function AmbientWorkbench() {
 		if (!storageReady) return
 		localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events))
 	}, [events, storageReady])
+
+	useEffect(() => {
+		if (!plannerSyncReady) return
+		const key = plannerKey({ tasks, events })
+		if (key === syncedPlannerKeyRef.current) return
+		window.clearTimeout(plannerSaveTimerRef.current)
+		plannerSaveTimerRef.current = window.setTimeout(async () => {
+			try {
+				const response = await fetch('/api/admin/nodesk/planner', {
+					method: 'PUT',
+					credentials: 'same-origin',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ tasks, events })
+				})
+				if (!response.ok) throw new Error(`HTTP ${response.status}`)
+				syncedPlannerKeyRef.current = key
+				setPlannerSyncFailed(false)
+			} catch {
+				setPlannerSyncFailed(true)
+			} finally {
+				plannerSaveTimerRef.current = 0
+			}
+		}, PLANNER_SAVE_DELAY_MS)
+	}, [events, plannerSyncReady, tasks])
 
 	useEffect(() => {
 		const tick = () => setNow(new Date())
@@ -881,6 +935,10 @@ export default function AmbientWorkbench() {
 										<span>{entry.label}</span>
 									</a>)}
 								</div>
+							)}
+
+							{(['tasks', 'calendar'] as PanelId[]).includes(activePanel) && plannerSyncFailed && (
+								<p className='ambient-sync-note' role='status'>暂时无法同步到服务器，改动已保存在本机，恢复连接后会自动同步。</p>
 							)}
 
 							{activePanel === 'tasks' && (

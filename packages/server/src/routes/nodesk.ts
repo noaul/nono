@@ -6,7 +6,7 @@ import { setAuditContext } from '../plugins/audit.js';
 import { NodeskContentStore } from '../services/nodesk-content.service.js';
 import { currentSessionId } from '../services/session.service.js';
 import type { AppServices } from '../types.js';
-import { navigationEntriesSchema } from '../utils/site-settings.js';
+import { navigationEntriesSchema, nodeskPlannerInputSchema } from '../utils/site-settings.js';
 
 const workbenchSettingsSchema = z.object({
   quickEntriesVisible: z.boolean().optional(),
@@ -75,6 +75,32 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
       },
     });
     return sendOk(reply, nodeskWorkbench);
+  });
+
+  app.get('/api/admin/nodesk/planner', async (request, reply) => {
+    const user = await requireAdminSession(request, reply, services);
+    if (!user) return;
+    const site = await services.repo.getSite(user.id);
+    if (!site) throw Object.assign(new Error('Site not found'), { statusCode: 404 });
+    const stored = site.settings.nodeskPlanner as { tasks?: unknown; events?: unknown; updatedAt?: unknown } | undefined;
+    return sendOk(reply, {
+      tasks: Array.isArray(stored?.tasks) ? stored.tasks : [],
+      events: Array.isArray(stored?.events) ? stored.events : [],
+      updatedAt: typeof stored?.updatedAt === 'string' ? stored.updatedAt : null,
+    });
+  });
+
+  app.put('/api/admin/nodesk/planner', async (request, reply) => {
+    const user = await requireAdminSession(request, reply, services);
+    if (!user) return;
+    // Every tick of a checkbox saves the whole list; auditing each one would bury real changes.
+    setAuditContext(request, { skip: true });
+    const input = nodeskPlannerInputSchema.parse(request.body);
+    const site = await services.repo.getSite(user.id);
+    if (!site) throw Object.assign(new Error('Site not found'), { statusCode: 404 });
+    const nodeskPlanner = { ...input, updatedAt: new Date().toISOString() };
+    await services.repo.updateSite(user.id, { settings: { ...site.settings, nodeskPlanner } });
+    return sendOk(reply, nodeskPlanner);
   });
 
   app.get('/api/admin/nodesk/files', async (request, reply) => {

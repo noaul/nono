@@ -196,6 +196,28 @@ const nodeskWorkbenchSchema = z.object({
   quickEntriesVisible: z.boolean().default(true),
 });
 
+const plannerText = (maximum: number) => z.string().trim().min(1).max(maximum);
+const plannerTaskSchema = z.object({
+  id: plannerText(120),
+  title: plannerText(180),
+  completed: z.boolean(),
+  createdAt: plannerText(64).refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid task date'),
+});
+const plannerEventSchema = z.object({
+  id: plannerText(120),
+  title: plannerText(180),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), 'Invalid event date'),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  note: z.string().trim().max(240).optional(),
+});
+
+/** NoDesk tasks and events; kept in site settings so they sync across browsers and ride along in account backups. */
+export const nodeskPlannerInputSchema = z.object({
+  tasks: z.array(plannerTaskSchema).max(500),
+  events: z.array(plannerEventSchema).max(1000),
+});
+const nodeskPlannerSchema = nodeskPlannerInputSchema.extend({ updatedAt: z.string().nullable().default(null) });
+
 export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) return {};
   const settings = { ...input };
@@ -205,6 +227,7 @@ export function normalizeSiteSettings(input: unknown): Record<string, unknown> {
   if ('searchEngines' in settings) settings.searchEngines = searchEngineSettingsSchema.parse(settings.searchEngines);
   if ('i18n' in settings) settings.i18n = i18nSettingsSchema.parse(settings.i18n);
   if ('nodeskWorkbench' in settings) settings.nodeskWorkbench = nodeskWorkbenchSchema.parse(settings.nodeskWorkbench);
+  if ('nodeskPlanner' in settings) settings.nodeskPlanner = nodeskPlannerSchema.parse(settings.nodeskPlanner);
   return settings;
 }
 
