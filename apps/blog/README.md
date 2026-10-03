@@ -119,9 +119,7 @@ docker run --rm -p 2025:2025 nono-blog
 
 ### 6.1 网站配置
 
-首页有一个不显眼的配置按钮，点击就能看到现在可以配置的内容。
-
-![](https://www.yysuni.com/blogs/readme/cddb4710e08a5069.png)
+首页工作台的设置中心可以修改工作台的偏好设置。
 
 ## 7. 写 blog
 
@@ -144,15 +142,7 @@ const LiquidGrass = dynamic(() => import('@/components/liquid-grass'), { ssr: fa
 
 ### 8.2 配置首页内容
 
-首页的内容现在只能前端配置一部分，所以代码更改在 `src/app/(home)` 目录，这个目录代表首页所有文件。首页的具体文件为  `src/app/(home)/page.tsx`
-
- ![](https://www.yysuni.com/blogs/readme/011679cd9bf73602.png)
-
-这里可以看到有很多 `Card` 文件，需要改那个首页 Card 内容就可以点入那个具体文件修改。
-
-比如中间的内容，为 `HiCard`，点击 `hi-card.tsx` 文件，即可更改其内容。
-
-![](https://www.yysuni.com/blogs/readme/20b0791d012163ee.png)
+首页的代码在 `src/app/(home)` 目录。`src/app/(home)/page.tsx` 只渲染工作台 `AmbientWorkbench`，其内容在 `ambient-workbench.tsx` 中修改。
 
 ## 9. 互助群
 

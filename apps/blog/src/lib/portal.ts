@@ -14,11 +14,6 @@ export const portalDefaults: PortalSettings = {
 	openInNewTab: false
 }
 
-/** The default label is chrome and follows the language; a label the owner typed is shown as typed. */
-export function portalLabel(label: string, copy: (zh: string, en: string) => string) {
-	return label === portalDefaults.label ? copy(portalDefaults.label, 'Back to NoNo') : label
-}
-
 export function getPortalSettings(value: unknown, fallbackUrl = process.env.NEXT_PUBLIC_NONO_URL || portalDefaults.url): PortalSettings {
 	const record = isRecord(value) ? value : {}
 
@@ -49,18 +44,6 @@ export function normalizePortalImage(value: string) {
 	if (!trimmed) return ''
 	if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed
 	return normalizePortalHref(trimmed)
-}
-
-export function getArtCardSettings(value: unknown) {
-	const record = isRecord(value) ? value : {}
-	const images = Array.isArray(record.artImages) ? record.artImages.filter(isRecord) : []
-	const currentId = stringValue(record.currentArtImageId)
-	const currentImage = images.find(image => stringValue(image.id) === currentId) ?? images[0]
-
-	return {
-		imageUrl: normalizePortalImage(stringValue(currentImage?.url)) || '/images/art/cat.png',
-		href: normalizePortalHref(stringValue(record.artLinkUrl))
-	}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -23,14 +23,6 @@
 		"colorArticle": "#ffffffcc"
 	},
 	"backgroundColors": ["#EDDD62", "#9EE7D1", "#84D68A", "#88E6E5", "#a7f3d0"],
-	"artImages": [
-		{
-			"id": "cat",
-			"url": "/images/art/cat.png"
-		}
-	],
-	"currentArtImageId": "cat",
-	"artLinkUrl": "https://key.afilmory.art/",
 	"backgroundImages": [
 		{
 			"id": "bing-daily",
@@ -38,25 +30,9 @@
 		}
 	],
 	"currentBackgroundImageId": "bing-daily",
-	"socialButtons": [
-		{
-			"id": "github",
-			"type": "github",
-			"value": "https://github.com/noaul/nono",
-			"label": "GitHub",
-			"order": 1
-		}
-	],
-	"clockShowSeconds": false,
 	"summaryInContent": false,
 	"hideEditButton": false,
 	"enableCategories": true,
-	"currentHatIndex": 3,
-	"hatFlipped": false,
 	"enableChristmas": false,
-	"calendarEvents": [],
-	"beian": {
-		"text": "",
-		"link": ""
-	}
+	"calendarEvents": []
 }

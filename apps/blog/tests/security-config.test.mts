@@ -5,17 +5,11 @@ import test from 'node:test'
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('does not expose or cache the GitHub private key', async () => {
-	const [constants, auth, authStore, settings] = await Promise.all([
-		read('src/consts.ts'),
-		read('src/lib/auth.ts'),
-		read('src/hooks/use-auth.ts'),
-		read('src/app/(home)/config-dialog/site-settings/index.tsx')
-	])
+	const [constants, auth, authStore] = await Promise.all([read('src/consts.ts'), read('src/lib/auth.ts'), read('src/hooks/use-auth.ts')])
 
 	assert.doesNotMatch(constants, /ENCRYPT_KEY|NEXT_PUBLIC_GITHUB_ENCRYPT_KEY/)
 	assert.doesNotMatch(auth, /GITHUB_PEM_CACHE_KEY|savePemToCache|getPemFromCache/)
 	assert.doesNotMatch(authStore, /savePemToCache|getPemFromCache/)
-	assert.doesNotMatch(settings, /isCachePem|缓存PEM/)
 })
 
 test('adds baseline response security headers', async () => {

@@ -16,7 +16,6 @@ import clsx from 'clsx'
 import { cn } from '@/lib/utils'
 import { useSize } from '@/hooks/use-size'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
-import { HomeDraggableLayer } from '@/app/(home)/home-draggable-layer'
 import { useI18n } from '@/i18n'
 
 const buildList = (copy: (zh: string, en: string) => string) => [
@@ -98,81 +97,79 @@ export default function NavCard() {
 
 	if (show)
 		return (
-			<HomeDraggableLayer cardKey='navCard' x={position.x} y={position.y} width={styles.width} height={styles.height}>
-				<Card
-					order={styles.order}
-					width={size.width}
-					height={size.height}
-					x={position.x}
-					y={position.y}
-					className={clsx(form != 'full' && 'overflow-hidden', form === 'mini' && 'p-3', form === 'icons' && 'flex items-center gap-6 p-3')}>
-					{form === 'full' && siteContent.enableChristmas && (
-						<>
-							<img
-								src='/images/christmas/snow-4.webp'
-								alt='Christmas decoration'
-								className='pointer-events-none absolute'
-								style={{ width: 160, left: -18, top: -20, opacity: 0.9 }}
-							/>
-						</>
-					)}
-
-					<Link className='flex items-center gap-3' href='/'>
-						<Image
-							src={siteContent.meta.avatarUrl || '/images/avatar.png'}
-							alt='avatar'
-							width={40}
-							height={40}
-							style={{ boxShadow: ' 0 12px 20px -5px #E2D9CE' }}
-							className='rounded-full object-cover'
+			<Card
+				order={styles.order}
+				width={size.width}
+				height={size.height}
+				x={position.x}
+				y={position.y}
+				className={clsx(form != 'full' && 'overflow-hidden', form === 'mini' && 'p-3', form === 'icons' && 'flex items-center gap-6 p-3')}>
+				{form === 'full' && siteContent.enableChristmas && (
+					<>
+						<img
+							src='/images/christmas/snow-4.webp'
+							alt='Christmas decoration'
+							className='pointer-events-none absolute'
+							style={{ width: 160, left: -18, top: -20, opacity: 0.9 }}
 						/>
-						{form === 'full' && <span className='font-averia mt-1 text-2xl leading-none font-medium'>{siteContent.meta.title}</span>}
-						{form === 'full' && <span className='text-brand mt-2 text-xs font-medium'>Fly</span>}
-					</Link>
+					</>
+				)}
 
-					{(form === 'full' || form === 'icons') && (
-						<>
-							{form !== 'icons' && <div className='text-secondary mt-6 text-sm uppercase'>General</div>}
+				<Link className='flex items-center gap-3' href='/'>
+					<Image
+						src={siteContent.meta.avatarUrl || '/images/avatar.png'}
+						alt='avatar'
+						width={40}
+						height={40}
+						style={{ boxShadow: ' 0 12px 20px -5px #E2D9CE' }}
+						className='rounded-full object-cover'
+					/>
+					{form === 'full' && <span className='font-averia mt-1 text-2xl leading-none font-medium'>{siteContent.meta.title}</span>}
+					{form === 'full' && <span className='text-brand mt-2 text-xs font-medium'>Fly</span>}
+				</Link>
 
-							<div className={cn('relative mt-2 space-y-2', form === 'icons' && 'mt-0 flex items-center gap-6 space-y-0')}>
-								<motion.div
-									className='absolute max-w-[230px] rounded-full border'
-									layoutId='nav-hover'
-									initial={false}
-									animate={
-										form === 'icons'
-											? {
-													left: hoveredIndex * (itemHeight + 24) - extraSize,
-													top: -extraSize,
-													width: itemHeight + extraSize * 2,
-													height: itemHeight + extraSize * 2
-												}
-											: { top: hoveredIndex * (itemHeight + 8), left: 0, width: '100%', height: itemHeight }
-									}
-									transition={{
-										type: 'spring',
-										stiffness: 400,
-										damping: 30
-									}}
-									style={{ backgroundImage: 'linear-gradient(to right bottom, var(--color-border) 60%, var(--color-card) 100%)' }}
-								/>
+				{(form === 'full' || form === 'icons') && (
+					<>
+						{form !== 'icons' && <div className='text-secondary mt-6 text-sm uppercase'>General</div>}
 
-								{list.map((item, index) => (
-									<Link
-										key={item.href}
-										href={item.href}
-										className={cn('text-secondary text-md relative z-10 flex items-center gap-3 rounded-full px-5 py-3', form === 'icons' && 'p-0')}
-										onMouseEnter={() => setHoveredIndex(index)}>
-										<div className='flex h-7 w-7 items-center justify-center'>
-											{hoveredIndex == index ? <item.iconActive className='text-brand absolute h-7 w-7' /> : <item.icon className='absolute h-7 w-7' />}
-										</div>
-										{form !== 'icons' && <span className={clsx(index == hoveredIndex && 'text-primary font-medium')}>{item.label}</span>}
-									</Link>
-								))}
-							</div>
-						</>
-					)}
-				</Card>
-			</HomeDraggableLayer>
+						<div className={cn('relative mt-2 space-y-2', form === 'icons' && 'mt-0 flex items-center gap-6 space-y-0')}>
+							<motion.div
+								className='absolute max-w-[230px] rounded-full border'
+								layoutId='nav-hover'
+								initial={false}
+								animate={
+									form === 'icons'
+										? {
+												left: hoveredIndex * (itemHeight + 24) - extraSize,
+												top: -extraSize,
+												width: itemHeight + extraSize * 2,
+												height: itemHeight + extraSize * 2
+											}
+										: { top: hoveredIndex * (itemHeight + 8), left: 0, width: '100%', height: itemHeight }
+								}
+								transition={{
+									type: 'spring',
+									stiffness: 400,
+									damping: 30
+								}}
+								style={{ backgroundImage: 'linear-gradient(to right bottom, var(--color-border) 60%, var(--color-card) 100%)' }}
+							/>
+
+							{list.map((item, index) => (
+								<Link
+									key={item.href}
+									href={item.href}
+									className={cn('text-secondary text-md relative z-10 flex items-center gap-3 rounded-full px-5 py-3', form === 'icons' && 'p-0')}
+									onMouseEnter={() => setHoveredIndex(index)}>
+									<div className='flex h-7 w-7 items-center justify-center'>
+										{hoveredIndex == index ? <item.iconActive className='text-brand absolute h-7 w-7' /> : <item.icon className='absolute h-7 w-7' />}
+									</div>
+									{form !== 'icons' && <span className={clsx(index == hoveredIndex && 'text-primary font-medium')}>{item.label}</span>}
+								</Link>
+							))}
+						</div>
+					</>
+				)}
+			</Card>
 		)
 }

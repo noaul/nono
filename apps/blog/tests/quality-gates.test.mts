@@ -65,14 +65,12 @@ test('shares the Nono visual token contract before Blog theme rules', async () =
 test('keeps keyboard, touch, motion, and mobile safe-area behavior consistent', async () => {
 	const globals = await read('src/styles/globals.css')
 	const theme = await read('src/styles/theme.css')
-	const portalShortcut = await read('src/app/(home)/portal-shortcut.tsx')
 
 	assert.match(globals, /scrollbar-gutter:\s*stable/)
 	assert.match(globals, /touch-action:\s*manipulation/)
 	assert.match(globals, /:focus-visible/)
 	assert.match(globals, /prefers-reduced-motion:\s*reduce/)
 	assert.match(theme, /env\(safe-area-inset-top\)/)
-	assert.match(portalShortcut, /nodesk-portal-shortcut/)
 })
 
 test('keeps NoDesk in the repository quality gate', async () => {
@@ -164,44 +162,29 @@ test('keeps the home navigation focused on articles and projects', async () => {
 	assert.doesNotMatch(navCard, /'优秀博客'/)
 })
 
-test('supports persisted calendar schedules and cache-safe avatar assets', async () => {
+test('keeps the calendar events the notification service reads in the site content', async () => {
 	const siteContent = await read('src/config/site-content.json')
-	const calendar = await read('src/app/(home)/calendar-card.tsx')
-	const sitePush = await read('src/app/(home)/services/push-site-content.ts')
 
 	assert.match(siteContent, /"calendarEvents"/)
-	assert.match(calendar, /管理日程/)
-	assert.match(calendar, /pushSiteContent/)
-	assert.match(sitePush, /avatarAssetPath/)
-	assert.match(sitePush, /meta\.avatarUrl/)
 })
 
-test('drops the retired music card and summarizes the next three days', async () => {
-	const styles = await read('src/config/card-styles.json')
+test('keeps the retired card homepage out of NoDesk', async () => {
+	const home = await read('src/app/(home)/page.tsx')
+	const styles = JSON.parse(await read('src/config/card-styles.json'))
 	const layout = await read('src/layout/index.tsx')
-	const summary = await read('src/components/schedule-summary-card.tsx')
 
-	await assert.rejects(read('src/components/music-card.tsx'))
-	assert.doesNotMatch(styles, /"musicCard"/)
+	assert.match(home, /<AmbientWorkbench \/>/)
+	assert.deepEqual(Object.keys(styles).sort(), ['hiCard', 'navCard'])
 	assert.doesNotMatch(layout, /MusicCard/)
-	assert.match(styles, /"scheduleCard"/)
-	assert.match(summary, /最近日程/)
-	assert.match(summary, /未来三天/)
-	assert.match(summary, /cardKey='scheduleCard'/)
-})
-
-test('keeps homepage image settings focused on image hosting and click-through URLs', async () => {
-	const siteContent = await read('src/config/site-content.json')
-	const artSettings = await read('src/app/(home)/config-dialog/site-settings/art-images-section.tsx')
-	const siteSettings = await read('src/app/(home)/config-dialog/site-settings/index.tsx')
-
-	assert.match(siteContent, /"artLinkUrl"/)
-	assert.match(artSettings, /图片地址（图床）/)
-	assert.match(artSettings, /点击跳转地址/)
-	assert.doesNotMatch(artSettings, /type='file'|multiple|添加 URL|当前使用/)
-
-	for (const unusedSetting of ['BeianForm', 'HatSection', '摘要放入内容', '隐藏编辑按钮', '启用文章分类', '开启圣诞节']) {
-		assert.doesNotMatch(siteSettings, new RegExp(unusedSetting))
+	for (const retired of [
+		'src/components/music-card.tsx',
+		'src/components/schedule-summary-card.tsx',
+		'src/app/(home)/hi-card.tsx',
+		'src/app/(home)/calendar-card.tsx',
+		'src/app/(home)/home-draggable-layer.tsx',
+		'src/app/(home)/config-dialog/index.tsx'
+	]) {
+		await assert.rejects(read(retired))
 	}
 })
 
@@ -223,14 +206,10 @@ test('keeps Nodesk locale state and visible article actions bilingual', async ()
 	assert.doesNotMatch(parser, /useI18n\(/)
 })
 
-test('shares the NoNo language choice and localises the default portal label', async () => {
+test('shares the NoNo language choice', async () => {
 	const language = await read('src/i18n/language.ts')
 	const provider = await read('src/i18n/index.tsx')
-	const portal = await read('src/lib/portal.ts')
-	const shortcut = await read('src/app/(home)/portal-shortcut.tsx')
 
 	assert.match(language, /LANGUAGE_STORAGE_KEY = 'nono:locale'/)
 	assert.doesNotMatch(provider, /'nono-blog-language'/)
-	assert.match(portal, /copy\(portalDefaults\.label, 'Back to NoNo'\)/)
-	assert.match(shortcut, /portalLabel\(portal\.label, copy\)/)
 })
