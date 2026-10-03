@@ -426,3 +426,23 @@ test('the app dock adds NoNo unless a shortcut already opens it', () => {
 	assert.deepEqual(appDockEntries([admin]), [NONO_APP_ENTRY, admin])
 	assert.equal(appDockEntries([{ ...yumi, id: 'nono' }]).length, 1)
 })
+
+test('counts focus time from the end time, so a hidden tab cannot slow it down', async () => {
+	const { focusSecondsLeft, restoreFocus } = await import('../src/app/(home)/ambient-workbench-model.ts')
+	const endsAt = Date.parse('2026-10-03T10:25:00.000Z')
+
+	assert.equal(focusSecondsLeft(endsAt, endsAt - 90_400), 91)
+	assert.equal(focusSecondsLeft(endsAt, endsAt + 5_000), 0)
+
+	assert.deepEqual(restoreFocus({ minutes: 25, remaining: 600, endsAt }, endsAt - 300_000), { minutes: 25, remaining: 300, endsAt, running: true, finishedWhileAway: false })
+	assert.deepEqual(restoreFocus({ minutes: 50, remaining: 600, endsAt }, endsAt + 1_000), { minutes: 50, remaining: 0, endsAt: null, running: false, finishedWhileAway: true })
+	assert.deepEqual(restoreFocus({ minutes: 25, remaining: 420, endsAt: null }, endsAt), { minutes: 25, remaining: 420, endsAt: null, running: false, finishedWhileAway: false })
+	assert.deepEqual(restoreFocus('garbage', endsAt), { minutes: 25, remaining: 1500, endsAt: null, running: false, finishedWhileAway: false })
+})
+
+test('the dock status does not read the focus countdown aloud every second', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+
+	assert.doesNotMatch(workbench, /className='ambient-dock-status' aria-live/)
+	assert.match(workbench, /className='ambient-sr-only' role='status' aria-live='polite'>\{focusAnnouncement\}/)
+})

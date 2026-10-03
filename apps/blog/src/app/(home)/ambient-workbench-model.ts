@@ -188,6 +188,26 @@ export function formatFocusDuration(seconds: number): string {
 	return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
 }
 
+export type FocusState = { minutes: number; remaining: number; endsAt: number | null }
+export type RestoredFocus = FocusState & { running: boolean; finishedWhileAway: boolean }
+
+/** Seconds left until `endsAt`; computed from the clock so throttled background timers cannot slow it down. */
+export function focusSecondsLeft(endsAt: number, nowMs: number): number {
+	return Math.max(0, Math.ceil((endsAt - nowMs) / 1000))
+}
+
+/** Picks a saved focus session back up after a reload, finishing it if it ended while the page was closed. */
+export function restoreFocus(value: unknown, nowMs: number): RestoredFocus {
+	const input = record(value)
+	const minutes = typeof input?.minutes === 'number' && input.minutes >= 1 && input.minutes <= 240 ? Math.floor(input.minutes) : 25
+	const remaining = typeof input?.remaining === 'number' && input.remaining >= 0 ? Math.floor(input.remaining) : minutes * 60
+	const endsAt = typeof input?.endsAt === 'number' && Number.isFinite(input.endsAt) ? input.endsAt : null
+	if (endsAt === null) return { minutes, remaining, endsAt: null, running: false, finishedWhileAway: false }
+	const left = focusSecondsLeft(endsAt, nowMs)
+	if (left === 0) return { minutes, remaining: 0, endsAt: null, running: false, finishedWhileAway: true }
+	return { minutes, remaining: left, endsAt, running: true, finishedWhileAway: false }
+}
+
 export function nextFocusDuration(remainingSeconds: number, presetMinutes: number): number {
 	const safeRemaining = Number.isFinite(remainingSeconds) ? Math.max(0, Math.floor(remainingSeconds)) : 0
 	if (safeRemaining > 0) return safeRemaining

@@ -37,13 +37,16 @@ import {
 	X
 } from 'lucide-react'
 import { Github } from '@/components/github-icon'
+import { toast } from 'sonner'
 import { Children, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
 	bookmarkSearchResults,
 	mergeWorkbenchResults,
+	focusSecondsLeft,
 	formatFocusDuration,
 	nextFocusDuration,
+	restoreFocus,
 	normalizeEvents,
 	normalizeTasks,
 	getShanghaiClockParts,
@@ -115,6 +118,7 @@ type DockItem = DockPanelItem
 const TASKS_STORAGE_KEY = 'nodesk.ambient.tasks.v1'
 const EVENTS_STORAGE_KEY = 'nodesk.ambient.events.v1'
 const DIM_STORAGE_KEY = 'nodesk.ambient.dim.v1'
+const FOCUS_STORAGE_KEY = 'nodesk.ambient.focus.v1'
 const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
@@ -265,6 +269,10 @@ export default function AmbientWorkbench() {
 	const [focusMinutes, setFocusMinutes] = useState(25)
 	const [focusRemaining, setFocusRemaining] = useState(25 * 60)
 	const [focusRunning, setFocusRunning] = useState(false)
+	const [focusEndsAt, setFocusEndsAt] = useState<number | null>(null)
+	const [focusAnnouncement, setFocusAnnouncement] = useState('')
+	/** State, not a ref: the first save must see the restored values, which land in the same render. */
+	const [focusRestored, setFocusRestored] = useState(false)
 
 	useEffect(() => {
 		const refreshSession = () => {
@@ -480,6 +488,7 @@ export default function AmbientWorkbench() {
 			setNotificationUnreadCount(0)
 			setWorkbenchNavigation(normalizeWorkbenchNavigation(null))
 			setFocusRunning(false)
+			setFocusEndsAt(null)
 			setActivePanel(null)
 			setSearchOpen(false)
 			setSearchQuery('')
@@ -567,18 +576,47 @@ export default function AmbientWorkbench() {
 	}, [activePanel])
 
 	useEffect(() => {
-		if (!focusRunning) return
-		const timerId = window.setInterval(() => {
-			setFocusRemaining(value => {
-				if (value <= 1) {
-					setFocusRunning(false)
-					return 0
-				}
-				return value - 1
-			})
-		}, 1000)
-		return () => window.clearInterval(timerId)
-	}, [focusRunning])
+		let saved: unknown = null
+		try {
+			saved = JSON.parse(localStorage.getItem(FOCUS_STORAGE_KEY) || 'null')
+		} catch {
+			// A corrupt entry just starts a fresh timer.
+		}
+		const restored = restoreFocus(saved, Date.now())
+		setFocusMinutes(restored.minutes)
+		setFocusRemaining(restored.remaining)
+		setFocusEndsAt(restored.endsAt)
+		setFocusRunning(restored.running)
+		if (restored.finishedWhileAway) toast('专注已在你离开时结束')
+		setFocusRestored(true)
+	}, [])
+
+	useEffect(() => {
+		if (!focusRestored) return
+		localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify({ minutes: focusMinutes, remaining: focusRemaining, endsAt: focusEndsAt }))
+		// The countdown itself is derived from endsAt, so it is not persisted on every tick.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [focusRestored, focusMinutes, focusRunning, focusEndsAt])
+
+	useEffect(() => {
+		if (!focusRunning || focusEndsAt === null) return
+		const tick = () => {
+			const left = focusSecondsLeft(focusEndsAt, Date.now())
+			setFocusRemaining(left)
+			if (left > 0) return
+			setFocusRunning(false)
+			setFocusEndsAt(null)
+			finishFocus()
+		}
+		tick()
+		const timerId = window.setInterval(tick, 500)
+		document.addEventListener('visibilitychange', tick)
+		return () => {
+			window.clearInterval(timerId)
+			document.removeEventListener('visibilitychange', tick)
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [focusRunning, focusEndsAt])
 
 	useEffect(() => {
 		let quietTimer = 0
@@ -726,7 +764,34 @@ export default function AmbientWorkbench() {
 		setEventTitle('')
 	}
 
+	const finishFocus = () => {
+		setFocusAnnouncement('专注结束，休息一下吧')
+		toast.success('专注结束，休息一下吧')
+		playFocusChime()
+		if ('Notification' in window && Notification.permission === 'granted') {
+			new Notification('NoDesk 专注结束', { body: `${focusMinutes} 分钟的专注完成了，起来活动一下吧。`, tag: 'nodesk-focus' })
+		}
+	}
+
+	const toggleFocus = () => {
+		if (focusRunning) {
+			setFocusRemaining(focusEndsAt === null ? focusRemaining : focusSecondsLeft(focusEndsAt, Date.now()))
+			setFocusEndsAt(null)
+			setFocusRunning(false)
+			setFocusAnnouncement('专注已暂停')
+			return
+		}
+		const seconds = nextFocusDuration(focusRemaining, focusMinutes)
+		setFocusRemaining(seconds)
+		setFocusEndsAt(Date.now() + seconds * 1000)
+		setFocusRunning(true)
+		setFocusAnnouncement(`开始专注 ${Math.ceil(seconds / 60)} 分钟`)
+		// Asked on a click, as browsers require; the end-of-session notice uses it.
+		if ('Notification' in window && Notification.permission === 'default') void Notification.requestPermission()
+	}
+
 	const chooseFocusPreset = (minutes: number) => {
+		setFocusEndsAt(null)
 		setFocusRunning(false)
 		setFocusMinutes(minutes)
 		setFocusRemaining(minutes * 60)
@@ -985,15 +1050,8 @@ export default function AmbientWorkbench() {
 										{FOCUS_PRESETS.map(minutes => <button type='button' key={minutes} className={focusMinutes === minutes ? 'is-active' : ''} onClick={() => chooseFocusPreset(minutes)}>{minutes} 分钟</button>)}
 									</div>
 									<div className='ambient-focus-actions'>
-										<button type='button' className='ambient-focus-primary' onClick={() => {
-											if (focusRunning) {
-												setFocusRunning(false)
-												return
-											}
-											setFocusRemaining(current => nextFocusDuration(current, focusMinutes))
-											setFocusRunning(true)
-										}}>{focusRunning ? <Pause size={19} /> : <Play size={19} fill='currentColor' />}<span>{focusRunning ? '暂停' : focusRemaining === 0 ? '重新开始' : '开始'}</span></button>
-										<button type='button' className='ambient-focus-reset' onClick={() => { setFocusRunning(false); setFocusRemaining(focusMinutes * 60) }} title='重置计时' aria-label='重置计时'><RotateCcw size={18} /></button>
+										<button type='button' className='ambient-focus-primary' onClick={toggleFocus}>{focusRunning ? <Pause size={19} /> : <Play size={19} fill='currentColor' />}<span>{focusRunning ? '暂停' : focusRemaining === 0 ? '重新开始' : '开始'}</span></button>
+										<button type='button' className='ambient-focus-reset' onClick={() => { setFocusEndsAt(null); setFocusRunning(false); setFocusRemaining(focusMinutes * 60) }} title='重置计时' aria-label='重置计时'><RotateCcw size={18} /></button>
 									</div>
 								</div>
 							)}
@@ -1068,8 +1126,10 @@ export default function AmbientWorkbench() {
 						</button>
 					})}
 				</nav>
-				<div className='ambient-dock-status' aria-live='polite'>
+				<div className='ambient-dock-status'>
 					<span className='ambient-status-dot' aria-hidden='true' />
+					{/* Only starts and ends are announced; a live countdown would be read out every second. */}
+					<span className='ambient-sr-only' role='status' aria-live='polite'>{focusAnnouncement}</span>
 					<span>{focusRunning ? `专注 ${formatFocusDuration(focusRemaining)}` : `${incompleteTasks.length} 项任务 · ${upcomingEvents.length} 项日程`}</span>
 				</div>
 			</div>}
@@ -1118,6 +1178,30 @@ export default function AmbientWorkbench() {
 			</AnimatePresence>
 		</section>
 	)
+}
+
+/** Two soft tones; audio is a nicety, so any failure (no device, autoplay policy) is ignored. */
+function playFocusChime() {
+	try {
+		const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+		if (!AudioContextClass) return
+		const context = new AudioContextClass()
+		;[784, 1046.5].forEach((frequency, index) => {
+			const start = context.currentTime + index * 0.22
+			const oscillator = context.createOscillator()
+			const gain = context.createGain()
+			oscillator.frequency.value = frequency
+			gain.gain.setValueAtTime(0.0001, start)
+			gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02)
+			gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.5)
+			oscillator.connect(gain).connect(context.destination)
+			oscillator.start(start)
+			oscillator.stop(start + 0.55)
+		})
+		window.setTimeout(() => void context.close(), 1200)
+	} catch {
+		// Silence is an acceptable fallback.
+	}
 }
 
 function FlipClockUnit({ value, reducedMotion }: { value: string; reducedMotion: boolean | null }) {
