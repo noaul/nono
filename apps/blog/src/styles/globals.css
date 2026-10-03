@@ -4,6 +4,7 @@
 @import './theme.css';
 @import './article.css';
 @import './ambient-workbench.css';
+@import './desk-pet.css';
 
 @plugin 'tailwindcss-animate';
 
