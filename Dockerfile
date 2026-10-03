@@ -17,6 +17,18 @@ COPY packages ./packages
 RUN npm run prisma:generate
 RUN npm run build
 
+# Unit and contract tests run inside the image build. A failing suite fails
+# `docker compose build`, so a deploy stops before the running release is touched.
+# The runtime stage copies each stage's marker, which makes BuildKit run them.
+FROM nono-build AS nono-test
+WORKDIR /app/nono
+# Some server/web tests read files from the rest of the repository.
+COPY apps/blog/src ./apps/blog/src
+COPY playwright.config.ts ./
+COPY docs/quality/ui-performance-baseline.md ./docs/quality/
+COPY tests/e2e/public-navigation.smoke.spec.ts ./tests/e2e/
+RUN npm test && touch /tmp/tests-passed
+
 FROM node:24-alpine AS blog-deps
 WORKDIR /app/blog
 RUN corepack enable
@@ -34,6 +46,12 @@ ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 COPY apps/blog/ ./
 RUN pnpm build
 
+FROM blog-build AS blog-test
+# quality-gates reads repository files three levels above apps/blog/tests, which is / here.
+COPY package.json docker-compose.yml /
+COPY docker/gateway.mjs docker/gateway-routing.mjs /docker/
+RUN pnpm test && touch /tmp/tests-passed
+
 FROM node:24-alpine AS nomoney-deps
 WORKDIR /app/nomoney
 COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
@@ -46,6 +64,9 @@ WORKDIR /app/nomoney
 COPY apps/nomoney/ ./
 RUN npm run build
 
+FROM nomoney-build AS nomoney-test
+RUN npm test && touch /tmp/tests-passed
+
 FROM node:24-alpine AS nostar-deps
 WORKDIR /app/nostar
 COPY apps/nostar/package.json apps/nostar/package-lock.json ./
@@ -56,6 +77,15 @@ WORKDIR /app/nostar
 COPY apps/nostar/ ./
 RUN npm run build
 
+FROM nostar-build AS nostar-test
+RUN npm test -- --run && touch /tmp/tests-passed
+
+# Gateway, deployment and contract tests read files from across the repository.
+FROM node:24-alpine AS repo-test
+WORKDIR /repo
+COPY . .
+RUN npm run test:gateway && touch /tmp/tests-passed
+
 FROM node:24-alpine AS nomoney-runtime-deps
 WORKDIR /app/nomoney
 COPY apps/nomoney/package.json apps/nomoney/package-lock.json ./
@@ -65,6 +95,11 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache 
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
+COPY --from=nono-test /tmp/tests-passed /opt/checks/nono
+COPY --from=blog-test /tmp/tests-passed /opt/checks/blog
+COPY --from=nomoney-test /tmp/tests-passed /opt/checks/nomoney
+COPY --from=nostar-test /tmp/tests-passed /opt/checks/nostar
+COPY --from=repo-test /tmp/tests-passed /opt/checks/repo
 RUN apk add --no-cache postgresql18-client sqlite su-exec tzdata \
   && addgroup -S nono \
   && adduser -S -D -G nono nono
