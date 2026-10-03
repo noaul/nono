@@ -58,6 +58,7 @@ import {
 import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
 import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
+import { DeskPet } from './desk-pet/desk-pet'
 import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 import { summarizeOverview, type TodayRow } from './today-overview-model'
 
@@ -111,6 +112,7 @@ type DockItem = DockPanelItem
 const TASKS_STORAGE_KEY = 'nodesk.ambient.tasks.v1'
 const EVENTS_STORAGE_KEY = 'nodesk.ambient.events.v1'
 const DIM_STORAGE_KEY = 'nodesk.ambient.dim.v1'
+const PET_STORAGE_KEY = 'nodesk.ambient.pet.v1'
 const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
 
@@ -210,6 +212,7 @@ export default function AmbientWorkbench() {
 	const searchInputRef = useRef<HTMLInputElement>(null)
 	const panelRef = useRef<HTMLElement>(null)
 	const dockRef = useRef<HTMLDivElement>(null)
+	const workbenchRef = useRef<HTMLElement>(null)
 
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
@@ -220,6 +223,7 @@ export default function AmbientWorkbench() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [idleDepth, setIdleDepth] = useState<'awake' | 'quiet' | 'deep'>('awake')
 	const [dimmed, setDimmed] = useState(false)
+	const [petVisible, setPetVisible] = useState(true)
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
@@ -431,6 +435,7 @@ export default function AmbientWorkbench() {
 
 	useEffect(() => {
 		setDimmed(localStorage.getItem(DIM_STORAGE_KEY) === 'true')
+		setPetVisible(localStorage.getItem(PET_STORAGE_KEY) !== 'false')
 	}, [])
 
 	useEffect(() => {
@@ -678,6 +683,11 @@ export default function AmbientWorkbench() {
 		})
 	}
 
+	const changePetVisible = (visible: boolean) => {
+		localStorage.setItem(PET_STORAGE_KEY, String(visible))
+		setPetVisible(visible)
+	}
+
 	const toggleFullscreen = async () => {
 		if (document.fullscreenElement) await document.exitFullscreen()
 		else await document.documentElement.requestFullscreen()
@@ -700,6 +710,7 @@ export default function AmbientWorkbench() {
 
 	return (
 		<section
+			ref={workbenchRef}
 			className='ambient-workbench'
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
@@ -723,7 +734,7 @@ export default function AmbientWorkbench() {
 
 
 				{privateWorkbenchVisible && <div className='ambient-top-center'>
-					<button type='button' className='ambient-command-trigger' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
+					<button type='button' className='ambient-command-trigger' data-pet-terrain='search' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
 						<Search size={17} strokeWidth={1.8} />
 						<span>快速搜索与执行...</span>
 						<kbd>⌘ K</kbd>
@@ -753,7 +764,7 @@ export default function AmbientWorkbench() {
 			<main className='ambient-center-stage'>
 				<motion.div className='ambient-clock-stack' initial={reducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
 					<div className='ambient-time-zone'><span aria-hidden='true' />上海时间 · UTC+8</div>
-					<time className='ambient-time' suppressHydrationWarning dateTime={`${shanghaiClock.hour}:${shanghaiClock.minute}:${shanghaiClock.second}`} aria-label={`上海时间 ${shanghaiClock.hour} 时 ${shanghaiClock.minute} 分 ${shanghaiClock.second} 秒`}>
+					<time className='ambient-time' suppressHydrationWarning data-pet-terrain='clock' dateTime={`${shanghaiClock.hour}:${shanghaiClock.minute}:${shanghaiClock.second}`} aria-label={`上海时间 ${shanghaiClock.hour} 时 ${shanghaiClock.minute} 分 ${shanghaiClock.second} 秒`}>
 						<FlipClockUnit value={shanghaiClock.hour} reducedMotion={reducedMotion} />
 						<i aria-hidden='true'>:</i>
 						<FlipClockUnit value={shanghaiClock.minute} reducedMotion={reducedMotion} />
@@ -764,7 +775,7 @@ export default function AmbientWorkbench() {
 					<p className='ambient-greeting' suppressHydrationWarning>{greetingForHour(shanghaiClock.hourNumber)}</p>
 
 					{privateWorkbenchVisible && (focusRunning ? (
-						<button type='button' className='ambient-now ambient-now-focus' onClick={() => togglePanel('focus')} aria-label={`正在专注：${formatFocusDuration(focusRemaining)}`}>
+						<button type='button' className='ambient-now ambient-now-focus' data-pet-terrain='upcoming' onClick={() => togglePanel('focus')} aria-label={`正在专注：${formatFocusDuration(focusRemaining)}`}>
 							<span className='ambient-now-label'>正在专注</span>
 							<strong>{formatFocusDuration(focusRemaining)}</strong>
 							<span className='ambient-now-detail'>
@@ -774,7 +785,7 @@ export default function AmbientWorkbench() {
 							</span>
 						</button>
 					) : (
-						<section className='ambient-now ambient-now-list' aria-label='接下来'>
+						<section className='ambient-now ambient-now-list' data-pet-terrain='upcoming' aria-label='接下来'>
 							<div className='ambient-now-heading'><span className='ambient-now-label'>接下来</span><span>{upcomingCountLabel}</span></div>
 							<div className='ambient-now-items'>
 								{upcomingItems.length ? upcomingItems.map(item => {
@@ -804,6 +815,7 @@ export default function AmbientWorkbench() {
 						key={activePanel}
 						ref={panelRef}
 						className='ambient-panel ambient-wakeable'
+						data-pet-terrain='panel'
 						initial={reducedMotion ? { x: '-50%' } : { opacity: 0, x: '-50%', y: 18, scale: 0.98 }}
 						animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
 						exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.985 }}
@@ -932,6 +944,7 @@ export default function AmbientWorkbench() {
 			{privateWorkbenchVisible && <div className='ambient-side-stack ambient-wakeable'>
 				<aside
 					className={`ambient-notification-rail ambient-side-rail${notificationRailExpanded ? ' is-expanded' : ' is-collapsed'}`}
+					data-pet-terrain='notifications'
 					aria-label='通知'
 					aria-expanded={notificationRailExpanded}
 					tabIndex={0}
@@ -967,7 +980,7 @@ export default function AmbientWorkbench() {
 			</div>}
 
 			{privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible && (
-				<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'>
+				<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口' data-pet-terrain='appdock'>
 					{dockEntries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined} aria-label={entry.label}>
 						<span className='ambient-app-entry-icon'><AppEntryIcon entry={entry} /></span>
 						<span className='ambient-app-dock-label' aria-hidden='true'>{entry.label}</span>
@@ -976,7 +989,7 @@ export default function AmbientWorkbench() {
 			)}
 
 			{privateWorkbenchVisible && <div ref={dockRef} className='ambient-dock-wrap ambient-wakeable'>
-				<nav className='ambient-dock' aria-label='工作台工具'>
+				<nav className='ambient-dock' data-pet-terrain='dock' aria-label='工作台工具'>
 					{DOCK_ITEMS.map(item => {
 						const Icon = item.icon
 						const isActive = item.id === 'settings' ? settingsOpen : activePanel === item.id
@@ -1000,6 +1013,18 @@ export default function AmbientWorkbench() {
 				</div>
 			</div>}
 
+			{privateWorkbenchVisible && petVisible && <DeskPet
+				rootRef={workbenchRef}
+				sleepy={idleDepth !== 'awake' || dimmed}
+				panelKey={activePanel}
+				notificationUnreadCount={notificationUnreadCount}
+				upcomingTitle={upcomingItems[0]?.title ?? null}
+				focusRunning={focusRunning}
+				hour={shanghaiClock.hourNumber}
+				reducedMotion={Boolean(reducedMotion)}
+				hidden={settingsOpen || searchOpen}
+			/>}
+
 			<AmbientSettingsCenter
 				open={privateWorkbenchVisible && settingsOpen}
 				initialTab={settingsInitialTab}
@@ -1008,6 +1033,8 @@ export default function AmbientWorkbench() {
 				onQuickEntriesVisibleChange={saveQuickEntriesVisibility}
 				quickEntries={workbenchNavigation.entries}
 				onQuickEntriesChange={saveQuickEntries}
+				petVisible={petVisible}
+				onPetVisibleChange={changePetVisible}
 			/>
 
 			<AnimatePresence>

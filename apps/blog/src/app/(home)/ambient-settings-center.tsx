@@ -14,6 +14,8 @@ type Props = {
 	quickEntries: WorkbenchAppEntry[]
 	onQuickEntriesChange: (entries: WorkbenchAppEntry[]) => Promise<void>
 	initialTab?: SettingsTab
+	petVisible: boolean
+	onPetVisibleChange: (visible: boolean) => void
 }
 
 export type SettingsTab = 'desktop' | 'notifications' | 'backups'
@@ -28,7 +30,7 @@ const quickEntryIcons = [
 	{ value: 'link', label: '链接' }
 ]
 
-export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQuickEntriesVisibleChange, quickEntries, onQuickEntriesChange, initialTab = 'desktop' }: Props) {
+export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQuickEntriesVisibleChange, quickEntries, onQuickEntriesChange, initialTab = 'desktop', petVisible, onPetVisibleChange }: Props) {
 	const [tab, setTab] = useState<SettingsTab>(initialTab)
 	const [savingVisibility, setSavingVisibility] = useState(false)
 	const [savingEntries, setSavingEntries] = useState(false)
@@ -166,6 +168,15 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 						<button type='button' onClick={addEntry}><Plus size={16} />添加快捷应用</button>
 						<button type='button' className='is-primary' disabled={savingEntries} onClick={() => void saveEntries()}><Save size={16} />{savingEntries ? '保存中...' : '保存快捷应用'}</button>
 					</div>
+				</section>}
+
+				{tab === 'desktop' && <section className='ambient-settings-section'>
+					<div className='ambient-settings-section-copy'><h3>桌面宠物</h3><p>小团子 Nono 会在桌面组件上走动、跳跃和飞行。</p></div>
+					<label className='ambient-settings-toggle'>
+						<span><strong>显示桌面宠物</strong><small>只对当前浏览器生效。</small></span>
+						<input type='checkbox' checked={petVisible} onChange={event => onPetVisibleChange(event.target.checked)} />
+						<i aria-hidden='true' />
+					</label>
 				</section>}
 
 				{tab === 'notifications' && <AmbientNotificationCenter />}

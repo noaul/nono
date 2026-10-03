@@ -261,7 +261,7 @@ test('keeps module entries in a right-hand app dock that leads with NoNo', async
 	const source = `${workbench}\n${settings}\n${backupCenter}`
 
 	assert.match(source, /className='ambient-side-stack ambient-wakeable'/)
-	assert.match(workbench, /<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'>/)
+	assert.match(workbench, /<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'[^>]*>/)
 	assert.match(workbench, /dockEntries\.map\(entry =>[\s\S]*ambient-app-dock-label/)
 	assert.doesNotMatch(workbench, /ambient-app-rail|setAppSwitcherOpen/)
 	assert.match(source, /id: 'settings'[\s\S]*icon: Settings/)
