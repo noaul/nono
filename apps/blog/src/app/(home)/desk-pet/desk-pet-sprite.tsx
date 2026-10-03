@@ -9,8 +9,8 @@ export function DeskPetSprite() {
 						<stop offset='100%' stopColor='var(--pet-body-bottom)' />
 					</linearGradient>
 				</defs>
-				<path className='desk-pet-wing desk-pet-wing-left' d='M9 17 C2 9 -1 18 4 22 C6 23.5 9 22 10 20 Z' />
-				<path className='desk-pet-wing desk-pet-wing-right' d='M35 17 C42 9 45 18 40 22 C38 23.5 35 22 34 20 Z' />
+				<path className='desk-pet-wing desk-pet-wing-left' d='M9 16 C1 3 -7 14 -1 22 C2 25.5 7 24 10 20 Z' />
+				<path className='desk-pet-wing desk-pet-wing-right' d='M35 16 C43 3 51 14 45 22 C42 25.5 37 24 34 20 Z' />
 				<ellipse className='desk-pet-foot desk-pet-foot-left' cx='16' cy='34.4' rx='4' ry='2.6' />
 				<ellipse className='desk-pet-foot desk-pet-foot-right' cx='28' cy='34.4' rx='4' ry='2.6' />
 				<path className='desk-pet-body' d='M22 4 C33 4 39 11 39 21 C39 30 32 34 22 34 C12 34 5 30 5 21 C5 11 11 4 22 4 Z' fill='url(#desk-pet-body-fill)' />
