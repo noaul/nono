@@ -182,7 +182,7 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     return sendOk(reply, {
       verified: ok,
       links: ok
-        ? (await services.repo.listLinks(site.userId)).filter((link) => link.folderId === folder.id).map(publicLink)
+        ? (await services.repo.listFolderLinks(site.userId, folder.id)).map(publicLink)
         : [],
     });
   });

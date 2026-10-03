@@ -104,7 +104,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const body = linkMoveSchema.parse(request.body);
-    const current = (await services.repo.listLinks(user.id)).find((link) => link.id === body.linkId);
+    const current = await services.repo.getLink(user.id, body.linkId);
     if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     const before = linkAuditSnapshot(current);
     const updated = await services.repo.moveLink(user.id, body.linkId, body.targetFolderId, body.sourceIds, body.targetIds);
@@ -141,11 +141,11 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const ids = uniqueNumericIds(body.ids);
     const folder = await services.repo.getFolder(user.id, Number(body.folderId));
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
-    const before = (await services.repo.listLinks(user.id)).filter((link) => ids.includes(link.id)).map(linkAuditSnapshot);
+    const before = (await services.repo.getLinksByIds(user.id, ids)).map(linkAuditSnapshot);
     for (const [index, id] of ids.entries()) {
       await services.repo.updateLink(user.id, id, { folderId: folder.id, sortOrder: createSortOrder(index) });
     }
-    const after = (await services.repo.listLinks(user.id)).filter((link) => ids.includes(link.id)).map(linkAuditSnapshot);
+    const after = (await services.repo.getLinksByIds(user.id, ids)).map(linkAuditSnapshot);
     setAuditContext(request, { action: 'bulk_move', resourceType: 'bookmark', resourceId: ids.join(','), resourceLabel: folder.name, details: { before, after } });
     return sendOk(reply, { moved: ids.length });
   });
@@ -154,11 +154,10 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any).ids);
-    // 两次读取都发生在删除之前，取一次即可（bulk_move 的前后两次快照跨越了修改，不能这样合并）。
-    const owned = await services.repo.listLinks(user.id);
+    const owned = await services.repo.getLinksByIds(user.id, ids);
     const ownedIds = new Set(owned.map((link) => link.id));
     const deleteIds = ids.filter((id) => ownedIds.has(id));
-    const before = owned.filter((link) => deleteIds.includes(link.id)).map(linkAuditSnapshot);
+    const before = owned.map(linkAuditSnapshot);
     await services.repo.deleteLinks(user.id, deleteIds);
     setAuditContext(request, { action: 'bulk_delete', resourceType: 'bookmark', resourceId: deleteIds.join(','), details: { before } });
     return sendOk(reply, { deleted: deleteIds.length });
@@ -168,10 +167,8 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any)?.ids);
-    const idFilter = new Set(ids);
-    const links = await services.repo.listLinks(user.id);
     const result = await checkLinksHealth(
-      ids.length ? links.filter((link) => idFilter.has(link.id)) : links,
+      ids.length ? await services.repo.getLinksByIds(user.id, ids) : await services.repo.listLinks(user.id),
       services.safeRequester,
       {
         allowPrivateHosts: user.role === 'admin' && currentSessionId(request) ? services.privateOutboundHosts : [],
@@ -194,7 +191,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const ids = uniqueNumericIds((request.body as any)?.ids);
-    const ownedLinks = await services.repo.listLinks(user.id);
+    const ownedLinks = await services.repo.getLinksByIds(user.id, ids);
     const byId = new Map(ownedLinks.map((link) => [link.id, link]));
     const repaired: LinkRecord[] = [];
 
@@ -218,7 +215,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     if (!user) return;
     const body: Partial<LinkRecord> = linkUpdateSchema.parse(request.body);
     const linkId = numericParam(request);
-    const current = (await services.repo.listLinks(user.id)).find((link) => link.id === linkId);
+    const current = await services.repo.getLink(user.id, linkId);
     if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     const before = linkAuditSnapshot(current);
     if ('url' in body) {
@@ -258,7 +255,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
     const id = numericParam(request);
-    const before = (await services.repo.listLinks(user.id)).find((link) => link.id === id);
+    const before = await services.repo.getLink(user.id, id);
     await services.repo.deleteLink(user.id, id);
     setAuditContext(request, { action: 'delete', resourceType: 'bookmark', resourceId: id, resourceLabel: before?.name || null, details: { before: before ? linkAuditSnapshot(before) : null } });
     return sendOk(reply, { ok: true });

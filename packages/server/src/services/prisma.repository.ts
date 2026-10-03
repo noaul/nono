@@ -249,6 +249,16 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     async listLinks(userId) {
       return (await prisma.link.findMany({ where: { folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
     },
+    async getLink(userId, id) {
+      return (await prisma.link.findFirst({ where: { id, folder: { userId } } })) as any;
+    },
+    async getLinksByIds(userId, ids) {
+      if (!ids.length) return [];
+      return (await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
+    },
+    async listFolderLinks(userId, folderId) {
+      return (await prisma.link.findMany({ where: { folderId, folder: { userId } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
+    },
     async searchLinks(userId, query, options) {
       const terms = linkSearchTerms(query);
       if (!terms.length) return [];

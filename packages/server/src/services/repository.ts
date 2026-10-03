@@ -260,6 +260,10 @@ export interface Repository {
   deleteFolder(userId: number, id: number): Promise<void>;
   deleteFolders(userId: number, ids: number[]): Promise<void>;
   listLinks(userId: number): Promise<LinkRecord[]>;
+  getLink(userId: number, id: number): Promise<LinkRecord | null>;
+  /** Owned links among `ids`, in display order; ids the user does not own are dropped. */
+  getLinksByIds(userId: number, ids: number[]): Promise<LinkRecord[]>;
+  listFolderLinks(userId: number, folderId: number): Promise<LinkRecord[]>;
   /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
   searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
@@ -567,6 +571,23 @@ export class MemoryRepository implements Repository {
     return this.links.filter((link) => folderIds.has(link.folderId)).sort(sortOrder);
   }
 
+  async getLink(userId: number, id: number) {
+    const link = this.links.find((item) => item.id === id);
+    return link && await this.getFolder(userId, link.folderId) ? link : null;
+  }
+
+  async getLinksByIds(userId: number, ids: number[]) {
+    if (!ids.length) return [];
+    const wanted = new Set(ids);
+    const folderIds = new Set((await this.listFolders(userId)).map((folder) => folder.id));
+    return this.links.filter((link) => wanted.has(link.id) && folderIds.has(link.folderId)).sort(sortOrder);
+  }
+
+  async listFolderLinks(userId: number, folderId: number) {
+    if (!await this.getFolder(userId, folderId)) return [];
+    return this.links.filter((link) => link.folderId === folderId).sort(sortOrder);
+  }
+
   async searchLinks(userId: number, query: string, options: LinkSearchOptions) {
     const terms = linkSearchTerms(query);
     if (!terms.length) return [];
@@ -654,8 +675,7 @@ export class MemoryRepository implements Repository {
   }
 
   async deleteLinks(userId: number, ids: number[]) {
-    const activeLinks = await this.listLinks(userId);
-    const owned = activeLinks.filter((link) => ids.includes(link.id));
+    const owned = await this.getLinksByIds(userId, ids);
     for (const link of owned) {
       this.trashItems.unshift({
         id: randomUUID(),
@@ -873,8 +893,7 @@ export class MemoryRepository implements Repository {
   }
 
   private async requiredLink(userId: number, id: number) {
-    const links = await this.listLinks(userId);
-    const link = links.find((item) => item.id === id);
+    const link = await this.getLink(userId, id);
     if (!link) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     return link;
   }
