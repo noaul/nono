@@ -11,6 +11,7 @@ import {
   tokenExpiryText,
 } from '../shared/popup-workflow.js';
 import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
+import { LAST_QUICK_SAVE_KEY, recentQuickSave } from '../shared/quick-save.js';
 import { connectionDraft, persistConnectionDraft } from '../shared/settings-draft.js';
 
 const languageSelect = document.querySelector('#languageSelect');
@@ -112,6 +113,7 @@ async function init() {
     if (await testConnection(config)) {
       activeServerUrl = config.serverUrl;
       await prepareQuickSave();
+      await showLastQuickSave();
     } else openSettings();
   } catch (error) {
     openSettings();
@@ -446,6 +448,17 @@ function setStatus(message, type = '') {
 function setTokenStatus(message, type = '') {
   tokenStatusEl.textContent = message;
   connectionNote.className = `connection-note${type ? ` ${type}` : ''}`;
+}
+
+async function showLastQuickSave() {
+  try {
+    const stored = await chrome.storage.local.get([LAST_QUICK_SAVE_KEY]);
+    const last = recentQuickSave(stored[LAST_QUICK_SAVE_KEY], Date.now(), pageInfo?.url);
+    if (last) setStatus(last.message, last.status === 'error' ? 'error' : 'success');
+    await chrome.storage.local.remove(LAST_QUICK_SAVE_KEY);
+  } catch {
+    // Nothing to replay.
+  }
 }
 
 async function rememberFolder(folderId) {

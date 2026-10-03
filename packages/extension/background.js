@@ -1,5 +1,5 @@
 import { LOCALE_STORAGE_KEY, isLocale, localeFromUiLanguage, setLocale, t } from './shared/i18n.js';
-import { normalizeServerUrl, serverOriginPattern } from './shared/popup-workflow.js';
+import { quickSave as runQuickSave } from './shared/quick-save.js';
 
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
 const OPEN_MENU_ID = 'nono-open-save';
@@ -49,27 +49,10 @@ function resolveLocale(stored) {
   return isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh';
 }
 
+// The badge says which way it went; the tooltip and the next popup open say why.
 async function quickSave(tab) {
-  if (!tab.url || !/^https?:/.test(tab.url)) return;
-  const { serverUrl, token, lastFolderId } = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId']);
-  if (!serverUrl || !token || !lastFolderId) {
-    await chrome.action.openPopup();
-    return;
-  }
-  if (!await chrome.permissions.contains({ origins: [serverOriginPattern(serverUrl)] })) {
-    await chrome.action.openPopup();
-    return;
-  }
-  try {
-    const response = await fetch(`${normalizeServerUrl(serverUrl)}/api/admin/links`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ folderId: Number(lastFolderId), name: tab.title || new URL(tab.url).hostname, nameMode: 'auto', url: tab.url, description: '' }),
-    });
-    const payload = await response.json();
-    if (payload.code !== 0) throw new Error(payload.message || t('bookmarkFailed'));
-    chrome.action.setBadgeText({ text: 'OK', tabId: tab.id });
-  } catch {
-    chrome.action.setBadgeText({ text: '!', tabId: tab.id });
-  }
+  // A woken service worker has not run onStartup, so pick the saved locale up again.
+  const stored = await chrome.storage.local.get([LOCALE_STORAGE_KEY]);
+  setLocale(resolveLocale(stored[LOCALE_STORAGE_KEY]));
+  await runQuickSave(tab, chrome);
 }
