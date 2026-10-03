@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMobileBackLayer } from '@/mobile/back-layers';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Lock } from '@lucide/vue';
 import type { Folder, Link } from '@/api/types';
@@ -7,6 +8,7 @@ import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<{ folder: Folder; username: string }>();
 const emit = defineEmits<{ close: []; verified: [links: Link[]] }>();
+useMobileBackLayer(() => true, () => emit('close'));
 
 const { t } = useI18n();
 

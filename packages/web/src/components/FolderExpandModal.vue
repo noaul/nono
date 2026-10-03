@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMobileBackLayer } from '@/mobile/back-layers';
 import { computed, ref } from 'vue';
 import { X } from '@lucide/vue';
 import type { Folder } from '@/api/types';
@@ -11,6 +12,8 @@ import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{ folder: Folder; highlight?: string }>(), { highlight: '' });
 const emit = defineEmits<{ close: [] }>();
+// In the Android app a back press closes the folder instead of leaving the page.
+useMobileBackLayer(() => true, () => emit('close'));
 
 const { t } = useI18n();
 

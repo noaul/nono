@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMobileBackLayer } from '@/mobile/back-layers';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Trash2, X } from '@lucide/vue';
 import type { Link } from '@/api/types';
@@ -22,6 +23,7 @@ const kindLabel = computed(() => props.kind === 'bookmark' ? t('nav.kindBookmark
 function cancel() {
   if (!props.busy) emit('cancel');
 }
+useMobileBackLayer(() => true, cancel);
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {

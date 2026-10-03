@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMobileBackLayer } from '@/mobile/back-layers';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { ArrowUpRight, Check, Languages, Layers, Loader2, Palette, Plus, Save, Settings, Trash2, X } from '@lucide/vue';
 import AppearanceEditor from '@/components/admin/AppearanceEditor.vue';
@@ -229,6 +230,7 @@ function requestClose() {
   if (dirty.value && !window.confirm(t('appearance.editor.closeConfirm'))) return;
   emit('close');
 }
+useMobileBackLayer(() => props.open, requestClose);
 
 function onKeydown(event: KeyboardEvent) {
   if (props.open && event.key === 'Escape') requestClose();
