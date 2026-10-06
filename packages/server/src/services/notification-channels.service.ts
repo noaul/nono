@@ -37,6 +37,7 @@ export interface StoredChannel {
   name: string;
   enabled: boolean;
   minSeverity: string;
+  linkDigest?: boolean;
   config: unknown;
   lastSuccessAt: Date | null;
   lastError: string | null;
@@ -106,6 +107,7 @@ export function publicChannel(channel: StoredChannel) {
     name: channel.name,
     enabled: channel.enabled,
     minSeverity: channel.minSeverity,
+    linkDigest: Boolean(channel.linkDigest),
     config,
     lastSuccessAt: channel.lastSuccessAt,
     lastError: channel.lastError,

@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, BellRing, CheckCheck, CheckCircle2, History, LoaderCircle, Pencil, Plus, Save, Send, Trash2, XCircle } from 'lucide-react'
+import { Bell, BellRing, CheckCheck, CheckCircle2, History, LinkIcon, LoaderCircle, Pencil, Plus, Save, Send, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
 	CHANNEL_TYPES,
@@ -140,6 +140,11 @@ export function AmbientNotificationCenter() {
 		setChannels(current => current.map(item => item.id === channel.id ? { ...item, lastError: null, lastSuccessAt: new Date().toISOString() } : item))
 	})
 
+	const sendLinkDigest = (channel: NotificationChannel) => run(`digest-${channel.id}`, async () => {
+		const result = await requestData<{ ok: boolean; skipped?: boolean }>(`/api/admin/notification-channels/${channel.id}/link-digest`, jsonInit('POST', {}))
+		setMessage(result.skipped ? '目前没有失效链接，周报没有发送。' : `失效链接周报已发送到“${channel.name}”。`)
+	})
+
 	const removeChannel = (channel: NotificationChannel) => {
 		if (!window.confirm(`删除推送渠道“${channel.name}”？`)) return
 		void run(`delete-${channel.id}`, async () => {
@@ -191,6 +196,7 @@ export function AmbientNotificationCenter() {
 						<label><span>类型</span><select value={draft.type} disabled={Boolean(draft.id)} onChange={event => setDraft(emptyChannelDraft(event.target.value as ChannelType))}>{(Object.keys(CHANNEL_TYPES) as ChannelType[]).map(type => <option key={type} value={type}>{CHANNEL_TYPES[type].label}</option>)}</select></label>
 						<label><span>名称</span><input value={draft.name} maxLength={80} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder={typeInfo.label} /></label>
 						<label><span>推送级别</span><select value={draft.minSeverity} onChange={event => setDraft({ ...draft, minSeverity: event.target.value as Severity })}>{(Object.keys(SEVERITY_LABELS) as Severity[]).map(level => <option key={level} value={level}>{SEVERITY_LABELS[level]}及以上</option>)}</select></label>
+						<label className='ambient-policy-toggle is-wide'><input type='checkbox' checked={draft.linkDigest} onChange={event => setDraft({ ...draft, linkDigest: event.target.checked })} /><span>失效链接改为每周一 09:00 汇总推送一次（不再逐条推送）</span></label>
 						{typeInfo.fields.map(field => <label key={field.key} className={field.wide ? 'is-wide' : ''}>
 							<span>{field.label}</span>
 							<input type={field.secret ? 'password' : field.type || 'text'} autoComplete='off' value={draft.config[field.key] || ''} placeholder={field.secret && draft.secretsSet[field.key] ? '已保存，留空不修改' : field.placeholder} onChange={event => updateDraft(field.key, event.target.value)} />
@@ -205,9 +211,10 @@ export function AmbientNotificationCenter() {
 
 				{channels.length ? <div className='ambient-batch-history'>{channels.map(channel => <div className='ambient-batch-row ambient-channel-row' key={channel.id}>
 					<span className='ambient-batch-state'>{channel.lastError ? <XCircle size={16} /> : <CheckCircle2 size={16} />}</span>
-					<span><strong>{channel.name}</strong><small>{CHANNEL_TYPES[channel.type as ChannelType]?.label || channel.type} · {SEVERITY_LABELS[channel.minSeverity as Severity] || channel.minSeverity}及以上 · {channel.lastError ? `最近失败：${channel.lastError}` : `最近成功：${formatDate(channel.lastSuccessAt)}`}</small></span>
+					<span><strong>{channel.name}</strong><small>{CHANNEL_TYPES[channel.type as ChannelType]?.label || channel.type} · {SEVERITY_LABELS[channel.minSeverity as Severity] || channel.minSeverity}及以上{channel.linkDigest ? ' · 失效链接周报' : ''} · {channel.lastError ? `最近失败：${channel.lastError}` : `最近成功：${formatDate(channel.lastSuccessAt)}`}</small></span>
 					<label className='ambient-policy-toggle' title={channel.enabled ? '已启用' : '已停用'}><input type='checkbox' checked={channel.enabled} disabled={Boolean(busy)} onChange={() => void toggleChannel(channel)} /><span>{channel.enabled ? '启用' : '停用'}</span></label>
 					<button type='button' title='发送测试消息' disabled={Boolean(busy)} onClick={() => void testChannel(channel)}>{busy === `test-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Send size={15} />}</button>
+					{channel.linkDigest && <button type='button' title='立即发送失效链接周报' disabled={Boolean(busy)} onClick={() => void sendLinkDigest(channel)}>{busy === `digest-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <LinkIcon size={15} />}</button>}
 					<button type='button' title='编辑' disabled={Boolean(busy)} onClick={() => setDraft(channelDraftFromChannel(channel))}><Pencil size={15} /></button>
 					<button type='button' title='删除' disabled={Boolean(busy)} onClick={() => removeChannel(channel)}><Trash2 size={15} /></button>
 				</div>)}</div> : !draft && <div className='ambient-backup-empty'>还没有推送渠道。添加 Bark 或 Telegram 后，手机上就能收到提醒。</div>}

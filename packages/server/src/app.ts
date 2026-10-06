@@ -64,6 +64,7 @@ import { MemoryRepository } from './services/repository.js';
 import { MemoryMobileStore } from './services/mobile-store.js';
 import { createPrismaMobileStore } from './services/mobile-store.prisma.js';
 import { createMobileDeviceService } from './services/mobile-devices.service.js';
+import { listBrokenLinks } from './services/link-health.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -128,6 +129,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       password: process.env.NOMONEY_SMTP_PASS || process.env.SMTP_PASS,
       from: process.env.NOMONEY_SMTP_FROM || process.env.SMTP_FROM,
     },
+    listBrokenLinks: (userId) => listBrokenLinks(repo, userId),
   });
   const mobileStore = overrides.mobileStore || (repo instanceof MemoryRepository ? new MemoryMobileStore(repo) : createPrismaMobileStore(prisma));
   const mobileDevices = overrides.mobileDevices || createMobileDeviceService({ store: mobileStore, encryptionKey });

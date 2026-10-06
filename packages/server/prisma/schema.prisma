@@ -70,6 +70,8 @@ model NotificationChannel {
   name          String
   enabled       Boolean                @default(true)
   minSeverity   String                 @default("warning")
+  /// Weekly summary of broken links instead of one push per broken link.
+  linkDigest    Boolean                @default(false)
   config        Json                   @default("{}")
   lastSuccessAt DateTime?
   lastError     String?

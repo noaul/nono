@@ -18,6 +18,8 @@ export type NotificationChannel = {
 	name: string
 	enabled: boolean
 	minSeverity: string
+	/** Broken links arrive as one weekly digest instead of one push each. */
+	linkDigest?: boolean
 	config: Record<string, unknown>
 	lastSuccessAt: string | null
 	lastError: string | null
@@ -85,13 +87,14 @@ export type ChannelDraft = {
 	type: ChannelType
 	name: string
 	minSeverity: Severity
+	linkDigest: boolean
 	config: Record<string, string>
 	/** Secret fields already stored on the server; a blank input keeps them. */
 	secretsSet: Record<string, boolean>
 }
 
 export function emptyChannelDraft(type: ChannelType): ChannelDraft {
-	return { type, name: '', minSeverity: 'warning', config: type === 'email' ? { port: '587' } : {}, secretsSet: {} }
+	return { type, name: '', minSeverity: 'warning', linkDigest: false, config: type === 'email' ? { port: '587' } : {}, secretsSet: {} }
 }
 
 export function channelDraftFromChannel(channel: NotificationChannel): ChannelDraft {
@@ -103,7 +106,7 @@ export function channelDraftFromChannel(channel: NotificationChannel): ChannelDr
 		config[field.key] = value === undefined || value === null ? '' : String(value)
 		if (field.secret) secretsSet[field.key] = channel.config[`${field.key}Set`] === true
 	}
-	return { id: channel.id, type, name: channel.name, minSeverity: (channel.minSeverity as Severity) || 'warning', config, secretsSet }
+	return { id: channel.id, type, name: channel.name, minSeverity: (channel.minSeverity as Severity) || 'warning', linkDigest: Boolean(channel.linkDigest), config, secretsSet }
 }
 
 /** The body for POST/PATCH; an empty name falls back to the channel type's label. */
@@ -117,5 +120,5 @@ export function channelPayload(draft: ChannelDraft) {
 		}
 		config[field.key] = value
 	}
-	return { name: draft.name.trim() || CHANNEL_TYPES[draft.type].label, minSeverity: draft.minSeverity, config }
+	return { name: draft.name.trim() || CHANNEL_TYPES[draft.type].label, minSeverity: draft.minSeverity, linkDigest: draft.linkDigest, config }
 }

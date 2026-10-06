@@ -17,6 +17,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
   enabled: z.boolean().optional().default(true),
   minSeverity: z.enum(NOTIFICATION_SEVERITIES).optional().default('warning'),
+  linkDigest: z.boolean().optional().default(false),
   config: z.record(z.string(), z.unknown()),
 });
 
@@ -24,6 +25,7 @@ const updateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   enabled: z.boolean().optional(),
   minSeverity: z.enum(NOTIFICATION_SEVERITIES).optional(),
+  linkDigest: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -64,6 +66,7 @@ export async function notificationChannelRoutes(app: FastifyInstance, services: 
         name: input.name,
         enabled: input.enabled,
         minSeverity: input.minSeverity,
+        linkDigest: input.linkDigest,
         config: encodeChannelConfig(input.type, input.config, null, services.encryptionKey) as object,
       },
     });
@@ -82,11 +85,22 @@ export async function notificationChannelRoutes(app: FastifyInstance, services: 
         name: input.name,
         enabled: input.enabled,
         minSeverity: input.minSeverity,
+        linkDigest: input.linkDigest,
         config: input.config ? encodeChannelConfig(current.type as never, input.config, current.config, services.encryptionKey) as object : undefined,
       },
     });
     setAuditContext(request, { action: 'update', resourceType: 'notification_channel', resourceId: channel.id, resourceLabel: channel.name, details: { after: { enabled: channel.enabled, minSeverity: channel.minSeverity, configChanged: Boolean(input.config) } } });
     return sendOk(reply, publicChannel(channel));
+  });
+
+  // Sends this week's broken-link digest to one channel now, whatever the schedule says.
+  app.post('/api/admin/notification-channels/:id/link-digest', async (request, reply) => {
+    const user = await requireBrowserSession(request, reply, services);
+    if (!user) return;
+    const channel = await owned(user.id, numericParam(request, 'id'));
+    const result = await services.notificationDispatcher.sendLinkDigest(channel, user);
+    if (!result.ok && !result.skipped) throw Object.assign(new Error(result.error || 'Delivery failed'), { statusCode: 502 });
+    return sendOk(reply, result);
   });
 
   app.delete('/api/admin/notification-channels/:id', async (request, reply) => {

@@ -9,7 +9,7 @@ import {
   publicChannel,
   type ChannelDeliveryDeps,
 } from '../src/services/notification-channels.service.js';
-import { createNotificationDispatcher, MAX_DELIVERY_ATTEMPTS } from '../src/services/notification-dispatch.service.js';
+import { createNotificationDispatcher, linkDigestSlot, MAX_DELIVERY_ATTEMPTS } from '../src/services/notification-dispatch.service.js';
 import type { NotificationItem } from '../src/services/notification.service.js';
 
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -302,5 +302,84 @@ describe('notification channel routes', () => {
 
     const log = await app.inject({ method: 'GET', url: '/api/admin/notification-deliveries', headers: { cookie } });
     expect(log.json().data.items[0]).toMatchObject({ source: 'nomoney', status: 'sent', channel: { name: 'Hook', type: 'webhook' } });
+  });
+});
+
+describe('weekly broken-link digest', () => {
+  const broken = [
+    { name: 'Old blog', url: 'https://old.example/', status: '访问异常', statusCode: 404, folderName: 'Reading' },
+    { name: 'Slow API', url: 'https://slow.example/', status: '检测超时', statusCode: null, folderName: null },
+  ];
+
+  function setup(clock: { now: Date }, links = broken) {
+    const prisma = fakePrisma();
+    const { deps, posts } = deliveryDeps();
+    const list = vi.fn(async () => ({ items: [item('link-1')], unreadCount: 1, urgentUnreadCount: 0, generatedAt: '' }));
+    const listBrokenLinks = vi.fn(async () => links);
+    const dispatcher = createNotificationDispatcher({ prisma: prisma as any, notificationService: { list }, delivery: deps, publicUrl: 'https://nono.test', listBrokenLinks, now: () => clock.now });
+    return { prisma, posts, dispatcher, listBrokenLinks };
+  }
+
+  async function digestChannel(prisma: ReturnType<typeof fakePrisma>, createdAt = new Date('2026-09-01T00:00:00Z')) {
+    const channel = await addChannel(prisma, { type: 'webhook', config: { url: 'https://hooks.test/x' } });
+    Object.assign(channel, { linkDigest: true, createdAt });
+    return channel;
+  }
+
+  it('places the slot at Monday 09:00 Shanghai time', () => {
+    // 2026-10-05 is a Monday; 09:00 in Shanghai is 01:00 UTC.
+    expect(linkDigestSlot(new Date('2026-10-05T01:00:00Z')).toISOString()).toBe('2026-10-05T01:00:00.000Z');
+    expect(linkDigestSlot(new Date('2026-10-05T00:59:00Z')).toISOString()).toBe('2026-09-28T01:00:00.000Z');
+    expect(linkDigestSlot(new Date('2026-10-08T12:00:00Z')).toISOString()).toBe('2026-10-05T01:00:00.000Z');
+    // Sunday 23:30 Shanghai is still the previous week.
+    expect(linkDigestSlot(new Date('2026-10-11T15:30:00Z')).toISOString()).toBe('2026-10-05T01:00:00.000Z');
+  });
+
+  it('sends one digest per week to opted-in channels', async () => {
+    const clock = { now: new Date('2026-10-05T02:00:00Z') };
+    const { prisma, posts, dispatcher } = setup(clock);
+    await digestChannel(prisma);
+    await addChannel(prisma, { type: 'webhook', config: { url: 'https://hooks.test/plain' } });
+
+    await dispatcher.runLinkDigests();
+    await dispatcher.runLinkDigests();
+    expect(posts).toHaveLength(1);
+    expect(posts[0].url).toBe('https://hooks.test/x');
+    expect(posts[0].body.subject).toBe('[NoNo] 失效链接周报：2 个链接无法访问');
+    expect(posts[0].body.text).toContain('Old blog（访问异常 · HTTP 404）');
+    expect(posts[0].body.text).toContain('https://nono.test/admin/links#bookmark-tools');
+
+    clock.now = new Date('2026-10-12T01:05:00Z');
+    await dispatcher.runLinkDigests();
+    expect(posts).toHaveLength(2);
+  });
+
+  it('records an empty week without sending, and skips channels created after the slot', async () => {
+    const clock = { now: new Date('2026-10-05T02:00:00Z') };
+    const { prisma, posts, dispatcher, listBrokenLinks } = setup(clock, []);
+    await digestChannel(prisma);
+    await digestChannel(prisma, new Date('2026-10-05T01:30:00Z'));
+
+    await dispatcher.runLinkDigests();
+    await dispatcher.runLinkDigests();
+    expect(posts).toHaveLength(0);
+    expect(listBrokenLinks).toHaveBeenCalledTimes(1);
+    expect(prisma.deliveries).toEqual([expect.objectContaining({ key: 'links-digest:2026-10-05T01:00:00.000Z', status: 'sent' })]);
+  });
+
+  it('keeps broken links out of the instant pushes of a digest channel', async () => {
+    const clock = { now: new Date('2026-10-06T02:00:00Z') };
+    const { prisma, posts, dispatcher } = setup(clock);
+    await digestChannel(prisma);
+    expect(await dispatcher.dispatchUser(admin)).toEqual({ sent: 0, failed: 0 });
+    expect(posts).toHaveLength(0);
+  });
+
+  it('can send the digest on demand', async () => {
+    const clock = { now: new Date('2026-10-06T02:00:00Z') };
+    const { prisma, posts, dispatcher } = setup(clock);
+    const channel = await digestChannel(prisma);
+    expect(await dispatcher.sendLinkDigest(channel, admin)).toMatchObject({ ok: true });
+    expect(posts).toHaveLength(1);
   });
 });

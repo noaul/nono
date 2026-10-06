@@ -15,6 +15,27 @@ import type { NotificationItem, NotificationService, NotificationSeverity, Notif
 /** Stop retrying a notification on a channel after this many failed pushes. */
 export const MAX_DELIVERY_ATTEMPTS = 3;
 const DIGEST_LINE_LIMIT = 20;
+const LINK_DIGEST_LINE_LIMIT = 30;
+/** Weekly broken-link digests go out on Monday at 09:00 Asia/Shanghai (UTC+8, no daylight saving). */
+const LINK_DIGEST_WEEKDAY = 1;
+const LINK_DIGEST_HOUR = 9;
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+export interface BrokenLink {
+  name: string;
+  url: string;
+  status: string;
+  statusCode?: number | null;
+  folderName?: string | null;
+}
+
+/** The most recent digest slot at or before `now`, as a UTC instant. */
+export function linkDigestSlot(now: Date) {
+  const local = new Date(now.getTime() + SHANGHAI_OFFSET_MS);
+  const daysSince = (local.getUTCDay() - LINK_DIGEST_WEEKDAY + 7) % 7;
+  const slot = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - daysSince, LINK_DIGEST_HOUR) - SHANGHAI_OFFSET_MS;
+  return new Date(slot > now.getTime() ? slot - 7 * 86_400_000 : slot);
+}
 /**
  * NoMoney and Yumi push their own reminders and outage alerts through `relay`, with their own lead
  * times and retry rules. Their in-app feed items are therefore never pushed a second time here.
@@ -48,6 +69,8 @@ export interface NotificationDispatcherOptions {
   readLegacyChannels?: (product: RelayProduct) => Promise<LegacyChannels | null>;
   /** SMTP settings the products used to read from the environment; they win over saved values. */
   legacySmtpEnv?: { host?: string; port?: string; user?: string; password?: string; from?: string; to?: string };
+  /** Links of a user whose last health check failed; feeds the weekly digest. */
+  listBrokenLinks?: (userId: number) => Promise<BrokenLink[]>;
   now?: () => Date;
 }
 
@@ -55,6 +78,9 @@ export interface NotificationDispatcher {
   relay(product: RelayProduct, message: ChannelMessage & { severity: NotificationSeverity }): Promise<ChannelResult[]>;
   dispatchUser(user: AuthUser): Promise<{ sent: number; failed: number }>;
   runDue(): Promise<void>;
+  /** Sends each opted-in channel the digest for the current weekly slot, once. */
+  runLinkDigests(): Promise<void>;
+  sendLinkDigest(channel: StoredChannel, user: Pick<AuthUser, 'id' | 'role'>): Promise<ChannelResult>;
   test(channel: StoredChannel, user: Pick<AuthUser, 'role'>): Promise<ChannelResult>;
   importLegacyChannels(): Promise<'imported' | 'skipped' | 'unavailable'>;
 }
@@ -106,6 +132,25 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
     };
   }
 
+  function linkDigest(links: BrokenLink[]): ChannelMessage {
+    const lines = links.slice(0, LINK_DIGEST_LINE_LIMIT).map((link) => {
+      const status = [link.status, link.statusCode ? `HTTP ${link.statusCode}` : ''].filter(Boolean).join(' · ');
+      return [`• ${link.name}（${status}）`, `  ${link.url}`, link.folderName ? `  文件夹：${link.folderName}` : ''].filter(Boolean).join('\n');
+    });
+    if (links.length > LINK_DIGEST_LINE_LIMIT) lines.push(`…以及另外 ${links.length - LINK_DIGEST_LINE_LIMIT} 个。`);
+    const manage = absolute('/admin/links#bookmark-tools');
+    return {
+      subject: `[NoNo] 失效链接周报：${links.length} 个链接无法访问`,
+      text: [`以下书签在最近一次健康检查中无法访问：`, ...lines, manage ? `在书签管理里修复或删除：${manage}` : ''].filter(Boolean).join('\n\n'),
+    };
+  }
+
+  async function sendLinkDigest(channel: StoredChannel, user: Pick<AuthUser, 'id' | 'role'>): Promise<ChannelResult> {
+    const links = options.listBrokenLinks ? await options.listBrokenLinks(user.id) : [];
+    if (!links.length) return { channelId: channel.id, name: channel.name, ok: true, skipped: true };
+    return send(channel, user, linkDigest(links));
+  }
+
   async function dispatchUser(user: AuthUser) {
     const channels = await prisma.notificationChannel.findMany({ where: { userId: user.id, enabled: true }, orderBy: { id: 'asc' } });
     if (!channels.length) return { sent: 0, failed: 0 };
@@ -124,7 +169,12 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
     let sent = 0;
     let failed = 0;
     for (const channel of channels) {
-      const pending = candidates.filter((item) => acceptsSeverity(channel, item.severity) && !done.has(`${channel.id}:${item.key}`));
+      // A channel on the weekly digest gets broken links only through that digest.
+      const pending = candidates.filter((item) => (
+        acceptsSeverity(channel, item.severity)
+        && !(channel.linkDigest && item.source === 'links')
+        && !done.has(`${channel.id}:${item.key}`)
+      ));
       if (!pending.length) continue;
       const result = await send(channel, user, digest(pending));
       for (const item of pending) await record(channel, item.key, item.source, item.title, result);
@@ -159,6 +209,28 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
     },
 
     dispatchUser,
+    sendLinkDigest,
+
+    async runLinkDigests() {
+      const slot = linkDigestSlot(now());
+      const key = `links-digest:${slot.toISOString()}`;
+      // Channels created after the slot wait for the next one instead of getting last week's digest.
+      const channels = await prisma.notificationChannel.findMany({ where: { enabled: true, linkDigest: true }, orderBy: { id: 'asc' } });
+      if (!channels.length) return;
+      const previous = await prisma.notificationDelivery.findMany({
+        where: { channelId: { in: channels.map((channel) => channel.id) }, key },
+        select: { channelId: true, status: true, attempts: true },
+      });
+      const done = new Set(previous.filter((entry) => entry.status === 'sent' || entry.attempts >= MAX_DELIVERY_ATTEMPTS).map((entry) => entry.channelId));
+      for (const channel of channels) {
+        if (done.has(channel.id) || channel.createdAt > slot) continue;
+        const user = await prisma.user.findUnique({ where: { id: channel.userId }, select: { id: true, role: true } });
+        if (!user) continue;
+        const result = await sendLinkDigest(channel, user as Pick<AuthUser, 'id' | 'role'>);
+        // An empty week is recorded too, so links breaking mid-week wait for the next Monday.
+        await record(channel, key, 'links', result.skipped ? '失效链接周报（无失效链接）' : '失效链接周报', result);
+      }
+    },
 
     async runDue() {
       const owners = await prisma.notificationChannel.findMany({ where: { enabled: true }, distinct: ['userId'], select: { userId: true } });

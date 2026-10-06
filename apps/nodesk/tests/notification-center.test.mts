@@ -14,7 +14,7 @@ test('the NoDesk settings center hosts the notification center with a deep link'
 	assert.match(settings, /<AmbientNotificationCenter \/>/)
 	assert.match(settings, /通知中心/)
 	assert.match(workbench, /requested === 'notifications'/)
-	for (const route of ['/api/admin/notifications?limit=100', '/api/admin/notification-channels', '/api/admin/notification-deliveries', '/test', '/api/admin/notifications/mark-all-read']) {
+	for (const route of ['/api/admin/notifications?limit=100', '/api/admin/notification-channels', '/api/admin/notification-deliveries', '/test', '/link-digest', '/api/admin/notifications/mark-all-read']) {
 		assert.ok(center.includes(route), `notification center calls ${route}`)
 	}
 })
@@ -24,8 +24,10 @@ test('channel drafts never echo stored secrets and keep them when left blank', (
 		id: 3, type: 'telegram', name: 'TG', enabled: true, minSeverity: 'critical',
 		config: { botToken: '', botTokenSet: true, chatId: '42' }, lastSuccessAt: null, lastError: null
 	})
-	assert.deepEqual(draft, { id: 3, type: 'telegram', name: 'TG', minSeverity: 'critical', config: { botToken: '', chatId: '42' }, secretsSet: { botToken: true } })
-	assert.deepEqual(channelPayload(draft), { name: 'TG', minSeverity: 'critical', config: { botToken: '', chatId: '42' } })
+	assert.deepEqual(draft, { id: 3, type: 'telegram', name: 'TG', minSeverity: 'critical', linkDigest: false, config: { botToken: '', chatId: '42' }, secretsSet: { botToken: true } })
+	assert.deepEqual(channelPayload(draft), { name: 'TG', minSeverity: 'critical', linkDigest: false, config: { botToken: '', chatId: '42' } })
+	assert.equal(channelPayload({ ...draft, linkDigest: true }).linkDigest, true)
+	assert.equal(channelDraftFromChannel({ id: 4, type: 'bark', name: 'B', enabled: true, minSeverity: 'warning', linkDigest: true, config: { url: '' }, lastSuccessAt: null, lastError: null }).linkDigest, true)
 })
 
 test('channel payloads trim values, default the name and omit an empty SMTP port', () => {
@@ -33,6 +35,7 @@ test('channel payloads trim values, default the name and omit an empty SMTP port
 	assert.deepEqual(channelPayload(email), {
 		name: CHANNEL_TYPES.email.label,
 		minSeverity: 'warning',
+		linkDigest: false,
 		config: { host: 'smtp.example.com', user: '', password: '', from: '', to: 'me@example.com' }
 	})
 	assert.equal(channelPayload({ ...email, config: { ...email.config, port: '465' } }).config.port, 465)

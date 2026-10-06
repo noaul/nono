@@ -1,4 +1,4 @@
-import type { LinkHealthStatus, LinkRecord } from './repository.js';
+import type { LinkHealthStatus, LinkRecord, Repository } from './repository.js';
 import { isIP } from 'node:net';
 import { isPublicAddress, requestSafeResource } from '../utils/safe-fetch.js';
 
@@ -155,4 +155,22 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, action:
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
   return results;
+}
+
+const BROKEN_STATUS_LABELS: Record<string, string> = { broken: '访问异常', timeout: '检测超时', invalid: '链接无效' };
+
+/** Links whose last health check failed, for the weekly digest; same filter as the in-app feed. */
+export async function listBrokenLinks(repo: Repository, userId: number) {
+  const [folders, links] = await Promise.all([repo.listFolders(userId), repo.listLinks(userId)]);
+  const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]));
+  return links
+    .filter((link) => link.healthCheckEnabled !== false && link.healthStatus && link.healthStatus in BROKEN_STATUS_LABELS && !shouldSkipLinkHealthCheck(link.url))
+    .sort((a, b) => (b.healthCheckedAt?.getTime() || 0) - (a.healthCheckedAt?.getTime() || 0) || a.id - b.id)
+    .map((link) => ({
+      name: link.name,
+      url: link.url,
+      status: BROKEN_STATUS_LABELS[link.healthStatus!],
+      statusCode: link.healthStatusCode ?? null,
+      folderName: folderNames.get(link.folderId) || null,
+    }));
 }

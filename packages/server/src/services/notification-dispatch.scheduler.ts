@@ -20,6 +20,7 @@ export function registerNotificationDispatchScheduler(app: FastifyInstance, serv
       try {
         await services.notificationDispatcher.importLegacyChannels();
         await services.notificationDispatcher.runDue();
+        await services.notificationDispatcher.runLinkDigests();
       } catch (error) {
         app.log.error({ err: error }, 'Scheduled notification dispatch failed');
       } finally {
