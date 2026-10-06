@@ -479,6 +479,8 @@ export const zh = {
     aNoMoneyHint: '进入个人财务页面',
   },
   tokens: {
+    lastUsed: '最后使用 {date}',
+    neverUsed: '从未使用',
     create: '创建 Token',
     name: '名称',
     scope: '权限',

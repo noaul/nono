@@ -393,7 +393,7 @@ onMounted(() => {
             <span class="security-row-icon"><KeyRound :size="17" /></span>
             <div class="security-row-main">
               <strong>{{ token.name }}</strong>
-              <small>{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt ? formatDate(token.expiresAt) : t('tokens.never') }}</small>
+              <small>{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt ? formatDate(token.expiresAt) : t('tokens.never') }} · <span data-testid="token-last-used">{{ token.lastUsedAt ? t('tokens.lastUsed', { date: formatDate(token.lastUsedAt) }) : t('tokens.neverUsed') }}</span></small>
             </div>
             <button class="icon-button danger" type="button" :title="t('tokens.revoke')" :aria-label="t('tokens.revoke')" @click="removeToken(token)"><Trash2 :size="16" /></button>
           </article>

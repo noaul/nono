@@ -144,6 +144,7 @@ function publicToken(token: ApiTokenRecord) {
     token: `${token.tokenPrefix}...`,
     scopes: token.scopes,
     expiresAt: token.expiresAt || null,
+    lastUsedAt: token.lastUsedAt || null,
     createdAt: token.createdAt,
   };
 }

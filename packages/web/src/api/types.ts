@@ -161,6 +161,7 @@ export interface ApiToken {
   token: string;
   scopes: string[];
   expiresAt?: string | null;
+  lastUsedAt?: string | null;
   createdAt: string;
 }
 

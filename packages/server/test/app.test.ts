@@ -349,6 +349,20 @@ describe('NoNo Fastify app', () => {
     await csrfApp.close();
   });
 
+  it('records when an API token was last used, at most every five minutes', async () => {
+    const cookie = await setupAdmin();
+    const created = (await app.inject({ method: 'POST', url: '/api/admin/tokens', headers: { cookie }, payload: { name: 'Extension' } })).json().data;
+    const listed = async () => (await app.inject({ method: 'GET', url: '/api/admin/tokens', headers: { cookie } })).json().data[0];
+    expect((await listed()).lastUsedAt).toBeNull();
+
+    const touch = vi.spyOn(repo, 'touchToken');
+    await app.inject({ method: 'GET', url: '/api/admin/folders', headers: { authorization: `Bearer ${created.token}` } });
+    await app.inject({ method: 'GET', url: '/api/admin/folders', headers: { authorization: `Bearer ${created.token}` } });
+
+    expect(touch).toHaveBeenCalledTimes(1);
+    expect((await listed()).lastUsedAt).not.toBeNull();
+  });
+
   it('rejects short and placeholder session secrets in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     const productionEncryptionKey = 'abcdef0123456789'.repeat(4);

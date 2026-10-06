@@ -120,6 +120,26 @@ describe('AccountView security controls', () => {
     expect(apiRequest.mock.calls.some(([url]) => url === '/api/admin/users' || url === '/api/admin/config')).toBe(false);
   });
 
+  it('shows when each API token was last used', async () => {
+    installDefaultApiMock();
+    const fallback = apiRequest.getMockImplementation()!;
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/tokens' && !options?.method) {
+        return [
+          { id: 1, name: 'Used', token: 'nono_a...', scopes: ['bookmarks:read'], expiresAt: null, lastUsedAt: '2026-10-01T02:00:00.000Z', createdAt: '2026-09-01T00:00:00.000Z' },
+          { id: 2, name: 'Idle', token: 'nono_b...', scopes: ['bookmarks:read'], expiresAt: null, lastUsedAt: null, createdAt: '2026-09-01T00:00:00.000Z' },
+        ];
+      }
+      return fallback(url, options);
+    });
+    const wrapper = mount(AccountView);
+    await settle();
+
+    const labels = wrapper.findAll('[data-testid="token-last-used"]').map((item) => item.text());
+    expect(labels[0]).toContain('最后使用');
+    expect(labels[1]).toBe('从未使用');
+  });
+
   it('shows passkeys and keeps login devices at the bottom of the sign-in security card', async () => {
     const wrapper = mount(AccountView);
     await settle();

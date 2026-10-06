@@ -477,6 +477,8 @@ export const en: Messages = {
     aNoMoneyHint: 'Open personal finances',
   },
   tokens: {
+    lastUsed: 'Last used {date}',
+    neverUsed: 'Never used',
     create: 'Create token',
     name: 'Name',
     scope: 'Scope',

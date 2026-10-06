@@ -10,6 +10,9 @@ export async function resolveUser(request: FastifyRequest, services: AppServices
     const record = await services.repo.findToken(bearer);
     if (record) {
       (request as any).authTokenScopes = record.scopes;
+      if (!record.lastUsedAt || record.lastUsedAt.getTime() < Date.now() - 5 * 60 * 1000) {
+        await services.repo.touchToken(record.id);
+      }
       return publicAuthUser(record.user);
     }
     return null;

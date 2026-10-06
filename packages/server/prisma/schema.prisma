@@ -333,7 +333,10 @@ model ApiToken {
   name        String
   scopes      String[]  @default(["bookmarks:read", "bookmarks:write", "ai:analyze"])
   expiresAt   DateTime?
+  lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model AppConfig {

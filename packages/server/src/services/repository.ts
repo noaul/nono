@@ -168,6 +168,7 @@ export interface ApiTokenRecord {
   name: string;
   scopes: string[];
   expiresAt?: Date | null;
+  lastUsedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -370,6 +371,8 @@ export interface Repository {
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
+  /** Records a use of the token; callers throttle, so this always writes. */
+  touchToken(id: number): Promise<void>;
   // Amends scopes in place. The stored secret is untouched, so a token with amended scopes does
   // not have to be reissued and reconfigured in the extension.
   updateTokenScopes(userId: number, id: number, scopes: string[]): Promise<ApiTokenRecord | null>;
@@ -912,6 +915,11 @@ export class MemoryRepository implements Repository {
     if (!record) return null;
     const user = await this.findUserById(record.userId);
     return user ? { ...record, user } : null;
+  }
+
+  async touchToken(id: number) {
+    const record = this.tokens.find((item) => item.id === id);
+    if (record) record.lastUsedAt = new Date();
   }
 
   async updateTokenScopes(userId: number, id: number, scopes: string[]) {

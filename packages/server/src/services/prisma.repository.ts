@@ -500,6 +500,9 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
         include: { user: true },
       })) as any;
     },
+    async touchToken(id) {
+      await prisma.apiToken.updateMany({ where: { id }, data: { lastUsedAt: new Date() } });
+    },
     async updateTokenScopes(userId, id, scopes) {
       // updateMany rather than update: it scopes by userId in the same statement, so another user's
       // token id cannot be reached.
