@@ -58,7 +58,7 @@ const navSections: NavSection[] = [
         labelKey: 'admin.navContentManagement',
         titleKey: 'admin.titleNotabs',
         icon: Layers,
-        matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/import', '/admin/trash'],
+        matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/reading', '/admin/import', '/admin/trash'],
       },
     ],
   },

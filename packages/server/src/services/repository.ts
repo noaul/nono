@@ -66,8 +66,25 @@ export interface LinkRecord {
   healthCheckedAt?: Date | null;
   clickCount?: number;
   lastClickedAt?: Date | null;
+  readLaterAt?: Date | null;
+  readAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type ReadingStatus = 'unread' | 'read';
+
+export interface ReadingListOptions {
+  status: ReadingStatus;
+  limit: number;
+  offset: number;
+}
+
+export interface ReadingListPage {
+  /** Unread: newest queued first. Read: most recently finished first. */
+  items: LinkRecord[];
+  total: number;
+  unread: number;
 }
 
 export interface LinkSearchOptions {
@@ -351,6 +368,7 @@ export interface Repository {
   listFolderLinks(userId: number, folderId: number): Promise<LinkRecord[]>;
   /** Oldest owned link whose URL equals the normalized `url` exactly (see duplicateUrlKey). */
   findLinkByUrl(userId: number, url: string): Promise<LinkRecord | null>;
+  listReadingLinks(userId: number, options: ReadingListOptions): Promise<ReadingListPage>;
   /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
   searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
@@ -746,6 +764,15 @@ export class MemoryRepository implements Repository {
       }))
       .sort((a, b) => b.score - a.score || (b.clickCount || 0) - (a.clickCount || 0) || a.id - b.id)
       .slice(0, options.limit);
+  }
+
+  async listReadingLinks(userId: number, options: ReadingListOptions) {
+    const queued = (await this.listLinks(userId)).filter((link) => link.readLaterAt);
+    const unreadLinks = queued.filter((link) => !link.readAt);
+    const matching = options.status === 'unread'
+      ? unreadLinks.sort((a, b) => b.readLaterAt!.getTime() - a.readLaterAt!.getTime() || b.id - a.id)
+      : queued.filter((link) => link.readAt).sort((a, b) => b.readAt!.getTime() - a.readAt!.getTime() || b.id - a.id);
+    return { items: matching.slice(options.offset, options.offset + options.limit), total: matching.length, unread: unreadLinks.length };
   }
 
   async createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>) {

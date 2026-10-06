@@ -74,6 +74,8 @@ export interface Link {
   healthCheckEnabled?: boolean;
   clickCount?: number;
   lastClickedAt?: string | null;
+  readLaterAt?: string | null;
+  readAt?: string | null;
   /** Set on a create response when the URL was already bookmarked and nothing was saved. */
   existing?: boolean;
 }
@@ -153,6 +155,14 @@ export interface TrashPage {
   items: TrashItem[];
   nextCursor: string | null;
   total: number;
+}
+
+export type ReadingStatus = 'unread' | 'read';
+
+export interface ReadingPage {
+  items: Array<Link & { folderPath: string[] }>;
+  total: number;
+  unread: number;
 }
 
 export interface ApiToken {

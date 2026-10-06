@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Bookmark, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
+import { Activity, Bookmark, BookmarkCheck, BookOpen, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
@@ -381,6 +381,21 @@ function cancelInlineEdit() {
 
 function selectInlineCategory() {
   inlineForm.folderId = preferredFolderId(inlineForm.categoryId);
+}
+
+function isQueued(link: Link) {
+  return Boolean(link.readLaterAt && !link.readAt);
+}
+
+async function toggleReadLater(link: Link) {
+  const queued = isQueued(link);
+  try {
+    const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, { method: 'PUT', body: jsonBody({ readLater: !queued }) });
+    links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved } : item));
+    notifySuccess(queued ? t('reading.removed') : t('reading.added'));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t('reading.updateFailed'));
+  }
 }
 
 async function saveInlineEdit(link: Link) {
@@ -886,6 +901,16 @@ onMounted(load);
                   <template v-else>
                     <button class="icon-button secondary" :data-testid="`edit-link-${link.id}`" :title="t('links.editInline')" @click="startInlineEdit(link)"><Pencil :size="16" /></button>
                     <a class="icon-button success" :href="link.url" :title="t('links.open')" target="_blank" rel="noreferrer"><Eye :size="16" /></a>
+                    <button
+                      class="icon-button"
+                      :class="isQueued(link) ? 'success' : 'secondary'"
+                      type="button"
+                      :data-testid="`read-later-${link.id}`"
+                      :title="isQueued(link) ? t('reading.remove') : t('reading.addAction')"
+                      :aria-label="isQueued(link) ? t('reading.remove') : t('reading.addAction')"
+                      :aria-pressed="isQueued(link)"
+                      @click="toggleReadLater(link)"
+                    ><BookmarkCheck v-if="isQueued(link)" :size="16" /><BookOpen v-else :size="16" /></button>
                     <button class="icon-button danger" :data-testid="`delete-link-${link.id}`" :title="t('common.delete')" :disabled="deletingIds.has(link.id)" @click="remove(link)"><Trash2 :size="16" /></button>
                   </template>
                 </template>

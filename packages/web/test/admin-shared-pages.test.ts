@@ -76,7 +76,7 @@ describe('shared admin page structure', () => {
     const source = readLayout();
 
     expect(source).toContain("labelKey: 'admin.navContentManagement'");
-    expect(source).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/import', '/admin/trash']");
+    expect(source).toContain("matches: ['/admin/notabs', '/admin/folders', '/admin/links', '/admin/reading', '/admin/import', '/admin/trash']");
     expect(source).not.toContain("labelKey: 'admin.navFolders'");
     expect(source).not.toContain("labelKey: 'admin.navLinks'");
   });

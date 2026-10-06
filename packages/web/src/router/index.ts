@@ -18,6 +18,7 @@ const AccountView = () => import('@/views/admin/AccountView.vue');
 const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
 const TrashView = () => import('@/views/admin/TrashView.vue');
+const ReadingView = () => import('@/views/admin/ReadingView.vue');
 const MobileCaptureView = () => import('@/views/mobile/MobileCaptureView.vue');
 
 export const router = createRouter({
@@ -50,6 +51,7 @@ export const router = createRouter({
         { path: '/admin/users', redirect: '/admin/account' },
         { path: '/admin/account', component: AccountView, meta: { titleKey: 'admin.titleAccount' } },
         { path: '/admin/trash', component: TrashView, meta: { titleKey: 'admin.titleTrash' } },
+        { path: '/admin/reading', component: ReadingView, meta: { titleKey: 'admin.titleReading' } },
         { path: '/admin/llm', redirect: '/admin/account#llm' },
         { path: '/admin/tokens', redirect: '/admin/account#api-tokens' },
         { path: '/admin/notifications', component: NotificationsView, meta: { titleKey: 'admin.titleNotifications' } },

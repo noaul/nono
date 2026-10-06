@@ -130,6 +130,8 @@ function createNonoAdapter(prisma: PrismaClient, now: () => Date): BackupModuleA
             healthCheckedAt: dateOrNull(link.healthCheckedAt),
             clickCount: integer(link.clickCount),
             lastClickedAt: dateOrNull(link.lastClickedAt),
+            readLaterAt: dateOrNull(link.readLaterAt),
+            readAt: dateOrNull(link.readAt),
           } });
         }
       });

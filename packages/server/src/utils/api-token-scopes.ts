@@ -21,7 +21,7 @@ export const DEFAULT_API_TOKEN_SCOPES: ApiTokenScope[] = [
 
 export function requiredApiTokenScope(request: FastifyRequest): ApiTokenScope {
   const pathname = request.url.split('?', 1)[0];
-  if (request.method === 'GET' && (pathname === '/api/admin/folders' || pathname === '/api/admin/links')) {
+  if (request.method === 'GET' && (pathname === '/api/admin/folders' || pathname === '/api/admin/links' || pathname === '/api/admin/reading')) {
     return 'bookmarks:read';
   }
   if (pathname === '/api/admin/links' || pathname.startsWith('/api/admin/links/')) {

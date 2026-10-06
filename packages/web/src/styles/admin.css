@@ -756,8 +756,8 @@
 
 .bookmark-table .admin-table-head,
 .bookmark-table .admin-table-row {
-  grid-template-columns: 44px 40px minmax(130px, 0.8fr) minmax(220px, 1.5fr) 130px 120px 104px 124px;
-  min-width: 1040px;
+  grid-template-columns: 44px 40px minmax(130px, 0.8fr) minmax(220px, 1.5fr) 130px 120px 104px 162px;
+  min-width: 1078px;
 }
 
 .row-subtitle {
