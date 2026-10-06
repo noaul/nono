@@ -14,6 +14,7 @@ describe('bookmark-only extension', () => {
       storage: { local: { get: async () => ({}) }, onChanged: { addListener() {} } },
       contextMenus: { onClicked: { addListener() {} }, removeAll: async () => menus.clear(), create: item => menus.set(item.id, item) },
       commands: { onCommand: { addListener() {} } },
+      tabs: { onActivated: { addListener() {} }, onUpdated: { addListener() {} } },
       i18n: { getUILanguage: () => 'en' },
     });
     await import('../background.js');

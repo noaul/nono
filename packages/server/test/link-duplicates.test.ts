@@ -118,3 +118,23 @@ describe('POST /api/admin/links duplicate detection', () => {
     });
   });
 });
+
+describe('bookmark lookup for the extension badge', () => {
+  let lookupApp: FastifyInstance;
+  afterEach(async () => lookupApp?.close());
+
+  it('answers whether a URL is saved, with its folder path, for a read-only token', async () => {
+    lookupApp = await buildApp({ repo: new MemoryRepository(false), sessionSecret: 'test-session-secret-that-is-long-enough', encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' } as any);
+    const setup = await lookupApp.inject({ method: 'POST', url: '/api/auth/setup', payload: { username: 'admin', email: 'a@nono.test', displayName: 'Admin', password: 'Password2026!' } });
+    const cookie = String(setup.headers['set-cookie']).split(';', 1)[0];
+    const parent = (await lookupApp.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Work' } })).json().data.id;
+    const child = (await lookupApp.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Docs', parentId: parent } })).json().data.id;
+    await lookupApp.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: child, name: 'MDN', url: 'https://developer.mozilla.org/Web', tags: ['web'] } });
+    const token = (await lookupApp.inject({ method: 'POST', url: '/api/admin/tokens', headers: { cookie }, payload: { name: 'Ext', scopes: ['bookmarks:read'] } })).json().data.token;
+    const lookup = async (url: string) => (await lookupApp.inject({ method: 'POST', url: '/api/admin/links/lookup', headers: { authorization: `Bearer ${token}` }, payload: { url } })).json();
+
+    expect((await lookup('https://DEVELOPER.mozilla.org/Web')).data).toMatchObject({ saved: true, link: { name: 'MDN', folderPath: ['Work', 'Docs'], tags: ['web'] } });
+    expect((await lookup('https://developer.mozilla.org/web')).data).toEqual({ saved: false });
+    expect((await lookup('not a url')).data).toEqual({ saved: false });
+  });
+});

@@ -24,6 +24,8 @@ export function requiredApiTokenScope(request: FastifyRequest): ApiTokenScope {
   if (request.method === 'GET' && (pathname === '/api/admin/folders' || pathname === '/api/admin/links' || pathname === '/api/admin/reading')) {
     return 'bookmarks:read';
   }
+  // A lookup only reads; it is a POST so the visited page's URL stays out of request logs.
+  if (request.method === 'POST' && pathname === '/api/admin/links/lookup') return 'bookmarks:read';
   if (pathname === '/api/admin/links' || pathname.startsWith('/api/admin/links/')) {
     return request.method === 'GET' ? 'bookmarks:read' : 'bookmarks:write';
   }

@@ -13,6 +13,7 @@ import {
 import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
 import { LAST_QUICK_SAVE_KEY, recentQuickSave } from '../shared/quick-save.js';
 import { connectionDraft, persistConnectionDraft } from '../shared/settings-draft.js';
+import { SAVED_BADGE_KEY } from '../shared/saved-badge.js';
 
 const languageSelect = document.querySelector('#languageSelect');
 const settingsPanel = document.querySelector('#settings');
@@ -38,6 +39,8 @@ const analyzeButton = document.querySelector('#analyzeBookmark');
 const refreshFoldersButton = document.querySelector('#refreshFolders');
 const toggleDetailsButton = document.querySelector('#toggleDetails');
 const versionLabel = document.querySelector('#versionLabel');
+const savedBadgeInput = document.querySelector('#savedBadge');
+const readLaterInput = document.querySelector('#readLater');
 
 let config = {};
 let pageInfo = null;
@@ -62,6 +65,7 @@ categorySelect.addEventListener('change', () => renderFolderOptions());
 languageSelect?.addEventListener('change', () => changeLanguage(languageSelect.value));
 serverUrlInput.addEventListener('input', scheduleDraftSave);
 tokenInput.addEventListener('input', scheduleDraftSave);
+savedBadgeInput.addEventListener('change', () => void changeSavedBadge(savedBadgeInput.checked));
 nameInput.addEventListener('input', () => {
   nameMode = 'manual';
   if (pageInfo) renderPagePreview();
@@ -82,6 +86,21 @@ function applyTranslations() {
   renderDuplicateWarning();
 }
 
+// The badge needs to read tab URLs in the background, so the "tabs" permission is asked for only here.
+async function changeSavedBadge(enabled) {
+  if (enabled) {
+    const granted = await chrome.permissions.request({ permissions: ['tabs'] }).catch(() => false);
+    if (!granted) {
+      savedBadgeInput.checked = false;
+      setTokenStatus(t('savedBadgeDenied'), 'error');
+      return;
+    }
+  } else {
+    await chrome.permissions.remove({ permissions: ['tabs'] }).catch(() => false);
+  }
+  await chrome.storage.local.set({ [SAVED_BADGE_KEY]: enabled });
+}
+
 async function changeLanguage(next) {
   setLocale(next);
   try {
@@ -94,7 +113,8 @@ async function changeLanguage(next) {
 
 async function init() {
   try {
-    config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId', LOCALE_STORAGE_KEY]);
+    config = await chrome.storage.local.get(['serverUrl', 'token', 'lastFolderId', LOCALE_STORAGE_KEY, SAVED_BADGE_KEY]);
+    savedBadgeInput.checked = Boolean(config[SAVED_BADGE_KEY]) && await chrome.permissions.contains({ permissions: ['tabs'] });
     const stored = config[LOCALE_STORAGE_KEY];
     setLocale(isLocale(stored) ? stored : localeFromUiLanguage(chrome.i18n?.getUILanguage?.()) || 'zh');
     applyTranslations();
@@ -279,7 +299,7 @@ async function saveBookmark() {
   setBusy(saveButton, true, t('saving'));
   try {
     // The duplicate warning is showing, so pressing save means "save another copy".
-    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value, allowDuplicate: Boolean(duplicateLink) });
+    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value, allowDuplicate: Boolean(duplicateLink), readLater: readLaterInput.checked });
     const { existing, ...saved } = await request('/api/admin/links', payload);
     await rememberFolder(folderId);
     if (!links.some((link) => String(link.id) === String(saved.id))) links = [saved, ...links];

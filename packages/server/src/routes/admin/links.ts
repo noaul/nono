@@ -49,6 +49,8 @@ const tagRenameSchema = z.object({
 
 const tagParamSchema = z.object({ name: z.string().trim().min(1).max(200) });
 
+const lookupSchema = z.object({ url: z.string().trim().min(1).max(4096) });
+
 const readingListSchema = z.object({
   status: z.enum(['unread', 'read']).optional().default('unread'),
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
@@ -127,6 +129,35 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     }
     setAuditContext(request, { action: 'delete', resourceType: 'tag', resourceId: name, resourceLabel: name, details: { links: affected.length } });
     return sendOk(reply, { removed: affected.length });
+  });
+
+  // "Is this page bookmarked?" for the browser extension's toolbar badge.
+  app.post('/api/admin/links/lookup', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    setAuditContext(request, { skip: true });
+    const { url: raw } = lookupSchema.parse(request.body);
+    let url: string;
+    try {
+      url = normalizeUrl(raw);
+    } catch {
+      return sendOk(reply, { saved: false });
+    }
+    const link = await services.repo.findLinkByUrl(user.id, url);
+    if (!link) return sendOk(reply, { saved: false });
+    const folders = await services.repo.listFolders(user.id);
+    return sendOk(reply, {
+      saved: true,
+      link: {
+        id: link.id,
+        name: link.name,
+        folderId: link.folderId,
+        folderPath: folderPath(new Map(folders.map((folder) => [folder.id, folder])), link.folderId),
+        tags: link.tags || [],
+        readLaterAt: link.readLaterAt || null,
+        readAt: link.readAt || null,
+      },
+    });
   });
 
   app.get('/api/admin/links', async (request, reply) => {

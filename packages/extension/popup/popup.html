@@ -55,6 +55,11 @@
           </select>
         </label>
 
+        <label class="toggle-row">
+          <input id="savedBadge" type="checkbox" />
+          <span data-i18n="savedBadge">在图标上标记已收藏的网页</span>
+        </label>
+
         <div class="connection-note">
           <span class="status-dot" aria-hidden="true"></span>
           <p id="tokenStatus" data-i18n="tokenHint">填入后台创建的 API Token。</p>
@@ -107,6 +112,10 @@
             <button id="saveBookmark" class="primary-save" type="button" data-i18n="saveThisPage">收藏此页</button>
             <button id="toggleDetails" class="secondary-button edit-button" type="button" aria-expanded="false" data-i18n="edit">编辑</button>
           </div>
+          <label class="toggle-row read-later-row">
+            <input id="readLater" type="checkbox" />
+            <span data-i18n="readLater">加入稍后阅读</span>
+          </label>
 
           <section id="details" class="details panel hidden">
             <div class="section-heading compact">

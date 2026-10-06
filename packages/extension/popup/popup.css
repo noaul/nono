@@ -478,6 +478,26 @@ textarea {
   width: 8px;
 }
 
+.toggle-row {
+  align-items: center;
+  color: var(--ui-text);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.toggle-row input {
+  accent-color: var(--ui-accent);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.read-later-row {
+  color: var(--ui-text-subtle);
+}
+
 .privacy-note {
   color: var(--ui-text-subtle);
   font-size: 11px;

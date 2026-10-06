@@ -14,9 +14,12 @@ const unpacked = path.join(artifacts, `nono-quick-bookmark-chrome-v${manifest.ve
 afterAll(() => rm(artifacts, { recursive: true, force: true }));
 
 describe('extension release package', () => {
-  it('builds the requested 0.4.3 release instead of republishing the retired 0.4.2 package', () => {
-    expect(packageJson.version).toBe('0.4.3');
-    expect(manifest.version).toBe('0.4.3');
+  it('builds the 0.5.0 release with the opt-in saved-page badge', () => {
+    expect(packageJson.version).toBe('0.5.0');
+    expect(manifest.version).toBe('0.5.0');
+    // Reading tab URLs in the background is opt-in: requested only when the badge is switched on.
+    expect(manifest.permissions).not.toContain('tabs');
+    expect(manifest.optional_permissions).toEqual(['tabs']);
   });
 
   it('keeps background context menus in sync with the saved locale', async () => {

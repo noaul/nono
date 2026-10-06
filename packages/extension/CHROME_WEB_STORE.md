@@ -94,13 +94,19 @@ Injects the packaged local metadata extractor into the active tab only after a u
 **storage**
 
 ```text
-Stores the user-configured NoNo server URL, API token, UI language, and last selected folder in Chrome extension local storage.
+Stores the user-configured NoNo server URL, API token, UI language, last selected folder and the saved-page badge setting in Chrome extension local storage.
 ```
 
 **contextMenus**
 
 ```text
 Adds user-invoked menu commands for saving to the last folder or opening the full quick-save popup.
+```
+
+**Optional tabs permission**
+
+```text
+Requested only when the user turns on "Mark already saved pages on the icon" in the extension settings, and removed when it is turned off. It lets the background worker read the active tab's URL when the user switches tabs or navigates, send it to the user's own NoNo server, and show a check mark on the toolbar icon if that page is already bookmarked.
 ```
 
 **Optional host access**
@@ -113,7 +119,7 @@ Requested only for the exact self-hosted NoNo origin entered by the user, so the
 
 Declare these handled data types:
 
-- `Web history`: current page URL and domain, only after a user-initiated save.
+- `Web history`: current page URL and domain, after a user-initiated save; and, only if the user turns on the saved-page badge, the active tab's URL on tab switches and navigation, sent solely to the user's own NoNo server to check whether it is bookmarked.
 - `Website content`: page title, meta/Open Graph fields, and up to 500 characters of page text.
 - `Authentication information`: the NoNo API Token stored locally and sent only to the configured NoNo service.
 
