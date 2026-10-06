@@ -6,7 +6,7 @@ import { sendOk } from '../../plugins/responses.js';
 import { duplicateUrlKey, normalizeUrl } from '../../services/bookmark.service.js';
 import { shortenBookmarkName } from '../../services/bookmark-name.service.js';
 import { checkLinksHealth, shouldSkipLinkHealthCheck } from '../../services/link-health.service.js';
-import type { FolderRecord, LinkRecord } from '../../services/repository.js';
+import { normalizeTags, type FolderRecord, type LinkRecord } from '../../services/repository.js';
 import { createSortOrder } from '../../utils/sort-order.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { numericParam } from '../../utils/route-params.js';
@@ -24,6 +24,7 @@ const linkUpdateSchema = z.object({
   readLater: z.boolean().optional(),
   /** Marks a link read or unread; marking read also queues a link that was never queued. */
   read: z.boolean().optional(),
+  tags: z.array(z.string().max(200)).max(100).optional(),
 });
 
 const linkCreateSchema = z.object({
@@ -38,7 +39,15 @@ const linkCreateSchema = z.object({
   allowDuplicate: z.boolean().optional().default(false),
   /** Queue the bookmark for reading later; an existing bookmark for the URL is queued instead. */
   readLater: z.boolean().optional().default(false),
+  tags: z.array(z.string().max(200)).max(100).optional().default([]),
 });
+
+const tagRenameSchema = z.object({
+  from: z.string().trim().min(1).max(200),
+  to: z.string().max(200),
+});
+
+const tagParamSchema = z.object({ name: z.string().trim().min(1).max(200) });
 
 const readingListSchema = z.object({
   status: z.enum(['unread', 'read']).optional().default('unread'),
@@ -87,6 +96,39 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, { ...page, items: page.items.map((link) => ({ ...link, folderPath: folderPath(byId, link.folderId) })) });
   });
 
+  app.get('/api/admin/tags', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    return sendOk(reply, await services.repo.listTags(user.id));
+  });
+
+  // Renaming onto a tag a link already has merges the two on that link.
+  app.put('/api/admin/tags/rename', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const input = tagRenameSchema.parse(request.body);
+    const [to] = normalizeTags([input.to]);
+    if (!to) throw Object.assign(new Error('Tag name is required'), { statusCode: 400 });
+    const affected = await services.repo.listLinksWithTag(user.id, input.from);
+    for (const link of affected) {
+      await services.repo.updateLink(user.id, link.id, { tags: normalizeTags((link.tags || []).map((tag) => (tag === input.from ? to : tag))) });
+    }
+    setAuditContext(request, { action: 'update', resourceType: 'tag', resourceId: input.from, resourceLabel: to, details: { from: input.from, to, links: affected.length } });
+    return sendOk(reply, { renamed: affected.length, name: to });
+  });
+
+  app.delete('/api/admin/tags/:name', async (request, reply) => {
+    const user = await requireAuth(request, reply, services);
+    if (!user) return;
+    const { name } = tagParamSchema.parse(request.params);
+    const affected = await services.repo.listLinksWithTag(user.id, name);
+    for (const link of affected) {
+      await services.repo.updateLink(user.id, link.id, { tags: (link.tags || []).filter((tag) => tag !== name) });
+    }
+    setAuditContext(request, { action: 'delete', resourceType: 'tag', resourceId: name, resourceLabel: name, details: { links: affected.length } });
+    return sendOk(reply, { removed: affected.length });
+  });
+
   app.get('/api/admin/links', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
@@ -120,6 +162,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
       sortOrder: Number(body.sortOrder || createSortOrder()),
       healthCheckEnabled: !shouldSkipLinkHealthCheck(url),
       readLaterAt: body.readLater ? new Date() : null,
+      tags: normalizeTags(body.tags),
     });
     setAuditContext(request, { action: 'create', resourceType: 'bookmark', resourceId: created.id, resourceLabel: created.name, details: { after: linkAuditSnapshot(created) } });
     return sendOk(reply, created);
@@ -247,8 +290,9 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.put('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const { readLater, read, ...fields } = linkUpdateSchema.parse(request.body);
+    const { readLater, read, tags, ...fields } = linkUpdateSchema.parse(request.body);
     const body: Partial<LinkRecord> = fields;
+    if (tags) body.tags = normalizeTags(tags);
     const linkId = numericParam(request);
     const current = await services.repo.getLink(user.id, linkId);
     if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
@@ -332,6 +376,7 @@ function linkAuditSnapshot(link: LinkRecord) {
     description: link.description || '',
     sortOrder: link.sortOrder,
     healthCheckEnabled: link.healthCheckEnabled !== false,
+    tags: link.tags || [],
   };
 }
 

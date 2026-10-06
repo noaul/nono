@@ -27,6 +27,9 @@ export function requiredApiTokenScope(request: FastifyRequest): ApiTokenScope {
   if (pathname === '/api/admin/links' || pathname.startsWith('/api/admin/links/')) {
     return request.method === 'GET' ? 'bookmarks:read' : 'bookmarks:write';
   }
+  if (pathname === '/api/admin/tags' || pathname.startsWith('/api/admin/tags/')) {
+    return request.method === 'GET' ? 'bookmarks:read' : 'bookmarks:write';
+  }
   if (request.method === 'POST' && pathname === '/api/ai/analyze') return 'ai:analyze';
   return '*';
 }

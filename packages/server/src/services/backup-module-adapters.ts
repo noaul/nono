@@ -6,6 +6,7 @@ import type { AppServices } from '../types.js';
 import { exportNoStarData, importNoStarData } from '../routes/nostar/sync-service.js';
 import { removeBackupDirectory, replaceBackupDirectoryContents, runBackupCommand, type BackupCommandRunner } from './backup.service.js';
 import type { BackupModule, BackupModuleAdapter } from './backup-center.service.js';
+import { normalizeTags } from './repository.js';
 
 const NONO_KIND = 'nono.core-backup';
 const NOSTAR_KIND = 'nono.nostar-backup';
@@ -132,6 +133,7 @@ function createNonoAdapter(prisma: PrismaClient, now: () => Date): BackupModuleA
             lastClickedAt: dateOrNull(link.lastClickedAt),
             readLaterAt: dateOrNull(link.readLaterAt),
             readAt: dateOrNull(link.readAt),
+            tags: Array.isArray(link.tags) ? normalizeTags(link.tags.map(String)) : [],
           } });
         }
       });

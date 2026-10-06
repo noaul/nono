@@ -284,6 +284,8 @@ model Link {
   /// Queued for reading later; the reading inbox lists links with this set and readAt unset.
   readLaterAt      DateTime?
   readAt           DateTime?
+  /// Free-form labels that cut across folders; kept on the row so trash and backups carry them.
+  tags             String[]  @default([])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -293,6 +295,7 @@ model Link {
   @@index([healthCheckedAt])
   @@index([clickCount, lastClickedAt])
   @@index([readLaterAt])
+  @@index([tags], type: Gin)
   // Hash, not btree: duplicate checks only need equality, and a btree entry has a size limit long URLs can exceed.
   @@index([url], type: Hash)
 }

@@ -107,6 +107,37 @@ try {
     }
     console.log('PASS real database setup, cookie auth, tenant isolation, bookmark trash/restore, token scopes and retired APIs');
 
+    {
+      const folderId = folderResponse.json().data.id;
+      const save = async (payload: Record<string, unknown>) => {
+        const response = await app.inject({ method: 'POST', url: '/api/admin/links', headers, payload: { folderId, ...payload } });
+        assert.equal(response.statusCode, 200, response.body);
+        return response.json().data;
+      };
+      const upper = await save({ name: 'Upper', url: 'https://example.test/Case', tags: ['Rust', 'rust', ' Reading '], readLater: true });
+      assert.deepEqual(upper.tags, ['Rust', 'Reading']);
+      const lower = await save({ name: 'Lower', url: 'https://example.test/case', tags: ['Rust'] });
+      assert.notEqual(lower.id, upper.id, 'path case makes a different bookmark');
+      assert.equal((await save({ name: 'Again', url: 'https://EXAMPLE.test/Case' })).id, upper.id, 'host case does not');
+      const tags = (await app.inject({ method: 'GET', url: '/api/admin/tags', headers })).json().data;
+      assert.deepEqual(tags, [{ name: 'Rust', count: 2 }, { name: 'Reading', count: 1 }]);
+      const renamed = await app.inject({ method: 'PUT', url: '/api/admin/tags/rename', headers, payload: { from: 'Rust', to: 'Reading' } });
+      assert.equal(renamed.json().data.renamed, 2);
+      assert.deepEqual((await prisma.link.findUniqueOrThrow({ where: { id: upper.id } })).tags, ['Reading'], 'rename merges into an existing tag');
+      const reading = (await app.inject({ method: 'GET', url: '/api/admin/reading', headers })).json().data;
+      assert.deepEqual([reading.total, reading.unread, reading.items[0].id], [1, 1, upper.id]);
+      await app.inject({ method: 'DELETE', url: `/api/admin/links/${upper.id}`, headers });
+      const trashed = (await app.inject({ method: 'GET', url: '/api/admin/trash', headers })).json().data.items[0];
+      assert.equal((await app.inject({ method: 'POST', url: `/api/admin/trash/${trashed.id}/restore`, headers })).statusCode, 200);
+      const back = await prisma.link.findUniqueOrThrow({ where: { id: upper.id } });
+      assert.deepEqual(back.tags, ['Reading']);
+      assert.ok(back.readLaterAt instanceof Date, 'reading state survives trash');
+      const bearer = token.json().data.token;
+      assert.equal((await app.inject({ method: 'GET', url: '/api/admin/tags', headers: { authorization: `Bearer ${bearer}` } })).statusCode, 200);
+      assert.ok((await prisma.apiToken.findFirstOrThrow({ where: { id: token.json().data.id } })).lastUsedAt);
+    }
+    console.log('PASS tags, reading inbox, exact URL duplicates and token last-used on PostgreSQL');
+
     // Import runs as one transaction with createMany batches; prove it against real PostgreSQL.
     const before = { folders: await prisma.folder.count(), links: await prisma.link.count() };
     const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>

@@ -40,6 +40,36 @@ describe('LinksView admin workflow', () => {
     apiRequest.mockReset();
   });
 
+  it('filters by tag across folders and edits a bookmark’s tags inline', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工具', sortOrder: 100 },
+        { id: 2, userId: 1, name: '文档', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'GitHub', url: 'https://github.com/', sortOrder: 100, tags: ['dev'] },
+        { id: 11, folderId: 1, name: 'MDN', url: 'https://developer.mozilla.org/', sortOrder: 90 },
+        { id: 12, folderId: 2, name: 'Vue', url: 'https://vuejs.org/', sortOrder: 80, tags: ['dev', 'frontend'] },
+      ]);
+    const wrapper = mountLinksView();
+    await settle(wrapper);
+
+    expect(wrapper.get('[data-testid="tag-filter-dev"]').text()).toContain('2');
+    await wrapper.get('[data-testid="tag-filter-dev"]').trigger('click');
+    expect(wrapper.text()).toContain('Vue');
+    expect(wrapper.text()).toContain('GitHub');
+    expect(wrapper.find('[data-testid="link-name-11"]').exists()).toBe(false);
+
+    apiRequest.mockResolvedValueOnce({ id: 10, folderId: 1, name: 'GitHub', url: 'https://github.com/', sortOrder: 100, tags: ['dev', 'git'] });
+    await wrapper.get('[data-testid="edit-link-10"]').trigger('click');
+    await wrapper.get('[data-testid="inline-link-tags-10"]').setValue('dev，git');
+    await wrapper.get('[data-testid="save-inline-link-10"]').trigger('click');
+    await settle(wrapper);
+
+    expect(JSON.parse(apiRequest.mock.calls.at(-1)![1].body).tags).toEqual(['dev', 'git']);
+    expect(wrapper.find('[data-testid="tag-filter-git"]').exists()).toBe(true);
+  });
+
   it('shows the active folder and searches across every folder', async () => {
     apiRequest
       .mockResolvedValueOnce([
@@ -324,6 +354,7 @@ describe('LinksView admin workflow', () => {
         name: 'GitHub Home',
         url: 'https://github.com/home',
         folderId: 4,
+        tags: [],
       }),
     });
 

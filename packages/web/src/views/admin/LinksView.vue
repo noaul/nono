@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Bookmark, BookmarkCheck, BookOpen, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
+import { Activity, Bookmark, BookmarkCheck, BookOpen, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Tag, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
@@ -45,7 +45,11 @@ const isBulkWorking = ref(false);
 const isLoadingDuplicates = ref(false);
 const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
-const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0 });
+const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0, tags: '' });
+const selectedTag = ref('');
+const renamingTag = ref(false);
+const tagRenameDraft = ref('');
+const isSavingTag = ref(false);
 const folderEditorOpen = ref(false);
 const isCreatingFolder = ref(false);
 const isSavingFolder = ref(false);
@@ -122,17 +126,88 @@ watch(searchTerm, (value) => {
     }
   }, 200);
 });
-const filteredLinks = computed(() => {
+const tagCounts = computed(() => {
+  const counts = new Map<string, number>();
+  for (const link of links.value) for (const tag of link.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+  return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+});
+const searchedLinks = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
-  if (sortMode.value) return draftLinkIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link));
-  if (!query) return activeFolderLinks.value;
+  if (!query) return null;
   if (searchHitIds.value) return searchHitIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link));
   const terms = query.split(/\s+/);
   return links.value.filter((link) => {
-    const haystack = [link.name, link.url, link.description || ''].join(' ').toLowerCase();
+    const haystack = [link.name, link.url, link.description || '', ...(link.tags || [])].join(' ').toLowerCase();
     return terms.every((term) => haystack.includes(term));
   });
 });
+// Like a search, a tag filter spans every folder; the two narrow each other when both are set.
+const filteredLinks = computed(() => {
+  if (sortMode.value) return draftLinkIds.value.map((id) => linkById.value.get(id)).filter((link): link is Link => Boolean(link));
+  const tag = selectedTag.value;
+  if (!tag) return searchedLinks.value || activeFolderLinks.value;
+  return (searchedLinks.value || [...links.value].sort((a, b) => b.sortOrder - a.sortOrder || a.id - b.id))
+    .filter((link) => link.tags?.includes(tag));
+});
+
+function parseTags(value: string) {
+  return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
+}
+
+function selectTag(name: string) {
+  selectedTag.value = selectedTag.value === name ? '' : name;
+  renamingTag.value = false;
+}
+
+function startTagRename() {
+  tagRenameDraft.value = selectedTag.value;
+  renamingTag.value = true;
+}
+
+async function saveTagRename() {
+  const from = selectedTag.value;
+  const to = tagRenameDraft.value.trim();
+  if (!from || !to || isSavingTag.value) return;
+  if (to === from) {
+    renamingTag.value = false;
+    return;
+  }
+  isSavingTag.value = true;
+  try {
+    const result = await apiRequest<{ renamed: number; name: string }>('/api/admin/tags/rename', { method: 'PUT', body: jsonBody({ from, to }) });
+    links.value = links.value.map((link) => {
+      if (!link.tags?.includes(from)) return link;
+      const tags: string[] = [];
+      for (const tag of link.tags.map((item) => (item === from ? result.name : item))) if (!tags.some((item) => item.toLowerCase() === tag.toLowerCase())) tags.push(tag);
+      return { ...link, tags };
+    });
+    selectedTag.value = result.name;
+    renamingTag.value = false;
+    notifySuccess(t('tags.renamed', { count: result.renamed }));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t('tags.failed'));
+  } finally {
+    isSavingTag.value = false;
+  }
+}
+
+async function deleteSelectedTag() {
+  const name = selectedTag.value;
+  if (!name || isSavingTag.value) return;
+  const confirmed = await confirmApi.confirm({ title: t('tags.delete'), message: t('tags.deleteConfirm', { name }), confirmText: t('common.delete'), tone: 'danger' });
+  if (!confirmed) return;
+  isSavingTag.value = true;
+  try {
+    await apiRequest(`/api/admin/tags/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    links.value = links.value.map((link) => (link.tags?.includes(name) ? { ...link, tags: link.tags.filter((tag) => tag !== name) } : link));
+    selectedTag.value = '';
+    notifySuccess(t('tags.deleted'));
+  } catch (event) {
+    notifyError(event instanceof Error ? event.message : t('tags.failed'));
+  } finally {
+    isSavingTag.value = false;
+  }
+}
 
 function folderTree(rootId: number) {
   const result: Folder[] = [];
@@ -370,6 +445,7 @@ function startInlineEdit(link: Link) {
     url: link.url,
     categoryId: categoryIdForFolder(link.folderId),
     folderId: link.folderId,
+    tags: (link.tags || []).join(', '),
   });
   editingLinkId.value = link.id;
   stopSorting();
@@ -405,6 +481,7 @@ async function saveInlineEdit(link: Link) {
       name: inlineForm.name.trim(),
       url: inlineForm.url.trim(),
       folderId: inlineForm.folderId,
+      tags: parseTags(inlineForm.tags),
     };
     const saved = await apiRequest<Link>(`/api/admin/links/${link.id}`, { method: 'PUT', body: jsonBody(payload) });
     links.value = links.value.map((item) => (item.id === link.id ? { ...item, ...saved } : item));
@@ -791,6 +868,33 @@ onMounted(load);
         <div class="admin-section-head">
           <h2><Bookmark :size="18" /> {{ t('links.list') }}</h2>
         </div>
+        <div v-if="tagCounts.length && !sortMode" class="tag-filter-bar" data-testid="tag-filter-bar">
+          <span class="management-filter-label"><Tag :size="14" /> {{ t('links.tags') }}</span>
+          <div class="tag-filter-chips">
+            <button
+              v-for="tag in tagCounts"
+              :key="tag.name"
+              class="link-tag"
+              :class="{ active: tag.name === selectedTag }"
+              :aria-pressed="tag.name === selectedTag"
+              :data-testid="`tag-filter-${tag.name}`"
+              type="button"
+              @click="selectTag(tag.name)"
+            >#{{ tag.name }} <small>{{ tag.count }}</small></button>
+          </div>
+          <div v-if="selectedTag" class="tag-filter-actions">
+            <template v-if="renamingTag">
+              <input v-model="tagRenameDraft" class="tag-rename-input" data-testid="tag-rename-input" maxlength="32" :aria-label="t('tags.rename')" @keydown.enter.prevent="saveTagRename" />
+              <button class="icon-button success" type="button" data-testid="save-tag-rename" :title="t('common.save')" :disabled="isSavingTag" @click="saveTagRename"><Save :size="15" /></button>
+              <button class="icon-button secondary" type="button" :title="t('common.cancel')" @click="renamingTag = false"><X :size="15" /></button>
+            </template>
+            <template v-else>
+              <button class="icon-button secondary" type="button" data-testid="rename-tag" :title="t('tags.rename')" :aria-label="t('tags.rename')" @click="startTagRename"><Pencil :size="15" /></button>
+              <button class="icon-button danger" type="button" data-testid="delete-tag" :title="t('tags.delete')" :aria-label="t('tags.delete')" :disabled="isSavingTag" @click="deleteSelectedTag"><Trash2 :size="15" /></button>
+              <button class="icon-button secondary" type="button" :title="t('tags.clear')" :aria-label="t('tags.clear')" @click="selectTag(selectedTag)"><X :size="15" /></button>
+            </template>
+          </div>
+        </div>
         <div id="bookmark-tools" class="bulk-action-bar">
           <strong>{{ sortMode ? t('links.sortingTitle') : selectedCount ? t('links.selectedCount', { count: selectedCount }) : t('links.bulkActions') }}</strong>
           <div class="bulk-list-tools">
@@ -835,14 +939,34 @@ onMounted(load);
                 <Link2 v-else :size="16" />
               </span>
               <span :data-label="t('links.name')">
-                <input
-                  v-if="editingLinkId === link.id"
-                  v-model="inlineForm.name"
-                  class="inline-link-input"
-                  :data-testid="`inline-link-name-${link.id}`"
-                  maxlength="24"
-                />
-                <span v-else :data-testid="`link-name-${link.id}`">{{ link.name }}</span>
+                <template v-if="editingLinkId === link.id">
+                  <input
+                    v-model="inlineForm.name"
+                    class="inline-link-input"
+                    :data-testid="`inline-link-name-${link.id}`"
+                    maxlength="24"
+                  />
+                  <input
+                    v-model="inlineForm.tags"
+                    class="inline-link-input inline-link-tags"
+                    :data-testid="`inline-link-tags-${link.id}`"
+                    :aria-label="t('links.tags')"
+                    :placeholder="t('links.tagsPlaceholder')"
+                  />
+                </template>
+                <template v-else>
+                  <span :data-testid="`link-name-${link.id}`">{{ link.name }}</span>
+                  <span v-if="link.tags?.length" class="link-tag-list">
+                    <button
+                      v-for="tag in link.tags"
+                      :key="tag"
+                      class="link-tag"
+                      :class="{ active: tag === selectedTag }"
+                      type="button"
+                      @click="selectTag(tag)"
+                    >#{{ tag }}</button>
+                  </span>
+                </template>
               </span>
               <span class="url-cell" :data-label="t('links.url')">
                 <input
@@ -953,6 +1077,75 @@ onMounted(load);
 </template>
 
 <style scoped>
+.tag-filter-bar {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.tag-filter-bar .management-filter-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.tag-filter-chips,
+.link-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.link-tag-list {
+  margin-top: 4px;
+}
+
+.link-tag {
+  background: var(--admin-control-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 9px;
+}
+
+.link-tag small {
+  margin-left: 3px;
+  opacity: 0.75;
+}
+
+.link-tag:hover,
+.link-tag.active {
+  background: color-mix(in srgb, var(--admin-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--admin-accent) 40%, transparent);
+  color: var(--admin-accent);
+}
+
+.tag-filter-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.tag-rename-input {
+  min-height: 32px;
+  width: 140px;
+}
+
+.inline-link-tags {
+  margin-top: 6px;
+}
+
+@media (max-width: 720px) {
+  .tag-filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .folder-pill-sort-area {
   align-items: center;
   flex-wrap: nowrap;

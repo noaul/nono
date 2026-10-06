@@ -476,6 +476,15 @@ export const en: Messages = {
     aNodeskHint: 'Open content and schedule',
     aNoMoneyHint: 'Open personal finances',
   },
+  tags: {
+    rename: 'Rename tag',
+    delete: 'Delete tag',
+    deleteConfirm: 'Remove the tag "{name}" from every bookmark? The bookmarks stay.',
+    clear: 'Clear tag filter',
+    renamed: 'Updated the tag on {count} bookmarks',
+    deleted: 'Tag deleted',
+    failed: 'Tag action failed',
+  },
   reading: {
     addAction: 'Read later',
     filters: 'Reading status',
@@ -893,6 +902,8 @@ export const en: Messages = {
     password: 'Password',
   },
   links: {
+    tags: 'Tags',
+    tagsPlaceholder: 'Tags, comma separated',
     unchecked: 'Not checked',
     noHealthCheck: 'No health check run yet',
     checkedAt: 'Checked {date}',

@@ -76,6 +76,7 @@ export interface Link {
   lastClickedAt?: string | null;
   readLaterAt?: string | null;
   readAt?: string | null;
+  tags?: string[];
   /** Set on a create response when the URL was already bookmarked and nothing was saved. */
   existing?: boolean;
 }

@@ -287,6 +287,22 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
         orderBy: { id: 'asc' },
       })) as any;
     },
+    async listTags(userId) {
+      const rows = await prisma.$queryRawUnsafe<Array<{ name: string; count: bigint }>>(
+        `SELECT t."name", count(*) AS "count"
+           FROM "Link" l
+           JOIN "Folder" f ON f."id" = l."folderId"
+           CROSS JOIN LATERAL unnest(l."tags") AS t("name")
+          WHERE f."userId" = $1
+          GROUP BY t."name"
+          ORDER BY count(*) DESC, t."name" ASC`,
+        userId,
+      );
+      return rows.map((row) => ({ name: row.name, count: Number(row.count) }));
+    },
+    async listLinksWithTag(userId, tag) {
+      return (await prisma.link.findMany({ where: { folder: { userId }, tags: { has: tag } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
+    },
     async listReadingLinks(userId, options) {
       const queued = { folder: { userId }, readLaterAt: { not: null } };
       const where = options.status === 'unread' ? { ...queued, readAt: null } : { ...queued, readAt: { not: null } };
@@ -321,7 +337,7 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
         `SELECT l."id", l."folderId", l."name", l."url", l."icon", l."description", l."sortOrder",
                 l."healthCheckEnabled", l."healthStatus", l."healthStatusCode", l."healthReason",
                 l."healthFinalUrl", l."healthCheckedAt", l."clickCount", l."lastClickedAt",
-                l."readLaterAt", l."readAt",
+                l."readLaterAt", l."readAt", l."tags",
                 l."createdAt", l."updatedAt",
                 (word_similarity($2, l."searchText")
                   + CASE WHEN lower(l."name") LIKE $3 THEN 1 ELSE 0 END)::float8 AS "score"

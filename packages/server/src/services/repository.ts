@@ -68,8 +68,32 @@ export interface LinkRecord {
   lastClickedAt?: Date | null;
   readLaterAt?: Date | null;
   readAt?: Date | null;
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface TagSummary {
+  name: string;
+  count: number;
+}
+
+export const MAX_TAGS_PER_LINK = 20;
+export const MAX_TAG_LENGTH = 32;
+
+/** Trims, drops empties and case-insensitive repeats (first spelling wins), and caps the list. */
+export function normalizeTags(values: readonly string[]) {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const value of values) {
+    const tag = String(value).trim().replace(/\s+/g, ' ').slice(0, MAX_TAG_LENGTH);
+    const key = tag.toLowerCase();
+    if (!tag || seen.has(key)) continue;
+    seen.add(key);
+    tags.push(tag);
+    if (tags.length === MAX_TAGS_PER_LINK) break;
+  }
+  return tags;
 }
 
 export type ReadingStatus = 'unread' | 'read';
@@ -369,6 +393,10 @@ export interface Repository {
   /** Oldest owned link whose URL equals the normalized `url` exactly (see duplicateUrlKey). */
   findLinkByUrl(userId: number, url: string): Promise<LinkRecord | null>;
   listReadingLinks(userId: number, options: ReadingListOptions): Promise<ReadingListPage>;
+  /** Every tag the user has used, most used first. */
+  listTags(userId: number): Promise<TagSummary[]>;
+  /** Owned links carrying `tag` (exact spelling). */
+  listLinksWithTag(userId: number, tag: string): Promise<LinkRecord[]>;
   /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
   searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
   createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<LinkRecord>;
@@ -764,6 +792,18 @@ export class MemoryRepository implements Repository {
       }))
       .sort((a, b) => b.score - a.score || (b.clickCount || 0) - (a.clickCount || 0) || a.id - b.id)
       .slice(0, options.limit);
+  }
+
+  async listTags(userId: number) {
+    const counts = new Map<string, number>();
+    for (const link of await this.listLinks(userId)) {
+      for (const tag of link.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+    }
+    return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }
+
+  async listLinksWithTag(userId: number, tag: string) {
+    return (await this.listLinks(userId)).filter((link) => link.tags?.includes(tag));
   }
 
   async listReadingLinks(userId: number, options: ReadingListOptions) {

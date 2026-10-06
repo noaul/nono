@@ -478,6 +478,15 @@ export const zh = {
     aNodeskHint: '进入内容与日程页面',
     aNoMoneyHint: '进入个人财务页面',
   },
+  tags: {
+    rename: '重命名标签',
+    delete: '删除标签',
+    deleteConfirm: '从所有书签上移除标签「{name}」？书签本身不会删除。',
+    clear: '取消标签筛选',
+    renamed: '已更新 {count} 个书签的标签',
+    deleted: '标签已删除',
+    failed: '标签操作失败',
+  },
   reading: {
     addAction: '加入稍后阅读',
     filters: '阅读状态',
@@ -895,6 +904,8 @@ export const zh = {
     password: '密码',
   },
   links: {
+    tags: '标签',
+    tagsPlaceholder: '标签，用逗号分隔',
     unchecked: '未检测',
     noHealthCheck: '尚未执行健康检查',
     checkedAt: '检测于 {date}',
