@@ -55,6 +55,9 @@ import { createLegacyChannelReader, createProductDueReader, createProductOvervie
 import { overviewRoutes } from './routes/admin/overview.js';
 import { createNotificationDispatcher } from './services/notification-dispatch.service.js';
 import { registerNotificationDispatchScheduler } from './services/notification-dispatch.scheduler.js';
+import { registerBookmarkExportScheduler } from './services/bookmark-export.scheduler.js';
+import { createBookmarkExportService } from './services/bookmark-export.service.js';
+import { bookmarkExportRoutes } from './routes/admin/bookmark-export.js';
 import { notificationChannelRoutes } from './routes/admin/notification-channels.js';
 import { mobileNotificationRoutes } from './routes/mobile/notifications.js';
 import { mobileAppLinkRoutes } from './routes/mobile/app-links.js';
@@ -94,6 +97,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     repo,
     backupService: overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma),
   }), backupOperationGate, ['runNow', 'runDue', 'update']);
+  const bookmarkExportService = overrides.bookmarkExportService || createBookmarkExportService({ repo, backupCenter: backupCenterService });
   const auditLogService = overrides.auditLogService || createAuditLogService(repo);
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
@@ -154,6 +158,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     backupService,
     backupAutomationService,
     backupCenterService,
+    bookmarkExportService,
     backupJobService,
     backupOperationGate,
     auditLogService,
@@ -252,6 +257,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await bookmarkRoutes(app, services);
   await tokenRoutes(app, services);
   await shareRoutes(app, services);
+  await bookmarkExportRoutes(app, services);
   await userRoutes(app, services);
   await accountRoutes(app, services);
   await backupRoutes(app, services);
@@ -271,6 +277,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   registerTrashRetentionScheduler(app, services);
   registerBackupAutomationScheduler(app, services);
   registerNotificationDispatchScheduler(app, services);
+  registerBookmarkExportScheduler(app, services);
 
   const webDist = path.resolve(__dirname, '../../web/dist');
   // Deny before static handlers: stale files from a previous release must not remain public.

@@ -1,4 +1,5 @@
 import type { FastifyRequest } from 'fastify';
+import type { BookmarkExportService } from './services/bookmark-export.service.js';
 import type { PrismaClient } from './generated/prisma/client.js';
 import type { Repository } from './services/repository.js';
 import type { WebAuthnService } from './services/webauthn.service.js';
@@ -48,6 +49,7 @@ export interface AppServices {
   backupService: BackupService;
   backupAutomationService: BackupAutomationService;
   backupCenterService: BackupCenterService;
+  bookmarkExportService: BookmarkExportService;
   backupJobService: BackupJobService;
   backupOperationGate: BackupOperationGate;
   auditLogService: AuditLogService;

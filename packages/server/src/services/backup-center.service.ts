@@ -76,6 +76,21 @@ export interface BackupCenterService {
   restoreWebDavBatch(userId: number, batchId: string, modules?: readonly BackupModule[]): Promise<{ batchId: string; restored: BackupModule[] }>;
   createLocalBackup(userId: number, module: BackupModule | 'all'): Promise<{ filename: string; contentType: 'application/json'; body: Buffer }>;
   restoreLocalBackup(userId: number, module: BackupModule | 'all', body: Buffer): Promise<{ restored: BackupModule[] }>;
+  /** True once a WebDAV URL, username and password are saved. */
+  isWebDavConfigured(): Promise<boolean>;
+  /** Uploads one file under /nono/<folder>/, creating the folder if needed. */
+  writeWebDavFile(folder: string, filename: string, body: Buffer, contentType: string): Promise<string>;
+  /** Deletes one file under /nono/<folder>/; a missing file counts as deleted. */
+  deleteWebDavFile(folder: string, filename: string): Promise<void>;
+}
+
+const WEBDAV_FILE_SEGMENT = /^[a-z0-9][a-z0-9._-]{0,120}$/i;
+
+function webDavFilePath(folder: string, filename: string) {
+  if (!WEBDAV_FILE_SEGMENT.test(folder) || !WEBDAV_FILE_SEGMENT.test(filename) || filename.includes('..')) {
+    throw httpError(400, 'Invalid WebDAV file name');
+  }
+  return { collection: `/nono/${folder}/`, path: `/nono/${folder}/${filename}` };
 }
 
 export function createBackupCenterService(options: {
@@ -217,6 +232,27 @@ export function createBackupCenterService(options: {
   }
 
   return {
+    async isWebDavConfigured() {
+      const stored = await storedConfig();
+      return Boolean(stored?.url && stored.username && stored.passwordEncrypted);
+    },
+
+    async writeWebDavFile(folder, filename, body, contentType) {
+      const { collection, path } = webDavFilePath(folder, filename);
+      const config = await requiredConfig();
+      await ensureCollection(config, '/nono/');
+      await ensureCollection(config, collection);
+      await put(config, path, body, contentType);
+      return path;
+    },
+
+    async deleteWebDavFile(folder, filename) {
+      const { path } = webDavFilePath(folder, filename);
+      const config = await requiredConfig();
+      const response = await webDavRequest(config, path, 'DELETE');
+      if (![200, 204, 404].includes(response.statusCode)) throw httpError(502, `WebDAV delete failed for ${path} (HTTP ${response.statusCode})`);
+    },
+
     async getWebDavConfig() {
       const config = await storedConfig();
       return configView(config);

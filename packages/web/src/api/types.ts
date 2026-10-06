@@ -177,6 +177,18 @@ export interface SharedFolderPayload {
   expiresAt: string | null;
 }
 
+export interface BookmarkExportSnapshot {
+  settings: { enabled: boolean; cadence: 'daily' | 'weekly'; hour: number; weekday: number; keep: number };
+  status: {
+    webDavConfigured: boolean;
+    lastRunAt: string | null;
+    lastSuccessAt: string | null;
+    lastError: string | null;
+    lastFile: string | null;
+    files: string[];
+  };
+}
+
 export type ReadingStatus = 'unread' | 'read';
 
 export interface ReadingPage {
