@@ -55,6 +55,17 @@ describe('POST /api/admin/links duplicate detection', () => {
     expect(await repo.listLinks(1)).toHaveLength(1);
   });
 
+  it('treats URLs that differ only in path case as different bookmarks', async () => {
+    const cookie = await signIn('owner', true);
+    const inbox = await folder(cookie, 'Inbox');
+    await save(cookie, { folderId: inbox, name: 'Upper', url: 'https://x.com/A' });
+
+    const lower = await save(cookie, { folderId: inbox, name: 'Lower', url: 'https://x.com/a' });
+
+    expect(lower.json().data.existing).toBeUndefined();
+    expect(await repo.listLinks(1)).toHaveLength(2);
+  });
+
   it('matches URLs the way the duplicates report does', async () => {
     const cookie = await signIn('owner', true);
     const inbox = await folder(cookie, 'Inbox');
@@ -98,11 +109,11 @@ describe('POST /api/admin/links duplicate detection', () => {
     expect(denied.statusCode).toBe(404);
   });
 
-  it('finds an owned link by URL case-insensitively in Prisma', async () => {
+  it('finds an owned link by its exact normalized URL in Prisma', async () => {
     const prisma = { link: { findFirst: vi.fn().mockResolvedValue(null) } };
     await createPrismaRepository(prisma as never).findLinkByUrl(7, 'https://example.com/');
     expect(prisma.link.findFirst).toHaveBeenCalledWith({
-      where: { folder: { userId: 7 }, url: { equals: 'https://example.com/', mode: 'insensitive' } },
+      where: { folder: { userId: 7 }, url: 'https://example.com/' },
       orderBy: { id: 'asc' },
     });
   });

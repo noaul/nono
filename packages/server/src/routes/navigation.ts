@@ -79,15 +79,11 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     const links = await services.repo.listLinks(site.userId);
     const q = String((request.query as any).q || '').toLowerCase();
     const visibleLinks = q ? links.filter((link) => `${link.name} ${link.description || ''} ${link.url}`.toLowerCase().includes(q)) : links;
-    const linksByFolder = new Map<number, typeof visibleLinks>();
-    for (const link of visibleLinks) {
-      const folderLinks = linksByFolder.get(link.folderId);
-      if (folderLinks) folderLinks.push(link);
-      else linksByFolder.set(link.folderId, [link]);
-    }
+    const linksByFolder = groupLinksByFolder(visibleLinks);
+    const lockedBy = folderLocks(folders);
     return sendOk(reply, {
       site: publicSite(site),
-      folders: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [])),
+      folders: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [], lockedBy)),
       access,
     });
   });
@@ -99,7 +95,12 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const access = await navigationAccess(request, site, services);
     if (!access.unlocked) throw Object.assign(new Error('Navigation access required'), { statusCode: 403 });
-    const recorded = await services.repo.recordLinkClick(site.userId, numericParam(request));
+    // Links behind a folder password answer exactly like missing ones, so their ids cannot be probed.
+    const link = await services.repo.getLink(site.userId, numericParam(request));
+    if (!link || folderLocks(await services.repo.listFolders(site.userId)).has(link.folderId)) {
+      throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+    }
+    const recorded = await services.repo.recordLinkClick(site.userId, link.id);
     if (!recorded) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     return reply.status(204).send();
   });
@@ -148,18 +149,13 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
       });
     }
     const folders = await services.repo.listFolders(site.userId);
-    const links = await services.repo.listLinks(site.userId);
-    const linksByFolder = new Map<number, typeof links>();
-    for (const link of links) {
-      const folderLinks = linksByFolder.get(link.folderId);
-      if (folderLinks) folderLinks.push(link);
-      else linksByFolder.set(link.folderId, [link]);
-    }
+    const linksByFolder = groupLinksByFolder(await services.repo.listLinks(site.userId));
+    const lockedBy = folderLocks(folders);
     return reply.send({
       code: 0,
       data: {
         site_info: legacyPublicSite(site),
-        folder_with_links: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [])),
+        folder_with_links: folders.map((folder) => publicFolder(folder, linksByFolder.get(folder.id) || [], lockedBy)),
         target: { id: site.user.id, name: site.user.username },
         me: null,
         access,
@@ -176,15 +172,22 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
     if (!site) throw Object.assign(new Error('Navigation not found'), { statusCode: 404 });
     const access = await navigationAccess(request, site, services);
     if (!access.unlocked) throw Object.assign(new Error('Navigation access required'), { statusCode: 403 });
-    const folder = await services.repo.getFolder(site.userId, numericParam(request));
-    if (!folder?.passwordHash) return sendOk(reply, { verified: true });
-    const ok = await verifyPassword(String((request.body as any)?.password || ''), folder.passwordHash);
-    return sendOk(reply, {
-      verified: ok,
-      links: ok
-        ? (await services.repo.listFolderLinks(site.userId, folder.id)).map(publicLink)
-        : [],
-    });
+    const folders = await services.repo.listFolders(site.userId);
+    const folder = folders.find((item) => item.id === numericParam(request));
+    if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
+    // A sub-folder of a locked folder is unlocked with the password of the folder that locks it.
+    const lockedBy = folderLocks(folders);
+    const lock = lockedBy.get(folder.id);
+    if (!lock?.passwordHash) return sendOk(reply, { verified: true, links: [], subtree: {} });
+    const ok = await verifyPassword(String((request.body as any)?.password || ''), lock.passwordHash);
+    if (!ok) return sendOk(reply, { verified: false, links: [], subtree: {} });
+    // Only the folders this password opens are loaded, never the whole link table.
+    const opened = folders.filter((item) => lockedBy.get(item.id)?.id === lock.id);
+    const subtree: Record<number, ReturnType<typeof publicLink>[]> = {};
+    for (const item of opened) {
+      subtree[item.id] = (await services.repo.listFolderLinks(site.userId, item.id)).map(publicLink);
+    }
+    return sendOk(reply, { verified: true, links: subtree[folder.id] || [], subtree });
   });
 }
 
@@ -215,8 +218,39 @@ function publicSite(site: SiteRecord) {
   };
 }
 
-function publicFolder(folder: FolderRecord, links: LinkRecord[]) {
-  const locked = Boolean(folder.passwordHash);
+/**
+ * Maps every folder that sits behind a folder password to the nearest folder (itself or an
+ * ancestor) holding that password. Folders missing from the map are not locked.
+ */
+export function folderLocks(folders: FolderRecord[]) {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const lockedBy = new Map<number, FolderRecord>();
+  for (const folder of folders) {
+    const seen = new Set<number>();
+    for (let current: FolderRecord | undefined = folder; current && !seen.has(current.id); current = current.parentId ? byId.get(current.parentId) : undefined) {
+      seen.add(current.id);
+      if (current.passwordHash) {
+        lockedBy.set(folder.id, current);
+        break;
+      }
+    }
+  }
+  return lockedBy;
+}
+
+function groupLinksByFolder(links: LinkRecord[]) {
+  const linksByFolder = new Map<number, LinkRecord[]>();
+  for (const link of links) {
+    const folderLinks = linksByFolder.get(link.folderId);
+    if (folderLinks) folderLinks.push(link);
+    else linksByFolder.set(link.folderId, [link]);
+  }
+  return linksByFolder;
+}
+
+function publicFolder(folder: FolderRecord, links: LinkRecord[], lockedBy: Map<number, FolderRecord>) {
+  const lock = lockedBy.get(folder.id);
+  const locked = Boolean(lock);
   return {
     id: folder.id,
     userId: folder.userId,
@@ -225,7 +259,7 @@ function publicFolder(folder: FolderRecord, links: LinkRecord[]) {
     icon: folder.icon || null,
     description: folder.description || null,
     sortOrder: folder.sortOrder,
-    passwordHint: folder.passwordHint || null,
+    passwordHint: (lock || folder).passwordHint || null,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
     locked,

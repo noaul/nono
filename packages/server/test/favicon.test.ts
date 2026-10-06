@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { resetFaviconState } from '../src/routes/favicon.js';
 import { MemoryRepository } from '../src/services/repository.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
@@ -21,6 +25,7 @@ let publicAddressResolver: ReturnType<typeof vi.fn>;
 
 describe('favicon proxy', () => {
   beforeEach(async () => {
+    resetFaviconState();
     publicFetcher = vi.fn(async (url: string) => {
       const response = await globalThis.fetch(url);
       return {
@@ -83,5 +88,51 @@ describe('favicon proxy', () => {
 
     const response = await app.inject({ method: 'GET', url: '/api/favicon?domain=not-an-image.example' });
     expect(response.statusCode).toBe(404);
+  });
+
+  it('refuses SVG icons, which could carry script on this origin', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<svg onload="alert(1)"/>', { status: 200, headers: { 'content-type': 'image/svg+xml' } }));
+
+    const response = await app.inject({ method: 'GET', url: '/api/favicon?domain=svg-icon.example' });
+    expect(response.statusCode).toBe(404);
+  });
+
+  it('sandboxes served icons', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(imageResponse());
+
+    const response = await app.inject({ method: 'GET', url: '/api/favicon?domain=sandboxed.example' });
+    expect(response.headers['content-security-policy']).toContain('sandbox');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('budgets upstream lookups per client but keeps serving cached icons', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => imageResponse());
+    const statuses: number[] = [];
+    for (let index = 0; index < 61; index++) {
+      statuses.push((await app.inject({ method: 'GET', url: `/api/favicon?domain=site${index}.example` })).statusCode);
+    }
+    expect(statuses.slice(0, 60).every((status) => status === 200)).toBe(true);
+    expect(statuses[60]).toBe(429);
+
+    const cached = await app.inject({ method: 'GET', url: '/api/favicon?domain=site1.example' });
+    expect(cached.statusCode).toBe(200);
+  });
+
+  it('prunes the disk cache once it passes its entry cap', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nono-favicon-'));
+    process.env.NONO_FAVICON_CACHE_DIR = dir;
+    try {
+      for (let index = 0; index < 5000; index++) {
+        await fs.writeFile(path.join(dir, `old${index}.example.json`), JSON.stringify({ contentType: '', expires: Date.now() + 60_000, miss: true }));
+      }
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(imageResponse());
+      const response = await app.inject({ method: 'GET', url: '/api/favicon?domain=newest.example' });
+      expect(response.statusCode).toBe(200);
+      const remaining = (await fs.readdir(dir)).filter((name) => name.endsWith('.json'));
+      expect(remaining.length).toBeLessThanOrEqual(4500);
+    } finally {
+      process.env.NONO_FAVICON_CACHE_DIR = '';
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });

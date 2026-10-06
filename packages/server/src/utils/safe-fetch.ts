@@ -55,6 +55,9 @@ globalV6.addSubnet('2000::', 3, 'ipv6');
 const blockedV6 = new BlockList();
 blockedV6.addSubnet('2001:2::', 48, 'ipv6');
 blockedV6.addSubnet('2001:db8::', 32, 'ipv6');
+// Teredo and 6to4 addresses embed an IPv4 address, which may be a private one.
+blockedV6.addSubnet('2001::', 32, 'ipv6');
+blockedV6.addSubnet('2002::', 16, 'ipv6');
 
 export function isPublicAddress(rawAddress: string) {
   const address = normalizeAddress(rawAddress);

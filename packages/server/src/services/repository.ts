@@ -348,7 +348,7 @@ export interface Repository {
   /** Owned links among `ids`, in display order; ids the user does not own are dropped. */
   getLinksByIds(userId: number, ids: number[]): Promise<LinkRecord[]>;
   listFolderLinks(userId: number, folderId: number): Promise<LinkRecord[]>;
-  /** Oldest owned link whose URL equals `url` ignoring case (see duplicateUrlKey). */
+  /** Oldest owned link whose URL equals the normalized `url` exactly (see duplicateUrlKey). */
   findLinkByUrl(userId: number, url: string): Promise<LinkRecord | null>;
   /** Every whitespace-separated term must appear in the name, URL or description; best matches first. */
   searchLinks(userId: number, query: string, options: LinkSearchOptions): Promise<LinkSearchHit[]>;
@@ -469,9 +469,8 @@ export class MemoryRepository implements Repository {
     const folder = this.folders.find((item) => item.userId === userId && item.id === input.folderId);
     if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
     const userFolderIds = new Set(this.folders.filter((item) => item.userId === userId).map((item) => item.id));
-    const key = input.link.url.toLowerCase();
     const existing = this.links
-      .filter((link) => userFolderIds.has(link.folderId) && link.url.toLowerCase() === key)
+      .filter((link) => userFolderIds.has(link.folderId) && link.url === input.link.url)
       .sort((a, b) => a.id - b.id)[0];
     const now = new Date();
     const link: LinkRecord = existing || { ...input.link, folderId: folder.id, healthCheckEnabled: input.link.healthCheckEnabled ?? true, clickCount: 0, id: nextId(this.links), createdAt: now, updatedAt: now };
@@ -726,8 +725,7 @@ export class MemoryRepository implements Repository {
   }
 
   async findLinkByUrl(userId: number, url: string) {
-    const key = url.toLowerCase();
-    return (await this.listLinks(userId)).filter((link) => link.url.toLowerCase() === key).sort((a, b) => a.id - b.id)[0] || null;
+    return (await this.listLinks(userId)).filter((link) => link.url === url).sort((a, b) => a.id - b.id)[0] || null;
   }
 
   async searchLinks(userId: number, query: string, options: LinkSearchOptions) {

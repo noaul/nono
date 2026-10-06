@@ -283,7 +283,7 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     },
     async findLinkByUrl(userId, url) {
       return (await prisma.link.findFirst({
-        where: { folder: { userId }, url: { equals: url, mode: 'insensitive' } },
+        where: { folder: { userId }, url },
         orderBy: { id: 'asc' },
       })) as any;
     },
@@ -332,7 +332,7 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
           const folder = await transaction.folder.findFirst({ where: { id: input.folderId, userId }, select: { id: true } });
           if (!folder) throw Object.assign(new Error('Folder not found'), { statusCode: 404 });
           const existing = await transaction.link.findFirst({
-            where: { folder: { userId }, url: { equals: input.link.url, mode: 'insensitive' } },
+            where: { folder: { userId }, url: input.link.url },
             orderBy: { id: 'asc' },
           });
           const link = existing || await transaction.link.create({ data: prune({ ...input.link, folderId: folder.id }) as any });

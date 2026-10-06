@@ -226,9 +226,12 @@ export function normalizeUrl(value: string) {
   return url.href;
 }
 
-/** Two bookmarks are duplicates when their normalized URLs match ignoring case. */
+/**
+ * Two bookmarks are duplicates when their normalized URLs match. Normalizing already lowercases the
+ * scheme and host; the path and query stay case-sensitive, because servers treat them that way.
+ */
 export function duplicateUrlKey(value: string) {
-  return normalizeUrl(value).toLowerCase();
+  return normalizeUrl(value);
 }
 
 function tryNormalizeUrl(value: string) {

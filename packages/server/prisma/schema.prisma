@@ -289,6 +289,8 @@ model Link {
   @@index([folderId, sortOrder])
   @@index([healthCheckedAt])
   @@index([clickCount, lastClickedAt])
+  // Hash, not btree: duplicate checks only need equality, and a btree entry has a size limit long URLs can exceed.
+  @@index([url], type: Hash)
 }
 
 /// Idempotency record for POST /api/mobile/bookmarks: a retried share with the same requestId

@@ -27,7 +27,7 @@ describe('safe public resource fetching', () => {
     if (!expectedBody) expect(request.mock.calls[1][2].headers).not.toHaveProperty('content-length');
   });
   it('rejects non-public IPv4 and IPv6 addresses', () => {
-    for (const address of ['127.0.0.1', '10.0.0.1', '169.254.169.254', '192.168.1.1', '::1', 'fc00::1', 'fe80::1']) {
+    for (const address of ['127.0.0.1', '10.0.0.1', '169.254.169.254', '192.168.1.1', '::1', 'fc00::1', 'fe80::1', '2002:c0a8:0101::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2']) {
       expect(isPublicAddress(address), address).toBe(false);
     }
     expect(isPublicAddress('8.8.8.8')).toBe(true);

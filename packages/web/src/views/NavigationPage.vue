@@ -240,7 +240,14 @@ const externalSearchLabel = computed(() => {
   return engine.labelKey ? t(engine.labelKey) : engine.label;
 });
 
-function onFolderVerified(links: Link[]) {
+// One password opens the locking folder and every sub-folder behind it.
+function onFolderVerified(links: Link[], subtree: Record<number, Link[]>) {
+  for (const folder of payload.value?.folders || []) {
+    const folderLinks = subtree[folder.id];
+    if (!folderLinks) continue;
+    folder.links = folderLinks;
+    folder.locked = false;
+  }
   if (verifying.value) {
     verifying.value.links = links;
     verifying.value.locked = false;

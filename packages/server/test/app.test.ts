@@ -514,6 +514,31 @@ describe('NoNo Fastify app', () => {
     expect(unlocked.json().data.links[0]).not.toHaveProperty('healthReason');
   });
 
+  it('keeps sub-folders of a locked folder locked until the parent password is given', async () => {
+    const cookie = await setupAdmin();
+    const parent = (await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Private', password: 'Folder2026!', passwordHint: 'Parent hint' } })).json().data.id;
+    const child = (await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Work', parentId: parent } })).json().data.id;
+    const grandchild = (await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Deep', parentId: child } })).json().data.id;
+    const link = (await app.inject({ method: 'POST', url: '/api/admin/links', headers: { cookie }, payload: { folderId: grandchild, name: 'Hidden', url: 'https://hidden.example/' } })).json().data.id;
+
+    for (const url of ['/api/navigation/admin', '/api/v1/allsiteandlinks/admin']) {
+      const body = (await app.inject({ method: 'GET', url })).json();
+      expect(JSON.stringify(body)).not.toContain('hidden.example');
+      const folders = body.data.folders || body.data.folder_with_links;
+      expect(folders.find((item: any) => item.id === grandchild)).toMatchObject({ locked: true, passwordHint: 'Parent hint', links: [] });
+    }
+
+    const click = await app.inject({ method: 'POST', url: `/api/navigation/admin/links/${link}/click` });
+    expect(click.statusCode).toBe(404);
+
+    const wrong = await app.inject({ method: 'POST', url: `/api/navigation/admin/folder/${grandchild}/verify`, payload: { password: 'nope' } });
+    expect(wrong.json().data).toMatchObject({ verified: false, links: [] });
+    const right = await app.inject({ method: 'POST', url: `/api/navigation/admin/folder/${grandchild}/verify`, payload: { password: 'Folder2026!' } });
+    expect(right.json().data.verified).toBe(true);
+    expect(right.json().data.links[0].url).toBe('https://hidden.example/');
+    expect(Object.keys(right.json().data.subtree).map(Number).sort()).toEqual([parent, child, grandchild].sort());
+  });
+
   it('rate-limits folder password guesses like the site unlock', async () => {
     const cookie = await setupAdmin();
     const folder = await app.inject({

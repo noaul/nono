@@ -7,7 +7,7 @@ import { apiRequest, jsonBody } from '@/api/client';
 import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<{ folder: Folder; username: string }>();
-const emit = defineEmits<{ close: []; verified: [links: Link[]] }>();
+const emit = defineEmits<{ close: []; verified: [links: Link[], subtree: Record<number, Link[]>] }>();
 useMobileBackLayer(() => true, () => emit('close'));
 
 const { t } = useI18n();
@@ -19,7 +19,7 @@ const error = ref('');
 async function verify() {
   error.value = '';
   try {
-    const result = await apiRequest<{ verified: boolean; links: Link[] }>(
+    const result = await apiRequest<{ verified: boolean; links: Link[]; subtree?: Record<number, Link[]> }>(
       `/api/navigation/${props.username}/folder/${props.folder.id}/verify`,
       { method: 'POST', body: jsonBody({ password: password.value }) },
     );
@@ -27,7 +27,7 @@ async function verify() {
       error.value = t('folder.wrongPassword');
       return;
     }
-    emit('verified', result.links);
+    emit('verified', result.links, result.subtree || {});
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : t('folder.verifyFailed');
   }
