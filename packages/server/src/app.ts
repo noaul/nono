@@ -97,7 +97,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     repo,
     backupService: overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma),
   }), backupOperationGate, ['runNow', 'runDue', 'update']);
-  const bookmarkExportService = overrides.bookmarkExportService || createBookmarkExportService({ repo, backupCenter: backupCenterService });
+  const bookmarkExportService = gateBackupService(overrides.bookmarkExportService || createBookmarkExportService({ repo, backupCenter: backupCenterService }), backupOperationGate, ['runNow', 'runDue', 'update']);
   const auditLogService = overrides.auditLogService || createAuditLogService(repo);
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({

@@ -19,6 +19,10 @@ const configSchema = z.object({
   settings: z.record(z.string(), z.unknown()).optional(),
 });
 
+// Credentials and scheduled export ownership are managed through dedicated routes with stricter
+// session checks; the general settings endpoint must not accept either record.
+const PROTECTED_SETTINGS = new Set(['backupCenterWebdav', 'bookmarkWebdavExport']);
+
 export async function userRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/users', async (request, reply) => {
     const admin = await requireAdmin(request, reply, services);
@@ -59,10 +63,16 @@ export async function userRoutes(app: FastifyInstance, services: AppServices) {
     const admin = await requireAdmin(request, reply, services);
     if (!admin) return;
     const input = configSchema.parse(request.body);
-    const current = await services.repo.getConfig();
-    const before = { ...current, settings: { ...current.settings } };
-    const updated = await services.repo.updateConfig(input as { allowRegistration?: boolean; defaultRole?: Role; settings?: Record<string, unknown> });
-    setAuditContext(request, { action: 'update', resourceType: 'system', resourceId: 'registration', resourceLabel: '注册与用户策略', details: { before, after: updated } });
-    return sendOk(reply, updated);
+    if (input.settings && Object.keys(input.settings).some((key) => PROTECTED_SETTINGS.has(key))) {
+      throw Object.assign(new Error('This setting must be changed through its dedicated administrator page'), { statusCode: 400 });
+    }
+    return services.backupOperationGate.runExclusive(async () => {
+      const current = await services.repo.getConfig();
+      const before = { ...current, settings: { ...current.settings } };
+      if (input.settings) input.settings = { ...current.settings, ...input.settings };
+      const updated = await services.repo.updateConfig(input as { allowRegistration?: boolean; defaultRole?: Role; settings?: Record<string, unknown> });
+      setAuditContext(request, { action: 'update', resourceType: 'system', resourceId: 'registration', resourceLabel: '注册与用户策略', details: { before, after: updated } });
+      return sendOk(reply, updated);
+    });
   });
 }

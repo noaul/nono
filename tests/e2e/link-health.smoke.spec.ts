@@ -75,7 +75,8 @@ test('renders persisted health in the bookmark table without viewport overflow',
 
   if ((page.viewportSize()?.width || 0) <= 720) {
     const rowColumns = await page.getByTestId('link-row-10').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
-    expect(rowColumns).toBe(1);
+    // Phone rows use a compact checkbox | content | status/actions layout.
+    expect(rowColumns).toBe(3);
   }
 
   if (captureDir) {

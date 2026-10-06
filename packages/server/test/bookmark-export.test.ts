@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 import { createBookmarkExportService } from '../src/services/bookmark-export.service.js';
+import { BackupOperationGate } from '../src/services/backup-jobs.service.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
 const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -79,11 +80,63 @@ describe('bookmark export to WebDAV', () => {
     expect(await service.runDue()).toEqual({ ran: false });
     expect((await service.get()).status.lastError).toContain('HTTP 507');
   });
+
+  it('does not export after the schedule owner loses administrator access', async () => {
+    const { repo, user } = await seededRepo();
+    await repo.createUser({ username: 'second-admin', email: 'second@x', displayName: 'Second', passwordHash: 'x', role: 'admin' });
+    const webdav = fakeWebDav();
+    const service = createBookmarkExportService({ repo, backupCenter: webdav });
+    await service.update(user.id, { enabled: true, cadence: 'daily', hour: 4, weekday: 1, keep: 5 });
+    await repo.updateUser(user.id, { role: 'user' });
+
+    expect(await service.runDue()).toEqual({ ran: false });
+    expect(webdav.files.size).toBe(0);
+  });
 });
 
 describe('bookmark export routes', () => {
   let app: FastifyInstance;
   afterEach(async () => app?.close());
+
+  it('excludes scheduled-export mutations while a backup or restore owns the dataset', async () => {
+    const gate = new BackupOperationGate();
+    app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey, backupOperationGate: gate, backupCenterService: fakeWebDav() } as any);
+    const setup = await app.inject({ method: 'POST', url: '/api/auth/setup', payload: { username: 'admin', email: 'a@nono.test', displayName: 'Admin', password: 'Password2026!' } });
+    const cookie = String(setup.headers['set-cookie']).split(';', 1)[0];
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => { finish = resolve; });
+    const restore = gate.runExclusive(() => pending);
+    try {
+      expect((await app.inject({ method: 'PUT', url: '/api/admin/config', headers: { cookie }, payload: { settings: { theme: 'dark' } } })).statusCode).toBe(409);
+      expect((await app.inject({ method: 'PUT', url: '/api/admin/bookmark-export', headers: { cookie }, payload: { enabled: true, cadence: 'daily', hour: 4, weekday: 1, keep: 5 } })).statusCode).toBe(409);
+      expect((await app.inject({ method: 'POST', url: '/api/admin/bookmark-export/run', headers: { cookie } })).statusCode).toBe(409);
+    } finally {
+      finish();
+      await restore;
+    }
+  });
+
+  it('protects export and WebDAV state from the general configuration API', async () => {
+    const repo = new MemoryRepository(false);
+    app = await buildApp({ repo, sessionSecret, encryptionKey } as any);
+    const setup = await app.inject({ method: 'POST', url: '/api/auth/setup', payload: { username: 'admin', email: 'a@nono.test', displayName: 'Admin', password: 'Password2026!' } });
+    const cookie = String(setup.headers['set-cookie']).split(';', 1)[0];
+    const settings = { enabled: true, cadence: 'daily', hour: 4, weekday: 1, keep: 5 };
+    await app.inject({ method: 'PUT', url: '/api/admin/bookmark-export', headers: { cookie }, payload: settings });
+    const saved = (await repo.getConfig()).settings.bookmarkWebdavExport;
+    await repo.updateConfig({ settings: { ...(await repo.getConfig()).settings, backupCenterWebdav: { passwordEncrypted: 'keep' } } });
+    const token = (await app.inject({ method: 'POST', url: '/api/admin/tokens', headers: { cookie }, payload: { name: 'All', scopes: ['*'] } })).json().data.token;
+
+    for (const headers of [{ cookie }, { authorization: `Bearer ${token}` }]) {
+      for (const key of ['bookmarkWebdavExport', 'backupCenterWebdav']) {
+        const denied = await app.inject({ method: 'PUT', url: '/api/admin/config', headers, payload: { settings: { [key]: { enabled: true, userId: 999 } } } });
+        expect(denied.statusCode).toBe(400);
+      }
+    }
+    const updated = await app.inject({ method: 'PUT', url: '/api/admin/config', headers: { cookie }, payload: { settings: { theme: 'dark' } } });
+    expect(updated.statusCode).toBe(200);
+    expect((await repo.getConfig()).settings).toMatchObject({ theme: 'dark', bookmarkWebdavExport: saved, backupCenterWebdav: { passwordEncrypted: 'keep' } });
+  });
 
   it('requires an administrator session and validates settings', async () => {
     app = await buildApp({ repo: new MemoryRepository(false), sessionSecret, encryptionKey } as any);

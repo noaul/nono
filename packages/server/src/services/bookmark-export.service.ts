@@ -64,7 +64,7 @@ const DEFAULTS: StoredBookmarkExport = {
 };
 
 export function createBookmarkExportService(options: {
-  repo: Pick<Repository, 'getConfig' | 'updateConfig' | 'listFolders' | 'listLinks'>;
+  repo: Pick<Repository, 'getConfig' | 'updateConfig' | 'listFolders' | 'listLinks' | 'findUserById'>;
   backupCenter: Pick<BackupCenterService, 'isWebDavConfigured' | 'writeWebDavFile' | 'deleteWebDavFile'>;
   now?: () => Date;
   timeZone?: string;
@@ -157,6 +157,8 @@ export function createBookmarkExportService(options: {
     async runDue() {
       const stored = await read();
       if (!stored.enabled || !stored.userId || running) return { ran: false };
+      const owner = await options.repo.findUserById(stored.userId);
+      if (!owner || owner.role !== 'admin') return { ran: false };
       const scheduledFor = scheduleWindowKey(stored, now(), timeZone);
       if (stored.lastScheduledFor === scheduledFor) return { ran: false };
       if (!await options.backupCenter.isWebDavConfigured()) return { ran: false };

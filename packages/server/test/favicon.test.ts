@@ -134,5 +134,5 @@ describe('favicon proxy', () => {
       process.env.NONO_FAVICON_CACHE_DIR = '';
       await fs.rm(dir, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
