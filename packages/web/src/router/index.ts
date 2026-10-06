@@ -20,6 +20,7 @@ const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
 const TrashView = () => import('@/views/admin/TrashView.vue');
 const ReadingView = () => import('@/views/admin/ReadingView.vue');
 const MobileCaptureView = () => import('@/views/mobile/MobileCaptureView.vue');
+const SharedFolderView = () => import('@/views/SharedFolderView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -32,6 +33,7 @@ export const router = createRouter({
     { path: '/login', component: LoginView },
     { path: '/setup', component: SetupView },
     { path: '/privacy', component: PrivacyView },
+    { path: '/s/:token', component: SharedFolderView },
     // The shared URL arrives in-page (src/mobile/capture.ts), never in this route's query.
     { path: '/mobile/capture', component: MobileCaptureView, meta: { requiresAuth: true, returnAfterLogin: true } },
     {

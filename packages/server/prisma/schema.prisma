@@ -25,6 +25,7 @@ model User {
   folders                  Folder[]
   trashItems               TrashItem[]
   apiTokens                ApiToken[]
+  folderShares             FolderShare[]
   authSessions             AuthSession[]
   passkeys                 PasskeyCredential[]
   webAuthnChallenges       WebAuthnChallenge[]
@@ -260,8 +261,27 @@ model Folder {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   links        Link[]
+  shares       FolderShare[]
 
   @@index([userId, parentId, sortOrder])
+}
+
+/// A read-only public link to one folder and its sub-folders. The token is looked up by hash and
+/// kept encrypted so its owner can copy the link again; deleting the folder deletes its shares.
+model FolderShare {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId       Int
+  folder         Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  tokenHash      String    @unique
+  tokenEncrypted String
+  expiresAt      DateTime?
+  viewCount      Int       @default(0)
+  lastViewedAt   DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, folderId])
 }
 
 model Link {

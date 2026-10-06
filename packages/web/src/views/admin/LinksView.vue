@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Bookmark, BookmarkCheck, BookOpen, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Tag, Trash2, X } from '@lucide/vue';
+import { Activity, Bookmark, BookmarkCheck, BookOpen, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Share2, Tag, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import LinkDuplicatePanel from '@/components/admin/LinkDuplicatePanel.vue';
 import FolderIconPicker from '@/components/admin/FolderIconPicker.vue';
+import FolderSharePanel from '@/components/admin/FolderSharePanel.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import SortableFolderPills from '@/components/admin/SortableFolderPills.vue';
 import SortableList from '@/components/admin/SortableList.vue';
@@ -47,6 +48,7 @@ const isCheckingHealth = ref(false);
 const editingLinkId = ref<number | null>(null);
 const inlineForm = reactive({ name: '', url: '', categoryId: 0, folderId: 0, tags: '' });
 const selectedTag = ref('');
+const sharePanelOpen = ref(false);
 const renamingTag = ref(false);
 const tagRenameDraft = ref('');
 const isSavingTag = ref(false);
@@ -852,6 +854,16 @@ onMounted(load);
               <span role="cell">{{ t('folders.linkCount', { count: activeFolderLinkCount }) }}</span>
               <span class="folder-summary-description" role="cell">{{ activeFolder.description || '-' }}</span>
               <span class="row-actions" role="cell">
+                <button
+                  class="icon-button"
+                  :class="sharePanelOpen ? 'success' : 'secondary'"
+                  data-testid="share-active-folder"
+                  type="button"
+                  :title="t('shares.title')"
+                  :aria-label="t('shares.title')"
+                  :aria-pressed="sharePanelOpen"
+                  @click="sharePanelOpen = !sharePanelOpen"
+                ><Share2 :size="16" /></button>
                 <template v-if="activeFolder.parentId">
                   <button class="icon-button secondary" data-testid="edit-active-folder" type="button" :title="t('folders.renameAndIcon')" :disabled="isSavingFolderSort" @click="startFolderEdit"><Pencil :size="16" /></button>
                   <button class="icon-button danger" data-testid="delete-active-folder" type="button" :title="t('common.delete')" :disabled="isDeletingFolder || isSavingFolderSort" @click="removeActiveFolder"><Trash2 :size="16" /></button>
@@ -860,6 +872,7 @@ onMounted(load);
               </span>
             </div>
           </div>
+          <FolderSharePanel v-if="sharePanelOpen && activeFolder && !folderEditorOpen" :folder="activeFolder" />
         </section>
 
       </section>

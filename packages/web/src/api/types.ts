@@ -158,6 +158,25 @@ export interface TrashPage {
   total: number;
 }
 
+export interface FolderShare {
+  id: number;
+  folderId: number;
+  /** Site-relative link, e.g. /s/abc… */
+  path: string;
+  expiresAt: string | null;
+  expired: boolean;
+  viewCount: number;
+  lastViewedAt: string | null;
+  createdAt: string;
+}
+
+export interface SharedFolderPayload {
+  folder: { id: number; parentId: number | null; name: string; icon: string | null; description: string | null };
+  folders: SharedFolderPayload['folder'][];
+  links: Array<{ id: number; folderId: number; name: string; url: string; icon: string | null; description: string | null }>;
+  expiresAt: string | null;
+}
+
 export type ReadingStatus = 'unread' | 'read';
 
 export interface ReadingPage {

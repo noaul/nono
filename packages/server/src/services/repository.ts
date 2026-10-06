@@ -213,6 +213,18 @@ export interface ApiTokenRecord {
   createdAt: Date;
 }
 
+export interface FolderShareRecord {
+  id: number;
+  userId: number;
+  folderId: number;
+  tokenHash: string;
+  tokenEncrypted: string;
+  expiresAt?: Date | null;
+  viewCount: number;
+  lastViewedAt?: Date | null;
+  createdAt: Date;
+}
+
 export interface CreatedApiTokenRecord extends ApiTokenRecord {
   token: string;
 }
@@ -414,6 +426,12 @@ export interface Repository {
   emptyTrash(userId: number): Promise<number>;
   /** Retention purge across every user. */
   purgeTrashBefore(cutoff: Date): Promise<number>;
+  /** Newest first; `folderId` narrows to one folder. */
+  listFolderShares(userId: number, folderId?: number): Promise<FolderShareRecord[]>;
+  createFolderShare(input: Omit<FolderShareRecord, 'id' | 'viewCount' | 'lastViewedAt' | 'createdAt'>): Promise<FolderShareRecord>;
+  findFolderShareByHash(tokenHash: string): Promise<FolderShareRecord | null>;
+  recordFolderShareView(id: number): Promise<void>;
+  deleteFolderShare(userId: number, id: number): Promise<boolean>;
   listTokens(userId: number): Promise<ApiTokenRecord[]>;
   createToken(userId: number, name: string, expiresAt?: Date | null, scopes?: string[]): Promise<CreatedApiTokenRecord>;
   findToken(token: string): Promise<(ApiTokenRecord & { user: UserRecord }) | null>;
@@ -491,6 +509,7 @@ export class MemoryRepository implements Repository {
   links: LinkRecord[] = [];
   trashItems: TrashItemRecord[] = [];
   tokens: ApiTokenRecord[] = [];
+  folderShares: FolderShareRecord[] = [];
   sessions: AuthSessionRecord[] = [];
   passkeys: PasskeyCredentialRecord[] = [];
   webAuthnChallenges: WebAuthnChallengeRecord[] = [];
@@ -954,6 +973,36 @@ export class MemoryRepository implements Repository {
     const before = this.trashItems.length;
     this.trashItems = this.trashItems.filter((item) => item.deletedAt >= cutoff);
     return before - this.trashItems.length;
+  }
+
+  async listFolderShares(userId: number, folderId?: number) {
+    const folderIds = new Set((await this.listFolders(userId)).map((folder) => folder.id));
+    return this.folderShares
+      .filter((share) => share.userId === userId && folderIds.has(share.folderId) && (folderId === undefined || share.folderId === folderId))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id);
+  }
+
+  async createFolderShare(input: Omit<FolderShareRecord, 'id' | 'viewCount' | 'lastViewedAt' | 'createdAt'>) {
+    const share: FolderShareRecord = { ...input, id: nextId(this.folderShares), viewCount: 0, lastViewedAt: null, createdAt: new Date() };
+    this.folderShares.push(share);
+    return share;
+  }
+
+  async findFolderShareByHash(tokenHash: string) {
+    const share = this.folderShares.find((item) => item.tokenHash === tokenHash);
+    if (!share || !this.folders.some((folder) => folder.id === share.folderId && folder.userId === share.userId)) return null;
+    return share;
+  }
+
+  async recordFolderShareView(id: number) {
+    const share = this.folderShares.find((item) => item.id === id);
+    if (share) Object.assign(share, { viewCount: share.viewCount + 1, lastViewedAt: new Date() });
+  }
+
+  async deleteFolderShare(userId: number, id: number) {
+    const before = this.folderShares.length;
+    this.folderShares = this.folderShares.filter((share) => !(share.userId === userId && share.id === id));
+    return this.folderShares.length < before;
   }
 
   async listTokens(userId: number) {

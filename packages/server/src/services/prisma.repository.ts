@@ -516,6 +516,24 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     async purgeTrashBefore(cutoff) {
       return (await prisma.trashItem.deleteMany({ where: { deletedAt: { lt: cutoff } } })).count;
     },
+    async listFolderShares(userId, folderId) {
+      return (await prisma.folderShare.findMany({
+        where: { userId, ...(folderId === undefined ? {} : { folderId }) },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      })) as any;
+    },
+    async createFolderShare(input) {
+      return (await prisma.folderShare.create({ data: prune(input) as any })) as any;
+    },
+    async findFolderShareByHash(tokenHash) {
+      return (await prisma.folderShare.findUnique({ where: { tokenHash } })) as any;
+    },
+    async recordFolderShareView(id) {
+      await prisma.folderShare.updateMany({ where: { id }, data: { viewCount: { increment: 1 }, lastViewedAt: new Date() } });
+    },
+    async deleteFolderShare(userId, id) {
+      return (await prisma.folderShare.deleteMany({ where: { userId, id } })).count > 0;
+    },
     async listTokens(userId) {
       return (await prisma.apiToken.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })) as any;
     },

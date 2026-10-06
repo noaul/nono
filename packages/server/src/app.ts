@@ -18,6 +18,7 @@ import { folderRoutes } from './routes/admin/folders.js';
 import { linkRoutes } from './routes/admin/links.js';
 import { bookmarkRoutes } from './routes/admin/bookmarks.js';
 import { tokenRoutes } from './routes/admin/tokens.js';
+import { shareRoutes } from './routes/admin/shares.js';
 import { userRoutes } from './routes/admin/users.js';
 import { accountRoutes } from './routes/admin/account.js';
 import { metaRoutes } from './routes/admin/meta.js';
@@ -248,6 +249,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   await mobileBookmarkRoutes(app, services);
   await bookmarkRoutes(app, services);
   await tokenRoutes(app, services);
+  await shareRoutes(app, services);
   await userRoutes(app, services);
   await accountRoutes(app, services);
   await backupRoutes(app, services);
