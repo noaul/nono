@@ -157,7 +157,7 @@ onMounted(load);
     <ContentManagementTabs active="trash" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="admin-section trash-section">
+    <section class="admin-card admin-section trash-section">
       <header class="trash-toolbar">
         <div class="trash-filters" :aria-label="t('trash.filters')">
           <button

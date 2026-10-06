@@ -82,7 +82,7 @@ function reasoningLabel(value: string) {
     <button v-if="!loaded" class="button secondary" data-testid="retry-llm-load" type="button" :disabled="isLoading" @click="load">{{ isLoading ? t('common.loading') : t('common.retry') }}</button>
     <form id="llm-settings-form" class="admin-section" @submit.prevent="save">
       <header class="admin-section-head">
-        <h2><Bot :size="18" /> {{ t('llm.connection') }}</h2>
+        <h3><Bot :size="16" /> {{ t('llm.connection') }}</h3>
         <div class="admin-section-actions">
           <button class="button secondary" data-testid="test-llm-connection" type="button" :disabled="!loaded || isTesting" @click="testConnection"><FlaskConical :size="17" /> {{ isTesting ? t('llm.testing') : t('llm.testConnection') }}</button>
           <button class="button" type="submit" :disabled="!loaded"><Save :size="17" /> {{ t('llm.saveConfig') }}</button>

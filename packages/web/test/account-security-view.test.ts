@@ -120,18 +120,16 @@ describe('AccountView security controls', () => {
     expect(apiRequest.mock.calls.some(([url]) => url === '/api/admin/users' || url === '/api/admin/config')).toBe(false);
   });
 
-  it('shows passkeys and keeps login devices at the bottom of the account page', async () => {
+  it('shows passkeys and keeps login devices at the bottom of the sign-in security card', async () => {
     const wrapper = mount(AccountView);
     await settle();
 
     expect(wrapper.text()).toContain('Windows Hello');
     expect(wrapper.text()).toContain('Chrome on Windows');
     expect(wrapper.text()).toContain('当前设备');
-    const sections = wrapper.findAll('.admin-section');
-    expect(sections.at(-1)?.attributes('data-testid')).toBe('login-devices-section');
-    expect(wrapper.get('[data-testid="api-token-section"]').element.compareDocumentPosition(
-      wrapper.get('[data-testid="login-devices-section"]').element,
-    ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const securitySections = wrapper.get('[data-testid="account-security-card"]').findAll('.admin-section');
+    expect(securitySections.at(-1)?.attributes('data-testid')).toBe('login-devices-section');
+    expect(wrapper.get('[data-testid="account-access-card"]').find('[data-testid="api-token-section"]').exists()).toBe(true);
   });
 
   it('registers a passkey with the browser and adds it to the list', async () => {

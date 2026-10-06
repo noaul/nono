@@ -273,7 +273,7 @@ onMounted(load);
   <div class="admin-page-stack">
     <ContentManagementTabs active="notabs" />
 
-    <section class="admin-section compact-admin-section" data-testid="entry-management">
+    <section class="admin-card admin-section compact-admin-section" data-testid="entry-management">
       <div class="admin-section-head">
         <h2>{{ t('notabs.entryManagement') }}</h2>
         <button class="button" data-testid="save-navigation-entries" type="button" :disabled="isSavingEntries" @click="saveNavigationEntries">
@@ -301,7 +301,7 @@ onMounted(load);
       </div>
     </section>
 
-    <section class="admin-section compact-admin-section" data-testid="notab-management">
+    <section class="admin-card admin-section compact-admin-section" data-testid="notab-management">
       <div class="admin-section-head">
         <h2>{{ t('notabs.list') }}</h2>
         <div class="toolbar">
@@ -428,7 +428,12 @@ onMounted(load);
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 38px;
+  grid-template-columns: 36px minmax(120px, 0.7fr) minmax(220px, 1.5fr) auto 52px;
+}
+
+/* The last column also holds the "NoDesk" label, so it is wider than the delete button. */
+.entry-editor-row > .icon-button {
+  justify-self: end;
 }
 
 .entry-icon,

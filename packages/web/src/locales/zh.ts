@@ -634,6 +634,8 @@ export const zh = {
     thisDeviceOnly: '仅此设备',
     noPasskeys: '尚未添加通行密钥',
     devices: '登录设备',
+    groupSecurity: '登录与安全',
+    groupAccess: '访问与集成',
     currentDevice: '当前设备',
     unknownIp: '未知 IP',
     loginPassword: '登录密码',

@@ -632,6 +632,8 @@ export const en: Messages = {
     thisDeviceOnly: 'This device only',
     noPasskeys: 'No passkeys yet',
     devices: 'Signed-in devices',
+    groupSecurity: 'Sign-in & security',
+    groupAccess: 'Access & integrations',
     currentDevice: 'This device',
     unknownIp: 'Unknown IP',
     loginPassword: 'Password',

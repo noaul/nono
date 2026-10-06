@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
-import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plus, Save, Trash2, X } from '@lucide/vue';
+import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plug, Plus, Save, ShieldCheck, Trash2, X } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -251,146 +251,159 @@ onMounted(() => {
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="admin-section security-section">
-      <header class="admin-section-head">
-        <h2><Fingerprint :size="18" /> {{ t('account.passkeys') }}</h2>
+    <section class="admin-card admin-card-group" data-testid="account-security-card">
+      <header class="admin-card-head">
+        <h2><ShieldCheck :size="18" /> {{ t('account.groupSecurity') }}</h2>
       </header>
-      <div class="security-add-row">
-        <div class="field">
-          <label for="passkey-name">{{ t('account.deviceName') }}</label>
-          <input id="passkey-name" v-model="passkeyName" data-testid="passkey-name" maxlength="80" :placeholder="t('account.deviceNamePlaceholder')" @keydown.enter.prevent="addPasskey" />
-        </div>
-        <button class="button" data-testid="add-passkey" type="button" :disabled="!passkeyName.trim() || isAddingPasskey" @click="addPasskey">
-          <Plus :size="17" /> {{ isAddingPasskey ? t('account.adding') : t('account.add') }}
-        </button>
-      </div>
-      <div v-if="passkeys.length" class="security-list">
-        <article v-for="passkey in passkeys" :key="passkey.id" class="security-row">
-          <span class="security-row-icon"><Fingerprint :size="18" /></span>
-          <div class="security-row-main">
-            <strong>{{ passkey.name }}</strong>
-            <small>{{ passkey.backedUp ? t('account.synced') : t('account.thisDeviceOnly') }} · {{ formatDate(passkey.lastUsedAt || passkey.createdAt) }}</small>
+
+      <section class="admin-section security-section">
+        <header class="admin-section-head">
+          <h3><Fingerprint :size="16" /> {{ t('account.passkeys') }}</h3>
+        </header>
+        <div class="security-add-row">
+          <div class="field">
+            <label for="passkey-name">{{ t('account.deviceName') }}</label>
+            <input id="passkey-name" v-model="passkeyName" data-testid="passkey-name" maxlength="80" :placeholder="t('account.deviceNamePlaceholder')" @keydown.enter.prevent="addPasskey" />
           </div>
-          <button class="icon-button secondary" type="button" :title="t('account.passkeyDelete')" :aria-label="t('account.passkeyDelete')" @click="removePasskey(passkey)">
-            <Trash2 :size="16" />
+          <button class="button" data-testid="add-passkey" type="button" :disabled="!passkeyName.trim() || isAddingPasskey" @click="addPasskey">
+            <Plus :size="17" /> {{ isAddingPasskey ? t('account.adding') : t('account.add') }}
           </button>
-        </article>
-      </div>
-      <p v-else-if="!isLoadingSecurity" class="security-empty">{{ t('account.noPasskeys') }}</p>
-    </section>
+        </div>
+        <div v-if="passkeys.length" class="security-list">
+          <article v-for="passkey in passkeys" :key="passkey.id" class="security-row">
+            <span class="security-row-icon"><Fingerprint :size="18" /></span>
+            <div class="security-row-main">
+              <strong>{{ passkey.name }}</strong>
+              <small>{{ passkey.backedUp ? t('account.synced') : t('account.thisDeviceOnly') }} · {{ formatDate(passkey.lastUsedAt || passkey.createdAt) }}</small>
+            </div>
+            <button class="icon-button secondary" type="button" :title="t('account.passkeyDelete')" :aria-label="t('account.passkeyDelete')" @click="removePasskey(passkey)">
+              <Trash2 :size="16" />
+            </button>
+          </article>
+        </div>
+        <p v-else-if="!isLoadingSecurity" class="security-empty">{{ t('account.noPasskeys') }}</p>
+      </section>
 
-    <form id="account-password-form" class="admin-section" @submit.prevent="save">
-      <header class="admin-section-head">
-        <h2><KeyRound :size="18" /> {{ t('account.loginPassword') }}</h2>
-        <button class="button" type="submit"><Save :size="17" /> {{ t('account.changePassword') }}</button>
-      </header>
-      <div class="admin-settings-grid">
-        <div class="field"><label>{{ t('account.currentPassword') }}</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
-        <div class="field"><label>{{ t('account.newPassword') }}</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
-      </div>
-    </form>
-
-    <form class="admin-section guest-access-section" @submit.prevent="saveGuestAccess">
-      <header class="admin-section-head">
-        <h2><KeyRound :size="18" /> {{ t('account.guestPassword') }}</h2>
-        <label class="guest-access-toggle">
-          <input v-model="guestAccess.enabled" data-testid="guest-access-enabled" type="checkbox" />
-          <span>{{ guestAccess.enabled ? t('account.enabled') : t('account.disabled') }}</span>
-        </label>
-      </header>
-      <div class="guest-access-fields">
-        <div class="field">
-          <label for="guest-access-password">{{ t('account.simplePassword') }}</label>
-          <input
-            id="guest-access-password"
-            v-model="guestAccess.password"
-            data-testid="guest-access-password"
-            type="password"
-            autocomplete="new-password"
-            minlength="4"
-            maxlength="72"
-            :placeholder="guestAccess.passwordSet ? t('account.keepCurrentPassword') : t('account.setMinPassword')"
-          />
+      <form id="account-password-form" class="admin-section" @submit.prevent="save">
+        <header class="admin-section-head">
+          <h3><KeyRound :size="16" /> {{ t('account.loginPassword') }}</h3>
+          <button class="button" type="submit"><Save :size="17" /> {{ t('account.changePassword') }}</button>
+        </header>
+        <div class="admin-settings-grid">
+          <div class="field"><label>{{ t('account.currentPassword') }}</label><input v-model="form.currentPassword" type="password" autocomplete="current-password" /></div>
+          <div class="field"><label>{{ t('account.newPassword') }}</label><input v-model="form.newPassword" type="password" autocomplete="new-password" /></div>
         </div>
-        <span class="password-state" :class="{ configured: guestAccess.passwordSet || guestAccess.password }">
-          {{ guestAccess.password || guestAccess.passwordSet ? t('account.passwordConfigured') : t('account.passwordNotConfigured') }}
-        </span>
-        <button
-          class="button"
-          data-testid="save-guest-access"
-          type="submit"
-          :disabled="isSavingGuestAccess || (guestAccess.enabled && !guestAccess.passwordSet && guestAccess.password.length < 4)"
-        >
-          <Save :size="17" /> {{ isSavingGuestAccess ? t('common.saving') : t('account.saveGuest') }}
-        </button>
-      </div>
-    </form>
-
-    <section id="api-tokens" class="admin-section token-section" data-testid="api-token-section">
-      <header class="admin-section-head">
-        <h2><KeyRound :size="18" /> API Token</h2>
-      </header>
-      <form class="token-create-row" @submit.prevent="createToken">
-        <div class="field">
-          <label for="token-name">{{ t('tokens.name') }}</label>
-          <input id="token-name" v-model="tokenForm.name" data-testid="token-name" maxlength="80" />
-        </div>
-        <div class="field">
-          <label for="token-scope">{{ t('tokens.scope') }}</label>
-          <select id="token-scope" v-model="tokenForm.scopeProfile" data-testid="token-scope-profile">
-            <option value="extension">{{ t('tokens.scopeExtension') }}</option>
-            <option value="full">{{ t('tokens.scopeFull') }}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="token-expiry">{{ t('tokens.expiryPreset') }}</label>
-          <select id="token-expiry" v-model="tokenForm.expiryDays" data-testid="token-expiry-preset">
-            <option value="">{{ t('tokens.never') }}</option>
-            <option value="7">{{ t('tokens.days', { count: 7 }) }}</option>
-            <option value="30">{{ t('tokens.days', { count: 30 }) }}</option>
-            <option value="90">{{ t('tokens.days', { count: 90 }) }}</option>
-          </select>
-        </div>
-        <button class="button token-create-button" data-testid="create-api-token" type="button" :disabled="isCreatingToken || !tokenForm.name.trim()" @click="createToken">
-          <Plus :size="17" /> {{ isCreatingToken ? t('common.saving') : t('tokens.create') }}
-        </button>
       </form>
-      <div class="token-list">
-        <EmptyState v-if="!tokens.length" :title="t('tokens.emptyTitle')" :description="t('tokens.emptyBody')" />
-        <article v-for="token in tokens" :key="token.id" class="token-row">
-          <span class="security-row-icon"><KeyRound :size="17" /></span>
-          <div class="security-row-main">
-            <strong>{{ token.name }}</strong>
-            <small>{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt ? formatDate(token.expiresAt) : t('tokens.never') }}</small>
-          </div>
-          <button class="icon-button danger" type="button" :title="t('tokens.revoke')" :aria-label="t('tokens.revoke')" @click="removeToken(token)"><Trash2 :size="16" /></button>
-        </article>
-      </div>
-    </section>
 
-    <LlmSettings />
-    <UserManagement v-if="auth.isAdmin" />
-
-    <section class="admin-section security-section" data-testid="login-devices-section">
-      <header class="admin-section-head">
-        <h2><MonitorSmartphone :size="18" /> {{ t('account.devices') }}</h2>
-        <button v-if="sessions.some((session) => !session.current)" class="button secondary compact" type="button" @click="revokeOtherSessions">
-          <LogOut :size="16" /> {{ t('account.signOutOthers') }}
-        </button>
-      </header>
-      <div class="security-list">
-        <article v-for="session in sessions" :key="session.id" class="security-row">
-          <span class="security-row-icon"><MonitorSmartphone :size="18" /></span>
-          <div class="security-row-main">
-            <strong>{{ session.userAgent || t('account.unknownDevice') }} <span v-if="session.current" class="current-device">{{ t('account.currentDevice') }}</span></strong>
-            <small>{{ session.ipAddress || t('account.unknownIp') }} · {{ formatDate(session.lastSeenAt) }}</small>
-          </div>
-          <button v-if="!session.current" class="icon-button secondary" type="button" :title="t('account.signOutDevice')" :aria-label="t('account.signOutDevice')" @click="revokeSession(session)">
-            <LogOut :size="16" />
+      <section class="admin-section security-section" data-testid="login-devices-section">
+        <header class="admin-section-head">
+          <h3><MonitorSmartphone :size="16" /> {{ t('account.devices') }}</h3>
+          <button v-if="sessions.some((session) => !session.current)" class="button secondary compact" type="button" @click="revokeOtherSessions">
+            <LogOut :size="16" /> {{ t('account.signOutOthers') }}
           </button>
-        </article>
-      </div>
+        </header>
+        <div class="security-list">
+          <article v-for="session in sessions" :key="session.id" class="security-row">
+            <span class="security-row-icon"><MonitorSmartphone :size="18" /></span>
+            <div class="security-row-main">
+              <strong>{{ session.userAgent || t('account.unknownDevice') }} <span v-if="session.current" class="current-device">{{ t('account.currentDevice') }}</span></strong>
+              <small>{{ session.ipAddress || t('account.unknownIp') }} · {{ formatDate(session.lastSeenAt) }}</small>
+            </div>
+            <button v-if="!session.current" class="icon-button secondary" type="button" :title="t('account.signOutDevice')" :aria-label="t('account.signOutDevice')" @click="revokeSession(session)">
+              <LogOut :size="16" />
+            </button>
+          </article>
+        </div>
+      </section>
     </section>
+
+    <section class="admin-card admin-card-group" data-testid="account-access-card">
+      <header class="admin-card-head">
+        <h2><Plug :size="18" /> {{ t('account.groupAccess') }}</h2>
+      </header>
+
+      <form class="admin-section guest-access-section" @submit.prevent="saveGuestAccess">
+        <header class="admin-section-head">
+          <h3><KeyRound :size="16" /> {{ t('account.guestPassword') }}</h3>
+          <label class="guest-access-toggle">
+            <input v-model="guestAccess.enabled" data-testid="guest-access-enabled" type="checkbox" />
+            <span>{{ guestAccess.enabled ? t('account.enabled') : t('account.disabled') }}</span>
+          </label>
+        </header>
+        <div class="guest-access-fields">
+          <div class="field">
+            <label for="guest-access-password">{{ t('account.simplePassword') }}</label>
+            <input
+              id="guest-access-password"
+              v-model="guestAccess.password"
+              data-testid="guest-access-password"
+              type="password"
+              autocomplete="new-password"
+              minlength="4"
+              maxlength="72"
+              :placeholder="guestAccess.passwordSet ? t('account.keepCurrentPassword') : t('account.setMinPassword')"
+            />
+          </div>
+          <span class="password-state" :class="{ configured: guestAccess.passwordSet || guestAccess.password }">
+            {{ guestAccess.password || guestAccess.passwordSet ? t('account.passwordConfigured') : t('account.passwordNotConfigured') }}
+          </span>
+          <button
+            class="button"
+            data-testid="save-guest-access"
+            type="submit"
+            :disabled="isSavingGuestAccess || (guestAccess.enabled && !guestAccess.passwordSet && guestAccess.password.length < 4)"
+          >
+            <Save :size="17" /> {{ isSavingGuestAccess ? t('common.saving') : t('account.saveGuest') }}
+          </button>
+        </div>
+      </form>
+
+      <section id="api-tokens" class="admin-section token-section" data-testid="api-token-section">
+        <header class="admin-section-head">
+          <h3><KeyRound :size="16" /> API Token</h3>
+        </header>
+        <form class="token-create-row" @submit.prevent="createToken">
+          <div class="field">
+            <label for="token-name">{{ t('tokens.name') }}</label>
+            <input id="token-name" v-model="tokenForm.name" data-testid="token-name" maxlength="80" />
+          </div>
+          <div class="field">
+            <label for="token-scope">{{ t('tokens.scope') }}</label>
+            <select id="token-scope" v-model="tokenForm.scopeProfile" data-testid="token-scope-profile">
+              <option value="extension">{{ t('tokens.scopeExtension') }}</option>
+              <option value="full">{{ t('tokens.scopeFull') }}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="token-expiry">{{ t('tokens.expiryPreset') }}</label>
+            <select id="token-expiry" v-model="tokenForm.expiryDays" data-testid="token-expiry-preset">
+              <option value="">{{ t('tokens.never') }}</option>
+              <option value="7">{{ t('tokens.days', { count: 7 }) }}</option>
+              <option value="30">{{ t('tokens.days', { count: 30 }) }}</option>
+              <option value="90">{{ t('tokens.days', { count: 90 }) }}</option>
+            </select>
+          </div>
+          <button class="button token-create-button" data-testid="create-api-token" type="button" :disabled="isCreatingToken || !tokenForm.name.trim()" @click="createToken">
+            <Plus :size="17" /> {{ isCreatingToken ? t('common.saving') : t('tokens.create') }}
+          </button>
+        </form>
+        <div class="token-list">
+          <EmptyState v-if="!tokens.length" :title="t('tokens.emptyTitle')" :description="t('tokens.emptyBody')" />
+          <article v-for="token in tokens" :key="token.id" class="token-row">
+            <span class="security-row-icon"><KeyRound :size="17" /></span>
+            <div class="security-row-main">
+              <strong>{{ token.name }}</strong>
+              <small>{{ token.token }} · {{ token.scopes.includes('*') ? t('tokens.scopeFull') : t('tokens.scopeExtension') }} · {{ token.expiresAt ? formatDate(token.expiresAt) : t('tokens.never') }}</small>
+            </div>
+            <button class="icon-button danger" type="button" :title="t('tokens.revoke')" :aria-label="t('tokens.revoke')" @click="removeToken(token)"><Trash2 :size="16" /></button>
+          </article>
+        </div>
+      </section>
+
+      <LlmSettings />
+    </section>
+
+    <UserManagement v-if="auth.isAdmin" />
 
     <div v-if="tokenDialogOpen" class="token-dialog-backdrop" role="presentation" @mousedown.self="closeTokenDialog">
       <section ref="tokenDialog" class="token-dialog" data-testid="created-api-token-modal" role="dialog" aria-modal="true" :aria-label="t('tokens.oneTimeTitle')" tabindex="-1">

@@ -394,6 +394,7 @@
 }
 
 .admin-section-head h2,
+.admin-section-head h3,
 .dashboard-section-head h2,
 .admin-card-head h2 {
   align-items: center;
@@ -402,6 +403,20 @@
   font-weight: 600;
   gap: var(--ui-space-2);
   margin: 0;
+}
+
+.admin-card-head h2,
+.admin-card.admin-section > .admin-section-head h2 {
+  font-size: 15px;
+}
+
+/* Sub-sections of a grouped card sit one step below the card title. */
+.admin-section-head h3 {
+  color: var(--ui-text-muted);
+}
+
+.admin-section-head h3 svg {
+  color: var(--ui-accent);
 }
 
 .admin-card-head p {
@@ -446,6 +461,59 @@
   background: var(--ui-surface-sunken);
   border: 0;
   border-radius: var(--ui-radius-sm);
+}
+
+/* A grouped card frames several related sections under one title, like one slide of a deck:
+   the title row is ruled off, and each section after the first gets a hairline above it. */
+.admin-card-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}
+
+.admin-card-group > .admin-card-head {
+  border-bottom: 1px solid var(--ui-border);
+  margin-bottom: 0;
+  padding-bottom: var(--ui-space-3);
+}
+
+.admin-card-group > .admin-card-head ~ * + * {
+  border-top: 1px solid var(--ui-border);
+  padding-top: var(--ui-space-4);
+}
+
+/* Checkbox with a title and hint, used by settings forms on several pages. */
+.switch-row {
+  align-items: center;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  display: flex;
+  gap: var(--ui-space-3);
+  min-height: 56px;
+  padding: 10px 14px;
+}
+
+.switch-row input {
+  accent-color: var(--ui-accent);
+  flex: 0 0 auto;
+  height: 18px;
+  width: 18px;
+}
+
+.switch-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.switch-row strong {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.switch-row small {
+  color: var(--ui-text-muted);
+  font-size: 12px;
 }
 
 /* ==========================================================================

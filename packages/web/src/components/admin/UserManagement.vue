@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { Users } from '@lucide/vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { User } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
@@ -91,8 +92,8 @@ onMounted(load);
 </script>
 
 <template>
-  <section v-if="auth.isAdmin" id="user-management" class="admin-section">
-    <header class="admin-section-head"><h2>{{ t('users.title') }}</h2></header>
+  <section v-if="auth.isAdmin" id="user-management" class="admin-card admin-section">
+    <header class="admin-section-head"><h2><Users :size="18" /> {{ t('users.title') }}</h2></header>
     <AdminStateBanner v-if="error" :message="error" tone="error" />
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <button v-if="!loaded" class="button secondary" type="button" :disabled="busy" @click="load">{{ busy ? t('common.loading') : t('common.retry') }}</button>

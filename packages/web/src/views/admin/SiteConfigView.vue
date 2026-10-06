@@ -328,38 +328,6 @@ function setDefaultSearchEngine(id: string) {
   grid-column: 1 / -1;
 }
 
-.switch-row {
-  align-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  gap: 12px;
-  min-height: 56px;
-  padding: 10px 14px;
-}
-
-.switch-row input {
-  accent-color: var(--nono-accent);
-  height: 18px;
-  width: 18px;
-}
-
-.switch-row span {
-  display: grid;
-  gap: 2px;
-}
-
-.switch-row strong {
-  color: var(--admin-text);
-  font-size: 13px;
-}
-
-.switch-row small {
-  color: var(--admin-text-muted);
-  font-size: 12px;
-}
-
 .portal-layout {
   align-items: stretch;
   display: grid;

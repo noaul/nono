@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { Activity, Eye, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
+import { Activity, Bookmark, Eye, FolderTree, GripVertical, Link2, MoveDown, MoveUp, Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
 import FolderGlyph from '@/components/FolderGlyph.vue';
 import ContentManagementTabs from '@/components/admin/ContentManagementTabs.vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
@@ -634,12 +634,12 @@ onMounted(load);
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="admin-section compact-admin-section">
-      <div class="admin-section-head">
-        <h2>{{ t('links.list') }}</h2>
-      </div>
-      <LoadingOverlay v-if="isInitialLoading" :label="t('links.loading')" />
-      <template v-else>
+    <LoadingOverlay v-if="isInitialLoading" :label="t('links.loading')" />
+    <template v-else>
+      <section class="admin-card admin-section compact-admin-section" data-testid="folder-card">
+        <div class="admin-section-head">
+          <h2><FolderTree :size="18" /> {{ t('folders.management') }}</h2>
+        </div>
         <div class="management-filter-group">
           <div class="management-filter-label">NoTab</div>
           <nav class="folder-pills" :aria-label="t('links.notabNav')">
@@ -770,6 +770,12 @@ onMounted(load);
           </div>
         </section>
 
+      </section>
+
+      <section class="admin-card admin-section compact-admin-section" data-testid="bookmark-card">
+        <div class="admin-section-head">
+          <h2><Bookmark :size="18" /> {{ t('links.list') }}</h2>
+        </div>
         <div id="bookmark-tools" class="bulk-action-bar">
           <strong>{{ sortMode ? t('links.sortingTitle') : selectedCount ? t('links.selectedCount', { count: selectedCount }) : t('links.bulkActions') }}</strong>
           <div class="bulk-list-tools">
@@ -916,8 +922,8 @@ onMounted(load);
             <button class="button" data-testid="save-link-sort" type="button" :disabled="isSavingSort" @click="saveSorting"><Save :size="17" /> {{ isSavingSort ? t('common.saving') : t('links.saveChanges') }}</button>
           </div>
         </div>
-      </template>
-    </section>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -970,10 +976,8 @@ onMounted(load);
 }
 
 .folder-management-panel {
-  border-block: 1px solid var(--admin-border);
   display: grid;
   gap: 12px;
-  padding: 14px 0;
 }
 
 .folder-summary-table {
