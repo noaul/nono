@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { startRegistration } from '@simplewebauthn/browser';
-import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plug, Plus, Save, ShieldCheck, Trash2, X } from '@lucide/vue';
+import { Check, Copy, Fingerprint, KeyRound, LogOut, MonitorSmartphone, Plug, Plus, Save, ShieldCheck, Trash2, Users, X } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import AdminTabs from '@/components/admin/AdminTabs.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import { useAuthStore } from '@/stores/auth';
 import LlmSettings from '@/components/admin/LlmSettings.vue';
@@ -10,6 +11,7 @@ import EmptyState from '@/components/admin/EmptyState.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { ApiToken, Site } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
+import { useHashTabs } from '@/composables/useHashTabs';
 import { useI18n } from '@/composables/useI18n';
 import { useModalBehavior } from '@/composables/useModalBehavior';
 import { formatShanghaiDateTime } from '@/utils/dateTime';
@@ -17,6 +19,17 @@ import { scopesForProfile } from '@/utils/tokenScopes';
 
 const { t } = useI18n();
 const auth = useAuthStore();
+
+const tabs = computed(() => [
+  { id: 'security', label: t('account.groupSecurity'), icon: ShieldCheck },
+  { id: 'access', label: t('account.groupAccess'), icon: Plug },
+  ...(auth.isAdmin ? [{ id: 'users', label: t('users.title'), icon: Users }] : []),
+]);
+// #api-tokens and #llm are older deep links (dashboard shortcuts, /admin/tokens and /admin/llm redirects).
+const { active: activeTab, select: selectTab } = useHashTabs(
+  computed(() => tabs.value.map((tab) => tab.id) as ('security' | 'access' | 'users')[]),
+  { 'api-tokens': 'access', llm: 'access', 'user-management': 'users' },
+);
 
 interface PasskeyItem {
   id: string;
@@ -248,10 +261,12 @@ onMounted(() => {
 
 <template>
   <div class="admin-page-stack">
+    <AdminTabs :items="tabs" :active="activeTab" :label="t('admin.navAccount')" @select="selectTab" />
+
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
-    <section class="admin-card admin-card-group" data-testid="account-security-card">
+    <section v-show="activeTab === 'security'" id="security" class="admin-card admin-card-group" data-testid="account-security-card" role="tabpanel" aria-labelledby="security-tab">
       <header class="admin-card-head">
         <h2><ShieldCheck :size="18" /> {{ t('account.groupSecurity') }}</h2>
       </header>
@@ -317,7 +332,7 @@ onMounted(() => {
       </section>
     </section>
 
-    <section class="admin-card admin-card-group" data-testid="account-access-card">
+    <section v-show="activeTab === 'access'" id="access" class="admin-card admin-card-group" data-testid="account-access-card" role="tabpanel" aria-labelledby="access-tab">
       <header class="admin-card-head">
         <h2><Plug :size="18" /> {{ t('account.groupAccess') }}</h2>
       </header>
@@ -403,7 +418,7 @@ onMounted(() => {
       <LlmSettings />
     </section>
 
-    <UserManagement v-if="auth.isAdmin" />
+    <div v-if="auth.isAdmin" v-show="activeTab === 'users'" id="users" role="tabpanel" aria-labelledby="users-tab"><UserManagement /></div>
 
     <div v-if="tokenDialogOpen" class="token-dialog-backdrop" role="presentation" @mousedown.self="closeTokenDialog">
       <section ref="tokenDialog" class="token-dialog" data-testid="created-api-token-modal" role="dialog" aria-modal="true" :aria-label="t('tokens.oneTimeTitle')" tabindex="-1">

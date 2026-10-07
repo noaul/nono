@@ -1,42 +1,22 @@
 <script setup lang="ts">
 import { ArrowUpDown, BookOpen, Layers, Link2, Trash2 } from '@lucide/vue';
-import { inject } from 'vue';
-import { routerKey } from 'vue-router';
+import { computed } from 'vue';
+import AdminTabs from '@/components/admin/AdminTabs.vue';
 import { useI18n } from '@/composables/useI18n';
 
 defineProps<{ active: 'notabs' | 'links' | 'reading' | 'import' | 'trash' }>();
 
 const { t } = useI18n();
-const router = inject(routerKey, null);
 
-const items = [
-  { id: 'notabs' as const, to: '/admin/notabs', labelKey: 'admin.navNotabs' as const, icon: Layers },
-  { id: 'links' as const, to: '/admin/links', labelKey: 'admin.navLinks' as const, icon: Link2 },
-  { id: 'reading' as const, to: '/admin/reading', labelKey: 'admin.navReading' as const, icon: BookOpen },
-  { id: 'import' as const, to: '/admin/import', labelKey: 'admin.navImport' as const, icon: ArrowUpDown },
-  { id: 'trash' as const, to: '/admin/trash', labelKey: 'admin.navTrash' as const, icon: Trash2 },
-];
-
-function navigate(event: MouseEvent, to: string) {
-  if (!router || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-  event.preventDefault();
-  void router.push(to);
-}
+const items = computed(() => [
+  { id: 'notabs', to: '/admin/notabs', label: t('admin.navNotabs'), icon: Layers },
+  { id: 'links', to: '/admin/links', label: t('admin.navLinks'), icon: Link2 },
+  { id: 'reading', to: '/admin/reading', label: t('admin.navReading'), icon: BookOpen },
+  { id: 'import', to: '/admin/import', label: t('admin.navImport'), icon: ArrowUpDown },
+  { id: 'trash', to: '/admin/trash', label: t('admin.navTrash'), icon: Trash2 },
+]);
 </script>
 
 <template>
-  <nav class="content-management-tabs" :aria-label="t('admin.navContentManagement')">
-    <a
-      v-for="item in items"
-      :key="item.id"
-      :href="item.to"
-      class="content-management-tab"
-      :class="{ active: active === item.id }"
-      :aria-current="active === item.id ? 'page' : undefined"
-      @click="navigate($event, item.to)"
-    >
-      <component :is="item.icon" :size="16" />
-      <span>{{ t(item.labelKey) }}</span>
-    </a>
-  </nav>
+  <AdminTabs :items="items" :active="active" :label="t('admin.navContentManagement')" />
 </template>

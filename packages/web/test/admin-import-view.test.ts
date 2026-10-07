@@ -23,7 +23,7 @@ describe('ImportView', () => {
   it('hosts browser bookmark import and export as a content management tab', () => {
     const wrapper = mount(ImportView);
 
-    expect(wrapper.get('.content-management-tab.active').text()).toBe('导入导出');
+    expect(wrapper.get('.admin-tab.active').text()).toBe('导入导出');
     expect(wrapper.text()).toContain('书签导入导出');
     expect(wrapper.find('[data-testid="preview-bookmarks"]').exists()).toBe(true);
   });

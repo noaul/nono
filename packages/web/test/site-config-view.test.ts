@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SiteConfigView from '../src/views/admin/SiteConfigView.vue';
 
@@ -105,6 +105,25 @@ describe('SiteConfigView site controls', () => {
       imageUrl: 'https://cdn.example.com/avatar.png',
       openInNewTab: true,
     });
+  });
+
+  it('splits site settings into tabs with one save button for all of them', async () => {
+    apiRequest.mockResolvedValueOnce({
+      id: 1, userId: 1, name: 'NoNo', description: '', slug: 'admin', backgroundColor: '#000000', fontColor: '#ffffff',
+      searchUrlTemplate: 'https://www.google.com/search?q={query}', localSearchFirst: true, settings: {},
+    });
+    const wrapper = mountView();
+    await settle(wrapper);
+    await flushPromises();
+
+    expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual(['基础信息', '搜索引擎', 'NoDesk联动']);
+    expect(wrapper.get<HTMLElement>('#basics').element.style.display).toBe('');
+    expect(wrapper.get<HTMLElement>('#portal').element.style.display).toBe('none');
+
+    await wrapper.get('[data-testid="admin-tab-portal"]').trigger('click');
+    expect(wrapper.get<HTMLElement>('#portal').element.style.display).toBe('');
+    expect(wrapper.get<HTMLElement>('#basics').element.style.display).toBe('none');
+    expect(wrapper.findAll('button[type="submit"][form="site-config-form"]')).toHaveLength(1);
   });
 
   it('adds custom search engines, toggles them, and persists the default engine', async () => {

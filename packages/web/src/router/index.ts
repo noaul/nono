@@ -24,7 +24,9 @@ const SharedFolderView = () => import('@/views/SharedFolderView.vue');
 
 export const router = createRouter({
   history: createWebHistory(),
-  scrollBehavior(to) {
+  scrollBehavior(to, from) {
+    // Same page, new hash: an in-page tab switch (useHashTabs), so stay where the reader is.
+    if (to.meta?.hashTabs && to.path === from?.path && to.hash !== from.hash) return false;
     if (to.hash) return { el: to.hash, top: 16 };
     return { top: 0 };
   },
@@ -42,7 +44,7 @@ export const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         { path: '', component: AdminDashboard, meta: { titleKey: 'admin.titleDashboard' } },
-        { path: '/admin/site', component: SiteConfigView, meta: { titleKey: 'admin.titleSite' } },
+        { path: '/admin/site', component: SiteConfigView, meta: { titleKey: 'admin.titleSite', hashTabs: true } },
         { path: '/admin/notabs', component: NotabsView, meta: { titleKey: 'admin.titleNotabs' } },
         { path: '/admin/folders', redirect: '/admin/links#folder-management' },
         { path: '/admin/add-bookmark', redirect: '/admin/links' },
@@ -51,7 +53,7 @@ export const router = createRouter({
         { path: '/admin/import', component: ImportView, meta: { titleKey: 'admin.titleImport' } },
         { path: '/admin/automation', redirect: '/admin/import' },
         { path: '/admin/users', redirect: '/admin/account' },
-        { path: '/admin/account', component: AccountView, meta: { titleKey: 'admin.titleAccount' } },
+        { path: '/admin/account', component: AccountView, meta: { titleKey: 'admin.titleAccount', hashTabs: true } },
         { path: '/admin/trash', component: TrashView, meta: { titleKey: 'admin.titleTrash' } },
         { path: '/admin/reading', component: ReadingView, meta: { titleKey: 'admin.titleReading' } },
         { path: '/admin/llm', redirect: '/admin/account#llm' },

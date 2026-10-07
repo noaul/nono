@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ArrowUpRight, Image, Link2, Palette, Plus, Save, Search, Trash2 } from '@lucide/vue';
 import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
+import AdminTabs from '@/components/admin/AdminTabs.vue';
 import LoadingOverlay from '@/components/admin/LoadingOverlay.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { Site } from '@/api/types';
 import { getPortalSettings, portalDefaults } from '@/utils/portal';
 import { getSearchEngineSettings, type SearchEngineSettings } from '@/utils/searchEngines';
+import { useHashTabs } from '@/composables/useHashTabs';
 import { useI18n } from '@/composables/useI18n';
 
 const { t } = useI18n();
+
+const tabs = computed(() => [
+  { id: 'basics', label: t('site.basics'), icon: Palette },
+  { id: 'search', label: t('site.searchEngines'), icon: Search },
+  { id: 'portal', label: t('site.portal'), icon: Link2 },
+]);
+const { active: activeTab, select: selectTab } = useHashTabs(['basics', 'search', 'portal'] as const);
 
 const form = reactive({
   name: '',
@@ -123,16 +132,21 @@ function setDefaultSearchEngine(id: string) {
 
 <template>
   <div class="admin-page-stack">
+    <AdminTabs :items="tabs" :active="activeTab" :label="t('admin.navSite')" @select="selectTab">
+      <template #actions>
+        <button class="button" type="submit" form="site-config-form" :disabled="!loaded || saving"><Save :size="17" /> {{ saving ? t('common.saving') : t('site.saveSettings') }}</button>
+      </template>
+    </AdminTabs>
+
     <AdminStateBanner v-if="message" :message="message" tone="success" />
     <AdminStateBanner v-if="error" :message="error" tone="error" />
 
     <LoadingOverlay v-if="!loaded && !error" />
     <form v-if="loaded" id="site-config-form" class="site-config-form" @submit.prevent="save">
 
-      <section class="admin-card site-basics">
+      <section v-show="activeTab === 'basics'" id="basics" class="admin-card site-basics" role="tabpanel" aria-labelledby="basics-tab">
         <header class="admin-card-head">
           <h2><Palette :size="18" /> {{ t('site.basics') }}</h2>
-          <button class="button" type="submit" :disabled="saving"><Save :size="17" /> {{ saving ? t('common.saving') : t('site.saveSettings') }}</button>
         </header>
         <div class="config-fields">
           <div class="field"><label>{{ t('site.name') }}</label><input v-model="form.name" /></div>
@@ -147,7 +161,7 @@ function setDefaultSearchEngine(id: string) {
         </div>
       </section>
 
-      <section class="admin-card search-engine-editor">
+      <section v-show="activeTab === 'search'" id="search" class="admin-card search-engine-editor" role="tabpanel" aria-labelledby="search-tab">
         <header class="admin-card-head">
           <h2><Search :size="18" /> {{ t('site.searchEngines') }}</h2>
           <button class="button secondary" data-testid="add-search-engine" type="button" @click="addSearchEngine">
@@ -210,7 +224,7 @@ function setDefaultSearchEngine(id: string) {
         </div>
       </section>
 
-      <section class="admin-card portal-editor">
+      <section v-show="activeTab === 'portal'" id="portal" class="admin-card portal-editor" role="tabpanel" aria-labelledby="portal-tab">
         <header class="admin-card-head">
           <h2><Link2 :size="18" /> {{ t('site.portal') }}</h2>
           <label class="portal-enabled">

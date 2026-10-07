@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useAuthStore } from '../src/stores/auth';
 import { useConfirm, clearConfirmState } from '../src/composables/useConfirm';
@@ -150,6 +150,37 @@ describe('AccountView security controls', () => {
     const securitySections = wrapper.get('[data-testid="account-security-card"]').findAll('.admin-section');
     expect(securitySections.at(-1)?.attributes('data-testid')).toBe('login-devices-section');
     expect(wrapper.get('[data-testid="account-access-card"]').find('[data-testid="api-token-section"]').exists()).toBe(true);
+  });
+
+  it('splits the account page into tabs and opens the access tab from older #api-tokens links', async () => {
+    useAuthStore().user = { id: 1, username: 'admin', displayName: 'Admin', email: 'admin@example.com', role: 'admin' };
+    const original = apiRequest.getMockImplementation()!;
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/users') return [];
+      if (url === '/api/admin/config') return { allowRegistration: true };
+      return original(url, options);
+    });
+    window.location.hash = '#api-tokens';
+    onTestFinished(() => { window.location.hash = ''; });
+    const wrapper = mount(AccountView);
+    await settle();
+
+    expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual(['登录与安全', '访问与集成', '用户与注册']);
+    expect(wrapper.get('[data-testid="admin-tab-access"]').attributes('aria-selected')).toBe('true');
+    expect(wrapper.get<HTMLElement>('[data-testid="account-access-card"]').element.style.display).toBe('');
+    expect(wrapper.get<HTMLElement>('[data-testid="account-security-card"]').element.style.display).toBe('none');
+
+    await wrapper.get('[data-testid="admin-tab-users"]').trigger('click');
+    expect(wrapper.get<HTMLElement>('#user-management').element.style.display).toBe('');
+    expect(wrapper.get<HTMLElement>('[data-testid="account-access-card"]').element.style.display).toBe('none');
+  });
+
+  it('hides the user management tab from non-administrators', async () => {
+    const wrapper = mount(AccountView);
+    await settle();
+
+    expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual(['登录与安全', '访问与集成']);
+    expect(wrapper.get<HTMLElement>('[data-testid="account-security-card"]').element.style.display).toBe('');
   });
 
   it('registers a passkey with the browser and adds it to the list', async () => {
