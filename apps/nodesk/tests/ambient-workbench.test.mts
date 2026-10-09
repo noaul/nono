@@ -183,7 +183,6 @@ test('keeps private NoDesk data and controls behind the live Nono admin session'
 	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-top-center'/)
 	assert.match(workbench, /privateWorkbenchVisible && \(focusRunning \?/)
 	assert.match(workbench, /privateWorkbenchVisible && activePanel &&/)
-	assert.match(workbench, /privateWorkbenchVisible && <div className='ambient-side-stack/)
 	assert.match(workbench, /privateWorkbenchVisible && workbenchNavigation\.quickEntriesVisible && \(\n\t+<nav className='ambient-app-dock/)
 	assert.match(workbench, /privateWorkbenchVisible && <div ref=\{dockRef\} className='ambient-dock-wrap/)
 	assert.match(workbench, /open=\{privateWorkbenchVisible && settingsOpen\}/)
@@ -215,11 +214,11 @@ test('syncs the ambient workbench with Shanghai time and Nono home data', async 
 	assert.match(workbench, /上海时间/)
 	assert.match(workbench, /\/api\/navigation\/admin\/background/)
 	assert.match(workbench, /repositories\?limit=1000/)
-	assert.match(workbench, /sources=nodesk%2Cnomoney%2Cyumi/)
-	assert.match(workbench, /ambient-notification-rail/)
+	assert.match(workbench, /\/api\/admin\/notifications\?limit=100/)
+	assert.match(workbench, /<AmbientNotificationIsland/)
 	assert.match(workbench, /clickCount/)
 	assert.match(styles, /ambient-time-zone/)
-	assert.match(styles, /ambient-dock-badge/)
+	assert.match(styles, /ambient-island-count/)
 })
 
 test('uses a seconds clock with flip motion and dismisses dock panels from outside', async () => {
@@ -244,7 +243,6 @@ test('uses a wider lower search trigger and links integration panels to their pr
 	assert.match(workbench, /shortcutHref: '\/admin\/links', shortcutLabel: '打开书签管理'/)
 	assert.match(workbench, /shortcutHref: '\/nostar\/', shortcutLabel: '打开 NoStar'/)
 	assert.match(workbench, /shortcutHref: '\/yumi', shortcutLabel: '打开 Yumi'/)
-	assert.match(workbench, /href='\/admin\/notifications'/)
 	assert.match(workbench, /href=\{activeDockItem\.shortcutHref\}/)
 	assert.doesNotMatch(workbench, /返回 Nono 主页/)
 	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
@@ -260,7 +258,6 @@ test('keeps module entries in a right-hand app dock that leads with NoNo', async
 	const styles = await read('src/styles/ambient-workbench.css')
 	const source = `${workbench}\n${settings}\n${backupCenter}`
 
-	assert.match(source, /className='ambient-side-stack ambient-wakeable'/)
 	assert.match(workbench, /<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口'[^>]*>/)
 	assert.match(workbench, /dockEntries\.map\(entry =>[\s\S]*ambient-app-dock-label/)
 	assert.doesNotMatch(workbench, /ambient-app-rail|setAppSwitcherOpen/)
@@ -273,17 +270,14 @@ test('keeps module entries in a right-hand app dock that leads with NoNo', async
 	assert.match(source, /\/api\/admin\/backup-center\/local/)
 	assert.match(styles, /\.ambient-app-dock\s*\{[^}]*flex-direction: column;[^}]*position: absolute;[^}]*right: max\(20px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\);[^}]*top: 50%/)
 	assert.match(styles, /\.ambient-app-dock a:hover \.ambient-app-dock-label/)
-	assert.match(styles, /\[data-app-dock='true'\] \.ambient-side-stack\s*\{[^}]*74px/)
 	assert.doesNotMatch(styles, /\.ambient-app-rail|\.ambient-app-list/)
-	assert.match(styles, /\.ambient-side-stack\s*\{[^}]*right: max\(28px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\)/)
-	assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.ambient-side-stack\s*\{[^}]*right: max\(16px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\)/)
 	assert.match(styles, /\.ambient-command-trigger \{[\s\S]*margin-top: 56px/)
 	assert.match(styles, /\.ambient-settings-dialog/)
 	assert.match(settings, /event\.key !== 'Tab'/)
 	assert.match(settings, /previouslyFocused\?\.focus\(\)/)
 })
 
-test('phones get a five-button dock, header search and notifications, and a 更多 panel', async () => {
+test('phones get a five-button dock, header search, and a 更多 panel', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
@@ -292,33 +286,33 @@ test('phones get a five-button dock, header search and notifications, and a 更�
 	}
 	assert.match(workbench, /\{ id: 'more', label: '更多', icon: LayoutGrid, placement: 'phone-only' \}/)
 	assert.match(workbench, /activePanel === 'more'[\s\S]*<h3>工具<\/h3>[\s\S]*<h3>打开应用<\/h3>/)
-	assert.match(workbench, /ambient-phone-only ambient-bell-button/)
 	assert.match(workbench, /ambient-icon-button ambient-wide-only' onClick=\{\(\) => void toggleFullscreen\(\)\}/)
 	const phone = styles.slice(styles.lastIndexOf('Phones: one clean column'))
 	assert.match(phone, /\.ambient-wide-only,\s*\.ambient-app-dock,\s*\.ambient-command-trigger,\s*\.ambient-dock \.is-secondary\s*\{\s*display: none !important;/)
-	assert.match(phone, /\[data-notifications='collapsed'\] \.ambient-side-stack\s*\{\s*display: none;/)
 })
 
-test('auto-collapses notifications and expands the rail only on hover or keyboard focus', async () => {
+test('shows unread notifications as an island above the search bar instead of a side rail', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+	const island = await read('src/app/(home)/ambient-notification-island.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	assert.match(workbench, /notificationRailExpanded[\s\S]*useState\(false\)/)
-	assert.match(workbench, /ambient-notification-rail/)
-	assert.match(workbench, /onMouseEnter=\{\(\) => setNotificationRailExpanded\(true\)\}/)
-	assert.match(workbench, /onMouseLeave=\{\(\) => setNotificationRailExpanded\(false\)\}/)
-	assert.doesNotMatch(workbench, /aria-label=\{notificationRailCollapsed \? '展开通知' : '折叠通知'\}/)
-	assert.match(workbench, /href='\/admin\/notifications'/)
-	assert.doesNotMatch(workbench, /\{ id: 'notifications', label: '通知', icon: Bell/)
-	assert.doesNotMatch(workbench, /activePanel === 'notifications'/)
-	assert.match(styles, /\.ambient-side-stack[\s\S]*right: max\(28px, var\(--nono-safe-right, env\(safe-area-inset-right\)\)\)/)
-	assert.match(styles, /\.ambient-notification-rail\.is-collapsed\s*\{[^}]*grid-template-rows: 44px;[^}]*max-height: 44px;[^}]*width: min\(300px, calc\(100vw - 56px\)\)/)
-	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed\s*\{[^}]*width: 44px/)
-	assert.doesNotMatch(styles, /\.ambient-notification-rail\.is-collapsed \.ambient-notification-heading > span\s*\{[^}]*display: none/)
-	assert.match(workbench, /notificationRailExpanded \? <ChevronUp size=\{18\} \/> : <ChevronDown size=\{18\} \/>/)
-	assert.match(workbench, /data-notifications=\{privateWorkbenchVisible \? \(notificationRailExpanded \? 'expanded' : 'collapsed'\) : 'hidden'\}/)
-	assert.match(styles, /data-notifications='expanded'[\s\S]*\.ambient-center-stage/)
+	assert.match(workbench, /className='ambient-top-center'>\s*<AmbientNotificationIsland/)
+	assert.doesNotMatch(workbench, /ambient-notification-rail|ambient-side-stack|ambient-bell-button/)
+	assert.doesNotMatch(styles, /ambient-notification-rail|ambient-side-stack|data-notifications/)
+	assert.match(workbench, /data-island=/)
+	assert.match(workbench, /setSettingsInitialTab\('notifications'\)/)
+	assert.match(workbench, /addEventListener\('nono:notifications-changed'/)
+	assert.match(island, /islandMode\(unread\.length, expanded, Boolean\(peekItem\)\)/)
+	assert.match(island, /SEEN_STORAGE_KEY/)
+	assert.match(styles, /\.ambient-island-anchor\s*\{[^}]*position: absolute;[^}]*top: 44px/)
+	assert.match(styles, /@media \(max-width: 820px\)\s*\{\s*\.ambient-island-anchor\s*\{\s*top: calc\(100% \+ 12px\)/)
 	assert.match(styles, /\.ambient-command-trigger[\s\S]*right: max\(68px/)
+})
+
+test('offers a NoNo sign-in button to signed-out visitors', async () => {
+	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
+
+	assert.match(workbench, /\{initialized && !isAuth && <a className='ambient-login-button' href=\{`\/login\?next=\$\{encodeURIComponent\(`\$\{BASE_PATH\}\/`\)\}`\}/)
 })
 
 test('uses calmer backup page groupings instead of one dense control grid', async () => {
@@ -341,11 +335,10 @@ test('downloads local backups through an error-aware client action', async () =>
 	assert.doesNotMatch(backupCenter, /href='\/api\/admin\/backup-center\/local\/all'/)
 })
 
-test('uses restrained corner radii for the upcoming card, notification rail, and dock', async () => {
+test('uses restrained corner radii for the upcoming card and dock', async () => {
 	const styles = await read('src/styles/ambient-workbench.css')
 
 	assert.match(styles, /\.ambient-now\s*\{[^}]*border-radius: 14px/)
-	assert.match(styles, /\.ambient-notification-rail\s*\{[^}]*border-radius: 14px/)
 	assert.match(styles, /\.ambient-dock\s*\{[^}]*border-radius: 14px/)
 	assert.doesNotMatch(styles, /@media \(max-width: 640px\)[\s\S]*\.ambient-now\s*\{[^}]*border-radius: (?:20|24)px/)
 	assert.doesNotMatch(styles, /@media \(max-width: 640px\)[\s\S]*\.ambient-dock\s*\{[^}]*border-radius: (?:22|28)px/)

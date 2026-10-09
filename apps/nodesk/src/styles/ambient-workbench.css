@@ -85,23 +85,6 @@
 	visibility: hidden;
 }
 
-.ambient-side-stack {
-	display: grid;
-	gap: 10px;
-	position: absolute;
-	right: max(28px, var(--nono-safe-right, env(safe-area-inset-right)));
-	top: max(112px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 90px));
-	width: min(300px, calc(100vw - 56px));
-	z-index: 24;
-}
-
-.ambient-side-stack > .ambient-side-rail {
-	position: relative;
-	right: auto;
-	top: auto;
-	width: 100%;
-}
-
 .ambient-app-entry-icon,
 .ambient-dock-icon {
 	background: rgba(250, 253, 255, 0.66);
@@ -541,169 +524,6 @@
 	z-index: 30;
 }
 
-.ambient-notification-rail {
-	backdrop-filter: blur(34px) saturate(1.16);
-	background: color-mix(in srgb, var(--ambient-glass-strong) 92%, transparent);
-	border: 1px solid var(--ambient-line);
-	border-radius: 14px;
-	box-shadow: var(--ambient-shadow);
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr) auto;
-	max-height: calc(100dvh - 300px);
-	overflow: hidden;
-	position: relative;
-	transition: max-height 180ms ease, border-radius 180ms ease, background-color 180ms ease;
-	width: min(300px, calc(100vw - 56px));
-}
-
-.ambient-side-rail:focus-visible {
-	outline: 2px solid color-mix(in srgb, #238b68 72%, white);
-	outline-offset: 2px;
-}
-
-.ambient-notification-rail.is-collapsed {
-	grid-template-rows: 44px;
-	max-height: 44px;
-	width: min(300px, calc(100vw - 56px));
-}
-
-.ambient-notification-heading {
-	align-items: center;
-	border-bottom: 1px solid color-mix(in srgb, var(--ambient-ink) 10%, transparent);
-	display: flex;
-	gap: 8px;
-	justify-content: space-between;
-	min-height: 48px;
-	padding: 7px 8px 7px 14px;
-}
-
-.ambient-notification-heading > span {
-	align-items: center;
-	display: flex;
-	gap: 7px;
-	min-width: 0;
-}
-
-.ambient-side-chevron {
-	color: var(--ambient-muted);
-	display: grid;
-	height: 32px;
-	place-items: center;
-	transition: color 160ms ease;
-	width: 32px;
-}
-
-.ambient-side-rail:hover .ambient-side-chevron,
-.ambient-side-rail:focus-within .ambient-side-chevron {
-	color: var(--ambient-ink);
-}
-
-.ambient-notification-heading strong {
-	font-size: 13px;
-	font-weight: 670;
-}
-
-.ambient-notification-heading b {
-	background: #d9474d;
-	border-radius: 999px;
-	color: #fff;
-	font-size: 9px;
-	font-weight: 700;
-	line-height: 18px;
-	min-width: 18px;
-	padding-inline: 5px;
-	text-align: center;
-}
-
-.ambient-notification-heading button,
-.ambient-notification-footer button {
-	background: transparent;
-	border: 0;
-	border-radius: 8px;
-	color: var(--ambient-muted);
-	display: grid;
-	flex: 0 0 auto;
-	height: 32px;
-	place-items: center;
-	width: 32px;
-}
-
-.ambient-notification-heading button:hover,
-.ambient-notification-footer button:hover {
-	background: color-mix(in srgb, var(--ambient-ink) 8%, transparent);
-	color: var(--ambient-ink);
-}
-
-.ambient-notification-rail.is-collapsed .ambient-notification-heading {
-	border-bottom: 0;
-	min-height: 44px;
-	padding: 5px 7px 5px 14px;
-}
-
-.ambient-notification-rail.is-collapsed .ambient-notification-heading button {
-	height: 34px;
-	width: 34px;
-}
-
-.ambient-notification-list {
-	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
-	padding: 4px 8px;
-	scrollbar-width: thin;
-}
-
-.ambient-notification-list .ambient-integration-list {
-	gap: 2px;
-}
-
-.ambient-notification-list .ambient-external-row {
-	border-radius: 9px;
-	grid-template-columns: 26px minmax(0, 1fr) 14px;
-	min-height: 47px;
-	padding: 6px;
-}
-
-.ambient-notification-list .ambient-external-row > span:nth-child(2) {
-	gap: 2px;
-}
-
-.ambient-notification-list .ambient-external-row strong {
-	font-size: 11px;
-}
-
-.ambient-notification-list .ambient-external-row small {
-	font-size: 9px;
-	line-height: 1.35;
-	max-height: 2.7em;
-	overflow: hidden;
-	white-space: normal;
-}
-
-.ambient-notification-list .ambient-row-icon {
-	height: 26px;
-	width: 26px;
-}
-
-.ambient-notification-footer {
-	align-items: center;
-	border-top: 1px solid color-mix(in srgb, var(--ambient-ink) 10%, transparent);
-	display: flex;
-	justify-content: space-between;
-	padding: 6px 8px;
-}
-
-.ambient-notification-footer a {
-	align-items: center;
-	color: var(--ambient-ink);
-	display: flex;
-	font-size: 10px;
-	font-weight: 650;
-	gap: 4px;
-	padding: 6px;
-	text-decoration: none;
-}
-
 .ambient-dock-status {
 	backdrop-filter: blur(18px);
 	background: var(--ambient-glass);
@@ -768,26 +588,6 @@
 	position: relative;
 	transition: background-color 180ms ease, box-shadow 180ms ease;
 	width: 56px;
-}
-
-.ambient-dock-badge {
-	align-items: center;
-	background: #e5484d;
-	border: 2px solid rgba(255, 255, 255, 0.92);
-	border-radius: 999px;
-	box-shadow: 0 4px 10px rgba(117, 21, 27, 0.26);
-	color: #fff;
-	display: flex;
-	font-size: 9px;
-	font-weight: 750;
-	height: 19px;
-	justify-content: center;
-	line-height: 1;
-	min-width: 19px;
-	padding: 0 4px;
-	position: absolute;
-	right: -6px;
-	top: -6px;
 }
 
 [data-dimmed='true'] .ambient-app-entry-icon,
@@ -2047,23 +1847,6 @@ a.ambient-small-icon {
 	text-decoration: none;
 }
 
-.ambient-external-row.is-unread {
-	background: color-mix(in srgb, #2b82b3 7%, transparent);
-	border-radius: 10px;
-	padding-inline: 8px;
-}
-
-.ambient-external-row.is-unread strong::after {
-	background: #2b82b3;
-	border-radius: 50%;
-	content: '';
-	display: inline-block;
-	height: 6px;
-	margin-left: 7px;
-	vertical-align: 2px;
-	width: 6px;
-}
-
 .ambient-external-row:hover strong {
 	text-decoration: underline;
 	text-decoration-color: color-mix(in srgb, var(--ambient-ink) 34%, transparent);
@@ -2664,20 +2447,6 @@ a.ambient-small-icon {
 		display: contents;
 	}
 
-	.ambient-side-stack {
-		right: max(16px, var(--nono-safe-right, env(safe-area-inset-right)));
-		top: max(82px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 68px));
-		width: min(280px, calc(100vw - 32px));
-	}
-
-	.ambient-notification-rail {
-		width: 100%;
-	}
-
-	.ambient-notification-rail.is-collapsed {
-		width: 100%;
-	}
-
 	.ambient-top-actions {
 		grid-column: 2;
 		grid-row: 1;
@@ -2709,20 +2478,6 @@ a.ambient-small-icon {
 	}
 }
 
-@media (max-width: 1100px) and (min-width: 641px) {
-	.ambient-workbench[data-notifications='expanded'] .ambient-center-stage {
-		padding-right: 300px;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-clock-stack {
-		width: min(70vw, 520px);
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-time {
-		font-size: clamp(52px, 6vw, 72px);
-	}
-}
-
 @media (max-width: 640px) {
 	.ambient-topbar {
 		left: max(16px, var(--nono-safe-left, env(safe-area-inset-left)));
@@ -2748,18 +2503,6 @@ a.ambient-small-icon {
 	.ambient-center-stage {
 		align-items: start;
 		padding: 18vh 16px 0;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-center-stage {
-		padding-top: max(246px, 29vh);
-	}
-
-	.ambient-side-stack {
-		top: max(70px, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 56px));
-	}
-
-	.ambient-notification-rail.is-expanded {
-		max-height: clamp(88px, calc(100dvh - 500px), 166px);
 	}
 
 	.ambient-time {
@@ -2825,11 +2568,6 @@ a.ambient-small-icon {
 	.ambient-dock-icon > svg {
 		height: 23px;
 		width: 23px;
-	}
-
-	.ambient-dock-badge {
-		right: -5px;
-		top: -5px;
 	}
 
 	.ambient-command-trigger {
@@ -2984,31 +2722,6 @@ a.ambient-small-icon {
 	.ambient-module-backup button span,
 	.ambient-module-backup a span {
 		display: none;
-	}
-}
-
-@media (max-width: 640px) and (max-height: 700px) {
-	.ambient-workbench[data-notifications='expanded'] .ambient-center-stage {
-		padding-top: 230px;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-time-zone {
-		display: none;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-date,
-	.ambient-workbench[data-notifications='expanded'] .ambient-greeting,
-	.ambient-workbench[data-notifications='expanded'] .ambient-now {
-		margin-top: 9px;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-greeting {
-		font-size: 15px;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-now {
-		min-height: 92px;
-		padding: 12px 14px;
 	}
 }
 
@@ -3194,22 +2907,8 @@ a.ambient-small-icon {
 	transform: translateX(0);
 }
 
-/* Keep the notification rail clear of the dock. */
-.ambient-workbench[data-app-dock='true'] .ambient-side-stack {
-	right: calc(max(20px, var(--nono-safe-right, env(safe-area-inset-right))) + 74px);
-}
-
 .ambient-phone-only {
 	display: none !important;
-}
-
-.ambient-bell-button {
-	position: relative;
-}
-
-.ambient-bell-button .ambient-dock-badge {
-	right: -4px;
-	top: -4px;
 }
 
 .ambient-more-grid {
@@ -3277,31 +2976,6 @@ a.ambient-small-icon {
 		gap: 8px;
 	}
 
-	/* Notifications open as a dropdown from the bell instead of two stacked bars. */
-	.ambient-workbench[data-notifications='collapsed'] .ambient-side-stack {
-		display: none;
-	}
-
-	.ambient-workbench[data-notifications='expanded'] .ambient-center-stage {
-		padding-top: 18vh;
-	}
-
-	.ambient-side-stack,
-	.ambient-workbench[data-app-dock='true'] .ambient-side-stack {
-		left: max(12px, var(--nono-safe-left, env(safe-area-inset-left)));
-		right: max(12px, var(--nono-safe-right, env(safe-area-inset-right)));
-		width: auto;
-	}
-
-	.ambient-notification-rail.is-expanded {
-		background: rgba(248, 252, 255, 0.96);
-		max-height: min(60dvh, 460px);
-	}
-
-	[data-dimmed='true'] .ambient-notification-rail.is-expanded {
-		background: rgba(16, 29, 44, 0.96);
-	}
-
 	.ambient-center-stage {
 		padding-top: max(15vh, calc(var(--nono-safe-top, env(safe-area-inset-top)) + 84px));
 	}
@@ -3356,4 +3030,279 @@ a.ambient-small-icon {
 	position: absolute;
 	white-space: nowrap;
 	width: 1px;
+}
+
+.ambient-login-button {
+	align-items: center;
+	backdrop-filter: blur(20px);
+	background: var(--ambient-glass);
+	border: 1px solid var(--ambient-line);
+	border-radius: 14px;
+	box-shadow: 0 8px 24px rgba(59, 91, 124, 0.12), inset 0 1px rgba(255, 255, 255, 0.62);
+	color: var(--ambient-ink);
+	display: flex;
+	font-size: 13px;
+	font-weight: 600;
+	gap: 7px;
+	height: 44px;
+	padding: 0 15px;
+	text-decoration: none;
+	transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.ambient-login-button:hover,
+.ambient-login-button:focus-visible {
+	background: var(--ambient-glass-strong);
+	transform: translateY(-1px);
+}
+
+/*
+ * Notification island: a black pill above the search bar, Dynamic Island style. It is absent while
+ * everything is read, bubbles out for a new arrival, and opens downward over the search bar.
+ */
+.ambient-island-anchor {
+	display: flex;
+	justify-content: center;
+	left: 50%;
+	pointer-events: none;
+	position: absolute;
+	top: 44px;
+	transform: translateX(-50%);
+	width: min(400px, calc(100vw - 32px));
+	z-index: 32;
+}
+
+.ambient-island {
+	--island-accent: #5ac8fa;
+	background: rgba(8, 10, 14, 0.94);
+	box-shadow: 0 14px 38px rgba(4, 10, 20, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+	color: #f5f7fa;
+	overflow: hidden;
+	pointer-events: auto;
+	transform-origin: top center;
+}
+
+.ambient-island[data-severity='warning'] { --island-accent: #ffb340; }
+.ambient-island[data-severity='critical'] { --island-accent: #ff5a5f; }
+
+.ambient-island button,
+.ambient-island a {
+	background: transparent;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	text-decoration: none;
+}
+
+.ambient-island-compact,
+.ambient-island-peek {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	text-align: left;
+}
+
+.ambient-island-compact {
+	gap: 8px;
+	height: 34px;
+	max-width: min(300px, calc(100vw - 48px));
+	padding: 0 8px 0 6px;
+}
+
+.ambient-island-peek {
+	gap: 11px;
+	min-height: 56px;
+	padding: 9px 22px 9px 10px;
+	width: min(380px, calc(100vw - 32px));
+}
+
+.ambient-island-glyph {
+	align-items: center;
+	background: color-mix(in srgb, var(--island-accent) 22%, transparent);
+	border-radius: 50%;
+	color: var(--island-accent);
+	display: flex;
+	flex: 0 0 auto;
+	height: 24px;
+	justify-content: center;
+	width: 24px;
+}
+
+.ambient-island-glyph.is-large {
+	animation: ambient-island-ring 900ms ease 1;
+	height: 38px;
+	width: 38px;
+}
+
+.ambient-island-ticker {
+	font-size: 12.5px;
+	font-weight: 600;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ambient-island-count {
+	background: var(--island-accent);
+	border-radius: 999px;
+	color: #0a0c10;
+	flex: 0 0 auto;
+	font-size: 10px;
+	font-weight: 750;
+	line-height: 18px;
+	min-width: 18px;
+	padding-inline: 5px;
+	text-align: center;
+}
+
+.ambient-island-copy {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.ambient-island-copy strong {
+	font-size: 13px;
+	font-weight: 640;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ambient-island-copy small {
+	color: rgba(245, 247, 250, 0.58);
+	font-size: 11px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ambient-island-panel {
+	display: grid;
+	padding: 8px;
+	width: min(400px, calc(100vw - 32px));
+}
+
+.ambient-island-panel header {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	padding: 4px 4px 8px 10px;
+}
+
+.ambient-island-panel header strong {
+	font-size: 14px;
+}
+
+.ambient-island-panel header span {
+	color: rgba(245, 247, 250, 0.56);
+	flex: 1;
+	font-size: 12px;
+}
+
+.ambient-island-panel header button,
+.ambient-island-row > button {
+	border-radius: 50%;
+	color: rgba(245, 247, 250, 0.62);
+	cursor: pointer;
+	display: grid;
+	flex: 0 0 auto;
+	height: 30px;
+	place-items: center;
+	width: 30px;
+}
+
+.ambient-island-panel header button:hover,
+.ambient-island-row > button:hover,
+.ambient-island-panel :is(button, a):focus-visible {
+	background: rgba(255, 255, 255, 0.12);
+	color: #fff;
+	outline: none;
+}
+
+.ambient-island-list {
+	display: grid;
+	gap: 2px;
+	max-height: min(330px, calc(100dvh - 220px));
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+}
+
+.ambient-island-row {
+	align-items: center;
+	border-radius: 16px;
+	display: flex;
+	gap: 2px;
+	padding-right: 4px;
+}
+
+.ambient-island-row:hover {
+	background: rgba(255, 255, 255, 0.07);
+}
+
+.ambient-island-row[data-severity='warning'] { --island-accent: #ffb340; }
+.ambient-island-row[data-severity='critical'] { --island-accent: #ff5a5f; }
+.ambient-island-row[data-severity='info'] { --island-accent: #5ac8fa; }
+
+.ambient-island-row > a {
+	align-items: center;
+	display: flex;
+	flex: 1;
+	gap: 10px;
+	min-width: 0;
+	padding: 9px 6px 9px 8px;
+}
+
+.ambient-island-all {
+	align-items: center;
+	border-radius: 14px;
+	color: rgba(245, 247, 250, 0.72) !important;
+	cursor: pointer;
+	display: flex;
+	font-size: 12px !important;
+	font-weight: 600;
+	gap: 4px;
+	justify-content: center;
+	margin-top: 4px;
+	min-height: 36px;
+}
+
+.ambient-island-all:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff !important;
+}
+
+@keyframes ambient-island-ring {
+	0%, 100% { transform: rotate(0); }
+	20% { transform: rotate(-14deg); }
+	40% { transform: rotate(12deg); }
+	60% { transform: rotate(-8deg); }
+	80% { transform: rotate(4deg); }
+}
+
+/* Below 820px the search bar moves to the bottom, so the island hangs just under the top bar. */
+@media (max-width: 820px) {
+	.ambient-island-anchor {
+		top: calc(100% + 12px);
+	}
+}
+
+@media (max-width: 640px) {
+	.ambient-login-button {
+		border-radius: 12px;
+		height: 40px;
+		padding: 0 13px;
+	}
+
+	.ambient-workbench[data-island='visible'] .ambient-center-stage {
+		padding-top: max(calc(15vh + 40px), calc(var(--nono-safe-top, env(safe-area-inset-top)) + 124px));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ambient-island-glyph.is-large {
+		animation: none;
+	}
 }

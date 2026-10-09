@@ -6,12 +6,9 @@ import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } 
 import {
 	ArrowUpRight,
 	AppWindow,
-	Bell,
 	Bookmark,
 	CalendarDays,
 	Check,
-	ChevronDown,
-	ChevronUp,
 	Circle,
 	CloudSun,
 	ExternalLink,
@@ -19,6 +16,7 @@ import {
 	LayoutGrid,
 	Link2,
 	ListTodo,
+	LogIn,
 	Maximize2,
 	Minimize2,
 	Moon,
@@ -62,6 +60,7 @@ import {
 } from './ambient-workbench-model'
 import { useAuthStore } from '@/hooks/use-auth'
 import { AmbientDateTimePicker } from './ambient-date-time-picker'
+import { AmbientNotificationIsland, NOTIFICATION_SOURCE_LABELS, type NotificationItem } from './ambient-notification-island'
 import { AmbientSettingsCenter, type SettingsTab } from './ambient-settings-center'
 import { DeskPets } from './desk-pet/desk-pet'
 import { SPECIES } from './desk-pet/desk-pet-model'
@@ -92,17 +91,6 @@ type RepositoryItem = {
 	html_url: string
 	language?: string | null
 	stargazers_count?: number
-}
-
-type NotificationItem = {
-	key: string
-	source: 'nodesk' | 'nomoney' | 'yumi'
-	title: string
-	description: string
-	href: string
-	severity: 'info' | 'warning' | 'critical'
-	read: boolean
-	occurredAt: string
 }
 
 type DockPanelItem = {
@@ -137,7 +125,6 @@ const DOCK_ITEMS: DockItem[] = [
 ]
 
 const SHANGHAI_TIME_ZONE = 'Asia/Shanghai'
-const NOTIFICATION_SOURCE_LABELS = { nodesk: 'Nodesk', nomoney: 'NoMoney', yumi: 'Yumi' } as const
 
 function localDateKey(date = new Date()) {
 	return shanghaiDateKey(date)
@@ -236,18 +223,18 @@ export default function AmbientWorkbench() {
 	const [isFullscreen, setIsFullscreen] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
-	const [notificationRailExpanded, setNotificationRailExpanded] = useState(false)
+	const [notificationIslandExpanded, setNotificationIslandExpanded] = useState(false)
 	useEffect(() => {
-		const canHandle = searchOpen || settingsOpen || activePanel !== null || notificationRailExpanded
+		const canHandle = searchOpen || settingsOpen || activePanel !== null || notificationIslandExpanded
 		setNodeskBackHandler(canHandle ? () => {
 			if (searchOpen) setSearchOpen(false)
 			else if (settingsOpen) setSettingsOpen(false)
 			else if (activePanel !== null) setActivePanel(null)
-			else setNotificationRailExpanded(false)
+			else setNotificationIslandExpanded(false)
 			return true
 		} : null)
 		return () => setNodeskBackHandler(null)
-	}, [searchOpen, settingsOpen, activePanel, notificationRailExpanded])
+	}, [searchOpen, settingsOpen, activePanel, notificationIslandExpanded])
 	const [workbenchNavigation, setWorkbenchNavigation] = useState(() => normalizeWorkbenchNavigation(null))
 	const dockEntries = useMemo(() => appDockEntries(workbenchNavigation.entries), [workbenchNavigation.entries])
 
@@ -324,7 +311,7 @@ export default function AmbientWorkbench() {
 			updateIntegration('notifications', 'loading')
 		}
 		try {
-			const response = await fetch('/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cyumi', { credentials: 'same-origin', cache: 'no-store' })
+			const response = await fetch('/api/admin/notifications?limit=100', { credentials: 'same-origin', cache: 'no-store' })
 			if (!response.ok) throw new Error('Notifications unavailable')
 			const value = apiData(await response.json()) as { items?: unknown; unreadCount?: unknown } | null
 			const list = Array.isArray(value?.items) ? value.items : []
@@ -335,12 +322,13 @@ export default function AmbientWorkbench() {
 					if (
 						typeof notification.key !== 'string'
 						|| typeof notification.title !== 'string'
-						|| (notification.source !== 'nodesk' && notification.source !== 'nomoney' && notification.source !== 'yumi')
+						|| typeof notification.source !== 'string'
+						|| !Object.hasOwn(NOTIFICATION_SOURCE_LABELS, notification.source)
 					) return []
 					const severity = notification.severity === 'critical' || notification.severity === 'warning' ? notification.severity : 'info'
 					return [{
 						key: notification.key,
-						source: notification.source,
+						source: notification.source as NotificationItem['source'],
 						title: notification.title,
 						description: typeof notification.description === 'string' ? notification.description : '',
 						href: validNavigationHref(notification.href, '/'),
@@ -506,7 +494,7 @@ export default function AmbientWorkbench() {
 			setSearchOpen(false)
 			setSearchQuery('')
 			setSettingsOpen(false)
-			setNotificationRailExpanded(false)
+			setNotificationIslandExpanded(false)
 			return
 		}
 
@@ -522,13 +510,19 @@ export default function AmbientWorkbench() {
 			void loadOverview(false)
 			void loadPlanner()
 		}
+		const onNotificationsChanged = (event: Event) => {
+			if (event instanceof CustomEvent && event.detail === 'nodesk') return
+			void loadNotifications(false)
+		}
 		const pollTimer = window.setInterval(refreshNotifications, 5 * 60 * 1000)
 		window.addEventListener('focus', refreshNotifications)
+		window.addEventListener('nono:notifications-changed', onNotificationsChanged)
 		// Other integrations refresh on demand; notifications additionally follow the homepage cadence.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		return () => {
 			window.clearInterval(pollTimer)
 			window.removeEventListener('focus', refreshNotifications)
+			window.removeEventListener('nono:notifications-changed', onNotificationsChanged)
 		}
 	}, [privateWorkbenchVisible])
 
@@ -671,7 +665,7 @@ export default function AmbientWorkbench() {
 			if (event.key === 'Escape') {
 				setSearchOpen(false)
 				setActivePanel(null)
-				setNotificationRailExpanded(false)
+				setNotificationIslandExpanded(false)
 			}
 		}
 		const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -759,6 +753,28 @@ export default function AmbientWorkbench() {
 			if (!response.ok) throw new Error('Notification update failed')
 			window.dispatchEvent(new CustomEvent('nono:notifications-changed', { detail: 'nodesk' }))
 		}).catch(() => void loadNotifications(false))
+	}
+
+	const dismissNotification = (item: NotificationItem) => {
+		setNotifications(current => current.filter(entry => entry.key !== item.key))
+		if (!item.read) setNotificationUnreadCount(current => Math.max(0, current - 1))
+		void fetch(`/api/admin/notifications/${encodeURIComponent(item.key)}`, { method: 'DELETE', credentials: 'same-origin' })
+			.then(response => {
+				if (!response.ok) throw new Error('Notification dismiss failed')
+				window.dispatchEvent(new CustomEvent('nono:notifications-changed', { detail: 'nodesk' }))
+			})
+			.catch(() => void loadNotifications(false))
+	}
+
+	const markAllNotificationsRead = () => {
+		setNotifications(current => current.map(entry => ({ ...entry, read: true })))
+		setNotificationUnreadCount(0)
+		void fetch('/api/admin/notifications/mark-all-read', { method: 'POST', credentials: 'same-origin' })
+			.then(response => {
+				if (!response.ok) throw new Error('Notification update failed')
+				window.dispatchEvent(new CustomEvent('nono:notifications-changed', { detail: 'nodesk' }))
+			})
+			.catch(() => void loadNotifications(false))
 	}
 
 	const addTask = (event: FormEvent) => {
@@ -850,7 +866,7 @@ export default function AmbientWorkbench() {
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
 			data-session={initialized ? 'ready' : 'loading'}
-			data-notifications={privateWorkbenchVisible ? (notificationRailExpanded ? 'expanded' : 'collapsed') : 'hidden'}
+			data-island={privateWorkbenchVisible && notificationUnreadCount > 0 ? 'visible' : 'hidden'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			data-app-dock={privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible ? 'true' : 'false'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
@@ -869,6 +885,22 @@ export default function AmbientWorkbench() {
 
 
 				{privateWorkbenchVisible && <div className='ambient-top-center'>
+					<AmbientNotificationIsland
+						notifications={notifications}
+						unreadCount={notificationUnreadCount}
+						ready={integrationState.notifications === 'ready'}
+						expanded={notificationIslandExpanded}
+						onExpandedChange={setNotificationIslandExpanded}
+						onRead={markNotificationRead}
+						onDismiss={dismissNotification}
+						onReadAll={markAllNotificationsRead}
+						onOpenAll={() => {
+							setActivePanel(null)
+							setSettingsInitialTab('notifications')
+							setSettingsOpen(true)
+						}}
+						reducedMotion={Boolean(reducedMotion)}
+					/>
 					<button type='button' className='ambient-command-trigger' data-pet-terrain='search' onClick={() => setSearchOpen(true)} aria-label='打开快速搜索'>
 						<Search size={17} strokeWidth={1.8} />
 						<span>快速搜索与执行...</span>
@@ -881,11 +913,11 @@ export default function AmbientWorkbench() {
 						<button type='button' className='ambient-icon-button ambient-phone-only' onClick={() => setSearchOpen(true)} title='快速搜索' aria-label='打开快速搜索'>
 							<Search size={20} />
 						</button>
-						<button type='button' className='ambient-icon-button ambient-phone-only ambient-bell-button' onClick={() => setNotificationRailExpanded(current => !current)} title='通知' aria-label={notificationUnreadCount ? `通知，${notificationUnreadCount} 条未读` : '通知'} aria-expanded={notificationRailExpanded}>
-							<Bell size={20} />
-							{notificationUnreadCount > 0 && <b className='ambient-dock-badge'>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b>}
-						</button>
 					</>}
+					{initialized && !isAuth && <a className='ambient-login-button' href={`/login?next=${encodeURIComponent(`${BASE_PATH}/`)}`} aria-label='登录 NoNo'>
+						<LogIn size={17} />
+						<span>登录</span>
+					</a>}
 					<span className='ambient-compact-date' suppressHydrationWarning>{new Intl.DateTimeFormat('zh-CN', { timeZone: SHANGHAI_TIME_ZONE, month: 'long', day: 'numeric', weekday: 'short' }).format(now)}</span>
 					<button type='button' className='ambient-icon-button' onClick={toggleDim} title={dimmed ? '调亮画面' : '柔和画面'} aria-label={dimmed ? '调亮画面' : '柔和画面'}>
 						{dimmed ? <SunMedium size={20} /> : <Moon size={20} />}
@@ -1073,44 +1105,6 @@ export default function AmbientWorkbench() {
 				)}
 			</AnimatePresence>
 
-			{privateWorkbenchVisible && <div className='ambient-side-stack ambient-wakeable'>
-				<aside
-					className={`ambient-notification-rail ambient-side-rail${notificationRailExpanded ? ' is-expanded' : ' is-collapsed'}`}
-					data-pet-terrain='notifications'
-					aria-label='通知'
-					aria-expanded={notificationRailExpanded}
-					tabIndex={0}
-					onMouseEnter={() => setNotificationRailExpanded(true)}
-					onMouseLeave={() => setNotificationRailExpanded(false)}
-					onFocus={() => setNotificationRailExpanded(true)}
-					onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setNotificationRailExpanded(false) }}>
-					<header className='ambient-notification-heading'>
-						<span><Bell size={17} /><strong>通知</strong>{notificationUnreadCount > 0 ? <b>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</b> : null}</span>
-						<span className='ambient-side-chevron' aria-hidden='true'>{notificationRailExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
-					</header>
-					{notificationRailExpanded && <>
-						<div className='ambient-notification-list'>
-							<IntegrationList state={integrationState.notifications} empty='现在没有通知。' unavailable='登录 NoNo 后即可同步主页通知。'>
-								{notifications.slice(0, 6).map(item => <ExternalRow
-									key={item.key}
-									title={item.title}
-									subtitle={`${NOTIFICATION_SOURCE_LABELS[item.source]} · ${item.description}`}
-									href={item.href}
-									unread={!item.read}
-									onActivate={() => markNotificationRead(item)}
-									icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Bell size={15} /></span>}
-								/>)}
-							</IntegrationList>
-						</div>
-						<div className='ambient-notification-footer'>
-							<button type='button' onClick={() => void loadNotifications()} aria-label='刷新通知' title='刷新通知'><RefreshCw size={15} /></button>
-							<a href='/admin/notifications'>查看全部通知 <ArrowUpRight size={14} /></a>
-						</div>
-					</>}
-				</aside>
-
-			</div>}
-
 			{privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible && (
 				<nav className='ambient-app-dock ambient-wakeable' aria-label='应用快捷入口' data-pet-terrain='appdock'>
 					{dockEntries.map(entry => <a key={entry.id} href={entry.url} target={entry.openInNewTab ? '_blank' : undefined} rel={entry.openInNewTab ? 'noreferrer' : undefined} aria-label={entry.label}>
@@ -1244,8 +1238,8 @@ function IntegrationList({ state, empty, unavailable, children }: { state: LoadS
 	return <div className='ambient-integration-list'>{Children.count(children) ? children : <EmptyState copy={empty} />}</div>
 }
 
-function ExternalRow({ title, subtitle, href, icon, unread = false, onActivate }: { title: string; subtitle: string; href: string; icon: React.ReactNode; unread?: boolean; onActivate?: () => void }) {
-	return <a className={`ambient-external-row${unread ? ' is-unread' : ''}`} href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined} onClick={onActivate}>
+function ExternalRow({ title, subtitle, href, icon, onActivate }: { title: string; subtitle: string; href: string; icon: React.ReactNode; onActivate?: () => void }) {
+	return <a className='ambient-external-row' href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined} onClick={onActivate}>
 		<span className='ambient-row-icon'>{icon}</span>
 		<span><strong>{title}</strong><small>{subtitle}</small></span>
 		<ArrowUpRight size={16} />

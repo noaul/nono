@@ -41,11 +41,6 @@ export function useHomeAppearance(options: {
     if (resolvedMode.value !== 'dark') {
       return {
         '--public-mode-scrim': 'rgba(8, 12, 18, 0.02)',
-        '--public-notification-surface': '#ffffff',
-        '--public-notification-text': '#111827',
-        '--public-notification-text-rgb': '17, 24, 39',
-        '--public-notification-border-rgb': '15, 23, 42',
-        '--public-notification-hover-rgb': '15, 23, 42',
       };
     }
     return {
@@ -57,11 +52,6 @@ export function useHomeAppearance(options: {
       '--public-hover-rgb': '226, 231, 238',
       '--public-shadow-rgb': '0, 0, 0',
       '--public-overlay-rgb': '5, 8, 14',
-      '--public-notification-surface': 'rgba(5, 8, 14, 0.94)',
-      '--public-notification-text': '#ffffff',
-      '--public-notification-text-rgb': '255, 255, 255',
-      '--public-notification-border-rgb': '226, 231, 238',
-      '--public-notification-hover-rgb': '226, 231, 238',
     };
   });
 

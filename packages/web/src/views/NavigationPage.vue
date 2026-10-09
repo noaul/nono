@@ -4,14 +4,11 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, 
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { Activity, ArrowUpRight, Check, FolderIcon, Layers3, Link2, LogIn, ServerCog, Settings, Star, Trash2, WalletCards } from '@lucide/vue';
 import FolderCard from '@/components/FolderCard.vue';
-import HomeNotificationBell from '@/components/HomeNotificationBell.vue';
-import HomeUrgentNoticeBar from '@/components/HomeUrgentNoticeBar.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import { buildSearchUrl } from '@/api/client';
 import type { Folder, Link, Site } from '@/api/types';
 import { useHomeAppearance } from '@/composables/useHomeAppearance';
 import { useHomeFolders } from '@/composables/useHomeFolders';
-import { useHomeNotifications } from '@/composables/useHomeNotifications';
 import { useHomeOrganize } from '@/composables/useHomeOrganize';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
@@ -109,16 +106,6 @@ const {
   loadedBackgroundImage,
   backgroundStyle,
 } = useHomeAppearance({ visualSite, savedSite: computed(() => payload.value?.site), username });
-const {
-  items: homeNotificationItems,
-  loading: homeNotificationLoading,
-  unreadCount: homeNotificationUnreadCount,
-  urgentItems: homeUrgentNotifications,
-  urgentOverflow: homeUrgentOverflow,
-  markRead: markHomeNotificationRead,
-  dismiss: dismissHomeNotification,
-  markAllRead: markAllHomeNotificationsRead,
-} = useHomeNotifications(canEditAppearance);
 const appearanceEntryHref = computed(() => {
   if (auth.authenticated && auth.user) return `/${encodeURIComponent(auth.user.username)}`;
   return `/login?next=${encodeURIComponent(route.fullPath || '/')}`;
@@ -389,15 +376,6 @@ onUnmounted(() => {
       :tuning="sceneTuning"
     />
     <div class="public-corner-actions">
-      <HomeNotificationBell
-        v-if="canEditAppearance"
-        :items="homeNotificationItems"
-        :unread-count="homeNotificationUnreadCount"
-        :loading="homeNotificationLoading"
-        @mark-read="markHomeNotificationRead"
-        @dismiss="dismissHomeNotification"
-        @mark-all-read="markAllHomeNotificationsRead"
-      />
       <button
         v-if="canEditAppearance"
         class="portal-corner-link"
@@ -449,13 +427,6 @@ onUnmounted(() => {
         :busy="unlocking"
         @submit="submitSearch"
         @engine-change="searchEngineTick++"
-      />
-
-      <HomeUrgentNoticeBar
-        v-if="canEditAppearance"
-        :items="homeUrgentNotifications"
-        :overflow="homeUrgentOverflow"
-        @select="markHomeNotificationRead"
       />
 
       <Transition name="navigation-reveal">

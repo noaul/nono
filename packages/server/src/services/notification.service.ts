@@ -44,7 +44,8 @@ export interface NotificationService {
 
 export interface NotificationServiceOptions {
   prisma: PrismaClient;
-  nodeskReader: () => Promise<unknown>;
+  /** NoDesk content for the user: `calendarEvents` from the planner and the legacy site file. */
+  nodeskReader: (user: AuthUser) => Promise<unknown>;
   noMoneyReader: () => Promise<ProductDueItem[]>;
   yumiReader?: () => Promise<ProductDueItem[]>;
   backupService: Pick<BackupService, 'list'>;
@@ -70,7 +71,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
     ]);
     const globalCollectors: Array<Promise<RawNotification[]>> = [];
     if (user.role === 'admin') {
-      if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(options.nodeskReader, now(), timeZone));
+      if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(() => options.nodeskReader(user), now(), timeZone));
       if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone, locale));
       if (includes('yumi')) globalCollectors.push(collectYumiNotifications(options.yumiReader ?? (async () => []), now(), timeZone, locale));
       if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours, locale));

@@ -102,7 +102,16 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
   const nodeskStore = new NodeskContentStore(nodeskContentDir);
   const notificationService = overrides.notificationService || createNotificationService({
     prisma,
-    nodeskReader: () => nodeskStore.readPublicJson('site'),
+    nodeskReader: async (user) => {
+      // Workbench events live in the synced planner; older installs may still keep some in site.json.
+      const [content, site] = await Promise.all([
+        nodeskStore.readPublicJson('site').catch(() => null),
+        repo.getSite(user.id).catch(() => null),
+      ]);
+      const legacy = (content as { calendarEvents?: unknown } | null)?.calendarEvents;
+      const planner = (site?.settings.nodeskPlanner as { events?: unknown } | undefined)?.events;
+      return { calendarEvents: [...(Array.isArray(planner) ? planner : []), ...(Array.isArray(legacy) ? legacy : [])] };
+    },
     noMoneyReader: createProductDueReader({
       port: Number(process.env.NOMONEY_INTERNAL_PORT || 2030),
       token: process.env.NOMONEY_INTERNAL_TOKEN || '',

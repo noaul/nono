@@ -30,6 +30,11 @@ function unwrap<T>(value: unknown): T {
 	return value as T
 }
 
+/** Lets the workbench's notification island catch up with changes made here. */
+function announceChange() {
+	window.dispatchEvent(new CustomEvent('nono:notifications-changed', { detail: 'nodesk-center' }))
+}
+
 async function requestData<T>(url: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init })
 	const payload = await response.json().catch(() => null) as { message?: string } | null
@@ -101,16 +106,19 @@ export function AmbientNotificationCenter() {
 
 	const markRead = (item: NotificationFeedItem) => run(`read-${item.key}`, async () => {
 		await requestData(`/api/admin/notifications/${encodeURIComponent(item.key)}/read`, jsonInit('PUT', { read: !item.read }))
+		announceChange()
 		setFeed(current => current.map(entry => entry.key === item.key ? { ...entry, read: !item.read } : entry))
 	})
 
 	const dismiss = (item: NotificationFeedItem) => run(`dismiss-${item.key}`, async () => {
 		await requestData(`/api/admin/notifications/${encodeURIComponent(item.key)}`, { method: 'DELETE' })
+		announceChange()
 		setFeed(current => current.filter(entry => entry.key !== item.key))
 	})
 
 	const markAllRead = () => run('read-all', async () => {
-		await requestData('/api/admin/notifications/mark-all-read', jsonInit('POST', source ? { sources: [source] } : {}))
+		await requestData(`/api/admin/notifications/mark-all-read${source ? `?sources=${encodeURIComponent(source)}` : ''}`, { method: 'POST' })
+		announceChange()
 		setFeed(current => current.map(entry => !source || entry.source === source ? { ...entry, read: true } : entry))
 		setMessage('已全部标记为已读。')
 	})

@@ -172,6 +172,8 @@ describe('notification service', () => {
     const feed = await service.list({ id: 1, role: 'admin' } as any);
 
     expect(feed.items.filter((item) => item.source === 'nodesk').map((item) => item.title)).toEqual(['Publish notes', 'Renew certificate']);
+    // Planner events are per user, so the reader is asked for the signed-in administrator's events.
+    expect(nodeskReader).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
     expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(1);
     expect(feed.items.filter((item) => item.source === 'yumi')).toHaveLength(1);
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/nodesk/?settings=backups' });

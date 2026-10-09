@@ -438,7 +438,7 @@ test('wires both pets into the workbench and the settings center', async () => {
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const settings = await read('src/app/(home)/ambient-settings-center.tsx')
 
-	for (const id of ['search', 'clock', 'upcoming', 'panel', 'notifications', 'appdock', 'dock']) assert.match(workbench, new RegExp(`data-pet-terrain='${id}'`))
+	for (const id of ['search', 'clock', 'upcoming', 'panel', 'appdock', 'dock']) assert.match(workbench, new RegExp(`data-pet-terrain='${id}'`))
 	assert.match(workbench, /readPetPrefs/)
 	assert.match(workbench, /<DeskPets/)
 	assert.match(settings, /显示 Nono/)

@@ -435,25 +435,18 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('[data-testid="appearance-settings-drawer"]').exists()).toBe(false);
   });
 
-  it('provides high-contrast notification and label tokens for both color modes', async () => {
-    document.documentElement.dataset.colorMode = 'light';
-    let wrapper = await mountNavigationPage();
-    let style = wrapper.get('.nav-page').attributes('style');
-    expect(style).toContain('--public-notification-surface: #ffffff');
-    expect(style).toContain('--public-notification-text-rgb: 17, 24, 39');
-    wrapper.unmount();
-
+  it('provides high-contrast label tokens in dark mode', async () => {
     apiRequest.mockResolvedValue(navigationPayload(undefined, {
       appearance: {
         bookmarkTextColor: '#111111',
         categoryTextColor: '#222222',
       },
     }));
-    wrapper = await mountNavigationPage();
+    const wrapper = await mountNavigationPage();
     document.documentElement.dataset.colorMode = 'dark';
     window.dispatchEvent(new CustomEvent('nono-color-mode-change', { detail: 'dark' }));
     await wrapper.vm.$nextTick();
-    style = wrapper.get('.nav-page').attributes('style');
+    const style = wrapper.get('.nav-page').attributes('style');
     expect(style).toContain('--public-bookmark-text-rgb: 17, 17, 17');
     expect(style).toContain('--public-folder-text-rgb: 34, 34, 34');
     expect(style).toContain('--public-notab-text-rgb: 34, 34, 34');
