@@ -26,6 +26,30 @@ class SharedLinkTest {
     }
 
     @Test
+    fun linkEndsAtTheFirstChineseCharacterOrFullWidthPunctuation() {
+        assertEquals(
+            "http://xhslink.com/a/AbC",
+            parseSharedLink("看看这篇笔记 http://xhslink.com/a/AbC，复制本条信息，打开【小红书】App查看精彩内容！", null)?.url,
+        )
+        assertEquals(SharedLink("https://b23.tv/abc", "看看 哔哩哔哩"), parseSharedLink("看看https://b23.tv/abc哔哩哔哩", null))
+        assertEquals("https://example.com/a", parseSharedLink("“https://example.com/a”", null)?.url)
+    }
+
+    @Test
+    fun keepsBalancedBracketsButDropsOnesThatCloseTheSentence() {
+        assertEquals(
+            "https://en.wikipedia.org/wiki/Foo_(bar)",
+            parseSharedLink("https://en.wikipedia.org/wiki/Foo_(bar)", null)?.url,
+        )
+        assertEquals(
+            "https://en.wikipedia.org/wiki/Foo_(bar)",
+            parseSharedLink("see (https://en.wikipedia.org/wiki/Foo_(bar)).", null)?.url,
+        )
+        assertEquals("https://example.com/x", parseSharedLink("[https://example.com/x]", null)?.url)
+        assertEquals("HTTPS://example.com/x", parseSharedLink("HTTPS://example.com/x!", null)?.url)
+    }
+
+    @Test
     fun ignoresTextWithoutAWebLink() {
         assertNull(parseSharedLink("just words", null))
         assertNull(parseSharedLink("ftp://example.com/file", null))

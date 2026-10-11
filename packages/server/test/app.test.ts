@@ -3,6 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp, FetchLlmClient } from '../src/app.js';
 import { MemoryRepository } from '../src/services/repository.js';
 import { hashApiToken } from '../src/utils/crypto.js';
+import { runScheduledLinkHealthCheck } from '../src/services/link-health.scheduler.js';
+import type { AppServices } from '../src/types.js';
 import { appearanceDefaults as webAppearanceDefaults } from '../../web/src/utils/appearance.js';
 
 const sessionSecret = 'test-session-secret-that-is-long-enough';
@@ -436,6 +438,35 @@ describe('NoNo Fastify app', () => {
     expect(navigation.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
   });
 
+  it('keeps the admin homepage address out of reach of regular users', async () => {
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/setup',
+      payload: { username: 'nono', email: 'nono@nono.test', displayName: 'NoNo', password: adminPassword },
+    });
+    const adminCookie = String(setup.headers['set-cookie']).split(';', 1)[0];
+    const reader = await setupUser(adminCookie);
+
+    for (const username of ['admin', 'Admin']) {
+      const registered = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { username, email: `${username.toLowerCase()}-taker@nono.test`, password: 'Reader2026!' },
+      });
+      expect(registered.statusCode).toBe(409);
+    }
+    const renamed = await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie: reader.cookie }, payload: { slug: 'admin' } });
+    expect(renamed.statusCode).toBe(409);
+
+    // A site that already holds the slug (an older registration, or a demoted admin) can still
+    // save its settings, but never answers the homepage.
+    await repo.updateSite(reader.userId, { slug: 'admin' });
+    const saved = await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie: reader.cookie }, payload: { slug: 'admin', name: 'Reader' } });
+    expect(saved.statusCode).toBe(200);
+    const homepage = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+    expect(homepage.json().data.site).toMatchObject({ slug: 'nono', userId: 1 });
+  });
+
   it('serves the saved homepage background through the public navigation origin', async () => {
     await app.close();
     const body = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -834,6 +865,17 @@ describe('NoNo Fastify app', () => {
     });
 
     expect(unsafe.statusCode).toBe(400);
+  });
+
+  it('only accepts an http(s) legacy search URL template', async () => {
+    const cookie = await setupAdmin();
+    for (const searchUrlTemplate of ['javascript:alert(1)//{query}', 'data:text/html,{query}']) {
+      const rejected = await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie }, payload: { searchUrlTemplate } });
+      expect(rejected.statusCode).toBe(400);
+    }
+    const accepted = await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie }, payload: { searchUrlTemplate: 'https://duckduckgo.com/?q={query}' } });
+    expect(accepted.statusCode).toBe(200);
+    expect((await repo.getSite(1))?.searchUrlTemplate).toBe('https://duckduckgo.com/?q={query}');
   });
 
   it('round-trips every public appearance setting through the site API', async () => {
@@ -1590,6 +1632,49 @@ describe('NoNo Fastify app', () => {
     expect(persisted[invalid.id]).toMatchObject({ healthStatus: 'invalid', healthReason: 'URL must start with http:// or https://' });
   });
 
+  it('keeps health results when a checked link is deleted during the check', async () => {
+    await app.close();
+    let deleteDuringCheck: (() => Promise<void>) | null = null;
+    const safeRequester = vi.fn(async (url: string) => {
+      if (url.includes('gone.example')) await deleteDuringCheck?.();
+      return { statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url };
+    });
+    app = await buildApp({ repo, sessionSecret, encryptionKey, safeRequester: safeRequester as any });
+    const cookie = await setupAdmin();
+    const folder = await app.inject({ method: 'POST', url: '/api/admin/folders', headers: { cookie }, payload: { name: 'Quality' } });
+    const kept = await repo.createLink({ folderId: folder.json().data.id, name: 'Kept', url: 'https://kept.example/', icon: '', description: '', sortOrder: 20 });
+    const gone = await repo.createLink({ folderId: folder.json().data.id, name: 'Gone', url: 'https://gone.example/', icon: '', description: '', sortOrder: 10 });
+    deleteDuringCheck = () => repo.deleteLinks(1, [gone.id]);
+
+    const health = await app.inject({ method: 'POST', url: '/api/admin/links/health-check', headers: { cookie }, payload: { ids: [kept.id, gone.id] } });
+
+    expect(health.statusCode).toBe(200);
+    expect((await repo.listLinks(1)).find((link) => link.id === kept.id)).toMatchObject({ healthStatus: 'ok' });
+  });
+
+  it('runs the scheduled health check for every user even when one of them fails', async () => {
+    const first = await repo.createUser({ username: 'first', email: 'first@nono.test', displayName: 'First', passwordHash: 'unused', role: 'user' });
+    const second = await repo.createUser({ username: 'second', email: 'second@nono.test', displayName: 'Second', passwordHash: 'unused', role: 'user' });
+    for (const user of [first, second]) {
+      const folder = await repo.createFolder({ userId: user.id, parentId: null, name: 'Links', icon: '', description: '', sortOrder: 100 });
+      await repo.createLink({ folderId: folder.id, name: user.username, url: `https://${user.username}.example/`, icon: '', description: '', sortOrder: 100 });
+    }
+    const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
+    vi.spyOn(repo, 'updateLinkHealth').mockImplementationOnce(async () => { throw new Error('database unavailable'); });
+    const errors: number[] = [];
+
+    const result = await runScheduledLinkHealthCheck(
+      { repo, safeRequester, privateOutboundHosts: [] } as unknown as AppServices,
+      24 * 60 * 60 * 1000,
+      new Date(),
+      (userId) => errors.push(userId),
+    );
+
+    expect(errors).toEqual([first.id]);
+    expect(result).toEqual({ checked: 1, failed: 1 });
+    expect((await repo.listLinks(second.id))[0]).toMatchObject({ healthStatus: 'ok' });
+  });
+
   it('does not grant regular users the administrator private-host allowlist', async () => {
     await app.close();
     const safeRequester = vi.fn(async (url: string) => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0), finalUrl: url }));
@@ -2035,6 +2120,18 @@ describe('NoNo Fastify app', () => {
     expect(saved.statusCode).toBe(200);
     expect(saved.json().data.url).toBe('https://example.com/article');
     expect(await repo.listLinks(1)).toHaveLength(1);
+  });
+
+  it('allows an ai:analyze API token to use the account AI configuration', async () => {
+    const llmClient = { complete: vi.fn().mockResolvedValue('{"suggestedName":"Token result"}') };
+    await app.close();
+    app = await buildApp({ repo, sessionSecret, encryptionKey, llmClient });
+    const cookie = await setupAdmin();
+    await app.inject({ method: 'PUT', url: '/api/admin/account/llm', headers: { cookie }, payload: { provider: 'openai', model: 'gpt-test', apiKey: 'secret' } });
+    const token = (await repo.createToken(1, 'extension', null, ['ai:analyze'])).token;
+    const response = await app.inject({ method: 'POST', url: '/api/ai/analyze', headers: { authorization: `Bearer ${token}` }, payload: { url: 'https://example.com', title: 'Token' } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.suggestedName).toBe('Token result');
   });
 
   it('persists a custom LLM API base URL and passes it to bookmark analysis', async () => {

@@ -92,7 +92,7 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
 
   async function send(channel: StoredChannel, user: Pick<AuthUser, 'role'>, message: ChannelMessage): Promise<ChannelResult> {
     try {
-      await deliverToChannel(options.delivery, channel, message, { allowPrivateSmtp: user.role === 'admin' });
+      await deliverToChannel(options.delivery, channel, message, { allowPrivateHosts: user.role === 'admin' });
       await prisma.notificationChannel.update({ where: { id: channel.id }, data: { lastSuccessAt: now(), lastError: null } });
       return { channelId: channel.id, name: channel.name, ok: true };
     } catch (error) {

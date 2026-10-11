@@ -288,6 +288,8 @@ class MainActivity : ComponentActivity() {
     /** Opens a shared link in the bookmark editor. Returns true when the intent was handled. */
     private fun handleIntent(intent: Intent?): Boolean {
         if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return false
+        // Recents relaunches with the original share intent; that link was captured the first time.
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return false
         val link = parseSharedLink(intent.getStringExtra(Intent.EXTRA_TEXT), intent.getStringExtra(Intent.EXTRA_SUBJECT))
         if (link == null) {
             Toast.makeText(this, R.string.share_no_link, Toast.LENGTH_SHORT).show()

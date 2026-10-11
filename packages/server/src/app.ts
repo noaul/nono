@@ -93,9 +93,11 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     request: safeRequester,
     allowPrivateHosts: privateOutboundHosts,
   }), backupOperationGate, ['backupToWebDav', 'restoreWebDavBatch', 'createLocalBackup', 'restoreLocalBackup', 'removeWebDavBatch', 'saveWebDavConfig', 'testWebDavConnection']);
+  // Manual and scheduled backups both go to WebDAV; backup notifications must read the same store.
+  const backupTarget = overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma);
   const backupAutomationService = gateBackupService(overrides.backupAutomationService || createBackupAutomationService({
     repo,
-    backupService: overrides.backupService ? backupService : webDavAutomationTarget(backupCenterService, prisma),
+    backupService: backupTarget,
   }), backupOperationGate, ['runNow', 'runDue', 'update']);
   const bookmarkExportService = gateBackupService(overrides.bookmarkExportService || createBookmarkExportService({ repo, backupCenter: backupCenterService }), backupOperationGate, ['runNow', 'runDue', 'update']);
   const auditLogService = overrides.auditLogService || createAuditLogService(repo);
@@ -122,7 +124,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       token: process.env.NOMONEY_INTERNAL_TOKEN || '',
       serviceName: 'Yumi',
     }),
-    backupService,
+    backupService: backupTarget,
     backupAutomationService,
   });
   const publicAddressResolver = overrides.publicAddressResolver || resolvePublicAddress;

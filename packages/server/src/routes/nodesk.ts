@@ -98,6 +98,22 @@ export async function nodeskRoutes(app: FastifyInstance, services: AppServices) 
     const input = nodeskPlannerInputSchema.parse(request.body);
     const site = await services.repo.getSite(user.id);
     if (!site) throw Object.assign(new Error('Site not found'), { statusCode: 404 });
+    // A client that says which copy it edited gets 409 with the current one when another tab or
+    // device saved in between, so it can merge instead of overwriting. Older clients omit it.
+    const baseUpdatedAt = (request.body as { baseUpdatedAt?: unknown } | null)?.baseUpdatedAt;
+    const stored = site.settings.nodeskPlanner as { tasks?: unknown; events?: unknown; updatedAt?: unknown } | undefined;
+    const storedUpdatedAt = typeof stored?.updatedAt === 'string' ? stored.updatedAt : null;
+    if (baseUpdatedAt !== undefined && baseUpdatedAt !== storedUpdatedAt) {
+      return reply.status(409).send({
+        code: 409,
+        message: 'The planner changed since it was loaded',
+        data: {
+          tasks: Array.isArray(stored?.tasks) ? stored.tasks : [],
+          events: Array.isArray(stored?.events) ? stored.events : [],
+          updatedAt: storedUpdatedAt,
+        },
+      });
+    }
     const nodeskPlanner = { ...input, updatedAt: new Date().toISOString() };
     await services.repo.updateSite(user.id, { settings: { ...site.settings, nodeskPlanner } });
     return sendOk(reply, nodeskPlanner);

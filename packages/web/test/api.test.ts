@@ -15,6 +15,15 @@ describe('web api helpers', () => {
     expect(buildSearchUrl('vite vue', 'https://example.test/search?q={query}')).toBe('https://example.test/search?q=vite%20vue');
   });
 
+  it('falls back to the default engine for non-http(s) search templates', () => {
+    const fallback = 'https://www.google.com/search?q=vite';
+    expect(buildSearchUrl('vite', 'javascript:alert({query})')).toBe(fallback);
+    expect(buildSearchUrl('vite', ' JavaScript:alert({query})')).toBe(fallback);
+    expect(buildSearchUrl('vite', 'data:text/html,{query}')).toBe(fallback);
+    expect(buildSearchUrl('vite', '//evil.example/?q={query}')).toBe(fallback);
+    expect(buildSearchUrl('vite', 'http://example.test/?q={query}')).toBe('http://example.test/?q=vite');
+  });
+
   it('exposes phase 2 admin operation types', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');

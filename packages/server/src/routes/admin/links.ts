@@ -20,10 +20,6 @@ const linkUpdateSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   sortOrder: z.coerce.number().finite().optional(),
   healthCheckEnabled: z.boolean().optional(),
-  /** true queues the link in the reading inbox (and marks it unread); false takes it out. */
-  readLater: z.boolean().optional(),
-  /** Marks a link read or unread; marking read also queues a link that was never queued. */
-  read: z.boolean().optional(),
   tags: z.array(z.string().max(200)).max(100).optional(),
 });
 
@@ -37,8 +33,6 @@ const linkCreateSchema = z.object({
   sortOrder: z.coerce.number().finite().optional(),
   /** Save even when the URL is already bookmarked ("save another copy"). */
   allowDuplicate: z.boolean().optional().default(false),
-  /** Queue the bookmark for reading later; an existing bookmark for the URL is queued instead. */
-  readLater: z.boolean().optional().default(false),
   tags: z.array(z.string().max(200)).max(100).optional().default([]),
 });
 
@@ -50,12 +44,6 @@ const tagRenameSchema = z.object({
 const tagParamSchema = z.object({ name: z.string().trim().min(1).max(200) });
 
 const lookupSchema = z.object({ url: z.string().trim().min(1).max(4096) });
-
-const readingListSchema = z.object({
-  status: z.enum(['unread', 'read']).optional().default('unread'),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
-  offset: z.coerce.number().int().min(0).max(100_000).optional().default(0),
-});
 
 const linkMoveSchema = z.object({
   linkId: z.coerce.number().int().positive(),
@@ -87,15 +75,6 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
       query: input.q,
       items: hits.map((hit) => ({ ...hit, folderPath: folderPath(byId, hit.folderId) })),
     });
-  });
-
-  app.get('/api/admin/reading', async (request, reply) => {
-    const user = await requireAuth(request, reply, services);
-    if (!user) return;
-    const input = readingListSchema.parse(request.query);
-    const [page, folders] = await Promise.all([services.repo.listReadingLinks(user.id, input), services.repo.listFolders(user.id)]);
-    const byId = new Map(folders.map((folder) => [folder.id, folder]));
-    return sendOk(reply, { ...page, items: page.items.map((link) => ({ ...link, folderPath: folderPath(byId, link.folderId) })) });
   });
 
   app.get('/api/admin/tags', async (request, reply) => {
@@ -154,8 +133,6 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
         folderId: link.folderId,
         folderPath: folderPath(new Map(folders.map((folder) => [folder.id, folder])), link.folderId),
         tags: link.tags || [],
-        readLaterAt: link.readLaterAt || null,
-        readAt: link.readAt || null,
       },
     });
   });
@@ -177,10 +154,7 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
       const existing = await services.repo.findLinkByUrl(user.id, url);
       if (existing) {
         setAuditContext(request, { skip: true });
-        const queued = body.readLater && (!existing.readLaterAt || existing.readAt)
-          ? await services.repo.updateLink(user.id, existing.id, { readLaterAt: new Date(), readAt: null })
-          : existing;
-        return sendOk(reply, { ...queued, existing: true });
+        return sendOk(reply, { ...existing, existing: true });
       }
     }
     const name = body.nameMode === 'manual' ? String(body.name || '').trim() || shortenBookmarkName('', url) : shortenBookmarkName(body.name, url);
@@ -192,7 +166,6 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
       description: body.description || '',
       sortOrder: Number(body.sortOrder || createSortOrder()),
       healthCheckEnabled: !shouldSkipLinkHealthCheck(url),
-      readLaterAt: body.readLater ? new Date() : null,
       tags: normalizeTags(body.tags),
     });
     setAuditContext(request, { action: 'create', resourceType: 'bookmark', resourceId: created.id, resourceLabel: created.name, details: { after: linkAuditSnapshot(created) } });
@@ -321,13 +294,12 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
   app.put('/api/admin/links/:id', async (request, reply) => {
     const user = await requireAuth(request, reply, services);
     if (!user) return;
-    const { readLater, read, tags, ...fields } = linkUpdateSchema.parse(request.body);
+    const { tags, ...fields } = linkUpdateSchema.parse(request.body);
     const body: Partial<LinkRecord> = fields;
     if (tags) body.tags = normalizeTags(tags);
     const linkId = numericParam(request);
     const current = await services.repo.getLink(user.id, linkId);
     if (!current) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
-    Object.assign(body, readingChanges(current, readLater, read));
     const before = linkAuditSnapshot(current);
     if ('url' in body) {
       body.url = normalizeUrl(String(body.url ?? ''));
@@ -371,16 +343,6 @@ export async function linkRoutes(app: FastifyInstance, services: AppServices) {
     setAuditContext(request, { action: 'delete', resourceType: 'bookmark', resourceId: id, resourceLabel: before?.name || null, details: { before: before ? linkAuditSnapshot(before) : null } });
     return sendOk(reply, { ok: true });
   });
-}
-
-function readingChanges(current: LinkRecord, readLater: boolean | undefined, read: boolean | undefined): Partial<LinkRecord> {
-  const now = new Date();
-  if (readLater === false) return { readLaterAt: null, readAt: null };
-  const changes: Partial<LinkRecord> = {};
-  if (readLater === true) Object.assign(changes, { readLaterAt: now, readAt: null });
-  if (read === true) Object.assign(changes, { readLaterAt: changes.readLaterAt || current.readLaterAt || now, readAt: now });
-  if (read === false && current.readLaterAt) changes.readAt = null;
-  return changes;
 }
 
 function uniqueNumericIds(value: unknown) {

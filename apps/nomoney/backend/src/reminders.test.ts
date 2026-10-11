@@ -1,7 +1,32 @@
-import { activeThreshold } from './reminders.js';
+import { activeThreshold, runReminderScan } from './reminders.js';
 import { describe, expect, setupAgent, test } from './test-utils.js';
 
 describe('reminders', () => {
+  test('concurrent scans send a due reminder only once', async () => {
+    const { agent, context } = await setupAgent();
+    await agent.post('/api/domains').send({
+      domainName: 'example.com',
+      amountMinorUnits: 1200,
+      currency: 'USD',
+      billingCycle: 'annual',
+      expireDate: '2026-05-25',
+      status: 'active'
+    }).expect(201);
+    context.notifier.send = async (message) => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      context.notifier.sent.push(message);
+    };
+
+    const [scheduled, manual] = await Promise.all([
+      runReminderScan(context),
+      agent.post('/api/reminders/run-now').expect(200)
+    ]);
+
+    expect(context.notifier.sent).toHaveLength(1);
+    expect([scheduled.sent, manual.body.sent].sort()).toEqual([false, true]);
+    expect(context.db.get<{ count: number }>("SELECT COUNT(*) AS count FROM reminder_logs WHERE status = 'sent'")?.count).toBe(1);
+  });
+
   test('sends one digest email for due assets and does not resend the same reminder', async () => {
     const { agent, context } = await setupAgent();
 

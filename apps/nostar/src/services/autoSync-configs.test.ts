@@ -74,7 +74,7 @@ describe('autoSync configuration bootstrap', () => {
     vi.restoreAllMocks();
   });
 
-  it('preserves local secret configs and pushes them when the backend is initially empty', async () => {
+  it('treats an empty backend as authoritative instead of restoring deleted configs', async () => {
     vi.spyOn(backend, 'isAvailable', 'get').mockReturnValue(true);
     vi.spyOn(backend, 'fetchRepositories').mockResolvedValue({ repositories: [], total: 0 });
     vi.spyOn(backend, 'fetchReleases').mockResolvedValue({ releases: [], total: 0 });
@@ -93,13 +93,11 @@ describe('autoSync configuration bootstrap', () => {
 
     await syncFromBackend();
 
-    expect(fixtures.state.aiConfigs).toEqual([fixtures.aiConfig]);
-    expect(fixtures.state.webdavConfigs).toEqual([fixtures.webdavConfig]);
-    expect(fixtures.state.embeddingConfigs).toEqual([fixtures.embeddingConfig]);
-    await vi.waitFor(() => {
-      expect(syncAI).toHaveBeenCalledWith([fixtures.aiConfig]);
-      expect(syncWebDAV).toHaveBeenCalledWith([fixtures.webdavConfig]);
-      expect(syncEmbedding).toHaveBeenCalledWith([fixtures.embeddingConfig]);
-    });
+    expect(fixtures.state.aiConfigs).toEqual([]);
+    expect(fixtures.state.webdavConfigs).toEqual([]);
+    expect(fixtures.state.embeddingConfigs).toEqual([]);
+    expect(syncAI).not.toHaveBeenCalled();
+    expect(syncWebDAV).not.toHaveBeenCalled();
+    expect(syncEmbedding).not.toHaveBeenCalled();
   });
 });

@@ -59,12 +59,71 @@ describe('NoDesk planner sync', () => {
     expect(emptyTitle.statusCode).toBe(400);
   });
 
+  it('rejects a save based on an outdated copy with the current one, so the client can merge', async () => {
+    const cookie = await setupAdmin();
+    const first = await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [task], events: [], baseUpdatedAt: null } });
+    expect(first.statusCode).toBe(200);
+    const revision = first.json().data.updatedAt;
+
+    const stale = await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [], events: [], baseUpdatedAt: null } });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().data).toEqual({ tasks: [task], events: [], updatedAt: revision });
+
+    const current = await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [], events: [event], baseUpdatedAt: revision } });
+    expect(current.statusCode).toBe(200);
+    const unconditional = await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [task], events: [] } });
+    expect(unconditional.statusCode).toBe(200);
+  });
+
   it('keeps frequent planner saves out of the audit log', async () => {
     const cookie = await setupAdmin();
     const before = repo.auditLogs.length;
     await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [task], events: [] } });
 
     expect(repo.auditLogs.length).toBe(before);
+  });
+
+  it('never serves the planner through the public navigation API, locked or not', async () => {
+    const cookie = await setupAdmin();
+    await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [task], events: [event] } });
+    await app.inject({ method: 'PUT', url: '/api/admin/nodesk/workbench', headers: { cookie }, payload: { quickEntriesVisible: false } });
+
+    const open = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+    expect(open.statusCode).toBe(200);
+    expect(open.json().data.site.settings).not.toHaveProperty('nodeskPlanner');
+    expect(open.json().data.site.settings.nodeskWorkbench).toEqual({ quickEntriesVisible: false });
+    expect(open.body).not.toContain('Write the report');
+
+    await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie }, payload: { guestAccessEnabled: true, guestAccessPassword: 'GuestAccess2026!' } });
+    const locked = await app.inject({ method: 'GET', url: '/api/navigation/admin' });
+    expect(locked.json().data.access).toMatchObject({ required: true, unlocked: false });
+    expect(locked.json().data.site.settings).not.toHaveProperty('nodeskPlanner');
+    expect(locked.body).not.toContain('Stand-up');
+  });
+
+  it('keeps the planner and workbench when a stale tab saves its site settings snapshot', async () => {
+    const cookie = await setupAdmin();
+    const stale = (await app.inject({ method: 'GET', url: '/api/admin/site', headers: { cookie } })).json().data.settings;
+    await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie }, payload: { settings: { ...stale, i18n: { defaultLocale: 'en' } } } });
+    const saved = await app.inject({ method: 'PUT', url: '/api/admin/nodesk/planner', headers: { cookie }, payload: { tasks: [task], events: [event] } });
+    await app.inject({ method: 'PUT', url: '/api/admin/nodesk/workbench', headers: { cookie }, payload: { quickEntriesVisible: false } });
+
+    const overwrite = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/site',
+      headers: { cookie },
+      payload: { settings: { ...stale, nodeskPlanner: { tasks: [], events: [], updatedAt: null }, nodeskWorkbench: { quickEntriesVisible: true } } },
+    });
+    expect(overwrite.statusCode).toBe(200);
+    const settings = (await repo.getSite(1))?.settings;
+    expect(settings?.nodeskPlanner).toEqual(saved.json().data);
+    expect(settings?.nodeskWorkbench).toEqual({ quickEntriesVisible: false });
+    // Keys the request leaves out keep their stored value.
+    expect(settings?.i18n).toEqual({ defaultLocale: 'en' });
+
+    const partial = await app.inject({ method: 'PUT', url: '/api/admin/site', headers: { cookie }, payload: { settings: { navigationEntries: [] } } });
+    expect(partial.statusCode).toBe(200);
+    expect(partial.json().data.settings).toMatchObject({ i18n: { defaultLocale: 'en' }, navigationEntries: [], nodeskWorkbench: { quickEntriesVisible: false } });
   });
 
   it('is only for a signed-in administrator', async () => {

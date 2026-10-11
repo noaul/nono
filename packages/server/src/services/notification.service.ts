@@ -20,11 +20,12 @@ export interface NotificationItem {
   occurredAt: string;
   dueAt: string | null;
   entityId?: number | null;
-  entityType?: 'domain' | 'vps' | 'subscription' | null;
+  entityType?: 'phone' | 'domain' | 'vps' | 'subscription' | null;
   targetUrl?: string | null;
   /** The bare entity name, so clients never have to parse it back out of `title`. */
   entityLabel?: string | null;
   renewalDate?: string | null;
+  kind?: 'renewal' | 'certificate' | 'keepalive';
   read: boolean;
 }
 
@@ -265,10 +266,10 @@ async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: (
       const daysLeft = daysBetween(today, item.dueDate);
       const timing = daysLeft < 0 ? t(locale, 'overdueDays', { days: Math.abs(daysLeft) }) : daysLeft === 0 ? t(locale, 'dueToday') : t(locale, 'dueInDays', { days: daysLeft });
       return {
-        key: stableKey(source, `${item.assetType}:${item.id}:${item.dueDate}`),
+        key: stableKey(source, `${item.assetType}:${item.id}:${item.dueDate}${item.kind && item.kind !== 'renewal' ? `:${item.kind}` : ''}`),
         source,
         severity: daysLeft < 0 ? 'critical' as const : daysLeft <= 7 ? 'warning' as const : 'info' as const,
-        title: `${sourceNames[item.assetType]} ${item.name} ${timing}`,
+        title: `${sourceNames[item.assetType]} ${item.name}${item.kind === 'certificate' ? (locale === 'zh' ? ' 证书到期' : ' certificate expiry') : item.kind === 'keepalive' ? (locale === 'zh' ? ' 保号期限' : ' keep-alive deadline') : ''} ${timing}`,
         description: t(locale, 'dueDate', { date: item.dueDate }),
         href: hrefs[item.assetType],
         occurredAt: `${item.dueDate}T23:59:00`,
@@ -276,7 +277,8 @@ async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: (
         entityId: item.id,
         entityType: item.assetType,
         entityLabel: item.name,
-        renewalDate: item.dueDate,
+        renewalDate: !item.kind || item.kind === 'renewal' ? item.dueDate : null,
+        kind: item.kind || 'renewal',
       };
     });
 }
@@ -290,7 +292,11 @@ async function collectBackupNotifications(
 ): Promise<RawNotification[]> {
   const automation = await automationService?.get().catch(() => null) || null;
   const notifications = activeBackupFailure(automation, locale);
-  const backups = await service.list().catch(() => []);
+  // The store is remote (WebDAV); when it cannot be read, the last successful run still counts.
+  const backups = await service.list().catch(() => {
+    const lastSuccessAt = automation?.status.lastSuccessAt;
+    return lastSuccessAt ? [{ id: `automation:${lastSuccessAt}`, createdAt: lastSuccessAt }] : [];
+  });
   if (!backups.length) {
     notifications.push({
       key: stableKey('backup', 'missing'),

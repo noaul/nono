@@ -79,6 +79,9 @@ async function importBookmarks() {
       }),
     });
     const skippedInvalid = result.skippedInvalid || 0;
+    // The preview is stale once imported; a second confirm would recreate every folder.
+    preview.value = null;
+    clearImportSelection();
     message.value = t('transfer.importDone', { folders: result.addedFolders, links: result.addedLinks, duplicates: result.skippedDuplicates, invalid: skippedInvalid });
   } catch (event) {
     error.value = event instanceof Error ? event.message : t('transfer.importFailed');

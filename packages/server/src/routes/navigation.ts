@@ -193,7 +193,9 @@ export async function navigationRoutes(app: FastifyInstance, services: AppServic
 
 async function findNavigationSite(services: AppServices, slug: string) {
   const exactSite = await services.repo.getSiteBySlug(slug);
-  if (exactSite || slug !== 'admin') return exactSite;
+  // `/admin` is the homepage: only an administrator's own site may answer it, never a member who
+  // registered or renamed their site to "admin".
+  if (slug !== 'admin' || exactSite?.user.role === 'admin') return exactSite;
 
   const users = await services.repo.listUsers();
   const admin = users.find((user) => user.role === 'admin');
@@ -212,10 +214,16 @@ function publicSite(site: SiteRecord) {
     fontColor: site.fontColor,
     searchUrlTemplate: site.searchUrlTemplate,
     localSearchFirst: site.localSearchFirst,
-    settings: site.settings,
+    settings: publicSettings(site.settings),
     createdAt: site.createdAt,
     updatedAt: site.updatedAt,
   };
+}
+
+/** The NoDesk planner holds private tasks and events; it is only served by the admin planner API. */
+function publicSettings(settings: SiteRecord['settings']) {
+  const { nodeskPlanner: _planner, ...visible } = settings || {};
+  return visible;
 }
 
 /**

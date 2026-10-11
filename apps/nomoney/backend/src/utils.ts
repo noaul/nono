@@ -48,10 +48,10 @@ export function predictedYearly(amountMinorUnits: number, billingCycle: BillingC
 }
 
 /** Advances an ISO date by `count` billing cycles, clamping to the last day of short months. */
-export function addBillingCycle(dateValue: string, cycle: BillingCycle, count = 1): string {
+export function addBillingCycle(dateValue: string, cycle: BillingCycle, count = 1, originalBillingDay?: number | null): string {
   if (cycle === 'weekly') return addDays(dateValue, 7 * count);
   const months = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12, biennial: 24 }[cycle] ?? 1;
-  return addMonths(dateValue, months * count);
+  return addMonths(dateValue, months * count, originalBillingDay);
 }
 
 export function addDays(dateValue: string, days: number): string {
@@ -60,7 +60,7 @@ export function addDays(dateValue: string, days: number): string {
   return new Date(time + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-export function addMonths(dateValue: string, months: number): string {
+export function addMonths(dateValue: string, months: number, originalDay?: number | null): string {
   const [year, month, day] = dateValue.split('-').map(Number);
   if (!year || !month || !day) return dateValue;
   const monthIndex = month - 1 + months;
@@ -70,7 +70,7 @@ export function addMonths(dateValue: string, months: number): string {
   return [
     targetYear,
     String(targetMonthIndex + 1).padStart(2, '0'),
-    String(Math.min(day, lastDay)).padStart(2, '0')
+    String(Math.min(originalDay && originalDay >= 1 && originalDay <= 31 ? originalDay : day, lastDay)).padStart(2, '0')
   ].join('-');
 }
 

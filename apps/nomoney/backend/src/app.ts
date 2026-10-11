@@ -35,10 +35,11 @@ export function createApp(context: AppContext) {
       }
     })
   );
-  app.use('/api/internal/backup', express.json({ limit: '64mb' }));
-  app.use('/api/backup/restore-file', express.json({ limit: '64mb' }));
-  app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
+  app.use('/api/internal/backup', express.json({ limit: '64mb' }));
+  // Authenticate before buffering a body this large; the API router checks the session again.
+  app.use('/api/backup/restore-file', requireAuth(context), express.json({ limit: '64mb' }));
+  app.use(express.json({ limit: '1mb' }));
 
   const api = express.Router();
   api.use(originGuard(context));

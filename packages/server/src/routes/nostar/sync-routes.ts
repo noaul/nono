@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
-import { asRecord, authed, browserAuthed } from './common.js';
+import { PROXY_SETTING_KEY, RPC_SETTING_KEY, asRecord, authed, browserAuthed } from './common.js';
 import { exportNoStarData, importNoStarData } from './sync-service.js';
 
 export function registerNoStarSyncRoutes(app: FastifyInstance, services: AppServices) {
@@ -16,6 +16,11 @@ export function registerNoStarSyncRoutes(app: FastifyInstance, services: AppServ
     const data = asRecord(request.body);
     if (Object.keys(data).length === 0) {
       return reply.status(400).send({ error: 'Invalid data format', code: 'INVALID_DATA_FORMAT' });
+    }
+    // Same rule as PUT /api/nostar/settings: server network settings are administrator-only.
+    const settings = asRecord(data.settings);
+    if (user.role !== 'admin' && [PROXY_SETTING_KEY, RPC_SETTING_KEY].some((key) => key in settings)) {
+      return reply.status(403).send({ error: 'Administrator access required', code: 'ADMIN_REQUIRED' });
     }
     return { imported: await importNoStarData(services, user.id, data) };
   });

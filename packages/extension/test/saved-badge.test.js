@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../shared/i18n.js';
-import { createLookupCache, refreshSavedBadge, SAVED_BADGE_KEY } from '../shared/saved-badge.js';
+import { clearSavedBadge, createLookupCache, refreshSavedBadge, SAVED_BADGE_KEY } from '../shared/saved-badge.js';
 import { findDuplicateLink } from '../shared/popup-workflow.js';
 
-function fakeChrome(stored = { serverUrl: 'https://nono.example', token: 'nono_token', [SAVED_BADGE_KEY]: true }) {
+function fakeChrome(stored = { serverUrl: 'https://nono.example', token: 'nono_token', [SAVED_BADGE_KEY]: true }, { badge = '', tabUrls = {} } = {}) {
   return {
     storage: { local: { get: vi.fn(async (keys) => Object.fromEntries(keys.map((key) => [key, stored[key]]))) } },
     permissions: { contains: vi.fn(async () => true) },
-    action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn(), setTitle: vi.fn() },
+    tabs: { get: vi.fn(async (tabId) => ({ id: tabId, url: tabUrls[tabId] ?? (tabId === tab.id ? tab.url : undefined) })) },
+    action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn(), setTitle: vi.fn(), getBadgeText: vi.fn(async () => badge) },
   };
 }
 
@@ -63,6 +64,39 @@ describe('saved-page badge', () => {
     const chrome = fakeChrome();
     await refreshSavedBadge(tab, chrome, createLookupCache(), vi.fn(async () => { throw new Error('offline'); }));
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
+  });
+
+  it('takes an earlier mark down when the page can no longer be confirmed as saved', async () => {
+    const offline = vi.fn(async () => { throw new Error('offline'); });
+    const cases = [
+      [fakeChrome({ serverUrl: 'https://nono.example', token: 't', [SAVED_BADGE_KEY]: false }, { badge: '✓' }), tab, respond(saved)],
+      [fakeChrome(undefined, { badge: '✓' }), { id: 1, url: 'https://nono.example/admin' }, respond(saved)],
+      [fakeChrome(undefined, { badge: '✓' }), { id: 1, url: 'chrome://extensions' }, respond(saved)],
+      [fakeChrome(undefined, { badge: '✓' }), tab, offline],
+    ];
+    for (const [chrome, target, fetch] of cases) {
+      expect(await refreshSavedBadge(target, chrome, createLookupCache(), fetch)).toBeNull();
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: target.id });
+    }
+  });
+
+  it('leaves a one-click save result alone when clearing the mark', async () => {
+    const chrome = fakeChrome(undefined, { badge: '!' });
+    await clearSavedBadge(7, chrome);
+    expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
+  });
+
+  it('does not mark a tab that navigated away while the lookup was in flight', async () => {
+    const chrome = fakeChrome(undefined, { tabUrls: { 7: 'https://example.com/elsewhere' } });
+    const fetch = respond(saved);
+    expect(await refreshSavedBadge(tab, chrome, createLookupCache(), fetch)).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
+    expect(chrome.action.setTitle).not.toHaveBeenCalled();
+
+    const failing = fakeChrome(undefined, { badge: '✓', tabUrls: { 7: 'https://example.com/elsewhere' } });
+    await refreshSavedBadge(tab, failing, createLookupCache(), vi.fn(async () => { throw new Error('offline'); }));
+    expect(failing.action.setBadgeText).not.toHaveBeenCalled();
   });
 });
 

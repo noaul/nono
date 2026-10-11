@@ -1,7 +1,16 @@
 import { adminCookie, describe, expect, setupAgent, test } from './test-utils.js';
+import { encryptSecret } from './secret-crypto.js';
 import { buildBackupPayload, restoreBackupPayload } from './backup.js';
 
 describe('backup APIs', () => {
+  test('rejects a backup with a different application key before replacing live data', async () => {
+    const { context } = await setupAgent();
+    const payload = buildBackupPayload(context);
+    const before = context.db.all('SELECT * FROM settings');
+    payload.settings = [{ key: 'webdavPassword', value: JSON.stringify(encryptSecret('old-secret', 'a'.repeat(64))) }];
+    expect(() => restoreBackupPayload(context, payload)).toThrow('different application key');
+    expect(context.db.all('SELECT * FROM settings')).toEqual(before);
+  });
   test('keeps NoMoney and Yumi backup payloads inside their product boundaries', async () => {
     const { context } = await setupAgent();
     context.db.run("INSERT INTO phones (id, card_number, amount_minor_units, currency, billing_cycle, status, created_at, updated_at) VALUES (10, 'phone', 1, 'CNY', 'monthly', 'active', '2026-01-01', '2026-01-01')");
@@ -292,5 +301,28 @@ describe('backup file upload', () => {
     const list = await agent.get('/api/subscriptions');
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     expect(list.body.items).toEqual([expect.objectContaining({ name: 'Keep me' })]);
+  });
+
+  test('checks the session before reading an upload body, then accepts bodies over the default 1 MB limit', async () => {
+    const request = (await import('supertest')).default;
+    const { app, agent, context } = await setupAgent('nomoney');
+    let verified = 0;
+    const verifySession = context.verifySession;
+    context.verifySession = async (token) => {
+      verified += 1;
+      return verifySession(token);
+    };
+
+    const anonymous = await request(app)
+      .post('/api/backup/restore-file')
+      .set('content-type', 'application/json')
+      .send('{"not json');
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body.error.code).toBe('UNAUTHORIZED');
+
+    const large = { ...buildBackupPayload(context), padding: 'x'.repeat(2 * 1024 * 1024) };
+    const restored = await agent.post('/api/backup/restore-file').send(large);
+    expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+    expect(verified).toBeGreaterThan(0);
   });
 });

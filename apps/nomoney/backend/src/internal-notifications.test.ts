@@ -18,7 +18,7 @@ describe('internal notification feed', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      items: [{ assetType: 'phone', id: 1, name: '13800138000', dueDate: '2026-06-10', status: 'active' }],
+      items: [{ assetType: 'phone', id: 1, name: '13800138000', dueDate: '2026-06-10', kind: 'renewal', status: 'active' }],
     });
   });
 
@@ -34,7 +34,7 @@ describe('internal notification feed', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      items: [{ assetType: 'domain', id: 3, name: 'example.com', dueDate: '2026-06-15', status: 'active' }],
+      items: [{ assetType: 'domain', id: 3, name: 'example.com', dueDate: '2026-06-15', kind: 'renewal', status: 'active' }],
     });
   });
 

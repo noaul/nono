@@ -130,7 +130,7 @@ describe('deliverToChannel', () => {
   it.each(['telegram', 'bark'] as const)('%s sends every Unicode character in bounded parts', async (type) => {
     const { deps, posts } = deliveryDeps();
     const message = { subject: 'Notice', text: 'a'.repeat(2999) + '😀中文'.repeat(3000) };
-    await deliverToChannel(deps, channel(type, type === 'telegram' ? { botToken: 't', chatId: '1' } : { url: 'https://api.day.app/key/' }), message, { allowPrivateSmtp: true });
+    await deliverToChannel(deps, channel(type, type === 'telegram' ? { botToken: 't', chatId: '1' } : { url: 'https://api.day.app/key/' }), message, { allowPrivateHosts: true });
     const parts = posts.map((post) => (type === 'telegram' ? post.body.text : post.body.body));
     expect(parts.join('')).toBe(type === 'telegram' ? `${message.subject}\n\n${message.text}` : message.text);
     expect(parts.length).toBeGreaterThan(1);
@@ -140,20 +140,35 @@ describe('deliverToChannel', () => {
 
   it('posts Slack-compatible webhook payloads and reports HTTP failures', async () => {
     const { deps, posts } = deliveryDeps();
-    await deliverToChannel(deps, channel('webhook', { url: 'https://hooks.test/x' }), { subject: 'S', text: 'T' }, { allowPrivateSmtp: false });
+    await deliverToChannel(deps, channel('webhook', { url: 'https://hooks.test/x' }), { subject: 'S', text: 'T' }, { allowPrivateHosts: false });
     expect(posts[0]).toEqual({ url: 'https://hooks.test/x', body: { source: 'nono', subject: 'S', text: 'T', content: 'S\n\nT' } });
 
     const failing = deliveryDeps({ safeRequester: vi.fn(async () => ({ statusCode: 500, headers: {}, body: Buffer.alloc(0) })) as any });
-    await expect(deliverToChannel(failing.deps, channel('webhook', { url: 'https://hooks.test/x' }), { subject: 'S', text: 'T' }, { allowPrivateSmtp: false })).rejects.toThrow('HTTP 500');
+    await expect(deliverToChannel(failing.deps, channel('webhook', { url: 'https://hooks.test/x' }), { subject: 'S', text: 'T' }, { allowPrivateHosts: false })).rejects.toThrow('HTTP 500');
   });
 
   it('only lets administrators send mail through a private SMTP host', async () => {
     const resolver = vi.fn(async () => { throw new Error('Target address is not public'); });
     const { deps } = deliveryDeps({ publicAddressResolver: resolver as any });
     const smtp = channel('email', { host: '10.0.0.5', port: 25, to: 'me@example.com', password: 'p' });
-    await expect(deliverToChannel(deps, smtp, { subject: 'S', text: 'T' }, { allowPrivateSmtp: false })).rejects.toThrow('not public');
-    await deliverToChannel(deps, smtp, { subject: 'S', text: 'T' }, { allowPrivateSmtp: true });
+    await expect(deliverToChannel(deps, smtp, { subject: 'S', text: 'T' }, { allowPrivateHosts: false })).rejects.toThrow('not public');
+    await deliverToChannel(deps, smtp, { subject: 'S', text: 'T' }, { allowPrivateHosts: true });
     expect(deps.sendMail).toHaveBeenCalledWith({ host: '10.0.0.5', port: 25, user: '', password: 'p' }, expect.objectContaining({ to: 'me@example.com', subject: 'S' }));
+  });
+
+  it('keeps the private-host allowlist for administrators only', async () => {
+    const resolver = vi.fn(async () => { throw new Error('Target address is not public'); });
+    const { deps } = deliveryDeps({ publicAddressResolver: resolver as any, privateOutboundHosts: ['mail.lan', 'hooks.lan'] });
+    const smtp = channel('email', { host: 'mail.lan', port: 25, to: 'me@example.com', password: 'p' });
+    await expect(deliverToChannel(deps, smtp, { subject: 'S', text: 'T' }, { allowPrivateHosts: false })).rejects.toThrow('not public');
+    expect(deps.sendMail).not.toHaveBeenCalled();
+
+    const webhook = channel('webhook', { url: 'https://hooks.lan/x' });
+    await deliverToChannel(deps, webhook, { subject: 'S', text: 'T' }, { allowPrivateHosts: false });
+    await deliverToChannel(deps, webhook, { subject: 'S', text: 'T' }, { allowPrivateHosts: true });
+    const requester = deps.safeRequester as unknown as ReturnType<typeof vi.fn>;
+    expect(requester.mock.calls[0][1]).toMatchObject({ allowPrivateHosts: [] });
+    expect(requester.mock.calls[1][1]).toMatchObject({ allowPrivateHosts: ['mail.lan', 'hooks.lan'] });
   });
 });
 

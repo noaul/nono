@@ -136,7 +136,7 @@ Recommended certifications:
 **Package**
 
 ```text
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.6.0.zip
 ```
 
 **Store icon**
@@ -166,5 +166,5 @@ packages/extension/store-assets/promo-marquee-1400x560.png
 ## Release Notes
 
 ```text
-Version 0.4.3 completes the bookmark-only transition by removing remaining clipping references while preserving bookmark capture, AI assistance, and configured-origin permissions.
+Version 0.6.0 removes the "Read later" option from the save popup, following the retirement of the NoNo read-later inbox. Bookmark capture, the opt-in saved-page badge, AI assistance, and configured-origin permissions are unchanged. It also fixes the toolbar badge: a save from the popup now marks only that tab instead of every tab, the saved-page check is repeated right after a save, a slow check no longer marks a tab that has already moved to another page, and the saved mark is taken down when the badge setting is turned off or the page can no longer be checked. Pages Chrome does not let extensions read, such as the Chrome Web Store, can now be saved by URL and title.
 ```

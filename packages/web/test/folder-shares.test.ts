@@ -68,4 +68,22 @@ describe('folder share panel', () => {
     expect(apiRequest).toHaveBeenLastCalledWith('/api/admin/shares/4', { method: 'DELETE' });
     expect(wrapper.find('[data-testid="share-4"]').exists()).toBe(false);
   });
+
+  it('ignores a slow share list for the previously selected folder', async () => {
+    const shareFor = (id: number, folderId: number) => ({ id, folderId, path: `/s/${id}`, expiresAt: null, expired: false, viewCount: 0, lastViewedAt: null, createdAt: '2026-10-06T00:00:00.000Z' });
+    let resolveFirst!: (value: unknown) => void;
+    apiRequest
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValueOnce([shareFor(8, 5)]);
+    const { default: FolderSharePanel } = await import('../src/components/admin/FolderSharePanel.vue');
+    const wrapper = mount(FolderSharePanel, { props: { folder: { id: 3, userId: 1, name: 'Docs', sortOrder: 0 } } });
+    await wrapper.setProps({ folder: { id: 5, userId: 1, name: 'Work', sortOrder: 0 } });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="share-8"]').exists()).toBe(true);
+
+    resolveFirst([shareFor(4, 3)]);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="share-4"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="share-8"]').exists()).toBe(true);
+  });
 });

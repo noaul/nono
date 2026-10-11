@@ -116,12 +116,17 @@ export function publicChannel(channel: StoredChannel) {
   };
 }
 
-/** Sends one message to one channel, throwing with a readable reason when it is not accepted. */
-export async function deliverToChannel(deps: ChannelDeliveryDeps, channel: StoredChannel, message: ChannelMessage, options: { allowPrivateSmtp: boolean }) {
+/**
+ * Sends one message to one channel, throwing with a readable reason when it is not accepted.
+ * `allowPrivateHosts` is true only for an administrator's channel: everyone else must reach a
+ * public address, allowlisted private hosts included.
+ */
+export async function deliverToChannel(deps: ChannelDeliveryDeps, channel: StoredChannel, message: ChannelMessage, options: { allowPrivateHosts: boolean }) {
   const config = decodeChannelConfig(channel, deps.encryptionKey);
+  const allowPrivateHosts = options.allowPrivateHosts ? deps.privateOutboundHosts : [];
   if (channel.type === 'email') {
     const host = String(config.host || '');
-    if (!options.allowPrivateSmtp && !deps.privateOutboundHosts.includes(host.toLowerCase())) {
+    if (!options.allowPrivateHosts) {
       // Other accounts must not point SMTP at the server's own network.
       await deps.publicAddressResolver(host);
     }
@@ -133,7 +138,7 @@ export async function deliverToChannel(deps: ChannelDeliveryDeps, channel: Store
     return;
   }
   if (channel.type === 'webhook') {
-    await postJson(deps, String(config.url), {
+    await postJson(deps, allowPrivateHosts, String(config.url), {
       source: 'nono',
       subject: message.subject,
       text: message.text,
@@ -145,21 +150,21 @@ export async function deliverToChannel(deps: ChannelDeliveryDeps, channel: Store
   if (channel.type === 'telegram') {
     const url = `https://api.telegram.org/bot${encodeURIComponent(String(config.botToken))}/sendMessage`;
     for (const text of splitMessage(`${message.subject}\n\n${message.text}`, 4000)) {
-      await postJson(deps, url, { chat_id: config.chatId, text, disable_web_page_preview: true });
+      await postJson(deps, allowPrivateHosts, url, { chat_id: config.chatId, text, disable_web_page_preview: true });
     }
     return;
   }
   if (channel.type === 'bark') {
     // https://api.day.app/<key> accepts a JSON POST with title/body.
     for (const body of splitMessage(message.text, 3000)) {
-      await postJson(deps, String(config.url).replace(/\/+$/, ''), { title: message.subject, body, group: 'NoNo' });
+      await postJson(deps, allowPrivateHosts, String(config.url).replace(/\/+$/, ''), { title: message.subject, body, group: 'NoNo' });
     }
     return;
   }
   throw new Error(`Unsupported channel type: ${channel.type}`);
 }
 
-async function postJson(deps: ChannelDeliveryDeps, url: string, body: unknown) {
+async function postJson(deps: ChannelDeliveryDeps, allowPrivateHosts: string[], url: string, body: unknown) {
   const response = await deps.safeRequester(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -167,7 +172,7 @@ async function postJson(deps: ChannelDeliveryDeps, url: string, body: unknown) {
     timeoutMs: 8_000,
     maxBytes: 64 * 1024,
     maxRedirects: 0,
-    allowPrivateHosts: deps.privateOutboundHosts,
+    allowPrivateHosts,
   });
   if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(`HTTP ${response.statusCode}`);
 }

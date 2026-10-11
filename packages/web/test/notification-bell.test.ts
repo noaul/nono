@@ -42,5 +42,25 @@ describe('NotificationBell', () => {
     await wrapper.get('[aria-label="通知"]').trigger('click');
     expect(wrapper.get('.notification-popover').text()).toContain('owner/tool 发布 v2');
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/admin/notifications');
+    wrapper.unmount();
+  });
+
+  it('refreshes once more when a change is announced during an in-flight load', async () => {
+    let resolveFirst!: (value: unknown) => void;
+    mockedApiRequest
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }) as any)
+      .mockResolvedValueOnce({ generatedAt: '', unreadCount: 3, items: [] } as any);
+    const wrapper = mount(NotificationBell, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+
+    window.dispatchEvent(new Event('nono:notifications-changed'));
+    window.dispatchEvent(new Event('nono:notifications-changed'));
+    resolveFirst({ generatedAt: '', unreadCount: 1, items: [] });
+    await flushPromises();
+
+    expect(mockedApiRequest).toHaveBeenCalledTimes(2);
+    expect(wrapper.get('.notification-badge').text()).toBe('3');
+    wrapper.unmount();
   });
 });

@@ -2,7 +2,8 @@ import type { Router } from 'express';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import type { AppContext, DbValue, ProductMode } from './types.js';
 import { asyncHandler, HttpError } from './http.js';
-import { getSettings, type Settings } from './settings.js';
+import { decryptSecret, isEncryptedSecret } from './secret-crypto.js';
+import { getSettings, sensitiveSettingKeys, type Settings } from './settings.js';
 import { toIsoDateTime } from './utils.js';
 import { migrateStoredSecrets } from './secret-migration.js';
 import { requestOutbound } from './outbound-request.js';
@@ -55,7 +56,7 @@ const backupTables: BackupTable[] = [
       'monitor_net_total_out_bytes', 'monitor_load1', 'monitor_uptime_seconds', 'monitor_updated_at',
       'panel_url', 'ipv6_address', 'traffic_quota_gb', 'traffic_reset_day', 'traffic_used_bytes',
       'traffic_last_total_bytes', 'traffic_period_start', 'alert_traffic_period', 'alert_disk_at', 'alert_down_since',
-      'amount_minor_units', 'currency', 'billing_cycle', 'start_date', 'next_due_date',
+      'amount_minor_units', 'currency', 'billing_cycle', 'billing_day', 'start_date', 'next_due_date',
       'expire_date', 'auto_renew', 'payment_method', 'renewal_url', 'status', 'tags', 'notes',
       'created_at', 'updated_at', 'archived_at'
     ]
@@ -68,7 +69,7 @@ const backupTables: BackupTable[] = [
       'id', 'domain_name', 'registrar', 'registrar_account', 'registrar_url', 'dns_provider',
       'rdap_expire_date', 'rdap_checked_at', 'rdap_error', 'ssl_expires_at', 'ssl_issuer', 'ssl_checked_at', 'ssl_error',
       'purpose', 'register_date', 'last_renew_date', 'domain_extension', 'rarity_score', 'next_due_date', 'expire_date',
-      'amount_minor_units', 'currency', 'billing_cycle', 'auto_renew', 'payment_method', 'renewal_url',
+      'amount_minor_units', 'currency', 'billing_cycle', 'billing_day', 'auto_renew', 'payment_method', 'renewal_url',
       'status', 'tags', 'notes', 'created_at', 'updated_at', 'archived_at'
     ]
   },
@@ -79,7 +80,7 @@ const backupTables: BackupTable[] = [
     columns: [
       'id', 'name', 'purchase_type', 'provider', 'account', 'category', 'email', 'phone_number',
       'license_key', 'device_limit', 'content', 'amount_minor_units', 'currency',
-      'billing_cycle', 'next_due_date', 'auto_renew', 'payment_method', 'renewal_url',
+      'billing_cycle', 'billing_day', 'next_due_date', 'auto_renew', 'payment_method', 'renewal_url',
       'status', 'tags', 'notes', 'created_at', 'updated_at', 'archived_at'
     ]
   },
@@ -227,6 +228,25 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
   if (payloadProduct !== undefined && payloadProduct !== product) {
     throw new HttpError(400, 'BACKUP_PRODUCT_MISMATCH', `Backup belongs to ${String(payloadProduct)} and cannot be restored into ${product}`);
   }
+  // Validate protected columns before touching live data; ciphertext belongs to the
+  // application key that created it, independently of the WebDAV envelope password.
+  const validateSecret = (value: unknown): void => {
+    if (typeof value !== 'string' || !isEncryptedSecret(value)) return;
+    try { decryptSecret(value, context.encryptionKey); }
+    catch { throw new HttpError(400, 'BACKUP_SECRET_KEY_MISMATCH', 'Backup contains credentials encrypted with a different application key; restore with the original encryption key'); }
+  };
+  for (const row of getBackupRows(payload, 'settings') || []) {
+    if (!(sensitiveSettingKeys as readonly string[]).includes(String(row.key))) continue;
+    let value = row.value;
+    try { value = JSON.parse(String(value)); } catch { /* Legacy settings were stored as raw text. */ }
+    validateSecret(value);
+  }
+  const protectedColumns = product === 'yumi'
+    ? { vps: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] }
+    : { subscriptions: ['license_key'] };
+  for (const [table, columns] of Object.entries(protectedColumns)) {
+    for (const row of getBackupRows(payload, table) || []) for (const column of columns) validateSecret(row[column]);
+  }
   const counts: Record<string, number> = {};
   context.db.exec('BEGIN');
   try {
@@ -369,7 +389,9 @@ function parseBackupPayload(text: string, settings: Settings): Record<string, un
     if (error instanceof HttpError) {
       throw error;
     }
-    throw new HttpError(400, 'INVALID_BACKUP', error instanceof Error ? error.message : 'Invalid backup');
+    throw new HttpError(400, 'INVALID_BACKUP', error instanceof Error && /authenticate|bad decrypt|Unsupported state|final/i.test(error.message)
+      ? 'Backup encryption key does not match this backup'
+      : error instanceof Error ? error.message : 'Invalid backup');
   }
 }
 

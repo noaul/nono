@@ -10,6 +10,7 @@ import type { Folder, Link, Site } from '@/api/types';
 import { useHomeAppearance } from '@/composables/useHomeAppearance';
 import { useHomeFolders } from '@/composables/useHomeFolders';
 import { useHomeOrganize } from '@/composables/useHomeOrganize';
+import { useBodyScrollLock } from '@/composables/useModalBehavior';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigationStore } from '@/stores/navigation';
 import { getPortalSettings } from '@/utils/portal';
@@ -296,11 +297,9 @@ watch(appearanceOpen, async (open) => {
   if (open) await focusAppearanceArea('folders');
 });
 
-// Appearance editing keeps the homepage scrollable; blocking modals still lock it.
-watch(() => Boolean(expandedFolder.value || verifying.value || pendingDelete.value), (open) => {
-  if (typeof document === 'undefined') return;
-  document.body.style.overflow = open ? 'hidden' : '';
-});
+// Appearance editing keeps the homepage scrollable; blocking modals still lock it. FolderExpandModal
+// takes the same counted lock itself through useModalBehavior.
+useBodyScrollLock(() => Boolean(verifying.value || pendingDelete.value));
 
 function onGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && organizing.value && !anyModalOpen.value) {
@@ -354,7 +353,6 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', guardAppearanceUnload);
   window.removeEventListener('keydown', onGlobalKeydown);
   window.removeEventListener('resize', updateTabIndicator);
-  if (typeof document !== 'undefined') document.body.style.overflow = '';
 });
 </script>
 

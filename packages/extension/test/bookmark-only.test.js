@@ -9,7 +9,7 @@ describe('bookmark-only extension', () => {
     let installed;
     const menus = new Map([['nono-clip-page', {}]]);
     vi.stubGlobal('chrome', {
-      runtime: { onInstalled: { addListener: fn => { installed = fn; } }, onStartup: { addListener() {} } },
+      runtime: { onInstalled: { addListener: fn => { installed = fn; } }, onStartup: { addListener() {} }, onMessage: { addListener() {} } },
       action: { setBadgeBackgroundColor() {} },
       storage: { local: { get: async () => ({}) }, onChanged: { addListener() {} } },
       contextMenus: { onClicked: { addListener() {} }, removeAll: async () => menus.clear(), create: item => menus.set(item.id, item) },

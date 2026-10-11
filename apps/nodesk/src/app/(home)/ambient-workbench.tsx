@@ -67,7 +67,7 @@ import { SPECIES } from './desk-pet/desk-pet-model'
 import { LEGACY_PET_KEY, PET_PREFS_KEY, readPetPrefs, type PetPrefs } from './desk-pet/desk-pet-prefs'
 import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } from './ambient-workbench-settings'
 import { summarizeOverview, type TodayRow } from './today-overview-model'
-import { PLANNER_SAVE_DELAY_MS, plannerKey, readRemotePlanner, reconcilePlanner, type PlannerSnapshot } from './planner-sync'
+import { hasLocalChanges, mergePlanner, PLANNER_SAVE_DELAY_MS, PLANNER_SYNC_STORAGE_KEY, readRemotePlanner, readSyncMeta, type PlannerSnapshot, type PlannerSyncMeta, type RemotePlanner } from './planner-sync'
 
 type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus' | 'more'
 type DockActionId = PanelId | 'settings'
@@ -198,7 +198,7 @@ function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
 
 export default function AmbientWorkbench() {
 	const reducedMotion = useReducedMotion()
-	const { isAuth, initialized, refreshAuthState } = useAuthStore()
+	const { isAuth, initialized, userId, refreshAuthState } = useAuthStore()
 	const privateWorkbenchVisible = initialized && isAuth
 	const pointerX = useMotionValue(0)
 	const pointerY = useMotionValue(0)
@@ -247,9 +247,13 @@ export default function AmbientWorkbench() {
 	const [storageReady, setStorageReady] = useState(false)
 	const [plannerSyncReady, setPlannerSyncReady] = useState(false)
 	const [plannerSyncFailed, setPlannerSyncFailed] = useState(false)
-	/** Content last known to match the server; edits that differ from it are saved. */
-	const syncedPlannerKeyRef = useRef<string | null>(null)
+	/** The last copy the server accepted (see PlannerSyncMeta); edits that differ from it are saved. */
+	const plannerMetaRef = useRef<PlannerSyncMeta | null>(null)
+	/** Set for a cache written before sync metadata existed: the server copy wins once it exists. */
+	const legacyPlannerCacheRef = useRef(false)
 	const plannerSaveTimerRef = useRef(0)
+	const plannerSavingRef = useRef(false)
+	const plannerResaveRef = useRef(false)
 	const plannerRef = useRef<PlannerSnapshot>({ tasks: [], events: [] })
 	plannerRef.current = { tasks, events }
 
@@ -257,6 +261,8 @@ export default function AmbientWorkbench() {
 	const [repositories, setRepositories] = useState<RepositoryItem[]>([])
 	const [notifications, setNotifications] = useState<NotificationItem[]>([])
 	const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
+	/** Bumped by every load and every local change, so an older response never overwrites newer state. */
+	const notificationRequestRef = useRef(0)
 	const [todayRows, setTodayRows] = useState<TodayRow[]>([])
 	const [integrationState, setIntegrationState] = useState<Record<IntegrationId, LoadState>>({
 		today: 'loading',
@@ -306,6 +312,7 @@ export default function AmbientWorkbench() {
 	}
 
 	const loadNotifications = async (showLoading = true) => {
+		const request = ++notificationRequestRef.current
 		if (showLoading) {
 			updateIntegration('yumi', 'loading')
 			updateIntegration('notifications', 'loading')
@@ -314,6 +321,7 @@ export default function AmbientWorkbench() {
 			const response = await fetch('/api/admin/notifications?limit=100', { credentials: 'same-origin', cache: 'no-store' })
 			if (!response.ok) throw new Error('Notifications unavailable')
 			const value = apiData(await response.json()) as { items?: unknown; unreadCount?: unknown } | null
+			if (request !== notificationRequestRef.current) return
 			const list = Array.isArray(value?.items) ? value.items : []
 			setNotifications(
 				list.flatMap(item => {
@@ -430,20 +438,79 @@ export default function AmbientWorkbench() {
 		}
 	}
 
-	const loadPlanner = async (local: PlannerSnapshot = plannerRef.current) => {
+	const writePlannerMeta = (meta: PlannerSyncMeta) => {
+		plannerMetaRef.current = meta
+		localStorage.setItem(PLANNER_SYNC_STORAGE_KEY, JSON.stringify(meta))
+	}
+
+	/** Folds a server copy into this browser: unsaved local edits are merged, never dropped. */
+	const applyRemotePlanner = (remote: RemotePlanner) => {
+		const meta = plannerMetaRef.current
+		if (!meta) return
+		const local = plannerRef.current
+		if (legacyPlannerCacheRef.current) {
+			legacyPlannerCacheRef.current = false
+			if (remote.updatedAt !== null) meta.base = local
+		}
+		const merged = hasLocalChanges(meta, local) ? mergePlanner(meta.base, local, remote) : { tasks: remote.tasks, events: remote.events }
+		writePlannerMeta({ ...meta, base: { tasks: remote.tasks, events: remote.events }, baseUpdatedAt: remote.updatedAt })
+		plannerRef.current = merged
+		setTasks(merged.tasks)
+		setEvents(merged.events)
+		setPlannerSyncReady(true)
+	}
+
+	const loadPlanner = async () => {
+		// A pending or running save reconciles through the server's conflict answer instead.
+		if (plannerSavingRef.current || plannerSaveTimerRef.current) return
 		try {
 			const response = await fetch('/api/admin/nodesk/planner', { credentials: 'same-origin', cache: 'no-store' })
 			if (!response.ok) return
 			const remote = readRemotePlanner(apiData(await response.json()))
-			// Edits still waiting to be saved win over a refresh.
-			if (!remote || plannerSaveTimerRef.current) return
-			const { snapshot, upload } = reconcilePlanner(local, remote)
-			syncedPlannerKeyRef.current = upload ? null : plannerKey(snapshot)
-			setTasks(snapshot.tasks)
-			setEvents(snapshot.events)
-			setPlannerSyncReady(true)
+			if (!remote || plannerSavingRef.current || plannerSaveTimerRef.current) return
+			applyRemotePlanner(remote)
 		} catch {
-			// Offline: keep working from the local cache; the next window focus retries.
+			// Offline: keep working from the local cache; focus, reconnecting and the poll retry.
+		}
+	}
+
+	const flushPlanner = async () => {
+		plannerSaveTimerRef.current = 0
+		if (plannerSavingRef.current) {
+			plannerResaveRef.current = true
+			return
+		}
+		const meta = plannerMetaRef.current
+		const snapshot = plannerRef.current
+		if (!meta || !hasLocalChanges(meta, snapshot)) return
+		plannerSavingRef.current = true
+		try {
+			const response = await fetch('/api/admin/nodesk/planner', {
+				method: 'PUT',
+				credentials: 'same-origin',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ ...snapshot, baseUpdatedAt: meta.baseUpdatedAt })
+			})
+			const body = apiData(await response.json().catch(() => null))
+			if (response.status === 409) {
+				// Another tab or device saved first: merge with its copy, and the merge is saved next.
+				const remote = readRemotePlanner(body)
+				if (remote) applyRemotePlanner(remote)
+				plannerResaveRef.current = true
+				return
+			}
+			if (!response.ok) throw new Error(`HTTP ${response.status}`)
+			const saved = readRemotePlanner(body)
+			writePlannerMeta({ ...meta, base: snapshot, baseUpdatedAt: saved?.updatedAt ?? null })
+			setPlannerSyncFailed(false)
+		} catch {
+			setPlannerSyncFailed(true)
+		} finally {
+			plannerSavingRef.current = false
+			if (plannerResaveRef.current) {
+				plannerResaveRef.current = false
+				if (!plannerSaveTimerRef.current) plannerSaveTimerRef.current = window.setTimeout(() => void flushPlanner(), PLANNER_SAVE_DELAY_MS)
+			}
 		}
 	}
 
@@ -478,7 +545,9 @@ export default function AmbientWorkbench() {
 		if (!privateWorkbenchVisible) {
 			setStorageReady(false)
 			setPlannerSyncReady(false)
-			syncedPlannerKeyRef.current = null
+			window.clearTimeout(plannerSaveTimerRef.current)
+			plannerSaveTimerRef.current = 0
+			plannerMetaRef.current = null
 			setTasks([])
 			setEvents([])
 			setTaskTitle('')
@@ -488,8 +557,6 @@ export default function AmbientWorkbench() {
 			setNotifications([])
 			setNotificationUnreadCount(0)
 			setWorkbenchNavigation(normalizeWorkbenchNavigation(null))
-			setFocusRunning(false)
-			setFocusEndsAt(null)
 			setActivePanel(null)
 			setSearchOpen(false)
 			setSearchQuery('')
@@ -498,11 +565,20 @@ export default function AmbientWorkbench() {
 			return
 		}
 
-		const localPlanner = { tasks: parseStored(TASKS_STORAGE_KEY, normalizeTasks), events: parseStored(EVENTS_STORAGE_KEY, normalizeEvents) }
+		// The cache belongs to one account; another account's tasks are never shown or uploaded here.
+		const rawMeta = localStorage.getItem(PLANNER_SYNC_STORAGE_KEY)
+		const meta = readSyncMeta(rawMeta, userId ?? '')
+		const otherAccount = !meta && rawMeta !== null
+		legacyPlannerCacheRef.current = !meta && !otherAccount
+		const localPlanner = otherAccount
+			? { tasks: [], events: [] }
+			: { tasks: parseStored(TASKS_STORAGE_KEY, normalizeTasks), events: parseStored(EVENTS_STORAGE_KEY, normalizeEvents) }
+		writePlannerMeta(meta ?? { userId: userId ?? '', base: null, baseUpdatedAt: null })
+		plannerRef.current = localPlanner
 		setTasks(localPlanner.tasks)
 		setEvents(localPlanner.events)
 		setStorageReady(true)
-		void loadPlanner(localPlanner)
+		void loadPlanner()
 		void loadIntegrations()
 		void loadWorkbenchNavigation()
 		const refreshNotifications = () => {
@@ -515,16 +591,19 @@ export default function AmbientWorkbench() {
 			void loadNotifications(false)
 		}
 		const pollTimer = window.setInterval(refreshNotifications, 5 * 60 * 1000)
+		const retryPlanner = () => void loadPlanner()
 		window.addEventListener('focus', refreshNotifications)
+		window.addEventListener('online', retryPlanner)
 		window.addEventListener('nono:notifications-changed', onNotificationsChanged)
 		// Other integrations refresh on demand; notifications additionally follow the homepage cadence.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		return () => {
 			window.clearInterval(pollTimer)
 			window.removeEventListener('focus', refreshNotifications)
+			window.removeEventListener('online', retryPlanner)
 			window.removeEventListener('nono:notifications-changed', onNotificationsChanged)
 		}
-	}, [privateWorkbenchVisible])
+	}, [privateWorkbenchVisible, userId])
 
 	useEffect(() => {
 		if (!storageReady) return
@@ -537,27 +616,11 @@ export default function AmbientWorkbench() {
 	}, [events, storageReady])
 
 	useEffect(() => {
-		if (!plannerSyncReady) return
-		const key = plannerKey({ tasks, events })
-		if (key === syncedPlannerKeyRef.current) return
+		if (!plannerSyncReady || !hasLocalChanges(plannerMetaRef.current, { tasks, events })) return
 		window.clearTimeout(plannerSaveTimerRef.current)
-		plannerSaveTimerRef.current = window.setTimeout(async () => {
-			try {
-				const response = await fetch('/api/admin/nodesk/planner', {
-					method: 'PUT',
-					credentials: 'same-origin',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ tasks, events })
-				})
-				if (!response.ok) throw new Error(`HTTP ${response.status}`)
-				syncedPlannerKeyRef.current = key
-				setPlannerSyncFailed(false)
-			} catch {
-				setPlannerSyncFailed(true)
-			} finally {
-				plannerSaveTimerRef.current = 0
-			}
-		}, PLANNER_SAVE_DELAY_MS)
+		plannerSaveTimerRef.current = window.setTimeout(() => void flushPlanner(), PLANNER_SAVE_DELAY_MS)
+		// flushPlanner reads the latest state through refs.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [events, plannerSyncReady, tasks])
 
 	useEffect(() => {
@@ -603,7 +666,7 @@ export default function AmbientWorkbench() {
 		localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify({ minutes: focusMinutes, remaining: focusRemaining, endsAt: focusEndsAt }))
 		// The countdown itself is derived from endsAt, so it is not persisted on every tick.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [focusRestored, focusMinutes, focusRunning, focusEndsAt])
+	}, [focusRestored, focusMinutes, focusRunning, focusEndsAt, focusRunning ? null : focusRemaining])
 
 	useEffect(() => {
 		if (!focusRunning || focusEndsAt === null) return
@@ -741,6 +804,7 @@ export default function AmbientWorkbench() {
 
 	const markNotificationRead = (item: NotificationItem) => {
 		if (item.read) return
+		notificationRequestRef.current += 1
 		setNotifications(current => current.map(entry => entry.key === item.key ? { ...entry, read: true } : entry))
 		setNotificationUnreadCount(current => Math.max(0, current - 1))
 		void fetch(`/api/admin/notifications/${encodeURIComponent(item.key)}/read`, {
@@ -756,6 +820,7 @@ export default function AmbientWorkbench() {
 	}
 
 	const dismissNotification = (item: NotificationItem) => {
+		notificationRequestRef.current += 1
 		setNotifications(current => current.filter(entry => entry.key !== item.key))
 		if (!item.read) setNotificationUnreadCount(current => Math.max(0, current - 1))
 		void fetch(`/api/admin/notifications/${encodeURIComponent(item.key)}`, { method: 'DELETE', credentials: 'same-origin' })
@@ -767,6 +832,7 @@ export default function AmbientWorkbench() {
 	}
 
 	const markAllNotificationsRead = () => {
+		notificationRequestRef.current += 1
 		setNotifications(current => current.map(entry => ({ ...entry, read: true })))
 		setNotificationUnreadCount(0)
 		void fetch('/api/admin/notifications/mark-all-read', { method: 'POST', credentials: 'same-origin' })
@@ -866,7 +932,6 @@ export default function AmbientWorkbench() {
 			data-idle={idleDepth}
 			data-dimmed={dimmed ? 'true' : 'false'}
 			data-session={initialized ? 'ready' : 'loading'}
-			data-island={privateWorkbenchVisible && notificationUnreadCount > 0 ? 'visible' : 'hidden'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			data-app-dock={privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible ? 'true' : 'false'}
 			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
@@ -1019,8 +1084,8 @@ export default function AmbientWorkbench() {
 
 							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 NoNo 后即可读取 Yumi 状态。'>
 								{yumiItems.slice(0, 7).map(item => <ExternalRow key={item.key} title={item.title} subtitle={item.description} href={item.href} icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Circle size={11} fill='currentColor' /></span>} />)}
-								<a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>
 							</IntegrationList>}
+							{activePanel === 'yumi' && <a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>}
 
 							{activePanel === 'more' && (
 								<div className='ambient-more-grid'>
@@ -1030,6 +1095,7 @@ export default function AmbientWorkbench() {
 										return <button type='button' key={item.id} onClick={() => {
 											if (item.id === 'settings') {
 												setActivePanel(null)
+												setSettingsInitialTab('desktop')
 												setSettingsOpen(true)
 												return
 											}
@@ -1123,6 +1189,7 @@ export default function AmbientWorkbench() {
 						return <button type='button' key={item.id} className={`${isActive ? 'is-active' : ''}${placementClass}`} onClick={() => {
 							if (item.id === 'settings') {
 								setActivePanel(null)
+								setSettingsInitialTab('desktop')
 								setSettingsOpen(true)
 								return
 							}

@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { islandMode, nextSeenKeys, readSeenKeys } from '../src/app/(home)/notification-island-model.ts'
+import { islandColumns, islandPages, nextSeenKeys, readSeenKeys } from '../src/app/(home)/notification-island-model.ts'
 
-test('hides the island while nothing is unread and lets the open list win over a peek', () => {
-	assert.equal(islandMode(0, true, true), 'hidden')
-	assert.equal(islandMode(2, false, false), 'compact')
-	assert.equal(islandMode(2, false, true), 'peek')
-	assert.equal(islandMode(2, true, true), 'expanded')
+test('fits two or three columns into the strip and never fewer than one', () => {
+	assert.equal(islandColumns(100), 1)
+	assert.equal(islandColumns(274), 2)
+	assert.equal(islandColumns(404), 3)
+	assert.equal(islandColumns(2000), 3)
+})
+
+test('pages fill every column and stop after three turns per column', () => {
+	const items = Array.from({ length: 11 }, (_, index) => index)
+	assert.deepEqual(islandPages(items, 3), [[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+	assert.deepEqual(islandPages(items.slice(0, 5), 2), [[0, 1], [2, 3], [4]])
+	assert.deepEqual(islandPages([], 2), [])
 })
 
 test('remembers seen notifications across reloads and tolerates a corrupt store', () => {

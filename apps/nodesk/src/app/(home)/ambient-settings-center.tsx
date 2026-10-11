@@ -42,11 +42,17 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 	const onCloseRef = useRef(onClose)
 	onCloseRef.current = onClose
 
+	// The tab is chosen only as the dialog opens, so saving quick entries does not throw the user off it.
+	const wasOpenRef = useRef(false)
 	useEffect(() => {
-		if (!open) return
-		setTab(initialTab)
-		setDraftEntries(quickEntries.map(entry => ({ ...entry })))
-	}, [initialTab, open, quickEntries])
+		const opening = open && !wasOpenRef.current
+		wasOpenRef.current = open
+		if (opening) setTab(initialTab)
+	}, [initialTab, open])
+
+	useEffect(() => {
+		if (open) setDraftEntries(quickEntries.map(entry => ({ ...entry })))
+	}, [open, quickEntries])
 
 	useEffect(() => {
 		if (!open) return

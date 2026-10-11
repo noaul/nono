@@ -5,6 +5,7 @@
  * 2. VectorSearchService — 与 Cloudflare Worker 通信（存/查/删向量）
  */
 
+import { backend } from './backendAdapter';
 import type { EmbeddingConfig, VectorSearchConfig, Repository } from '../types';
 
 // ============================================================
@@ -54,6 +55,12 @@ export class EmbeddingClient {
     }
   }
 
+  private fetchEmbedding(url: string, init: RequestInit): Promise<Response> {
+    return (backend.isAvailable || import.meta.env.PROD)
+      ? backend.proxyVectorRequest('embedding', { config: this.config, body: JSON.parse(String(init.body)) }, init.signal || undefined)
+      : fetch(url, init);
+  }
+
   // ----------------------------------------------------------
   // OpenAI / OpenAI-compatible
   // POST /v1/embeddings  or  custom URL
@@ -69,7 +76,7 @@ export class EmbeddingClient {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetchEmbedding(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model: this.config.model, input: texts }),
@@ -95,7 +102,7 @@ export class EmbeddingClient {
   private async embedOllama(texts: string[], signal?: AbortSignal): Promise<number[][]> {
     const url = `${this.config.baseUrl.replace(/\/+$/, '')}/api/embed`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchEmbedding(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: this.config.model, input: texts }),
@@ -121,7 +128,7 @@ export class EmbeddingClient {
     const url = `${baseUrl}/v1beta/models/${this.config.model}:batchEmbedContents?key=${this.config.apiKey}`;
     const taskType = purpose === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT';
 
-    const response = await fetch(url, {
+    const response = await this.fetchEmbedding(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +157,7 @@ export class EmbeddingClient {
   private async embedCohere(texts: string[], purpose: 'document' | 'query' = 'document', signal?: AbortSignal): Promise<number[][]> {
     const url = `${this.config.baseUrl.replace(/\/+$/, '')}/v1/embed`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchEmbedding(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -225,7 +232,9 @@ export class VectorSearchService {
       ...(options.headers as Record<string, string>),
     };
 
-    const response = await fetch(url, { ...options, headers, signal });
+    const response = (backend.isAvailable || import.meta.env.PROD)
+      ? await backend.proxyVectorRequest('vector', { config: { workerUrl: this.workerUrl, authToken: this.authToken }, path, body: options.body ? JSON.parse(String(options.body)) : undefined }, signal)
+      : await fetch(url, { ...options, headers, signal });
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');

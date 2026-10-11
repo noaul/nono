@@ -29,6 +29,17 @@ function currentLocale(): string {
   return document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
 }
 
+/** Fired on window when an authenticated admin call comes back 401: the session expired or was revoked. */
+export const SESSION_EXPIRED_EVENT = 'nono:session-expired';
+
+function isAdminApi(url: string) {
+  try {
+    return new URL(url, window.location.origin).pathname.startsWith('/api/admin/');
+  } catch {
+    return false;
+  }
+}
+
 export async function apiRequest<T>(url: string, options: RequestInit = {}) {
   const hasBody = options.body !== undefined;
   const response = await fetch(url, {
@@ -43,6 +54,8 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}) {
   });
   const contentType = response.headers.get('content-type') || '';
   const payload = contentType.includes('application/json') ? await response.json() : { code: response.ok ? 0 : response.status, data: await response.text(), message: response.statusText };
+  // The router listens for this; the caller still gets the usual error below.
+  if (response.status === 401 && isAdminApi(url)) window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { url } }));
   return unwrapApiResponse<T>(payload);
 }
 
@@ -50,9 +63,24 @@ export function jsonBody(value: unknown) {
   return JSON.stringify(value);
 }
 
-export function buildSearchUrl(query: string, template = 'https://www.google.com/search?q={query}') {
+const DEFAULT_SEARCH_TEMPLATE = 'https://www.google.com/search?q={query}';
+
+function isHttpUrl(value: string) {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export function buildSearchUrl(query: string, template = DEFAULT_SEARCH_TEMPLATE) {
   const encoded = encodeURIComponent(query.trim());
-  return (template || 'https://www.google.com/search?q={query}').includes('{query}')
-    ? (template || 'https://www.google.com/search?q={query}').replace('{query}', encoded)
-    : `https://www.google.com/search?q=${encoded}`;
+  const candidate = (template || '').trim();
+  // Legacy templates were stored unchecked; never send a visitor to a javascript:/data: URL.
+  if (candidate.includes('{query}')) {
+    const url = candidate.replace('{query}', encoded);
+    if (isHttpUrl(url)) return url;
+  }
+  return DEFAULT_SEARCH_TEMPLATE.replace('{query}', encoded);
 }

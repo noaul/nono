@@ -4,6 +4,7 @@ export interface ProductDueItem {
   name: string;
   dueDate: string;
   status: string;
+  kind?: 'renewal' | 'certificate' | 'keepalive';
 }
 
 export function createProductDueReader(options: {
@@ -54,7 +55,8 @@ function parseDueItem(value: unknown): ProductDueItem | null {
   const status = typeof item.status === 'string' ? item.status : '';
   if (!['phone', 'domain', 'vps', 'subscription'].includes(String(assetType))) return null;
   if (!Number.isSafeInteger(id) || id <= 0 || !name || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !status) return null;
-  return { assetType: assetType as ProductDueItem['assetType'], id, name, dueDate, status };
+  const kind = item.kind === 'certificate' || item.kind === 'keepalive' || item.kind === 'renewal' ? item.kind : undefined;
+  return { assetType: assetType as ProductDueItem['assetType'], id, name, dueDate, status, ...(kind ? { kind } : {}) };
 }
 
 function serviceError(statusCode: number, message: string) {

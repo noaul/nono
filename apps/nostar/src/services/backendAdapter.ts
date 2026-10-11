@@ -2,7 +2,7 @@ import { translateBackendError } from '../utils/backendErrors';
 import { logger } from './logger';
 import { aiResponseError } from './aiRequestLimiter';
 
-import { Repository, Release, AIConfig, WebDAVConfig, EmbeddingConfig, VectorSearchConfig, type SecretStatus } from '../types';
+import { Repository, Release, AIConfig, WebDAVConfig, EmbeddingConfig, VectorSearchConfig, type GitHubUser, type SecretStatus } from '../types';
 import { isReadmeCandidateItem, type GitHubReadmeCandidateItem } from '../utils/readmeVariants';
 
 interface GitHubContentResponse {
@@ -19,8 +19,14 @@ type VectorSearchConfigResponse = VectorSearchConfig & { authTokenStatus?: Secre
 
 class BackendAdapter {
   private _backendUrl: string | null = null;
+  private settingsBaseline: Record<string, unknown> = {};
+  private releaseBaseline: Release[] = [];
+  private repositoryBaseline: Repository[] | null = null;
 
   async init(): Promise<void> {
+    this.repositoryBaseline = null;
+    this.releaseBaseline = [];
+    this.settingsBaseline = {};
     try {
       // Try common backend URLs
       const candidateUrls = [
@@ -239,7 +245,7 @@ class BackendAdapter {
   async fetchStarredRepos(page = 1, perPage = 100): Promise<Repository[]> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
-    const res = await this.fetchWithTimeout(`${this._backendUrl}/proxy/github/user/starred?page=${page}&per_page=${perPage}&sort=updated`, {
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/proxy/github/user/starred?page=${page}&per_page=${perPage}&sort=created&direction=desc`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify({
@@ -266,6 +272,23 @@ class BackendAdapter {
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Backend proxy error');
     return res.json() as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Verify a GitHub token the user just typed. Unlike the /proxy/github/* routes, which always use
+   * the token already stored on the server, this checks the supplied token itself.
+   */
+  async verifyGitHubToken(token: string): Promise<GitHubUser> {
+    if (!this._backendUrl) throw new Error('Backend not available');
+
+    const res = await this.fetchWithTimeout(`${this._backendUrl}/settings/github-token/verify`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ token }),
+    });
+    if (res.status === 401) throw new Error('GitHub token expired or invalid');
+    if (!res.ok) await this.throwTranslatedError(res, 'GitHub token verification error');
+    return res.json() as Promise<GitHubUser>;
   }
 
   private decodeContentResponse(data: GitHubContentResponse): string {
@@ -420,6 +443,26 @@ class BackendAdapter {
     return res.json();
   }
 
+  async proxyPublicRequest(url: string, init: RequestInit = {}): Promise<Response> {
+    if (!this._backendUrl) throw new Error('Backend not available');
+    const headers = new Headers(init.headers);
+    const body = init.body instanceof URLSearchParams ? init.body.toString() : init.body;
+    if (init.body instanceof URLSearchParams && !headers.has('content-type')) headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
+    const response = await this.fetchWithTimeout(`${this._backendUrl}/proxy/public`, {
+      method: 'POST', headers: this.getAuthHeaders(),
+      body: JSON.stringify({ url, method: init.method || 'GET', headers: Object.fromEntries(headers.entries()), body }),
+      signal: init.signal,
+    });
+    return response;
+  }
+
+  async proxyVectorRequest(kind: 'embedding' | 'vector', payload: object, signal?: AbortSignal): Promise<Response> {
+    if (!this._backendUrl) throw new Error('Backend not available');
+    return this.fetchWithTimeout(`${this._backendUrl}/proxy/${kind}`, {
+      method: 'POST', headers: this.getAuthHeaders(), body: JSON.stringify(payload), signal,
+    }, 120000);
+  }
+
   async proxyAIRequestWithConfig(aiConfig: { apiType?: string; baseUrl: string; apiKey: string; model: string; reasoningEffort?: string }, body: object, signal?: AbortSignal): Promise<unknown> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
@@ -475,25 +518,36 @@ class BackendAdapter {
 
   // === Data Sync ===
 
+  // Polls adopt baselines only after confirming no local edit arrived while awaiting responses.
+  acceptSyncBaselines(snapshot: { repositories?: Repository[]; releases?: Release[]; settings?: Record<string, unknown> }): void {
+    if (snapshot.repositories) this.repositoryBaseline = structuredClone(snapshot.repositories);
+    if (snapshot.releases) this.releaseBaseline = structuredClone(snapshot.releases);
+    if (snapshot.settings) this.settingsBaseline = structuredClone(snapshot.settings);
+  }
+
+
   async syncRepositories(repos: Repository[]): Promise<void> {
     if (!this._backendUrl) return;
 
     const res = await this.fetchWithRetry(`${this._backendUrl}/repositories`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ repositories: repos, isFullSync: true })
+      body: JSON.stringify({ repositories: repos, isFullSync: this.repositoryBaseline !== null, baseRepositories: this.repositoryBaseline }, (_key, value) => value === undefined ? null : value)
     }, 120000, 3);
     if (!res.ok) await this.throwTranslatedError(res, 'Sync repositories error');
+    this.repositoryBaseline = structuredClone(repos);
   }
 
-  async fetchRepositories(): Promise<{ repositories: Repository[]; total: number }> {
+  async fetchRepositories(adoptBaseline = true): Promise<{ repositories: Repository[]; total: number }> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
     const res = await this.fetchWithRetry(`${this._backendUrl}/repositories?limit=10000`, {
       headers: this.getAuthHeaders()
     }, 120000, 3);
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch error');
-    return res.json() as Promise<{ repositories: Repository[]; total: number }>;
+    const result = await res.json() as { repositories: Repository[]; total: number };
+    if (adoptBaseline) this.repositoryBaseline = structuredClone(result.repositories);
+    return result;
   }
 
   async syncReleases(releases: Release[]): Promise<void> {
@@ -502,9 +556,10 @@ class BackendAdapter {
     const res = await this.fetchWithRetry(`${this._backendUrl}/releases`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ releases, isFullSync: true })
+      body: JSON.stringify({ releases: releases.filter(row => JSON.stringify(row) !== JSON.stringify(this.releaseBaseline.find(base => base.id === row.id))), isFullSync: false, deletedIds: this.releaseBaseline.filter(base => !releases.some(row => row.id === base.id)).map(row => row.id) })
     }, 120000, 3);
     if (!res.ok) await this.throwTranslatedError(res, 'Sync releases error');
+    this.releaseBaseline = structuredClone(releases);
   }
 
   async markAllReleasesAsRead(): Promise<{ updated: number }> {
@@ -518,14 +573,16 @@ class BackendAdapter {
     return res.json() as Promise<{ updated: number }>;
   }
 
-  async fetchReleases(): Promise<{ releases: Release[]; total: number }> {
+  async fetchReleases(adoptBaseline = true): Promise<{ releases: Release[]; total: number }> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
     const res = await this.fetchWithRetry(`${this._backendUrl}/releases?limit=10000`, {
       headers: this.getAuthHeaders()
     }, 120000, 3);
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch error');
-    return res.json() as Promise<{ releases: Release[]; total: number }>;
+    const result = await res.json() as { releases: Release[]; total: number };
+    if (adoptBaseline) this.releaseBaseline = structuredClone(result.releases);
+    return result;
   }
 
   async syncAIConfigs(configs: AIConfig[]): Promise<void> {
@@ -673,19 +730,22 @@ class BackendAdapter {
     const res = await this.fetchWithTimeout(`${this._backendUrl}/settings`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(settings)
+      body: JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(this.settingsBaseline[key]))))
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Sync settings error');
+    this.settingsBaseline = structuredClone({ ...this.settingsBaseline, ...settings });
   }
 
-  async fetchSettings(): Promise<Record<string, unknown>> {
+  async fetchSettings(adoptBaseline = true): Promise<Record<string, unknown>> {
     if (!this._backendUrl) throw new Error('Backend not available');
 
     const res = await this.fetchWithTimeout(`${this._backendUrl}/settings`, {
       headers: this.getAuthHeaders()
     });
     if (!res.ok) await this.throwTranslatedError(res, 'Fetch settings error');
-    return res.json() as Promise<Record<string, unknown>>;
+    const settings = await res.json() as Record<string, unknown>;
+    if (adoptBaseline) this.settingsBaseline = structuredClone(settings);
+    return settings;
   }
 
   async exportData(): Promise<Record<string, unknown>> {

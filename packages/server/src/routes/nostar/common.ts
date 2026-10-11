@@ -86,16 +86,28 @@ export function toLegacyRepository(row: AnyRecord) {
   };
 }
 
+// The NoStar web app sends the GitHub shape (`repository: { id, full_name, name }`); exports and older
+// clients send the flat `repo_id` / `repo_full_name` fields. Both identify the owning repository.
+export function releaseRepositoryRef(release: AnyRecord) {
+  const nested = asRecord(release.repository);
+  const githubId = release.repo_id ?? release.repoId ?? nested.id;
+  return {
+    githubId: githubId === undefined || githubId === null ? null : requiredBigInt(githubId, 'repository id'),
+    fullName: text(release.repo_full_name ?? release.repoFullName ?? nested.full_name ?? nested.fullName),
+    name: text(release.repo_name ?? release.repoName ?? nested.name),
+  };
+}
+
 export async function findReleaseRepository(tx: AnyRecord, userId: number, release: AnyRecord) {
-  const repoGithubId = release.repo_id ?? release.repoId;
-  if (repoGithubId !== undefined && repoGithubId !== null) {
-    return tx.noStarRepository.findUnique({ where: { userId_githubId: { userId, githubId: requiredBigInt(repoGithubId, 'repository id') } } });
+  const ref = releaseRepositoryRef(release);
+  if (ref.githubId !== null) {
+    return tx.noStarRepository.findUnique({ where: { userId_githubId: { userId, githubId: ref.githubId } } });
   }
-  const fullName = text(release.repo_full_name ?? release.repoFullName);
-  return fullName ? tx.noStarRepository.findUnique({ where: { userId_fullName: { userId, fullName } } }) : null;
+  return ref.fullName ? tx.noStarRepository.findUnique({ where: { userId_fullName: { userId, fullName: ref.fullName } } }) : null;
 }
 
 export function releaseData(release: AnyRecord, repositoryId: number) {
+  const ref = releaseRepositoryRef(release);
   return {
     repositoryId,
     tagName: text(release.tag_name ?? release.tagName),
@@ -106,13 +118,16 @@ export function releaseData(release: AnyRecord, repositoryId: number) {
     assets: jsonArray(release.assets),
     zipballUrl: nullableText(release.zipball_url ?? release.zipballUrl),
     tarballUrl: nullableText(release.tarball_url ?? release.tarballUrl),
-    repoFullName: text(release.repo_full_name ?? release.repoFullName),
-    repoName: text(release.repo_name ?? release.repoName),
+    repoFullName: ref.fullName,
+    repoName: ref.name,
     prerelease: Boolean(release.prerelease),
     draft: Boolean(release.draft),
     isRead: Boolean(release.is_read ?? release.isRead),
   };
 }
+
+// Load alongside release rows so toLegacyRelease can return the owning repository's GitHub id.
+export const RELEASE_REPOSITORY_INCLUDE = { repository: { select: { githubId: true, fullName: true, name: true } } } as const;
 
 export function toLegacyRelease(row: AnyRecord) {
   return {
@@ -125,8 +140,15 @@ export function toLegacyRelease(row: AnyRecord) {
     assets: row.assets || [],
     zipball_url: row.zipballUrl,
     tarball_url: row.tarballUrl,
+    repo_id: row.repository ? Number(row.repository.githubId) : undefined,
     repo_full_name: row.repoFullName,
     repo_name: row.repoName,
+    // The web app's Release type links releases through `repository`; include it on every read.
+    repository: {
+      id: row.repository ? Number(row.repository.githubId) : undefined,
+      full_name: row.repository?.fullName ?? row.repoFullName,
+      name: row.repository?.name ?? row.repoName,
+    },
     prerelease: row.prerelease,
     draft: row.draft,
     is_read: row.isRead,
@@ -134,7 +156,7 @@ export function toLegacyRelease(row: AnyRecord) {
 }
 
 export async function replaceAiProfiles(services: AppServices, userId: number, configs: AnyRecord[]) {
-  const existing = new Map((await services.prisma.noStarAiProfile.findMany({ where: { userId } })).map((row) => [row.legacyId, row.apiKeyEncrypted]));
+  const existing = new Map((await services.prisma.noStarAiProfile.findMany({ where: { userId } })).map((row) => [row.legacyId, row]));
   await services.prisma.$transaction(async (tx) => {
     await tx.noStarAiProfile.deleteMany({ where: { userId } });
     for (const config of configs) {
@@ -145,7 +167,7 @@ export async function replaceAiProfiles(services: AppServices, userId: number, c
         name: text(config.name),
         apiType: text(config.apiType) || 'openai',
         baseUrl: text(config.baseUrl),
-        apiKeyEncrypted: nextEncryptedSecret(config.apiKey, existing.get(legacyId), services.encryptionKey),
+        apiKeyEncrypted: nextEncryptedSecret(config.apiKey, retainedSecret(existing.get(legacyId)?.apiKeyEncrypted, existing.get(legacyId)?.baseUrl, config.baseUrl), services.encryptionKey),
         model: text(config.model),
         isActive: Boolean(config.isActive),
         customPrompt: nullableText(config.customPrompt),
@@ -159,7 +181,7 @@ export async function replaceAiProfiles(services: AppServices, userId: number, c
 }
 
 export async function replaceWebDavConfigs(services: AppServices, userId: number, configs: AnyRecord[]) {
-  const existing = new Map((await services.prisma.noStarWebDavConfig.findMany({ where: { userId } })).map((row) => [row.legacyId, row.passwordEncrypted]));
+  const existing = new Map((await services.prisma.noStarWebDavConfig.findMany({ where: { userId } })).map((row) => [row.legacyId, row]));
   await services.prisma.$transaction(async (tx) => {
     await tx.noStarWebDavConfig.deleteMany({ where: { userId } });
     for (const config of configs) {
@@ -170,7 +192,7 @@ export async function replaceWebDavConfigs(services: AppServices, userId: number
         name: text(config.name),
         url: text(config.url),
         username: text(config.username),
-        passwordEncrypted: nextEncryptedSecret(config.password, existing.get(legacyId), services.encryptionKey),
+        passwordEncrypted: nextEncryptedSecret(config.password, retainedSecret(existing.get(legacyId)?.passwordEncrypted, existing.get(legacyId)?.url, config.url), services.encryptionKey),
         path: text(config.path) || '/',
         isActive: Boolean(config.isActive),
       } });
@@ -179,7 +201,7 @@ export async function replaceWebDavConfigs(services: AppServices, userId: number
 }
 
 export async function replaceEmbeddingConfigs(services: AppServices, userId: number, configs: AnyRecord[]) {
-  const existing = new Map((await services.prisma.noStarEmbeddingConfig.findMany({ where: { userId } })).map((row) => [row.legacyId, row.apiKeyEncrypted]));
+  const existing = new Map((await services.prisma.noStarEmbeddingConfig.findMany({ where: { userId } })).map((row) => [row.legacyId, row]));
   await services.prisma.$transaction(async (tx) => {
     await tx.noStarVectorSearchConfig.updateMany({ where: { userId }, data: { embeddingConfigId: null } });
     await tx.noStarEmbeddingConfig.deleteMany({ where: { userId } });
@@ -191,7 +213,7 @@ export async function replaceEmbeddingConfigs(services: AppServices, userId: num
         name: text(config.name),
         apiType: text(config.apiType) || 'openai',
         baseUrl: text(config.baseUrl),
-        apiKeyEncrypted: nextEncryptedSecret(config.apiKey, existing.get(legacyId), services.encryptionKey),
+        apiKeyEncrypted: nextEncryptedSecret(config.apiKey, retainedSecret(existing.get(legacyId)?.apiKeyEncrypted, existing.get(legacyId)?.baseUrl, config.baseUrl), services.encryptionKey),
         model: text(config.model),
         dimensions: boundedInt(config.dimensions, 1536, 1, 65536),
         isActive: Boolean(config.isActive),
@@ -221,6 +243,31 @@ export function nextEncryptedSecret(raw: unknown, existing: string | null | unde
   if (raw === '') return null;
   if (typeof raw !== 'string' || raw.startsWith('***')) return existing || null;
   return encryptSecret(raw, encryptionKey);
+}
+
+/**
+ * A masked or omitted secret means "keep the stored one" — but only while it still goes to the same
+ * place. If the endpoint's origin changed, drop it so a stored key is never sent to a new host.
+ */
+export function retainedSecret(existing: string | null | undefined, previousUrl: unknown, nextUrl: unknown) {
+  return existing && sameUrlOrigin(previousUrl, nextUrl) ? existing : null;
+}
+
+export function sameUrlOrigin(previousUrl: unknown, nextUrl: unknown) {
+  const previous = text(previousUrl).trim();
+  const next = text(nextUrl).trim();
+  if (previous === next) return true;
+  const previousOrigin = urlOrigin(previous);
+  return previousOrigin !== null && previousOrigin === urlOrigin(next);
+}
+
+function urlOrigin(value: string) {
+  try {
+    const origin = new URL(value).origin;
+    return origin === 'null' ? null : origin.toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 export function revealSecret(encrypted: string | null | undefined, key: string, reveal: boolean) {

@@ -74,8 +74,6 @@ export interface Link {
   healthCheckEnabled?: boolean;
   clickCount?: number;
   lastClickedAt?: string | null;
-  readLaterAt?: string | null;
-  readAt?: string | null;
   tags?: string[];
   /** Set on a create response when the URL was already bookmarked and nothing was saved. */
   existing?: boolean;
@@ -189,14 +187,6 @@ export interface BookmarkExportSnapshot {
   };
 }
 
-export type ReadingStatus = 'unread' | 'read';
-
-export interface ReadingPage {
-  items: Array<Link & { folderPath: string[] }>;
-  total: number;
-  unread: number;
-}
-
 export interface ApiToken {
   id: number;
   name: string;
@@ -228,11 +218,12 @@ export interface AdminNotification {
   occurredAt: string;
   dueAt: string | null;
   entityId?: number | null;
-  entityType?: 'domain' | 'vps' | 'subscription' | null;
+  entityType?: 'phone' | 'domain' | 'vps' | 'subscription' | null;
   targetUrl?: string | null;
   /** Bare entity name from the server, so the client never parses it out of a localized title. */
   entityLabel?: string | null;
   renewalDate?: string | null;
+  kind?: 'renewal' | 'certificate' | 'keepalive';
   read: boolean;
 }
 

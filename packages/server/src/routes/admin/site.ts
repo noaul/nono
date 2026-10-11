@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import { requireAuth, requireBrowserSession } from '../../plugins/auth.js';
 import { sendOk } from '../../plugins/responses.js';
-import { siteUpdateSchema } from '../../utils/site-settings.js';
+import { isAdminOnlySlug, siteUpdateSchema } from '../../utils/site-settings.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { hashPassword } from '../../utils/crypto.js';
 
@@ -20,7 +20,10 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
     const input = siteUpdateSchema.parse(request.body);
     const current = await services.repo.getSite(user.id);
     const before = current ? siteAuditSnapshot(current) : null;
-    const { guestAccessPassword, ...siteInput } = input;
+    const { guestAccessPassword, settings, ...siteInput } = input;
+    if (siteInput.slug !== undefined && siteInput.slug !== current?.slug && user.role !== 'admin' && isAdminOnlySlug(siteInput.slug)) {
+      throw Object.assign(new Error('This site address is reserved'), { statusCode: 409 });
+    }
     const guestAccessPasswordHash = guestAccessPassword
       ? await hashPassword(guestAccessPassword)
       : current?.guestAccessPasswordHash;
@@ -29,6 +32,7 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
     }
     const updated = await services.repo.updateSite(user.id, {
       ...siteInput,
+      ...(settings ? { settings: mergeSiteSettings(current?.settings, settings) } : {}),
       ...(guestAccessPassword ? { guestAccessPasswordHash } : {}),
     });
     setAuditContext(request, {
@@ -40,6 +44,19 @@ export async function siteRoutes(app: FastifyInstance, services: AppServices) {
     });
     return sendOk(reply, publicAdminSite(updated));
   });
+}
+
+/** Written only by their own NoDesk endpoints, so a stale settings snapshot cannot roll them back. */
+const SERVER_OWNED_SETTINGS = ['nodeskPlanner', 'nodeskWorkbench'];
+
+/**
+ * Settings are patched key by key: keys the request leaves out keep their stored value, and the
+ * server-owned keys always keep theirs.
+ */
+function mergeSiteSettings(current: Record<string, unknown> | undefined, input: Record<string, unknown>) {
+  const patch = { ...input };
+  for (const key of SERVER_OWNED_SETTINGS) delete patch[key];
+  return { ...(current || {}), ...patch };
 }
 
 function publicAdminSite(site: NonNullable<Awaited<ReturnType<AppServices['repo']['getSite']>>>) {

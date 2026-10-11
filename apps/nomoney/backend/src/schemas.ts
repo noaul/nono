@@ -20,6 +20,7 @@ export const commonAssetSchema = z.object({
   amountMinorUnits: z.number().int().nonnegative(),
   currency: currencySchema,
   billingCycle: billingCycleSchema,
+  billingDay: z.number().int().min(1).max(31).optional().nullable(),
   nextDueDate: dateSchema.optional().nullable(),
   autoRenew: z.boolean().optional().default(false),
   paymentMethod: nullableText,

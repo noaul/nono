@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { Router } from 'express';
 import { z } from 'zod';
-import type { AppContext, AssetType } from './types.js';
+import type { AppContext, AssetType, DbClient } from './types.js';
 import { assetConfigs } from './assets.js';
 import { collectDueItems, type DueItem } from './dashboard.js';
 import { getSettings } from './settings.js';
@@ -38,7 +38,25 @@ export function registerReminderRoutes(router: Router, context: AppContext, allo
   });
 }
 
-export async function runReminderScan(context: AppContext, allowedTypes?: AssetType[]) {
+const reminderScanQueues = new WeakMap<DbClient, Promise<unknown>>();
+
+/**
+ * The hourly scheduler and "run now" share one queue per database: a scan only starts after the
+ * previous one has sent and logged its digest, so it sees those items as sent instead of sending
+ * them again.
+ */
+export function runReminderScan(context: AppContext, allowedTypes?: AssetType[]) {
+  const previous = reminderScanQueues.get(context.db) ?? Promise.resolve();
+  const scan = previous.then(() => performReminderScan(context, allowedTypes));
+  const tail = scan.catch(() => undefined);
+  reminderScanQueues.set(context.db, tail);
+  void tail.then(() => {
+    if (reminderScanQueues.get(context.db) === tail) reminderScanQueues.delete(context.db);
+  });
+  return scan;
+}
+
+async function performReminderScan(context: AppContext, allowedTypes?: AssetType[]) {
   const settings = getSettings(context);
   if (!settings.reminderEnabled) {
     return { sent: false, items: [] };

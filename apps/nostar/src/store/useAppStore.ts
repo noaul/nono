@@ -296,7 +296,7 @@ interface AppActions {
   logout: () => void;
   
   // Repository actions
-  setRepositories: (repos: Repository[]) => void;
+  setRepositories: (repos: Repository[], options?: { authoritative?: boolean }) => void;
   updateRepository: (repo: Repository) => void;
   /** 批量更新多个仓库的指定字段，保留当前过滤的 searchResults 不被重置 */
   updateRepositoriesMetadata: (updates: { id: number; patch: Partial<Repository> }[]) => void;
@@ -1304,8 +1304,8 @@ export const useAppStore = create<AppState & AppActions>()(
       }),
 
       // Repository actions
-      setRepositories: (repositories) => {
-        const restoredRepositories = mergeRepositoryAnalysisSnapshotsSync(repositories);
+      setRepositories: (repositories, options) => {
+        const restoredRepositories = options?.authoritative ? repositories : mergeRepositoryAnalysisSnapshotsSync(repositories);
         restoredRepositories.forEach((repo) => {
           void saveRepositoryAnalysisSnapshot(repo);
         });

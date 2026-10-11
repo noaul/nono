@@ -444,6 +444,11 @@ function migrate(db: DbClient, product: ProductMode): void {
   seedSetting(db, 'productMode', product);
   seedSetting(db, 'statusSampleMinutes', 5);
   seedSetting(db, 'statusRetentionDays', 365);
+  for (const table of ['phones', 'subscriptions', 'vps', 'domains']) {
+    ensureColumn(db, table, 'billing_day', 'INTEGER');
+    const dateColumn = table === 'vps' || table === 'domains' ? 'expire_date' : 'next_due_date';
+    db.run(`UPDATE ${table} SET billing_day = CAST(substr(${dateColumn}, 9, 2) AS INTEGER) WHERE billing_day IS NULL AND ${dateColumn} IS NOT NULL`);
+  }
   ensureColumn(db, 'accounts', 'login_device', 'TEXT');
   ensureColumn(db, 'accounts', 'archived_at', 'TEXT');
   ensureColumn(db, 'phones', 'phone_type', "TEXT NOT NULL DEFAULT 'domestic'");

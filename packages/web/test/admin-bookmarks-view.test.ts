@@ -71,6 +71,13 @@ describe('BookmarkTransferPanel import workflow', () => {
       }),
     }));
     expect(wrapper.text()).toContain('导入 1 个文件夹、1 个链接');
+
+    // The consumed preview is cleared so a second confirm cannot recreate the folders.
+    expect(wrapper.find('.import-preview-panel').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="confirm-import"]').attributes('disabled')).toBeDefined();
+    await wrapper.get('[data-testid="confirm-import"]').trigger('click');
+    await settle(wrapper);
+    expect(apiRequest).toHaveBeenCalledTimes(2);
   });
 
   it('lets users exclude folders and individual bookmarks from import', async () => {

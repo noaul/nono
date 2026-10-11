@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
 import { isBearerRequest, requireBrowserSession } from '../../plugins/auth.js';
 import { decryptSecret } from '../../utils/crypto.js';
-import { asRecord, authed, boundedInt, nullableText, text } from './common.js';
+import { asRecord, authed, boundedInt, nullableText, retainedSecret, text } from './common.js';
 import {
   aiTarget,
   githubHeaders,
@@ -13,6 +13,57 @@ import {
 } from './network.js';
 
 export function registerNoStarProxyRoutes(app: FastifyInstance, services: AppServices) {
+  app.post('/api/nostar/proxy/public', async (request, reply) => {
+    const user = await requireBrowserSession(request, reply, services);
+    if (!user) return;
+    const input = asRecord(request.body);
+    let target: URL;
+    try { target = new URL(text(input.url)); } catch { return reply.status(400).send({ error: 'Invalid proxy URL', code: 'INVALID_PROXY_TARGET' }); }
+    const allowed = (target.hostname === 'edge.microsoft.com' && target.pathname === '/translate/translatetext') || (target.hostname === 'clients5.google.com' && target.pathname === '/translate_a/t') || (target.hostname === 'mshibanami.github.io' && /^\/GitHubTrendingRSS\/(daily|weekly|monthly)\/all\.xml$/.test(target.pathname));
+    if (target.protocol !== 'https:' || target.username || target.password || target.port || !allowed) return reply.status(400).send({ error: 'Unsupported proxy target', code: 'INVALID_PROXY_TARGET' });
+    const method = text(input.method).toUpperCase() || 'GET';
+    if (!['GET', 'POST'].includes(method)) return reply.status(400).send({ error: 'Unsupported method' });
+    const proxy = await userProxyConfig(services, user);
+    return proxyJson(reply, services, user, target.toString(), { method, headers: { 'content-type': text(asRecord(input.headers)['content-type'] || asRecord(input.headers)['Content-Type']) || 'application/json' }, body: input.body === undefined ? undefined : (typeof input.body === 'string' ? input.body : JSON.stringify(input.body)) }, proxy);
+  });
+  app.post('/api/nostar/proxy/embedding', { bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
+    const user = await requireBrowserSession(request, reply, services);
+    if (!user) return;
+    const input = asRecord(request.body);
+    const config = asRecord(input.config);
+    const saved = await services.prisma.noStarEmbeddingConfig.findUnique({ where: { userId_legacyId: { userId: user.id, legacyId: text(config.id) } } });
+    const baseUrl = text(config.baseUrl || saved?.baseUrl);
+    const rawKey = text(config.apiKey);
+    const apiKey = rawKey && !rawKey.startsWith('***') ? rawKey : decryptSecret(retainedSecret(saved?.apiKeyEncrypted, saved?.baseUrl, baseUrl), services.encryptionKey);
+    const apiType = text(config.apiType || saved?.apiType);
+    const model = text(config.model || saved?.model);
+    const base = baseUrl.replace(/\/+$/, '');
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    let url: string;
+    if (apiType === 'ollama') url = `${base}/api/embed`;
+    else if (apiType === 'gemini') { url = `${base}/v1beta/models/${encodeURIComponent(model)}:batchEmbedContents`; headers['x-goog-api-key'] = apiKey; }
+    else if (apiType === 'cohere') { url = `${base}/v1/embed`; headers.authorization = `Bearer ${apiKey}`; }
+    else if (['openai', 'siliconflow', 'openai-compatible'].includes(apiType)) { url = apiType === 'openai-compatible' ? baseUrl : `${base}/v1/embeddings`; headers.authorization = `Bearer ${apiKey}`; }
+    else return reply.status(400).send({ error: 'Unsupported embedding provider' });
+    if (!baseUrl || !model || (!apiKey && apiType !== 'ollama')) return reply.status(400).send({ error: 'Embedding credentials are not configured' });
+    return proxyJson(reply, services, user, url, { method: 'POST', headers, body: JSON.stringify(input.body) }, await userProxyConfig(services, user));
+  });
+
+  app.post('/api/nostar/proxy/vector', { bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
+    const user = await requireBrowserSession(request, reply, services);
+    if (!user) return;
+    const input = asRecord(request.body);
+    const config = asRecord(input.config);
+    const saved = await services.prisma.noStarVectorSearchConfig.findUnique({ where: { userId: user.id } });
+    const baseUrl = text(config.workerUrl || saved?.workerUrl);
+    const rawKey = text(config.authToken);
+    const apiKey = rawKey && !rawKey.startsWith('***') ? rawKey : decryptSecret(retainedSecret(saved?.authTokenEncrypted, saved?.workerUrl, baseUrl), services.encryptionKey);
+    const path = text(input.path);
+    if (!['/status', '/query', '/upsert', '/delete', '/cleanup'].includes(path)) return reply.status(400).send({ error: 'Invalid vector operation' });
+    if (!baseUrl || !apiKey) return reply.status(400).send({ error: 'Vector credentials are not configured' });
+    return proxyJson(reply, services, user, `${baseUrl.replace(/\/+$/, '')}${path}`, { method: path === '/status' ? 'GET' : 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }, body: path === '/status' ? undefined : JSON.stringify(input.body) }, await userProxyConfig(services, user));
+  });
+
   app.post('/api/nostar/proxy/github/graphql', async (request, reply) => {
     const user = await requireBrowserSession(request, reply, services);
     if (!user) return;

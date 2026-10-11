@@ -4,6 +4,7 @@ import ConfirmDialog from '../src/components/admin/ConfirmDialog.vue';
 import ToastHost from '../src/components/admin/ToastHost.vue';
 import { clearConfirmState, useConfirm } from '../src/composables/useConfirm';
 import { clearToasts, notifyError, notifySuccess } from '../src/composables/useToasts';
+import { closeTopLayer, connectMobileShell, resetMobileShellForTests } from '../src/mobile/back-layers';
 
 describe('admin feedback primitives', () => {
   beforeEach(() => {
@@ -104,5 +105,25 @@ describe('admin confirmation primitive', () => {
     expect(document.body.style.overflow).toBe('');
     expect(document.activeElement).toBe(invoker);
     wrapper.unmount();
+  });
+
+  it('closes on the Android back button instead of letting the page navigate away', async () => {
+    (globalThis as { NonoBridge?: unknown }).NonoBridge = { postMessage: () => {}, addEventListener: () => {} };
+    connectMobileShell();
+    try {
+      const wrapper = mount(ConfirmDialog, { attachTo: document.body });
+      const result = useConfirm().confirm({ title: '删除书签', message: '确定删除吗？' });
+      await wrapper.vm.$nextTick();
+
+      expect(closeTopLayer()).toBe(true);
+      await wrapper.vm.$nextTick();
+      await expect(result).resolves.toBe(false);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(closeTopLayer()).toBe(false);
+      wrapper.unmount();
+    } finally {
+      resetMobileShellForTests();
+      delete (globalThis as { NonoBridge?: unknown }).NonoBridge;
+    }
   });
 });

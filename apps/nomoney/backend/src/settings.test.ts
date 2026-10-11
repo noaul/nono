@@ -44,4 +44,21 @@ describe('settings APIs', () => {
     expect(JSON.stringify(stored)).not.toContain('backup-secret');
     expect(JSON.stringify(stored)).not.toContain('webdav-secret');
   });
+
+  test('rejects an unknown time zone and keeps working with one stored before validation', async () => {
+    const { agent, context } = await setupAgent();
+
+    const rejected = await agent.put('/api/settings').send({ timezone: 'Asia/Shangai' }).expect(400);
+    expect(rejected.body.error).toMatchObject({ code: 'VALIDATION_ERROR', message: 'Invalid request body: timezone' });
+    expect(rejected.body.error.details.fieldErrors.timezone[0]).toContain('Unknown time zone');
+    expect(getSettings(context).timezone).toBe('Asia/Shanghai');
+
+    await agent.put('/api/settings').send({ timezone: 'Europe/Berlin' }).expect(200);
+    expect(getSettings(context).timezone).toBe('Europe/Berlin');
+
+    context.db.run(`INSERT INTO settings (key, value) VALUES ('timezone', '"Asia/Shangai"')
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+    expect(getSettings(context).timezone).toBe('Asia/Shanghai');
+    await agent.post('/api/reminders/run-now').expect(200);
+  });
 });

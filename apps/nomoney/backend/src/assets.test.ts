@@ -821,6 +821,42 @@ describe('asset APIs', () => {
     expect(String(sshCalls[0].command)).toContain(`MONEYPULSE_PROBE_TOKEN='${generatedKey}'`);
   });
 
+  test('sends the probe key over HTTP only to the probe the installer set up', async () => {
+    const { agent, context } = await setupAgent();
+    (context as typeof context & { sshRunner: (options: any) => Promise<{ stdout: string; stderr: string; code: number | null }> }).sshRunner = async () => (
+      { stdout: 'moneypulse-probe-installed\n', stderr: '', code: 0 }
+    );
+    const requests: Array<{ url: string; auth: string }> = [];
+    context.fetch = async (url, init) => {
+      requests.push({ url: String(url), auth: String((init?.headers as Record<string, string>)?.Authorization ?? '') });
+      return new Response(JSON.stringify({ stat: { cpu: { multi: 0.1 }, uptime: 60 } }), { status: 200 });
+    };
+
+    await agent.post('/api/vps').send({
+      name: 'installed-probe',
+      ipAddress: '45.33.32.156',
+      sshUser: 'root',
+      sshAuthType: 'password',
+      sshPassword: 'secret-password',
+      amountMinorUnits: 0,
+      currency: 'CNY',
+      billingCycle: 'monthly',
+      status: 'active'
+    }).expect(201);
+    await agent.post('/api/vps/1/probe/install').send({ probePort: 9100, probeApiKey: 'probe-token' }).expect(200);
+
+    const installed = await agent.get('/api/vps/1/monitor').expect(200);
+    expect(installed.body.monitor.status).toBe('online');
+    expect(requests).toEqual([{ url: 'http://45.33.32.156:9100/api/stat', auth: 'Bearer probe-token' }]);
+
+    // A hand-entered plain-HTTP URL still may not carry the key.
+    await agent.put('/api/vps/1').send({ probeUrl: 'http://45.33.32.156:9100/other' }).expect(200);
+    const edited = await agent.get('/api/vps/1/monitor').expect(200);
+    expect(edited.body.monitor.status).toBe('offline');
+    expect(edited.body.monitor.error).toMatch(/HTTPS is required/);
+    expect(requests).toHaveLength(1);
+  });
+
   test('normalizes domain registrar metadata and supports suffix, account, and domain sorting', async () => {
     const { agent } = await setupAgent();
 

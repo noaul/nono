@@ -171,7 +171,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
     setEmbeddingTestResult(null);
     try {
       const client = new EmbeddingClient({
-        id: 'test',
+        id: activeEmbeddingConfig || 'test',
         name: 'test',
         apiType: formApiType,
         baseUrl: formBaseUrl,
@@ -191,7 +191,7 @@ export const VectorSearchSettings: React.FC<VectorSearchSettingsProps> = ({ t })
     } finally {
       setTestingEmbedding(false);
     }
-  }, [formApiType, formBaseUrl, formApiKey, formModel, formDimensions]);
+  }, [activeEmbeddingConfig, formApiType, formBaseUrl, formApiKey, formModel, formDimensions]);
 
   const handleTestWorker = useCallback(async () => {
     setTestingWorker(true);

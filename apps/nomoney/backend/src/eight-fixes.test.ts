@@ -57,6 +57,19 @@ describe('notification relay to NoNo', () => {
     expect(notifier.sent).toHaveLength(1);
     status = 502;
     await expect(notifier.send({ subject: 'S', text: 'T', severity: 'info' })).rejects.toThrow('all channels failed');
+    expect(notifier.sent).toHaveLength(1);
+  });
+
+  test('createNonoNotifier keeps only the latest sent messages', async () => {
+    const notifier = createNonoNotifier({
+      baseUrl: 'http://nono', internalToken: 'secret', product: 'yumi',
+      fetch: (async () => new Response('{}')) as unknown as typeof fetch
+    });
+    for (let index = 0; index < 200; index += 1) {
+      await notifier.send({ subject: `S${index}`, text: 'T', severity: 'info' });
+    }
+    expect(notifier.sent.length).toBeLessThanOrEqual(50);
+    expect(notifier.sent.at(-1)?.subject).toBe('S199');
   });
 });
 

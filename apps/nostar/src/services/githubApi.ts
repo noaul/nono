@@ -320,9 +320,11 @@ export class GitHubApiService {
     return this.makeRequest<GitHubUser>('/user');
   }
 
+  // Page by star time (sort=created), not by last push (sort=updated): a repository pushed while
+  // a multi-page sync is running would otherwise jump pages and be skipped or seen twice.
   async getStarredRepositories(page = 1, perPage = 100): Promise<Repository[]> {
     const repos = await this.makeRequest<Repository[]>(
-      `/user/starred?page=${page}&per_page=${perPage}&sort=updated`,
+      `/user/starred?page=${page}&per_page=${perPage}&sort=created&direction=desc`,
       {
         headers: {
           'Accept': 'application/vnd.github.star+json'
@@ -332,8 +334,14 @@ export class GitHubApiService {
     return repos;
   }
 
-  async getAllStarredRepositories(): Promise<Repository[]> {
-    let allRepos: Repository[] = [];
+  /**
+   * Walks every starred page and de-duplicates by id. `complete` is false when the list visibly
+   * shifted while paging (an id showed up twice), so callers must not treat it as authoritative
+   * for deletions.
+   */
+  async getStarredRepositoriesSnapshot(): Promise<{ repositories: Repository[]; complete: boolean }> {
+    const byId = new Map<number, Repository>();
+    let complete = true;
     let page = 1;
     const perPage = 100;
 
@@ -341,7 +349,13 @@ export class GitHubApiService {
       const repos = await this.getStarredRepositories(page, perPage);
       if (repos.length === 0) break;
 
-      allRepos = [...allRepos, ...repos];
+      for (const repo of repos) {
+        if (byId.has(repo.id)) {
+          complete = false;
+          continue;
+        }
+        byId.set(repo.id, repo);
+      }
 
       if (repos.length < perPage) break;
       page++;
@@ -350,7 +364,18 @@ export class GitHubApiService {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    return allRepos;
+    return { repositories: Array.from(byId.values()), complete };
+  }
+
+  /** GET /user/starred/{owner}/{repo}: 204 when starred, 404 when not. */
+  async isRepositoryStarred(fullName: string): Promise<boolean> {
+    try {
+      await this.makeRequest<void>(`/user/starred/${fullName}`);
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('GitHub API error: 404')) return false;
+      throw error;
+    }
   }
 
   private mergeGistMetadata(existing: Gist | undefined, incoming: Gist, starred?: boolean): Gist {
@@ -1012,7 +1037,9 @@ export class GitHubApiService {
     const rssUrl = `https://mshibanami.github.io/GitHubTrendingRSS/${timeRange}/all.xml`;
 
     try {
-      const response = await fetch(rssUrl, {
+      const response = (this.backendUrl || import.meta.env.PROD)
+        ? await backend.proxyPublicRequest(rssUrl, { headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' } })
+        : await fetch(rssUrl, {
         headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' }
       });
 
@@ -1218,7 +1245,9 @@ export class GitHubApiService {
     const rssUrl = rssUrlMap[timeRange];
 
     try {
-      const response = await fetch(rssUrl, {
+      const response = (this.backendUrl || import.meta.env.PROD)
+        ? await backend.proxyPublicRequest(rssUrl, { headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' } })
+        : await fetch(rssUrl, {
         headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' }
       });
       if (!response.ok) {

@@ -2,6 +2,7 @@ import type { Repository, UserRecord } from './repository.js';
 import type { Role } from '../types.js';
 import { randomBytes } from 'node:crypto';
 import { hashPassword, verifyPassword } from '../utils/crypto.js';
+import { isAdminOnlySlug } from '../utils/site-settings.js';
 
 export async function setupAdmin(repo: Repository, input: { username: string; email?: string; displayName?: string; password: string }) {
   return repo.initializeAdmin({
@@ -14,6 +15,8 @@ export async function setupAdmin(repo: Repository, input: { username: string; em
 }
 
 export async function registerUser(repo: Repository, input: { username: string; email: string; displayName?: string; password: string }, role: Role) {
+  // The username becomes the site slug, and the "admin" slug is the homepage.
+  if (role !== 'admin' && isAdminOnlySlug(input.username)) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
   if (await repo.findUserByUsername(input.username)) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
   if (await repo.findUserByEmail(input.email)) throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
   return repo.createUser({

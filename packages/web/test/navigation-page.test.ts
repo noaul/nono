@@ -117,6 +117,27 @@ describe('NavigationPage public workflow', () => {
     expect(wrapper.find('.search-bar').exists()).toBe(true);
   });
 
+  it('restores homepage scrolling after a folder is expanded and closed', async () => {
+    document.body.style.overflow = '';
+    const wrapper = await mountNavigationPage();
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="folder-expand"]').exists()).toBe(true));
+
+    await wrapper.get('[data-testid="folder-expand"]').trigger('click');
+    await vi.dynamicImportSettled();
+    await vi.waitFor(() => expect(wrapper.find('.folder-expand-modal').exists()).toBe(true));
+    await wrapper.vm.$nextTick();
+    expect(document.body.style.overflow).toBe('hidden');
+
+    await wrapper.get('.folder-expand-close').trigger('click');
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('.folder-expand-modal').exists()).toBe(false);
+    expect(document.body.style.overflow).toBe('');
+
+    wrapper.unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('renders category tabs, sub-folder cards, and local search summary', async () => {
     apiRequest.mockResolvedValue({
       ...navigationPayload(),

@@ -42,7 +42,7 @@ const settingsSchema = z.object({
   reminderEnabled: z.boolean().optional(),
   autoRenewEnabled: z.boolean().optional(),
   defaultCurrency: z.enum(currencies).optional(),
-  timezone: z.string().trim().min(1).optional(),
+  timezone: z.string().trim().min(1).refine(isValidTimeZone, { message: 'Unknown time zone; use an IANA name such as Asia/Shanghai' }).optional(),
   language: z.enum(['zh', 'en']).optional(),
   webdavUrl: z.string().optional(),
   webdavUsername: z.string().optional(),
@@ -105,7 +105,8 @@ export function getSettings(context: AppContext): Settings {
     reminderEnabled: settings.reminderEnabled ?? true,
     autoRenewEnabled: settings.autoRenewEnabled ?? true,
     defaultCurrency: settings.defaultCurrency ?? 'CNY',
-    timezone: settings.timezone ?? 'Asia/Shanghai',
+    // A zone stored before validation existed (or restored from a backup) must not break date math.
+    timezone: settings.timezone && isValidTimeZone(settings.timezone) ? settings.timezone : 'Asia/Shanghai',
     language: settings.language ?? 'zh',
     webdavUrl: settings.webdavUrl ?? '',
     webdavUsername: settings.webdavUsername ?? '',
@@ -128,6 +129,15 @@ export function getPublicSettings(context: AppContext): PublicSettings {
     webdavPasswordSet: Boolean(settings.webdavPassword),
     webdavEncryptionKeySet: Boolean(settings.webdavEncryptionKey)
   };
+}
+
+function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isSensitiveSetting(key: string): key is SensitiveSettingKey {

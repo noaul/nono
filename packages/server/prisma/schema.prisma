@@ -303,7 +303,7 @@ model Link {
   healthCheckedAt  DateTime?
   clickCount       Int       @default(0)
   lastClickedAt    DateTime?
-  /// Queued for reading later; the reading inbox lists links with this set and readAt unset.
+  /// Retained for historical data; reading inbox UI is retired.
   readLaterAt      DateTime?
   readAt           DateTime?
   /// Free-form labels that cut across folders; kept on the row so trash and backups carry them.

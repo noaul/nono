@@ -13,8 +13,14 @@ const feed = ref<AdminNotificationFeed>({ items: [], unreadCount: 0, generatedAt
 const root = ref<HTMLElement | null>(null);
 const badgeLabel = computed(() => feed.value.unreadCount > 99 ? '99+' : String(feed.value.unreadCount));
 
+let reloadQueued = false;
+
 async function load() {
-  if (isLoading.value) return;
+  // A change announced while a request is in flight may not be in its response: refresh once more after it.
+  if (isLoading.value) {
+    reloadQueued = true;
+    return;
+  }
   isLoading.value = true;
   try {
     feed.value = await apiRequest<AdminNotificationFeed>('/api/admin/notifications?limit=5');
@@ -22,6 +28,10 @@ async function load() {
     feed.value = { items: [], unreadCount: 0, generatedAt: '' };
   } finally {
     isLoading.value = false;
+  }
+  if (reloadQueued) {
+    reloadQueued = false;
+    await load();
   }
 }
 

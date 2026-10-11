@@ -22,26 +22,32 @@ function fullUrl(share: FolderShare) {
   return `${window.location.origin}${share.path}`;
 }
 
+let loadSeq = 0;
+
 async function load() {
+  // Switching folders quickly must not let a slow response for the previous folder win.
+  const seq = ++loadSeq;
   loading.value = true;
   try {
-    shares.value = await apiRequest<FolderShare[]>(`/api/admin/folders/${props.folder.id}/shares`);
+    const loaded = await apiRequest<FolderShare[]>(`/api/admin/folders/${props.folder.id}/shares`);
+    if (seq === loadSeq) shares.value = loaded;
   } catch (event) {
-    notifyError(event instanceof Error ? event.message : t('shares.loadFailed'));
+    if (seq === loadSeq) notifyError(event instanceof Error ? event.message : t('shares.loadFailed'));
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
 async function create() {
   if (creating.value) return;
   creating.value = true;
+  const folderId = props.folder.id;
   try {
-    const share = await apiRequest<FolderShare>(`/api/admin/folders/${props.folder.id}/shares`, {
+    const share = await apiRequest<FolderShare>(`/api/admin/folders/${folderId}/shares`, {
       method: 'POST',
       body: jsonBody({ expiresInDays: expiryDays.value ? Number(expiryDays.value) : null }),
     });
-    shares.value = [share, ...shares.value];
+    if (folderId === props.folder.id) shares.value = [share, ...shares.value];
     await copy(share);
   } catch (event) {
     notifyError(event instanceof Error ? event.message : t('shares.createFailed'));

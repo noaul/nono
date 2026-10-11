@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminLayout from '../src/components/AdminLayout.vue';
+import { closeTopLayer, resetMobileShellForTests } from '../src/mobile/back-layers';
 
 const apiRequest = vi.fn();
 
@@ -62,7 +63,16 @@ describe('AdminLayout mobile navigation accessibility', () => {
     expect(wrapper.get('.workbench-main').attributes()).not.toHaveProperty('inert');
     expect(document.body.style.overflow).toBe('');
     expect(document.activeElement).toBe(toggle.element);
+    // The Android back button closes the drawer like Escape does, then has nothing left to close.
+    await toggle.trigger('click');
+    await flushPromises();
+    expect(sidebar.attributes('role')).toBe('dialog');
+    expect(closeTopLayer()).toBe(true);
+    await flushPromises();
+    expect(sidebar.attributes('role')).toBeUndefined();
+    expect(closeTopLayer()).toBe(false);
     wrapper.unmount();
+    resetMobileShellForTests();
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
   });
 

@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { backend } from './backendAdapter';
 import type { TranslationEngine } from '../types';
 
 export interface TranslateResult {
@@ -50,7 +51,9 @@ const requestJson = async (url: string, init: RequestInit, signal?: AbortSignal)
   });
   try {
     const operation = async () => {
-      const response = await fetch(url, { ...init, credentials: 'omit', signal: controller.signal });
+      const response = (backend.isAvailable || import.meta.env.PROD)
+        ? await backend.proxyPublicRequest(url, { ...init, signal: controller.signal })
+        : await fetch(url, { ...init, credentials: 'omit', signal: controller.signal });
       if (!response.ok) throw new TranslationHttpError(response.status);
       return await response.json() as unknown;
     };

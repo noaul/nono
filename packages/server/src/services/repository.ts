@@ -66,8 +66,6 @@ export interface LinkRecord {
   healthCheckedAt?: Date | null;
   clickCount?: number;
   lastClickedAt?: Date | null;
-  readLaterAt?: Date | null;
-  readAt?: Date | null;
   tags?: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -94,21 +92,6 @@ export function normalizeTags(values: readonly string[]) {
     if (tags.length === MAX_TAGS_PER_LINK) break;
   }
   return tags;
-}
-
-export type ReadingStatus = 'unread' | 'read';
-
-export interface ReadingListOptions {
-  status: ReadingStatus;
-  limit: number;
-  offset: number;
-}
-
-export interface ReadingListPage {
-  /** Unread: newest queued first. Read: most recently finished first. */
-  items: LinkRecord[];
-  total: number;
-  unread: number;
 }
 
 export interface LinkSearchOptions {
@@ -404,7 +387,6 @@ export interface Repository {
   listFolderLinks(userId: number, folderId: number): Promise<LinkRecord[]>;
   /** Oldest owned link whose URL equals the normalized `url` exactly (see duplicateUrlKey). */
   findLinkByUrl(userId: number, url: string): Promise<LinkRecord | null>;
-  listReadingLinks(userId: number, options: ReadingListOptions): Promise<ReadingListPage>;
   /** Every tag the user has used, most used first. */
   listTags(userId: number): Promise<TagSummary[]>;
   /** Owned links carrying `tag` (exact spelling). */
@@ -825,15 +807,6 @@ export class MemoryRepository implements Repository {
     return (await this.listLinks(userId)).filter((link) => link.tags?.includes(tag));
   }
 
-  async listReadingLinks(userId: number, options: ReadingListOptions) {
-    const queued = (await this.listLinks(userId)).filter((link) => link.readLaterAt);
-    const unreadLinks = queued.filter((link) => !link.readAt);
-    const matching = options.status === 'unread'
-      ? unreadLinks.sort((a, b) => b.readLaterAt!.getTime() - a.readLaterAt!.getTime() || b.id - a.id)
-      : queued.filter((link) => link.readAt).sort((a, b) => b.readAt!.getTime() - a.readAt!.getTime() || b.id - a.id);
-    return { items: matching.slice(options.offset, options.offset + options.limit), total: matching.length, unread: unreadLinks.length };
-  }
-
   async createLink(input: Omit<LinkRecord, 'id' | 'createdAt' | 'updatedAt'>) {
     const now = new Date();
     const link = { ...input, healthCheckEnabled: input.healthCheckEnabled ?? true, clickCount: input.clickCount ?? 0, id: nextId(this.links), createdAt: now, updatedAt: now };
@@ -850,10 +823,10 @@ export class MemoryRepository implements Repository {
   async updateLinkHealth(userId: number, updates: LinkHealthUpdate[]) {
     const links = await this.listLinks(userId);
     const byId = new Map(links.map((link) => [link.id, link]));
-    if (updates.some((update) => !byId.has(update.id))) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
     for (const update of updates) {
-      const link = byId.get(update.id)!;
-      if (link.url !== update.url) continue;
+      // A link deleted while it was being checked is skipped, like one whose URL changed.
+      const link = byId.get(update.id);
+      if (!link || link.url !== update.url) continue;
       Object.assign(link, {
         healthStatus: update.status,
         healthStatusCode: update.statusCode ?? null,

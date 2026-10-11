@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import { clearAllAuthCache, getAuthToken as getToken, hasAuth as checkAuth } from '@/lib/auth'
+import { clearAllAuthCache, getAuthToken as getToken, sessionUserId } from '@/lib/auth'
 
 interface AuthStore {
 	isAuth: boolean
 	initialized: boolean
+	userId: string | null
 	clearAuth: () => void
 	refreshAuthState: () => Promise<void>
 	getAuthToken: () => Promise<string>
@@ -12,14 +13,16 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>(set => ({
 	isAuth: false,
 	initialized: false,
+	userId: null,
 
 	clearAuth: () => {
 		clearAllAuthCache()
-		set({ isAuth: false, initialized: true })
+		set({ isAuth: false, initialized: true, userId: null })
 	},
 
 	refreshAuthState: async () => {
-		set({ isAuth: await checkAuth(true), initialized: true })
+		const userId = await sessionUserId(true)
+		set({ isAuth: userId !== null, initialized: true, userId })
 	},
 
 	getAuthToken: async () => {

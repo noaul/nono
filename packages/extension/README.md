@@ -2,7 +2,7 @@
 
 NoNo Smart Bookmark 是 [NoNo](https://github.com/noaul/nono) 的 Chrome Manifest V3 扩展。它把用户主动选择的当前网页保存到自托管 NoNo，并提供分类、重复处理和 AI 整理能力。
 
-当前版本：`0.4.3`
+当前版本：`0.6.0`
 
 ## 功能
 
@@ -15,6 +15,8 @@ NoNo Smart Bookmark 是 [NoNo](https://github.com/noaul/nono) 的 Chrome Manifes
 - 中英文界面、连接测试、Token 到期提示、空文件夹和请求超时状态。
 - 弹窗内提供 GitHub 仓库、Issue 反馈入口和当前插件版本。
 - `0.3.1` 将弹窗压缩为 600px 内完整显示的单页布局，并增加圆角裁切与白色半透明磨砂外层。
+- `0.6.0` 随 NoNo 下线稍后阅读，移除保存弹窗中的“加入稍后阅读”选项。
+  同版修复：弹窗保存后的 `OK` / `✓` 角标只标在当前标签页，不再留在所有标签页上，并让后台重新查询该网址的收藏状态；切换标签页时迟到的查询结果不会再标到已跳转的页面上，关闭“已收藏角标”、打开 NoNo 自身页面或查询失败时会撤下旧的 `✓`；Chrome 应用商店等无法注入脚本的页面也能按网址和标题保存。
 
 ## 隐私与权限
 
@@ -67,8 +69,8 @@ npm run package:extension
 
 ```text
 packages/extension/dist/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3/
-packages/extension/artifacts/nono-quick-bookmark-chrome-v0.4.3.zip
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.6.0/
+packages/extension/artifacts/nono-quick-bookmark-chrome-v0.6.0.zip
 ```
 
 在 `chrome://extensions/` 开启开发者模式，选择“加载已解压的扩展程序”，然后加载 `packages/extension/dist`。

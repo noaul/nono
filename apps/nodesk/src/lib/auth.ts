@@ -1,5 +1,6 @@
 import { localeCopy as copy } from '../i18n/language.ts'
 type SessionUser = {
+	id?: number | string
 	role?: string
 }
 
@@ -30,10 +31,12 @@ async function readSession(force = false): Promise<SessionPayload> {
 			cache: 'no-store',
 			headers: { Accept: 'application/json' }
 		})
-		if (!response.ok) {
+		// Only the server saying so signs the user out; a deploy (502) or a rate limit keeps the last answer.
+		if (response.status === 401 || response.status === 403) {
 			sessionCache = { authenticated: false, user: null }
 			return sessionCache
 		}
+		if (!response.ok) return sessionCache || { authenticated: false, user: null }
 
 		const payload = (await response.json()) as SessionResponse & SessionPayload
 		const session: SessionPayload = payload.data || {
@@ -43,8 +46,8 @@ async function readSession(force = false): Promise<SessionPayload> {
 		sessionCache = session
 		return session
 	} catch {
-		sessionCache = { authenticated: false, user: null }
-		return sessionCache
+		// Offline (e.g. an app resuming before the network is back): keep the last known session.
+		return sessionCache || { authenticated: false, user: null }
 	}
 }
 
@@ -58,6 +61,12 @@ export function clearAllAuthCache(): void {
 
 export async function hasAuth(force = false): Promise<boolean> {
 	return isAdminSession(await readSession(force))
+}
+
+/** The signed-in admin's id, so per-account browser caches are not mixed between accounts. */
+export async function sessionUserId(force = false): Promise<string | null> {
+	const session = await readSession(force)
+	return isAdminSession(session) && session.user?.id !== undefined ? String(session.user.id) : null
 }
 
 /**

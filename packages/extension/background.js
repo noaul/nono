@@ -1,6 +1,6 @@
 import { LOCALE_STORAGE_KEY, isLocale, localeFromUiLanguage, setLocale, t } from './shared/i18n.js';
 import { quickSave as runQuickSave } from './shared/quick-save.js';
-import { SAVED_BADGE_KEY, createLookupCache, refreshSavedBadge } from './shared/saved-badge.js';
+import { SAVED_BADGE_KEY, SAVED_LOOKUP_STALE_MESSAGE, clearSavedBadge, createLookupCache, refreshSavedBadge } from './shared/saved-badge.js';
 
 const QUICK_SAVE_MENU_ID = 'nono-quick-save';
 const OPEN_MENU_ID = 'nono-open-save';
@@ -25,9 +25,16 @@ chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && (SAVED_BADGE_KEY in changes || 'serverUrl' in changes || 'token' in changes)) lookupCache.clear();
+  if (areaName === 'local' && SAVED_BADGE_KEY in changes && !changes[SAVED_BADGE_KEY].newValue) void clearSavedBadges();
   if (areaName !== 'local' || !(LOCALE_STORAGE_KEY in changes)) return;
   setLocale(resolveLocale(changes[LOCALE_STORAGE_KEY]?.newValue));
   void createContextMenus();
+});
+
+// The popup saved a page: its next lookup must reach the server instead of a cached "not saved".
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === SAVED_LOOKUP_STALE_MESSAGE && typeof message.url === 'string') lookupCache.delete(message.url);
+  return false;
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -75,4 +82,11 @@ async function updateSavedBadge(tab) {
   const stored = await chrome.storage.local.get([LOCALE_STORAGE_KEY]);
   setLocale(resolveLocale(stored[LOCALE_STORAGE_KEY]));
   await refreshSavedBadge(tab, chrome, lookupCache).catch(() => null);
+}
+
+async function clearSavedBadges() {
+  const stored = await chrome.storage.local.get([LOCALE_STORAGE_KEY]);
+  setLocale(resolveLocale(stored[LOCALE_STORAGE_KEY]));
+  const tabs = await chrome.tabs.query({}).catch(() => []);
+  await Promise.all(tabs.map((tab) => clearSavedBadge(tab.id, chrome)));
 }

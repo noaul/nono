@@ -303,21 +303,6 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     async listLinksWithTag(userId, tag) {
       return (await prisma.link.findMany({ where: { folder: { userId }, tags: { has: tag } }, orderBy: [{ sortOrder: 'desc' }, { id: 'asc' }] })) as any;
     },
-    async listReadingLinks(userId, options) {
-      const queued = { folder: { userId }, readLaterAt: { not: null } };
-      const where = options.status === 'unread' ? { ...queued, readAt: null } : { ...queued, readAt: { not: null } };
-      const [items, total, unread] = await Promise.all([
-        prisma.link.findMany({
-          where,
-          orderBy: options.status === 'unread' ? [{ readLaterAt: 'desc' }, { id: 'desc' }] : [{ readAt: 'desc' }, { id: 'desc' }],
-          skip: options.offset,
-          take: options.limit,
-        }),
-        prisma.link.count({ where }),
-        prisma.link.count({ where: { ...queued, readAt: null } }),
-      ]);
-      return { items: items as any, total, unread };
-    },
     async searchLinks(userId, query, options) {
       const terms = linkSearchTerms(query);
       if (!terms.length) return [];
@@ -337,7 +322,7 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
         `SELECT l."id", l."folderId", l."name", l."url", l."icon", l."description", l."sortOrder",
                 l."healthCheckEnabled", l."healthStatus", l."healthStatusCode", l."healthReason",
                 l."healthFinalUrl", l."healthCheckedAt", l."clickCount", l."lastClickedAt",
-                l."readLaterAt", l."readAt", l."tags",
+                l."tags",
                 l."createdAt", l."updatedAt",
                 (word_similarity($2, l."searchText")
                   + CASE WHEN lower(l."name") LIKE $3 THEN 1 ELSE 0 END)::float8 AS "score"
@@ -386,9 +371,8 @@ export function createPrismaRepository(prisma: PrismaClient = createPrismaClient
     },
     async updateLinkHealth(userId, updates) {
       if (!updates.length) return;
-      const ids = updates.map((update) => update.id);
-      const owned = await prisma.link.findMany({ where: { id: { in: ids }, folder: { userId } }, select: { id: true } });
-      if (owned.length !== new Set(ids).size) throw Object.assign(new Error('Link not found'), { statusCode: 404 });
+      // Each write is scoped to the owner and the checked URL, so a link deleted or moved while it
+      // was being checked simply matches nothing instead of discarding the whole batch.
       await prisma.$transaction(updates.map((update) => prisma.link.updateMany({
         where: { id: update.id, url: update.url, folder: { userId } },
         data: {

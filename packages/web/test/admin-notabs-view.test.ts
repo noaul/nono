@@ -139,6 +139,22 @@ describe('NotabsView admin workflow', () => {
     }));
   });
 
+  it('keeps entry saving disabled when the site settings failed to load', async () => {
+    apiRequest
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('site unavailable'));
+
+    const wrapper = mountNotabsView();
+    await settle(wrapper);
+
+    const save = wrapper.get('[data-testid="save-navigation-entries"]');
+    expect(save.attributes('disabled')).toBeDefined();
+    await save.trigger('click');
+    await settle(wrapper);
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/admin/site', expect.objectContaining({ method: 'PUT' }));
+  });
+
   it('uses the same column layout for fixed and custom navigation entries', async () => {
     apiRequest
       .mockResolvedValueOnce([])

@@ -218,7 +218,7 @@ test('syncs the ambient workbench with Shanghai time and Nono home data', async 
 	assert.match(workbench, /<AmbientNotificationIsland/)
 	assert.match(workbench, /clickCount/)
 	assert.match(styles, /ambient-time-zone/)
-	assert.match(styles, /ambient-island-count/)
+	assert.match(styles, /ambient-island-summary/)
 })
 
 test('uses a seconds clock with flip motion and dismisses dock panels from outside', async () => {
@@ -299,13 +299,15 @@ test('shows unread notifications as an island above the search bar instead of a 
 	assert.match(workbench, /className='ambient-top-center'>\s*<AmbientNotificationIsland/)
 	assert.doesNotMatch(workbench, /ambient-notification-rail|ambient-side-stack|ambient-bell-button/)
 	assert.doesNotMatch(styles, /ambient-notification-rail|ambient-side-stack|data-notifications/)
-	assert.match(workbench, /data-island=/)
 	assert.match(workbench, /setSettingsInitialTab\('notifications'\)/)
 	assert.match(workbench, /addEventListener\('nono:notifications-changed'/)
-	assert.match(island, /islandMode\(unread\.length, expanded, Boolean\(peekItem\)\)/)
+	assert.match(island, /islandPages\(unread, columns\)/)
+	assert.match(island, /new ResizeObserver/)
 	assert.match(island, /SEEN_STORAGE_KEY/)
-	assert.match(styles, /\.ambient-island-anchor\s*\{[^}]*position: absolute;[^}]*top: 44px/)
-	assert.match(styles, /@media \(max-width: 820px\)\s*\{\s*\.ambient-island-anchor\s*\{\s*top: calc\(100% \+ 12px\)/)
+	// A thin strip that ends above the search bar (which starts 56px down the top bar).
+	assert.match(styles, /\.ambient-island-anchor\s*\{[^}]*height: 32px;[^}]*top: 16px/)
+	assert.match(styles, /\.ambient-island-page\s*\{[^}]*grid-template-columns: repeat\(var\(--island-columns, 2\), minmax\(0, 1fr\)\)/)
+	assert.match(styles, /@media \(max-width: 820px\)\s*\{\s*\.ambient-island-anchor\s*\{[^}]*position: fixed/)
 	assert.match(styles, /\.ambient-command-trigger[\s\S]*right: max\(68px/)
 })
 
@@ -438,4 +440,11 @@ test('the dock status does not read the focus countdown aloud every second', asy
 
 	assert.doesNotMatch(workbench, /className='ambient-dock-status' aria-live/)
 	assert.match(workbench, /className='ambient-sr-only' role='status' aria-live='polite'>\{focusAnnouncement\}/)
+})
+
+test('standby keeps only the clock and the pets on screen', async () => {
+	const styles = await read('src/styles/ambient-workbench.css')
+
+	assert.match(styles, /\.ambient-workbench:is\(\[data-idle='quiet'\], \[data-idle='deep'\]\) :is\(\.ambient-wakeable, \.ambient-time-zone, \.ambient-date, \.ambient-greeting, \.ambient-now\) \{\s*opacity: 0;/)
+	assert.doesNotMatch(styles, /\[data-idle='quiet'\] \.ambient-wakeable \{\s*opacity: 0\.24/)
 })

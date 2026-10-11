@@ -494,10 +494,6 @@ textarea {
   width: 16px;
 }
 
-.read-later-row {
-  color: var(--ui-text-subtle);
-}
-
 .privacy-note {
   color: var(--ui-text-subtle);
   font-size: 11px;

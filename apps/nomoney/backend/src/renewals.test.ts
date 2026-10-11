@@ -14,6 +14,13 @@ const activeVps = {
 };
 
 describe('VPS renewal APIs', () => {
+  test('preserves the original monthly billing day across short months', async () => {
+    const { agent } = await setupAgent();
+    await agent.post('/api/subscriptions').send({ name: 'Monthly', amountMinorUnits: 100, currency: 'CNY', billingCycle: 'monthly', nextDueDate: '2026-01-31', status: 'active' }).expect(201);
+    await agent.post('/api/subscriptions/1/renew').send({ requestId: 'month-jan', expectedDueDate: '2026-01-31' }).expect(200);
+    const response = await agent.post('/api/subscriptions/1/renew').send({ requestId: 'month-feb', expectedDueDate: '2026-02-28' }).expect(200);
+    expect(response.body.item.nextDueDate).toBe('2026-03-31');
+  });
   test('advances one billing cycle and records the renewal expense atomically', async () => {
     const { agent, context } = await setupAgent();
     await agent.post('/api/vps').send(activeVps).expect(201);

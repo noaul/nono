@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createProductDueReader } from '../src/services/product-due-client.js';
 
 describe('product due client', () => {
+  it('preserves the reminder kind through the product boundary', async () => {
+    const item = { assetType: 'domain', id: 1, name: 'example.com', dueDate: '2026-08-10', status: 'active', kind: 'certificate' };
+    const reader = createProductDueReader({ token: 'internal-secret', serviceName: 'Yumi', fetch: async () => new Response(JSON.stringify({ items: [item] })) });
+    await expect(reader()).resolves.toEqual([item]);
+  });
   it('reads product due items through the authenticated internal API', async () => {
     const request = vi.fn(async () => new Response(JSON.stringify({
       items: [{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' }],

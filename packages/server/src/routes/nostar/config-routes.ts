@@ -12,6 +12,7 @@ import {
   replaceAiProfiles,
   replaceEmbeddingConfigs,
   replaceWebDavConfigs,
+  retainedSecret,
   revealSecret,
   text,
   vectorConfigData,
@@ -78,9 +79,10 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const baseUrl = text(input.baseUrl || existing?.baseUrl);
     const model = text(input.model || existing?.model);
     const rawKey = text(input.apiKey);
+    // A masked key may only be tested against the endpoint it was saved for.
     const apiKey = rawKey && !rawKey.startsWith('***')
       ? rawKey
-      : decryptSecret(existing?.apiKeyEncrypted, services.encryptionKey);
+      : decryptSecret(retainedSecret(existing?.apiKeyEncrypted, existing?.baseUrl, baseUrl), services.encryptionKey);
     if (!baseUrl || !model || (!apiKey && apiType !== 'ollama')) {
       throw Object.assign(new Error(t(resolveRequestLocale(request.headers as Record<string, unknown>), 'needNoStarFields')), { statusCode: 400 });
     }
@@ -183,7 +185,7 @@ export function registerNoStarConfigRoutes(app: FastifyInstance, services: AppSe
     const embedding = typeof input.embeddingConfigId === 'string' && input.embeddingConfigId
       ? await services.prisma.noStarEmbeddingConfig.findUnique({ where: { userId_legacyId: { userId: user.id, legacyId: input.embeddingConfigId } } })
       : null;
-    const authTokenEncrypted = nextEncryptedSecret(input.authToken, existing?.authTokenEncrypted, services.encryptionKey);
+    const authTokenEncrypted = nextEncryptedSecret(input.authToken, retainedSecret(existing?.authTokenEncrypted, existing?.workerUrl, input.workerUrl), services.encryptionKey);
     await services.prisma.noStarVectorSearchConfig.upsert({
       where: { userId: user.id },
       update: vectorConfigData(input, embedding?.id || null, authTokenEncrypted),

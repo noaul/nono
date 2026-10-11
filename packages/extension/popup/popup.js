@@ -13,7 +13,7 @@ import {
 import { LOCALE_STORAGE_KEY, getLocale, isLocale, localeFromUiLanguage, setLocale, t } from '../shared/i18n.js';
 import { LAST_QUICK_SAVE_KEY, recentQuickSave } from '../shared/quick-save.js';
 import { connectionDraft, persistConnectionDraft } from '../shared/settings-draft.js';
-import { SAVED_BADGE_KEY } from '../shared/saved-badge.js';
+import { SAVED_BADGE_KEY, SAVED_LOOKUP_STALE_MESSAGE } from '../shared/saved-badge.js';
 
 const languageSelect = document.querySelector('#languageSelect');
 const settingsPanel = document.querySelector('#settings');
@@ -40,10 +40,10 @@ const refreshFoldersButton = document.querySelector('#refreshFolders');
 const toggleDetailsButton = document.querySelector('#toggleDetails');
 const versionLabel = document.querySelector('#versionLabel');
 const savedBadgeInput = document.querySelector('#savedBadge');
-const readLaterInput = document.querySelector('#readLater');
 
 let config = {};
 let pageInfo = null;
+let pageTabId = null;
 let folders = [];
 let links = [];
 let folderGroups = [];
@@ -274,9 +274,16 @@ async function readCurrentPage() {
   try {
     meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
   } catch {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+      meta = await chrome.tabs.sendMessage(tab.id, { type: 'NONO_EXTRACT' });
+    } catch {
+      // Pages Chrome keeps scripts out of (the Web Store, other extensions) still save by URL and title.
+      meta = {};
+    }
   }
+  meta ||= {};
+  pageTabId = tab.id;
   pageInfo = {
     url: tab.url,
     title: meta.title || tab.title || '',
@@ -299,14 +306,14 @@ async function saveBookmark() {
   setBusy(saveButton, true, t('saving'));
   try {
     // The duplicate warning is showing, so pressing save means "save another copy".
-    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value, allowDuplicate: Boolean(duplicateLink), readLater: readLaterInput.checked });
+    const payload = buildQuickSavePayload(pageInfo, { folderId, name: nameInput.value, nameMode, description: descriptionInput.value, allowDuplicate: Boolean(duplicateLink) });
     const { existing, ...saved } = await request('/api/admin/links', payload);
     await rememberFolder(folderId);
     if (!links.some((link) => String(link.id) === String(saved.id))) links = [saved, ...links];
     duplicateLink = existing ? saved : findDuplicateLink(links, pageInfo.url);
     renderDuplicateWarning();
     setStatus(existing ? t('alreadySaved', { name: saved.name }) : t('saved'), 'success');
-    chrome.action.setBadgeText({ text: existing ? '✓' : 'OK' });
+    markTabSaved(existing ? '✓' : 'OK');
   } catch (error) {
     setStatus(error.message || t('saveFailed'), 'error');
   } finally {
@@ -330,12 +337,19 @@ async function updateDuplicateBookmark() {
     await rememberFolder(folderId);
     renderDuplicateWarning();
     setStatus(t('updatedExisting'), 'success');
-    chrome.action.setBadgeText({ text: 'OK' });
+    markTabSaved('OK');
   } catch (error) {
     setStatus(error.message || t('updateFailed'), 'error');
   } finally {
     setBusy(duplicateActionButton, false, t('updateExisting'));
   }
+}
+
+// Only the saved tab is marked, and the background forgets its cached "not saved" lookup for the URL.
+function markTabSaved(text) {
+  chrome.action.setBadgeBackgroundColor({ color: '#167d86', tabId: pageTabId });
+  chrome.action.setBadgeText({ text, tabId: pageTabId });
+  chrome.runtime.sendMessage({ type: SAVED_LOOKUP_STALE_MESSAGE, url: pageInfo.url }).catch(() => null);
 }
 
 async function analyzeBookmark() {

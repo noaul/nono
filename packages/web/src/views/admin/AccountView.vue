@@ -224,6 +224,8 @@ async function save() {
     form.currentPassword = '';
     form.newPassword = '';
     message.value = t('account.passwordUpdated');
+    // The server signs out every other session on a password change; show the device list it left.
+    void loadSecurity();
   } catch (event) {
     error.value = event instanceof Error ? event.message : t('account.updateFailed');
   }

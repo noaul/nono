@@ -16,17 +16,20 @@ import {
 import {
   callAria2,
   errorMessage,
+  githubHeaders,
   isHttpUrl,
   maskSettingValue,
   outboundRequest,
   proxyConfigForRequest,
   proxyConfigForStorage,
+  proxyJson,
   publicProxyConfig,
   publicRpcConfig,
   rpcConfigForRequest,
   rpcConfigForStorage,
   saveStoredConfig,
   storedConfig,
+  userProxyConfig,
 } from './network.js';
 
 export function registerNoStarSettingsRoutes(app: FastifyInstance, services: AppServices) {
@@ -80,6 +83,20 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
       }
     });
     return { updated: true };
+  });
+
+  // Checks a GitHub token the user just typed. The /proxy/github/* routes always authenticate with
+  // the stored token, so they cannot verify a first token or a replacement for an expired one.
+  app.post('/api/nostar/settings/github-token/verify', async (request, reply) => {
+    const user = await browserAuthed(request, reply, services);
+    if (!user) return;
+    const token = text(asRecord(request.body).token).trim();
+    if (!token) return reply.status(400).send({ error: 'token required', code: 'TOKEN_REQUIRED' });
+    const proxy = await userProxyConfig(services, user);
+    return proxyJson(reply, services, user, 'https://api.github.com/user', {
+      method: 'GET',
+      headers: githubHeaders(token),
+    }, proxy);
   });
 
   app.get('/api/nostar/settings/proxy', async (request, reply) => {

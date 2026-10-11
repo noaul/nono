@@ -2,10 +2,8 @@ import { readBatchTwoSettings } from '../utils/displayPreferences';
 import { normalizeAssetFilters } from '../utils/assetFilters';
 import { backend } from './backendAdapter';
 import { useAppStore } from '../store/useAppStore';
-import { mergeRepositoriesPreservingLocalMetadata } from '../utils/repositoryMerge';
 import { logger } from './logger';
 import { SERVER_MANAGED_GITHUB_TOKEN } from './githubApi';
-import { getStorageScope } from './storageScope';
 
 // Prevent sync loops: when we pull data FROM backend and update store,
 // the store subscription would trigger a push TO backend. This flag blocks that.
@@ -23,10 +21,7 @@ let _hasPendingPush = false;
 // Track unsynced local edits so backend polling does not overwrite them.
 let _hasPendingLocalChanges = false;
 let _localChangeVersion = 0;
-// Read state used to be device-local and the backend flags start out unread, so the first
-// pull per NoNo user merges local reads instead of replacing them. Reads are monotonic.
-let _readStateMergedScope: string | null = null;
-
+const _dirtySlices = new Set<string>();
 // Debounce timer for push-to-backend
 let _debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -35,6 +30,32 @@ let _pollTimer: ReturnType<typeof setInterval> | null = null;
 
 // Polling interval in milliseconds
 const POLL_INTERVAL = 5000;
+
+// A failed push leaves _hasPendingLocalChanges set, which blocks every pull. Retry the push with
+// exponential backoff so a transient backend error does not freeze synchronization for good.
+const PUSH_RETRY_BASE_MS = 5000;
+const PUSH_RETRY_MAX_MS = 5 * 60 * 1000;
+let _pushRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let _pushRetryAttempt = 0;
+
+function schedulePushRetry(): void {
+  if (_pushRetryTimer) return;
+  const delay = Math.min(PUSH_RETRY_BASE_MS * 2 ** _pushRetryAttempt, PUSH_RETRY_MAX_MS);
+  _pushRetryAttempt += 1;
+  logger.info('sync.pushRetry', 'Scheduling push retry after failure', { delayMs: delay, attempt: _pushRetryAttempt });
+  _pushRetryTimer = setTimeout(() => {
+    _pushRetryTimer = null;
+    void syncToBackend();
+  }, delay);
+}
+
+function resetPushRetry(): void {
+  if (_pushRetryTimer) {
+    clearTimeout(_pushRetryTimer);
+    _pushRetryTimer = null;
+  }
+  _pushRetryAttempt = 0;
+}
 
 // Last known backend data fingerprints — skip store update if unchanged
 const _lastHash = {
@@ -49,10 +70,6 @@ const _lastHash = {
 
 function quickHash(data: unknown): string {
   return JSON.stringify(data);
-}
-
-function isBootstrapEmptyConfig<T>(backendConfigs: T[], localConfigs: T[], lastHash: string): boolean {
-  return backendConfigs.length === 0 && localConfigs.length > 0 && lastHash === '';
 }
 
 function setRepositorySyncVisualState(isSyncing: boolean): void {
@@ -77,18 +94,28 @@ export async function syncFromBackend(): Promise<void> {
   }
 
   _isSyncingFromBackendActive = true;
+  const pullVersion = _localChangeVersion;
 
   const startTime = Date.now();
   try {
     const [reposResult, releasesResult, aiResult, webdavResult, embeddingResult, vectorSearchResult, settingsResult] = await Promise.allSettled([
-      backend.fetchRepositories(),
-      backend.fetchReleases(),
+      backend.fetchRepositories(false),
+      backend.fetchReleases(false),
       backend.fetchAIConfigs(),
       backend.fetchWebDAVConfigs(),
       backend.fetchEmbeddingConfigs(),
       backend.fetchVectorSearchConfig(),
-      backend.fetchSettings(),
+      backend.fetchSettings(false),
     ]);
+
+    // Discard an in-flight poll if the user edited its source snapshot. Keeping the
+    // prior baseline lets the queued push merge only those edits on the server.
+    if (_localChangeVersion !== pullVersion || _hasPendingLocalChanges) return;
+    backend.acceptSyncBaselines({
+      ...(reposResult.status === 'fulfilled' ? { repositories: reposResult.value.repositories } : {}),
+      ...(releasesResult.status === 'fulfilled' ? { releases: releasesResult.value.releases } : {}),
+      ...(settingsResult.status === 'fulfilled' ? { settings: settingsResult.value } : {}),
+    });
 
     const changed = { repos: false, releases: false, ai: false, webdav: false, embedding: false, vectorSearch: false, settings: false };
 
@@ -165,37 +192,12 @@ export async function syncFromBackend(): Promise<void> {
     // Update store then commit hash — hash only changes if setter succeeds
     if (changed.repos && reposResult.status === 'fulfilled') {
       const backendRepos = reposResult.value.repositories;
-      const localRepos = state.repositories;
-      // Distinguish first-ever sync (bootstrap) from an authoritative empty backend.
-      // On bootstrap the hash is still '' — preserve local cache and push it to backend.
-      // On subsequent syncs, accept the backend state even if empty (e.g. user cleared
-      // stars from another device).
-      const isBootstrapEmpty =
-        backendRepos.length === 0 && localRepos.length > 0 && _lastHash.repos === '';
-      if (isBootstrapEmpty) {
-        _hasPendingPush = true;
-      } else {
-        const merged = mergeRepositoriesPreservingLocalMetadata(backendRepos, localRepos);
-        state.setRepositories(merged);
-        _lastHash.repos = quickHash(merged);
-      }
+      state.setRepositories(backendRepos, { authoritative: true });
+      _lastHash.repos = hashes.repos;
     }
     if (changed.releases && releasesResult.status === 'fulfilled') {
       const remoteReleases = releasesResult.value.releases;
       const readReleases = new Set(remoteReleases.filter(release => release.is_read).map(release => release.id));
-      const scope = getStorageScope();
-      if (_readStateMergedScope !== scope) {
-        _readStateMergedScope = scope;
-        const remoteIds = new Set(remoteReleases.map(release => release.id));
-        const remoteReadCount = readReleases.size;
-        for (const id of state.readReleases ?? []) {
-          if (remoteIds.has(id)) readReleases.add(id);
-        }
-        if (readReleases.size > remoteReadCount) {
-          _hasPendingLocalChanges = true;
-          _hasPendingPush = true;
-        }
-      }
       state.setReleases(remoteReleases);
       useAppStore.setState({ readReleases });
       _lastHash.releases = hashes.releases;
@@ -205,67 +207,55 @@ export async function syncFromBackend(): Promise<void> {
       // to prevent backend decryption failures from overwriting valid local data.
       const backendConfigs = aiResult.value;
       const localConfigs = state.aiConfigs;
-      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.ai)) {
-        _hasPendingPush = true;
-      } else {
-        const mergedConfigs = backendConfigs.map(bc => {
-          if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
-            const local = localConfigs.find(lc => lc.id === bc.id);
-            if (local && local.apiKey) {
-              logger.warn('sync.decryptFailed', `Backend decrypt_failed for AI config "${bc.name}", preserving local apiKey`);
-              return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
-            }
+      const mergedConfigs = backendConfigs.map(bc => {
+        if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
+          const local = localConfigs.find(lc => lc.id === bc.id);
+          if (local && local.apiKey) {
+            logger.warn('sync.decryptFailed', `Backend decrypt_failed for AI config "${bc.name}", preserving local apiKey`);
+            return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
           }
-          return bc;
-        });
-        state.setAIConfigs(mergedConfigs);
-        // Store raw backend hash so change detection compares against the same payload.
-        // Using mergedConfigs would cause a mismatch and re-trigger on every poll.
-        _lastHash.ai = hashes.ai;
-      }
+        }
+        return bc;
+      });
+      state.setAIConfigs(mergedConfigs);
+      // Store raw backend hash so change detection compares against the same payload.
+      // Using mergedConfigs would cause a mismatch and re-trigger on every poll.
+      _lastHash.ai = hashes.ai;
     }
     if (changed.webdav && webdavResult.status === 'fulfilled') {
       // Filter out configs with decrypt_failed status — preserve local password values
       // to prevent backend decryption failures from overwriting valid local data.
       const backendConfigs = webdavResult.value;
       const localConfigs = state.webdavConfigs;
-      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.webdav)) {
-        _hasPendingPush = true;
-      } else {
-        const mergedConfigs = backendConfigs.map(bc => {
-          if (bc.passwordStatus === 'decrypt_failed' || !bc.password) {
-            const local = localConfigs.find(lc => lc.id === bc.id);
-            if (local && local.password) {
-              logger.warn('sync.decryptFailed', `Backend decrypt_failed for WebDAV config "${bc.name}", preserving local password`);
-              return { ...bc, password: local.password, passwordStatus: 'ok' as const };
-            }
+      const mergedConfigs = backendConfigs.map(bc => {
+        if (bc.passwordStatus === 'decrypt_failed' || !bc.password) {
+          const local = localConfigs.find(lc => lc.id === bc.id);
+          if (local && local.password) {
+            logger.warn('sync.decryptFailed', `Backend decrypt_failed for WebDAV config "${bc.name}", preserving local password`);
+            return { ...bc, password: local.password, passwordStatus: 'ok' as const };
           }
-          return bc;
-        });
-        state.setWebDAVConfigs(mergedConfigs);
-        // Store raw backend hash for consistent change detection
-        _lastHash.webdav = hashes.webdav;
-      }
+        }
+        return bc;
+      });
+      state.setWebDAVConfigs(mergedConfigs);
+      // Store raw backend hash for consistent change detection
+      _lastHash.webdav = hashes.webdav;
     }
     if (changed.embedding && embeddingResult.status === 'fulfilled') {
       const backendConfigs = embeddingResult.value;
       const localConfigs = state.embeddingConfigs;
-      if (isBootstrapEmptyConfig(backendConfigs, localConfigs, _lastHash.embedding)) {
-        _hasPendingPush = true;
-      } else {
-        const mergedConfigs = backendConfigs.map(bc => {
-          if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
-            const local = localConfigs.find(lc => lc.id === bc.id);
-            if (local && local.apiKey) {
-              logger.warn('sync.decryptFailed', `Backend decrypt_failed for embedding config "${bc.name}", preserving local apiKey`);
-              return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
-            }
+      const mergedConfigs = backendConfigs.map(bc => {
+        if (bc.apiKeyStatus === 'decrypt_failed' || !bc.apiKey) {
+          const local = localConfigs.find(lc => lc.id === bc.id);
+          if (local && local.apiKey) {
+            logger.warn('sync.decryptFailed', `Backend decrypt_failed for embedding config "${bc.name}", preserving local apiKey`);
+            return { ...bc, apiKey: local.apiKey, apiKeyStatus: 'ok' as const };
           }
-          return bc;
-        });
-        state.setEmbeddingConfigs(mergedConfigs);
-        _lastHash.embedding = hashes.embedding;
-      }
+        }
+        return bc;
+      });
+      state.setEmbeddingConfigs(mergedConfigs);
+      _lastHash.embedding = hashes.embedding;
     }
     if (changed.vectorSearch && vectorSearchResult.status === 'fulfilled') {
       const backendConfig = vectorSearchResult.value;
@@ -283,6 +273,9 @@ export async function syncFromBackend(): Promise<void> {
     // Sync active selections from settings
     if (changed.settings && settingsResult.status === 'fulfilled') {
       const settings = settingsResult.value;
+      if (settings.vectorSearchPreferences && typeof settings.vectorSearchPreferences === 'object') {
+        state.setVectorSearchConfig(settings.vectorSearchPreferences as Partial<typeof state.vectorSearchConfig>);
+      }
       useAppStore.setState(readBatchTwoSettings(settings));
       if (typeof settings.activeAIConfig === 'string' || settings.activeAIConfig === null) {
         state.setActiveAIConfig(settings.activeAIConfig as string | null);
@@ -355,15 +348,26 @@ async function pushCurrentStateToBackend(): Promise<void> {
   try {
     const pushVersion = _localChangeVersion;
     const state = useAppStore.getState();
+    const dirty = new Set(_dirtySlices);
+    const push = (key: string, action: () => Promise<void>) => !dirty.size || dirty.has(key) ? action() : Promise.resolve();
 
+    const repositoriesPush = push('repos', () => backend.syncRepositories(state.repositories));
+    const embeddingsPush = push('embedding', () => backend.syncEmbeddingConfigs(state.embeddingConfigs));
     const results = await Promise.allSettled([
-      backend.syncRepositories(state.repositories),
-      backend.syncReleases(state.releases.map(release => ({ ...release, is_read: state.readReleases.has(release.id) }))),
-      backend.syncAIConfigs(state.aiConfigs),
-      backend.syncWebDAVConfigs(state.webdavConfigs),
-      backend.syncEmbeddingConfigs(state.embeddingConfigs),
-      backend.syncVectorSearchConfig(state.vectorSearchConfig),
-      backend.syncSettings({
+      repositoriesPush,
+      repositoriesPush.then(() => push('releases', () => backend.syncReleases(state.releases.map(release => ({ ...release, is_read: state.readReleases.has(release.id) }))))),
+      push('ai', () => backend.syncAIConfigs(state.aiConfigs)),
+      push('webdav', () => backend.syncWebDAVConfigs(state.webdavConfigs)),
+      embeddingsPush,
+      embeddingsPush.then(() => dirty.has('embedding') ? backend.syncVectorSearchConfig(state.vectorSearchConfig) : push('vectorSearch', () => backend.syncVectorSearchConfig(state.vectorSearchConfig))),
+      push('settings', () => backend.syncSettings({
+        vectorSearchPreferences: {
+          searchThreshold: state.vectorSearchConfig.searchThreshold,
+          searchTopK: state.vectorSearchConfig.searchTopK,
+          enableHyDE: state.vectorSearchConfig.enableHyDE,
+          enableReranking: state.vectorSearchConfig.enableReranking,
+          embeddingFormatVersion: state.vectorSearchConfig.embeddingFormatVersion,
+        },
         activeAIConfig: state.activeAIConfig,
         activeWebDAVConfig: state.activeWebDAVConfig,
         activeEmbeddingConfig: state.activeEmbeddingConfig,
@@ -379,7 +383,7 @@ async function pushCurrentStateToBackend(): Promise<void> {
         defaultCategoryOverrides: state.defaultCategoryOverrides,
         releaseSourceSettings: state.releaseSourceSettings,
         collapsedSidebarCategoryCount: state.collapsedSidebarCategoryCount,
-      }),
+      })),
     ]);
     const [reposSync, releasesSync, aiSync, webdavSync, embeddingSync, vectorSearchSync, settingsSync] = results;
 
@@ -387,10 +391,13 @@ async function pushCurrentStateToBackend(): Promise<void> {
     if (failures.length > 0) {
       logger.warn('sync.pushToBackend', `Synced to backend with ${failures.length} error(s)`, { failureCount: failures.length, durationMs: Date.now() - pushStartTime });
       _hasPendingLocalChanges = true;
+      schedulePushRetry();
     } else {
       logger.info('sync.pushToBackend', 'Synced to backend', { durationMs: Date.now() - pushStartTime });
+      resetPushRetry();
       if (_localChangeVersion === pushVersion) {
         _hasPendingLocalChanges = false;
+        _dirtySlices.clear();
       } else {
         _hasPendingLocalChanges = true;
         _hasPendingPush = true;
@@ -406,6 +413,13 @@ async function pushCurrentStateToBackend(): Promise<void> {
     if (vectorSearchSync.status === 'fulfilled') _lastHash.vectorSearch = quickHash(state.vectorSearchConfig);
     if (settingsSync.status === 'fulfilled') {
       _lastHash.settings = quickHash({
+        vectorSearchPreferences: {
+          searchThreshold: state.vectorSearchConfig.searchThreshold,
+          searchTopK: state.vectorSearchConfig.searchTopK,
+          enableHyDE: state.vectorSearchConfig.enableHyDE,
+          enableReranking: state.vectorSearchConfig.enableReranking,
+          embeddingFormatVersion: state.vectorSearchConfig.embeddingFormatVersion,
+        },
         activeAIConfig: state.activeAIConfig,
         activeWebDAVConfig: state.activeWebDAVConfig,
         activeEmbeddingConfig: state.activeEmbeddingConfig,
@@ -426,6 +440,7 @@ async function pushCurrentStateToBackend(): Promise<void> {
   } catch (err) {
     logger.errorFromError('sync.pushToBackend', 'Failed to sync to backend', err, { durationMs: Date.now() - pushStartTime });
     _hasPendingLocalChanges = true;
+    schedulePushRetry();
   } finally {
     setRepositorySyncVisualState(false);
   }
@@ -504,6 +519,7 @@ export function startAutoSync(): () => void {
     clearTimeout(_debounceTimer);
     _debounceTimer = null;
   }
+  resetPushRetry();
   // Reset in-flight state flags to prevent permanent sync blocking
   _isSyncingFromBackend = false;
   _isPushingToBackend = false;
@@ -540,6 +556,14 @@ export function startAutoSync(): () => void {
 
     if (!changed) return;
 
+    if (state.repositories !== prevState.repositories) _dirtySlices.add('repos');
+    if (state.releases !== prevState.releases || state.readReleases !== prevState.readReleases) _dirtySlices.add('releases');
+    if (state.aiConfigs !== prevState.aiConfigs) _dirtySlices.add('ai');
+    if (state.webdavConfigs !== prevState.webdavConfigs) _dirtySlices.add('webdav');
+    if (state.embeddingConfigs !== prevState.embeddingConfigs) _dirtySlices.add('embedding');
+    if (state.vectorSearchConfig !== prevState.vectorSearchConfig) { _dirtySlices.add('vectorSearch'); _dirtySlices.add('settings'); }
+    const configFields = ['repositories', 'releases', 'readReleases', 'aiConfigs', 'webdavConfigs', 'embeddingConfigs', 'vectorSearchConfig'];
+    if (Object.keys(state).some(key => !configFields.includes(key) && state[key as keyof typeof state] !== prevState[key as keyof typeof state])) _dirtySlices.add('settings');
     _hasPendingLocalChanges = true;
     _localChangeVersion += 1;
 
@@ -587,6 +611,7 @@ export function stopAutoSync(unsubscribe: () => void): void {
     clearInterval(_pollTimer);
     _pollTimer = null;
   }
+  resetPushRetry();
   if (_storeUnsubscribe) {
     _storeUnsubscribe();
     _storeUnsubscribe = null;
@@ -599,6 +624,7 @@ export function stopAutoSync(unsubscribe: () => void): void {
   _isSyncingFromBackend = false;
   _hasPendingPush = false;
   _hasPendingLocalChanges = false;
-  _readStateMergedScope = null;
+  _dirtySlices.clear();
+  for (const key of Object.keys(_lastHash) as Array<keyof typeof _lastHash>) _lastHash[key] = '';
   logger.info('sync.stop', 'Auto-sync stopped');
 }

@@ -44,6 +44,24 @@ describe('safe outbound requests', () => {
     expect(fetcher.mock.calls[1][1]).toMatchObject({ method: 'GET', body: undefined, headers: {} });
   });
 
+  test('keeps credentials off plain HTTP unless the caller opts out, and still blocks private targets', async () => {
+    const lookup = async () => [{ address: '8.8.8.8', family: 4 as const }];
+    const request = vi.fn(async () => ({ statusCode: 200, headers: {}, body: Buffer.alloc(0) }));
+    const headers = { authorization: 'Bearer probe-token' };
+    await expect(requestSafeResource('http://probe.example/api/stat', { headers }, { lookup, request }))
+      .rejects.toThrow('HTTPS is required');
+    expect(request).not.toHaveBeenCalled();
+
+    await requestSafeResource('http://probe.example/api/stat', { headers, allowInsecureCredentials: true }, { lookup, request });
+    expect(request).toHaveBeenCalledTimes(1);
+
+    await expect(requestSafeResource('http://probe.example/api/stat', { headers, allowInsecureCredentials: true }, {
+      lookup: async () => [{ address: '10.0.0.5', family: 4 as const }],
+      request
+    })).rejects.toThrow('not public');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   test('rejects targets that resolve to private addresses', async () => {
     await expect(requestSafeResource('http://probe.example/api/stat', {}, {
       lookup: async () => [{ address: '127.0.0.1', family: 4 }],

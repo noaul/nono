@@ -399,8 +399,8 @@ describe('account security', () => {
 
     expect(updated.statusCode).toBe(403);
     expect(tested.statusCode).toBe(403);
-    expect(analyzed.statusCode).toBe(403);
-    expect(llmClient.complete).not.toHaveBeenCalled();
+    expect(analyzed.statusCode).toBe(200);
+    expect(llmClient.complete).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: 'https://trusted.example/v1', apiKey: 'saved-secret-key' }));
     expect((await repo.findUserById(1))?.llmBaseUrl).toBe('https://trusted.example/v1');
   });
 });

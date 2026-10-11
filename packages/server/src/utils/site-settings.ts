@@ -239,6 +239,14 @@ function normalizeSearchEngineId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
+/**
+ * `/` loads the navigation at `/admin`, so only an administrator may hold that username or site
+ * slug. Matched case-insensitively so look-alike names cannot be registered either.
+ */
+export function isAdminOnlySlug(value: string) {
+  return value.trim().toLowerCase() === 'admin';
+}
+
 const optionalWebLocation = safeWebLocation.nullable().optional();
 
 export const siteUpdateSchema = z.object({
@@ -248,7 +256,7 @@ export const siteUpdateSchema = z.object({
   backgroundImage: optionalWebLocation,
   backgroundColor: z.string().trim().max(32).optional(),
   fontColor: z.string().trim().max(32).optional(),
-  searchUrlTemplate: z.string().trim().max(2048).refine((value) => value.includes('{query}'), 'Search URL template must include {query}').optional(),
+  searchUrlTemplate: searchTemplateSchema.optional(),
   localSearchFirst: z.boolean().optional(),
   guestAccessEnabled: z.boolean().optional(),
   guestAccessPassword: z.string().min(4, 'Access password must contain at least 4 characters').max(72).optional(),

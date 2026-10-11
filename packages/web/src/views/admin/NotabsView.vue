@@ -110,11 +110,12 @@ function removeNavigationEntry(index: number) {
 }
 
 async function saveNavigationEntries() {
-  if (isSavingEntries.value) return;
+  // Saving rewrites the whole settings object, so it must start from the loaded site, never `{}`.
+  if (isSavingEntries.value || !site.value) return;
   isSavingEntries.value = true;
   try {
     const settings = {
-      ...(site.value?.settings || {}),
+      ...(site.value.settings || {}),
       portal: { ...portal },
       navigationEntries: navigationEntries.value.map((entry) => ({
         ...entry,
@@ -276,7 +277,7 @@ onMounted(load);
     <section class="admin-card admin-section compact-admin-section" data-testid="entry-management">
       <div class="admin-section-head">
         <h2>{{ t('notabs.entryManagement') }}</h2>
-        <button class="button" data-testid="save-navigation-entries" type="button" :disabled="isSavingEntries" @click="saveNavigationEntries">
+        <button class="button" data-testid="save-navigation-entries" type="button" :disabled="isSavingEntries || !site" @click="saveNavigationEntries">
           <Save :size="17" /> {{ isSavingEntries ? t('common.saving') : t('common.save') }}
         </button>
       </div>

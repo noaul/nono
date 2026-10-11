@@ -18,7 +18,6 @@ const AccountView = () => import('@/views/admin/AccountView.vue');
 const NotificationsView = () => import('@/views/admin/NotificationsView.vue');
 const AuditLogsView = () => import('@/views/admin/AuditLogsView.vue');
 const TrashView = () => import('@/views/admin/TrashView.vue');
-const ReadingView = () => import('@/views/admin/ReadingView.vue');
 const MobileCaptureView = () => import('@/views/mobile/MobileCaptureView.vue');
 const SharedFolderView = () => import('@/views/SharedFolderView.vue');
 
@@ -55,7 +54,6 @@ export const router = createRouter({
         { path: '/admin/users', redirect: '/admin/account' },
         { path: '/admin/account', component: AccountView, meta: { titleKey: 'admin.titleAccount', hashTabs: true } },
         { path: '/admin/trash', component: TrashView, meta: { titleKey: 'admin.titleTrash' } },
-        { path: '/admin/reading', component: ReadingView, meta: { titleKey: 'admin.titleReading' } },
         { path: '/admin/llm', redirect: '/admin/account#llm' },
         { path: '/admin/tokens', redirect: '/admin/account#api-tokens' },
         { path: '/admin/notifications', component: NotificationsView, meta: { titleKey: 'admin.titleNotifications' } },
@@ -86,3 +84,17 @@ router.beforeEach(async (to) => {
   }
   return true;
 });
+
+// An admin call answered 401 means the session expired or was revoked elsewhere. Forget the user and,
+// on a signed-in page, go to login and come back afterwards. Public pages stay put, and only the first
+// of several parallel 401s acts, so this cannot loop.
+function handleSessionExpired() {
+  const auth = useAuthStore();
+  if (!auth.authenticated) return;
+  auth.user = null;
+  const current = router.currentRoute.value;
+  if (!current.meta.requiresAuth) return;
+  void router.replace({ path: '/login', query: { next: current.path } });
+}
+
+if (typeof window !== 'undefined') window.addEventListener('nono:session-expired', handleSessionExpired);

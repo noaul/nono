@@ -16,6 +16,11 @@ export interface SafeRequestOptions {
   body?: string;
   headers?: Record<string, string>;
   allowPrivateHosts?: string[];
+  /**
+   * Lets credentials travel over plain HTTP to the original target. Only for endpoints this app set
+   * up itself (the installed VPS probe has no TLS); dropped on any cross-origin redirect.
+   */
+  allowInsecureCredentials?: boolean;
   maxBytes?: number;
   maxRedirects?: number;
   timeoutMs?: number;
@@ -69,7 +74,7 @@ export async function requestOutbound(
   context: AppContext,
   rawUrl: string,
   init: { method?: string; headers?: Record<string, string>; body?: string } = {},
-  limits: { maxBytes?: number; maxRedirects?: number; timeoutMs?: number } = {}
+  limits: { maxBytes?: number; maxRedirects?: number; timeoutMs?: number; allowInsecureCredentials?: boolean } = {}
 ): Promise<Response> {
   const options: SafeRequestOptions = {
     ...init,
@@ -215,7 +220,7 @@ function validateInjectedTarget(url: URL, allowPrivateHosts: string[]): void {
 }
 
 function assertSecureCredentialTransport(url: URL, options: SafeRequestOptions): void {
-  if (url.protocol !== 'http:' || !hasCredentials(url, options.headers ?? {})) return;
+  if (url.protocol !== 'http:' || options.allowInsecureCredentials || !hasCredentials(url, options.headers ?? {})) return;
   const host = stripBrackets(url.hostname).toLowerCase();
   const allowlist = new Set((options.allowPrivateHosts ?? []).map((item) => stripBrackets(item.trim()).toLowerCase()).filter(Boolean));
   if (allowlist.has(host) || isLoopbackHost(host)) return;
@@ -263,6 +268,7 @@ function toArrayBuffer(body: Buffer): ArrayBuffer {
 function redirectOptions(options: SafeRequestOptions, statusCode: number, previousUrl: URL, nextUrl: URL): SafeRequestOptions {
   const headers = { ...(options.headers ?? {}) };
   if (previousUrl.origin !== nextUrl.origin) {
+    options = { ...options, allowInsecureCredentials: false };
     for (const name of Object.keys(headers)) {
       if (isSensitiveHeaderName(name)) {
         delete headers[name];

@@ -22,6 +22,7 @@ export function registerInternalNotificationRoutes(router: Router, context: AppC
       id: item.assetId,
       name: item.name,
       dueDate: item.dueDate,
+      kind: item.kind,
       status: item.status,
     }));
     res.json({ items });

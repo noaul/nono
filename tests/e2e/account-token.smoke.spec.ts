@@ -48,10 +48,14 @@ test('creates an API token from Account without desktop or mobile overflow', asy
   });
 
   await page.goto('/admin/account#api-tokens');
+  const accessTab = page.getByRole('tab', { name: '访问与集成', exact: true });
+  const securityTab = page.getByRole('tab', { name: '登录与安全', exact: true });
+  await expect(accessTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('account-access-card')).toBeVisible();
+  await expect(page.getByTestId('login-devices-section')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'API Token', exact: true })).toBeVisible();
   await page.getByTestId('create-api-token').click();
   await expect(page.getByTestId('created-api-token-modal')).toContainText('nono_once_secret');
-  await expect(page.getByTestId('login-devices-section')).toBeVisible();
 
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -63,4 +67,19 @@ test('creates an API token from Account without desktop or mobile overflow', asy
     fs.mkdirSync(captureDir, { recursive: true });
     await page.screenshot({ fullPage: true, path: path.join(captureDir, `admin-account-token-${testInfo.project.name}.png`) });
   }
+
+  await page.getByTestId('created-api-token-modal').getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.getByTestId('created-api-token-modal')).toBeHidden();
+  await securityTab.click();
+  await expect(page).toHaveURL(/\/admin\/account$/);
+  await expect(securityTab).toHaveAttribute('aria-selected', 'true');
+  await expect(accessTab).toHaveAttribute('aria-selected', 'false');
+  await expect(page.getByTestId('account-access-card')).toBeHidden();
+  await expect(page.getByTestId('login-devices-section')).toBeVisible();
+  await expect(page.getByTestId('login-devices-section')).toContainText('Chrome');
+  await accessTab.click();
+  await expect(page).toHaveURL(/\/admin\/account#access$/);
+  await expect(accessTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'API Token', exact: true })).toBeVisible();
+  await expect(page.getByTestId('login-devices-section')).toBeHidden();
 });

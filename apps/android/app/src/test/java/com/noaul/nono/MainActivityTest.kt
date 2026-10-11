@@ -46,6 +46,18 @@ class MainActivityTest {
     }
 
     @Test
+    fun reopeningAShareFromRecentsDoesNotCaptureItAgain() {
+        val share = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+            .setAction(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, "好文 https://example.com/a?b=1")
+            .addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        launch(share).use { scenario ->
+            scenario.onActivity { assertEquals("$base/login?next=%2Fnodesk%2F", shadowOf(webViewOf(it)).lastLoadedUrl) }
+        }
+    }
+
+    @Test
     fun shareWithoutALinkStillOpensTheEntryPage() {
         val share = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .setAction(Intent.ACTION_SEND)

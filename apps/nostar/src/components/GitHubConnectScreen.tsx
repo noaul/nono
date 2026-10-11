@@ -25,9 +25,11 @@ export const GitHubConnectScreen: React.FC = () => {
     setError('');
 
     try {
-      // Test the token by fetching user info
-      const githubApi = new GitHubApiService(token);
-      const user = await githubApi.getCurrentUser();
+      // Test the typed token itself. With the NoNo backend the generic GitHub proxy would use the
+      // token already stored on the server, so verify through the dedicated endpoint instead.
+      const user = backend.isAvailable
+        ? await backend.verifyGitHubToken(token)
+        : await new GitHubApiService(token).getCurrentUser();
       
       // If successful, save the token and user info
       setGitHubToken(token);

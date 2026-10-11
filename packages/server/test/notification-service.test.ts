@@ -53,6 +53,18 @@ function createService(overrides: Record<string, unknown> = {}) {
 }
 
 describe('notification service', () => {
+  it('keeps certificate and keepalive reminders distinct from renewal actions and read state', async () => {
+    const common = { id: 3, name: 'example.com', dueDate: '2026-07-19', status: 'active' };
+    const { service } = createService({
+      yumiReader: async () => [{ ...common, assetType: 'domain', kind: 'renewal' }, { ...common, assetType: 'domain', kind: 'certificate' }],
+      noMoneyReader: async () => [{ ...common, assetType: 'phone', kind: 'keepalive' }],
+    });
+    const feed = await service.list({ id: 1, role: 'admin' } as any, { sources: ['yumi', 'nomoney'], locale: 'zh' });
+    expect(new Set(feed.items.map(item => item.key)).size).toBe(3);
+    expect(feed.items.find(item => item.kind === 'certificate')).toMatchObject({ title: expect.stringContaining('证书到期'), renewalDate: null });
+    expect(feed.items.find(item => item.kind === 'keepalive')).toMatchObject({ title: expect.stringContaining('保号期限'), renewalDate: null });
+    expect(feed.items.find(item => item.kind === 'renewal')?.renewalDate).toBe('2026-07-19');
+  });
   it('scopes personal sources and state to the authenticated user', async () => {
     const link = {
       id: 31,
@@ -307,6 +319,26 @@ describe('notification service', () => {
         get: vi.fn(async () => ({
           settings: { enabled: true, cadence: 'weekly', hour: 3, weekday: 1, retentionDays: 30, maxBackups: 14 },
           status: { lastSuccessAt: '2026-07-13T08:00:00.000Z', lastFailureAt: null, lastError: null },
+        })),
+      } as any,
+      now: () => now,
+    } as any);
+
+    const feed = await service.list({ id: 1, role: 'admin' } as any);
+    expect(feed.items.filter((item) => item.source === 'backup')).toEqual([]);
+  });
+
+  it('falls back to the last successful run when the backup store cannot be listed', async () => {
+    const { prisma } = createPrisma();
+    const service = createNotificationService({
+      prisma,
+      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
+      noMoneyReader: vi.fn(async () => []),
+      backupService: { list: vi.fn(async () => { throw new Error('WebDAV unreachable'); }) } as any,
+      backupAutomationService: {
+        get: vi.fn(async () => ({
+          settings: { enabled: true, cadence: 'daily', hour: 3, weekday: 0, retentionDays: 30, maxBackups: 14 },
+          status: { lastSuccessAt: '2026-07-18T03:00:05.000Z', lastFailureAt: null, lastError: null },
         })),
       } as any,
       now: () => now,

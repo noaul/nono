@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -63,6 +66,36 @@ describe('notification routes', () => {
     const response = await app.inject({ method: 'GET', url: '/api/admin/notifications' });
     expect(response.statusCode).toBe(401);
     expect(notificationService.list).not.toHaveBeenCalled();
+  });
+
+  it('reads backup notifications from the WebDAV store that backups are written to', async () => {
+    await app.close();
+    // The local backup directory stays empty: real backups only ever reach WebDAV.
+    vi.stubEnv('BACKUP_DIR', fs.mkdtempSync(path.join(tmpdir(), 'nono-empty-backups-')));
+    const center = {
+      getWebDavConfig: vi.fn(async () => ({ passwordConfigured: true })),
+      listWebDavBatches: vi.fn(async () => [{ id: 'batch-1', createdAt: new Date(Date.now() - 3_600_000).toISOString(), sourceCommit: 'test', modules: {} }]),
+    };
+    const prisma = { notificationState: { findMany: async () => [] } };
+    try {
+      app = await buildApp({ repo: new MemoryRepository(false), prisma, sessionSecret, encryptionKey, backupCenterService: center, noMoneyClient } as any);
+      const setup = await app.inject({
+        method: 'POST',
+        url: '/api/auth/setup',
+        payload: { username: 'admin', email: 'admin@notifications.test', displayName: 'Admin', password },
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/notifications?sources=backup',
+        headers: { cookie: sessionCookie(setup) },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(center.listWebDavBatches).toHaveBeenCalled();
+      expect(response.json().data.items).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('does not expose private NoDesk notifications to a bearer token', async () => {

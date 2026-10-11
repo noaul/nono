@@ -174,6 +174,214 @@ describe('NoStar routes', () => {
     });
   });
 
+  it('links releases pushed in the web app shape and returns their repository', async () => {
+    const adminCookie = await setupAdmin();
+    prisma.noStarRepository.findMany = async () => [{ id: 7, githubId: BigInt(555), fullName: 'owner/app' }];
+    const releaseUpsert = vi.fn(async () => ({}));
+    prisma.noStarRelease.upsert = releaseUpsert;
+
+    const pushed = await app.inject({
+      method: 'PUT',
+      url: '/api/nostar/releases',
+      headers: { cookie: adminCookie },
+      payload: {
+        isFullSync: true,
+        releases: [{ id: 900, tag_name: 'v1', name: null, body: null, published_at: '2026-01-01T00:00:00Z', html_url: 'https://github.com/owner/app/releases/v1', assets: [], repository: { id: 555, full_name: 'owner/app', name: 'app' } }],
+      },
+    });
+
+    expect(pushed.statusCode).toBe(200);
+    expect(releaseUpsert).toHaveBeenCalledTimes(1);
+    expect(releaseUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ githubId: BigInt(900), repositoryId: 7, repoFullName: 'owner/app', repoName: 'app' }),
+    }));
+
+    const findMany = vi.fn(async () => [{
+      githubId: BigInt(900), tagName: 'v1', name: null, body: null, publishedAt: new Date('2026-01-01T00:00:00Z'), htmlUrl: null,
+      assets: [], zipballUrl: null, tarballUrl: null, repoFullName: 'owner/app', repoName: 'app', prerelease: false, draft: false, isRead: true,
+      repository: { githubId: BigInt(555), fullName: 'owner/app', name: 'app' },
+    }]);
+    prisma.noStarRelease.findMany = findMany;
+    const fetched = await app.inject({ method: 'GET', url: '/api/nostar/releases', headers: { cookie: adminCookie } });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ include: { repository: { select: { githubId: true, fullName: true, name: true } } } }));
+    expect(fetched.json().releases[0]).toMatchObject({ id: 900, is_read: true, repository: { id: 555, full_name: 'owner/app', name: 'app' } });
+  });
+
+  it('merges edits from a stale device without replacing other fields or deleting new repositories', async () => {
+    const cookie = await setupAdmin();
+    const first = await app.inject({ method: 'GET', url: '/api/nostar/repositories', headers: { cookie } });
+    const base = first.json().repositories;
+    const originalFind = prisma.noStarRepository.findMany;
+    prisma.noStarRepository.findMany = async (args: any) => (await originalFind(args)).map((row: any) => ({ ...row, customDescription: 'New device description', customTags: ['new-device'] }));
+    const upsert = vi.fn(async () => ({}));
+    const remove = vi.fn(async () => ({ count: 0 }));
+    prisma.noStarRepository.upsert = upsert;
+    prisma.noStarRepository.deleteMany = remove;
+    const edited = [{ ...base[0], custom_category: 'tools' }];
+    const saved = await app.inject({ method: 'PUT', url: '/api/nostar/repositories', headers: { cookie }, payload: { repositories: edited, baseRepositories: base, isFullSync: true } });
+    expect(saved.statusCode).toBe(200);
+    expect(upsert.mock.calls[0]).toEqual([expect.objectContaining({ update: expect.objectContaining({ customDescription: 'New device description', customTags: ['new-device'], customCategory: 'tools' }) })]);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('keeps remote deletions while saving unrelated edits from a stale device', async () => {
+    const cookie = await setupAdmin();
+    const [original] = await prisma.noStarRepository.findMany({ where: { userId: 1 } });
+    const rows = new Map<bigint, any>([
+      [100n, original],
+      [200n, { ...original, githubId: 200n, name: 'other', fullName: 'owner/other' }],
+    ]);
+    prisma.noStarRepository.findMany = async () => Array.from(rows.values());
+    prisma.noStarRepository.count = async () => rows.size;
+    prisma.noStarRepository.upsert = async ({ where, update, create }: any) => {
+      const id = where.userId_githubId.githubId;
+      rows.set(id, rows.has(id) ? { ...rows.get(id), ...update } : create);
+      return rows.get(id);
+    };
+    const initial = await app.inject({ method: 'GET', url: '/api/nostar/repositories', headers: { cookie } });
+    const base = initial.json().repositories;
+    rows.delete(100n); // Another device removes the first repository before this device saves.
+
+    const saved = await app.inject({
+      method: 'PUT', url: '/api/nostar/repositories', headers: { cookie },
+      payload: {
+        baseRepositories: base, isFullSync: true,
+        repositories: base.map((repository: any) => ({ ...repository, custom_description: 'Local edit' })),
+      },
+    });
+
+    expect(saved.statusCode).toBe(200);
+    const current = await app.inject({ method: 'GET', url: '/api/nostar/repositories', headers: { cookie } });
+    expect(current.json().repositories).toEqual([
+      expect.objectContaining({ id: 200, custom_description: 'Local edit' }),
+    ]);
+  });
+
+  it('proxies translation and trending only to allowed endpoints and requires a session', async () => {
+    const cookie = await setupAdmin();
+    const url = 'https://edge.microsoft.com/translate/translatetext?to=zh-Hans';
+    const body = JSON.stringify([{ Text: 'hello' }]);
+    const translated = await app.inject({ method: 'POST', url: '/api/nostar/proxy/public', headers: { cookie }, payload: { url, method: 'POST', body, headers: { 'Content-Type': 'application/json', authorization: 'should-not-forward' } } });
+    expect(translated.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith(url, expect.objectContaining({ body, headers: { 'content-type': 'application/json' } }));
+    const rejected = await app.inject({ method: 'POST', url: '/api/nostar/proxy/public', headers: { cookie }, payload: { url: 'https://edge.microsoft.com/arbitrary', method: 'GET' } });
+    expect(rejected.statusCode).toBe(400);
+    const token = (await repo.createToken(1, 'token', null, ['*'])).token;
+    const denied = await app.inject({ method: 'POST', url: '/api/nostar/proxy/public', headers: { authorization: `Bearer ${token}` }, payload: { url } });
+    expect(denied.statusCode).toBe(403);
+    const trending = await app.inject({ method: 'POST', url: '/api/nostar/proxy/public', headers: { cookie }, payload: { url: 'https://mshibanami.github.io/GitHubTrendingRSS/weekly/all.xml' } });
+    expect(trending.statusCode).toBe(200);
+  });
+
+  it('uses stored embedding and vector secrets without sending them to a changed origin', async () => {
+    const cookie = await setupAdmin();
+    prisma.noStarEmbeddingConfig.findUnique = async () => ({ legacyId: 'embedding', apiType: 'openai', baseUrl: 'https://embedding.example', model: 'embed', apiKeyEncrypted: encryptSecret('embedding-secret', encryptionKey) });
+    prisma.noStarVectorSearchConfig.findUnique = async () => ({ workerUrl: 'https://vectors.example', authTokenEncrypted: encryptSecret('vector-secret', encryptionKey) });
+    const embedded = await app.inject({ method: 'POST', url: '/api/nostar/proxy/embedding', headers: { cookie }, payload: { config: { id: 'embedding', apiKey: '***' }, body: { model: 'embed', input: ['hello'] } } });
+    expect(embedded.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith('https://embedding.example/v1/embeddings', expect.objectContaining({ headers: expect.objectContaining({ authorization: 'Bearer embedding-secret' }) }));
+    const vector = await app.inject({ method: 'POST', url: '/api/nostar/proxy/vector', headers: { cookie }, payload: { config: { authToken: '***' }, path: '/status' } });
+    expect(vector.statusCode).toBe(200);
+    expect(safeRequester).toHaveBeenCalledWith('https://vectors.example/status', expect.objectContaining({ method: 'GET', headers: expect.objectContaining({ authorization: 'Bearer vector-secret' }) }));
+    const denied = await app.inject({ method: 'POST', url: '/api/nostar/proxy/vector', headers: { cookie }, payload: { config: { workerUrl: 'https://elsewhere.example', authToken: '***' }, path: '/status' } });
+    expect(denied.statusCode).toBe(400);
+  });
+
+  it('verifies the GitHub token the user typed instead of the stored one', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+    safeRequester.mockResolvedValueOnce({ statusCode: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"login":"reader","id":2}') });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/settings/github-token/verify',
+      headers: { cookie: readerCookie },
+      payload: { token: 'typed-token' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ login: 'reader' });
+    expect(safeRequester).toHaveBeenCalledWith('https://api.github.com/user', expect.objectContaining({
+      method: 'GET',
+      headers: expect.objectContaining({ authorization: 'Bearer typed-token' }),
+    }));
+  });
+
+  it('passes through GitHub rejecting a typed token even when a good one is stored', async () => {
+    const adminCookie = await setupAdmin();
+    safeRequester.mockResolvedValueOnce({ statusCode: 401, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"message":"Bad credentials"}') });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/settings/github-token/verify',
+      headers: { cookie: adminCookie },
+      payload: { token: 'expired-token' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(safeRequester.mock.calls[0][1].headers.authorization).toBe('Bearer expired-token');
+  });
+
+  it('applies the administrator check to network settings in imports', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/nostar/sync/import',
+      headers: { cookie: readerCookie },
+      payload: { settings: { proxy_config: { enabled: true, type: 'socks5', host: '127.0.0.1', port: 1080 } } },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(settings.has('2:proxy_config')).toBe(false);
+  });
+
+  it('drops a stored AI key when a masked key is saved for a different origin', async () => {
+    const adminCookie = await setupAdmin();
+    const created: any[] = [];
+    prisma.noStarAiProfile.deleteMany = async () => ({ count: 1 });
+    prisma.noStarAiProfile.create = async ({ data }: any) => { created.push(data); return data; };
+    const profile = { id: 'ai-1', name: 'Primary', apiType: 'openai', apiKey: '***-key', model: 'model-1', isActive: true };
+
+    await app.inject({ method: 'PUT', url: '/api/nostar/configs/ai/bulk', headers: { cookie: adminCookie }, payload: { configs: [{ ...profile, baseUrl: 'https://api.example.com/v2' }] } });
+    await app.inject({ method: 'PUT', url: '/api/nostar/configs/ai/bulk', headers: { cookie: adminCookie }, payload: { configs: [{ ...profile, baseUrl: 'https://attacker.example' }] } });
+
+    expect(created[0].apiKeyEncrypted).toEqual(expect.any(String));
+    expect(created[1].apiKeyEncrypted).toBeNull();
+  });
+
+  it('does not test a masked stored AI key against a new origin', async () => {
+    const adminCookie = await setupAdmin();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/nostar/ai/test',
+      headers: { cookie: adminCookie },
+      payload: { id: 'ai-1', apiType: 'openai', baseUrl: 'https://attacker.example', apiKey: '***-key', model: 'model-1' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(safeRequester).not.toHaveBeenCalled();
+  });
+
+  it('drops a stored WebDAV password when only the URL host changes', async () => {
+    await setupAdmin();
+    const readerCookie = await loginSecondUser();
+    const created: any[] = [];
+    prisma.noStarWebDavConfig.findMany = async () => [{ legacyId: 'webdav-1', url: 'https://dav.example/root/', passwordEncrypted: encryptSecret('dav-secret', encryptionKey) }];
+    prisma.noStarWebDavConfig.deleteMany = async () => ({ count: 1 });
+    prisma.noStarWebDavConfig.create = async ({ data }: any) => { created.push(data); return data; };
+    const config = { id: 'webdav-1', name: 'DAV', username: 'reader', password: '***cret', path: '/', isActive: true };
+
+    await app.inject({ method: 'PUT', url: '/api/nostar/configs/webdav/bulk', headers: { cookie: readerCookie }, payload: { configs: [{ ...config, url: 'https://dav.example/other/' }] } });
+    await app.inject({ method: 'PUT', url: '/api/nostar/configs/webdav/bulk', headers: { cookie: readerCookie }, payload: { configs: [{ ...config, url: 'https://evil.example/root/' }] } });
+
+    expect(created[0].passwordEncrypted).toEqual(expect.any(String));
+    expect(created[1].passwordEncrypted).toBeNull();
+  });
+
   it('restricts server network proxy settings to administrators', async () => {
     const adminCookie = await setupAdmin();
     const readerCookie = await loginSecondUser();

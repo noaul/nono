@@ -96,7 +96,20 @@ describe('backendAdapter', () => {
     expect(fetchMock.mock.calls.map(([url]) => String(url)).join('\n')).not.toContain('decrypt=true');
   });
 
-  it('sends releases as a full snapshot so server-side deletions persist', async () => {
+  it('preserves Google form bodies and content type through the same-origin translation proxy', async () => {
+    const request = vi.fn(async (url: RequestInfo | URL) => jsonResponse(String(url).endsWith('/health') ? { status: 'ok' } : {}));
+    vi.stubGlobal('fetch', request);
+    await backend.init();
+    const body = new URLSearchParams();
+    body.append('q', 'hello world');
+    body.append('q', 'another line');
+    await backend.proxyPublicRequest('https://clients5.google.com/translate_a/t?tl=zh-CN', { method: 'POST', body });
+    const call = request.mock.calls[request.mock.calls.length - 1] as unknown as [string, RequestInit];
+    expect(call[0]).toContain('/api/nostar/proxy/public');
+    expect(JSON.parse(String(call[1].body))).toMatchObject({ body: 'q=hello+world&q=another+line', headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' } });
+  });
+
+  it('sends release changes with explicit deletions instead of replacing another device snapshot', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
       const url = String(input);
       if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });
@@ -110,6 +123,26 @@ describe('backendAdapter', () => {
     await backend.syncReleases([]);
 
     const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/releases') && init?.method === 'PUT');
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ releases: [], isFullSync: true });
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ releases: [], isFullSync: false, deletedIds: [] });
   });
+  it('keeps the last applied baseline when a polled snapshot is discarded', async () => {
+    const original = [{ id: 42, full_name: 'owner/repo', custom_description: 'original' }];
+    const remote = [{ ...original[0], custom_description: 'remote edit' }, { id: 43, full_name: 'owner/new' }];
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/health')) return jsonResponse({ status: 'ok' });
+      if (url.endsWith('/settings')) return jsonResponse({});
+      if (init?.method === 'PUT') return jsonResponse({ synced: 1 });
+      if (url.includes('/repositories?')) return jsonResponse({ repositories: remote, total: 2 });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await backend.init();
+    backend.acceptSyncBaselines({ repositories: original as never });
+    await backend.fetchRepositories(false);
+    await backend.syncRepositories([{ ...original[0], custom_category: 'local category' }] as never);
+    const request = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
+    expect(JSON.parse(String(request?.[1]?.body)).baseRepositories).toEqual(original);
+  });
+
 });

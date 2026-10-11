@@ -145,6 +145,7 @@ const commonFields: Field[] = [
   { api: 'amountMinorUnits', db: 'amount_minor_units' },
   { api: 'currency', db: 'currency' },
   { api: 'billingCycle', db: 'billing_cycle' },
+  { api: 'billingDay', db: 'billing_day' },
   { api: 'nextDueDate', db: 'next_due_date' },
   { api: 'autoRenew', db: 'auto_renew' },
   { api: 'paymentMethod', db: 'payment_method' },
@@ -187,7 +188,6 @@ export const assetConfigs: AssetConfig[] = [
       { api: 'keepaliveMethod', db: 'keepalive_method' },
       { api: 'minimumKeepaliveAmountMinorUnits', db: 'minimum_keepalive_amount_minor_units' },
       { api: 'keepaliveDays', db: 'keepalive_days' },
-      { api: 'billingDay', db: 'billing_day' },
       { api: 'activateDate', db: 'activate_date' },
       { api: 'expireDate', db: 'expire_date' },
       ...commonFields
@@ -883,6 +883,13 @@ function enrichAssetBody(
   body: Record<string, unknown>,
   current?: Record<string, unknown>
 ): Record<string, unknown> {
+  if (!body.billingDay && !current?.billingDay) {
+    const date = String(config.type === 'vps' || config.type === 'domain'
+      ? body.expireDate || body.nextDueDate || current?.expireDate || current?.nextDueDate || ''
+      : body.nextDueDate || body.expireDate || current?.nextDueDate || current?.expireDate || '');
+    const day = Number(date.slice(8, 10));
+    if (day >= 1 && day <= 31) body = { ...body, billingDay: day };
+  }
   if (config.type === 'phone') {
     return enrichPhoneBody(body, current);
   }
@@ -1140,6 +1147,24 @@ function buildProbeUrl(item: Record<string, unknown>, probePort: number): string
   return `http://${urlHost}:${probePort}/api/stat`;
 }
 
+/**
+ * The probe the installer sets up listens on plain HTTP, so its key has to go out over HTTP. Only an
+ * installed probe whose URL still has the installer's shape (http, /api/stat, the installed port) gets
+ * that exemption; any other URL still needs HTTPS to carry the key.
+ */
+function isInstalledProbeUrl(item: Record<string, unknown>, probeUrl: string): boolean {
+  const probePort = numberValue(item.probePort);
+  if (item.probeInstallStatus !== 'installed' || !probePort) return false;
+  let url: URL;
+  try {
+    url = new URL(probeUrl);
+  } catch {
+    return false;
+  }
+  return url.protocol === 'http:' && !url.username && !url.password && Number(url.port || 80) === probePort &&
+    url.pathname === '/api/stat' && !url.search && !url.hash;
+}
+
 function buildProbeInstallCommand(probePort: number, probeApiKey: string): string {
   return `MONEYPULSE_PROBE_PORT=${probePort} MONEYPULSE_PROBE_TOKEN=${shellQuote(probeApiKey)} sh -s <<'MONEYPULSE_PROBE_INSTALL'
 set -eu
@@ -1331,7 +1356,8 @@ export async function refreshVpsMonitor(
     }
     const response = await requestOutbound(context, probeUrl, { headers }, {
       maxBytes: 512 * 1024,
-      timeoutMs: 5_000
+      timeoutMs: 5_000,
+      allowInsecureCredentials: isInstalledProbeUrl(item, probeUrl)
     });
     if (!response.ok) {
       throw new Error(`Probe returned HTTP ${response.status}`);

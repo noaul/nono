@@ -18,7 +18,9 @@ export function registerLinkHealthScheduler(app: FastifyInstance, services: AppS
   const schedule = (delayMs: number) => {
     timer = setTimeout(async () => {
       try {
-        await runScheduledLinkHealthCheck(services, config.intervalMs);
+        await runScheduledLinkHealthCheck(services, config.intervalMs, new Date(), (userId, error) => {
+          app.log.error({ err: error, userId }, 'Scheduled link health check failed for a user');
+        });
       } catch (error) {
         app.log.error({ err: error }, 'Scheduled link health check failed');
       } finally {
@@ -35,36 +37,52 @@ export function registerLinkHealthScheduler(app: FastifyInstance, services: AppS
   });
 }
 
-export async function runScheduledLinkHealthCheck(services: AppServices, intervalMs: number, now = new Date()) {
+export async function runScheduledLinkHealthCheck(
+  services: AppServices,
+  intervalMs: number,
+  now = new Date(),
+  onUserError: (userId: number, error: unknown) => void = () => undefined,
+) {
   const staleBefore = new Date(now.getTime() - intervalMs);
   const users = await services.repo.listUsers();
   let checked = 0;
+  let failed = 0;
 
+  // One account's failure must not cost every later account its run until the next interval.
   for (const user of users) {
-    const links = await services.repo.listLinks(user.id);
-    const due = links.filter((link) => (
-      link.healthCheckEnabled !== false
-      && !shouldSkipLinkHealthCheck(link.url)
-      && (!link.healthCheckedAt || link.healthCheckedAt <= staleBefore)
-    ));
-    if (!due.length) continue;
-    const result = await checkLinksHealth(due, services.safeRequester, {
-      allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [],
-      concurrency: 4,
-    });
-    await services.repo.updateLinkHealth(user.id, result.results.map((item) => ({
-      id: item.id,
-      url: item.url,
-      status: item.status,
-      statusCode: item.statusCode,
-      reason: item.reason,
-      finalUrl: item.finalUrl,
-      checkedAt: new Date(item.checkedAt),
-    })));
-    checked += result.results.length;
+    try {
+      checked += await checkUserLinks(services, user, staleBefore);
+    } catch (error) {
+      failed += 1;
+      onUserError(user.id, error);
+    }
   }
 
-  return { checked };
+  return { checked, failed };
+}
+
+async function checkUserLinks(services: AppServices, user: { id: number; role: string }, staleBefore: Date) {
+  const links = await services.repo.listLinks(user.id);
+  const due = links.filter((link) => (
+    link.healthCheckEnabled !== false
+    && !shouldSkipLinkHealthCheck(link.url)
+    && (!link.healthCheckedAt || link.healthCheckedAt <= staleBefore)
+  ));
+  if (!due.length) return 0;
+  const result = await checkLinksHealth(due, services.safeRequester, {
+    allowPrivateHosts: user.role === 'admin' ? services.privateOutboundHosts : [],
+    concurrency: 4,
+  });
+  await services.repo.updateLinkHealth(user.id, result.results.map((item) => ({
+    id: item.id,
+    url: item.url,
+    status: item.status,
+    statusCode: item.statusCode,
+    reason: item.reason,
+    finalUrl: item.finalUrl,
+    checkedAt: new Date(item.checkedAt),
+  })));
+  return result.results.length;
 }
 
 function schedulerConfig(env: NodeJS.ProcessEnv): SchedulerConfig {

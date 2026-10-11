@@ -5,16 +5,26 @@ export type IslandNotification = {
 	read: boolean
 }
 
-export type IslandMode = 'hidden' | 'compact' | 'peek' | 'expanded'
-
 export const SEEN_STORAGE_KEY = 'nodesk.ambient.island-seen.v1'
 const SEEN_LIMIT = 300
+/** Each column takes its turn through this many notifications before the strip starts over. */
+export const ISLAND_ROWS = 3
+const MIN_COLUMN_WIDTH = 130
 
-/** The island only exists while something is unread; a fresh arrival peeks unless the list is already open. */
-export function islandMode(unreadCount: number, expanded: boolean, peeking: boolean): IslandMode {
-	if (!unreadCount) return 'hidden'
-	if (expanded) return 'expanded'
-	return peeking ? 'peek' : 'compact'
+/** Two or three columns when the strip is wide enough, so short titles are never cut to a few characters. */
+export function islandColumns(width: number): number {
+	return Math.max(1, Math.min(3, Math.floor(width / MIN_COLUMN_WIDTH)))
+}
+
+/**
+ * Splits notifications into the rows the strip scrolls through: each row fills every column, and
+ * only `columns * ISLAND_ROWS` notifications are shown; the rest wait in the expanded list.
+ */
+export function islandPages<T>(items: T[], columns: number): T[][] {
+	const shown = items.slice(0, columns * ISLAND_ROWS)
+	const pages: T[][] = []
+	for (let index = 0; index < shown.length; index += columns) pages.push(shown.slice(index, index + columns))
+	return pages
 }
 
 export function readSeenKeys(raw: string | null): Set<string> {

@@ -209,6 +209,31 @@ describe('AccountView security controls', () => {
     expect(wrapper.text()).toContain('My phone');
   });
 
+  it('reloads login devices after a password change signs out the other sessions', async () => {
+    const otherSession = { ...security.sessions[0], id: 'session-2', current: false, userAgent: 'Safari on iPhone' };
+    let sessions = [...security.sessions, otherSession];
+    apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
+      if (url === '/api/admin/account/security') return { passkeys: [], sessions };
+      if (url === '/api/admin/site') return { guestAccessEnabled: false, guestAccessPasswordSet: false };
+      if (url === '/api/admin/tokens') return [];
+      if (url === '/api/admin/account/password' && options?.method === 'PUT') {
+        sessions = sessions.filter((session) => session.current);
+        return { ok: true };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const wrapper = mount(AccountView);
+    await settle();
+    expect(wrapper.text()).toContain('Safari on iPhone');
+
+    await wrapper.get('#account-password-form').trigger('submit');
+    await settle();
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/admin/account/password', expect.objectContaining({ method: 'PUT' }));
+    expect(wrapper.text()).not.toContain('Safari on iPhone');
+    expect(wrapper.text()).toContain('Chrome on Windows');
+  });
+
   it('configures the guest homepage password beside the login password', async () => {
     apiRequest.mockImplementation(async (url: string, options?: { method?: string }) => {
       if (url === '/api/admin/account') return { llmProvider: 'openai', llmModel: 'saved-model', hasLlmApiKey: false };

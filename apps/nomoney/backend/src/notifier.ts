@@ -24,6 +24,9 @@ interface NonoNotifierOptions {
   fetch?: typeof fetch;
 }
 
+/** `sent` is a debugging/test aid, so the long-running relay keeps only the latest few messages. */
+const maxRecordedMessages = 50;
+
 export function createNonoNotifier(options: NonoNotifierOptions): Notifier {
   const fetcher = options.fetch ?? fetch;
   const sent: RelayMessage[] = [];
@@ -42,6 +45,7 @@ export function createNonoNotifier(options: NonoNotifierOptions): Notifier {
         throw new Error(body.message || `NoNo notification relay failed with HTTP ${response.status}`);
       }
       sent.push(message);
+      if (sent.length > maxRecordedMessages) sent.splice(0, sent.length - maxRecordedMessages);
     }
   };
 }

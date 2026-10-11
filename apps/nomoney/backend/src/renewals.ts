@@ -63,6 +63,7 @@ type AssetRow = {
   status: string;
   purchase_type?: string | null;
   auto_renew?: number | null;
+  billing_day?: number | null;
 };
 
 /**
@@ -177,7 +178,7 @@ export function renewAsset(context: AppContext, type: AssetType, assetId: number
 
   const cycle = current.billing_cycle;
   if (!isBillingCycle(cycle)) throw new HttpError(409, `${code}_RENEWAL_CONFIGURATION_REQUIRED`, 'Set a billing cycle before renewing');
-  const renewedDate = addBillingCycle(currentDueDate, cycle);
+  const renewedDate = addBillingCycle(currentDueDate, cycle, 1, current.billing_day || Number(currentDueDate.slice(8, 10)));
   const amount = input.amountMinorUnits ?? Number(current.amount_minor_units ?? 0);
   const now = toIsoDateTime(context.now());
   const today = toIsoDate(context.now(), getSettings(context).timezone);
@@ -186,6 +187,7 @@ export function renewAsset(context: AppContext, type: AssetType, assetId: number
 
   context.db.exec('BEGIN');
   try {
+    if (!current.billing_day) context.db.run(`UPDATE ${config.table} SET billing_day = ? WHERE id = ?`, [Number(currentDueDate.slice(8, 10)), assetId]);
     renewalId = context.db.insert(
       `INSERT INTO renewal_events (
          request_id, asset_type, asset_id, previous_expire_date, previous_next_due_date, previous_last_renew_date,

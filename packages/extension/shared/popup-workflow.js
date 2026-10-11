@@ -90,12 +90,11 @@ export function buildQuickSavePayload(pageInfo, fields) {
     url: pageInfo.url,
     description: String(fields.description || pageInfo.description || '').trim(),
     ...(fields.allowDuplicate ? { allowDuplicate: true } : {}),
-    ...(fields.readLater ? { readLater: true } : {}),
   };
 }
 
 export function buildUpdateBookmarkPayload(pageInfo, fields) {
-  const { nameMode: _nameMode, allowDuplicate: _allowDuplicate, readLater: _readLater, ...payload } = buildQuickSavePayload(pageInfo, fields);
+  const { nameMode: _nameMode, allowDuplicate: _allowDuplicate, ...payload } = buildQuickSavePayload(pageInfo, fields);
   return payload;
 }
 

@@ -1,4 +1,5 @@
-import { onBeforeUnmount, onMounted, watch, type Ref } from 'vue';
+import { onBeforeUnmount, onMounted, watch, type Ref, type WatchSource } from 'vue';
+import { useMobileBackLayer } from '@/mobile/back-layers';
 
 const focusableSelector = [
   'a[href]',
@@ -22,6 +23,26 @@ function unlockBodyScroll() {
   if (bodyLockDepth === 0) return;
   bodyLockDepth -= 1;
   if (bodyLockDepth === 0) document.body.style.overflow = originalBodyOverflow;
+}
+
+/**
+ * Holds the shared, counted body scroll lock while `locked` is true. Dialogs that do not use
+ * useModalBehavior must lock through here too: writing body.style.overflow directly races with the
+ * counted lock, which then records 'hidden' as the value to restore.
+ */
+export function useBodyScrollLock(locked: WatchSource<boolean>) {
+  let holding = false;
+  const stop = watch(locked, (value) => {
+    if (typeof document === 'undefined' || value === holding) return;
+    holding = value;
+    if (value) lockBodyScroll();
+    else unlockBodyScroll();
+  }, { immediate: true });
+  onBeforeUnmount(() => {
+    stop();
+    if (holding) unlockBodyScroll();
+    holding = false;
+  });
 }
 
 function focusableElements(container: HTMLElement) {
@@ -92,6 +113,9 @@ export function useModalBehavior(options: {
     if (!restoreFocus) return;
     if (previousFocus?.isConnected) previousFocus.focus();
   }
+
+  // In the Android app a back press closes the dialog the same way Escape does instead of leaving the page.
+  useMobileBackLayer(options.open, options.close);
 
   watch(options.open, (opened) => {
     if (!mounted) return;

@@ -2,6 +2,7 @@ import type { AppServices } from '../../types.js';
 import { decryptSecret, encryptSecret } from '../../utils/crypto.js';
 import {
   PROXY_SETTING_KEY,
+  RELEASE_REPOSITORY_INCLUDE,
   RPC_SETTING_KEY,
   arrayValue,
   asRecord,
@@ -17,6 +18,7 @@ import {
   releaseData,
   repositoryData,
   requiredBigInt,
+  retainedSecret,
   revealSecret,
   text,
   toLegacyRelease,
@@ -34,7 +36,7 @@ import {
 export async function exportNoStarData(services: AppServices, userId: number) {
   const [repositories, releases, categories, aiProfiles, webdavProfiles, assetFilters, settingRows, account, embeddingProfiles, vectorConfig] = await Promise.all([
     services.prisma.noStarRepository.findMany({ where: { userId }, orderBy: { id: 'asc' } }),
-    services.prisma.noStarRelease.findMany({ where: { userId }, orderBy: { id: 'asc' } }),
+    services.prisma.noStarRelease.findMany({ where: { userId }, include: RELEASE_REPOSITORY_INCLUDE, orderBy: { id: 'asc' } }),
     services.prisma.noStarCategory.findMany({ where: { userId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     services.prisma.noStarAiProfile.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     services.prisma.noStarWebDavConfig.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
@@ -203,7 +205,7 @@ export async function importNoStarData(services: AppServices, userId: number, da
       : null;
     const existing = await services.prisma.noStarVectorSearchConfig.findUnique({ where: { userId } });
     const rawToken = vector.auth_token ?? vector.authToken;
-    const encrypted = nextEncryptedSecret(rawToken, existing?.authTokenEncrypted, services.encryptionKey);
+    const encrypted = nextEncryptedSecret(rawToken, retainedSecret(existing?.authTokenEncrypted, existing?.workerUrl, vector.worker_url ?? vector.workerUrl), services.encryptionKey);
     const normalized = {
       enabled: Boolean(vector.enabled),
       workerUrl: text(vector.worker_url ?? vector.workerUrl),
@@ -261,7 +263,7 @@ async function upsertImportedAiProfile(services: AppServices, userId: number, pr
     name: text(profile.name),
     apiType: text(profile.api_type ?? profile.apiType) || 'openai',
     baseUrl: text(profile.base_url ?? profile.baseUrl),
-    apiKeyEncrypted: nextEncryptedSecret(profile.api_key ?? profile.apiKey, existing?.apiKeyEncrypted, services.encryptionKey),
+    apiKeyEncrypted: nextEncryptedSecret(profile.api_key ?? profile.apiKey, retainedSecret(existing?.apiKeyEncrypted, existing?.baseUrl, profile.base_url ?? profile.baseUrl), services.encryptionKey),
     model: text(profile.model),
     isActive: Boolean(profile.is_active ?? profile.isActive),
     customPrompt: nullableText(profile.custom_prompt ?? profile.customPrompt),
@@ -280,7 +282,7 @@ async function upsertImportedWebDavProfile(services: AppServices, userId: number
     name: text(profile.name),
     url: text(profile.url),
     username: text(profile.username),
-    passwordEncrypted: nextEncryptedSecret(profile.password, existing?.passwordEncrypted, services.encryptionKey),
+    passwordEncrypted: nextEncryptedSecret(profile.password, retainedSecret(existing?.passwordEncrypted, existing?.url, profile.url), services.encryptionKey),
     path: text(profile.path) || '/',
     isActive: Boolean(profile.is_active ?? profile.isActive),
   };
@@ -294,7 +296,7 @@ async function upsertImportedEmbeddingProfile(services: AppServices, userId: num
     name: text(profile.name),
     apiType: text(profile.api_type ?? profile.apiType) || 'openai',
     baseUrl: text(profile.base_url ?? profile.baseUrl),
-    apiKeyEncrypted: nextEncryptedSecret(profile.api_key ?? profile.apiKey, existing?.apiKeyEncrypted, services.encryptionKey),
+    apiKeyEncrypted: nextEncryptedSecret(profile.api_key ?? profile.apiKey, retainedSecret(existing?.apiKeyEncrypted, existing?.baseUrl, profile.base_url ?? profile.baseUrl), services.encryptionKey),
     model: text(profile.model),
     dimensions: boundedInt(profile.dimensions, 1536, 1, 65536),
     isActive: Boolean(profile.is_active ?? profile.isActive),

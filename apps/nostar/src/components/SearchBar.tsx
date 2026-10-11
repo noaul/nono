@@ -9,6 +9,7 @@ import { Repository } from '../types';
 import { useSearchShortcuts } from '../hooks/useSearchShortcuts';
 import { useDialog } from '../hooks/useDialog';
 import { isRepoCustomized } from '../utils/repoUtils';
+import { reconcileStarredRepositories } from '../utils/starSync';
 import { logger } from '../services/logger';
 import { NumberInput } from './ui/NumberInput';
 import { formatShanghaiDate } from '../utils/dateTime';
@@ -899,35 +900,17 @@ export const SearchBar: React.FC = () => {
     setSyncingStars(true);
     try {
       const githubApi = new GitHubApiService(githubToken);
-      const newRepositories = await githubApi.getAllStarredRepositories();
+      const snapshot = await githubApi.getStarredRepositoriesSnapshot();
 
       const storeRepos = useAppStore.getState().repositories;
-      const existingRepoMap = new Map(storeRepos.map(repo => [repo.id, repo]));
-      const mergedRepositories = newRepositories.map(newRepo => {
-        const existing = existingRepoMap.get(newRepo.id);
-        if (existing) {
-          return {
-            ...existing,
-            name: newRepo.name,
-            full_name: newRepo.full_name,
-            description: newRepo.description,
-            html_url: newRepo.html_url,
-            stargazers_count: newRepo.stargazers_count,
-            forks_count: newRepo.forks_count,
-            forks: newRepo.forks,
-            language: newRepo.language,
-            updated_at: newRepo.updated_at,
-            pushed_at: newRepo.pushed_at,
-            starred_at: newRepo.starred_at,
-            owner: newRepo.owner,
-            topics: newRepo.topics,
-          };
-        }
-        return newRepo;
-      });
-
-      const existingRepoIds = new Set(storeRepos.map(repo => repo.id));
-      const newRepoCount = newRepositories.filter(repo => !existingRepoIds.has(repo.id)).length;
+      const { repositories: mergedRepositories, newRepoCount, keptMissingCount } = await reconcileStarredRepositories(
+        snapshot,
+        storeRepos,
+        repo => githubApi.isRepositoryStarred(repo.full_name),
+      );
+      if (keptMissingCount > 0) {
+        logger.warn('search', 'Star sync looked incomplete; kept repositories missing from the result', { keptMissingCount });
+      }
 
       setRepositories(mergedRepositories);
       await forceSyncToBackend();

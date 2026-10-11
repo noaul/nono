@@ -19,6 +19,21 @@ describe('Release and translation settings sync', () => {
     vi.spyOn(backend, 'syncSettings').mockResolvedValue();
   });
   afterEach(() => {stopAutoSync(() => {}); vi.restoreAllMocks();});
+  it('adopts another device repository metadata instead of keeping stale local edits', async () => {
+    const local = { id: 42, full_name: 'owner/repo', custom_description: 'old', custom_tags: ['old'] };
+    const remote = { ...local, custom_description: 'new', custom_tags: ['new'], custom_category: undefined, ai_tags: [] };
+    localStorage.setItem('github-stars-manager-repo-analysis:42', JSON.stringify({ id: 42, full_name: 'owner/repo', custom_category: 'stale-category', ai_tags: ['stale-tag'] }));
+    useAppStore.setState({ repositories: [local] as never });
+    vi.spyOn(backend, 'fetchRepositories').mockResolvedValue({ repositories: [remote] as never, total: 1 });
+    vi.spyOn(backend, 'fetchReleases').mockResolvedValue({ releases: [], total: 0 });
+    vi.spyOn(backend, 'fetchAIConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchWebDAVConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchEmbeddingConfigs').mockResolvedValue([]);
+    vi.spyOn(backend, 'fetchVectorSearchConfig').mockResolvedValue(useAppStore.getState().vectorSearchConfig);
+    vi.spyOn(backend, 'fetchSettings').mockResolvedValue({});
+    await syncFromBackend();
+    expect(useAppStore.getState().repositories[0]).toMatchObject({ custom_description: 'new', custom_tags: ['new'], custom_category: undefined, ai_tags: [] });
+  });
   it('sends the current read Set and new preferences to the per-user backend', async () => {
     await syncToBackend();
     expect(backend.syncReleases).toHaveBeenCalledWith([expect.objectContaining({id: 47, is_read: true})]);
@@ -41,7 +56,7 @@ describe('Release and translation settings sync', () => {
     expect(useAppStore.getState().categoryListIdMap).toEqual({});
     expect(useAppStore.getState().githubListMemberships).toEqual({});
   });
-  it('merges device-local reads on the first pull and pushes them, then trusts the backend', async () => {
+  it('trusts server read flags from the first pull including another device marking unread', async () => {
     useAppStore.setState({readReleases: new Set([47, 99])});
     vi.spyOn(backend, 'fetchRepositories').mockResolvedValue({repositories: [], total: 0});
     const fetchReleases = vi.spyOn(backend, 'fetchReleases').mockResolvedValue({releases: [createRelease({id: 47, is_read: false}), createRelease({id: 92, is_read: true})], total: 2});
@@ -51,8 +66,8 @@ describe('Release and translation settings sync', () => {
     vi.spyOn(backend, 'fetchVectorSearchConfig').mockResolvedValue(useAppStore.getState().vectorSearchConfig);
     vi.spyOn(backend, 'fetchSettings').mockResolvedValue({});
     await syncFromBackend();
-    expect([...useAppStore.getState().readReleases].sort()).toEqual([47, 92]);
-    await vi.waitFor(() => expect(backend.syncReleases).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({id: 47, is_read: true})])));
+    expect([...useAppStore.getState().readReleases]).toEqual([92]);
+    expect(backend.syncReleases).not.toHaveBeenCalled();
 
     fetchReleases.mockResolvedValue({releases: [createRelease({id: 47, is_read: false}), createRelease({id: 92, is_read: false})], total: 2});
     // The merge push may still be in flight; pulls are skipped until it settles.
