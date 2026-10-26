@@ -1,4 +1,5 @@
 import type { AppServices } from '../../types.js';
+import { loadRepositoryAliases, REPOSITORY_IDENTITY_ALIASES_KEY, reconcileRepositoryIdentities } from './repository-identity.js';
 import { decryptSecret, encryptSecret } from '../../utils/crypto.js';
 import {
   PROXY_SETTING_KEY,
@@ -46,7 +47,7 @@ export async function exportNoStarData(services: AppServices, userId: number) {
     services.prisma.noStarEmbeddingConfig.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     services.prisma.noStarVectorSearchConfig.findUnique({ where: { userId }, include: { embeddingConfig: true } }),
   ]);
-  const settings = Object.fromEntries(settingRows.map((row) => [row.key, maskSettingValue(row.key, row.value, services.encryptionKey)]));
+  const settings = Object.fromEntries(settingRows.filter(row => row.key !== REPOSITORY_IDENTITY_ALIASES_KEY).map((row) => [row.key, maskSettingValue(row.key, row.value, services.encryptionKey)]));
   if (account?.githubTokenEncrypted) settings.github_token = maskSecret(decryptSecret(account.githubTokenEncrypted, services.encryptionKey));
   return {
     version: 2,
@@ -121,19 +122,26 @@ export async function exportNoStarData(services: AppServices, userId: number) {
 export async function importNoStarData(services: AppServices, userId: number, data: AnyRecord) {
   const counts: Record<string, number> = {};
   const repositories = arrayValue(data.repositories);
-  for (const repository of repositories) {
-    const row = repositoryData(repository);
-    await services.prisma.noStarRepository.upsert({
-      where: { userId_githubId: { userId, githubId: row.githubId } },
-      update: row,
-      create: { userId, ...row },
-    });
-  }
+  await services.prisma.$transaction(async tx => {
+    const normalized = await reconcileRepositoryIdentities(tx, userId, repositories, null);
+    for (const repository of normalized.repositories) {
+      const row = repositoryData(repository);
+      await tx.noStarRepository.upsert({
+        where: { userId_githubId: { userId, githubId: row.githubId } },
+        update: row,
+        create: { userId, ...row },
+      });
+    }
+  }, { timeout: 120_000, isolationLevel: 'Serializable' });
   if (repositories.length) counts.repositories = repositories.length;
 
   const releases = arrayValue(data.releases);
+  const aliases = await loadRepositoryAliases(services.prisma, userId);
   let releaseCount = 0;
-  for (const release of releases) {
+  for (let release of releases) {
+    const legacyId = release.repo_id ?? release.repoId ?? asRecord(release.repository).id;
+    const canonicalId = legacyId == null ? undefined : aliases.get(requiredBigInt(legacyId, 'repository id'));
+    if (canonicalId !== undefined) release = { ...release, repo_id: Number(canonicalId), repository: { ...asRecord(release.repository), id: Number(canonicalId) } };
     const repository = await findReleaseRepository(services.prisma, userId, release);
     if (!repository) continue;
     const githubId = requiredBigInt(release.id, 'release id');
@@ -222,7 +230,11 @@ export async function importNoStarData(services: AppServices, userId: number, da
 
   const settings = asRecord(data.settings);
   let settingsCount = 0;
-  for (const [key, value] of Object.entries(settings)) {
+  for (const [key, originalValue] of Object.entries(settings)) {
+    if (key === REPOSITORY_IDENTITY_ALIASES_KEY) continue;
+    const value = key === 'releaseSubscriptions' && Array.isArray(originalValue)
+      ? [...new Set(originalValue.filter(Number.isSafeInteger).map((id: number) => Number(aliases.get(BigInt(id)) ?? BigInt(id))))]
+      : originalValue;
     if (key === 'github_token') {
       if (typeof value !== 'string' || value.startsWith('***')) continue;
       await services.prisma.noStarAccount.upsert({

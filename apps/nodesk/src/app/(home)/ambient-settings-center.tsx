@@ -20,6 +20,7 @@ type Props = {
 }
 
 export type SettingsTab = 'desktop' | 'notifications' | 'backups'
+const SETTINGS_TABS: SettingsTab[] = ['desktop', 'notifications', 'backups']
 const quickEntryIcons = [
 	{ value: 'app-window', label: '应用' },
 	{ value: 'bookmark', label: '书签' },
@@ -87,6 +88,20 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 
 	if (!open) return null
 
+	// Inactive tabs leave the Tab order (roving tabindex), so the arrow keys are how the keyboard reaches them.
+	const moveTab = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		const index = SETTINGS_TABS.indexOf(tab)
+		const next = event.key === 'ArrowRight' ? SETTINGS_TABS[(index + 1) % SETTINGS_TABS.length]
+			: event.key === 'ArrowLeft' ? SETTINGS_TABS[(index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length]
+				: event.key === 'Home' ? SETTINGS_TABS[0]
+					: event.key === 'End' ? SETTINGS_TABS[SETTINGS_TABS.length - 1]
+						: null
+		if (!next) return
+		event.preventDefault()
+		setTab(next)
+		event.currentTarget.querySelector<HTMLButtonElement>(`[data-tab='${next}']`)?.focus()
+	}
+
 	const updateVisibility = async (visible: boolean) => {
 		if (savingVisibility) return
 		setSavingVisibility(true)
@@ -144,18 +159,18 @@ export function AmbientSettingsCenter({ open, onClose, quickEntriesVisible, onQu
 				<button type='button' onClick={onClose} aria-label='关闭设置'><X size={20} /></button>
 			</header>
 
-			<div className='ambient-settings-tabs' role='tablist' aria-label='设置分类'>
-				<button type='button' role='tab' aria-selected={tab === 'desktop'} tabIndex={tab === 'desktop' ? 0 : -1} className={tab === 'desktop' ? 'is-active' : ''} onClick={() => setTab('desktop')}>桌面</button>
-				<button type='button' role='tab' aria-selected={tab === 'notifications'} tabIndex={tab === 'notifications' ? 0 : -1} className={tab === 'notifications' ? 'is-active' : ''} onClick={() => setTab('notifications')}>通知中心</button>
-				<button type='button' role='tab' aria-selected={tab === 'backups'} tabIndex={tab === 'backups' ? 0 : -1} className={tab === 'backups' ? 'is-active' : ''} onClick={() => setTab('backups')}>备份中心</button>
+			<div className='ambient-settings-tabs' role='tablist' aria-label='设置分类' onKeyDown={moveTab}>
+				<button type='button' role='tab' data-tab='desktop' aria-selected={tab === 'desktop'} tabIndex={tab === 'desktop' ? 0 : -1} className={tab === 'desktop' ? 'is-active' : ''} onClick={() => setTab('desktop')}>桌面</button>
+				<button type='button' role='tab' data-tab='notifications' aria-selected={tab === 'notifications'} tabIndex={tab === 'notifications' ? 0 : -1} className={tab === 'notifications' ? 'is-active' : ''} onClick={() => setTab('notifications')}>通知中心</button>
+				<button type='button' role='tab' data-tab='backups' aria-selected={tab === 'backups'} tabIndex={tab === 'backups' ? 0 : -1} className={tab === 'backups' ? 'is-active' : ''} onClick={() => setTab('backups')}>备份中心</button>
 			</div>
 
 			<div className='ambient-settings-body'>
-				{message && <div className='ambient-settings-message is-success'>{message}</div>}
-				{error && <div className='ambient-settings-message is-error'>{error}</div>}
+				{message && <div className='ambient-settings-message is-success' role='status'>{message}</div>}
+				{error && <div className='ambient-settings-message is-error' role='alert'>{error}</div>}
 
 				{tab === 'desktop' && <section className='ambient-settings-section'>
-					<div className='ambient-settings-section-copy'><h3>快捷应用</h3><p>入口显示在桌面左下角。</p></div>
+					<div className='ambient-settings-section-copy'><h3>快捷应用</h3><p>入口显示在桌面右侧；手机上收在“更多”里。</p></div>
 					<label className='ambient-settings-toggle'>
 						<span><strong>显示应用快捷入口</strong><small>关闭后仍可从书签和各模块地址直接访问。</small></span>
 						<input type='checkbox' checked={quickEntriesVisible} disabled={savingVisibility} onChange={event => void updateVisibility(event.target.checked)} />

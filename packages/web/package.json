@@ -9,22 +9,22 @@
     "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
-    "@lucide/vue": "^1.48.0",
+    "@lucide/vue": "^1.61.0",
     "@simplewebauthn/browser": "^14.0.0",
-    "pinia": "^4.0.3",
+    "pinia": "^4.1.0",
     "sortablejs": "^1.15.7",
-    "vue": "^3.5.43",
-    "vue-router": "^5.3.1"
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
-    "@types/node": "^24.19.0",
+    "@types/node": "^24.19.2",
     "@types/sortablejs": "^1.15.9",
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@vitejs/plugin-vue": "^6.0.10",
     "@vue/test-utils": "2.5.1",
-    "jsdom": "^30.1.1",
+    "jsdom": "^30.1.3",
     "typescript": "^5.9.3",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2",
-    "vue-tsc": "^3.3.11"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "vue-tsc": "^3.3.13"
   }
 }

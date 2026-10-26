@@ -132,9 +132,9 @@ export function SettingsPage() {
 
   const logColumns: DataTableColumn<ReminderLogItem>[] = [
     { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <span className="text-xs text-slate-700 dark:text-slate-300">{item.assetName ?? `${item.assetType} #${item.assetId}`}</span> },
-    { key: 'due', header: copy('到期日', 'Due date'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.dueDate}</span> },
-    { key: 'days', header: copy('提前', 'Lead time'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.daysBefore < 0 ? copy(`逾期 ${-item.daysBefore}d`, `${-item.daysBefore}d overdue`) : `${item.daysBefore}d`}</span> },
-    { key: 'sent', header: copy('发送时间', 'Sent at'), align: 'right', render: (item) => <span className="font-mono text-xs text-slate-500">{formatShanghaiDateTime(item.sentAt, language)}</span> },
+    { key: 'due', header: copy('到期日', 'Due date'), align: 'right', render: (item) => <span className="font-mono text-slate-500 dark:text-slate-400">{item.dueDate}</span> },
+    { key: 'days', header: copy('提前', 'Lead time'), align: 'right', render: (item) => <span className="font-mono text-slate-500 dark:text-slate-400">{item.daysBefore < 0 ? copy(`逾期 ${-item.daysBefore}d`, `${-item.daysBefore}d overdue`) : `${item.daysBefore}d`}</span> },
+    { key: 'sent', header: copy('发送时间', 'Sent at'), align: 'right', render: (item) => <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{formatShanghaiDateTime(item.sentAt, language)}</span> },
     { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> }
   ];
 
@@ -163,7 +163,7 @@ export function SettingsPage() {
         <section className="card">
           <div className="mb-5">
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('提醒', 'Reminders')}</h3>
-            <p className="mt-1 text-xs text-slate-500">{copy('配置每日提醒扫描。提醒通过 NoNo 推送到你在 NoDesk 通知中心设置的渠道。', 'Configure reminder scans. Reminders are pushed through NoNo to the channels set in the NoDesk notification center.')}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('配置每日提醒扫描。提醒通过 NoNo 推送到你在 NoDesk 通知中心设置的渠道。', 'Configure reminder scans. Reminders are pushed through NoNo to the channels set in the NoDesk notification center.')}</p>
           </div>
           <form onSubmit={saveSettings} className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
@@ -194,7 +194,7 @@ export function SettingsPage() {
           <section className="card">
             <div className="mb-5">
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('偏好与 WebDAV', 'Preferences and WebDAV')}</h3>
-              <p className="mt-1 text-xs text-slate-500">{copy('语言切换、远程加密备份和恢复入口。', 'Language, encrypted remote backup, and restore controls.')}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('语言切换、远程加密备份和恢复入口。', 'Language, encrypted remote backup, and restore controls.')}</p>
             </div>
             <form onSubmit={saveSettings} className="space-y-4">
               <Field label={copy('界面语言', 'Interface language')}>
@@ -238,7 +238,7 @@ export function SettingsPage() {
           <section className="card">
             <div className="mb-5">
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('账户安全', 'Account security')}</h3>
-              <p className="mt-1 text-xs text-slate-500">{copy('登录、密码和 Passkey 统一在 NoNo 账户中管理。', 'Sign-in, password and passkeys are managed in your NoNo account.')}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('登录、密码和 Passkey 统一在 NoNo 账户中管理。', 'Sign-in, password and passkeys are managed in your NoNo account.')}</p>
             </div>
             <a className="inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:underline" href="/admin/account">{copy('前往 NoNo 账户设置', 'Open NoNo account settings')}</a>
           </section>
@@ -248,7 +248,7 @@ export function SettingsPage() {
       <section>
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('提醒日志', 'Reminder logs')}</h3>
-          <p className="mt-1 text-xs text-slate-500">{copy('最近 8 条提醒扫描结果。', 'Latest 8 reminder scan results.')}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('最近 8 条提醒扫描结果。', 'Latest 8 reminder scan results.')}</p>
         </div>
         <DataTable columns={logColumns} data={logs} emptyText={copy('暂无提醒日志', 'No reminder logs')} />
       </section>

@@ -159,9 +159,9 @@ export function VpsNodeCard({
           <div className="flex max-w-full items-center gap-2">
             <MonitorDot status={statusValue} />
             <h3 className="min-w-0 truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</h3>
-            <span className="shrink-0 text-sm text-slate-500">{formatVpsType(item.vpsType, copy)}</span>
+            <span className="shrink-0 text-sm text-slate-500 dark:text-slate-400">{formatVpsType(item.vpsType, copy)}</span>
           </div>
-          <p className="mt-1 truncate text-sm text-slate-500">
+          <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
             {stringValue(item.provider) || '-'} · {stringValue(item.location) || stringValue(item.os) || '-'}
           </p>
         </div>
@@ -172,13 +172,13 @@ export function VpsNodeCard({
         type="button"
         onClick={() => onCopyIp(item)}
         disabled={ipAddress === '-'}
-        className="mt-4 flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-500 transition-colors hover:border-brand-500/25 hover:bg-brand-500/[0.04] disabled:cursor-default dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+        className="mt-4 flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-500 dark:text-slate-400 transition-colors hover:border-brand-500/25 hover:bg-brand-500/[0.04] disabled:cursor-default dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
         title={copy('复制 IP 地址', 'Copy IP address')}
         aria-label={copy('复制 IP 地址', 'Copy IP address')}
       >
         <Server size={13} />
         <span className="min-w-0 flex-1 truncate font-mono">{ipAddress}</span>
-        <span className={copiedIp ? 'text-success-500' : 'text-slate-400'}>
+        <span className={copiedIp ? 'text-success-500' : 'text-slate-500 dark:text-slate-400'}>
           {copiedIp ? <Check size={13} /> : <Copy size={13} />}
         </span>
       </button>
@@ -193,17 +193,17 @@ export function VpsNodeCard({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
-            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Download size={13} />{copy('下行', 'Down')}</p>
+            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Download size={13} />{copy('下行', 'Down')}</p>
             <div className="min-w-0 text-right">
               <p className="truncate font-mono text-xs font-semibold text-success-600 dark:text-success-400">{formatBps(netIn)}</p>
-              <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalIn)}</p>
+              <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">{formatBytes(totalIn)}</p>
             </div>
           </div>
           <div className="muted-panel flex h-12 items-center justify-between gap-2 px-3">
-            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500"><Upload size={13} />{copy('上行', 'Up')}</p>
+            <p className="flex shrink-0 items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Upload size={13} />{copy('上行', 'Up')}</p>
             <div className="min-w-0 text-right">
               <p className="truncate font-mono text-xs font-semibold text-brand-600 dark:text-brand-400">{formatBps(netOut)}</p>
-              <p className="truncate font-mono text-[10px] text-slate-400">{formatBytes(totalOut)}</p>
+              <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">{formatBytes(totalOut)}</p>
             </div>
           </div>
         </div>
@@ -237,19 +237,19 @@ export function VpsNodeCard({
           )}
         </div>
         <div className="flex shrink-0 justify-end gap-1">
-          <button onClick={() => onTest(item)} disabled={actionState?.testing} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('测试 SSH 连接', 'Test SSH connection')}>
+          <button onClick={() => onTest(item)} disabled={actionState?.testing} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('测试 SSH 连接', 'Test SSH connection')}>
             <Terminal className={actionState?.testing ? 'animate-pulse' : ''} size={14} />
           </button>
-          <button onClick={() => onRefresh(item)} disabled={!stringValue(item.probeUrl) || monitorState?.loading} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('刷新监控', 'Refresh monitor')}>
+          <button onClick={() => onRefresh(item)} disabled={!stringValue(item.probeUrl) || monitorState?.loading} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 disabled:opacity-40 dark:hover:bg-white/[0.06]" title={copy('刷新监控', 'Refresh monitor')}>
             <RefreshCw className={monitorState?.loading ? 'animate-spin' : ''} size={14} />
           </button>
-          <button onClick={() => onCopySsh(item)} className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSsh ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} title={copy('复制 SSH 命令', 'Copy SSH command')}>
+          <button onClick={() => onCopySsh(item)} className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSsh ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} title={copy('复制 SSH 命令', 'Copy SSH command')}>
             {copiedSsh ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
+          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -265,7 +265,7 @@ export function TrafficQuotaLine({ item, copy }: { item: AssetItem; copy: (zh: s
   if (!quotaGb && !panelUrl) return null;
   const ratio = quotaGb && usedBytes !== null ? usedBytes / (quotaGb * 1024 ** 3) : null;
   return (
-    <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
+    <div className="mt-3 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
       {quotaGb ? (
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex justify-between gap-2">
@@ -289,10 +289,10 @@ export function VpsMetricLine({ icon, label, total, value }: { icon: React.React
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-        <span className="flex min-w-0 items-center gap-1.5 text-slate-500">
+        <span className="flex min-w-0 items-center gap-1.5 text-slate-500 dark:text-slate-400">
           {icon}
           <span>{label}</span>
-          <span className="truncate text-[11px] text-slate-400 dark:text-slate-500">{total}</span>
+          <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">{total}</span>
         </span>
         <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{formatPercent(value)}</span>
       </div>
@@ -406,7 +406,7 @@ export function VpsFormSections({
               <Terminal size={14} />
               {copy('保存并测试连接', 'Save and test connection')}
             </Button>
-            <span className="text-xs text-slate-400">{copy('先保存为新节点，再用上面的 SSH 信息测试。', 'Saves the node first, then tests with the SSH details above.')}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{copy('先保存为新节点，再用上面的 SSH 信息测试。', 'Saves the node first, then tests with the SSH details above.')}</span>
           </div>
         )}
         {editing && (
@@ -437,7 +437,7 @@ export function VpsFormSections({
               {copy('生成', 'Generate')}
             </Button>
           </div>
-          <span className="block text-xs text-slate-400">{hasProbeApiKey ? copy('已保存；留空会继续使用原密钥。', 'Saved; leave blank to keep using it.') : copy('留空安装时自动生成。', 'Generated during install if left blank.')}</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">{hasProbeApiKey ? copy('已保存；留空会继续使用原密钥。', 'Saved; leave blank to keep using it.') : copy('留空安装时自动生成。', 'Generated during install if left blank.')}</span>
         </div>
         {!editing && onSaveThen && (
           <div className="flex flex-wrap items-center gap-2">
@@ -453,7 +453,7 @@ export function VpsFormSections({
               <Download className={actionState?.installing ? 'animate-pulse' : ''} size={14} />
               {actionState?.installing ? copy('安装中', 'Installing') : copy('安装探针', 'Install probe')}
             </Button>
-            <span className="text-xs text-slate-400">{copy('会通过 SSH 在 VPS 上安装并启动探针服务。', 'Installs and starts the probe over SSH.')}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{copy('会通过 SSH 在 VPS 上安装并启动探针服务。', 'Installs and starts the probe over SSH.')}</span>
           </div>
         )}
       </Section>

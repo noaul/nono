@@ -725,7 +725,8 @@ export default function AmbientWorkbench() {
 				event.preventDefault()
 				setSearchOpen(true)
 			}
-			if (event.key === 'Escape') {
+			// A nested popover that handles Escape itself (the date picker) marks it as handled.
+			if (event.key === 'Escape' && !event.defaultPrevented) {
 				setSearchOpen(false)
 				setActivePanel(null)
 				setNotificationIslandExpanded(false)
@@ -742,8 +743,13 @@ export default function AmbientWorkbench() {
 
 	useEffect(() => {
 		if (!searchOpen) return
+		// Closing returns focus to whatever opened the search (the bar, the phone button or ⌘K's target).
+		const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
 		const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus())
-		return () => window.cancelAnimationFrame(frame)
+		return () => {
+			window.cancelAnimationFrame(frame)
+			if (previouslyFocused?.isConnected) previouslyFocused.focus()
+		}
 	}, [searchOpen])
 
 	const shanghaiClock = getShanghaiClockParts(now)
@@ -921,6 +927,22 @@ export default function AmbientWorkbench() {
 		setActivePanel(item.kind === 'event' ? 'calendar' : 'tasks')
 	}
 
+	/** The search is modal, so Tab cycles through its own controls instead of the page behind it. */
+	const trapSearchFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
+		if (event.key !== 'Tab') return
+		const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('input, button:not(:disabled)'))
+		const first = focusable[0]
+		const last = focusable[focusable.length - 1]
+		if (!first || !last) return
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault()
+			last.focus()
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault()
+			first.focus()
+		}
+	}
+
 	const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter' && searchResults[0]) activateSearchResult(searchResults[0])
 	}
@@ -941,9 +963,9 @@ export default function AmbientWorkbench() {
 			<div className='ambient-contrast-scrim' aria-hidden='true' />
 
 			<header className='ambient-topbar ambient-wakeable'>
-				<div className='ambient-brand' aria-label='Nodesk 系统状态正常'>
-					<span className='ambient-brand-mark'><CloudSun size={21} strokeWidth={1.8} /></span>
-					<strong>Nodesk</strong>
+				<div className='ambient-brand'>
+					<span className='ambient-brand-mark' aria-hidden='true'><CloudSun size={21} strokeWidth={1.8} /></span>
+					<strong>NoDesk</strong>
 					<span className='ambient-status-dot' aria-hidden='true' />
 					<span className='ambient-status-copy'>就绪</span>
 				</div>
@@ -1050,8 +1072,8 @@ export default function AmbientWorkbench() {
 						data-pet-terrain='panel'
 						initial={reducedMotion ? { x: '-50%' } : { opacity: 0, x: '-50%', y: 18, scale: 0.98 }}
 						animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
-						exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.985 }}
-						transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+						exit={reducedMotion ? { opacity: 0, x: '-50%' } : { opacity: 0, x: '-50%', y: 12, scale: 0.985 }}
+						transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
 						aria-label={`${panelTitle(activePanel)}面板`}>
 						<div className='ambient-panel-heading'>
 							<h2>{panelTitle(activePanel)}</h2>
@@ -1079,7 +1101,7 @@ export default function AmbientWorkbench() {
 							</IntegrationList>}
 
 							{activePanel === 'github' && <IntegrationList state={integrationState.github} empty='NoStar 中还没有仓库。' unavailable='登录 NoNo 后即可读取 NoStar 仓库。'>
-								{repositories.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.full_name} subtitle={[item.language, `${item.stargazers_count || 0} stars`].filter(Boolean).join(' · ')} href={item.html_url} icon={<Github size={17} />} />)}
+								{repositories.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.full_name} subtitle={[item.language, `${(item.stargazers_count || 0).toLocaleString('zh-CN')} 星标`].filter(Boolean).join(' · ')} href={item.html_url} icon={<Github size={17} />} />)}
 							</IntegrationList>}
 
 							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 NoNo 后即可读取 Yumi 状态。'>
@@ -1157,8 +1179,8 @@ export default function AmbientWorkbench() {
 							{activePanel === 'focus' && (
 								<div className='ambient-focus-tool'>
 									<div className='ambient-focus-time'>{formatFocusDuration(focusRemaining)}</div>
-									<div className='ambient-focus-presets' aria-label='专注时长'>
-										{FOCUS_PRESETS.map(minutes => <button type='button' key={minutes} className={focusMinutes === minutes ? 'is-active' : ''} onClick={() => chooseFocusPreset(minutes)}>{minutes} 分钟</button>)}
+									<div className='ambient-focus-presets' role='group' aria-label='专注时长'>
+										{FOCUS_PRESETS.map(minutes => <button type='button' key={minutes} className={focusMinutes === minutes ? 'is-active' : ''} aria-pressed={focusMinutes === minutes} onClick={() => chooseFocusPreset(minutes)}>{minutes} 分钟</button>)}
 									</div>
 									<div className='ambient-focus-actions'>
 										<button type='button' className='ambient-focus-primary' onClick={toggleFocus}>{focusRunning ? <Pause size={19} /> : <Play size={19} fill='currentColor' />}<span>{focusRunning ? '暂停' : focusRemaining === 0 ? '重新开始' : '开始'}</span></button>
@@ -1236,7 +1258,7 @@ export default function AmbientWorkbench() {
 			<AnimatePresence>
 				{privateWorkbenchVisible && searchOpen && (
 					<motion.div className='ambient-search-backdrop' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={event => { if (event.target === event.currentTarget) setSearchOpen(false) }}>
-						<motion.div className='ambient-search-dialog' role='dialog' aria-modal='true' aria-label='快速搜索' initial={reducedMotion ? false : { opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.985 }}>
+						<motion.div className='ambient-search-dialog' role='dialog' aria-modal='true' aria-label='快速搜索' initial={reducedMotion ? false : { opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.985 }} onKeyDown={trapSearchFocus}>
 							<div className='ambient-search-input-row'>
 								<Search size={20} />
 								<input ref={searchInputRef} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onKeyDown={onSearchKeyDown} placeholder='搜索任务、日程、书签与仓库' aria-label='搜索内容' />
@@ -1300,7 +1322,7 @@ function FlipClockUnit({ value, reducedMotion }: { value: string; reducedMotion:
 }
 
 function IntegrationList({ state, empty, unavailable, children }: { state: LoadState; empty: string; unavailable: string; children: React.ReactNode }) {
-	if (state === 'loading') return <div className='ambient-loading' aria-label='正在载入'><i /><i /><i /></div>
+	if (state === 'loading') return <div className='ambient-loading' role='status' aria-label='正在载入'><i /><i /><i /></div>
 	if (state === 'unavailable') return <EmptyState copy={unavailable} />
 	return <div className='ambient-integration-list'>{Children.count(children) ? children : <EmptyState copy={empty} />}</div>
 }

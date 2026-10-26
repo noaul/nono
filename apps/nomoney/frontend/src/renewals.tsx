@@ -134,7 +134,7 @@ export function RenewButton({
       type="button"
       onClick={() => onRenew(item)}
       disabled={renewing}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-success-500/10 hover:text-success-600 disabled:cursor-wait dark:hover:text-success-400"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-success-500/10 hover:text-success-600 disabled:cursor-wait dark:hover:text-success-400"
       title={label}
       aria-label={label}
     >
@@ -196,10 +196,10 @@ export function RenewalToast({
               ? copy(`已记账，下次扣费 ${toast.renewal.renewedExpireDate}`, `Recorded. Next charge ${toast.renewal.renewedExpireDate}`)
               : copy(`已续费至 ${toast.renewal.renewedExpireDate}`, `Renewed until ${toast.renewal.renewedExpireDate}`)}
           </p>
-          <p className="mt-0.5 text-xs text-slate-500">{formatMoney(toast.renewal.amountMinorUnits, toast.renewal.currency)}</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{formatMoney(toast.renewal.amountMinorUnits, toast.renewal.currency)}</p>
           {editingAmount ? (
             <div className="mt-2 flex items-center gap-2">
-              <input className={`${inputClass} h-8 min-w-0 flex-1 font-mono text-xs`} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveAmount(); }} autoFocus />
+              <input className={`${inputClass} h-8 min-w-0 flex-1 font-mono text-xs`} type="number" min="0" step="0.01" value={amount} aria-label={copy('金额', 'Amount')} onChange={(event) => setAmount(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveAmount(); if (event.key === 'Escape') setEditingAmount(false); }} autoFocus />
               <Button size="sm" onClick={saveAmount} disabled={working === 'amount'}>{copy('保存', 'Save')}</Button>
             </div>
           ) : (
@@ -209,7 +209,7 @@ export function RenewalToast({
             </div>
           )}
         </div>
-        <button type="button" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={onClose} aria-label={copy('关闭', 'Close')}><X size={14} /></button>
+        <button type="button" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={onClose} aria-label={copy('关闭', 'Close')}><X size={14} /></button>
       </div>
     </aside>
   );
@@ -253,22 +253,22 @@ export function RenewalHistory({
   const latestActive = items?.find((item) => item.status === 'active');
   return (
     <section className="space-y-2">
-      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500"><History size={13} />{copy('续费 / 付款记录', 'Renewal and payment history')}</h3>
+      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"><History size={13} />{copy('续费 / 付款记录', 'Renewal and payment history')}</h3>
       {error && <p className="text-xs text-danger-600 dark:text-danger-400">{error}</p>}
       {items === null ? (
-        <p className="text-xs text-slate-400">{copy('加载中…', 'Loading…')}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{copy('加载中…', 'Loading…')}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400">{copy('还没有记录。用卡片上的“标记已付 / 已续费”按钮记一笔。', 'Nothing yet. Use “Mark paid / renewed” on the card to record one.')}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{copy('还没有记录。用卡片上的“标记已付 / 已续费”按钮记一笔。', 'Nothing yet. Use “Mark paid / renewed” on the card to record one.')}</p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs dark:divide-white/[0.06] dark:border-white/10">
           {items.map((renewal) => (
-            <li key={renewal.id} className={`flex items-center gap-3 px-3 py-2 ${renewal.status === 'undone' ? 'opacity-50' : ''}`}>
-              <span className="font-mono text-slate-500">{compactDate(renewal.previousExpireDate)} → {compactDate(renewal.renewedExpireDate)}</span>
+            <li key={renewal.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 ${renewal.status === 'undone' ? 'opacity-50' : ''}`}>
+              <span className="font-mono text-slate-500 dark:text-slate-400">{compactDate(renewal.previousExpireDate)} → {compactDate(renewal.renewedExpireDate)}</span>
               <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{formatMoney(renewal.amountMinorUnits, renewal.currency)}</span>
               {renewal.auto && <span className="rounded-md bg-brand-500/10 px-1.5 py-0.5 text-[10px] text-brand-600 dark:text-brand-300">{copy('自动', 'Auto')}</span>}
-              {renewal.status === 'undone' && <span className="text-[10px] text-slate-400">{copy('已撤销', 'Undone')}</span>}
+              {renewal.status === 'undone' && <span className="text-[10px] text-slate-500 dark:text-slate-400">{copy('已撤销', 'Undone')}</span>}
               {renewal === latestActive && (
-                <button type="button" className="ml-auto text-xs font-medium text-slate-500 hover:text-danger-600 hover:underline" onClick={() => undo(renewal)}>{copy('撤销', 'Undo')}</button>
+                <button type="button" className="ml-auto text-xs font-medium text-slate-500 hover:text-danger-600 hover:underline dark:text-slate-400 dark:hover:text-danger-400" onClick={() => undo(renewal)}>{copy('撤销', 'Undo')}</button>
               )}
             </li>
           ))}

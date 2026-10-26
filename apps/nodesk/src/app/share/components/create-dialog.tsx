@@ -78,7 +78,7 @@ export default function CreateDialog({ share, onClose, onSave }: CreateDialogPro
 	}
 
 	return (
-		<DialogModal open onClose={onClose} className='card max-h-[90vh] w-sm overflow-y-auto'>
+		<DialogModal ariaLabel={share ? copy('编辑分享', 'Edit share') : copy('添加分享', 'Add share')} open onClose={onClose} className='card max-h-[90vh] w-sm overflow-y-auto'>
 			{/* Card-styled body */}
 			<div>
 				<div className='mb-4 flex items-center gap-4'>

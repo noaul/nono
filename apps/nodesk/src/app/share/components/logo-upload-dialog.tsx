@@ -69,7 +69,7 @@ export default function LogoUploadDialog({ currentLogo, onClose, onSubmit }: Log
 		onClose()
 	}
 	return (
-		<DialogModal open onClose={handleClose} className='card w-md'>
+		<DialogModal ariaLabel={copy('选择图标', 'Choose an icon')} open onClose={handleClose} className='card w-md'>
 			<h2 className='mb-4 text-xl font-bold'>{copy('选择图标', 'Choose an icon')}</h2>
 			<form onSubmit={handleSubmit} className='space-y-4'>
 				<div>

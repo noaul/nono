@@ -79,7 +79,7 @@ export default function CreateDialog({ project, onClose, onSave }: CreateDialogP
 	}
 
 	return (
-		<DialogModal open onClose={onClose} className='card static w-md max-sm:w-full'>
+		<DialogModal ariaLabel={project ? copy('编辑项目', 'Edit project') : copy('添加项目', 'Add project')} open onClose={onClose} className='card static w-md max-sm:w-full'>
 			<div>
 				<div className='mb-4 flex items-center gap-4'>
 					<div className='group relative cursor-pointer' onClick={() => setShowImageDialog(true)}>

@@ -70,7 +70,7 @@ export default function ImageUploadDialog({ currentImage, onClose, onSubmit }: I
 	}
 
 	return (
-		<DialogModal open onClose={handleClose} className='card w-md'>
+		<DialogModal ariaLabel={copy('选择图片', 'Choose an image')} open onClose={handleClose} className='card w-md'>
 			<h2 className='mb-4 text-xl font-bold'>{copy('选择图片', 'Choose an image')}</h2>
 			<form onSubmit={handleSubmit} className='space-y-4'>
 				<div>

@@ -63,7 +63,7 @@ export default function CreateDialog({ friend, onClose, onSave }: CreateDialogPr
 	}
 
 	return (
-		<DialogModal open onClose={onClose} className='card w-sm'>
+		<DialogModal ariaLabel={friend ? copy('编辑朋友', 'Edit friend') : copy('添加朋友', 'Add friend')} open onClose={onClose} className='card w-sm'>
 			{/* Card-styled body */}
 			<div>
 				<div className='mb-4 flex items-center gap-4'>

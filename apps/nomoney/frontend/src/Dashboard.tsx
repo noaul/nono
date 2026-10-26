@@ -93,11 +93,11 @@ const buildDueColumns = (
       <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="font-medium text-slate-950 hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-300">{item.name}</Link>
     ) },
     { key: 'type', header: copy('类型', 'Type'), render: (item) => (
-      <span className="text-xs text-slate-500">{assetTypeLabels[item.assetType]}{item.kind === 'keepalive' ? copy(' · 保号', ' · keep-alive') : item.kind === 'certificate' ? copy(' · SSL 证书', ' · TLS certificate') : ''}</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">{assetTypeLabels[item.assetType]}{item.kind === 'keepalive' ? copy(' · 保号', ' · keep-alive') : item.kind === 'certificate' ? copy(' · SSL 证书', ' · TLS certificate') : ''}</span>
     ) },
     { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{item.kind === 'keepalive' && !item.amountMinorUnits ? '-' : formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{item.kind === 'keepalive' ? '-' : copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</span> },
-    { key: 'date', header: copy('日期', 'Date'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{compactDate(item.dueDate)}</span> },
+    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500 dark:text-slate-400">{item.kind === 'keepalive' ? '-' : copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</span> },
+    { key: 'date', header: copy('日期', 'Date'), align: 'right', render: (item) => <span className="font-mono text-slate-500 dark:text-slate-400">{compactDate(item.dueDate)}</span> },
     { key: 'days', header: copy('剩余', 'Left'), align: 'right', render: (item) => <span className={`font-mono font-semibold ${dueTone(item.daysLeft)}`}>{item.daysLeft}d</span> },
     { key: 'status', header: copy('状态', 'Status'), align: 'center', render: (item) => <StatusBadge status={item.status} /> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
@@ -105,7 +105,7 @@ const buildDueColumns = (
         {(item.kind ?? 'renewal') === 'renewal' && (
           <RenewButton endpoint={assetEndpoints[item.assetType]} item={dueItemAsAsset(item)} renewing={renewal.renewingKey === item.id} onRenew={() => renewal.onRenew(item)} copy={copy} />
         )}
-        <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('打开', 'Open')} aria-label={copy('打开', 'Open')}>
+        <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('打开', 'Open')} aria-label={copy('打开', 'Open')}>
           <Pencil size={14} />
         </Link>
       </div>
@@ -152,7 +152,7 @@ export function Dashboard() {
         setSummary(summaryResponse);
         setDueItems(dueResponse.items);
       })
-      .catch(() => setError(copy('Dashboard 数据加载失败', 'Could not load the dashboard')));
+      .catch(() => setError(copy('控制台数据加载失败', 'Could not load the dashboard')));
   }, [copy, year, reloadKey]);
 
   const trendChart = useMemo(() => (summary?.monthlyActual ?? []).map((entry) => ({
@@ -208,7 +208,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <PageHeader
         title={copy('资产成本控制台', 'Asset cost console')}
-        eyebrow="Overview"
+        eyebrow={copy('总览', 'Overview')}
         description={copy('电话卡与订阅的循环成本、实际支出、买断投入和近期到期风险集中展示。', 'Recurring costs, real spend, one-off outlay, and upcoming renewal risk for SIM cards and subscriptions.')}
       />
 
@@ -223,9 +223,9 @@ export function Dashboard() {
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('分类成本', 'Cost by category')}</h3>
-            <p className="mt-1 text-xs text-slate-500">{copy('每个分类均展示月度折算、年度预测、年度实际与内部构成。', 'Each category shows its monthly equivalent, yearly forecast, yearly actual, and internal split.')}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('每个分类均展示月度折算、年度预测、年度实际与内部构成。', 'Each category shows its monthly equivalent, yearly forecast, yearly actual, and internal split.')}</p>
           </div>
-          <span className="text-xs text-slate-400">{copy(`共 ${totalAssets} 项活跃资产`, `${totalAssets} active assets`)}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">{copy(`共 ${totalAssets} 项活跃资产`, `${totalAssets} active assets`)}</span>
         </div>
         <div className="motion-list grid items-stretch gap-4 lg:grid-cols-2">
           {categoryDefinitions.map((definition) => {
@@ -240,7 +240,7 @@ export function Dashboard() {
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('年度成本对比', 'Yearly cost comparison')}</h3>
-              <p className="mt-1 text-xs text-slate-500">{copy('预测支出和真实支出的多币种对照。', 'Forecast against real spend, across currencies.')}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('预测支出和真实支出的多币种对照。', 'Forecast against real spend, across currencies.')}</p>
             </div>
             <select aria-label={copy('年份', 'Year')} className="h-8 rounded-lg border border-slate-200 bg-transparent px-2 font-mono text-xs text-slate-600 dark:border-white/10 dark:text-slate-300" value={year} onChange={(event) => setYear(Number(event.target.value))}>
               {yearOptions.map((value) => <option key={value} value={value}>FY {value}</option>)}
@@ -271,7 +271,7 @@ export function Dashboard() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('资产构成', 'Asset mix')}</h3>
-              <p className="text-xs text-slate-500">{copy(`当前活跃资产 ${totalAssets} 项`, `${totalAssets} active assets`)}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{copy(`当前活跃资产 ${totalAssets} 项`, `${totalAssets} active assets`)}</p>
             </div>
           </div>
           {totalAssets > 0 ? (
@@ -310,7 +310,7 @@ export function Dashboard() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('到期风险分布', 'Renewal risk')}</h3>
-              <p className="text-xs text-slate-500">{copy('未来 30 天', 'Next 30 days')}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{copy('未来 30 天', 'Next 30 days')}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -328,7 +328,7 @@ export function Dashboard() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('下一批扣费 / 到期', 'Next charges and renewals')}</h3>
-              <p className="text-xs text-slate-500">{copy('按剩余天数排序', 'Sorted by days remaining')}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{copy('按剩余天数排序', 'Sorted by days remaining')}</p>
             </div>
           </div>
           {actionError && <div className="mb-3"><StateBanner tone="danger">{actionError}</StateBanner></div>}
@@ -340,7 +340,7 @@ export function Dashboard() {
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('近 12 个月实际支出', 'Actual spend, last 12 months')}</h3>
-            <p className="mt-1 text-xs text-slate-500">{copy('来自费用流水，按币种堆叠。', 'From the expense ledger, stacked by currency.')}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('来自费用流水，按币种堆叠。', 'From the expense ledger, stacked by currency.')}</p>
           </div>
           <button type="button" onClick={() => navigate('/expenses')} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">{copy('查看流水', 'View ledger')}</button>
         </div>
@@ -411,15 +411,15 @@ function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition
             <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">{copy(`${cost.assetCount} 项`, `${cost.assetCount} items`)}</span>
             {cost.dueCount > 0 && <span className="rounded-md bg-danger-500/10 px-2 py-0.5 text-[11px] font-medium text-danger-600 dark:text-danger-400">{copy(`30 天 ${cost.dueCount} 项`, `${cost.dueCount} in 30 days`)}</span>}
           </div>
-          <p className="mt-1 text-xs text-slate-500">{definition.description} · {copy(`${cost.recurringCount} 项循环计费`, `${cost.recurringCount} recurring`)}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{definition.description} · {copy(`${cost.recurringCount} 项循环计费`, `${cost.recurringCount} recurring`)}</p>
         </div>
-        <Link href={definition.path} aria-label={copy(`查看${definition.name}`, `View ${definition.name}`)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white">
+        <Link href={definition.path} aria-label={copy(`查看${definition.name}`, `View ${definition.name}`)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white">
           <ArrowUpRight size={17} />
         </Link>
       </header>
 
       <div className="my-5 border-y border-slate-200 py-4 dark:border-white/10">
-        <p className="text-xs font-medium text-slate-500">{copy('月度折算', 'Monthly equivalent')}</p>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{copy('月度折算', 'Monthly equivalent')}</p>
         <div className="mt-2 text-slate-950 dark:text-white">
           <MoneyList values={cost.predictedMonthly} size="hero" />
         </div>
@@ -432,7 +432,7 @@ function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition
       </div>
 
       <div className="mt-5 flex-1 border-t border-slate-200 pt-4 dark:border-white/10">
-        <p className="mb-2 text-xs font-medium text-slate-500">{copy('分类明细', 'Breakdown')}</p>
+        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">{copy('分类明细', 'Breakdown')}</p>
         {cost.subcategories.length > 0 ? (
           <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
             {cost.subcategories.map((subcategory) => {
@@ -440,14 +440,14 @@ function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition
               return (
                 <div key={subcategory.key} className="flex min-h-10 items-center gap-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{subcategoryLabel(subcategory.key, subcategory.label, copy)}</span>
-                  <span className="shrink-0 font-mono text-xs text-slate-400">{copy(`${subcategory.count} 项`, `${subcategory.count} items`)}</span>
+                  <span className="shrink-0 font-mono text-xs text-slate-500 dark:text-slate-400">{copy(`${subcategory.count} 项`, `${subcategory.count} items`)}</span>
                   <MoneyList values={oneTime ? subcategory.oneTimeCost : subcategory.predictedMonthly} size="small" suffix={oneTime ? copy('一次', 'once') : copy('/月', '/mo')} />
                 </div>
               );
             })}
           </div>
         ) : (
-          <p className="py-2 text-sm text-slate-400">{copy('暂无分类数据', 'No breakdown yet')}</p>
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">{copy('暂无分类数据', 'No breakdown yet')}</p>
         )}
       </div>
     </article>
@@ -457,7 +457,7 @@ function CostCategoryCard({ definition, cost }: { definition: CategoryDefinition
 function CostValue({ label, values, className = '' }: { label: string; values: Partial<Record<Currency, number>>; className?: string }) {
   return (
     <div className={className}>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
       <div className="mt-1.5 text-slate-950 dark:text-white"><MoneyList values={values} size="medium" /></div>
     </div>
   );
@@ -480,14 +480,14 @@ function MoneyList({
     hero: 'text-xl sm:text-2xl'
   }[size];
 
-  if (entries.length === 0) return <span className={`font-mono font-semibold text-slate-400 ${sizeClass}`}>0</span>;
+  if (entries.length === 0) return <span className={`font-mono font-semibold text-slate-500 dark:text-slate-400 ${sizeClass}`}>0</span>;
 
   return (
     <span className={`flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 font-mono font-semibold ${sizeClass}`}>
       {entries.map((currency) => (
         <span key={currency} className="whitespace-nowrap">
           {formatMoney(values[currency] ?? 0, currency)}
-          {suffix && <span className="ml-1 font-sans text-[10px] font-normal text-slate-400">{suffix}</span>}
+          {suffix && <span className="ml-1 font-sans text-[10px] font-normal text-slate-500 dark:text-slate-400">{suffix}</span>}
         </span>
       ))}
     </span>
@@ -500,9 +500,9 @@ function hasMoney(values: Partial<Record<Currency, number>>): boolean {
 
 function RiskCell({ label, value, tone }: { label: string; value: number; tone: 'brand' | 'warning' | 'danger' }) {
   const map = {
-    brand: 'border-brand-500/20 bg-brand-500/10 text-brand-500',
-    warning: 'border-warning-500/20 bg-warning-500/10 text-warning-500',
-    danger: 'border-danger-500/20 bg-danger-500/10 text-danger-500'
+    brand: 'border-brand-500/20 bg-brand-500/10 text-brand-600 dark:text-brand-400',
+    warning: 'border-warning-500/20 bg-warning-500/10 text-warning-600 dark:text-warning-400',
+    danger: 'border-danger-500/20 bg-danger-500/10 text-danger-600 dark:text-danger-400'
   };
   return (
     <div className={`rounded-lg border p-3 ${map[tone]}`}>

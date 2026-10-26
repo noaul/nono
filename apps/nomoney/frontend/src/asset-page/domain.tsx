@@ -93,7 +93,7 @@ export function DomainPeriodTotalCard({ totals, copy }: { totals?: RenewalTotals
             `${summary?.count ?? 0} domains due from ${summary?.windowStart ?? '-'} to ${summary?.windowEnd ?? '-'}; only next-month renewals are counted.`
           )}
       </p>
-      <p className="mt-2 truncate text-[11px] text-slate-400">
+      <p className="mt-2 truncate text-[11px] text-slate-500 dark:text-slate-400">
         {copy('原币种：', 'Original: ')}{formatMoneyTotals(summary?.byCurrency)}
         {summary?.convertedTotal.exchangeRateDate ? ` · FX ${summary.convertedTotal.exchangeRateDate}` : ''}
       </p>
@@ -166,30 +166,30 @@ export function DomainCardView({
         <div className="min-w-0">
           <div className="flex max-w-full items-center gap-2">
             <h3 className="truncate font-mono text-xl font-semibold tracking-normal text-slate-950 dark:text-white">{domainName}</h3>
-            {suffix && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-white/[0.06]">{suffix}</span>}
+            {suffix && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:bg-white/[0.06]">{suffix}</span>}
           </div>
-          <p className="mt-1 truncate text-sm text-slate-500">{registrar || '-'} · {stringValue(item.registrarAccount) || copy('未记录账号', 'No account recorded')}</p>
+          <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{registrar || '-'} · {stringValue(item.registrarAccount) || copy('未记录账号', 'No account recorded')}</p>
         </div>
         <StatusBadge status={item.status} />
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="muted-panel p-3">
-          <p className="text-xs text-slate-500">{copy('续费/到期', 'Renewal / expiry')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{copy('续费/到期', 'Renewal / expiry')}</p>
           <p className={`mt-1 font-mono text-lg font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</p>
-          <p className="text-xs text-slate-400">{compactDate(dueDate)}</p>
-          <p className="mt-1 text-[11px] text-slate-400">{copy('上次 ', 'Last ')}{compactDate(lastRenewDate)}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{compactDate(dueDate)}</p>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{copy('上次 ', 'Last ')}{compactDate(lastRenewDate)}</p>
           <CertificateLine item={item} copy={copy} />
         </div>
         <div className="muted-panel p-3">
-          <p className="text-xs text-slate-500">{copy('周期费用', 'Cycle cost')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{copy('周期费用', 'Cycle cost')}</p>
           <p className="mt-1 font-mono text-lg font-semibold text-slate-950 dark:text-white">{formatDisplayMoney(item)}</p>
-          <p className="text-xs text-slate-400">{copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))}</p>
         </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <UserRound size={13} />
           <span className="truncate">{stringValue(item.dnsProvider) || stringValue(item.purpose) || copy('未记录 DNS/用途', 'No DNS or purpose recorded')}</span>
         </div>
@@ -197,7 +197,7 @@ export function DomainCardView({
           {checkAction}
           <button
             onClick={() => onRenew(item)}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${renewed ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]'}`}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${renewed ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 dark:hover:bg-white/[0.06]'}`}
             title={renewTitle}
             aria-label={renewTitle}
             disabled={renewing}
@@ -206,7 +206,7 @@ export function DomainCardView({
           </button>
           <button
             onClick={() => onDuplicate(item)}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
             title={duplicateTitle}
             aria-label={duplicateTitle}
             disabled={duplicating}
@@ -214,19 +214,19 @@ export function DomainCardView({
             {duplicated ? <Check size={14} /> : <Copy className={duplicating ? 'animate-pulse' : ''} size={14} />}
           </button>
           {link && (
-            <a href={link} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
+            <a href={link} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
               <ExternalLink size={14} />
             </a>
           )}
           {dnsLink && dnsLink !== link && (
-            <a href={dnsLink} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
+            <a href={dnsLink} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
               <Link2 size={14} />
             </a>
           )}
-          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
+          <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+          <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -278,10 +278,10 @@ export function CertificateLine({ item, copy }: { item: AssetItem; copy: (zh: st
   const expiresAt = stringValue(item.sslExpiresAt);
   const error = stringValue(item.sslError);
   if (!expiresAt && !error) return null;
-  if (error) return <p className="mt-1 truncate text-[11px] text-slate-400" title={error}>{copy('SSL 未检测到', 'No TLS certificate')}</p>;
+  if (error) return <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400" title={error}>{copy('SSL 未检测到', 'No TLS certificate')}</p>;
   const left = daysLeft(expiresAt);
   return (
-    <p className="mt-1 truncate text-[11px] text-slate-400" title={stringValue(item.sslIssuer)}>
+    <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400" title={stringValue(item.sslIssuer)}>
       SSL <span className={`font-mono ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>
       {stringValue(item.sslIssuer) && <> · {stringValue(item.sslIssuer)}</>}
     </p>

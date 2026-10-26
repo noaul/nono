@@ -49,6 +49,7 @@ function linkProps(href: string) {
  */
 export function AmbientNotificationIsland({ notifications, unreadCount, ready, expanded, onExpandedChange, onRead, onDismiss, onReadAll, onOpenAll, reducedMotion }: Props) {
 	const rootRef = useRef<HTMLDivElement>(null)
+	const summaryRef = useRef<HTMLButtonElement>(null)
 	const seenRef = useRef<Set<string> | null>(null)
 	const [columns, setColumns] = useState(2)
 	const [page, setPage] = useState(0)
@@ -119,6 +120,12 @@ export function AmbientNotificationIsland({ notifications, unreadCount, ready, e
 		className='ambient-island-anchor'
 		data-expanded={expanded ? 'true' : 'false'}
 		onFocus={() => setPaused(true)}
+		onKeyDown={event => {
+			// Escape inside the list closes it and puts focus back on the strip instead of dropping it to the page.
+			if (event.key !== 'Escape' || !expanded) return
+			onExpandedChange(false)
+			summaryRef.current?.focus()
+		}}
 		onBlur={event => {
 			if (event.currentTarget.contains(event.relatedTarget)) return
 			setPaused(false)
@@ -136,7 +143,7 @@ export function AmbientNotificationIsland({ notifications, unreadCount, ready, e
 				transition={reducedMotion ? { duration: 0 } : ISLAND_SPRING}
 				onPointerEnter={event => { if (event.pointerType === 'mouse') setPaused(true) }}
 				onPointerLeave={event => { if (event.pointerType === 'mouse') setPaused(false) }}>
-				<button type='button' className='ambient-island-summary' onClick={toggle} aria-expanded={expanded} aria-label={`通知，${unreadCount} 条未读`}>
+				<button ref={summaryRef} type='button' className='ambient-island-summary' onClick={toggle} aria-expanded={expanded} aria-label={`通知，${unreadCount} 条未读`}>
 					<Bell size={13} />
 					<b>{unreadCount > 99 ? '99+' : unreadCount}</b>
 				</button>

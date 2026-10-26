@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
+import { loadRepositoryAliases, REPOSITORY_IDENTITY_ALIASES_KEY } from './repository-identity.js';
 import { decryptSecret, encryptSecret } from '../../utils/crypto.js';
 import {
   DEBUG_SETTING_KEY,
@@ -46,7 +47,7 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
       services.prisma.noStarSetting.findMany({ where: { userId: user.id } }),
       services.prisma.noStarAccount.findUnique({ where: { userId: user.id } }),
     ]);
-    const settings = Object.fromEntries(rows.map((row) => [row.key, maskSettingValue(row.key, row.value, services.encryptionKey)]));
+    const settings = Object.fromEntries(rows.filter(row => row.key !== REPOSITORY_IDENTITY_ALIASES_KEY).map((row) => [row.key, maskSettingValue(row.key, row.value, services.encryptionKey)]));
     if (account?.githubTokenEncrypted) {
       settings.github_token = maskSecret(decryptSecret(account.githubTokenEncrypted, services.encryptionKey));
       settings.github_token_status = 'ok';
@@ -64,7 +65,12 @@ export function registerNoStarSettingsRoutes(app: FastifyInstance, services: App
       return reply.status(403).send({ error: 'Administrator access required', code: 'ADMIN_REQUIRED' });
     }
     await services.prisma.$transaction(async (tx) => {
-      for (const [key, value] of Object.entries(updates)) {
+      const aliases = await loadRepositoryAliases(tx, user.id);
+      for (const [key, originalValue] of Object.entries(updates)) {
+        if (key === REPOSITORY_IDENTITY_ALIASES_KEY) continue;
+        const value = key === 'releaseSubscriptions' && Array.isArray(originalValue)
+          ? [...new Set(originalValue.filter(Number.isSafeInteger).map((id: number) => Number(aliases.get(BigInt(id)) ?? BigInt(id))))]
+          : originalValue;
         if (key === 'github_token') {
           if (typeof value !== 'string' || value.startsWith('***')) continue;
           await tx.noStarAccount.upsert({

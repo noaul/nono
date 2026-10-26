@@ -41,7 +41,7 @@ describe('WebDAV through the NoNo stored credential proxy', () => {
     expect(await new WebDAVService(config).testConnection()).toBe(true);
     expect(requests.filter(r => r.url.endsWith('/proxy/webdav')).map(r => JSON.parse(String(r.init?.body)))).toEqual([
       expect.objectContaining({method: 'HEAD', timeoutMs: 10000}),
-      expect.objectContaining({method: 'PROPFIND', timeoutMs: 10000}),
+      expect.objectContaining({method: 'PROPFIND', timeoutMs: expect.any(Number)}),
     ]);
   });
   it('addresses the configured root collection without an empty proxy path', async () => {
@@ -63,4 +63,48 @@ describe('WebDAV through the NoNo stored credential proxy', () => {
     await vi.advanceTimersByTimeAsync(30000);
     await assertion;
   });
+  it.each([
+    ['<D:status>HTTP/1.1 404 Not Found</D:status>', false],
+    ['<D:status>HTTP/1.1 403 Forbidden</D:status>', false],
+    ['<D:propstat><D:prop/><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>', true],
+  ])('checks target resource status rather than property status: %s', async (status, expected) => {
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.method === 'HEAD') return new Response('', {status: 405});
+      return new Response(`<D:multistatus xmlns:D="DAV:"><D:response><D:href>/root/backup/</D:href>${status}</D:response></D:multistatus>`, {status: 207});
+    }));
+    expect(await new WebDAVService(config).testConnection()).toBe(expected);
+  });
+  it('uses one ten second deadline across HEAD and fallback including the response body', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.method === 'HEAD') {
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        return new Response('', {status: 405});
+      }
+      return {ok: true, status: 207, text: () => new Promise<string>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {once: true});
+      })};
+    }));
+    let failure: Error | undefined;
+    const pending = new WebDAVService(config).testConnection().catch(error => { failure = error; });
+    await vi.advanceTimersByTimeAsync(10000);
+    const failureAtDeadline = failure;
+    await vi.advanceTimersByTimeAsync(10000);
+    await pending;
+    expect(failureAtDeadline?.message).toMatch(/超时/);
+  });
+  it.each([
+    ['<D:propstat><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>', true],
+    ['<D:status>HTTP/1.1 404 Not Found</D:status>', false],
+  ])('checks the encoded file target after unsupported HEAD: %s', async (status, expected) => {
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.method === 'HEAD') return new Response('', {status: 405});
+      return new Response(`<D:multistatus xmlns:D="DAV:"><D:response><D:href>https://dav.example/root/backup/old%20backup.json</D:href>${status}</D:response></D:multistatus>`, {status: 207});
+    }));
+    expect(await new WebDAVService(config).fileExists('old backup.json')).toBe(expected);
+  });
+
 });

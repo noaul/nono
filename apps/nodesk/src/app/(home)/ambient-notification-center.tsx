@@ -50,7 +50,10 @@ const jsonInit = (method: string, body?: unknown): RequestInit => ({
 
 function formatDate(value: string | null) {
 	if (!value) return '暂无'
-	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(new Date(value))
+	const date = new Date(value)
+	// Intl throws on an invalid date; an unexpected value should not take the whole center down.
+	if (Number.isNaN(date.getTime())) return '暂无'
+	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(date)
 }
 
 /** NoDesk is the one place to read notifications and decide where NoNo, NoMoney and Yumi push them. */
@@ -173,10 +176,10 @@ export function AmbientNotificationCenter() {
 			})}
 		</div>
 
-		{message && <div className='ambient-settings-message is-success'>{message}</div>}
-		{error && <div className='ambient-settings-message is-error'>{error}</div>}
+		{message && <div className='ambient-settings-message is-success' role='status'>{message}</div>}
+		{error && <div className='ambient-settings-message is-error' role='alert'>{error}</div>}
 
-		{loading ? <div className='ambient-backup-loading'><LoaderCircle className='is-spinning' size={20} />正在读取通知</div> : <>
+		{loading ? <div className='ambient-backup-loading' role='status'><LoaderCircle className='is-spinning' size={20} />正在读取通知</div> : <>
 			{page === 'feed' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header ambient-backup-history-head'>
 					<span><h3>通知</h3><p>书签、NoStar、日程、NoMoney、Yumi 与备份的提醒集中在这里。</p></span>
@@ -186,10 +189,10 @@ export function AmbientNotificationCenter() {
 					</span>
 				</div>
 				{visibleFeed.length ? <div className='ambient-batch-history'>{visibleFeed.map(item => <div className={`ambient-batch-row ambient-notification-row is-${item.severity}${item.read ? ' is-read' : ''}`} key={item.key}>
-					<span className='ambient-batch-state' title={SEVERITY_LABELS[item.severity]}>{item.severity === 'critical' ? <XCircle size={16} /> : <Bell size={16} />}</span>
-					<span><strong>{item.href ? <a href={item.targetUrl || item.href}>{item.title}</a> : item.title}</strong><small>{NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source} · {item.description}</small></span>
-					<button type='button' title={item.read ? '标记为未读' : '标记为已读'} disabled={Boolean(busy)} onClick={() => void markRead(item)}><CheckCircle2 size={15} /></button>
-					<button type='button' title='忽略这条通知' disabled={Boolean(busy)} onClick={() => void dismiss(item)}><Trash2 size={15} /></button>
+					<span className='ambient-batch-state' title={SEVERITY_LABELS[item.severity]} role='img' aria-label={SEVERITY_LABELS[item.severity]}>{item.severity === 'critical' ? <XCircle size={16} /> : <Bell size={16} />}</span>
+					<span><strong>{item.href ? <a href={item.targetUrl || item.href}>{item.title}</a> : item.title}</strong><small>{[NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source, item.description].filter(Boolean).join(' · ')}</small></span>
+					<button type='button' title={item.read ? '标记为未读' : '标记为已读'} aria-label={`${item.read ? '标记为未读' : '标记为已读'}：${item.title}`} disabled={Boolean(busy)} onClick={() => void markRead(item)}><CheckCircle2 size={15} /></button>
+					<button type='button' title='忽略这条通知' aria-label={`忽略这条通知：${item.title}`} disabled={Boolean(busy)} onClick={() => void dismiss(item)}><Trash2 size={15} /></button>
 				</div>)}</div> : <div className='ambient-backup-empty'>没有需要处理的通知。</div>}
 			</section>}
 
@@ -218,21 +221,21 @@ export function AmbientNotificationCenter() {
 				</div>}
 
 				{channels.length ? <div className='ambient-batch-history'>{channels.map(channel => <div className='ambient-batch-row ambient-channel-row' key={channel.id}>
-					<span className='ambient-batch-state'>{channel.lastError ? <XCircle size={16} /> : <CheckCircle2 size={16} />}</span>
+					<span className='ambient-batch-state' role='img' aria-label={channel.lastError ? '最近推送失败' : '工作正常'}>{channel.lastError ? <XCircle size={16} /> : <CheckCircle2 size={16} />}</span>
 					<span><strong>{channel.name}</strong><small>{CHANNEL_TYPES[channel.type as ChannelType]?.label || channel.type} · {SEVERITY_LABELS[channel.minSeverity as Severity] || channel.minSeverity}及以上{channel.linkDigest ? ' · 失效链接周报' : ''} · {channel.lastError ? `最近失败：${channel.lastError}` : `最近成功：${formatDate(channel.lastSuccessAt)}`}</small></span>
 					<label className='ambient-policy-toggle' title={channel.enabled ? '已启用' : '已停用'}><input type='checkbox' checked={channel.enabled} disabled={Boolean(busy)} onChange={() => void toggleChannel(channel)} /><span>{channel.enabled ? '启用' : '停用'}</span></label>
-					<button type='button' title='发送测试消息' disabled={Boolean(busy)} onClick={() => void testChannel(channel)}>{busy === `test-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Send size={15} />}</button>
-					{channel.linkDigest && <button type='button' title='立即发送失效链接周报' disabled={Boolean(busy)} onClick={() => void sendLinkDigest(channel)}>{busy === `digest-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <LinkIcon size={15} />}</button>}
-					<button type='button' title='编辑' disabled={Boolean(busy)} onClick={() => setDraft(channelDraftFromChannel(channel))}><Pencil size={15} /></button>
-					<button type='button' title='删除' disabled={Boolean(busy)} onClick={() => removeChannel(channel)}><Trash2 size={15} /></button>
+					<button type='button' title='发送测试消息' aria-label={`发送测试消息：${channel.name}`} disabled={Boolean(busy)} onClick={() => void testChannel(channel)}>{busy === `test-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Send size={15} />}</button>
+					{channel.linkDigest && <button type='button' title='立即发送失效链接周报' aria-label={`立即发送失效链接周报：${channel.name}`} disabled={Boolean(busy)} onClick={() => void sendLinkDigest(channel)}>{busy === `digest-${channel.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <LinkIcon size={15} />}</button>}
+					<button type='button' title='编辑' aria-label={`编辑渠道：${channel.name}`} disabled={Boolean(busy)} onClick={() => setDraft(channelDraftFromChannel(channel))}><Pencil size={15} /></button>
+					<button type='button' title='删除' aria-label={`删除渠道：${channel.name}`} disabled={Boolean(busy)} onClick={() => removeChannel(channel)}><Trash2 size={15} /></button>
 				</div>)}</div> : !draft && <div className='ambient-backup-empty'>还没有推送渠道。添加 Bark 或 Telegram 后，手机上就能收到提醒。</div>}
 			</section>}
 
 			{page === 'deliveries' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header'><h3>发送记录</h3><p>最近 50 次推送。失败的通知会在后续轮次重试，最多 3 次。</p></div>
 				{deliveries.length ? <div className='ambient-batch-history'>{deliveries.map(item => <div className={`ambient-batch-row${item.status === 'failed' ? ' is-error' : ''}`} key={item.id}>
-					<span className='ambient-batch-state'>{item.status === 'sent' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}</span>
-					<span><strong>{item.title}</strong><small>{NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source} → {item.channel.name} · {formatDate(item.updatedAt)}{item.status === 'failed' ? ` · 失败 ${item.attempts} 次：${item.error || ''}` : ''}</small></span>
+					<span className='ambient-batch-state' role='img' aria-label={item.status === 'sent' ? '已发送' : '发送失败'}>{item.status === 'sent' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}</span>
+					<span><strong>{item.title}</strong><small>{NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source} → {item.channel.name} · {formatDate(item.updatedAt)}{item.status === 'failed' ? ` · 失败 ${item.attempts} 次${item.error ? `：${item.error}` : ''}` : ''}</small></span>
 				</div>)}</div> : <div className='ambient-backup-empty'>还没有推送记录。</div>}
 			</section>}
 		</>}

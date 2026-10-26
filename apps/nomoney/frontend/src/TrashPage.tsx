@@ -183,8 +183,8 @@ export default function TrashPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-sm font-semibold text-slate-950 dark:text-white">{item.label}</h3>
-                    <p className="mt-1 truncate text-xs text-slate-500">{item.detail}</p>
-                    <p className="mt-2 text-[11px] text-slate-400">{copy('删除于', 'Deleted')} {formatArchivedAt(item.archivedAt, language)}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{item.detail}</p>
+                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{copy('删除于', 'Deleted')} {formatArchivedAt(item.archivedAt, language)}</p>
                   </div>
                 </div>
 

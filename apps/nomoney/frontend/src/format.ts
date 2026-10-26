@@ -47,8 +47,12 @@ export function formatShanghaiDateTime(value: string | number | Date, language: 
   }).format(date);
 }
 
+const amountFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Symbol, thousands separators and two decimals, with the sign ahead of the symbol: -¥1,234.50. */
 export function formatMoney(amountMinorUnits: number, currency: Currency): string {
-  return `${currencySymbols[currency]}${(amountMinorUnits / 100).toFixed(2)}`;
+  const amount = amountMinorUnits / 100;
+  return `${amount < 0 ? '-' : ''}${currencySymbols[currency]}${amountFormat.format(Math.abs(amount))}`;
 }
 
 export function formatCycle(cycle: BillingCycle, language: Language = getStoredLanguage()): string {
@@ -96,12 +100,13 @@ export function daysLeft(dateValue: string | null | undefined): number | null {
   return Math.round((target - start) / 86_400_000);
 }
 
+// Light-mode shades keep the countdown at WCAG AA on white cards; the brighter tints are for dark.
 export function dueTone(days: number | null): string {
-  if (days === null) return 'text-zinc-500';
-  if (days <= 0) return 'text-rose-400';
-  if (days <= 3) return 'text-amber-400';
-  if (days <= 7) return 'text-yellow-300';
-  return 'text-zinc-400';
+  if (days === null) return 'text-slate-500 dark:text-slate-400';
+  if (days <= 0) return 'text-danger-600 dark:text-danger-400';
+  if (days <= 3) return 'text-amber-700 dark:text-warning-400';
+  if (days <= 7) return 'text-yellow-700 dark:text-yellow-300';
+  return 'text-slate-500 dark:text-slate-400';
 }
 
 export function compactDate(value: string | null | undefined): string {

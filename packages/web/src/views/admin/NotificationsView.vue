@@ -21,6 +21,7 @@ import AdminStateBanner from '@/components/admin/AdminStateBanner.vue';
 import { apiRequest, jsonBody } from '@/api/client';
 import type { AdminNotification, AdminNotificationFeed, AdminNotificationSource } from '@/api/types';
 import { useConfirm } from '@/composables/useConfirm';
+import { useModalBehavior } from '@/composables/useModalBehavior';
 import { notifyError, notifySuccess } from '@/composables/useToasts';
 import { useI18n } from '@/composables/useI18n';
 import type { MessageKey } from '@/locales';
@@ -44,6 +45,16 @@ const renewalAmountEdit = ref<{
 } | null>(null);
 const renewalAmount = ref('');
 const renewalAmountWorking = ref(false);
+const renewalAmountDialog = ref<HTMLElement | null>(null);
+const renewalAmountInput = ref<HTMLInputElement | null>(null);
+const allNotificationsFilter = ref<HTMLButtonElement | null>(null);
+useModalBehavior({
+  open: computed(() => renewalAmountEdit.value !== null),
+  container: renewalAmountDialog,
+  close: () => { renewalAmountEdit.value = null; },
+  initialFocus: () => renewalAmountInput.value,
+  fallbackFocus: () => allNotificationsFilter.value,
+});
 
 const sourceMeta = {
   links: { labelKey: 'notifications.sourceLinks', icon: Activity },
@@ -305,7 +316,7 @@ onMounted(load);
     <section class="notification-center" :aria-label="t('notifications.center')">
       <header class="notification-toolbar">
         <div class="notification-filters" :aria-label="t('notifications.statusFilter')">
-          <button type="button" :class="{ active: activeFilter === 'all' }" :aria-pressed="activeFilter === 'all'" @click="activeFilter = 'all'">
+          <button ref="allNotificationsFilter" type="button" :class="{ active: activeFilter === 'all' }" :aria-pressed="activeFilter === 'all'" @click="activeFilter = 'all'">
             {{ t('notifications.all') }} <span>{{ feed.items.length }}</span>
           </button>
           <button data-testid="notification-filter-unread" type="button" :class="{ active: activeFilter === 'unread' }" :aria-pressed="activeFilter === 'unread'" @click="activeFilter = 'unread'">
@@ -425,7 +436,7 @@ onMounted(load);
     </section>
 
     <div v-if="renewalAmountEdit" class="renewal-amount-overlay" @click.self="renewalAmountEdit = null">
-      <section class="renewal-amount-dialog" role="dialog" aria-modal="true" :aria-label="t('notifications.editRenewalAmount')" data-testid="renewal-amount-editor">
+      <section ref="renewalAmountDialog" tabindex="-1" class="renewal-amount-dialog" role="dialog" aria-modal="true" :aria-label="t('notifications.editRenewalAmount')" data-testid="renewal-amount-editor">
         <header>
           <div>
             <strong>{{ t('notifications.editRenewalAmount') }}</strong>
@@ -435,7 +446,7 @@ onMounted(load);
         </header>
         <label>
           <span>{{ t('notifications.renewalAmount') }}</span>
-          <input v-model="renewalAmount" class="input" type="number" min="0" step="0.01" autofocus @keydown.enter.prevent="saveRenewalAmount" />
+          <input ref="renewalAmountInput" v-model="renewalAmount" class="input" type="number" min="0" step="0.01" @keydown.enter.prevent="saveRenewalAmount" />
         </label>
         <footer>
           <button class="button secondary" type="button" @click="renewalAmountEdit = null">{{ t('common.cancel') }}</button>

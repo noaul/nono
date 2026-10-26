@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { AlertCircle, Inbox, Loader2, X } from 'lucide-react';
 import type { AssetStatus } from './types';
@@ -35,11 +36,14 @@ export function Button({
   );
 }
 
-export function IconButton({ children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+export function IconButton({ children, className, type = 'button', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      type={type}
+      // Icon-only: the tooltip doubles as the accessible name unless a caller names it explicitly.
+      aria-label={props['aria-label'] ?? props.title}
       className={clsx(
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 outline-hidden transition-all duration-200 ease-out hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-brand-500/45 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-100',
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 outline-hidden transition-all duration-200 ease-out hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-brand-500/45 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-100',
         className
       )}
       {...props}
@@ -87,7 +91,7 @@ export function Field({
     <label className="block space-y-1.5">
       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</span>
       {children}
-      {hint && !error && <span className="block text-xs text-slate-400">{hint}</span>}
+      {hint && !error && <span className="block text-xs text-slate-500 dark:text-slate-400">{hint}</span>}
       {error && <span className="block text-xs text-danger-500">{error}</span>}
     </label>
   );
@@ -166,6 +170,7 @@ export function Drawer({
   dirty?: boolean;
 }) {
   const { copy } = useI18n();
+  const panelRef = useRef<HTMLElement | null>(null);
   const requestClose = useCallback(() => {
     if (dirty && !window.confirm(copy('有未保存的修改，确定放弃？', 'Discard unsaved changes?'))) return;
     onClose();
@@ -175,18 +180,32 @@ export function Drawer({
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !event.defaultPrevented) requestClose();
+      if (event.key === 'Tab') keepFocusInside(panelRef.current, event);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, requestClose]);
 
+  // Move focus into the dialog, keep the page behind it still, and hand focus back on close.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.focus({ preventScroll: true });
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [open]);
+
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
-      <button aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65" onClick={requestClose} />
-      <aside role="dialog" aria-modal="true" aria-label={title} className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-ink-900">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-white/10">
-          <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
+      <button type="button" tabIndex={-1} aria-label={copy('关闭', 'Close')} className="motion-fade-in absolute inset-0 bg-slate-950/65" onClick={requestClose} />
+      <aside ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="motion-drawer absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl focus:outline-none dark:border-white/10 dark:bg-ink-900">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 dark:border-white/10">
+          <h2 className="min-w-0 truncate text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
           <IconButton onClick={requestClose} title={copy('关闭', 'Close')}>
             <X size={16} />
           </IconButton>
@@ -195,14 +214,35 @@ export function Drawer({
           {error && <div className="mb-4"><StateBanner tone="danger">{error}</StateBanner></div>}
           {children}
         </div>
-        <footer className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-white/10">{footer}</footer>
+        {/* Full-height on phones, so the actions clear the home indicator like the page dock does. */}
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-5 pt-4 pb-[calc(1rem_+_var(--nono-safe-bottom,env(safe-area-inset-bottom)))] dark:border-white/10">{footer}</footer>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Wraps Tab and Shift+Tab around the dialog's own controls so focus cannot fall behind the backdrop. */
+function keepFocusInside(container: HTMLElement | null, event: KeyboardEvent) {
+  if (!container) return;
+  const focusable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((element) => element.getClientRects().length > 0);
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || active === container || !container.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !container.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx('animate-pulse rounded-xl bg-slate-200 dark:bg-white/[0.07]', className)} />;
+  return <div aria-hidden="true" className={clsx('animate-pulse rounded-xl bg-slate-200 dark:bg-white/[0.07]', className)} />;
 }
 
 export function EmptyState({
@@ -217,7 +257,7 @@ export function EmptyState({
   const { copy } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 dark:text-slate-400 dark:border-white/10 dark:bg-white/[0.04]">
         <Inbox size={18} />
       </div>
       <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{title ?? copy('暂无数据', 'Nothing here yet')}</p>
@@ -241,9 +281,9 @@ export function StateBanner({
     warning: 'border-warning-500/20 bg-warning-500/10 text-warning-700 dark:text-warning-300'
   };
   return (
-    <div className={clsx('flex items-start gap-2 rounded-xl border px-3 py-2 text-sm', map[tone])}>
+    <div role={tone === 'danger' ? 'alert' : 'status'} className={clsx('flex items-start gap-2 rounded-xl border px-3 py-2 text-sm', map[tone])}>
       <AlertCircle className="mt-0.5 shrink-0" size={16} />
-      <div>{children}</div>
+      <div className="min-w-0 break-words">{children}</div>
     </div>
   );
 }
@@ -252,7 +292,7 @@ export function LoadingInline({ label }: { label?: string }) {
   const { copy } = useI18n();
   const text = label ?? copy('加载中', 'Loading');
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+    <span role="status" className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
       <Loader2 className="animate-spin" size={14} />
       {text}
     </span>
@@ -285,6 +325,7 @@ export function DataTable<T extends { id: number | string }>({
               {columns.map((col) => (
                 <th
                   key={col.key}
+                  scope="col"
                   className={clsx(
                     'px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400',
                     col.align === 'right' && 'text-right',
@@ -319,7 +360,7 @@ export function DataTable<T extends { id: number | string }>({
             ))}
             {data.length === 0 && (
               <tr>
-                <td className="px-5 py-12 text-center text-slate-400" colSpan={columns.length}>
+                <td className="px-5 py-12 text-center text-slate-500 dark:text-slate-400" colSpan={columns.length}>
                   {emptyText ?? copy('暂无数据', 'Nothing here yet')}
                 </td>
               </tr>

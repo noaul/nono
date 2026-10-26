@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppServices } from '../../types.js';
+import { loadRepositoryAliases, reconcileRepositoryIdentities } from './repository-identity.js';
 import {
   type AnyRecord,
   RELEASE_REPOSITORY_INCLUDE,
@@ -35,11 +36,11 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
     const user = await authed(request, reply, services);
     if (!user) return;
     const body = asRecord(request.body);
-    const repositories = Array.isArray(body.repositories) ? body.repositories.map(asRecord) : [];
-    const githubIds = repositories.map((repo) => requiredBigInt(repo.id, 'repository id'));
-    const baseline = Array.isArray(body.baseRepositories) ? body.baseRepositories.map(asRecord) : null;
+    const inputRepositories = Array.isArray(body.repositories) ? body.repositories.map(asRecord) : [];
+    const inputBaseline = Array.isArray(body.baseRepositories) ? body.baseRepositories.map(asRecord) : null;
     await services.prisma.$transaction(async (tx) => {
-      const currentRows = baseline ? await tx.noStarRepository.findMany({ where: { userId: user.id } }) : [];
+      const { repositories, baseline, rows: currentRows } = await reconcileRepositoryIdentities(tx, user.id, inputRepositories, inputBaseline);
+      const githubIds = repositories.map((repo) => requiredBigInt(repo.id, 'repository id'));
       const currentById = new Map(currentRows.map(row => [String(row.githubId), toLegacyRepository(row)]));
       const baseById = new Map((baseline || []).map(row => [String(row.id), row]));
       for (let repository of repositories) {
@@ -66,7 +67,7 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
         await tx.noStarRepository.deleteMany({ where: { userId: user.id, githubId: { notIn: githubIds } } });
       }
     }, SYNC_TRANSACTION_OPTIONS);
-    return { synced: repositories.length };
+    return { synced: inputRepositories.length };
   });
 
   app.get('/api/nostar/releases', async (request, reply) => {
@@ -95,7 +96,17 @@ export function registerNoStarRepositoryRoutes(app: FastifyInstance, services: A
         select: { id: true, githubId: true, fullName: true },
       });
       const byGithubId = new Map(owned.map((repo) => [repo.githubId.toString(), repo.id]));
-      const byFullName = new Map(owned.map((repo) => [repo.fullName, repo.id]));
+      for (const [from, to] of await loadRepositoryAliases(tx, user.id)) {
+        const repositoryId = byGithubId.get(String(to));
+        if (repositoryId !== undefined) byGithubId.set(String(from), repositoryId);
+      }
+      const byFullName = new Map<string, number>();
+      const ambiguousNames = new Set<string>();
+      for (const repo of owned) {
+        if (byFullName.has(repo.fullName)) ambiguousNames.add(repo.fullName);
+        else byFullName.set(repo.fullName, repo.id);
+      }
+      ambiguousNames.forEach(name => byFullName.delete(name));
       for (let index = 0; index < releases.length; index += 1) {
         const release = releases[index];
         const githubId = githubIds[index];

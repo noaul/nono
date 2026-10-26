@@ -58,6 +58,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
   const { copy, language, toggleLanguage } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileBridge = useRef<MobileBridge | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState('');
@@ -89,8 +90,27 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
     const onPointerDown = (event: PointerEvent) => {
       if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
     };
+    const items = () => Array.from(moreRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+      .filter((item) => item.getClientRects().length > 0);
+    // A menu takes focus when it opens and moves through its items with the arrow keys.
+    items()[0]?.focus();
     const onKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMoreOpen(false);
+      if (!moreRef.current?.contains(event.target as Node) || event.defaultPrevented) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setMoreOpen(false);
+        moreButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const list = items();
+      if (list.length === 0) return;
+      event.preventDefault();
+      const index = list.indexOf(document.activeElement as HTMLElement);
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      const next = index === -1 ? (step === 1 ? 0 : list.length - 1) : (index + step + list.length) % list.length;
+      list[next]?.focus();
     };
     const onResize = () => {
       if (window.innerWidth >= 768) setMoreOpen(false);
@@ -198,8 +218,11 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
           );
         })}
         {overflowItems.length > 0 && (
-          <div ref={moreRef} className="relative flex md:hidden">
+          <div ref={moreRef} className="relative flex md:hidden" onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setMoreOpen(false);
+          }}>
             <button
+              ref={moreButtonRef}
               type="button"
               aria-haspopup="menu"
               aria-expanded={moreOpen}
@@ -232,7 +255,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
                 })}
                 {/* Phones have no room for the language switch in the module bar; it lives here. */}
                 <div className="my-1 border-t border-[color:var(--ui-border)] sm:hidden" />
-                <button type="button" role="menuitem" onClick={() => { toggleLanguage(); setMoreOpen(false); }} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06] sm:hidden">
+                <button type="button" role="menuitem" onClick={() => { toggleLanguage(); setMoreOpen(false); moreButtonRef.current?.focus(); }} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06] sm:hidden">
                   <Languages size={17} />
                   {language === 'zh' ? 'English' : '中文'}
                 </button>

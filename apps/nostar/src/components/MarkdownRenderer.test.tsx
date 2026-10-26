@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 
 vi.mock('../store/useAppStore', () => ({
@@ -328,5 +328,45 @@ describe('README enhancements', () => {
     const { container } = render(<MarkdownRenderer content={'<script>alert(1)</script><img src="javascript:alert(1)" onerror="alert(1)"><a href="javascript:alert(1)">unsafe</a>\n\n[unsafe markdown](javascript:alert(1))'} enableHtml />);
     expect(container.querySelector('script, [onerror]')).toBeNull();
     expect(container.querySelector('[href^="javascript:"], [src^="javascript:"]')).toBeNull();
+  });
+});
+
+
+describe('responsive README images', () => {
+  it('keeps responsive sources and the fallback img as direct picture children', () => {
+    const { container } = render(<MarkdownRenderer enableHtml baseUrl="https://github.com/owner/demo" content={'<picture><source type="image/avif" media="(prefers-color-scheme: dark)" srcset="./dark.avif 1x, /dark@2x.avif 2x"><img src="./light.png" alt="Theme"></picture>'} />);
+    const picture = container.querySelector('picture');
+    expect(picture?.querySelector(':scope > source')).toHaveAttribute('type', 'image/avif');
+    expect(picture?.querySelector(':scope > source')).toHaveAttribute('srcset', 'https://github.com/owner/demo/raw/HEAD/dark.avif 1x, https://github.com/owner/demo/raw/HEAD/dark@2x.avif 2x');
+    const image = picture?.querySelector(':scope > img');
+    expect(image).toHaveAttribute('src', 'https://github.com/owner/demo/raw/HEAD/light.png');
+    Object.defineProperty(image, 'naturalWidth', {configurable: true, value: 180});
+    fireEvent.load(image!);
+    expect(container.querySelector('picture > img')).toHaveAttribute('src', 'https://github.com/owner/demo/raw/HEAD/light.png');
+    expect(container.querySelector('picture > source')).toHaveAttribute('media', '(prefers-color-scheme: dark)');
+  });
+  it('resolves img srcset and preserves commas inside URLs while rejecting each unsafe candidate', () => {
+    const { container } = render(<MarkdownRenderer enableHtml baseUrl="https://github.com/owner/demo" content={'<img alt="Responsive" src="./light.png" srcset="javascript:alert(1) 1x, file:///tmp/x 2x, data:image/png;base64,AAAA 3x, //cdn.example.test/w_800,q_auto/hero.png 4x, ./large.png 5x">'} />);
+    expect(container.querySelector('img')).toHaveAttribute('srcset', 'https://cdn.example.test/w_800,q_auto/hero.png 4x, https://github.com/owner/demo/raw/HEAD/large.png 5x');
+  });
+  it('filters unsafe source protocols without a repository base URL', () => {
+    const { container } = render(<MarkdownRenderer enableHtml content={'<picture><source srcset="blob:unsafe 1x, JaVaScRiPt:alert(1) 2x, //cdn.example.test/dark.png 3x"><img src="https://example.test/light.png"></picture>'} />);
+    expect(container.querySelector('source')).toHaveAttribute('srcset', 'https://cdn.example.test/dark.png 3x');
+  });
+  it('zooms and downloads the responsive image selected by the browser', async () => {
+    const { container } = render(<MarkdownRenderer enableHtml content={'<picture><source srcset="https://example.test/dark.avif"><img src="https://example.test/light.png" alt="Selected"></picture>'} />);
+    const image = container.querySelector('img')!;
+    Object.defineProperty(image, 'currentSrc', {configurable: true, value: 'https://example.test/dark.avif'});
+    fireEvent.load(image);
+    fireEvent.click(image);
+    expect(screen.getByRole('dialog').querySelector('img')).toHaveAttribute('src', 'https://example.test/dark.avif');
+    const fetchImage = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+    let downloadedUrl: string | undefined;
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { downloadedUrl = this.href; });
+    try {
+      fireEvent.click(screen.getByRole('dialog').querySelector('button[title="下载图片"]')!);
+      await waitFor(() => expect(fetchImage).toHaveBeenCalledWith('https://example.test/dark.avif'));
+      expect(downloadedUrl).toBe('https://example.test/dark.avif');
+    } finally { fetchImage.mockRestore(); clickAnchor.mockRestore(); }
   });
 });

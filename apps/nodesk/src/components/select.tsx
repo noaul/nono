@@ -67,6 +67,7 @@ export function Select({ value, onChange, options, className, disabled }: Select
 		const handleEscape = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
 				setOpen(false)
+				triggerRef.current?.focus()
 			}
 		}
 
@@ -103,16 +104,19 @@ export function Select({ value, onChange, options, className, disabled }: Select
 				type='button'
 				onClick={() => !disabled && setOpen(!open)}
 				disabled={disabled}
+				aria-haspopup='true'
+				aria-expanded={open}
 				className={cn(
 					'bg-card relative flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-all',
 					'active:scale-[0.98]',
-					'focus:ring-brand/20 focus:ring-2 focus:outline-none',
+					'focus:ring-brand/20 focus:ring-2 focus:outline-none focus-visible:ring-brand/60',
 					disabled && 'cursor-not-allowed opacity-50',
 					!disabled && 'hover:bg-card/80',
 					className
 				)}>
 				<span className='flex-1 text-left'>{selectedOption?.label}</span>
 				<svg
+					aria-hidden='true'
 					className={cn('h-3.5 w-3.5 transition-transform duration-200', open && 'rotate-180')}
 					fill='none'
 					viewBox='0 0 24 24'
@@ -147,6 +151,7 @@ export function Select({ value, onChange, options, className, disabled }: Select
 												key={option.value}
 												type='button'
 												onClick={() => handleSelect(option.value)}
+												aria-pressed={isSelected}
 												className={cn(
 													'w-full rounded-lg px-3 py-2 text-left text-xs transition-all',
 													'active:scale-[0.98]',

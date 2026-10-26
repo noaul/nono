@@ -17,7 +17,7 @@ import { useModalBehavior } from '@/composables/useModalBehavior';
 import { formatShanghaiDateTime } from '@/utils/dateTime';
 import { scopesForProfile } from '@/utils/tokenScopes';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const auth = useAuthStore();
 
 const tabs = computed(() => [
@@ -213,7 +213,7 @@ async function revokeOtherSessions() {
 
 function formatDate(value: string | null) {
   if (!value) return t('account.neverUsed');
-  return formatShanghaiDateTime(value, 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
+  return formatShanghaiDateTime(value, locale.value === 'en' ? 'en-US' : 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 async function save() {

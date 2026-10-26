@@ -54,6 +54,8 @@ import {
   normalizeRepoKey,
 } from '../utils/releaseSources';
 import { logger } from '../services/logger';
+import { findIdentityMatch, generateFallbackRepositoryId, isLegacySyntheticIdRecord, isValidGitHubRepositoryId } from '../utils/repositoryIdentity';
+import { foldSyntheticDuplicates } from '../utils/starSync';
 import { adoptColorMode, currentColorMode, writeColorModePreference } from '../utils/colorMode';
 import { adoptLocale, currentLocale, writeStoredLocale } from '../utils/locale';
 import { PRESET_FILTERS } from '../constants/presetFilters';
@@ -63,6 +65,31 @@ import {
 } from '../services/repositoryAnalysisStorage';
 
 const BACKEND_SECRET_SESSION_KEY = 'github-stars-manager-backend-secret';
+
+// Canonicalize legacy references together with the repository array: subscribers never see a
+// removed repository id while releases still point at it. Real ids never remap by name.
+const remapRepositoryState = (state: AppState, repositories: Repository[]) => {
+  const { foldedIds } = foldSyntheticDuplicates(repositories, state.repositories);
+  const byId = new Map(repositories.map(repo => [repo.id, repo]));
+  const remaps = new Map(foldedIds.map(({ from, to }) => [from, to]));
+  const remapSet = (ids: Set<number>) => new Set([...ids].map(id => remaps.get(id) ?? id));
+  const remapRepos = (repos: Repository[]) => repos.map(repo => byId.get(remaps.get(repo.id) ?? repo.id) ?? repo);
+  return {
+    releases: state.releases.map(release => {
+      const id = remaps.get(release.repository.id);
+      const repo = id === undefined ? undefined : byId.get(id);
+      return repo ? { ...release, repo_id: repo.id, repository: { id: repo.id, full_name: repo.full_name, name: repo.name } } : release;
+    }),
+    releaseSubscriptions: remapSet(state.releaseSubscriptions),
+    releaseExpandedRepositories: remapSet(state.releaseExpandedRepositories),
+    analyzingRepositoryIds: remapSet(state.analyzingRepositoryIds),
+    forkExpandedRepositories: remapSet(state.forkExpandedRepositories),
+    similarView: state.similarView ? { ...state.similarView,
+      similarResults: remapRepos(state.similarView.similarResults).filter(repo => byId.has(repo.id)),
+      originalSearchResults: remapRepos(state.similarView.originalSearchResults),
+    } : state.similarView,
+  };
+};
 
 /** Menu IDs that must always remain visible — enforced at store level */
 const REQUIRED_HEADER_MENU_IDS: ReadonlySet<HeaderMenuId> = new Set(['repositories', 'settings']);
@@ -1305,27 +1332,23 @@ export const useAppStore = create<AppState & AppActions>()(
 
       // Repository actions
       setRepositories: (repositories, options) => {
-        const restoredRepositories = options?.authoritative ? repositories : mergeRepositoryAnalysisSnapshotsSync(repositories);
-        restoredRepositories.forEach((repo) => {
-          void saveRepositoryAnalysisSnapshot(repo);
+        const current = useAppStore.getState().repositories;
+        const restored = options?.authoritative ? repositories : mergeRepositoryAnalysisSnapshotsSync(repositories);
+        const canonical = [...restored, ...current].filter(repo => isValidGitHubRepositoryId(repo.id));
+        const folded = foldSyntheticDuplicates(restored, restored);
+        const removed = new Set(folded.foldedIds.map(({ from }) => from));
+        const normalized = folded.repositories.filter(repo => !removed.has(repo.id)).map(repo => {
+          if (!isLegacySyntheticIdRecord(repo)) return repo;
+          const matches = canonical.filter(candidate => candidate.full_name.toLowerCase() === repo.full_name.toLowerCase());
+          return new Set(matches.map(candidate => candidate.id)).size === 1 ? { ...matches[0], ...repo, id: matches[0].id } : repo;
         });
-        set((state) => {
-          const restoredById = new Map(restoredRepositories.map((repo) => [repo.id, repo]));
-          const similarView = state.similarView
-            ? {
-                ...state.similarView,
-                similarResults: state.similarView.similarResults
-                  .map((repo) => restoredById.get(repo.id))
-                  .filter((repo): repo is Repository => repo !== undefined),
-              }
-            : state.similarView;
-
-          return {
-            repositories: restoredRepositories,
-            searchResults: restoredRepositories,
-            similarView,
-          };
-        });
+        const restoredRepositories = Array.from(new Map(normalized.map(repo => [repo.id, repo])).values());
+        restoredRepositories.forEach(repo => { void saveRepositoryAnalysisSnapshot(repo); });
+        set(state => ({
+          ...remapRepositoryState(state, restoredRepositories),
+          repositories: restoredRepositories,
+          searchResults: restoredRepositories,
+        }));
       },
       updateRepository: (repo) => {
         void saveRepositoryAnalysisSnapshot(repo);
@@ -1401,37 +1424,45 @@ export const useAppStore = create<AppState & AppActions>()(
         };
       }),
       addRepository: (repo) => set((state) => {
-        // 检查是否已存在相同 full_name 的仓库
-        const existingRepoIndex = state.repositories.findIndex(r => r.full_name === repo.full_name);
-        let updatedRepositories;
-        
-        if (existingRepoIndex >= 0) {
-          // 如果存在，更新现有仓库（保留ID）
-          updatedRepositories = [...state.repositories];
-          updatedRepositories[existingRepoIndex] = {
+        // Same GitHub id is the same repository (a rename updates in place); only legacy
+        // synthetic-id records may be claimed by name. See utils/repositoryIdentity.
+        const existing = findIdentityMatch(repo, state.repositories);
+        let updatedRepositories: Repository[];
+
+        if (existing) {
+          updatedRepositories = state.repositories.map(current => current === existing ? {
             ...repo,
-            id: updatedRepositories[existingRepoIndex].id,
-            // 保留自定义编辑的内容
-            custom_description: updatedRepositories[existingRepoIndex].custom_description,
-            custom_tags: updatedRepositories[existingRepoIndex].custom_tags,
-            custom_category: updatedRepositories[existingRepoIndex].custom_category,
-            category_locked: updatedRepositories[existingRepoIndex].category_locked,
-            last_edited: updatedRepositories[existingRepoIndex].last_edited,
-            subscribed_to_releases: updatedRepositories[existingRepoIndex].subscribed_to_releases,
-          };
+            id: isValidGitHubRepositoryId(repo.id) ? repo.id : existing.id,
+            custom_description: existing.custom_description,
+            custom_tags: existing.custom_tags,
+            custom_category: existing.custom_category,
+            category_locked: existing.category_locked,
+            last_edited: existing.last_edited,
+            subscribed_to_releases: existing.subscribed_to_releases,
+            // Callers pass GitHub or Discovery data without these, so spreading `repo` alone
+            // would wipe a finished analysis. Explicit new values still win.
+            ai_summary: repo.ai_summary ?? existing.ai_summary,
+            ai_tags: repo.ai_tags ?? existing.ai_tags,
+            ai_platforms: repo.ai_platforms ?? existing.ai_platforms,
+            analyzed_at: repo.analyzed_at ?? existing.analyzed_at,
+            analysis_failed: repo.analysis_failed ?? existing.analysis_failed,
+            analysis_error: repo.analysis_error ?? existing.analysis_error,
+          } : current);
         } else {
-          // 如果不存在，添加新仓库（生成新ID）
-          // 使用 timestamp + random 确保唯一性，避免并发时的竞态条件
-          const timestamp = Date.now();
-          const random = Math.floor(Math.random() * 10000);
-          const maxExistingId = state.repositories.length > 0
-            ? Math.max(...state.repositories.map(r => r.id))
-            : 0;
-          const newId = Math.max(timestamp, maxExistingId + 1) + random;
-          updatedRepositories = [...state.repositories, { ...repo, id: newId }];
+          // Keep the real GitHub id so the next star sync finds this record (and its analysis)
+          // again. A synthetic id is only a last resort for input without a usable id.
+          const id = isValidGitHubRepositoryId(repo.id) && !state.repositories.some(current => current.id === repo.id)
+            ? repo.id
+            : generateFallbackRepositoryId(state.repositories);
+          updatedRepositories = [...state.repositories, { ...repo, id }];
         }
-        
+
+        const folded = foldSyntheticDuplicates(updatedRepositories, state.repositories);
+        const removed = new Set(folded.foldedIds.map(({ from }) => from));
+        updatedRepositories = folded.repositories.filter(current => !removed.has(current.id));
+        updatedRepositories.forEach(repository => { void saveRepositoryAnalysisSnapshot(repository); });
         return {
+          ...remapRepositoryState(state, updatedRepositories),
           repositories: updatedRepositories,
           searchResults: updatedRepositories
         };

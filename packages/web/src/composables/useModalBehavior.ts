@@ -54,6 +54,8 @@ export function useModalBehavior(options: {
   container: Readonly<Ref<HTMLElement | null>>;
   close: () => void;
   initialFocus?: () => HTMLElement | null;
+  /** Used when an opener (for example a toast action) was removed while the dialog was open. */
+  fallbackFocus?: () => HTMLElement | null;
 }) {
   let mounted = false;
   let active = false;
@@ -111,7 +113,8 @@ export function useModalBehavior(options: {
     window.removeEventListener('keydown', onKeydown, true);
     unlockBodyScroll();
     if (!restoreFocus) return;
-    if (previousFocus?.isConnected) previousFocus.focus();
+    const target = previousFocus?.isConnected ? previousFocus : options.fallbackFocus?.();
+    target?.focus();
   }
 
   // In the Android app a back press closes the dialog the same way Escape does instead of leaving the page.
@@ -133,6 +136,7 @@ export function useModalBehavior(options: {
     if (!active) return;
     const restoreTarget = previousFocus;
     deactivate(false);
-    if (restoreTarget?.isConnected) restoreTarget.focus();
+    const target = restoreTarget?.isConnected ? restoreTarget : options.fallbackFocus?.();
+    target?.focus();
   });
 }

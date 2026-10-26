@@ -109,7 +109,10 @@ async function requestData<T>(url: string, init?: RequestInit): Promise<T> {
 
 function formatDate(value: string | null) {
 	if (!value) return '暂无'
-	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(new Date(value))
+	const date = new Date(value)
+	// Intl throws on an invalid date; one bad timestamp should not take the backup center down.
+	if (Number.isNaN(date.getTime())) return '暂无'
+	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(date)
 }
 
 function formatBytes(bytes: number) {
@@ -290,21 +293,21 @@ export function AmbientBackupCenter() {
 
 	return <div className='ambient-backup-center'>
 		<div className='ambient-backup-destinations' role='tablist' aria-label='备份位置'>
-			<button type='button' className={destination === 'webdav' ? 'is-active' : ''} onClick={() => setDestination('webdav')}><Cloud size={18} />WebDAV 备份</button>
-			<button type='button' className={destination === 'local' ? 'is-active' : ''} onClick={() => setDestination('local')}><Archive size={18} />本地备份</button>
+			<button type='button' role='tab' aria-selected={destination === 'webdav'} className={destination === 'webdav' ? 'is-active' : ''} onClick={() => setDestination('webdav')}><Cloud size={18} />WebDAV 备份</button>
+			<button type='button' role='tab' aria-selected={destination === 'local'} className={destination === 'local' ? 'is-active' : ''} onClick={() => setDestination('local')}><Archive size={18} />本地备份</button>
 		</div>
 
 		<div className='ambient-backup-subnav' role='tablist' aria-label='备份功能'>
 			{pages.map(page => {
 				const Icon = page.icon
-				return <button type='button' key={page.id} className={activePage === page.id ? 'is-active' : ''} onClick={() => destination === 'webdav' ? setWebDavPage(page.id as WebDavPage) : setLocalPage(page.id as LocalPage)}><Icon size={15} />{page.label}</button>
+				return <button type='button' role='tab' aria-selected={activePage === page.id} key={page.id} className={activePage === page.id ? 'is-active' : ''} onClick={() => destination === 'webdav' ? setWebDavPage(page.id as WebDavPage) : setLocalPage(page.id as LocalPage)}><Icon size={15} />{page.label}</button>
 			})}
 		</div>
 
-		{message && <div className='ambient-settings-message is-success'>{message}</div>}
-		{error && <div className='ambient-settings-message is-error'>{error}</div>}
+		{message && <div className='ambient-settings-message is-success' role='status'>{message}</div>}
+		{error && <div className='ambient-settings-message is-error' role='alert'>{error}</div>}
 		{jobs.length > 0 && <details className='ambient-backup-page'><summary>任务记录（关闭页面后仍可查看）</summary>{jobs.map(job => <div key={job.id} role='status'><code>{job.id}</code> · {job.kind} · {job.status}{job.error && <p>{job.error}</p>}{job.downloadAvailable && <a href={`/api/admin/backup-center/jobs/${job.id}/download`} onClick={event => { if (tryNativeBackupDownload(job.id, window.location.origin)) event.preventDefault() }}>下载备份</a>}</div>)}</details>}
-		{loading ? <div className='ambient-backup-loading'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
+		{loading ? <div className='ambient-backup-loading' role='status'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
 			{destination === 'webdav' && webDavPage === 'operations' && <div className='ambient-backup-page'>
 				<div className='ambient-backup-page-header'><h3>备份与恢复</h3><p>完整操作覆盖当前账户的五个模块，也可以单独处理某个模块。</p></div>
 				<section className='ambient-backup-hero'>
@@ -355,7 +358,7 @@ export function AmbientBackupCenter() {
 					<span className='ambient-batch-state'><CheckCircle2 size={16} /></span>
 					<span><strong>{formatDate(batch.createdAt)}</strong><small>{batch.scope === 'full' ? '当前账户完整' : '模块'} · {Object.keys(batch.modules).join(' / ')}</small></span>
 					<span>{Object.values(batch.modules).reduce((sum, module) => sum + Number(module?.size || 0), 0) ? formatBytes(Object.values(batch.modules).reduce((sum, module) => sum + Number(module?.size || 0), 0)) : ''}</span>
-					<button type='button' title='删除批次' disabled={Boolean(busy)} onClick={() => removeBatch(batch)}>{busy === `delete-${batch.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Trash2 size={15} />}</button>
+					<button type='button' title='删除批次' aria-label={`删除 ${formatDate(batch.createdAt)} 的备份批次`} disabled={Boolean(busy)} onClick={() => removeBatch(batch)}>{busy === `delete-${batch.id}` ? <LoaderCircle className='is-spinning' size={15} /> : <Trash2 size={15} />}</button>
 				</div>)}</div> : <div className='ambient-backup-empty'>还没有 WebDAV 备份。</div>}
 			</section>}
 
@@ -375,7 +378,7 @@ export function AmbientBackupCenter() {
 				<button type='button' className='ambient-local-all-download' disabled={Boolean(busy)} onClick={() => downloadLocalBackup('all')}>{busy === 'local-download-all' ? <LoaderCircle className='is-spinning' size={20} /> : <Archive size={20} />}<span><strong>下载当前账户完整备份</strong><small>一个文件内按五个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></button>
 				<div className='ambient-module-backups'>{MODULES.map(module => {
 					const Icon = module.icon
-					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><button type='button' disabled={Boolean(busy)} onClick={() => downloadLocalBackup(module.id)} title={`下载 ${module.label}`}>{busy === `local-download-${module.id}` ? <LoaderCircle className='is-spinning' size={16} /> : <Download size={16} />}</button></div>
+					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><button type='button' disabled={Boolean(busy)} onClick={() => downloadLocalBackup(module.id)} title={`下载 ${module.label}`} aria-label={`下载 ${module.label} 本地备份`}>{busy === `local-download-${module.id}` ? <LoaderCircle className='is-spinning' size={16} /> : <Download size={16} />}</button></div>
 				})}</div>
 			</section>}
 

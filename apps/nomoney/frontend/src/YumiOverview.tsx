@@ -232,13 +232,13 @@ export function YumiOverview() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 id="yumi-due-title" className="text-sm font-semibold text-slate-950 dark:text-white">{copy('30 天内到期', 'Due in the next 30 days')}</h2>
-                <p className="mt-1 text-xs text-slate-500">{copy('VPS、域名与 SSL 证书，按剩余天数排序。', 'VPS, domains and TLS certificates, soonest first.')}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy('VPS、域名与 SSL 证书，按剩余天数排序。', 'VPS, domains and TLS certificates, soonest first.')}</p>
               </div>
               <CalendarClock size={18} className="text-slate-400" aria-hidden="true" />
             </div>
             {dueError && <div className="mb-3"><StateBanner tone="danger">{dueError}</StateBanner></div>}
             {dueItems.length === 0 ? (
-              <p className="py-3 text-sm text-slate-400">{copy('近 30 天没有需要处理的到期项。', 'Nothing is due in the next 30 days.')}</p>
+              <p className="py-3 text-sm text-slate-500 dark:text-slate-400">{copy('近 30 天没有需要处理的到期项。', 'Nothing is due in the next 30 days.')}</p>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
                 {dueItems.map((item) => {
@@ -247,8 +247,8 @@ export function YumiOverview() {
                     <li key={`${item.kind ?? 'renewal'}-${item.assetType}-${item.assetId}`} className="flex items-center gap-3 py-2 text-sm">
                       <span className={`w-14 shrink-0 font-mono font-semibold ${dueTone(item.daysLeft)}`}>{item.daysLeft}d</span>
                       <Link href={`/${endpoint}?edit=${item.assetId}`} className="min-w-0 flex-1 truncate font-medium text-slate-900 hover:text-brand-600 hover:underline dark:text-white">{item.name}</Link>
-                      <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{dueKindLabel(item, copy)}</span>
-                      <span className="shrink-0 font-mono text-xs text-slate-500">{compactDate(item.dueDate)}</span>
+                      <span className="hidden shrink-0 text-xs text-slate-500 dark:text-slate-400 sm:inline">{dueKindLabel(item, copy)}</span>
+                      <span className="shrink-0 font-mono text-xs text-slate-500 dark:text-slate-400">{compactDate(item.dueDate)}</span>
                       {item.kind === 'certificate'
                         ? <span className="inline-block h-8 w-8" aria-hidden="true" />
                         : <RenewButton endpoint={endpoint} item={renewalAssetFromDueItem(item)} renewing={renewals.renewingId === item.assetId} onRenew={(asset) => renewals.renew(endpoint, asset)} copy={copy} />}

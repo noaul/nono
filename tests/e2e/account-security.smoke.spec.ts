@@ -16,6 +16,22 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify({ code: 0, data: { authenticated: true, setupRequired: false, user }, message: '' }),
     });
   });
+  // Account loads these alongside security; keep this smoke independent of a running API server.
+  await page.route('**/api/admin/site', async (route) => {
+    await route.fulfill({ json: { code: 0, data: { guestAccessEnabled: false, guestAccessPasswordSet: false }, message: '' } });
+  });
+  await page.route('**/api/admin/tokens', async (route) => {
+    await route.fulfill({ json: { code: 0, data: [], message: '' } });
+  });
+  await page.route('**/api/admin/account', async (route) => {
+    await route.fulfill({ json: { code: 0, data: { ...user, llmProvider: 'openai', llmModel: '', hasLlmApiKey: false }, message: '' } });
+  });
+  await page.route('**/api/admin/users', async (route) => {
+    await route.fulfill({ json: { code: 0, data: [user], message: '' } });
+  });
+  await page.route('**/api/admin/config', async (route) => {
+    await route.fulfill({ json: { code: 0, data: { allowRegistration: false }, message: '' } });
+  });
   await page.route('**/api/admin/account/security', async (route) => {
     await route.fulfill({
       status: 200,
@@ -67,6 +83,7 @@ test('renders account security controls without viewport overflow', async ({ pag
   await expect(page.getByText('Chrome on Windows')).toBeVisible();
   await expect(page.getByText('当前设备')).toBeVisible();
   await expect(page.getByTestId('add-passkey')).toBeDisabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
 
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

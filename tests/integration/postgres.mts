@@ -49,7 +49,7 @@ try {
 
   await reset();
   await fs.copyFile(schema, path.join(temporary, 'schema.prisma'));
-  await fs.cp(path.dirname(schema) + '/migrations', path.join(temporary, 'migrations'), { recursive: true, filter: source => !source.includes('20260906000000_retire_clipper') });
+  await fs.cp(path.dirname(schema) + '/migrations', path.join(temporary, 'migrations'), { recursive: true, filter: source => !source.includes('20260906000000_retire_clipper') && !source.includes('20261026203000_nostar_repository_identity') });
   migrate(path.join(temporary, 'schema.prisma'));
   const user = await prisma.user.create({ data: { username: 'historic', email: 'historic@example.test', displayName: 'Historic', passwordHash: 'not-a-login', role: 'user' } });
   const folder = await prisma.folder.create({ data: { userId: user.id, name: 'Keep' } });
@@ -59,8 +59,14 @@ try {
   await prisma.$executeRawUnsafe(`INSERT INTO "Clip" ("userId","linkId","url","canonicalUrl","title","domain","excerpt","contentHtml","contentMd","contentHash","extractor","updatedAt") VALUES (${user.id},${bookmark.id},'https://example.test/clip','https://example.test/clip','Delete','example.test','old','<p>old</p>','old','hash','test',NOW())`);
   await prisma.trashItem.create({ data: { userId: user.id, kind: 'clip', entityId: 1, label: 'Delete', payload: { clip: { contentMd: 'old' } } } });
   await prisma.trashItem.create({ data: { userId: user.id, kind: 'bookmark', entityId: bookmark.id, label: 'Keep', payload: { link: { id: bookmark.id }, linkedClipIds: [1] } } });
+  const historicNoStar = await prisma.noStarRepository.create({ data: { userId: user.id, githubId: 1_800_000_000_000n, name: 'tool', fullName: 'historic/tool', htmlUrl: 'https://github.com/historic/tool', ownerLogin: 'historic', aiSummary: 'preserve migration data' } });
+  const historicRelease = await prisma.noStarRelease.create({ data: { userId: user.id, githubId: 88000n, repositoryId: historicNoStar.id, tagName: 'v1', repoFullName: 'historic/tool', repoName: 'tool', isRead: true } });
   migrate();
   await assertRetired();
+  assert.equal((await prisma.noStarRepository.findUniqueOrThrow({ where: { id: historicNoStar.id } })).aiSummary, 'preserve migration data');
+  assert.equal((await prisma.noStarRelease.findUniqueOrThrow({ where: { id: historicRelease.id } })).repositoryId, historicNoStar.id);
+  await prisma.noStarRepository.create({ data: { userId: user.id, githubId: 42000n, name: 'tool', fullName: 'historic/tool', htmlUrl: 'https://github.com/historic/tool', ownerLogin: 'historic' } });
+  console.log('PASS NoStar identity index upgrade preserves repository/release rows and accepts reused names');
   assert.equal(await prisma.link.count(), 1);
   assert.deepEqual((await prisma.apiToken.findFirstOrThrow()).scopes, ['bookmarks:read']);
   assert.equal(await prisma.trashItem.count({ where: { kind: 'clip' } }), 0);
@@ -106,6 +112,59 @@ try {
       assert.equal((await app.inject({ method: 'GET', url, headers })).statusCode, 404);
     }
     console.log('PASS real database setup, cookie auth, tenant isolation, bookmark trash/restore, token scopes and retired APIs');
+
+    {
+      const noStarOwner = await prisma.user.findUniqueOrThrow({ where: { username: 'owner' } });
+      const legacyId = 1_800_000_000_001;
+      const repository = (id: number, full_name: string, extra = {}) => ({ id, full_name, name: full_name.split('/')[1], html_url: `https://github.com/${full_name}`, owner: { login: full_name.split('/')[0] }, ...extra });
+      const putRepositories = async (repositories: unknown[], extra = {}) => {
+        const response = await app.inject({ method: 'PUT', url: '/api/nostar/repositories', headers, payload: { repositories, ...extra } });
+        assert.equal(response.statusCode, 200, response.body);
+      };
+      await putRepositories([repository(legacyId, 'identity/tool', { custom_description: 'baseline', ai_summary: 'legacy analysis' })]);
+      const original = await prisma.noStarRepository.findUniqueOrThrow({ where: { userId_githubId: { userId: noStarOwner.id, githubId: BigInt(legacyId) } } });
+      await prisma.noStarRelease.create({ data: { userId: noStarOwner.id, githubId: 900001n, repositoryId: original.id, tagName: 'v1', repoFullName: 'identity/tool', repoName: 'tool', isRead: true } });
+      const base = (await app.inject({ method: 'GET', url: '/api/nostar/repositories', headers })).json().repositories;
+      await prisma.noStarRepository.update({ where: { id: original.id }, data: { customDescription: 'concurrent remote edit' } });
+      await putRepositories([{ ...base[0], id: 42001, custom_category: 'local category' }], { baseRepositories: base, isFullSync: true });
+      const adopted = await prisma.noStarRepository.findUniqueOrThrow({ where: { userId_githubId: { userId: noStarOwner.id, githubId: 42001n } } });
+      assert.equal(adopted.id, original.id, 'adoption preserves the database primary key');
+      assert.equal(adopted.customDescription, 'concurrent remote edit');
+      assert.equal(adopted.customCategory, 'local category');
+      assert.equal((await prisma.noStarRelease.findUniqueOrThrow({ where: { userId_githubId: { userId: noStarOwner.id, githubId: 900001n } } })).repositoryId, original.id);
+
+      const twinId = 1_800_000_000_002;
+      await putRepositories([repository(42002, 'identity/twin'), repository(twinId, 'identity/twin', { ai_summary: 'twin analysis' })]);
+      // Seed the old duplicate explicitly: new writes already normalize this pair.
+      const twinCanonical = await prisma.noStarRepository.findUniqueOrThrow({ where: { userId_githubId: { userId: noStarOwner.id, githubId: 42002n } } });
+      const staleTwin = await prisma.noStarRepository.create({ data: { userId: noStarOwner.id, githubId: BigInt(twinId), name: 'twin', fullName: 'identity/twin', htmlUrl: 'https://github.com/identity/twin', ownerLogin: 'identity', aiSummary: 'twin analysis' } });
+      await prisma.noStarRelease.create({ data: { userId: noStarOwner.id, githubId: 900002n, repositoryId: staleTwin.id, tagName: 'v1', repoFullName: 'identity/twin', repoName: 'twin', isRead: true } });
+      await putRepositories([repository(42002, 'identity/twin')]);
+      assert.equal(await prisma.noStarRepository.count({ where: { userId: noStarOwner.id, githubId: BigInt(twinId) } }), 0);
+      const reparented = await prisma.noStarRelease.findUniqueOrThrow({ where: { userId_githubId: { userId: noStarOwner.id, githubId: 900002n } } });
+      assert.equal(reparented.repositoryId, twinCanonical.id);
+      assert.equal(reparented.isRead, true);
+      await putRepositories([repository(42002, 'identity/renamed', { ai_summary: 'twin analysis' })]);
+      const imported = await app.inject({ method: 'POST', url: '/api/nostar/sync/import', headers, payload: {
+        repositories: [repository(twinId, 'identity/twin', { custom_category: 'old backup category' })],
+        settings: { releaseSubscriptions: [twinId], repositoryIdentityAliases: { [twinId]: 42001 } },
+      } });
+      assert.equal(imported.statusCode, 200, imported.body);
+      const renamed = await prisma.noStarRepository.findUniqueOrThrow({ where: { id: twinCanonical.id } });
+      assert.equal(renamed.fullName, 'identity/renamed');
+      assert.equal(renamed.customCategory, 'old backup category');
+      assert.equal(await prisma.noStarRepository.count({ where: { userId: noStarOwner.id, githubId: BigInt(twinId) } }), 0);
+      const savedSettings = (await app.inject({ method: 'GET', url: '/api/nostar/settings', headers })).json();
+      assert.deepEqual(savedSettings.releaseSubscriptions, [42002]);
+      assert.equal(savedSettings.repositoryIdentityAliases, undefined, 'internal aliases stay private to reconciliation');
+      const internalAliases = (await prisma.noStarSetting.findUniqueOrThrow({ where: { userId_key: { userId: noStarOwner.id, key: 'repositoryIdentityAliases' } } })).value as Record<string, number>;
+      assert.equal(internalAliases[String(twinId)], 42002, 'imports cannot overwrite established identity aliases');
+      await putRepositories([repository(42003, 'identity/reused', { ai_summary: 'old identity' }), repository(42004, 'identity/reused')]);
+      const reused = await prisma.noStarRepository.findMany({ where: { userId: noStarOwner.id, fullName: 'identity/reused' }, orderBy: { githubId: 'asc' } });
+      assert.deepEqual(reused.map(repo => [Number(repo.githubId), repo.aiSummary]), [[42003, 'old identity'], [42004, null]]);
+      console.log('PASS NoStar real-ID adoption, baseline merge, release FK/read-state preservation, rename/stale import and reused-name isolation');
+    }
+
 
     {
       const folderId = folderResponse.json().data.id;

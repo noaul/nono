@@ -459,7 +459,7 @@ export default function Page() {
 			</div>
 
 			{compareIndex !== null && images[compareIndex]?.converted && (
-				<DialogModal open={true} onClose={handleCloseCompare} className='w-full'>
+				<DialogModal ariaLabel={copy('图片转换对比', 'Compare converted image')} open={true} onClose={handleCloseCompare} className='w-full'>
 					<div className='grid w-full grid-cols-2 gap-4' onClick={handleCloseCompare}>
 						<div className='flex flex-col items-end p-4'>
 							<div>

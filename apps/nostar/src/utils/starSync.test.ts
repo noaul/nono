@@ -11,6 +11,21 @@ const repo = (id: number, overrides: Partial<Repository> = {}): Repository => ({
 });
 
 describe('reconcileStarredRepositories', () => {
+  it('adopts a real id before a later rename without losing local analysis', async () => {
+    const first = await reconcileStarredRepositories({ repositories: [repo(42, { full_name: 'owner/tool' })], complete: true },
+      [repo(1_800_000_000_000, { full_name: 'owner/tool', ai_summary: 'keep' })], async () => false);
+    expect(first.repositories[0].id).toBe(42);
+    expect(first.foldedIds).toEqual([{ from: 1_800_000_000_000, to: 42 }]);
+    const renamed = await reconcileStarredRepositories({ repositories: [repo(42, { full_name: 'owner/new' })], complete: true }, first.repositories, async () => false);
+    expect(renamed.repositories).toEqual([expect.objectContaining({ id: 42, full_name: 'owner/new', ai_summary: 'keep' })]);
+  });
+
+  it('does not assign ambiguous legacy data to one of two real repositories sharing a name', async () => {
+    const result = await reconcileStarredRepositories({ repositories: [repo(41, { full_name: 'o/tool' }), repo(42, { full_name: 'o/tool' })], complete: false },
+      [repo(1_800_000_000_000, { full_name: 'o/tool', ai_summary: 'ambiguous' })], async () => false);
+    expect(result.repositories.filter(r => r.id < 1e11).every(r => !r.ai_summary)).toBe(true);
+    expect(result.repositories).toHaveLength(3);
+  });
   it('keeps local repositories missing from an incomplete snapshot', async () => {
     const local = [repo(1, { custom_category: 'tools' }), repo(2, { custom_tags: ['keep'] })];
     const check = vi.fn(async () => false);

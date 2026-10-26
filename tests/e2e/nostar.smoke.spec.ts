@@ -2,6 +2,9 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 const nostarBaseURL = process.env.PLAYWRIGHT_NOSTAR_BASE_URL || 'http://127.0.0.1:4174';
 
+// Inline avatars keep this mocked flow independent of external image services.
+const avatarUrl = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%224%22 height=%224%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%2364748b%22/%3E%3C/svg%3E';
+
 const repository = {
   id: 1,
   name: 'e2e-repo',
@@ -16,9 +19,9 @@ const repository = {
   updated_at: '2026-01-02T00:00:00.000Z',
   pushed_at: '2026-01-03T00:00:00.000Z',
   starred_at: '2026-01-04T00:00:00.000Z',
-  owner: { login: 'owner', avatar_url: '' },
+  owner: { login: 'owner', avatar_url: avatarUrl },
   owner_login: 'owner',
-  owner_avatar_url: '',
+  owner_avatar_url: avatarUrl,
   topics: ['test'],
   default_branch: 'main',
 };
@@ -27,7 +30,7 @@ const githubUser = {
   id: 101,
   login: 'nostar-e2e',
   name: 'NoStar E2E',
-  avatar_url: '',
+  avatar_url: avatarUrl,
   html_url: 'https://github.com/nostar-e2e',
 };
 
@@ -188,6 +191,9 @@ async function handleNoStarApi(route: Route) {
     return json(route, {data: body.query.includes('viewer { lists')
       ? {viewer:{lists:{nodes:[{id:'LIST_BROWSER',name:'Browser List',description:'',isPrivate:true}],pageInfo:{hasNextPage:false,endCursor:null}}},rateLimit:{remaining:4000,cost:1,resetAt:'2026-10-01T00:00:00Z'}}
       : {node:{items:{nodes:[{__typename:'Repository',id:'REPO_BROWSER',nameWithOwner:'owner/e2e-repo'}],pageInfo:{hasNextPage:false,endCursor:null}}}}});
+  }
+  if (path === '/settings/github-token/verify') {
+    return json(route, githubUser);
   }
   if (path === '/proxy/github/user') {
     return json(route, githubUser);

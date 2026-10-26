@@ -9,6 +9,7 @@ import { ReadmeModal } from './ReadmeModal';
 import { Modal } from './Modal';
 import { FloatingTooltip } from './FloatingTooltip';
 import { useDialog } from '../hooks/useDialog';
+import { findIdentityMatch } from '../utils/repositoryIdentity';
 
 interface SubscriptionRepoCardProps {
   repo: DiscoveryRepo;
@@ -89,8 +90,9 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
   
   // 检查仓库是否已在本地存在（已被Star）
   const isStarredComputed = useMemo(() => {
-    return repositories.some(r => r.full_name === repo.full_name);
-  }, [repositories, repo.full_name]);
+    // Identity, not name: a repository that reused a renamed one's old name is not starred yet.
+    return findIdentityMatch(repo, repositories) !== undefined;
+  }, [repositories, repo]);
   
   // 优先使用乐观状态，否则使用计算状态
   const isStarred = optimisticStarred !== null ? optimisticStarred : isStarredComputed;
@@ -150,7 +152,7 @@ export const SubscriptionRepoCard: React.FC<SubscriptionRepoCardProps> = ({ repo
       await githubApi.unstarRepository(owner, name);
       
       // 从本地删除
-      const existingRepo = repositories.find(r => r.full_name === repo.full_name);
+      const existingRepo = findIdentityMatch(repo, repositories);
       if (existingRepo) {
         deleteRepository(existingRepo.id);
       }

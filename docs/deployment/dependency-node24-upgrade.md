@@ -17,4 +17,4 @@
 
 部署脚本使用宿主机 Node 的内置模块，不需要在服务器安装应用的开发依赖。服务器如果仍运行旧版 Node，可以把 Node 24 安装在独立工具目录，并在部署时加入 `PATH`，应用运行时则由镜像提供。
 
-NoDesk 的 Cloudflare 构建会产出 `.open-next/worker.js`，但 OpenNext 当前仍报告三个依赖复制警告，Cloudflare Worker 运行时尚未验证。nc48 使用 Docker 中的 Next.js standalone 服务，不使用这份 Worker 包。
+2026-10-26 重新验证 NoDesk 的 Cloudflare 构建，已成功产出 `.open-next/worker.js`，此前的依赖复制警告未再出现。OpenNext 仍提示 Node.js middleware 支持处于实验阶段；Cloudflare Worker 线上运行时尚未验证。nc48 使用 Docker 中的 Next.js standalone 服务，不使用这份 Worker 包。完整结果见 [本批升级记录](../quality/2026-10-26-upgrade.md)。

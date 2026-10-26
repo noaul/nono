@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useAuthStore } from '../src/stores/auth';
 import { useConfirm, clearConfirmState } from '../src/composables/useConfirm';
 import AccountView from '../src/views/admin/AccountView.vue';
+import { setLocalePreference } from '../src/composables/useI18n';
 
 const apiRequest = vi.fn();
 const startRegistration = vi.fn();
@@ -61,6 +62,20 @@ describe('AccountView security controls', () => {
     writeText.mockReset();
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     installDefaultApiMock();
+  });
+
+  it('formats account timestamps in the selected language while keeping Shanghai time', async () => {
+    setLocalePreference('en');
+    const wrapper = mount(AccountView);
+    onTestFinished(() => { wrapper.unmount(); setLocalePreference('site'); });
+    await settle();
+    const passkey = wrapper.findAll('.security-row').find(row => row.text().includes('Windows Hello'))!;
+    expect(passkey.text()).toContain('Jul 18, 2026');
+    expect(passkey.text()).toContain('9:00 AM');
+    setLocalePreference('zh');
+    await settle();
+    expect(passkey.text()).toContain('2026年7月18日');
+    expect(passkey.text()).toContain('09:00');
   });
 
   it('lets an administrator close registration and update a member role', async () => {

@@ -225,6 +225,51 @@ describe('NoStar routes', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
+  it('rekeys legacy repository rows in place and merges concurrent edits against the old baseline', async () => {
+    const cookie = await setupAdmin();
+    const legacy = 1_800_000_000_000;
+    const row: any = { id: 7, userId: 1, githubId: BigInt(legacy), name: 'tool', fullName: 'owner/tool', customDescription: 'base', customTags: [], topics: [] };
+    const rows = [row];
+    prisma.noStarRepository.findMany = async () => rows;
+    prisma.noStarRepository.update = async ({ where, data }: any) => Object.assign(rows.find(r => r.id === where.id), data);
+    prisma.noStarRepository.deleteMany = async ({ where }: any) => {
+      for (let index = rows.length - 1; index >= 0; index--) {
+        if (where.githubId?.in?.includes(rows[index].githubId)) rows.splice(index, 1);
+      }
+      return { count: 0 };
+    };
+    prisma.noStarRepository.upsert = async ({ where, update, create }: any) => {
+      const current = rows.find(r => r.githubId === where.userId_githubId.githubId);
+      if (current) return Object.assign(current, update);
+      rows.push({ id: 8, ...create });
+      return rows.at(-1);
+    };
+    const base = (await app.inject({ method: 'GET', url: '/api/nostar/repositories', headers: { cookie } })).json().repositories;
+    row.customDescription = 'remote edit';
+    const saved = await app.inject({ method: 'PUT', url: '/api/nostar/repositories', headers: { cookie }, payload: {
+      repositories: [{ ...base[0], id: 42, custom_category: 'local category' }], baseRepositories: base, isFullSync: true,
+    } });
+    expect(saved.statusCode).toBe(200);
+    expect(rows).toEqual([expect.objectContaining({ id: 7, githubId: 42n, customDescription: 'remote edit', customCategory: 'local category' })]);
+  });
+
+  it('keeps distinct real GitHub identities when one reuses the cached name of another', async () => {
+    const cookie = await setupAdmin();
+    const rows: any[] = [];
+    prisma.noStarRepository.findMany = async () => rows;
+    prisma.noStarRepository.upsert = async ({ where, update, create }: any) => {
+      const current = rows.find(r => r.githubId === where.userId_githubId.githubId);
+      if (current) return Object.assign(current, update);
+      rows.push({ id: rows.length + 1, ...create });
+      return rows.at(-1);
+    };
+    const saved = await app.inject({ method: 'PUT', url: '/api/nostar/repositories', headers: { cookie }, payload: {
+      repositories: [{ id: 41, full_name: 'owner/tool', ai_summary: 'old' }, { id: 42, full_name: 'owner/tool' }],
+    } });
+    expect(saved.statusCode).toBe(200);
+    expect(rows.map(r => [r.githubId, r.aiSummary])).toEqual([[41n, 'old'], [42n, null]]);
+  });
+
   it('keeps remote deletions while saving unrelated edits from a stale device', async () => {
     const cookie = await setupAdmin();
     const [original] = await prisma.noStarRepository.findMany({ where: { userId: 1 } });

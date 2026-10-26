@@ -28,8 +28,11 @@ interface MarkdownRendererProps {
 const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkAlerts, remarkBreaks];
 const README_SANITIZE_SCHEMA = {
   ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'picture', 'source'],
   attributes: {
     ...defaultSchema.attributes,
+    img: [...(defaultSchema.attributes?.img ?? []), 'srcSet', 'sizes'],
+    source: ['srcSet', 'media', 'type', 'sizes'],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), 'dataMarkdownAlert'],
     code: [...(defaultSchema.attributes?.code ?? []).filter(attr => (Array.isArray(attr) ? attr[0] : attr) !== 'className'), ['className', /^language-./, 'math-inline', 'math-display']],
   },
@@ -284,18 +287,87 @@ const MarkdownLink: React.FC<{ href?: string; children?: React.ReactNode; baseUr
 };
 
 const resolveImageSrc = (imageSrc: string, baseUrl?: string): string => {
-  if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://') || imageSrc.startsWith('//')) {
-    return imageSrc;
-  }
+  if (imageSrc.startsWith('//')) return `https:${imageSrc}`;
+  if (/^https?:/i.test(imageSrc)) return imageSrc;
   if (baseUrl) {
     try {
-      return new URL(imageSrc, baseUrl + '/raw/HEAD/').href;
+      return new URL(imageSrc.replace(/^\/+/, ''), baseUrl.replace(/\/+$/, '') + '/raw/HEAD/').href;
     } catch {
       return imageSrc;
     }
   }
   return imageSrc;
 };
+
+const UNSAFE_SRC_SET_SCHEME = /^(?!https?:)[a-z][a-z0-9+.-]*:/i;
+
+const SRC_SET_SPACE = /[\t\n\f\r ]/;
+
+// Follow HTML candidate splitting: commas inside URL tokens belong to the URL,
+// while commas after descriptors separate candidates. Let the browser validate descriptors.
+const parseSrcSet = (srcSet: string): Array<{ url: string; descriptor: string }> => {
+  const candidates: Array<{ url: string; descriptor: string }> = [];
+  let position = 0;
+
+  while (position < srcSet.length) {
+    // Splitting loop: skip the whitespace/commas separating candidates.
+    while (
+      position < srcSet.length
+      && (SRC_SET_SPACE.test(srcSet[position]) || srcSet[position] === ',')
+    ) {
+      position += 1;
+    }
+    if (position >= srcSet.length) break;
+
+    // The URL runs until the next whitespace, so commas inside it stay part of it.
+    let url = '';
+    while (position < srcSet.length && !SRC_SET_SPACE.test(srcSet[position])) {
+      url += srcSet[position];
+      position += 1;
+    }
+
+    let descriptor = '';
+    if (url.endsWith(',')) {
+      // Descriptor-less candidate: it ended on its trailing comma(s).
+      url = url.replace(/,+$/, '');
+    } else {
+      // Descriptor tokens run until the next comma outside parentheses.
+      const start = position;
+      let parens = 0;
+      while (position < srcSet.length) {
+        const char = srcSet[position];
+        if (char === '(') parens += 1;
+        else if (char === ')') parens = Math.max(parens - 1, 0);
+        else if (char === ',' && parens === 0) break;
+        position += 1;
+      }
+      descriptor = srcSet.slice(start, position).trim();
+    }
+
+    if (url) candidates.push({ url, descriptor });
+  }
+
+  return candidates;
+};
+
+// srcset bypasses react-markdown's URL transform and sanitize's protocol checks.
+// Validate every URL before resolving relative repository assets.
+const resolveSrcSet = (srcSet: string | undefined, baseUrl?: string): string | undefined => {
+  if (!srcSet) return srcSet;
+
+  return parseSrcSet(srcSet)
+    .map(({ url, descriptor }) => {
+      const candidate = Array.from(url).filter(char => char.charCodeAt(0) > 32).join('');
+      if (!candidate || UNSAFE_SRC_SET_SCHEME.test(candidate)) return null;
+      const resolved = resolveImageSrc(candidate, baseUrl);
+      return descriptor ? `${resolved} ${descriptor}` : resolved;
+    })
+    .filter((candidate): candidate is string => candidate !== null)
+    .join(', ');
+};
+
+// Image controls wrap the picture; its source and img must stay direct children.
+const PictureSourcesContext = React.createContext<React.ReactNode>(null);
 
 const truncateUrl = (url: string, maxLength: number = 50): string => {
   if (url.length <= maxLength) return url;
@@ -311,8 +383,10 @@ const truncateUrl = (url: string, maxLength: number = 50): string => {
   }
 };
 
-const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> = ({
+const MarkdownImage: React.FC<{ src?: string; srcSet?: string; sizes?: string; alt?: string; baseUrl?: string }> = ({
   src,
+  srcSet,
+  sizes,
   alt,
   baseUrl
 }) => {
@@ -334,6 +408,9 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
   const { language } = useAppStore();
 
   const imageUrl = useMemo(() => resolveImageSrc(src || '', baseUrl), [src, baseUrl]);
+  const pictureSources = React.useContext(PictureSourcesContext);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(imageUrl);
+  useEffect(() => { setSelectedImageUrl(imageUrl); }, [imageUrl, srcSet, pictureSources]);
 
   useEffect(() => {
     if (!src) return;
@@ -388,7 +465,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
     setIsDownloading(true);
     let objectUrl: string | null = null;
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(selectedImageUrl);
       const blob = await response.blob();
       objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -403,7 +480,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
     } catch {
       try {
         const a = document.createElement('a');
-        a.href = imageUrl;
+        a.href = selectedImageUrl;
         a.download = alt ? alt.replace(/[/\\?%*:|"<>]/g, '_') : 'image';
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
@@ -418,7 +495,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setIsDownloading(false);
     }
-  }, [imageUrl, alt, isDownloading]);
+  }, [selectedImageUrl, alt, isDownloading]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (zoomScale > 1 && e.touches.length === 1) {
@@ -451,12 +528,13 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
 
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     setIsLoading(false);
+    setSelectedImageUrl(e.currentTarget.currentSrc || imageUrl);
     const w = (e.target as HTMLImageElement).naturalWidth;
     const h = (e.target as HTMLImageElement).naturalHeight;
     setNaturalWidth(w);
     setNaturalHeight(h);
     setImageSizeKnown(true);
-  }, []);
+  }, [imageUrl]);
 
   const handleImageError = useCallback(() => {
     setHasError(true);
@@ -472,6 +550,10 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
   }, []);
 
   const isSmallImage = imageSizeKnown && naturalWidth > 0 && naturalWidth < 300;
+
+  const renderMedia = (image: React.ReactNode) => pictureSources === null
+    ? image
+    : <picture>{pictureSources}{image}</picture>;
 
   if (!src) return null;
 
@@ -503,9 +585,11 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
             <span className="w-20 h-7 bg-light-surface dark:bg-white/[0.04] rounded-sm animate-pulse inline-block" />
           )}
           <span className="relative inline-block">
-            <img
+            {renderMedia(<img
               ref={imgRef}
               src={imageUrl}
+              srcSet={resolveSrcSet(srcSet, baseUrl)}
+              sizes={sizes}
               alt={alt || ''}
               className={`
                 h-auto rounded
@@ -524,7 +608,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
               onLoad={handleImageLoad}
               onError={handleImageError}
               onClick={handleImageClick}
-            />
+            />)}
           </span>
         </span>
       ) : (
@@ -539,9 +623,11 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
           )}
 
           <span className={`relative inline-block rounded-xl overflow-hidden shadow-xs hover:shadow-lg transition-shadow duration-300 ${isLoading ? 'hidden' : ''}`}>
-            <img
+            {renderMedia(<img
               ref={imgRef}
               src={imageUrl}
+              srcSet={resolveSrcSet(srcSet, baseUrl)}
+              sizes={sizes}
               alt={alt || ''}
               className={`
                 h-auto rounded-xl
@@ -559,7 +645,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
               onLoad={handleImageLoad}
               onError={handleImageError}
               onClick={handleImageClick}
-            />
+            />)}
             <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-black/5 dark:ring-white/5 pointer-events-none" />
           </span>
 
@@ -735,7 +821,7 @@ const MarkdownImage: React.FC<{ src?: string; alt?: string; baseUrl?: string }> 
             onTouchEnd={handleTouchEnd}
           >
             <img
-              src={imageUrl}
+              src={selectedImageUrl}
               alt={alt || ''}
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-md transition-transform duration-100"
               style={{
@@ -823,6 +909,17 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = memo(({
   const markdownComponents: Components = useMemo(() => ({
     a: (props) => <MarkdownLink {...props} baseUrl={baseUrl} headingIds={headingIds} />,
     img: (props) => <MarkdownImage {...props} baseUrl={baseUrl} />,
+    source: ({ srcSet, media, type, sizes }) => <source srcSet={resolveSrcSet(srcSet, baseUrl)} media={media} type={type} sizes={sizes} />,
+    picture: ({ children }) => {
+      const nodes = React.Children.toArray(children);
+      const isSource = (child: React.ReactNode) => React.isValidElement<{ node?: { tagName?: string } }>(child) && child.props.node?.tagName === 'source';
+      const sources = nodes.filter(isSource);
+      const images = nodes.filter(child => !isSource(child));
+      if (!images.some(child => React.isValidElement<{ node?: { tagName?: string } }>(child) && child.props.node?.tagName === 'img')) {
+        return <picture>{children}</picture>;
+      }
+      return <PictureSourcesContext.Provider value={sources}>{images}</PictureSourcesContext.Provider>;
+    },
     // Embedded markdown sits below the page's h1, which the app shell topbar owns, so every
     // source level is shifted down by one rather than flattened: `#` becomes an h2, `##` an h3,
     // and so on. h5 and h6 both land on h6 because the scale stops there. Visual classes and

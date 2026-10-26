@@ -119,7 +119,7 @@ export function ProviderJump({ label, href, empty }: { label: string; href?: str
           <ExternalLink size={13} />
         </a>
       ) : (
-        <div className="mt-1 truncate text-sm text-slate-400">{empty}</div>
+        <div className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{empty}</div>
       )}
     </div>
   );
@@ -154,47 +154,47 @@ export function AssetCardView({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="truncate font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</h3>
-          <p className="mt-1 truncate text-sm text-slate-500">{isBuyout ? `${copy('买断制', 'Buyout')} · ${getText(item, config.secondaryKey)}` : getText(item, config.secondaryKey)}</p>
+          <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{isBuyout ? `${copy('买断制', 'Buyout')} · ${getText(item, config.secondaryKey)}` : getText(item, config.secondaryKey)}</p>
         </div>
         <StatusBadge status={item.status} />
       </div>
       <div className="mt-3 flex items-end justify-between gap-4 sm:mt-5">
         <div>
           <p className="font-mono text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{isBuyout ? copy('一次性买断', 'One-time purchase') : `${copy(formatCycle(item.billingCycle, 'zh'), formatCycle(item.billingCycle, 'en'))} · ${item.autoRenew ? copy('自动续费', 'Auto renew') : copy('手动续费', 'Manual renewal')}`}</p>
         </div>
         {left !== null && (
           <div className={`text-right font-mono text-sm font-semibold ${dueTone(left)}`}>
             {left}d
-            <p className="font-sans text-[11px] font-normal text-slate-400">{compactDate(dueDate)}</p>
+            <p className="font-sans text-[11px] font-normal text-slate-500 dark:text-slate-400">{compactDate(dueDate)}</p>
           </div>
         )}
       </div>
       {item.tags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4">
-          {item.tags.map((tag) => <span key={tag} className="rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 dark:border-white/10">{tag}</span>)}
+          {item.tags.map((tag) => <span key={tag} className="rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 dark:text-slate-400 dark:border-white/10">{tag}</span>)}
         </div>
       )}
       <div className="mt-3 flex justify-end gap-1 border-t border-slate-100 pt-2 sm:mt-5 sm:pt-3 dark:border-white/[0.06]">
         {item.renewalUrl && (
-          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开续费链接', 'Open renewal link')}>
+          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开续费链接', 'Open renewal link')}>
             <ExternalLink size={14} />
           </a>
         )}
         {renewAction}
         <button
           onClick={() => onDuplicate(item)}
-          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
           title={copy('复制条目', 'Duplicate entry')}
           aria-label={copy('复制条目', 'Duplicate entry')}
           disabled={duplicating}
         >
           {duplicated ? <Check size={14} /> : <Copy className={duplicating ? 'animate-pulse' : ''} size={14} />}
         </button>
-        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
+        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -304,7 +304,7 @@ export function getText(item: AssetItem, key: string) {
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase text-slate-500">{title}</h3>
+      <h3 className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{title}</h3>
       <div className="space-y-3">{children}</div>
     </section>
   );

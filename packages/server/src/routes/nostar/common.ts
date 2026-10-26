@@ -103,7 +103,9 @@ export async function findReleaseRepository(tx: AnyRecord, userId: number, relea
   if (ref.githubId !== null) {
     return tx.noStarRepository.findUnique({ where: { userId_githubId: { userId, githubId: ref.githubId } } });
   }
-  return ref.fullName ? tx.noStarRepository.findUnique({ where: { userId_fullName: { userId, fullName: ref.fullName } } }) : null;
+  if (!ref.fullName) return null;
+  const matches = await tx.noStarRepository.findMany({ where: { userId, fullName: ref.fullName }, take: 2 });
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export function releaseData(release: AnyRecord, repositoryId: number) {

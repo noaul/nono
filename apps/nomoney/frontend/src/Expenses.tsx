@@ -166,18 +166,18 @@ export function Expenses() {
   };
 
   const columns: DataTableColumn<ExpenseItem>[] = [
-    { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <div><span className="font-medium text-slate-950 dark:text-white">{item.assetLabel ?? item.assetType}</span><span className="ml-2 font-mono text-xs text-slate-400">#{item.assetId}</span></div> },
-    { key: 'type', header: copy('类型', 'Type'), render: (item) => <span className="text-xs text-slate-500">{copy(...(assetTypeLabels[item.assetType] ?? [item.assetType, item.assetType]))}</span> },
+    { key: 'asset', header: copy('资产', 'Asset'), render: (item) => <div><span className="font-medium text-slate-950 dark:text-white">{item.assetLabel ?? item.assetType}</span><span className="ml-2 font-mono text-xs text-slate-500 dark:text-slate-400">#{item.assetId}</span></div> },
+    { key: 'type', header: copy('类型', 'Type'), render: (item) => <span className="text-xs text-slate-500 dark:text-slate-400">{copy(...(assetTypeLabels[item.assetType] ?? [item.assetType, item.assetType]))}</span> },
     { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'paid', header: copy('支付日期', 'Paid on'), align: 'right', render: (item) => <span className="font-mono text-slate-500">{item.paidAt}</span> },
-    { key: 'period', header: copy('覆盖周期', 'Period'), align: 'right', render: (item) => <span className="text-slate-500">{compactDate(item.periodStart)} – {compactDate(item.periodEnd)}</span> },
-    { key: 'cat', header: copy('分类', 'Category'), render: (item) => <span className="rounded-lg border border-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:border-white/10">{copy(...(categoryLabels[item.category] ?? [item.category, item.category]))}</span> },
+    { key: 'paid', header: copy('支付日期', 'Paid on'), align: 'right', render: (item) => <span className="font-mono text-slate-500 dark:text-slate-400">{item.paidAt}</span> },
+    { key: 'period', header: copy('覆盖周期', 'Period'), align: 'right', render: (item) => <span className="text-slate-500 dark:text-slate-400">{compactDate(item.periodStart)} – {compactDate(item.periodEnd)}</span> },
+    { key: 'cat', header: copy('分类', 'Category'), render: (item) => <span className="rounded-lg border border-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400 dark:border-white/10">{copy(...(categoryLabels[item.category] ?? [item.category, item.category]))}</span> },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => remove(item)}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => remove(item)}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -217,9 +217,9 @@ export function Expenses() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-slate-950 dark:text-white">{copy('费用流水', 'Expense ledger')}</h2>
-            <p className="mt-1 text-xs text-slate-500">{copy(`当前筛选 ${meta?.total ?? items.length} 条记录`, `${meta?.total ?? items.length} records in the current filter`)}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{copy(`当前筛选 ${meta?.total ?? items.length} 条记录`, `${meta?.total ?? items.length} records in the current filter`)}</p>
           </div>
-          <span className="font-mono text-xs text-slate-400">{formatTotals(totals)}</span>
+          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{formatTotals(totals)}</span>
         </div>
         {loading ? (
           <Skeleton className="h-64" />

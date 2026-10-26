@@ -657,7 +657,7 @@ export function PhoneCardView({
           <div className="flex max-w-full items-center gap-2">
             <h3 className="truncate font-mono text-lg font-semibold text-slate-950 dark:text-white">{getPhoneDisplayNumber(item)}</h3>
             <button
-              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${copiedNumber ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${copiedNumber ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
               onClick={() => onCopyNumber(item)}
               title={copy('复制号码', 'Copy number')}
               aria-label={copy('复制号码', 'Copy number')}
@@ -671,7 +671,7 @@ export function PhoneCardView({
             <LinkedAccountsBadge item={item} copy={copy} />
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-sm">
-            <span className="truncate text-slate-500">{stringValue(item.carrier) || '-'}</span>
+            <span className="truncate text-slate-500 dark:text-slate-400">{stringValue(item.carrier) || '-'}</span>
             {isForeign ? (
               <span className="shrink-0 rounded-md bg-brand-500/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-brand-600 dark:text-brand-300">{getPhoneCountryCode(item)}</span>
             ) : (
@@ -684,11 +684,11 @@ export function PhoneCardView({
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-          <p className="text-xs text-slate-500">{copy('月花费', 'Monthly cost')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{copy('月花费', 'Monthly cost')}</p>
           <p className="mt-1 font-mono text-xl font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-          <p className="text-xs text-slate-500">{isForeign ? copy('保号截止', 'Keepalive until') : copy('套餐资源', 'Plan usage')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{isForeign ? copy('保号截止', 'Keepalive until') : copy('套餐资源', 'Plan usage')}</p>
           <p className="mt-1 truncate font-mono text-sm font-semibold text-slate-950 dark:text-white">
             {isForeign ? compactDate(stringValue(item.totalKeepaliveUntil)) : `${Number(item.dataAllowanceGb ?? 0) || '-'}G / ${Number(item.voiceMinutes ?? 0) || '-'}min`}
           </p>
@@ -697,7 +697,7 @@ export function PhoneCardView({
 
       {left !== null && (
         <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-white/10">
-          <span className="text-slate-500">{copy('下次扣费', 'Next payment')}</span>
+          <span className="text-slate-500 dark:text-slate-400">{copy('下次扣费', 'Next payment')}</span>
           <span className={`font-mono font-semibold ${dueTone(left)}`}>{compactDate(dueDate)} · {left}d</span>
         </div>
       )}
@@ -706,17 +706,17 @@ export function PhoneCardView({
         {renewAction}
         <button
           onClick={() => onDuplicate(item)}
-          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
           title={duplicateTitle}
           aria-label={duplicateTitle}
           disabled={duplicating}
         >
           {duplicated ? <Check size={14} /> : <Copy className={duplicating ? 'animate-pulse' : ''} size={14} />}
         </button>
-        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
+        <button onClick={() => onEdit(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button onClick={() => onDelete(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>

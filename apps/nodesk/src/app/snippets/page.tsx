@@ -169,7 +169,7 @@ export default function Page() {
 				</motion.div>
 			)}
 
-			<DialogModal open={isManageOpen} onClose={cancelManageChanges} className='card static w-[520px] max-sm:w-full'>
+			<DialogModal ariaLabel={copy('管理短句', 'Manage snippets')} open={isManageOpen} onClose={cancelManageChanges} className='card static w-[520px] max-sm:w-full'>
 				<div className='space-y-4'>
 					<div className='flex items-center gap-3'>
 						<input

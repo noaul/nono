@@ -4,6 +4,7 @@ import NotificationsView from '../src/views/admin/NotificationsView.vue';
 import ToastHost from '../src/components/admin/ToastHost.vue';
 import { apiRequest } from '../src/api/client';
 import { clearToasts } from '../src/composables/useToasts';
+import { closeTopLayer } from '../src/mobile/back-layers';
 
 vi.mock('../src/api/client', () => ({
   apiRequest: vi.fn(),
@@ -118,7 +119,7 @@ describe('NotificationsView', () => {
         item: { id: 10, expireDate: '2027-08-10' },
         renewal: { id: 41, renewedExpireDate: '2027-08-10', amountMinorUnits: 1200, currency: 'USD' },
       } as any);
-    const wrapper = mount(NotificationsView);
+    const wrapper = mount(NotificationsView, { attachTo: document.body, global: { stubs: { RouterLink: true } } });
     await flushPromises();
 
     await wrapper.get('[data-testid="mark-vps-renewed-10"]').trigger('click');
@@ -129,12 +130,31 @@ describe('NotificationsView', () => {
     }));
     expect(wrapper.findAll('.notification-row')).toHaveLength(0);
 
-    const toastHost = mount(ToastHost);
+    const toastHost = mount(ToastHost, { attachTo: document.body });
     expect(toastHost.text()).toContain('撤销');
     expect(toastHost.text()).toContain('修改金额');
 
-    await toastHost.findAll('.toast-action').find((button) => button.text() === '修改金额')!.trigger('click');
+    const openEditor = async () => {
+      const editButton = toastHost.findAll('.toast-action').find((button) => button.text() === '修改金额')!;
+      (editButton.element as HTMLElement).focus();
+      await editButton.trigger('click');
+      await flushPromises();
+    };
+    await openEditor();
+    const dialog = wrapper.get('[data-testid="renewal-amount-editor"]');
+    expect(document.activeElement).toBe(dialog.get('input').element);
+    expect(document.body.style.overflow).toBe('hidden');
+    const controls = dialog.findAll('button');
+    (controls.at(-1)!.element as HTMLElement).focus();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(controls[0].element);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await flushPromises();
-    expect(wrapper.find('[data-testid="renewal-amount-editor"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="renewal-amount-editor"]').exists()).toBe(false);
+    expect(document.body.style.overflow).toBe('');
+    expect(document.activeElement).toBe(wrapper.get('.notification-filters button').element);
+    expect(closeTopLayer()).toBe(false);
+    wrapper.unmount();
+    toastHost.unmount();
   });
 });

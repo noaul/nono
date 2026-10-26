@@ -689,7 +689,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       type="button"
       onClick={() => checkDomain(item)}
       disabled={checkingDomainId === item.id}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-brand-600 disabled:cursor-wait dark:hover:bg-white/[0.06]"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-100 hover:text-brand-600 dark:hover:text-brand-600 disabled:cursor-wait dark:hover:bg-white/[0.06]"
       title={copy('查询注册局到期日与 SSL 证书', 'Check registry expiry and TLS certificate')}
       aria-label={copy('查询注册局到期日与 SSL 证书', 'Check registry expiry and TLS certificate')}
     >
@@ -699,7 +699,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const duplicateAction = (item: AssetItem) => (
     <button
       type="button"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicatedId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicatedId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
       onClick={() => duplicateEntry(item)}
       disabled={duplicatingId === item.id}
       title={copy('复制条目', 'Duplicate entry')}
@@ -719,7 +719,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <div className="flex max-w-full items-center gap-2">
           <span className="truncate font-mono font-semibold text-slate-950 dark:text-white">{getPhoneDisplayNumber(item)}</span>
           <button
-            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${copiedPhoneNumberId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${copiedPhoneNumberId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
             onClick={() => copyPhoneNumber(item)}
             title={copy('复制号码', 'Copy number')}
             aria-label={copy('复制号码', 'Copy number')}
@@ -727,7 +727,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             {copiedPhoneNumberId === item.id ? <Check size={13} /> : <Copy size={13} />}
           </button>
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
           {stringValue(item.phoneType) === 'foreign'
             ? `${copy('国外电话卡', 'Foreign SIM')} · ${getSimFormFactorLabel(item, copy)}`
             : copy('国内电话卡', 'Domestic SIM')}
@@ -746,7 +746,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       </div>
     ) },
     { key: 'usage', header: isForeignPhoneView ? copy('保号', 'Keepalive') : copy('套餐', 'Plan'), render: (item) => (
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-slate-500 dark:text-slate-400">
         {stringValue(item.phoneType) === 'foreign'
           ? <span>{compactDate(stringValue(item.totalKeepaliveUntil)) || '-'} · {stringValue(item.keepaliveDays) || '-'}d</span>
           : <span>{Number(item.dataAllowanceGb ?? 0) || '-'}G / {Number(item.voiceMinutes ?? 0) || '-'}min</span>}
@@ -765,7 +765,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
               : copy('复制条目', 'Duplicate entry');
           return (
             <button
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
               onClick={() => duplicateEntry(item)}
               title={title}
               aria-label={title}
@@ -776,10 +776,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           );
         })()}
         {renewAction(item)}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -788,11 +788,11 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
   const genericColumns: DataTableColumn<AssetItem>[] = [
     { key: 'name', header: copy('名称', 'Name'), render: (item) => <span className="font-medium text-slate-950 dark:text-white">{getText(item, config.primaryKey)}</span> },
-    { key: 'provider', header: copy('供应商', 'Provider'), render: (item) => <span className="text-slate-500">{getText(item, config.secondaryKey)}</span> },
+    { key: 'provider', header: copy('供应商', 'Provider'), render: (item) => <span className="text-slate-500 dark:text-slate-400">{getText(item, config.secondaryKey)}</span> },
     { key: 'amount', header: copy('金额', 'Amount'), align: 'right', render: (item) => <span className="font-mono font-semibold text-slate-950 dark:text-white">{formatMoney(item.amountMinorUnits, item.currency)}</span> },
-    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500">{isSubscription && item.purchaseType === 'buyout' ? copy('买断', 'Buyout') : formatCycle(item.billingCycle, language)}</span> },
+    { key: 'cycle', header: copy('周期', 'Cycle'), align: 'right', render: (item) => <span className="text-slate-500 dark:text-slate-400">{isSubscription && item.purchaseType === 'buyout' ? copy('买断', 'Buyout') : formatCycle(item.billingCycle, language)}</span> },
     { key: 'days', header: copy('剩余', 'Remaining'), align: 'right', render: (item) => {
-      if (isSubscription && item.purchaseType === 'buyout') return <span className="text-slate-400">-</span>;
+      if (isSubscription && item.purchaseType === 'buyout') return <span className="text-slate-500 dark:text-slate-400">-</span>;
       const dueDate = String(item[config.dueKey] ?? item.nextDueDate ?? item.expireDate ?? '');
       const left = daysLeft(dueDate || null);
       return <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>;
@@ -801,15 +801,15 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {item.renewalUrl && (
-          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]">
+          <a href={item.renewalUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:text-brand-600 dark:hover:bg-white/[0.06]">
             <ExternalLink size={14} />
           </a>
         )}
         {renewAction(item)}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -824,7 +824,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             <span className="truncate font-mono text-sm font-semibold text-slate-950 dark:text-white">{domainName}</span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-white/[0.06]">
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:bg-white/[0.06]">
               {normalizeDomainExtension(item.domainExtension || inferDomainExtension(item.domainName)) || '-'}
             </span>
           </div>
@@ -834,7 +834,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'registrar', header: copy('服务商 / 账号', 'Provider / account'), render: (item) => (
       <div className="min-w-0">
         <span className="text-slate-800 dark:text-slate-200">{getText(item, 'registrar')}</span>
-        <p className="mt-1 truncate font-mono text-xs text-slate-500">{stringValue(item.registrarAccount) || '-'}</p>
+        <p className="mt-1 truncate font-mono text-xs text-slate-500 dark:text-slate-400">{stringValue(item.registrarAccount) || '-'}</p>
       </div>
     ) },
     { key: 'dates', header: copy('续费 / 到期', 'Renewal / expiry'), align: 'right', render: (item) => {
@@ -843,7 +843,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       return (
         <div>
           <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>
-          <p className="mt-1 font-mono text-xs text-slate-500">{compactDate(dueDate || stringValue(item.expireDate))}</p>
+          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{compactDate(dueDate || stringValue(item.expireDate))}</p>
         </div>
       );
     } },
@@ -861,7 +861,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
               : copy('复制条目', 'Duplicate entry');
           return (
             <button
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${isDuplicated ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
               onClick={() => duplicateEntry(item)}
               title={title}
               aria-label={title}
@@ -872,20 +872,20 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           );
         })()}
         {domainLink(item) && (
-          <a href={domainLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
+          <a href={domainLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:text-brand-600 dark:hover:bg-white/[0.06]" title={copy('打开服务商', 'Open provider')}>
             <ExternalLink size={14} />
           </a>
         )}
         {dnsProviderLink(item) && dnsProviderLink(item) !== domainLink(item) && (
-          <a href={dnsProviderLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
+          <a href={dnsProviderLink(item) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 dark:hover:bg-white/[0.06]" title={copy('打开 DNS', 'Open DNS')}>
             <Link2 size={14} />
           </a>
         )}
         {renewAction(item)}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -898,13 +898,13 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           <MonitorDot status={getMonitorStatus(item, monitorById[item.id])} />
           <span className="truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</span>
         </div>
-        <p className="mt-1 truncate font-mono text-xs text-slate-500">{stringValue(item.ipAddress) || stringValue(item.sshHost) || '-'}</p>
+        <p className="mt-1 truncate font-mono text-xs text-slate-500 dark:text-slate-400">{stringValue(item.ipAddress) || stringValue(item.sshHost) || '-'}</p>
       </div>
     ) },
     { key: 'provider', header: copy('服务商 / 位置', 'Provider / region'), render: (item) => (
       <div>
         <span className="text-slate-700 dark:text-slate-300">{stringValue(item.provider) || '-'}</span>
-        <p className="mt-1 text-xs text-slate-500">{stringValue(item.location) || stringValue(item.os) || '-'}</p>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stringValue(item.location) || stringValue(item.os) || '-'}</p>
       </div>
     ) },
     { key: 'cpu', header: 'CPU', align: 'right', render: (item) => <span className="font-mono font-semibold">{formatPercent(getMonitorNumber(item, monitorById[item.id], 'monitorCpuPercent', 'cpuPercent'))}</span> },
@@ -912,7 +912,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     { key: 'net', header: copy('网络', 'Network'), align: 'right', render: (item) => (
       <div className="font-mono text-xs">
         <span className="text-success-600 dark:text-success-400">{formatBps(getMonitorNumber(item, monitorById[item.id], 'monitorNetInBps', 'netInBps'))}</span>
-        <span className="mx-1 text-slate-400">/</span>
+        <span className="mx-1 text-slate-500 dark:text-slate-400">/</span>
         <span className="text-brand-600 dark:text-brand-400">{formatBps(getMonitorNumber(item, monitorById[item.id], 'monitorNetOutBps', 'netOutBps'))}</span>
       </div>
     ) },
@@ -922,24 +922,24 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       return (
         <div>
           <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>
-          <p className="mt-1 font-mono text-xs text-slate-500">{compactDate(dueDate)}</p>
+          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{compactDate(dueDate)}</p>
         </div>
       );
     } },
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 dark:hover:bg-white/[0.06]" onClick={() => refreshVpsMonitor(item)} title={copy('刷新监控', 'Refresh monitor')} disabled={!stringValue(item.probeUrl)}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 dark:hover:bg-white/[0.06]" onClick={() => refreshVpsMonitor(item)} title={copy('刷新监控', 'Refresh monitor')} disabled={!stringValue(item.probeUrl)}>
           <RefreshCw className={monitorById[item.id]?.loading ? 'animate-spin' : ''} size={14} />
         </button>
-        <button className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSshId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} onClick={() => copySshCommand(item)} title={copy('复制 SSH 命令', 'Copy SSH command')}>
+        <button className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSshId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} onClick={() => copySshCommand(item)} title={copy('复制 SSH 命令', 'Copy SSH command')}>
           {copiedSshId === item.id ? <Check size={14} /> : <Terminal size={14} />}
         </button>
         {renewAction(item)}
         {duplicateAction(item)}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
           <Pencil size={14} />
         </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
+        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -1138,15 +1138,15 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
           </IconButton>
           <div className="ml-auto flex gap-1">
             <CsvTools endpoint={config.endpoint} copy={copy} onError={setError} onImported={async (message) => { setNotice(message); await load(); }} />
-            <IconButton onClick={() => setView('card')} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('卡片', 'Cards')}>
+            <IconButton onClick={() => setView('card')} aria-pressed={view === 'card'} className={view === 'card' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-600 dark:!text-brand-400' : ''} title={copy('卡片', 'Cards')}>
               <Grid3X3 size={16} />
             </IconButton>
             {(isDomain || isPhone) && (
-              <IconButton onClick={() => setView('compact')} className={view === 'compact' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('小卡片', 'Compact cards')}>
+              <IconButton onClick={() => setView('compact')} aria-pressed={view === 'compact'} className={view === 'compact' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-600 dark:!text-brand-400' : ''} title={copy('小卡片', 'Compact cards')}>
                 <CalendarClock size={16} />
               </IconButton>
             )}
-            <IconButton onClick={() => setView('table')} className={view === 'table' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-500' : ''} title={copy('表格', 'Table')}>
+            <IconButton onClick={() => setView('table')} aria-pressed={view === 'table'} className={view === 'table' ? '!border-brand-500/30 !bg-brand-500/10 !text-brand-600 dark:!text-brand-400' : ''} title={copy('表格', 'Table')}>
               <List size={16} />
             </IconButton>
           </div>
@@ -1186,7 +1186,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         </div>
       ) : (
         <>
-          <p className="text-xs text-slate-400">{copy('勾选多行可批量标记已付、改状态、打标签或删除。', 'Tick rows to mark paid, change status, tag or delete in bulk.')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{copy('勾选多行可批量标记已付、改状态、打标签或删除。', 'Tick rows to mark paid, change status, tag or delete in bulk.')}</p>
           <DataTable columns={columns} data={items} />
         </>
       )}
@@ -1204,7 +1204,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
 
       {meta && !isPhoneVisual && meta.total > pageSizes[0] && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-ink-900">
-          <span className="text-slate-500">{copy(`共 ${meta.total} 项`, `${meta.total} items`)}</span>
+          <span className="text-slate-500 dark:text-slate-400">{copy(`共 ${meta.total} 项`, `${meta.total} items`)}</span>
           <div className="flex flex-wrap items-center gap-2">
             <select className={`${inputClass} !h-8 !w-auto text-xs`} value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label={copy('每页条数', 'Page size')}>
               {pageSizes.map((size) => <option key={size} value={size}>{copy(`每页 ${size}`, `${size} / page`)}</option>)}

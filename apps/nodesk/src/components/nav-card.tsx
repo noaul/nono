@@ -113,10 +113,10 @@ export default function NavCard() {
 					</>
 				)}
 
-				<Link className='flex items-center gap-3' href='/'>
+				<Link className='flex items-center gap-3' href='/' aria-label={form === 'full' ? undefined : copy('首页', 'Home')}>
 					<Image
 						src={siteContent.meta.avatarUrl || '/images/avatar.png'}
-						alt='avatar'
+						alt=''
 						width={40}
 						height={40}
 						style={{ boxShadow: ' 0 12px 20px -5px #E2D9CE' }}
@@ -158,7 +158,11 @@ export default function NavCard() {
 									key={item.href}
 									href={item.href}
 									className={cn('text-secondary text-md relative z-10 flex items-center gap-3 rounded-full px-5 py-3', form === 'icons' && 'p-0')}
-									onMouseEnter={() => setHoveredIndex(index)}>
+									// Icons-only form has no visible text, so the label is the link's name.
+									aria-label={form === 'icons' ? item.label : undefined}
+									aria-current={activeIndex === index ? 'page' : undefined}
+									onMouseEnter={() => setHoveredIndex(index)}
+									onFocus={() => setHoveredIndex(index)}>
 									<div className='flex h-7 w-7 items-center justify-center'>
 										{hoveredIndex == index ? <item.iconActive className='text-brand absolute h-7 w-7' /> : <item.icon className='absolute h-7 w-7' />}
 									</div>

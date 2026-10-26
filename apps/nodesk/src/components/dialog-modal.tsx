@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
+import { activateDialog } from '@/lib/dialog-behavior'
 
 interface DialogModalProps {
+	ariaLabel: string
 	open: boolean
 	onClose: () => void
 	children: ReactNode
@@ -16,34 +18,24 @@ interface DialogModalProps {
 	closeOnEsc?: boolean
 }
 
-export function DialogModal({ open, onClose, children, className, disableCloseOnOverlay = false, lockScroll = true, closeOnEsc = true }: DialogModalProps) {
+export function DialogModal({ ariaLabel, open, onClose, children, className, disableCloseOnOverlay = false, lockScroll = true, closeOnEsc = true }: DialogModalProps) {
 	const [mounted, setMounted] = useState(false)
+	const reducedMotion = useReducedMotion()
+	const panelRef = useRef<HTMLDivElement>(null)
+	const onCloseRef = useRef(onClose)
+	onCloseRef.current = onClose
 
 	useEffect(() => {
 		setMounted(true)
 	}, [])
 
 	useEffect(() => {
-		if (!lockScroll || !open) return
-		const previous = document.body.style.overflow
-		document.body.style.overflow = 'hidden'
-		return () => {
-			document.body.style.overflow = previous
-		}
-	}, [lockScroll, open])
-
-	useEffect(() => {
-		if (!closeOnEsc || !open) return
-		const handler = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') {
-				onClose()
-			}
-		}
-		window.addEventListener('keydown', handler)
-		return () => {
-			window.removeEventListener('keydown', handler)
-		}
-	}, [closeOnEsc, onClose, open])
+		if (!open || !mounted || !panelRef.current) return
+		return activateDialog(panelRef.current, {
+			lockScroll,
+			onClose: closeOnEsc ? () => onCloseRef.current() : undefined
+		})
+	}, [closeOnEsc, lockScroll, mounted, open])
 
 	if (!mounted) return null
 
@@ -54,13 +46,20 @@ export function DialogModal({ open, onClose, children, className, disableCloseOn
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
+					transition={reducedMotion ? { duration: 0 } : undefined}
 					className={'fixed inset-0 z-50 flex items-center justify-center bg-card p-4 backdrop-blur-xl'}
 					onClick={disableCloseOnOverlay ? undefined : onClose}>
 					<motion.div
-						initial={{ opacity: 0, scale: 0.8, y: 20 }}
+						ref={panelRef}
+						role='dialog'
+						aria-modal='true'
+						aria-label={ariaLabel}
+						tabIndex={-1}
+						initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8, y: 20 }}
 						animate={{ opacity: 1, scale: 1, y: 0 }}
-						exit={{ opacity: 0, scale: 0.8, y: 20 }}
-						className={cn('static', className)}
+						transition={reducedMotion ? { duration: 0 } : undefined}
+						exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8, y: 20 }}
+						className={cn('static outline-none focus-visible:ring-2 focus-visible:ring-brand/50', className)}
 						onClick={e => e.stopPropagation()}>
 						{children}
 					</motion.div>

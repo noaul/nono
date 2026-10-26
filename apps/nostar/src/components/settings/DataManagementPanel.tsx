@@ -1,5 +1,6 @@
 import { readBatchTwoSettings, normalizeDisplayPreferences, type DisplayPreferences } from '../../utils/displayPreferences';
 import { normalizeAssetFilters } from '../../utils/assetFilters';
+import { canonicalizeImportedRepositoryReferences } from '../../utils/repositoryIdentity';
 import { Github } from '../BrandIcons';
 import React, { useState, useCallback, useMemo } from 'react';
 import { formatShanghaiDateTime, shanghaiDateKey } from '../../utils/dateTime';
@@ -607,7 +608,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
     setIsImporting(true);
     try {
       const store = useAppStore.getState();
-      const importedData = importPreview.data.data;
+      let importedData = importPreview.data.data;
       const batchSettings = readBatchTwoSettings(importedData as Record<string, unknown>);
       const nextBatchSettings: ReturnType<typeof readBatchTwoSettings> = {};
       if (selectedTypes.includes('uiSettings') && batchSettings.displayPreferences) nextBatchSettings.displayPreferences = batchSettings.displayPreferences;
@@ -624,6 +625,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
         if (selectedTypes.includes('repositories') && importedData.repositories) {
           store.setRepositories(importedData.repositories);
         }
+        importedData = canonicalizeImportedRepositoryReferences(importedData, useAppStore.getState().repositories);
         if (selectedTypes.includes('releases') && importedData.releases) {
           store.setReleases(importedData.releases);
         }
@@ -746,6 +748,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ t }) =
           const newRepos = importedData.repositories.filter(r => !existingIds.has(r.id));
           store.setRepositories([...store.repositories, ...newRepos]);
         }
+        importedData = canonicalizeImportedRepositoryReferences(importedData, useAppStore.getState().repositories);
         if (selectedTypes.includes('releases') && importedData.releases) {
           const existingIds = new Set(store.releases.map(r => r.id));
           const newReleases = importedData.releases.filter(r => !existingIds.has(r.id));

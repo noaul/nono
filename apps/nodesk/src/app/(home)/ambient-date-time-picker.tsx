@@ -46,7 +46,11 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 			if (event.target instanceof Node && !rootRef.current?.contains(event.target) && !popoverRef.current?.contains(event.target)) setOpen(false)
 		}
 		const closeFromEscape = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') setOpen(false)
+			if (event.key !== 'Escape') return
+			// Handled here: the workbench's own Escape would otherwise close the whole schedule panel too.
+			event.preventDefault()
+			setOpen(false)
+			triggerRef.current?.focus()
 		}
 		document.addEventListener('pointerdown', closeFromOutside)
 		document.addEventListener('keydown', closeFromEscape)
@@ -85,6 +89,16 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 			window.removeEventListener('scroll', updatePopoverPosition, true)
 		}
 	}, [open, updatePopoverPosition])
+
+	// The popover is portalled to the end of the page, so Tab from the trigger would never reach it:
+	// move focus onto the selected day once it is positioned.
+	const positioned = popoverPosition !== null
+	useEffect(() => {
+		if (!open || !positioned) return
+		const days = popoverRef.current?.querySelector<HTMLButtonElement>('.ambient-picker-calendar .is-selected')
+			?? popoverRef.current?.querySelector<HTMLButtonElement>('.ambient-picker-calendar button')
+		days?.focus({ preventScroll: true })
+	}, [open, positioned])
 
 	useEffect(() => {
 		if (open) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
@@ -137,7 +151,7 @@ export function AmbientDateTimePicker({ date, time, onDateChange, onTimeChange }
 						<label><span>选择小时</span><select value={hour} onChange={event => setTimePart(event.target.value, minute)} aria-label='选择小时'>{HOURS.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
 						<i>:</i>
 						<label><span>选择分钟</span><select value={minute} onChange={event => setTimePart(hour, event.target.value)} aria-label='选择分钟'>{MINUTES.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
-						<button type='button' className='ambient-picker-done' onClick={() => setOpen(false)}>完成</button>
+						<button type='button' className='ambient-picker-done' onClick={() => { setOpen(false); triggerRef.current?.focus() }}>完成</button>
 					</div>
 				</div>,
 				document.body

@@ -606,8 +606,7 @@ export const ReadmeModal: React.FC<ReadmeModalProps> = ({
           aria-modal="true"
           aria-labelledby="readme-modal-title"
           tabIndex={-1}
-          className="relative w-full bg-white dark:bg-panel-dark dark:border dark:border-white/[0.04] rounded-xl shadow-xl transform transition-all max-h-[90vh] flex flex-col"
-          style={{ maxWidth: '1130px' }}
+          className="relative w-[calc(100vw-2rem)] h-[calc(100dvh-2rem)] bg-white dark:bg-panel-dark dark:border dark:border-white/[0.04] rounded-xl shadow-xl transform transition-all flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {readmeContent && !loading && (

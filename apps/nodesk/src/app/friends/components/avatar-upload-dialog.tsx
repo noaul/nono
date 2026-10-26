@@ -70,7 +70,7 @@ export default function AvatarUploadDialog({ currentAvatar, onClose, onSubmit }:
 	}
 
 	return (
-		<DialogModal open onClose={handleClose} className='card w-md'>
+		<DialogModal ariaLabel={copy('选择头像', 'Choose an avatar')} open onClose={handleClose} className='card w-md'>
 			<h2 className='mb-4 text-xl font-bold'>{copy('选择头像', 'Choose an avatar')}</h2>
 
 			<form onSubmit={handleSubmit} className='space-y-4'>

@@ -140,7 +140,7 @@ export function AccountPage() {
           </span>
           <div className="min-w-0">
             <p className="font-medium text-slate-950 dark:text-white">{getAccountTypeLabel(item.accountType, language)}</p>
-            <p className="truncate text-xs text-slate-400">{item.displayName || '-'}</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.displayName || '-'}</p>
           </div>
         </div>
       )
@@ -155,9 +155,9 @@ export function AccountPage() {
         </div>
       )
     },
-    { key: 'country', header: copy('国家 / 地区', 'Country / region'), render: (item) => <span className="text-slate-500">{countryName(countryOptions, item.countryIso)}</span> },
-    { key: 'device', header: copy('登录设备', 'Login device'), render: (item) => <span className="text-slate-500">{item.loginDevice || '-'}</span> },
-    { key: 'email', header: copy('绑定邮箱', 'Bound email'), render: (item) => <span className="break-all text-slate-500">{item.boundEmail || '-'}</span> },
+    { key: 'country', header: copy('国家 / 地区', 'Country / region'), render: (item) => <span className="text-slate-500 dark:text-slate-400">{countryName(countryOptions, item.countryIso)}</span> },
+    { key: 'device', header: copy('登录设备', 'Login device'), render: (item) => <span className="text-slate-500 dark:text-slate-400">{item.loginDevice || '-'}</span> },
+    { key: 'email', header: copy('绑定邮箱', 'Bound email'), render: (item) => <span className="break-all text-slate-500 dark:text-slate-400">{item.boundEmail || '-'}</span> },
     {
       key: 'actions',
       header: '',
@@ -170,8 +170,8 @@ export function AccountPage() {
         </div>
       ) : (
         <div className="flex justify-end gap-1">
-          <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')} aria-label={copy('编辑', 'Edit')}><Pencil size={14} /></button>
-          <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => setDeleteTargetId(item.id)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}><Trash2 size={14} /></button>
+          <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')} aria-label={copy('编辑', 'Edit')}><Pencil size={14} /></button>
+          <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => setDeleteTargetId(item.id)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}><Trash2 size={14} /></button>
         </div>
       )
     }
@@ -214,17 +214,17 @@ export function AccountPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]"><AccountAppIcon type={item.accountType} /></span>
-                    <div className="min-w-0"><h3 className="truncate font-medium text-slate-950 dark:text-white">{item.displayName || getAccountTypeLabel(item.accountType, language)}</h3><p className="text-xs text-slate-400">{getAccountTypeLabel(item.accountType, language)}</p></div>
+                    <div className="min-w-0"><h3 className="truncate font-medium text-slate-950 dark:text-white">{item.displayName || getAccountTypeLabel(item.accountType, language)}</h3><p className="text-xs text-slate-500 dark:text-slate-400">{getAccountTypeLabel(item.accountType, language)}</p></div>
                   </div>
                   <div className="flex gap-1">
-                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100" onClick={() => openEdit(item)} aria-label={copy('编辑', 'Edit')}><Pencil size={14} /></button>
-                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-danger-500/10 hover:text-danger-500" onClick={() => setDeleteTargetId(item.id)} aria-label={copy('删除', 'Delete')}><Trash2 size={14} /></button>
+                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100" onClick={() => openEdit(item)} aria-label={copy('编辑', 'Edit')}><Pencil size={14} /></button>
+                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => setDeleteTargetId(item.id)} aria-label={copy('删除', 'Delete')}><Trash2 size={14} /></button>
                   </div>
                 </div>
                 <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm dark:border-white/[0.06]">
                   <div className="flex min-w-0 items-center gap-2"><Phone size={14} className="shrink-0 text-slate-400" /><CountryFlag countryIso={item.countryIso} /><span className="truncate font-mono text-slate-700 dark:text-slate-300">{item.countryCallingCode} {item.phoneNumber}</span></div>
-                  <div className="flex min-w-0 items-center gap-2"><MonitorSmartphone size={14} className="shrink-0 text-slate-400" /><span className="truncate text-slate-500">{item.loginDevice || '-'}</span></div>
-                  <div className="flex min-w-0 items-center gap-2"><Mail size={14} className="shrink-0 text-slate-400" /><span className="truncate text-slate-500">{item.boundEmail || '-'}</span></div>
+                  <div className="flex min-w-0 items-center gap-2"><MonitorSmartphone size={14} className="shrink-0 text-slate-400" /><span className="truncate text-slate-500 dark:text-slate-400">{item.loginDevice || '-'}</span></div>
+                  <div className="flex min-w-0 items-center gap-2"><Mail size={14} className="shrink-0 text-slate-400" /><span className="truncate text-slate-500 dark:text-slate-400">{item.boundEmail || '-'}</span></div>
                 </div>
                 {deleteTargetId === item.id && <div className="mt-3 flex items-center justify-end gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-2"><span className="mr-auto text-xs text-danger-600 dark:text-danger-400">{copy('移入回收站？', 'Move to recycle bin?')}</span><Button size="sm" variant="ghost" onClick={() => setDeleteTargetId(null)}>{copy('取消', 'Cancel')}</Button><Button size="sm" variant="danger" onClick={() => remove(item)}>{copy('移入', 'Move')}</Button></div>}
               </article>
@@ -312,7 +312,7 @@ function CountryCombobox({
     } else if (event.key === 'Enter' && open && filteredOptions[activeIndex]) {
       event.preventDefault();
       choose(filteredOptions[activeIndex]);
-    } else if (event.key === 'Escape') {
+    } else if (event.key === 'Escape' && open) {
       event.preventDefault();
       setQuery(selectedName);
       setOpen(false);
@@ -353,7 +353,7 @@ function CountryCombobox({
       {open && (
         <div id={listboxId} role="listbox" className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-ink-800">
           {filteredOptions.length === 0 ? (
-            <p className="px-3 py-4 text-center text-xs text-slate-400">{emptyText}</p>
+            <p className="px-3 py-4 text-center text-xs text-slate-500 dark:text-slate-400">{emptyText}</p>
           ) : filteredOptions.map((option, index) => (
             <div
               id={`${listboxId}-${option.iso}`}
@@ -366,7 +366,7 @@ function CountryCombobox({
             >
               <CountryFlag countryIso={option.iso} />
               <span className="min-w-0 flex-1 truncate">{option.name}</span>
-              <span className="shrink-0 font-mono text-xs text-slate-400">{option.callingCode}</span>
+              <span className="shrink-0 font-mono text-xs text-slate-500 dark:text-slate-400">{option.callingCode}</span>
               {option.iso === value && <Check aria-hidden="true" className="shrink-0 text-brand-500" size={15} />}
             </div>
           ))}

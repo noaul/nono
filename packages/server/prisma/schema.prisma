@@ -478,7 +478,7 @@ model NoStarRepository {
   releases             NoStarRelease[]
 
   @@unique([userId, githubId])
-  @@unique([userId, fullName])
+  @@index([userId, fullName])
   @@index([userId, starredAt])
   @@index([userId, customCategory])
 }

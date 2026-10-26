@@ -84,9 +84,9 @@ export function BulkBar({
         {bulkStatuses.map((option) => <option key={option.value} value={option.value}>{copy(option.zh, option.en)}</option>)}
       </select>
       <div className="flex items-center gap-1">
-        <input className={`${inputClass} !h-8 !w-28 text-xs`} placeholder={copy('标签', 'Tag')} value={tag} onChange={(event) => setTag(event.target.value)} />
-        <IconButton title={copy('添加标签', 'Add tag')} onClick={() => tag.trim() && void run(async () => { const result = await bulk({ action: 'addTag', tag: tag.trim() }); setTag(''); return copy(`已给 ${result.changed} 项加上标签`, `Tagged ${result.changed}`); })}><Tag size={14} /></IconButton>
-        <IconButton title={copy('移除标签', 'Remove tag')} onClick={() => tag.trim() && void run(async () => { const result = await bulk({ action: 'removeTag', tag: tag.trim() }); setTag(''); return copy(`已从 ${result.changed} 项移除标签`, `Untagged ${result.changed}`); })}><X size={14} /></IconButton>
+        <input className={`${inputClass} !h-8 !w-28 text-xs`} placeholder={copy('标签', 'Tag')} aria-label={copy('标签', 'Tag')} disabled={working} value={tag} onChange={(event) => setTag(event.target.value)} />
+        <IconButton title={copy('添加标签', 'Add tag')} disabled={working || !tag.trim()} onClick={() => tag.trim() && void run(async () => { const result = await bulk({ action: 'addTag', tag: tag.trim() }); setTag(''); return copy(`已给 ${result.changed} 项加上标签`, `Tagged ${result.changed}`); })}><Tag size={14} /></IconButton>
+        <IconButton title={copy('移除标签', 'Remove tag')} disabled={working || !tag.trim()} onClick={() => tag.trim() && void run(async () => { const result = await bulk({ action: 'removeTag', tag: tag.trim() }); setTag(''); return copy(`已从 ${result.changed} 项移除标签`, `Untagged ${result.changed}`); })}><X size={14} /></IconButton>
       </div>
       <Button
         size="sm"
@@ -99,7 +99,7 @@ export function BulkBar({
       >
         <Trash2 size={14} />{copy('移入回收站', 'Move to bin')}
       </Button>
-      <button type="button" className="ml-auto px-2 text-xs text-slate-500 hover:underline" onClick={onClear}>{copy('取消选择', 'Clear selection')}</button>
+      <button type="button" className="ml-auto px-2 text-xs text-slate-500 dark:text-slate-400 hover:underline" onClick={onClear}>{copy('取消选择', 'Clear selection')}</button>
     </div>
   );
 }
@@ -147,7 +147,7 @@ export function CsvTools({
     <>
       <a
         href={withBasePath(`/api/${endpoint}/export.csv`)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:hover:bg-white/[0.06] dark:hover:text-white"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all duration-200 ease-out hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-100"
         title={copy('导出 CSV', 'Export CSV')}
         aria-label={copy('导出 CSV', 'Export CSV')}
       >

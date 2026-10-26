@@ -69,7 +69,7 @@ export default function UploadDialog({ onClose, onSubmit }: UploadDialogProps) {
 	}
 
 	return (
-		<DialogModal open onClose={handleClose} className='card w-md max-sm:w-full'>
+		<DialogModal ariaLabel={copy('上传图片', 'Upload images')} open onClose={handleClose} className='card w-md max-sm:w-full'>
 			<div className='space-y-4'>
 				<h2 className='text-xl font-bold'>{copy('上传图片', 'Upload images')}</h2>
 
