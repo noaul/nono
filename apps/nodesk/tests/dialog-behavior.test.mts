@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import test from 'node:test'
 import { activateDialog } from '../src/lib/dialog-behavior.ts'
 
-const { JSDOM } = createRequire(new URL('../../../package.json', import.meta.url))('jsdom')
+const { JSDOM } = createRequire(import.meta.url)('jsdom')
 
 test('modal keyboard behavior wraps focus, skips hidden controls and restores its opener', () => {
 	const dom = new JSDOM('<button id="opener">Open</button><section tabindex="-1"><button id="first">First</button><button tabindex="-1">Skip</button><button id="last">Last</button><button hidden>Hidden</button></section>')
