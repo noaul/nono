@@ -38,6 +38,7 @@ describe('WebDAV through the NoNo stored credential proxy', () => {
     expect(calls.every(r => !String(r.init?.body).includes('Basic '))).toBe(true);
   });
   it('bounds the HEAD fallback PROPFIND and uses masked server-side passwords', async () => {
+    vi.useFakeTimers();
     expect(await new WebDAVService(config).testConnection()).toBe(true);
     expect(requests.filter(r => r.url.endsWith('/proxy/webdav')).map(r => JSON.parse(String(r.init?.body)))).toEqual([
       expect.objectContaining({method: 'HEAD', timeoutMs: 10000}),
