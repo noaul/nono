@@ -5,7 +5,7 @@
 	--ambient-glass: rgba(245, 250, 255, 0.58);
 	--ambient-glass-strong: rgba(248, 252, 255, 0.76);
 	--ambient-shadow: 0 24px 70px rgba(54, 91, 125, 0.2), inset 0 1px rgba(255, 255, 255, 0.82);
-	background: #dcecf7;
+	background: linear-gradient(160deg, #e6f1f9 0%, #d3e5f2 55%, #c4d9ea 100%);
 	color: var(--ambient-ink);
 	font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Segoe UI', sans-serif;
 	inset: 0;
@@ -40,7 +40,13 @@
 	background-repeat: no-repeat;
 	background-size: cover;
 	filter: saturate(0.9) contrast(0.98);
+	opacity: 0;
 	transform: scale(1.025);
+	transition: opacity 600ms ease;
+}
+
+.ambient-workbench[data-wallpaper='ready'] .ambient-wallpaper {
+	opacity: 1;
 }
 
 .ambient-contrast-scrim {

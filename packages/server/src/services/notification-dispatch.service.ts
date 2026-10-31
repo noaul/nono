@@ -122,7 +122,8 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
   function digest(items: NotificationItem[]): ChannelMessage {
     const critical = items.filter((item) => item.severity === 'critical').length;
     const lines = items.slice(0, DIGEST_LINE_LIMIT).map((item) => {
-      const link = absolute(item.targetUrl || item.href);
+      // Link to the place where the item is fixed (bookmark editor, renewal form), not the broken URL itself.
+      const link = absolute(item.href || item.targetUrl || '');
       return [`• ${item.title}`, item.description ? `  ${item.description}` : '', link ? `  ${link}` : ''].filter(Boolean).join('\n');
     });
     if (items.length > DIGEST_LINE_LIMIT) lines.push(`…以及另外 ${items.length - DIGEST_LINE_LIMIT} 条，请在 NoDesk 通知中心查看。`);

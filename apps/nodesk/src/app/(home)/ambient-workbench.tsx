@@ -111,6 +111,7 @@ const DIM_STORAGE_KEY = 'nodesk.ambient.dim.v1'
 const FOCUS_STORAGE_KEY = 'nodesk.ambient.focus.v1'
 const FOCUS_PRESETS = [25, 50, 90]
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH === '/nodesk' ? '/nodesk' : ''
+const WALLPAPER_URL = '/api/navigation/admin/background'
 
 const DOCK_ITEMS: DockItem[] = [
 	{ id: 'today', label: '今日', icon: Sunrise },
@@ -209,6 +210,7 @@ export default function AmbientWorkbench() {
 	const dockRef = useRef<HTMLDivElement>(null)
 	const workbenchRef = useRef<HTMLElement>(null)
 
+	const [wallpaperReady, setWallpaperReady] = useState(false)
 	const [now, setNow] = useState(() => new Date())
 	const [activePanel, setActivePanel] = useState<PanelId | null>(null)
 	const activeDockItem = activePanel
@@ -224,6 +226,14 @@ export default function AmbientWorkbench() {
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('desktop')
 	const [notificationIslandExpanded, setNotificationIslandExpanded] = useState(false)
+	useEffect(() => {
+		// Only paint the wallpaper once it is fully decoded, so nothing flashes in before it.
+		const image = new Image()
+		let cancelled = false
+		image.onload = () => { if (!cancelled) setWallpaperReady(true) }
+		image.src = WALLPAPER_URL
+		return () => { cancelled = true; image.onload = null }
+	}, [])
 	useEffect(() => {
 		const canHandle = searchOpen || settingsOpen || activePanel !== null || notificationIslandExpanded
 		setNodeskBackHandler(canHandle ? () => {
@@ -956,7 +966,8 @@ export default function AmbientWorkbench() {
 			data-session={initialized ? 'ready' : 'loading'}
 			data-panel={activePanel ? 'open' : 'closed'}
 			data-app-dock={privateWorkbenchVisible && workbenchNavigation.quickEntriesVisible ? 'true' : 'false'}
-			style={{ '--ambient-wallpaper-url': `url("/api/navigation/admin/background"), url("${BASE_PATH}/images/nodesk-ambient-wallpaper.png")` } as React.CSSProperties}>
+			data-wallpaper={wallpaperReady ? 'ready' : 'loading'}
+			style={wallpaperReady ? ({ '--ambient-wallpaper-url': `url("${WALLPAPER_URL}")` } as React.CSSProperties) : undefined}>
 			<motion.div className='ambient-wallpaper-parallax' style={{ x: wallpaperX, y: wallpaperY }} aria-hidden='true'>
 				<div className='ambient-wallpaper' />
 			</motion.div>

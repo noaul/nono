@@ -2,7 +2,7 @@ import { Github } from './BrandIcons';
 import React, { useState } from 'react';
 import { Key, ArrowRight, AlertCircle, Moon, Sun } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { GitHubApiService } from '../services/githubApi';
+import { GitHubApiService, SERVER_MANAGED_GITHUB_TOKEN } from '../services/githubApi';
 import { backend } from '../services/backendAdapter';
 import { logger } from '../services/logger';
 import { safeReadText } from '../utils/clipboardUtils';
@@ -38,6 +38,8 @@ export const GitHubConnectScreen: React.FC = () => {
       if (backend.isAvailable) {
         try {
           await backend.syncSettings({ github_token: token });
+          // The server now keeps the token, so later visits sign in without asking for it again.
+          setGitHubToken(SERVER_MANAGED_GITHUB_TOKEN);
         } catch (backendError) {
           logger.warn('authentication', 'Failed to save GitHub token to backend', backendError);
           setError(language === 'zh'

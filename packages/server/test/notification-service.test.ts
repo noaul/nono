@@ -102,6 +102,7 @@ describe('notification service', () => {
     expect(feed.items.find((item) => item.source === 'links')).toMatchObject({
       entityId: 31,
       targetUrl: 'https://broken.example',
+      href: '/admin/links?edit=31',
     });
     expect(nodeskReader).not.toHaveBeenCalled();
     expect(noMoneyReader).not.toHaveBeenCalled();
@@ -231,6 +232,7 @@ describe('notification service', () => {
       entityType: 'vps',
       entityLabel: 'nc48',
       renewalDate: '2026-07-21',
+      href: '/yumi/vps?edit=10',
     });
   });
 

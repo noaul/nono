@@ -7,7 +7,7 @@ import { useAppStore } from './store/useAppStore';
 import { copy } from './i18n';
 import { logger } from './services/logger';
 import { backend } from './services/backendAdapter';
-import { syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
+import { restoreServerManagedToken, syncFromBackend, startAutoSync, stopAutoSync } from './services/autoSync';
 import { getStorageScope, setStorageScope } from './services/storageScope';
 import { applyColorMode, watchColorMode } from './utils/colorMode';
 import { htmlLang, watchLocale } from './utils/locale';
@@ -30,6 +30,8 @@ function ViewFallback() {
 
 function App() {
   const [nonoSession, setNonoSession] = useState<'loading' | 'authenticated' | 'redirecting' | 'error'>('loading');
+  // The connect screen waits until we know whether the server already holds the GitHub token.
+  const [tokenRestoreDone, setTokenRestoreDone] = useState(false);
   const {
     isAuthenticated,
     currentView,
@@ -116,6 +118,9 @@ function App() {
       try {
         await backend.init();
         if (backend.isAvailable && !cancelled) {
+          await restoreServerManagedToken();
+          if (cancelled) return;
+          setTokenRestoreDone(true);
           await syncFromBackend();
           if (!cancelled) {
             unsubscribe = startAutoSync();
@@ -123,6 +128,8 @@ function App() {
         }
       } catch (err) {
         logger.errorFromError('app', 'Failed to initialize backend', err);
+      } finally {
+        if (!cancelled) setTokenRestoreDone(true);
       }
     };
 
@@ -191,7 +198,7 @@ function App() {
   }
 
   // Wait for both the NoNo session and the local NoStar store before rendering private data.
-  if (nonoSession !== 'authenticated' || !hasHydrated) {
+  if (nonoSession !== 'authenticated' || !hasHydrated || (!isAuthenticated && !tokenRestoreDone)) {
     return (
       <div className="min-h-screen bg-light-bg dark:bg-marketing-black flex items-center justify-center">
         <div className="text-gray-900 dark:text-text-primary text-lg font-medium animate-pulse">

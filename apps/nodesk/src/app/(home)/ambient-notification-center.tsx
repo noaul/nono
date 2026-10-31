@@ -190,7 +190,7 @@ export function AmbientNotificationCenter() {
 				</div>
 				{visibleFeed.length ? <div className='ambient-batch-history'>{visibleFeed.map(item => <div className={`ambient-batch-row ambient-notification-row is-${item.severity}${item.read ? ' is-read' : ''}`} key={item.key}>
 					<span className='ambient-batch-state' title={SEVERITY_LABELS[item.severity]} role='img' aria-label={SEVERITY_LABELS[item.severity]}>{item.severity === 'critical' ? <XCircle size={16} /> : <Bell size={16} />}</span>
-					<span><strong>{item.href ? <a href={item.targetUrl || item.href}>{item.title}</a> : item.title}</strong><small>{[NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source, item.description].filter(Boolean).join(' · ')}</small></span>
+					<span><strong>{item.href ? <a href={item.href}>{item.title}</a> : item.title}</strong><small>{[NOTIFICATION_SOURCES.find(entry => entry.id === item.source)?.label || item.source, item.description].filter(Boolean).join(' · ')}</small></span>
 					<button type='button' title={item.read ? '标记为未读' : '标记为已读'} aria-label={`${item.read ? '标记为未读' : '标记为已读'}：${item.title}`} disabled={Boolean(busy)} onClick={() => void markRead(item)}><CheckCircle2 size={15} /></button>
 					<button type='button' title='忽略这条通知' aria-label={`忽略这条通知：${item.title}`} disabled={Boolean(busy)} onClick={() => void dismiss(item)}><Trash2 size={15} /></button>
 				</div>)}</div> : <div className='ambient-backup-empty'>没有需要处理的通知。</div>}

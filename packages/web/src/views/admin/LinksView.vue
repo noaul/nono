@@ -267,6 +267,7 @@ async function load() {
     ensureCreationSelection();
     selectedLinkIds.value = new Set();
     openSharedBookmark();
+    openRequestedLinkEdit();
   } catch (event) {
     notifyError(event instanceof Error ? event.message : t('links.loadFailed'));
   } finally {
@@ -284,6 +285,26 @@ function openSharedBookmark() {
   const { share_url: _url, share_title: _title, ...rest } = route.query;
   void router?.replace({ query: rest, hash: '#new-bookmark' });
   setTimeout(() => document.querySelector('[data-testid="new-link-name"]')?.scrollIntoView({ block: 'center' }), 0);
+}
+
+// Notifications link to /admin/links?edit=<id>; open that bookmark's inline editor once.
+function openRequestedLinkEdit() {
+  const raw = route?.query.edit;
+  const id = Number(Array.isArray(raw) ? raw[0] : raw);
+  if (!raw) return;
+  const { edit: _edit, ...rest } = route.query;
+  void router?.replace({ query: rest, hash: route.hash });
+  const link = Number.isInteger(id) ? linkById.value.get(id) : undefined;
+  if (!link) {
+    notifyError(t('links.editTargetMissing'));
+    return;
+  }
+  searchTerm.value = '';
+  selectedTag.value = '';
+  selectedCategoryId.value = categoryIdForFolder(link.folderId) || selectedCategoryId.value;
+  selectedFolderId.value = link.folderId;
+  startInlineEdit(link);
+  setTimeout(() => document.querySelector(`[data-testid="link-row-${link.id}"]`)?.scrollIntoView({ block: 'center' }), 0);
 }
 
 function selectCategory(category: Folder) {

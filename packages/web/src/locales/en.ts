@@ -920,6 +920,7 @@ export const en: Messages = {
     noHealthCheck: 'No health check run yet',
     checkedAt: 'Checked {date}',
     loadFailed: 'Could not load bookmarks',
+    editTargetMissing: 'That bookmark no longer exists',
     updated: 'Bookmark updated',
     updateFailed: 'Could not update the bookmark',
     created: 'Bookmark created',

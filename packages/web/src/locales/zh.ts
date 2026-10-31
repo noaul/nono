@@ -922,6 +922,7 @@ export const zh = {
     noHealthCheck: '尚未执行健康检查',
     checkedAt: '检测于 {date}',
     loadFailed: '加载书签失败',
+    editTargetMissing: '这个书签已不存在',
     updated: '书签已更新',
     updateFailed: '书签更新失败',
     created: '书签已新增',

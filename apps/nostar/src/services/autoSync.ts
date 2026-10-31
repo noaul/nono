@@ -4,6 +4,7 @@ import { backend } from './backendAdapter';
 import { useAppStore } from '../store/useAppStore';
 import { logger } from './logger';
 import { SERVER_MANAGED_GITHUB_TOKEN } from './githubApi';
+import type { GitHubUser } from '../types';
 
 // Prevent sync loops: when we pull data FROM backend and update store,
 // the store subscription would trigger a push TO backend. This flag blocks that.
@@ -82,6 +83,27 @@ function setRepositorySyncVisualState(isSyncing: boolean): void {
  * Backend-first strategy: backend data overwrites local data.
  * Silent: errors logged to console only.
  */
+/**
+ * When the GitHub token is already saved (encrypted) on the NoNo server, sign this browser in with
+ * the server-managed marker instead of asking for the token again. Never throws.
+ */
+export async function restoreServerManagedToken(): Promise<void> {
+  if (!backend.isAvailable) return;
+  try {
+    if (!(await backend.isTokenStoredOnServer())) return;
+    const state = useAppStore.getState();
+    if (!state.user) {
+      state.setUser(await backend.getCurrentUser() as unknown as GitHubUser);
+    }
+    if (useAppStore.getState().githubToken !== SERVER_MANAGED_GITHUB_TOKEN) {
+      useAppStore.getState().setGitHubToken(SERVER_MANAGED_GITHUB_TOKEN);
+      logger.info('sync.security', 'Using the GitHub token stored on the server');
+    }
+  } catch (error) {
+    logger.warn('sync.security', 'Failed to restore the server-managed GitHub token', error);
+  }
+}
+
 export async function syncFromBackend(): Promise<void> {
   if (
     !backend.isAvailable ||
@@ -585,16 +607,7 @@ export function startAutoSync(): () => void {
 
   logger.info('sync.start', 'Auto-sync started (push debounce: 2s, poll: 5s)');
 
-  if (backend.isAvailable) {
-    void backend.isTokenStoredOnServer().then((stored) => {
-      if (stored && useAppStore.getState().githubToken !== SERVER_MANAGED_GITHUB_TOKEN) {
-        useAppStore.getState().setGitHubToken(SERVER_MANAGED_GITHUB_TOKEN);
-        logger.info('sync.security', 'Replaced local GitHub token with a server-managed marker');
-      }
-    }).catch(() => {
-      // Token cleanup is best-effort and must not block synchronization.
-    });
-  }
+  void restoreServerManagedToken();
 
   return unsubscribe;
 }

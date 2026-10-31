@@ -667,4 +667,26 @@ describe('LinksView admin workflow', () => {
     expect((wrapper.get('[data-testid="new-link-name"]').element as HTMLInputElement).value).toBe('Example post');
     expect(router.currentRoute.value.hash).toBe('#new-bookmark');
   });
+
+  it('opens the bookmark named by a notification link for inline editing', async () => {
+    apiRequest
+      .mockResolvedValueOnce([
+        { id: 1, userId: 1, name: '工具', sortOrder: 100 },
+        { id: 2, userId: 1, name: '文档', sortOrder: 90 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 10, folderId: 1, name: 'GitHub', url: 'https://github.com/', sortOrder: 100 },
+        { id: 12, folderId: 2, name: 'Vue', url: 'https://vuejs.org/', sortOrder: 80 },
+      ]);
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/admin/links', component: { template: '<div />' } }] });
+    await router.push('/admin/links?edit=12');
+    await router.isReady();
+    const wrapper = mount(LinksView, {
+      global: { plugins: [router], stubs: { AdminLayout: { template: '<main><slot /></main>', props: ['title'] }, RouterLink: RouterLinkStub } },
+    });
+    await settle(wrapper);
+    await vi.waitFor(() => expect(router.currentRoute.value.query.edit).toBeUndefined());
+
+    expect((wrapper.get('[data-testid="inline-link-name-12"]').element as HTMLInputElement).value).toBe('Vue');
+  });
 });
