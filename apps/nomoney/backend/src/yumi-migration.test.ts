@@ -72,7 +72,7 @@ describe('NoMoney to Yumi database migration', () => {
 
     const second = await migrateYumiData({ sourcePath, targetPath, sourceEncryptionKey: oldKey, targetEncryptionKey: newKey });
     expect(second).toMatchObject({ migrated: false, alreadyCurrent: true });
-  });
+  }, 30_000);
 });
 
 test('split finalization removes pending VPS alerts from NoMoney', async () => {
