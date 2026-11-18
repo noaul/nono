@@ -286,7 +286,7 @@ export function YumiOverview() {
         <div className="yumi-day-detail" role="status">
           <StatusDot state={selected.day.state} />
           <div className="min-w-0 flex-1">
-            <strong>{selected.name} · {formatDay(selected.day.day, language, timezone)}</strong>
+            <strong>{selected.name} · {formatPeriod(selected.day, language, timezone)}</strong>
             <p>{dayDetail(selected.day, language)}</p>
           </div>
           <button type="button" onClick={() => setSelected(null)} aria-label={copy('关闭详情', 'Close detail')}>×</button>
@@ -335,7 +335,12 @@ function OverviewSkeleton() {
 }
 
 function StatusHistoryLoading() {
-  return <div className="status-history-strip is-loading" aria-hidden="true">{Array.from({ length: 90 }, (_, index) => <span key={index} />)}</div>;
+  return <div className="status-history-strip is-loading" aria-hidden="true">{Array.from({ length: 30 }, (_, index) => <span key={index} />)}</div>;
+}
+
+function formatPeriod(day: StatusDay, language: string, timeZone?: string) {
+  const start = formatDay(day.day, language, timeZone);
+  return day.endDay ? `${start} - ${formatDay(day.endDay, language, timeZone)}` : start;
 }
 
 function formatDay(day: string, language: string, timeZone?: string) {
@@ -372,7 +377,7 @@ function axisStartLabel(window: StatusWindow, language: string) {
 }
 
 function dayTitle(day: StatusDay, language: string, timeZone?: string) {
-  return `${formatDay(day.day, language, timeZone)}: ${dayDetail(day, language)}`;
+  return `${formatPeriod(day, language, timeZone)}: ${dayDetail(day, language)}`;
 }
 
 function dayDetail(day: StatusDay, language: string) {

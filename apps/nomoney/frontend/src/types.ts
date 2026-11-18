@@ -20,6 +20,8 @@ export interface StatusDay {
   uptimePercent: number | null;
   sampleCount: number;
   incidents: number;
+  /** Last period merged into this display segment, when it covers more than one. */
+  endDay?: string;
 }
 
 export interface StatusOverview {

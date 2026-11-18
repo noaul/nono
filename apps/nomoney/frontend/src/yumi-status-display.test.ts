@@ -28,9 +28,27 @@ describe('Yumi status display', () => {
     }));
 
     const segments = display.buildStatusDisplayHistory(history);
-    expect(segments).toHaveLength(90);
+    expect(segments).toHaveLength(30);
     expect(segments[0]).toBe(history[0]);
     expect(segments.at(-1)).toBe(history.at(-1));
+  });
+
+  it('merges long windows without hiding an outage', async () => {
+    const display = await loadStatusDisplayModule();
+    if (!display) throw new Error('missing module');
+    const history = Array.from({ length: 90 }, (_, index): StatusDay => ({
+      day: `d${index}`,
+      state: index === 46 ? 'outage' : 'operational',
+      uptimePercent: index === 46 ? 0 : 100,
+      sampleCount: 10,
+      incidents: index === 46 ? 1 : 0
+    }));
+
+    const segments = display.buildStatusDisplayHistory(history);
+    expect(segments).toHaveLength(30);
+    expect(segments[15]).toMatchObject({ day: 'd45', endDay: 'd47', state: 'outage', incidents: 1, sampleCount: 30 });
+    expect(segments[15].uptimePercent).toBeCloseTo(66.67, 2);
+    expect(segments.filter((segment) => segment.state === 'outage')).toHaveLength(1);
   });
 
   it('abbreviates US state and country names without removing the city', async () => {
