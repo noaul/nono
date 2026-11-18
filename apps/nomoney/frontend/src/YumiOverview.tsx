@@ -22,7 +22,7 @@ const overallCopy: Record<OverallStatus, { zh: string; en: string; detailZh: str
 };
 
 const statusOverviewRefreshIntervalMs = 5 * 60_000;
-const statusWindows: StatusWindow[] = ['24h', '7d', '30d', '90d'];
+const statusWindows: StatusWindow[] = ['2h', '24h', '7d', '30d', '90d'];
 
 export function YumiOverview() {
   const { copy, language } = useI18n();
@@ -191,38 +191,37 @@ export function YumiOverview() {
             ) : <div className="yumi-status-grid">{data.items.map((item) => (
               <article className="yumi-status-row" key={item.id}>
                 <div className="yumi-status-row-heading">
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <StatusDot state={item.currentState} />
-                      <h3 className="truncate">{item.name}</h3>
-                    </div>
-                    <p>{[item.provider, formatStatusLocation(item.location)].filter(Boolean).join(' / ') || copy('未填写服务商与地区', 'Provider and region not set')}</p>
+                  <div className="yumi-status-row-title">
+                    <StatusDot state={item.currentState} />
+                    <h3 title={item.name}>{item.name}</h3>
+                  </div>
+                  <p className="truncate">{[item.provider, formatStatusLocation(item.location)].filter(Boolean).join(' / ') || copy('未填写服务商与地区', 'Provider and region not set')}</p>
+                  <div className="yumi-status-row-meta">
                     {item.lastError
-                      ? <p className="text-danger-600 dark:text-danger-400">{item.lastError}</p>
-                      : typeof item.latencyMs === 'number' && <p className="font-mono">{copy(`响应 ${item.latencyMs} ms`, `${item.latencyMs} ms response`)}</p>}
-                  </div>
-                  <div className="yumi-uptime">
-                    <strong>{item.uptimePercent === null ? '--' : `${item.uptimePercent.toFixed(2)}%`}</strong>
-                    <span>{copy('可用率', 'uptime')}</span>
+                      ? <span className="truncate text-danger-600 dark:text-danger-400" title={item.lastError}>{item.lastError}</span>
+                      : <span className="font-mono">{typeof item.latencyMs === 'number' ? `${item.latencyMs} ms` : '--'}</span>}
+                    <strong className="yumi-uptime" title={copy('可用率', 'uptime')}>{item.uptimePercent === null ? '--' : `${item.uptimePercent.toFixed(2)}%`}</strong>
                   </div>
                 </div>
-                <div className="status-history-scroll" role="region" aria-busy={statusWindowLoading} aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
-                  {statusWindowLoading ? <StatusHistoryLoading /> : <div className="status-history-strip">
-                    {buildStatusDisplayHistory(item.history).map((day, index) => (
-                      <button
-                        type="button"
-                        key={`${day.day}-${index}`}
-                        className={`status-history-day is-${day.state}`}
-                        title={dayTitle(day, language, timezone)}
-                        aria-label={dayTitle(day, language, timezone)}
-                        onClick={() => setSelected({ name: item.name, day })}
-                      />
-                    ))}
-                  </div>}
-                </div>
-                <div className="yumi-history-axis">
-                  <span>{axisStartLabel(statusWindow, language)}</span>
-                  <span>{statusWindow === '24h' ? copy('现在', 'Now') : copy('今天', 'Today')}</span>
+                <div className="yumi-status-row-history">
+                  <div className="status-history-scroll" role="region" aria-busy={statusWindowLoading} aria-label={`${item.name} ${copy('状态历史', 'status history')}`}>
+                    {statusWindowLoading ? <StatusHistoryLoading /> : <div className="status-history-strip">
+                      {buildStatusDisplayHistory(item.history).map((day, index) => (
+                        <button
+                          type="button"
+                          key={`${day.day}-${index}`}
+                          className={`status-history-day is-${day.state}`}
+                          title={dayTitle(day, language, timezone)}
+                          aria-label={dayTitle(day, language, timezone)}
+                          onClick={() => setSelected({ name: item.name, day })}
+                        />
+                      ))}
+                    </div>}
+                  </div>
+                  <div className="yumi-history-axis">
+                    <span>{axisStartLabel(statusWindow, language)}</span>
+                    <span>{isSubDailyWindow(statusWindow) ? copy('现在', 'Now') : copy('今天', 'Today')}</span>
+                  </div>
                 </div>
               </article>
             ))}</div>}
@@ -356,11 +355,18 @@ function formatStatusHour(value: string, language: string, timeZone = 'Asia/Shan
 
 function windowLabel(window: StatusWindow, language: string) {
   if (language !== 'zh') return window;
-  return ({ '24h': '24小时', '7d': '7天', '30d': '30天', '90d': '90天' } as const)[window];
+  return ({ '2h': '2小时', '24h': '24小时', '7d': '7天', '30d': '30天', '90d': '90天' } as const)[window];
+}
+
+function isSubDailyWindow(window: StatusWindow) {
+  return window === '2h' || window === '24h';
 }
 
 function axisStartLabel(window: StatusWindow, language: string) {
-  if (window === '24h') return language === 'zh' ? '24 小时前' : '24 hours ago';
+  if (isSubDailyWindow(window)) {
+    const hours = window.slice(0, -1);
+    return language === 'zh' ? `${hours} 小时前` : `${hours} hours ago`;
+  }
   const days = window.slice(0, -1);
   return language === 'zh' ? `${days} 天前` : `${days} days ago`;
 }

@@ -10,9 +10,9 @@ import { getDatabaseGeneration } from './db.js';
 export type StatusSampleState = 'up' | 'degraded' | 'down';
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
 export type OverallStatus = 'operational' | 'degraded' | 'partial_outage' | 'major_outage' | 'no_data';
-export type StatusWindow = '24h' | '7d' | '30d' | '90d';
+export type StatusWindow = '2h' | '24h' | '7d' | '30d' | '90d';
 
-const statusWindows = new Set<StatusWindow>(['24h', '7d', '30d', '90d']);
+const statusWindows = new Set<StatusWindow>(['2h', '24h', '7d', '30d', '90d']);
 
 export function aggregateStatusDay(input: { expectedSamples: number; samples: StatusSampleState[] }) {
   const upCount = input.samples.filter((state) => state === 'up').length;
@@ -261,24 +261,25 @@ export function parseStatusWindow(value: unknown): StatusWindow {
   if (value === undefined) return '24h';
   const normalized = String(value);
   if (statusWindows.has(normalized as StatusWindow)) return normalized as StatusWindow;
-  throw new HttpError(400, 'INVALID_STATUS_WINDOW', 'Status window must be one of 24h, 7d, 30d, or 90d');
+  throw new HttpError(400, 'INVALID_STATUS_WINDOW', 'Status window must be one of 2h, 24h, 7d, 30d, or 90d');
 }
 
 export function buildStatusOverview(context: AppContext, requestedWindow: StatusWindow | number = '24h') {
   const window = normalizeStatusWindow(requestedWindow);
   const now = context.now();
   const timeZone = getSettings(context).timezone;
-  const hourly = window === '24h';
+  const bucketMs = (subDailyBucketMs as Partial<Record<StatusWindow, number>>)[window];
+  const hourly = bucketMs !== undefined;
   const days = hourly ? 1 : Number.parseInt(window, 10);
   const end = hourly ? now.toISOString() : toIsoDate(now, timeZone);
-  const periods = hourly ? hourlyPeriods(now) : dailyPeriods(end, days);
+  const periods = bucketMs !== undefined ? subDailyPeriods(now, bucketMs) : dailyPeriods(end, days);
   const start = periods[0];
   const vps = context.db.all<Record<string, unknown>>(
     "SELECT id, name, provider, location, probe_url, monitor_status, monitor_updated_at FROM vps WHERE archived_at IS NULL AND status != 'cancelled' ORDER BY name"
   );
   const items = vps.map((row) => ({ ...buildStatusItem(row), ...latestSample(context, Number(row.id)) }));
   function buildStatusItem(row: Record<string, unknown>) {
-    if (hourly) return buildHourlyStatusItem(context, row, periods, start, end, now);
+    if (bucketMs !== undefined) return buildHourlyStatusItem(context, row, periods, start, end, now, bucketMs);
     const dailyRows = context.db.all<Record<string, unknown>>(
       'SELECT * FROM vps_status_daily WHERE vps_id = ? AND day >= ? AND day <= ? ORDER BY day',
       [Number(row.id), start, end]
@@ -338,7 +339,8 @@ function buildHourlyStatusItem(
   periods: string[],
   start: string,
   end: string,
-  now: Date
+  now: Date,
+  bucketMs: number
 ) {
   const samples = context.db.all<{ sampled_at: string; state: StatusSampleState }>(
     'SELECT sampled_at, state FROM vps_status_samples WHERE vps_id = ? AND sampled_at >= ? AND sampled_at <= ? ORDER BY sampled_at',
@@ -346,7 +348,7 @@ function buildHourlyStatusItem(
   );
   const byHour = new Map<string, StatusSampleState[]>();
   for (const sample of samples) {
-    const index = Math.min(23, Math.max(0, Math.floor((Date.parse(sample.sampled_at) - Date.parse(start)) / 60 / 60_000)));
+    const index = Math.min(periods.length - 1, Math.max(0, Math.floor((Date.parse(sample.sampled_at) - Date.parse(start)) / bucketMs)));
     const period = periods[index];
     byHour.set(period, [...(byHour.get(period) ?? []), sample.state]);
   }
@@ -388,9 +390,14 @@ function dailyPeriods(end: string, days: number): string[] {
   return Array.from({ length: days }, (_, index) => addDays(end, index - days + 1));
 }
 
-function hourlyPeriods(now: Date): string[] {
-  const start = now.getTime() - 24 * 60 * 60_000;
-  return Array.from({ length: 24 }, (_, index) => new Date(start + index * 60 * 60_000).toISOString());
+type SubDailyWindow = '2h' | '24h';
+
+/** Raw-sample windows: 24 buckets each, 5 minutes for 2h and 1 hour for 24h. */
+const subDailyBucketMs: Record<SubDailyWindow, number> = { '2h': 5 * 60_000, '24h': 60 * 60_000 };
+
+function subDailyPeriods(now: Date, bucketMs: number): string[] {
+  const start = now.getTime() - 24 * bucketMs;
+  return Array.from({ length: 24 }, (_, index) => new Date(start + index * bucketMs).toISOString());
 }
 
 function buildDomainStats(context: AppContext) {

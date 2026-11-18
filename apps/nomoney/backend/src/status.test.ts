@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { aggregateStatusDay, buildStatusOverview, classifyOverallStatus, recordStatusSample, runStatusSweep, accumulateTraffic, trafficPeriodStart } from './status.js';
+import { aggregateStatusDay, buildStatusOverview, parseStatusWindow, classifyOverallStatus, recordStatusSample, runStatusSweep, accumulateTraffic, trafficPeriodStart } from './status.js';
 import { createTestContext, setupAgent } from './test-utils.js';
 
 describe('Yumi availability history', () => {
@@ -57,6 +57,22 @@ describe('Yumi availability history', () => {
     const overview = buildStatusOverview(context, '24h');
 
     expect(overview.range).toMatchObject({ window: '24h' });
+    expect(overview.items[0].history).toHaveLength(24);
+    expect(overview.items[0].history.slice(-2).map((period) => period.state)).toEqual(['operational', 'outage']);
+    expect(overview.items[0].uptimePercent).toBe(50);
+  });
+
+  test('builds a 2 hour window from raw samples in 5 minute buckets', async () => {
+    const context = await createTestContext('yumi');
+    context.now = () => new Date('2026-08-11T12:30:00.000Z');
+    context.db.run("INSERT INTO vps (id, name, probe_url, monitor_status, monitor_updated_at, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (1, 'nc48', 'http://example.test', 'online', '2026-08-11T12:25:00.000Z', 0, 'USD', 'monthly', 'active', '[]', '2026-08-11', '2026-08-11')");
+    context.db.run("INSERT INTO vps_status_samples (vps_id, sampled_at, state, latency_ms, detail) VALUES (1, '2026-08-11T10:00:00.000Z', 'down', NULL, 'Too old')");
+    context.db.run("INSERT INTO vps_status_samples (vps_id, sampled_at, state, latency_ms, detail) VALUES (1, '2026-08-11T12:21:00.000Z', 'up', 12, NULL)");
+    context.db.run("INSERT INTO vps_status_samples (vps_id, sampled_at, state, latency_ms, detail) VALUES (1, '2026-08-11T12:27:00.000Z', 'down', NULL, 'Probe unavailable')");
+
+    const overview = buildStatusOverview(context, parseStatusWindow('2h'));
+
+    expect(overview.range).toMatchObject({ window: '2h', unit: 'hour', start: '2026-08-11T10:30:00.000Z' });
     expect(overview.items[0].history).toHaveLength(24);
     expect(overview.items[0].history.slice(-2).map((period) => period.state)).toEqual(['operational', 'outage']);
     expect(overview.items[0].uptimePercent).toBe(50);

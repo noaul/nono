@@ -12,7 +12,7 @@ export interface User {
 
 export type DailyStatusState = 'operational' | 'degraded' | 'outage' | 'no_data';
 export type OverallStatus = 'operational' | 'degraded' | 'partial_outage' | 'major_outage' | 'no_data';
-export type StatusWindow = '24h' | '7d' | '30d' | '90d';
+export type StatusWindow = '2h' | '24h' | '7d' | '30d' | '90d';
 
 export interface StatusDay {
   day: string;
