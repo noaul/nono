@@ -1,7 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import type { AppContext } from './types.js';
+import { productAssetTypes, type AppContext } from './types.js';
 import { nonoSessionCookie, registerAuthRoutes, requireAuth } from './auth.js';
 import { registerAssetRoutes } from './assets.js';
 import { registerBulkRoutes } from './bulk-io.js';
@@ -11,19 +11,13 @@ import { registerSettingsRoutes } from './settings.js';
 import { registerReminderRoutes } from './reminders.js';
 import { buildEncryptedBackupEnvelope, registerBackupRoutes, registerBackupUploadRoute, registerInternalBackupRoutes } from './backup.js';
 import { registerAccountRoutes } from './accounts.js';
-import { registerInternalRenewalRoutes, registerRenewalRoutes } from './renewals.js';
+import { registerRenewalRoutes } from './renewals.js';
 import { errorHandler } from './http.js';
-import { registerStatusRoutes } from './status.js';
 import { registerDomainCheckRoutes } from './domain-checks.js';
 import { registerInternalNotificationRoutes } from './internal-notifications.js';
 
 export function createApp(context: AppContext) {
-  const product = context.product;
-  const allowedTypes = product === 'yumi'
-    ? ['vps', 'domain'] as const
-    : product === 'nomoney'
-      ? ['phone', 'subscription'] as const
-      : ['phone', 'vps', 'domain', 'subscription'] as const;
+  const allowedTypes = productAssetTypes;
   const app = express();
   app.set('trust proxy', 1);
   app.use(
@@ -61,25 +55,22 @@ export function createApp(context: AppContext) {
   registerAuthRoutes(api, context);
   registerInternalBackupRoutes(api, context);
   registerInternalNotificationRoutes(api, context);
-  if (product !== 'nomoney') registerInternalRenewalRoutes(api, context);
 
   api.use(requireAuth(context));
   // Before the asset routes, so /phones/export.csv is not read as /phones/:id.
   registerBulkRoutes(api, context, [...allowedTypes]);
   registerAssetRoutes(api, context, [...allowedTypes]);
   registerRenewalRoutes(api, context, [...allowedTypes]);
-  if (product !== 'yumi') registerAccountRoutes(api, context);
+  registerAccountRoutes(api, context);
   registerExpenseRoutes(api, context, [...allowedTypes]);
-  // Yumi has its own status overview; it only uses the due list.
-  registerDashboardRoutes(api, context, [...allowedTypes], { summary: product !== 'yumi' });
-  if (product === 'yumi') registerStatusRoutes(api, context);
-  if (product !== 'nomoney') registerDomainCheckRoutes(api, context);
+  registerDashboardRoutes(api, context, [...allowedTypes]);
+  registerDomainCheckRoutes(api, context);
   registerSettingsRoutes(api, context);
   registerReminderRoutes(api, context, [...allowedTypes]);
   registerBackupRoutes(api, context);
   registerBackupUploadRoute(api, context);
   api.get('/export/json', (_req, res) => {
-    res.setHeader('Content-Disposition', `attachment; filename="${product ?? 'nomoney'}-backup.json.enc"`);
+    res.setHeader('Content-Disposition', 'attachment; filename="nomoney-backup.json.enc"');
     res.json(buildEncryptedBackupEnvelope(context));
   });
 

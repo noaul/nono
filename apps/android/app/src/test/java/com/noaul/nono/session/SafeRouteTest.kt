@@ -8,7 +8,7 @@ class SafeRouteTest {
     @Test fun restoresOnlyAppGetRoutesAndDropsQueryAndFragment() {
         assertEquals("https://noaul.com/nomoney/domains", routes.restore("https://noaul.com/nomoney/domains?private=secret#form"))
         assertEquals("https://noaul.com/nodesk/", routes.restore("https://noaul.com/nodesk/"))
-        listOf("/blog", "/api/export", "/nomoney/api/expenses", "/yumi/%61pi/logout", "/login", "/mobile/capture", "/unknown/mutation", "/nomoney/../api/logout", "//evil.example/nodesk").forEach {
+        listOf("/blog", "/api/export", "/nomoney/api/expenses", "/nomoney/%61pi/logout", "/yumi/domains", "/login", "/mobile/capture", "/unknown/mutation", "/nomoney/../api/logout", "//evil.example/nodesk").forEach {
             assertNull(it, routes.restore("https://noaul.com$it"))
         }
         assertNull(routes.restore("https://evil.example/nodesk"))

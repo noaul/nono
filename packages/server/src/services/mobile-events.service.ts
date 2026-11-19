@@ -41,7 +41,11 @@ export interface MobilePushProvider {
   send(registrationId: string, message: PushEnvelope): Promise<PushResult>;
 }
 
-export const MOBILE_SOURCES: readonly MobileSource[] = ['nodesk', 'nomoney', 'yumi', 'nostar', 'links', 'backup'];
+/**
+ * Sources that may enqueue new events. Rows stored earlier may still carry a retired source such as
+ * `yumi`; they are only ever read back as plain strings, never routed through this list.
+ */
+export const MOBILE_SOURCES: readonly MobileSource[] = ['nodesk', 'nomoney', 'nostar', 'links', 'backup'];
 export const PUSH_TITLE = 'NoNo' as const;
 export const PUSH_BODY = '有一条新的提醒，点击查看' as const;
 /** Alerts are worthless after an hour; reminders and updates for a day. */
@@ -54,7 +58,6 @@ const SEVERITY_RANK: Record<MobileSeverity, number> = { info: 0, warning: 1, cri
 const SOURCE_FALLBACK_PATH: Record<MobileSource, string> = {
   nodesk: '/nodesk',
   nomoney: '/nomoney/',
-  yumi: '/yumi/',
   nostar: '/nostar/',
   links: '/admin/links',
   backup: '/nodesk/?settings=backups',

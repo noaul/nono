@@ -4,8 +4,17 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const BACKUP_KIND = 'nono.full-backup';
-const BACKUP_VERSION = 2;
-type BackupComponent = 'postgres' | 'nodesk' | 'nomoney' | 'yumi';
+/**
+ * v1: postgres + nodesk + nomoney. v2: plus the separate Yumi database (`yumi.db`).
+ * v3: postgres + nodesk + nomoney again — Yumi is retired and its domains live in NoMoney.
+ * v1 and v2 archives stay restorable; a v2 `yumi.db` goes back into the legacy Yumi data dir so a
+ * restored pre-merge NoMoney database can merge those domains again on its next start.
+ */
+const BACKUP_VERSION = 3;
+const SUPPORTED_BACKUP_VERSIONS: readonly number[] = [1, 2, BACKUP_VERSION];
+const CURRENT_COMPONENTS = ['postgres', 'nodesk', 'nomoney'] as const;
+/** `yumi` only ever appears in v2 archives. */
+type BackupComponent = typeof CURRENT_COMPONENTS[number] | 'yumi';
 const BACKUP_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/;
 /**
  * Restored phone bindings come back disabled; the phone has to register again from a live session.
@@ -31,7 +40,7 @@ export interface BackupComponentRecord {
 
 export interface BackupRecord {
   kind: typeof BACKUP_KIND;
-  version: 1 | typeof BACKUP_VERSION;
+  version: 1 | 2 | typeof BACKUP_VERSION;
   id: string;
   filename: string;
   createdAt: string;
@@ -69,6 +78,7 @@ export interface BackupServiceOptions {
   backupDir: string;
   nodeskContentDir: string;
   nomoneyDataDir: string;
+  /** Data dir of the retired Yumi product; only written when restoring a v2 archive that carries `yumi.db`. */
   yumiDataDir: string;
   databaseUrl: string;
   sourceCommit?: string;
@@ -145,7 +155,6 @@ class FileBackupService implements BackupService {
       const postgresPath = path.join(workspace, 'postgres.dump');
       const nodeskPath = path.join(workspace, 'nodesk.tar.gz');
       const nomoneyPath = path.join(workspace, 'nomoney.db');
-      const yumiPath = path.join(workspace, 'yumi.db');
 
       await this.options.run('pg_dump', [
         '--format=custom',
@@ -156,13 +165,11 @@ class FileBackupService implements BackupService {
       await this.options.run('pg_restore', ['--list', postgresPath], { env: { ...process.env, ...postgresEnv } });
       await this.options.run('tar', ['-czf', nodeskPath, '-C', this.options.nodeskContentDir, '.']);
       await copyVerifiedSqlite(this.options.nomoneyDataDir, nomoneyPath, this.options.run, 'NoMoney');
-      await copyVerifiedSqlite(this.options.yumiDataDir, yumiPath, this.options.run, 'Yumi');
 
       const componentRecords = {
         postgres: await componentRecord(postgresPath),
         nodesk: await componentRecord(nodeskPath),
         nomoney: await componentRecord(nomoneyPath),
-        yumi: await componentRecord(yumiPath),
       };
       const innerManifest = {
         kind: BACKUP_KIND,
@@ -186,7 +193,7 @@ class FileBackupService implements BackupService {
         size: artifact.size,
         sha256: artifact.sha256,
         status: 'verified',
-        components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+        components: [...CURRENT_COMPONENTS],
         componentRecords,
       };
       await writeJsonAtomic(this.recordPath(id), record);
@@ -275,9 +282,9 @@ class FileBackupService implements BackupService {
       await replaceBackupDirectoryContents(nodeskTarget, this.options.nodeskContentDir);
 
       await fs.promises.mkdir(this.options.nomoneyDataDir, { recursive: true });
-      await fs.promises.mkdir(this.options.yumiDataDir, { recursive: true });
       await replaceFile(path.join(workspace, 'nomoney.db'), path.join(this.options.nomoneyDataDir, 'app.db'));
-      if (record.components.includes('yumi')) {
+      if (hasLegacyYumi(record)) {
+        await fs.promises.mkdir(this.options.yumiDataDir, { recursive: true });
         await replaceFile(path.join(workspace, 'yumi.db'), path.join(this.options.yumiDataDir, 'app.db'));
       }
       return record;
@@ -319,7 +326,7 @@ class FileBackupService implements BackupService {
     try {
       const listing = await this.options.run('tar', ['-tzf', download.path]);
       const allowedFiles = new Set(['manifest.json', 'postgres.dump', 'nodesk.tar.gz', 'nomoney.db']);
-      if (record.components.includes('yumi')) allowedFiles.add('yumi.db');
+      if (hasLegacyYumi(record)) allowedFiles.add('yumi.db');
       validateTarEntries(listing.stdout, allowedFiles);
       await this.options.run('tar', ['-xzf', download.path, '-C', workspace]);
       const manifest = await readInnerManifest(path.join(workspace, 'manifest.json'), id);
@@ -340,7 +347,7 @@ class FileBackupService implements BackupService {
       await this.options.run('pg_restore', ['--list', path.join(workspace, 'postgres.dump')], { env: { ...process.env, ...postgresEnv } });
       const sqlite = await this.options.run('sqlite3', [path.join(workspace, 'nomoney.db'), 'PRAGMA integrity_check;']);
       if (sqlite.stdout.trim() !== 'ok') throw httpError(409, 'NoMoney SQLite integrity check failed');
-      if (record.components.includes('yumi')) {
+      if (hasLegacyYumi(record)) {
         const yumiSqlite = await this.options.run('sqlite3', [path.join(workspace, 'yumi.db'), 'PRAGMA integrity_check;']);
         if (yumiSqlite.stdout.trim() !== 'ok') throw httpError(409, 'Yumi SQLite integrity check failed');
       }
@@ -402,7 +409,7 @@ export async function replaceBackupDirectoryContents(source: string, target: str
   }
 }
 
-async function copyVerifiedSqlite(dataDir: string, destination: string, run: BackupCommandRunner, label: 'NoMoney' | 'Yumi') {
+async function copyVerifiedSqlite(dataDir: string, destination: string, run: BackupCommandRunner, label: 'NoMoney') {
   const source = path.join(dataDir, 'app.db');
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -422,7 +429,6 @@ function validateSourcePaths(options: BackupServiceOptions) {
   if (!options.databaseUrl) throw httpError(503, 'DATABASE_URL is not configured');
   if (!fs.existsSync(options.nodeskContentDir)) throw httpError(503, 'NoDesk content directory is unavailable');
   if (!fs.existsSync(path.join(options.nomoneyDataDir, 'app.db'))) throw httpError(503, 'NoMoney database is unavailable');
-  if (!fs.existsSync(path.join(options.yumiDataDir, 'app.db'))) throw httpError(503, 'Yumi database is unavailable');
 }
 
 function postgresEnvironment(databaseUrl: string) {
@@ -459,7 +465,10 @@ async function fileFingerprint(filePath: string) {
 
 async function readRecord(filePath: string): Promise<BackupRecord> {
   const parsed = JSON.parse(await fs.promises.readFile(filePath, 'utf8')) as BackupRecord;
-  if (parsed.kind !== BACKUP_KIND || ![1, BACKUP_VERSION].includes(parsed.version)) throw new Error('Unsupported backup manifest');
+  if (parsed.kind !== BACKUP_KIND || !SUPPORTED_BACKUP_VERSIONS.includes(parsed.version)) throw new Error('Unsupported backup manifest');
+  if (!Array.isArray(parsed.components) || parsed.components.some((name) => !isComponentOf(parsed.version, name))) {
+    throw new Error('Invalid backup components');
+  }
   assertBackupId(parsed.id);
   if (parsed.filename !== `nono-backup-${parsed.id}.tar.gz`) throw new Error('Invalid backup filename');
   if (!/^[a-f0-9]{64}$/.test(parsed.sha256) || !Number.isSafeInteger(parsed.size) || parsed.size < 1) throw new Error('Invalid backup fingerprint');
@@ -473,18 +482,27 @@ async function readInnerManifest(filePath: string, expectedId: string) {
     id?: string;
     components?: Partial<Record<BackupComponent, BackupComponentRecord>>;
   };
-  if (parsed.kind !== BACKUP_KIND || ![1, BACKUP_VERSION].includes(Number(parsed.version)) || parsed.id !== expectedId) {
+  if (parsed.kind !== BACKUP_KIND || !SUPPORTED_BACKUP_VERSIONS.includes(Number(parsed.version)) || parsed.id !== expectedId) {
     throw httpError(409, 'Backup manifest mismatch');
   }
-  if (!parsed.components?.postgres || !parsed.components.nodesk || !parsed.components.nomoney || (parsed.version === BACKUP_VERSION && !parsed.components.yumi)) {
+  if (!parsed.components?.postgres || !parsed.components.nodesk || !parsed.components.nomoney || (parsed.version === 2 && !parsed.components.yumi)) {
     throw httpError(409, 'Backup component manifest is incomplete');
   }
   return parsed as {
     kind: typeof BACKUP_KIND;
-    version: 1 | typeof BACKUP_VERSION;
+    version: 1 | 2 | typeof BACKUP_VERSION;
     id: string;
     components: Partial<Record<BackupComponent, BackupComponentRecord>> & Record<'postgres' | 'nodesk' | 'nomoney', BackupComponentRecord>;
   };
+}
+
+function isComponentOf(version: number, name: unknown) {
+  return (CURRENT_COMPONENTS as readonly unknown[]).includes(name) || (version === 2 && name === 'yumi');
+}
+
+/** A v2 archive carrying the retired Yumi database alongside NoMoney's. */
+function hasLegacyYumi(record: BackupRecord) {
+  return record.version === 2 && record.components.includes('yumi');
 }
 
 function componentFilename(name: BackupComponent) {

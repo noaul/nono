@@ -3,11 +3,6 @@ const nodeskPublicFiles = new Set(['/favicon.png', '/manifest.json']);
 const versionedAvatarPath = /^\/images\/avatar-[a-f0-9]{64}\.webp$/i;
 
 export function targetFor(url = '/', ports) {
-  const yumiPath = stripMountPath(url, '/yumi');
-  if (yumiPath !== null) {
-    return { name: 'yumi', port: ports.yumi, path: yumiPath };
-  }
-
   const nomoneyPath = stripMountPath(url, '/nomoney');
   if (nomoneyPath !== null) {
     return { name: 'nomoney', port: ports.nomoney, path: nomoneyPath };
@@ -35,12 +30,27 @@ export function isPublicInternalPath(url = '/') {
   } catch {
     return true;
   }
-  return ['/nomoney/api/internal', '/yumi/api/internal', '/api/internal'].some(
+  return ['/nomoney/api/internal', '/api/internal'].some(
     prefix => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
 
-const signedInApps = ['/nomoney', '/yumi', '/nostar', '/admin'];
+/**
+ * Yumi (the VPS + domain manager that used to run as a second NoMoney process under /yumi) is
+ * retired: domains moved back into NoMoney and VPS management was dropped. Old bookmarks keep
+ * working: `/yumi/domains...` lands on the same NoMoney page (rest of path and query preserved),
+ * every other `/yumi` URL — including `/yumi/api/...` — lands on the NoMoney home page.
+ */
+export function retiredYumiRedirect(url = '/') {
+  const rest = stripMountPath(url, '/yumi');
+  if (rest === null) return null;
+  if (rest === '/domains' || rest.startsWith('/domains/') || rest.startsWith('/domains?')) {
+    return `/nomoney${rest}`;
+  }
+  return '/nomoney/';
+}
+
+const signedInApps = ['/nomoney', '/nostar', '/admin'];
 
 /**
  * A page load of an app that needs NoNo sign-in, made without even a session cookie, goes straight

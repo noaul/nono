@@ -5,10 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBackupModuleAdapters } from '../src/services/backup-module-adapters.js';
 
 describe('backup module adapters', () => {
-  it('exports and restores NoMoney and Yumi through protected product-scoped internal endpoints', async () => {
-    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+  // NoMoney writes version 3 payloads (domains included); version 2 backups made before Yumi's retirement stay restorable.
+  it.each([3, 2])('exports and restores version %i NoMoney payloads through protected internal endpoints', async (payloadVersion) => {
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
       if ((init?.method || 'GET') === 'GET') {
-        return new Response(JSON.stringify({ version: 2, product: url.includes(':2040') ? 'yumi' : 'nomoney', rows: [] }), {
+        return new Response(JSON.stringify({ version: payloadVersion, product: 'nomoney', rows: [] }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         });
@@ -21,22 +22,22 @@ describe('backup module adapters', () => {
       nodeskContentDir: 'unused',
       internalToken: 'internal-secret',
       noMoneyPort: 2030,
-      yumiPort: 2040,
       fetch,
     });
 
     const noMoney = await adapters.nomoney.export(1);
-    const yumi = await adapters.yumi.export(1);
     await adapters.nomoney.validate(noMoney);
-    await adapters.yumi.restore(1, yumi);
+    await adapters.nomoney.restore(1, noMoney);
 
+    // Yumi is retired; there is no adapter for it any more.
+    expect(Object.keys(adapters)).toEqual(['nono', 'nodesk', 'nostar', 'nomoney']);
     expect(JSON.parse(noMoney.toString())).toMatchObject({ kind: 'nono.product-backup', module: 'nomoney' });
     expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:2030/api/internal/backup', expect.objectContaining({
       headers: expect.objectContaining({ 'x-nono-internal-token': 'internal-secret' }),
     }));
-    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:2040/api/internal/backup/restore', expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:2030/api/internal/backup/restore', expect.objectContaining({
       method: 'POST',
-      body: expect.stringContaining('"product":"yumi"'),
+      body: expect.stringContaining('"product":"nomoney"'),
     }));
   });
 

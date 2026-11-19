@@ -1,7 +1,7 @@
 export type Currency = 'CNY' | 'USD' | 'HKD' | 'JPY' | 'GBP' | 'EUR' | 'CAD' | 'SGD' | 'AUD';
 export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
-export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
+export type AssetType = 'phone' | 'domain' | 'subscription';
 export type AccountType = 'telegram' | 'whatsapp' | 'signal' | 'wechat' | 'line' | 'discord' | 'viber' | 'other';
 
 export interface User {
@@ -196,8 +196,6 @@ export interface SettingsValue {
   webdavEncryptionKey: string;
   webdavPasswordSet?: boolean;
   webdavEncryptionKeySet?: boolean;
-  outageAlertsEnabled: boolean;
-  diskAlertPercent: number;
 }
 
 export interface ListMeta {
@@ -263,15 +261,6 @@ export interface ListMeta {
       accountCount: number;
       topSuffix: string;
       autoRenewCount: number;
-      riskWithin30Days: number;
-    };
-    vps?: {
-      online: number;
-      offline: number;
-      configured: number;
-      avgCpu: number | null;
-      avgMemory: number | null;
-      totalTrafficBytes: number;
       riskWithin30Days: number;
     };
   };

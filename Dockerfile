@@ -109,7 +109,6 @@ ENV PORT=3000
 ENV NONO_INTERNAL_PORT=3001
 ENV NODESK_INTERNAL_PORT=2025
 ENV NOMONEY_INTERNAL_PORT=2030
-ENV YUMI_INTERNAL_PORT=2040
 ENV HOSTNAME=0.0.0.0
 COPY --from=nono-build /app/nono/package.json ./nono/package.json
 COPY --from=nono-build /app/nono/node_modules ./nono/node_modules
@@ -130,7 +129,6 @@ COPY --from=nomoney-build /app/nomoney/backend/package.json ./nomoney/backend/pa
 COPY --from=nomoney-runtime-deps /app/nomoney/node_modules ./nomoney/node_modules
 COPY --from=nomoney-build /app/nomoney/backend/dist ./nomoney/backend/dist
 COPY --from=nomoney-build /app/nomoney/backend/public ./nomoney/backend/public
-COPY --from=nomoney-build /app/nomoney/backend/public-yumi ./nomoney/backend/public-yumi
 COPY docker/gateway.mjs ./gateway.mjs
 COPY docker/migrate-nodesk-content.mjs ./migrate-nodesk-content.mjs
 COPY docker/gateway-headers.mjs ./gateway-headers.mjs

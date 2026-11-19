@@ -37,12 +37,12 @@ export function linkDigestSlot(now: Date) {
   return new Date(slot > now.getTime() ? slot - 7 * 86_400_000 : slot);
 }
 /**
- * NoMoney and Yumi push their own reminders and outage alerts through `relay`, with their own lead
- * times and retry rules. Their in-app feed items are therefore never pushed a second time here.
+ * NoMoney pushes its own reminders through `relay`, with its own lead times and retry rules. Its
+ * in-app feed items are therefore never pushed a second time here.
  */
-const RELAYED_SOURCES = new Set<NotificationSource>(['nomoney', 'yumi']);
+const RELAYED_SOURCES = new Set<NotificationSource>(['nomoney']);
 
-export type RelayProduct = 'nomoney' | 'yumi';
+export type RelayProduct = 'nomoney';
 
 export interface ChannelResult {
   channelId: number;
@@ -264,7 +264,7 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
       }
 
       const sources: Array<[RelayProduct, LegacyChannels | null]> = [];
-      for (const product of ['nomoney', 'yumi'] as const) {
+      for (const product of ['nomoney'] as const) {
         try {
           sources.push([product, await options.readLegacyChannels(product)]);
         } catch {
@@ -278,7 +278,7 @@ export function createNotificationDispatcher(options: NotificationDispatcherOpti
       const drafts: Array<{ type: NotificationChannelType; name: string; config: Record<string, unknown> }> = [];
       for (const [product, legacy] of sources) {
         if (!legacy) continue;
-        const label = product === 'yumi' ? 'Yumi' : 'NoMoney';
+        const label = 'NoMoney';
         const add = (type: NotificationChannelType, identity: string, name: string, config: Record<string, unknown>) => {
           if (seen.has(`${type}:${identity}`)) return;
           seen.add(`${type}:${identity}`);

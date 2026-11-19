@@ -27,7 +27,7 @@ describe('backup center routes', () => {
       removeWebDavBatch: vi.fn(),
       restoreWebDavBatch: vi.fn(async (_userId, batchId, modules) => ({ batchId, restored: [...(modules || [])] })),
       createLocalBackup: vi.fn(),
-      restoreLocalBackup: vi.fn(async (_userId, module) => ({ restored: module === 'all' ? ['nono', 'nodesk', 'nostar', 'nomoney', 'yumi'] : [module] })),
+      restoreLocalBackup: vi.fn(async (_userId, module) => ({ restored: module === 'all' ? ['nono', 'nodesk', 'nostar', 'nomoney'] : [module] })),
     } as BackupCenterService;
     const repo = new MemoryRepository(false);
     app = await buildApp({ repo, sessionSecret, encryptionKey, backupCenterService: center } as any);
@@ -49,22 +49,51 @@ describe('backup center routes', () => {
       method: 'POST',
       url: '/api/admin/backup-center/webdav/restore',
       headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_webdav-restore` },
-      payload: { batchId, modules: ['nomoney', 'yumi'] },
+      payload: { batchId, modules: ['nomoney', 'nostar'] },
     });
 
     expect(response.statusCode).toBe(202);
     await new Promise(resolve => setImmediate(resolve));
     const polled = await app.inject({ url: `/api/admin/backup-center/jobs/${response.json().data.id}`, headers: { cookie: adminCookie } });
-    expect(polled.json().data.result).toEqual({ batchId, restored: ['nomoney', 'yumi'] });
-    expect(center.restoreWebDavBatch).toHaveBeenCalledWith(expect.any(Number), batchId, ['nomoney', 'yumi']);
+    expect(polled.json().data.result).toEqual({ batchId, restored: ['nomoney', 'nostar'] });
+    expect(center.restoreWebDavBatch).toHaveBeenCalledWith(expect.any(Number), batchId, ['nomoney', 'nostar']);
+  });
+
+  it('drops the retired Yumi module from a stored module selection instead of rejecting it', async () => {
+    const batchId = '20260814T123456Z-a1b2c3';
+    const restore = await app.inject({
+      method: 'POST',
+      url: '/api/admin/backup-center/webdav/restore',
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_webdav-restore-legacy` },
+      payload: { batchId, modules: ['nomoney', 'yumi'] },
+    });
+    expect(restore.statusCode).toBe(202);
+    await new Promise(resolve => setImmediate(resolve));
+    expect(center.restoreWebDavBatch).toHaveBeenCalledWith(expect.any(Number), batchId, ['nomoney']);
+
+    const onlyYumi = await app.inject({
+      method: 'POST',
+      url: '/api/admin/backup-center/webdav/backups',
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_webdav-only-yumi` },
+      payload: { modules: ['yumi'] },
+    });
+    expect(onlyYumi.statusCode).toBe(400);
+    const local = await app.inject({
+      method: 'POST',
+      url: '/api/admin/backup-center/local/yumi',
+      headers: { cookie: adminCookie, 'idempotency-key': `${Date.now()}_local-yumi` },
+    });
+    expect(local.statusCode).toBe(400);
+    expect(center.backupToWebDav).not.toHaveBeenCalled();
+    expect(center.createLocalBackup).not.toHaveBeenCalled();
   });
 
   it('does not impose a small route-level quota on manual WebDAV backups', async () => {
-    vi.mocked(center.backupToWebDav).mockImplementation(async (_userId, modules = ['nono', 'nodesk', 'nostar', 'nomoney', 'yumi']) => ({
+    vi.mocked(center.backupToWebDav).mockImplementation(async (_userId, modules = ['nono', 'nodesk', 'nostar', 'nomoney']) => ({
       kind: 'nono.webdav-backup-batch',
       version: 1,
       id: `20260824T12000${vi.mocked(center.backupToWebDav).mock.calls.length}Z-a1b2c3`,
-      scope: modules.length === 5 ? 'full' : 'module',
+      scope: modules.length === 4 ? 'full' : 'module',
       createdAt: '2026-08-24T12:00:00.000Z',
       sourceCommit: 'test',
       modules: {},

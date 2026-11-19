@@ -41,7 +41,7 @@ describe('global backups', () => {
           createdAt: '2026-07-18T12:00:00.000Z',
           size: 15,
           sha256: 'abc123',
-          components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+          components: ['postgres', 'nodesk', 'nomoney'],
         },
       ]),
       create: vi.fn().mockResolvedValue({
@@ -49,7 +49,7 @@ describe('global backups', () => {
         createdAt: '2026-07-18T12:00:00.000Z',
         size: 15,
         sha256: 'abc123',
-        components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+        components: ['postgres', 'nodesk', 'nomoney'],
       }),
       resolveDownload: vi.fn().mockResolvedValue({
         path: archivePath,
@@ -95,7 +95,7 @@ describe('global backups', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data.backups).toEqual([
-      expect.objectContaining({ id: '20260718T120000Z', components: ['postgres', 'nodesk', 'nomoney', 'yumi'] }),
+      expect.objectContaining({ id: '20260718T120000Z', components: ['postgres', 'nodesk', 'nomoney'] }),
     ]);
     expect(backupService.list).toHaveBeenCalledOnce();
   });

@@ -7,7 +7,7 @@ import { HeaderMenuId, AppState } from '../types';
 /**
  * The application frame, the same at every width: the NoNo module switcher across the top, the
  * page title, and the page dock at the bottom — a tab bar on phones, a floating bar on wider
- * screens. NoMoney and Yumi use the same frame. Geometry and colour come from the shared UI
+ * screens. NoMoney uses the same frame. Geometry and colour come from the shared UI
  * contract (see docs/design/ui-contract.md); nothing here carries a NoStar-specific palette.
  */
 
@@ -29,7 +29,6 @@ const NONO_MODULES = [
   { id: 'nono', href: '/', label: 'NoNo' },
   { id: 'nodesk', href: '/nodesk', label: 'NoDesk' },
   { id: 'nomoney', href: '/nomoney/', label: 'NoMoney' },
-  { id: 'yumi', href: '/yumi/', label: 'Yumi' },
   { id: 'nostar', href: '/nostar/', label: 'NoStar' },
 ];
 

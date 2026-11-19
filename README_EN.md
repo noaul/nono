@@ -4,7 +4,7 @@
 
 <p align="center"><img src="design/icons/nono-duo-512.png" width="96" height="96" alt="NoNo"></p>
 
-NoNo is a self-hosted personal workspace for bookmarks, publishing, personal assets, infrastructure, and GitHub Stars under one domain. It is intended for individuals and small groups of trusted users.
+NoNo is a self-hosted personal workspace for bookmarks, publishing, personal assets including domains, and GitHub Stars under one domain. It is intended for individuals and small groups of trusted users.
 
 ## Products and entry points
 
@@ -12,11 +12,10 @@ NoNo is a self-hosted personal workspace for bookmarks, publishing, personal ass
 | --- | --- | --- | --- |
 | **NoNo** | `/`, `/admin` | Public navigation, folders, bookmarks, search, import/export, trash, link checks | NoNo accounts; PostgreSQL |
 | **NoDesk** | `/nodesk` | Articles, images, projects, links, snippets, schedules, home workspace | NoNo administrator session for editing; file volume |
-| **NoMoney** | `/nomoney` | Phone cards, subscriptions, accounts, expenses, expiry reminders | NoNo administrator sign-in; SQLite |
-| **Yumi** | `/yumi` | VPS, domains, renewals, expenses, monitoring | NoNo administrator sign-in; SQLite |
+| **NoMoney** | `/nomoney` | Phone cards, subscriptions, accounts, domains (RDAP/TLS checks), expenses, expiry reminders | NoNo administrator sign-in; SQLite |
 | **NoStar** | `/nostar` | GitHub Stars sync, categories, search, README, releases, AI analysis | NoNo session; PostgreSQL |
 | **Chrome extension** | Popup and context menu | Capture the current page, organize with AI, save bookmarks | Dedicated NoNo API Token |
-| **Android app** | APK ([apps/android](apps/android/README.md)) | NoDesk, NoMoney, Yumi, NoStar and bookmarks on the phone; save links via the system share sheet | NoNo sign-in |
+| **Android app** | APK ([apps/android](apps/android/README.md)) | NoDesk, NoMoney, NoStar and bookmarks on the phone; save links via the system share sheet | NoNo sign-in |
 
 NoNo supports passwords, Passkeys, session management, scoped API Tokens, and site/folder access passwords. NoNo and NoStar support OpenAI/Claude-compatible providers; analysis content is sent to the configured provider.
 
@@ -24,11 +23,11 @@ Current navigation:
 
 - **Bookmarks** combines bookmark and folder management; search covers every folder (server-side trigram matching, including CJK substrings). NoTab groups navigation content.
 - **Account settings** contains passwords, Passkeys, API Tokens, LLM configuration, and login devices. Administrators also see **Users and registration**.
-- **Notification center** (NoDesk settings) lists notifications from bookmarks, NoStar, calendar, NoMoney, Yumi and backups, and configures email, Telegram, Bark and webhook channels. New NoNo notifications are pushed as a digest every 5 minutes; NoMoney reminders and Yumi outage alerts go through NoNo to the administrator's channels immediately. The first start after upgrading imports the channels NoMoney/Yumi used before (`NOMONEY_SMTP_*` is only read for that import).
+- **Notification center** (NoDesk settings) lists notifications from bookmarks, NoStar, calendar, NoMoney and backups, and configures email, Telegram, Bark and webhook channels. New NoNo notifications are pushed as a digest every 5 minutes; NoMoney phone card, subscription and domain reminders go through NoNo to the administrator's channels immediately. The first start after upgrading imports the channels NoMoney used before (`NOMONEY_SMTP_*` is only read for that import).
 - **NoDesk settings** contains account module backups, local downloads, WebDAV, and scheduled backups.
 - **Appearance** includes Chinese/English, light/dark mode, and a reduced set of layout, typography, background, and scene controls. Same-origin apps share some browser preferences.
 
-Separate user, LLM, Token, and folder screens have been consolidated. Music cards and clipping are retired. There is no self-registration page; when an administrator enables registration, the API still creates regular users. Every app signs in through NoNo: one sign-in opens NoMoney, Yumi, NoStar and the admin area; signed-out visits redirect to `/login`, and logging out of NoNo logs out everywhere. NoMoney and Yumi are limited to NoNo administrators; NoStar connects GitHub after NoNo sign-in. The NoNo navigation page and NoDesk workbench stay public.
+Separate user, LLM, Token, and folder screens have been consolidated. Music cards, clipping and Yumi (VPS management and status monitoring) are retired; Yumi's domain management moved into NoMoney, and old `/yumi` addresses redirect to NoMoney. There is no self-registration page; when an administrator enables registration, the API still creates regular users. Every app signs in through NoNo: one sign-in opens NoMoney, NoStar and the admin area; signed-out visits redirect to `/login`, and logging out of NoNo logs out everywhere. NoMoney is limited to NoNo administrators; NoStar connects GitHub after NoNo sign-in. The NoNo navigation page and NoDesk workbench stay public.
 
 ## Quick start
 
@@ -49,7 +48,7 @@ Replace every `replace-with-*` value in `.env`. Generate independent secrets, fo
 | `BOOTSTRAP_TOKEN` | Independent token required to create the first administrator |
 | `ENCRYPTION_KEY` | NoNo encryption key, 64 hexadecimal characters |
 | `NOMONEY_INTERNAL_TOKEN` | Independent token for protected internal calls |
-| `NOMONEY_ENCRYPTION_KEY`, `YUMI_ENCRYPTION_KEY` | Separate 64-character hexadecimal encryption keys recommended |
+| `NOMONEY_ENCRYPTION_KEY` | NoMoney encryption key, 64 hexadecimal characters; generate it separately from `ENCRYPTION_KEY` |
 | `NONO_PUBLIC_URL` | Actual browser-facing NoNo URL |
 | `NODESK_PUBLIC_URL` | Same-origin NoDesk URL, usually `https://example.com/nodesk` |
 | `PORT` | Compose binding, default `127.0.0.1:3000` |
@@ -64,7 +63,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/readyz
 ```
 
-Open `http://localhost:3000/setup`, supply `BOOTSTRAP_TOKEN`, and create the first administrator. Add bookmarks, configure your site and AI provider, and create a dedicated extension Token. NoMoney and Yumi need no separate accounts; administrators can use them right after signing in.
+Open `http://localhost:3000/setup`, supply `BOOTSTRAP_TOKEN`, and create the first administrator. Add bookmarks, configure your site and AI provider, and create a dedicated extension Token. NoMoney needs no separate account; administrators can use it right after signing in.
 
 Registration is closed by default. Its runtime setting is stored in the database and managed through **Account settings → Users and registration**. Editing `.env` does not override saved configuration. `ALLOW_REGISTRATION` only seeds configuration when running the server directly; the current Compose file does not pass it through.
 
@@ -72,17 +71,17 @@ Stop with `docker compose down`. **Do not add `-v` during normal upgrades: it de
 
 ## Architecture and persistence
 
-One application container runs the gateway, NoNo API, NoDesk, NoMoney, and Yumi. NoNo serves NoStar assets and APIs. The gateway routes by path; internal service ports do not need public bindings. PostgreSQL runs in a separate container.
+One application container runs the gateway, NoNo API, NoDesk, and NoMoney. NoNo serves NoStar assets and APIs. The gateway routes by path; internal service ports do not need public bindings. PostgreSQL runs in a separate container.
 
 | Volume | Contents |
 | --- | --- |
 | `nono_pg18_data` | NoNo, NoStar, users, sessions, Passkeys, audit and system settings (PostgreSQL 18) |
 | `nodesk_content` | NoDesk content, images and settings |
 | `nomoney_data` | NoMoney SQLite database |
-| `yumi_data` | Yumi SQLite database |
+| `yumi_data` | Legacy Yumi SQLite database, kept only as the source for the one-time domain merge into NoMoney |
 | `nono_backups` | Full backups, manifests and deployment safety snapshots |
 
-NoMoney/Yumi persist SQLite through `sql.js`. Never run multiple writers against the same data volume. The default architecture does not provide multi-node high availability.
+NoMoney persists SQLite through `sql.js`. Never run multiple writers against the same data volume. The default architecture does not provide multi-node high availability.
 
 Keep encryption keys with your recovery materials: changing them makes existing encrypted data unreadable. Changing session secrets invalidates existing logins. Editing the PostgreSQL password in `.env` does not change the role password inside an existing database volume.
 
@@ -109,7 +108,7 @@ node scripts/accept-deployment.mjs --base-url http://127.0.0.1:8188
 docker compose ps
 ```
 
-`/healthz` checks liveness. `/readyz` also checks the database, NoDesk content, NoMoney, and Yumi. An HTTP 200 from the homepage alone is insufficient acceptance.
+`/healthz` checks liveness. `/readyz` also checks the database, NoDesk content, and NoMoney. An HTTP 200 from the homepage alone is insufficient acceptance.
 
 Failures before public release trigger a recovery attempt. After release, arbitrary data rollback may discard new writes. To return to an earlier version, use the immutable image recorded by the deployment:
 
@@ -125,7 +124,7 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- \
 
 Two backup scopes are available:
 
-- **Account module backups** in NoDesk settings: NoNo, NoDesk, NoMoney, Yumi, and NoStar; local files, WebDAV, and schedules. Jobs run in the background, so check the original job after a network interruption.
+- **Account module backups** in NoDesk settings: NoNo, NoDesk, NoMoney, and NoStar; local files, WebDAV, and schedules. Jobs run in the background, so check the original job after a network interruption.
 - **Full disaster recovery backups** on the server: PostgreSQL and all application data volumes, including accounts and sessions.
 
 ```bash
@@ -145,7 +144,7 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 Full archives are not additionally encrypted and do not contain `.env`, certificates, or reverse-proxy configuration. Preserve keys separately and copy encrypted backups off-host. Deployment safety snapshots live in the backup volume's `deployment-safety` subdirectory, outside ordinary retention.
 
-See [Full backup and restore](docs/deployment/full-backup-restore.md), [NoMoney migration](docs/deployment/nomoney-production-migration.md), and [Yumi split migration](docs/deployment/yumi-split-migration.md).
+See [Full backup and restore](docs/deployment/full-backup-restore.md), [NoMoney migration](docs/deployment/nomoney-production-migration.md), and [Yumi merge back into NoMoney](docs/deployment/yumi-merge-back.md).
 
 ## Development and verification
 
@@ -166,13 +165,13 @@ node --env-file=.env node_modules/prisma/build/index.js migrate dev --config pac
 PORT=3000 node --env-file=.env --import tsx packages/server/src/server.ts
 ```
 
-In another terminal, run `npm run dev:web` and open `http://localhost:5173`. Vite proxies API calls to `127.0.0.1:3000` by default. Compose's `PORT` includes a bind address; direct Node execution requires a numeric port instead. Use Compose to verify integrated NoDesk, NoMoney, and Yumi behavior.
+In another terminal, run `npm run dev:web` and open `http://localhost:5173`. Vite proxies API calls to `127.0.0.1:3000` by default. Compose's `PORT` includes a bind address; direct Node execution requires a numeric port instead. Use Compose to verify integrated NoDesk and NoMoney behavior.
 
 | Command | Purpose |
 | --- | --- |
 | `npm test` | NoNo server, web and extension tests |
 | `npm run test:nodesk` | NoDesk tests |
-| `npm run test:nomoney` | NoMoney/Yumi frontend and backend tests |
+| `npm run test:nomoney` | NoMoney frontend and backend tests |
 | `npm run test:nostar` | NoStar tests |
 | `npm run test:gateway` | Gateway, deployment, backup and restore contracts |
 | `npm run build:all` | All product builds |
@@ -217,7 +216,7 @@ Gateway variables:
 | Symptom | Check |
 | --- | --- |
 | Missing Compose variables | `.env`, placeholder values, bootstrap token |
-| NoMoney/Yumi says it cannot verify sign-in | Check that NoNo is ready and `NOMONEY_INTERNAL_TOKEN` is set |
+| NoMoney says it cannot verify sign-in | Check that NoNo is ready and `NOMONEY_INTERNAL_TOKEN` is set |
 | Passkey failure | HTTPS, browser origin, RP ID, configured origin |
 | AI returns fallback results | Configuration load, connection test, key, model, final service URL, private-host allowlist |
 | Database connection fails after upgrade | Environment password versus the existing database role password |
@@ -231,7 +230,7 @@ packages/server    NoNo/NoStar API, Prisma, authentication, backups, jobs
 packages/web       NoNo Vue frontend
 packages/extension Chrome extension
 apps/nodesk          NoDesk Next.js content site
-apps/nomoney       NoMoney/Yumi Express + React
+apps/nomoney       NoMoney Express + React
 apps/nostar        NoStar React frontend
 docker             Gateway and container entry
 scripts            Deployment, acceptance, backups, restore, migration

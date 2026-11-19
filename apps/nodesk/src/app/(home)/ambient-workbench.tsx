@@ -26,8 +26,8 @@ import {
 	RefreshCw,
 	RotateCcw,
 	Search,
+	ServerCog,
 	Settings,
-	Smile,
 	Star,
 	SunMedium,
 	Sunrise,
@@ -69,10 +69,10 @@ import { appDockEntries, normalizeWorkbenchNavigation, type WorkbenchAppEntry } 
 import { summarizeOverview, type TodayRow } from './today-overview-model'
 import { hasLocalChanges, mergePlanner, PLANNER_SAVE_DELAY_MS, PLANNER_SYNC_STORAGE_KEY, readRemotePlanner, readSyncMeta, type PlannerSnapshot, type PlannerSyncMeta, type RemotePlanner } from './planner-sync'
 
-type PanelId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'calendar' | 'tasks' | 'focus' | 'more'
+type PanelId = 'today' | 'bookmarks' | 'github' | 'calendar' | 'tasks' | 'focus' | 'more'
 type DockActionId = PanelId | 'settings'
 type LoadState = 'loading' | 'ready' | 'unavailable'
-type IntegrationId = 'today' | 'bookmarks' | 'github' | 'yumi' | 'notifications'
+type IntegrationId = 'today' | 'bookmarks' | 'github' | 'notifications'
 
 type BookmarkItem = {
 	id: number
@@ -117,7 +117,6 @@ const DOCK_ITEMS: DockItem[] = [
 	{ id: 'today', label: '今日', icon: Sunrise },
 	{ id: 'bookmarks', label: '书签', icon: Bookmark, shortcutHref: '/admin/links', shortcutLabel: '打开书签管理' },
 	{ id: 'github', label: 'GitHub', icon: Github, shortcutHref: '/nostar/', shortcutLabel: '打开 NoStar', placement: 'secondary' },
-	{ id: 'yumi', label: 'Yumi', icon: Smile, shortcutHref: '/yumi', shortcutLabel: '打开 Yumi', placement: 'secondary' },
 	{ id: 'calendar', label: '日程', icon: CalendarDays },
 	{ id: 'tasks', label: '任务', icon: ListTodo },
 	{ id: 'focus', label: '专注', icon: Timer, placement: 'secondary' },
@@ -190,7 +189,7 @@ function AppEntryIcon({ entry }: { entry: WorkbenchAppEntry }) {
 	if (entry.id === 'home' || entry.icon === 'bookmark') return <Bookmark size={19} />
 	if (entry.id === 'nomoney' || entry.icon === 'wallet-cards') return <WalletCards size={19} />
 	if (entry.id === 'nostar' || entry.icon === 'star') return <Star size={19} />
-	if (entry.id === 'yumi' || entry.icon === 'server-cog') return <Smile size={19} />
+	if (entry.icon === 'server-cog') return <ServerCog size={19} />
 	if (entry.icon === 'github') return <Github size={19} />
 	if (entry.icon === 'globe') return <Globe2 size={19} />
 	if (entry.icon === 'link') return <Link2 size={19} />
@@ -278,7 +277,6 @@ export default function AmbientWorkbench() {
 		today: 'loading',
 		bookmarks: 'loading',
 		github: 'loading',
-		yumi: 'loading',
 		notifications: 'loading'
 	})
 
@@ -324,7 +322,6 @@ export default function AmbientWorkbench() {
 	const loadNotifications = async (showLoading = true) => {
 		const request = ++notificationRequestRef.current
 		if (showLoading) {
-			updateIntegration('yumi', 'loading')
 			updateIntegration('notifications', 'loading')
 		}
 		try {
@@ -357,10 +354,8 @@ export default function AmbientWorkbench() {
 				})
 			)
 			setNotificationUnreadCount(typeof value?.unreadCount === 'number' ? value.unreadCount : 0)
-			updateIntegration('yumi', 'ready')
 			updateIntegration('notifications', 'ready')
 		} catch {
-			updateIntegration('yumi', 'unavailable')
 			updateIntegration('notifications', 'unavailable')
 		}
 	}
@@ -378,7 +373,7 @@ export default function AmbientWorkbench() {
 	}
 
 	const loadIntegrations = async () => {
-		setIntegrationState({ today: 'loading', bookmarks: 'loading', github: 'loading', yumi: 'loading', notifications: 'loading' })
+		setIntegrationState({ today: 'loading', bookmarks: 'loading', github: 'loading', notifications: 'loading' })
 		void loadNotifications(false)
 		void loadOverview(false)
 
@@ -763,7 +758,6 @@ export default function AmbientWorkbench() {
 	}, [searchOpen])
 
 	const shanghaiClock = getShanghaiClockParts(now)
-	const yumiItems = useMemo(() => notifications.filter(item => item.source === 'yumi'), [notifications])
 	const incompleteTasks = useMemo(() => tasks.filter(task => !task.completed), [tasks])
 	const upcomingEvents = useMemo(() => events.filter(event => `${event.date} ${event.time}` >= `${localDateKey(now)} ${shanghaiClock.hour}:${shanghaiClock.minute}`), [events, now, shanghaiClock.hour, shanghaiClock.minute])
 	const upcomingItems = useMemo(() => selectUpcomingItems(incompleteTasks, upcomingEvents, 3), [incompleteTasks, upcomingEvents])
@@ -1094,7 +1088,7 @@ export default function AmbientWorkbench() {
 										<ArrowUpRight size={17} />
 									</a>
 								)}
-								{(['today', 'bookmarks', 'github', 'yumi'] as PanelId[]).includes(activePanel) && (
+								{(['today', 'bookmarks', 'github'] as PanelId[]).includes(activePanel) && (
 									<button type='button' className='ambient-small-icon' onClick={() => void loadIntegrations()} title='刷新数据' aria-label='刷新数据'>
 										<RefreshCw size={16} />
 									</button>
@@ -1114,11 +1108,6 @@ export default function AmbientWorkbench() {
 							{activePanel === 'github' && <IntegrationList state={integrationState.github} empty='NoStar 中还没有仓库。' unavailable='登录 NoNo 后即可读取 NoStar 仓库。'>
 								{repositories.slice(0, 7).map(item => <ExternalRow key={item.id} title={item.full_name} subtitle={[item.language, `${(item.stargazers_count || 0).toLocaleString('zh-CN')} 星标`].filter(Boolean).join(' · ')} href={item.html_url} icon={<Github size={17} />} />)}
 							</IntegrationList>}
-
-							{activePanel === 'yumi' && <IntegrationList state={integrationState.yumi} empty='Yumi 当前一切正常。' unavailable='登录 NoNo 后即可读取 Yumi 状态。'>
-								{yumiItems.slice(0, 7).map(item => <ExternalRow key={item.key} title={item.title} subtitle={item.description} href={item.href} icon={<span className={`ambient-severity ambient-severity-${item.severity}`}><Circle size={11} fill='currentColor' /></span>} />)}
-							</IntegrationList>}
-							{activePanel === 'yumi' && <a className='ambient-panel-link' href='/yumi'>打开 Yumi <ArrowUpRight size={15} /></a>}
 
 							{activePanel === 'more' && (
 								<div className='ambient-more-grid'>

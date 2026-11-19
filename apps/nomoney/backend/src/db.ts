@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import initSqlJs from 'sql.js';
-import type { DbClient, DbValue, ProductMode } from './types.js';
+import type { DbClient, DbValue } from './types.js';
 import { calculateDomainRarity, inferDomainExtension } from './domainProviders.js';
 
 type SqlStatement = {
@@ -22,7 +22,8 @@ type SqlDatabase = {
 export interface DatabaseOptions {
   filePath?: string;
   persist: boolean;
-  product?: ProductMode;
+  /** Loads an existing file without migrating it or writing anything back. */
+  readOnly?: boolean;
 }
 
 const reminderLogsSchema = `CREATE TABLE IF NOT EXISTS reminder_logs (
@@ -56,12 +57,12 @@ export async function createDatabase(options: DatabaseOptions): Promise<DbClient
   const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
   const SQL = await initSqlJs({ locateFile: () => wasmPath });
   const initialData =
-    options.persist && options.filePath && fs.existsSync(options.filePath)
+    (options.persist || options.readOnly) && options.filePath && fs.existsSync(options.filePath)
       ? fs.readFileSync(options.filePath)
       : undefined;
   const sql = initialData ? new SQL.Database(initialData) : new SQL.Database();
-  const client = new SqlJsClient(sql as SqlDatabase, options.filePath, options.persist);
-  migrate(client, options.product ?? 'nomoney');
+  const client = new SqlJsClient(sql as SqlDatabase, options.filePath, options.persist && !options.readOnly);
+  if (!options.readOnly) migrate(client);
   return client;
 }
 
@@ -163,7 +164,7 @@ class SqlJsClient implements DbClient {
   }
 }
 
-function migrate(db: DbClient, product: ProductMode): void {
+function migrate(db: DbClient): void {
   db.exec(`
     PRAGMA foreign_keys = ON;
 
@@ -209,64 +210,6 @@ function migrate(db: DbClient, product: ProductMode): void {
       billing_cycle TEXT NOT NULL,
       billing_day INTEGER,
       activate_date TEXT,
-      next_due_date TEXT,
-      expire_date TEXT,
-      auto_renew INTEGER NOT NULL DEFAULT 0,
-      payment_method TEXT,
-      renewal_url TEXT,
-      status TEXT NOT NULL,
-      tags TEXT NOT NULL DEFAULT '[]',
-      notes TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      archived_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS vps (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      vps_type TEXT,
-      provider TEXT,
-      ip_address TEXT,
-      location TEXT,
-      cpu TEXT,
-      memory TEXT,
-      storage TEXT,
-      bandwidth TEXT,
-      os TEXT,
-      ssh_host TEXT,
-      ssh_port INTEGER,
-      ssh_user TEXT,
-      ssh_auth_type TEXT,
-      ssh_password TEXT,
-      ssh_private_key TEXT,
-      ssh_private_key_passphrase TEXT,
-      ssh_host_fingerprint TEXT,
-      ssh_command TEXT,
-      probe_url TEXT,
-      probe_port INTEGER,
-      probe_api_key TEXT,
-      probe_install_status TEXT,
-      probe_install_message TEXT,
-      probe_installed_at TEXT,
-      ssh_last_test_status TEXT,
-      ssh_last_test_message TEXT,
-      ssh_last_tested_at TEXT,
-      monitor_status TEXT,
-      monitor_cpu_percent REAL,
-      monitor_memory_percent REAL,
-      monitor_disk_percent REAL,
-      monitor_net_in_bps INTEGER,
-      monitor_net_out_bps INTEGER,
-      monitor_net_total_in_bytes INTEGER,
-      monitor_net_total_out_bytes INTEGER,
-      monitor_load1 REAL,
-      monitor_uptime_seconds INTEGER,
-      monitor_updated_at TEXT,
-      amount_minor_units INTEGER NOT NULL,
-      currency TEXT NOT NULL,
-      billing_cycle TEXT NOT NULL,
-      start_date TEXT,
       next_due_date TEXT,
       expire_date TEXT,
       auto_renew INTEGER NOT NULL DEFAULT 0,
@@ -388,40 +331,6 @@ function migrate(db: DbClient, product: ProductMode): void {
 
     ${reminderLogsSchema}
 
-    CREATE TABLE IF NOT EXISTS pending_status_alerts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      vps_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      kind TEXT NOT NULL,
-      detail TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS vps_status_samples (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      vps_id INTEGER NOT NULL,
-      sampled_at TEXT NOT NULL,
-      state TEXT NOT NULL,
-      latency_ms INTEGER,
-      detail TEXT,
-      UNIQUE(vps_id, sampled_at)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_vps_status_samples_vps_time
-      ON vps_status_samples(vps_id, sampled_at);
-
-    CREATE TABLE IF NOT EXISTS vps_status_daily (
-      vps_id INTEGER NOT NULL,
-      day TEXT NOT NULL,
-      state TEXT NOT NULL,
-      uptime_percent REAL,
-      sample_count INTEGER NOT NULL,
-      up_count INTEGER NOT NULL,
-      degraded_count INTEGER NOT NULL,
-      down_count INTEGER NOT NULL,
-      updated_at TEXT NOT NULL,
-      PRIMARY KEY(vps_id, day)
-    );
   `);
 
   seedSetting(db, 'reminderDays', [30, 14, 7, 3, 1, 0]);
@@ -437,16 +346,14 @@ function migrate(db: DbClient, product: ProductMode): void {
   seedSetting(db, 'webdavUrl', '');
   seedSetting(db, 'webdavUsername', '');
   seedSetting(db, 'webdavPassword', '');
-  seedSetting(db, 'webdavPath', product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc');
+  seedSetting(db, 'webdavPath', 'nomoney-backup.json.enc');
   seedSetting(db, 'webdavFolderPath', '');
   seedSetting(db, 'webdavBackupFilename', '');
   seedSetting(db, 'webdavEncryptionKey', '');
-  seedSetting(db, 'productMode', product);
-  seedSetting(db, 'statusSampleMinutes', 5);
-  seedSetting(db, 'statusRetentionDays', 365);
-  for (const table of ['phones', 'subscriptions', 'vps', 'domains']) {
+  retireVps(db);
+  for (const table of ['phones', 'subscriptions', 'domains']) {
     ensureColumn(db, table, 'billing_day', 'INTEGER');
-    const dateColumn = table === 'vps' || table === 'domains' ? 'expire_date' : 'next_due_date';
+    const dateColumn = table === 'domains' ? 'expire_date' : 'next_due_date';
     db.run(`UPDATE ${table} SET billing_day = CAST(substr(${dateColumn}, 9, 2) AS INTEGER) WHERE billing_day IS NULL AND ${dateColumn} IS NOT NULL`);
   }
   ensureColumn(db, 'accounts', 'login_device', 'TEXT');
@@ -489,49 +396,35 @@ function migrate(db: DbClient, product: ProductMode): void {
   ensureColumn(db, 'subscriptions', 'license_key', 'TEXT');
   ensureColumn(db, 'subscriptions', 'device_limit', 'INTEGER');
   ensureColumn(db, 'subscriptions', 'content', 'TEXT');
-  ensureColumn(db, 'vps', 'vps_type', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_host', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_port', 'INTEGER');
-  ensureColumn(db, 'vps', 'ssh_user', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_auth_type', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_password', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_private_key', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_private_key_passphrase', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_host_fingerprint', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_command', 'TEXT');
-  ensureColumn(db, 'vps', 'probe_url', 'TEXT');
-  ensureColumn(db, 'vps', 'probe_port', 'INTEGER');
-  ensureColumn(db, 'vps', 'probe_api_key', 'TEXT');
-  ensureColumn(db, 'vps', 'probe_install_status', 'TEXT');
-  ensureColumn(db, 'vps', 'probe_install_message', 'TEXT');
-  ensureColumn(db, 'vps', 'probe_installed_at', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_last_test_status', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_last_test_message', 'TEXT');
-  ensureColumn(db, 'vps', 'ssh_last_tested_at', 'TEXT');
-  ensureColumn(db, 'vps', 'monitor_status', 'TEXT');
-  ensureColumn(db, 'vps', 'monitor_cpu_percent', 'REAL');
-  ensureColumn(db, 'vps', 'monitor_memory_percent', 'REAL');
-  ensureColumn(db, 'vps', 'monitor_disk_percent', 'REAL');
-  ensureColumn(db, 'vps', 'monitor_net_in_bps', 'INTEGER');
-  ensureColumn(db, 'vps', 'monitor_net_out_bps', 'INTEGER');
-  ensureColumn(db, 'vps', 'monitor_net_total_in_bytes', 'INTEGER');
-  ensureColumn(db, 'vps', 'monitor_net_total_out_bytes', 'INTEGER');
-  ensureColumn(db, 'vps', 'monitor_load1', 'REAL');
-  ensureColumn(db, 'vps', 'monitor_uptime_seconds', 'INTEGER');
-  ensureColumn(db, 'vps', 'monitor_updated_at', 'TEXT');
-  ensureColumn(db, 'vps', 'alert_down_since', 'TEXT');
-  ensureColumn(db, 'vps', 'panel_url', 'TEXT');
-  ensureColumn(db, 'vps', 'ipv6_address', 'TEXT');
-  ensureColumn(db, 'vps', 'traffic_quota_gb', 'REAL');
-  ensureColumn(db, 'vps', 'traffic_reset_day', 'INTEGER');
-  ensureColumn(db, 'vps', 'traffic_used_bytes', 'INTEGER');
-  ensureColumn(db, 'vps', 'traffic_last_total_bytes', 'INTEGER');
-  ensureColumn(db, 'vps', 'traffic_period_start', 'TEXT');
-  ensureColumn(db, 'vps', 'alert_traffic_period', 'TEXT');
-  ensureColumn(db, 'vps', 'alert_disk_at', 'TEXT');
   migrateReminderLogs(db);
   backfillDomainMetadata(db);
   backfillDomainRenewalDates(db);
+}
+
+/**
+ * VPS management left with Yumi. Older databases still hold the VPS rows, their ledger
+ * history and Status data; none of it is reachable any more, so it is removed outright.
+ */
+function retireVps(db: DbClient): void {
+  const hasVpsTable = db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'vps'");
+  const hasVpsRows = db.get<{ count: number }>(
+    `SELECT (SELECT COUNT(*) FROM expenses WHERE asset_type = 'vps')
+          + (SELECT COUNT(*) FROM renewal_events WHERE asset_type = 'vps')
+          + (SELECT COUNT(*) FROM reminder_logs WHERE asset_type = 'vps') AS count`
+  );
+  if (!hasVpsTable && !Number(hasVpsRows?.count)) return;
+  db.exec('BEGIN');
+  try {
+    db.run("DELETE FROM reminder_logs WHERE asset_type = 'vps'");
+    db.run("DELETE FROM renewal_events WHERE asset_type = 'vps'");
+    db.run("DELETE FROM expenses WHERE asset_type = 'vps'");
+    for (const table of ['vps', 'pending_status_alerts', 'vps_status_samples', 'vps_status_daily']) db.exec(`DROP TABLE IF EXISTS ${table}`);
+    db.run("DELETE FROM settings WHERE key IN ('productMode', 'statusSampleMinutes', 'statusRetentionDays', 'yumiMigrationVersion', 'yumiSplitFinalized', 'outageAlertsEnabled', 'diskAlertPercent')");
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 function seedSetting(db: DbClient, key: string, value: unknown): void {

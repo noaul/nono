@@ -56,10 +56,13 @@ describe('notification service', () => {
   it('keeps certificate and keepalive reminders distinct from renewal actions and read state', async () => {
     const common = { id: 3, name: 'example.com', dueDate: '2026-07-19', status: 'active' };
     const { service } = createService({
-      yumiReader: async () => [{ ...common, assetType: 'domain', kind: 'renewal' }, { ...common, assetType: 'domain', kind: 'certificate' }],
-      noMoneyReader: async () => [{ ...common, assetType: 'phone', kind: 'keepalive' }],
+      noMoneyReader: async () => [
+        { ...common, assetType: 'domain', kind: 'renewal' },
+        { ...common, assetType: 'domain', kind: 'certificate' },
+        { ...common, assetType: 'phone', kind: 'keepalive' },
+      ],
     });
-    const feed = await service.list({ id: 1, role: 'admin' } as any, { sources: ['yumi', 'nomoney'], locale: 'zh' });
+    const feed = await service.list({ id: 1, role: 'admin' } as any, { sources: ['nomoney'], locale: 'zh' });
     expect(new Set(feed.items.map(item => item.key)).size).toBe(3);
     expect(feed.items.find(item => item.kind === 'certificate')).toMatchObject({ title: expect.stringContaining('证书到期'), renewalDate: null });
     expect(feed.items.find(item => item.kind === 'keepalive')).toMatchObject({ title: expect.stringContaining('保号期限'), renewalDate: null });
@@ -175,51 +178,29 @@ describe('notification service', () => {
     }));
     const noMoneyReader = vi.fn(async () => [
       { assetType: 'subscription', id: 9, name: 'Claude', dueDate: '2026-07-20', status: 'active' },
+      { assetType: 'domain', id: 10, name: 'example.com', dueDate: '2026-07-21', status: 'active' },
     ]);
-    const yumiReader = vi.fn(async () => [{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-07-21', status: 'active' }]);
     const backupService = {
       list: vi.fn(async () => [{ id: 'old', createdAt: '2026-07-12T08:00:00.000Z' }]),
     };
-    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, yumiReader, backupService: backupService as any, now: () => now } as any);
+    const service = createNotificationService({ prisma, nodeskReader, noMoneyReader, backupService: backupService as any, now: () => now } as any);
 
     const feed = await service.list({ id: 1, role: 'admin' } as any);
 
     expect(feed.items.filter((item) => item.source === 'nodesk').map((item) => item.title)).toEqual(['Publish notes', 'Renew certificate']);
     // Planner events are per user, so the reader is asked for the signed-in administrator's events.
     expect(nodeskReader).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
-    expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(1);
-    expect(feed.items.filter((item) => item.source === 'yumi')).toHaveLength(1);
+    expect(feed.items.filter((item) => item.source === 'nomoney')).toHaveLength(2);
     expect(feed.items.find((item) => item.source === 'backup')).toMatchObject({ severity: 'warning', href: '/nodesk/?settings=backups' });
   });
 
-  it('starts Yumi domain and VPS notifications three days before expiry', async () => {
+  it('links NoMoney domain reminders to the NoMoney domains page', async () => {
     const { prisma } = createPrisma();
     const service = createNotificationService({
       prisma,
       nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
-      noMoneyReader: vi.fn(async () => []),
-      yumiReader: vi.fn(async () => [
-        { assetType: 'domain', id: 1, name: 'three-days.example', dueDate: '2026-07-21', status: 'active' },
-        { assetType: 'vps', id: 2, name: 'four-days', dueDate: '2026-07-22', status: 'active' },
-      ]),
-      backupService: { list: vi.fn(async () => []) } as any,
-      now: () => now,
-      timeZone: 'Asia/Shanghai',
-    } as any);
-
-    const feed = await service.list({ id: 1, role: 'admin' } as any, { sources: ['yumi'] });
-
-    expect(feed.items.map((item) => item.entityLabel)).toEqual(['three-days.example']);
-  });
-
-  it('exposes VPS identity and due date for the quick renewal action', async () => {
-    const { prisma } = createPrisma();
-    const service = createNotificationService({
-      prisma,
-      nodeskReader: vi.fn(async () => ({ calendarEvents: [] })),
-      noMoneyReader: vi.fn(async () => []),
-      yumiReader: vi.fn(async () => [
-        { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-07-21', status: 'active' },
+      noMoneyReader: vi.fn(async () => [
+        { assetType: 'domain', id: 10, name: 'example.com', dueDate: '2026-07-21', status: 'active' },
       ]),
       backupService: { list: vi.fn(async () => []) } as any,
       now: () => now,
@@ -227,13 +208,18 @@ describe('notification service', () => {
 
     const feed = await service.list({ id: 1, role: 'admin' } as any);
 
-    expect(feed.items.find((item) => item.source === 'yumi')).toMatchObject({
+    expect(feed.items.find((item) => item.entityType === 'domain')).toMatchObject({
+      source: 'nomoney',
       entityId: 10,
-      entityType: 'vps',
-      entityLabel: 'nc48',
+      entityLabel: 'example.com',
       renewalDate: '2026-07-21',
-      href: '/yumi/vps?edit=10',
+      href: '/nomoney/domains?edit=10',
     });
+  });
+
+  it('treats stored read state of the retired Yumi source as unknown', async () => {
+    const { service } = createService();
+    await expect(service.markRead({ id: 1, role: 'admin' } as any, `yumi:${'a'.repeat(24)}`, true)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('filters the feed and mark-all operation to requested sources', async () => {

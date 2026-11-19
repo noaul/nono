@@ -6,7 +6,7 @@ import { compactDate, formatMoney } from './format';
 import { Button, inputClass } from './ui';
 
 type Copy = (zh: string, en: string) => string;
-export type RenewableEndpoint = 'phones' | 'subscriptions' | 'vps' | 'domains';
+export type RenewableEndpoint = 'phones' | 'subscriptions' | 'domains';
 
 export type Renewal = {
   id: number;
@@ -34,9 +34,9 @@ export function renewalAssetFromDueItem(item: DueItem): AssetItem {
   };
 }
 
-/** The date a renewal advances: expiry for VPS/domains, the next charge for phones/subscriptions. */
+/** The date a renewal advances: expiry for domains, the next charge for phones/subscriptions. */
 export function renewalDueDate(endpoint: RenewableEndpoint, item: AssetItem): string {
-  if (endpoint === 'vps' || endpoint === 'domains') return String(item.expireDate ?? '');
+  if (endpoint === 'domains') return String(item.expireDate ?? '');
   return String(item.nextDueDate ?? '');
 }
 
@@ -46,7 +46,7 @@ export function canRenew(endpoint: RenewableEndpoint, item: AssetItem): boolean 
 }
 
 export function renewLabel(endpoint: RenewableEndpoint, copy: Copy): string {
-  return endpoint === 'vps' || endpoint === 'domains' ? copy('标记已续费', 'Mark renewed') : copy('标记已付', 'Mark paid');
+  return endpoint === 'domains' ? copy('标记已续费', 'Mark renewed') : copy('标记已付', 'Mark paid');
 }
 
 export function useRenewals({
@@ -67,7 +67,7 @@ export function useRenewals({
     if (renewingId !== null) return;
     const dueDate = renewalDueDate(endpoint, item);
     if (!dueDate || !item.billingCycle) {
-      onError(endpoint === 'vps' || endpoint === 'domains'
+      onError(endpoint === 'domains'
         ? copy('请先设置到期日和计费周期。', 'Set an expiry date and billing cycle first.')
         : copy('请先设置下次扣费日期和计费周期。', 'Set the next charge date and billing cycle first.'));
       onNeedsSetup(item);

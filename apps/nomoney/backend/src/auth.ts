@@ -3,9 +3,9 @@ import type { Request, Response, NextFunction, Router } from 'express';
 import type { AppContext, SessionUser, SessionVerifier } from './types.js';
 
 /**
- * NoMoney and Yumi have no accounts of their own: every request is authorised by the NoNo browser
- * session that the gateway forwards on the same origin. The products hold one owner's data, so only
- * a NoNo administrator may use them.
+ * NoMoney has no accounts of its own: every request is authorised by the NoNo browser
+ * session that the gateway forwards on the same origin. It holds one owner's data, so only
+ * a NoNo administrator may use it.
  */
 export const nonoSessionCookie = 'nono_session';
 

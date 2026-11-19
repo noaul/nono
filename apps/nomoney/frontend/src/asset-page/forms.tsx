@@ -1,18 +1,13 @@
 import type { AssetPageConfig } from '../assetConfig';
 import type { AssetItem } from '../types';
-import { composeDomainName, domainPrefix, inferDomainExtension, normalizeDomainExtension, stringValue } from '../domainRegistrars';
+import { composeDomainName, domainPrefix, inferDomainExtension, normalizeDomainExtension } from '../domainRegistrars';
 import { getDefaultCurrency } from '../preferences';
 import { nil, type FormState } from './shared';
-import { buildSshCommand } from './vps';
 import { getDomainPrefixFromForm, applyDomainLifecycleDefaults, getDomainLifecycle } from './domain';
 
-/** A copy of an entry: renamed so it is easy to spot, with VPS probe credentials left behind. */
+/** A copy of an entry, renamed so it is easy to spot. */
 export function duplicateForm(config: AssetPageConfig, form: FormState): FormState {
   const next = { ...form };
-  if (config.endpoint === 'vps') {
-    next.name = `${String(form.name ?? '')} (copy)`;
-    for (const key of ['probeUrl', 'probeApiKey', 'probePort']) next[key] = '';
-  }
   if (config.endpoint === 'subscriptions') next.name = `${String(form.name ?? '')} (copy)`;
   return next;
 }
@@ -40,13 +35,6 @@ export function initialForm(config: AssetPageConfig): FormState {
     base.isSecondaryCard = false;
     base.isEsim = false;
     base.billingCycle = 'monthly';
-  }
-  if (config.endpoint === 'vps') {
-    base.vpsType = '';
-    base.sshPort = '22';
-    base.sshUser = 'root';
-    base.sshAuthType = 'password';
-    base.probePort = '9100';
   }
   if (config.endpoint === 'subscriptions') {
     base.purchaseType = 'subscription';
@@ -87,13 +75,6 @@ export function assetToForm(config: AssetPageConfig, item: AssetItem): FormState
   if (config.endpoint === 'domains') {
     applyDomainLifecycleDefaults(result);
   }
-  if (config.endpoint === 'vps') {
-    result.expireDate = item.expireDate ?? item.nextDueDate ?? '';
-    result.sshPassword = '';
-    result.sshPrivateKey = '';
-    result.sshPrivateKeyPassphrase = '';
-    result.probeApiKey = '';
-  }
   return result;
 }
 
@@ -132,15 +113,6 @@ export function formToPayload(config: AssetPageConfig, form: FormState): Record<
     payload.lastRenewDate = nil(lifecycle.lastRenewDate);
     payload.expireDate = nil(lifecycle.expireDate);
     payload.nextDueDate = nil(lifecycle.nextDueDate);
-  }
-  if (config.endpoint === 'vps') {
-    payload.startDate = null;
-    payload.nextDueDate = null;
-    payload.sshHost = nil(form.ipAddress);
-    payload.sshCommand = nil(form.sshCommand || buildSshCommand(form));
-    for (const key of ['sshPassword', 'sshPrivateKey', 'sshPrivateKeyPassphrase', 'probeApiKey']) {
-      if (!stringValue(payload[key])) delete payload[key];
-    }
   }
   if (config.endpoint === 'subscriptions') {
     if (payload.purchaseType === 'buyout') {

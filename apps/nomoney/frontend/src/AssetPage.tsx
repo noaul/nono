@@ -1,5 +1,5 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownAZ, ArrowUpAZ, CalendarClock, Check, Copy, ExternalLink, Grid3X3, Link2, List, Pencil, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Terminal, Trash2, X } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, CalendarClock, Check, Copy, ExternalLink, Grid3X3, Link2, List, Pencil, Plus, Search, ShieldCheck, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import type { AssetPageConfig } from './assetConfig';
 import { useLayoutActions } from './Layout';
 import type { AssetItem, Currency, ListMeta, ListResponse } from './types';
@@ -12,9 +12,8 @@ import { getDefaultCurrency } from './preferences';
 import { RenewalHistory, RenewalToast, RenewButton, useRenewals } from './renewals';
 import { BulkBar, CsvTools } from './BulkTools';
 import { assetLabel, assetSingular } from './assetConfigLabels';
-import { cycles, vpsTypes, statusOptions, monthlyEquivalent, formatDisplayMoney, numberValue, getText, Section, AssetCardView, SubscriptionFormSections, formatPercent, type FormState } from './asset-page/shared';
+import { cycles, statusOptions, monthlyEquivalent, formatDisplayMoney, getText, Section, AssetCardView, SubscriptionFormSections, type FormState } from './asset-page/shared';
 import { PhoneCommandPanel, PhoneVisualDashboard, PhoneFormSections, PhoneMiniCardView, PhoneCardView, LinkedAccountsBadge, normalizeDomesticCarrier, getPhoneCountryCode, getSimFormFactorLabel, getPhoneDisplayNumber, updatePhoneCostFields, type PhoneStats } from './asset-page/phone';
-import { vpsMonitorRefreshIntervalMs, VpsCommandPanel, VpsNodeCard, MonitorDot, VpsFormSections, getMonitorStatus, getMonitorNumber, formatBps, getSshCommand, updateVpsSshFields, type VpsMonitorResponse, type VpsActionResponse, type VpsMonitorState, type VpsActionState, type VpsStats } from './asset-page/vps';
 import { domainSortOptions, DomainCommandPanel, DomainCardView, describeDomainCheck, DomainMiniCardView, DomainFormSections, formatRegistrarAccountOption, getDomainPrefixFromForm, updateDomainLifecycleFields, type DomainCheckResponse } from './asset-page/domain';
 import { duplicateForm, initialForm, assetToForm, formToPayload } from './asset-page/forms';
 
@@ -31,7 +30,6 @@ const assetSortOptions = [
 
 export function AssetPage({ config }: { config: AssetPageConfig }) {
   const isDomain = config.endpoint === 'domains';
-  const isVps = config.endpoint === 'vps';
   const isPhone = config.endpoint === 'phones';
   const isSubscription = config.endpoint === 'subscriptions';
   const { copy, language } = useI18n();
@@ -51,8 +49,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [query, setQuery] = useState(() => param('q'));
   const deferredQuery = useDeferredValue(query);
   const [status, setStatus] = useState(() => param('status'));
-  const [vpsType, setVpsType] = useState(() => isVps ? param('type') : '');
-  const [monitorStatus, setMonitorStatus] = useState(() => param('online'));
   const [currency, setCurrency] = useState(() => param('currency'));
   const [billingCycle, setBillingCycle] = useState(() => param('cycle'));
   const [phoneType, setPhoneType] = useState(() => isPhone ? param('type', 'domestic') : '');
@@ -82,89 +78,8 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   const [duplicatedId, setDuplicatedId] = useState<number | null>(null);
   const [copiedPhoneNumberId, setCopiedPhoneNumberId] = useState<number | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
-  const [monitorById, setMonitorById] = useState<Record<number, VpsMonitorState>>({});
-  const [refreshingVps, setRefreshingVps] = useState(false);
-  const [autoRefreshVps, setAutoRefreshVps] = useState(true);
-  const vpsRefreshesInFlight = useRef(new Set<number>());
-  const [copiedSshId, setCopiedSshId] = useState<number | null>(null);
-  const [copiedVpsIpId, setCopiedVpsIpId] = useState<number | null>(null);
-  const [vpsActionById, setVpsActionById] = useState<Record<number, VpsActionState>>({});
   const registrarAccountOptions = meta?.registrarAccounts ?? [];
   const isPhoneVisual = isPhone && phoneType === 'visual';
-
-  const refreshVpsMonitor = async (item: AssetItem, silent = false) => {
-    if (!isVps || !stringValue(item.probeUrl)) return;
-    if (vpsRefreshesInFlight.current.has(item.id)) return;
-    vpsRefreshesInFlight.current.add(item.id);
-    if (!silent) {
-      setMonitorById((current) => ({ ...current, [item.id]: { ...current[item.id], loading: true, error: '' } }));
-    }
-    try {
-      const response = await api.get<VpsMonitorResponse>(`/api/vps/${item.id}/monitor`);
-      setMonitorById((current) => ({
-        ...current,
-        [item.id]: { loading: false, monitor: response.monitor }
-      }));
-      setItems((current) => current.map((entry) => entry.id === item.id ? response.item : entry));
-    } catch (err) {
-      setMonitorById((current) => ({
-        ...current,
-        [item.id]: {
-          ...current[item.id],
-          loading: false,
-          error: err instanceof ApiError ? err.message : copy('监控刷新失败', 'Monitor refresh failed')
-        }
-      }));
-    } finally {
-      vpsRefreshesInFlight.current.delete(item.id);
-    }
-  };
-
-  const refreshVpsMonitors = async (sourceItems = items, silent = false) => {
-    const targets = sourceItems.filter((item) => stringValue(item.probeUrl));
-    await Promise.all(targets.map((item) => refreshVpsMonitor(item, silent)));
-  };
-
-  const refreshAllVps = async () => {
-    if (!isVps || refreshingVps) return;
-    setRefreshingVps(true);
-    try {
-      await refreshVpsMonitors(items);
-    } finally {
-      setRefreshingVps(false);
-    }
-  };
-
-  const copySshCommand = async (item: AssetItem) => {
-    const command = getSshCommand(item);
-    if (!command) {
-      setError(copy('请先配置 SSH 主机或 IP。', 'Configure an SSH host or IP first.'));
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopiedSshId(item.id);
-      window.setTimeout(() => {
-        setCopiedSshId((current) => current === item.id ? null : current);
-      }, 1400);
-    } catch {
-      setError(copy('复制 SSH 命令失败。', 'Failed to copy SSH command.'));
-    }
-  };
-
-  const copyVpsIpAddress = async (item: AssetItem) => {
-    const address = stringValue(item.ipAddress) || stringValue(item.sshHost);
-    if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopiedVpsIpId(item.id);
-      window.setTimeout(() => {
-        setCopiedVpsIpId((current) => current === item.id ? null : current);
-      }, 1400);
-    } catch {
-      setError(copy('复制 IP 地址失败。', 'Failed to copy IP address.'));
-    }
-  };
 
   const copyPhoneNumber = async (item: AssetItem) => {
     const phoneNumber = getPhoneDisplayNumber(item);
@@ -180,60 +95,10 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
   };
 
-  const testVpsSsh = async (item: AssetItem, overrides?: Record<string, unknown>) => {
-    if (!isVps) return;
-    setError('');
-    setVpsActionById((current) => ({ ...current, [item.id]: { ...current[item.id], testing: true, error: '' } }));
-    try {
-      const response = await api.post<VpsActionResponse>(`/api/vps/${item.id}/ssh/test`, overrides ?? {});
-      setItems((current) => current.map((entry) => entry.id === item.id ? response.item : entry));
-      setVpsActionById((current) => ({
-        ...current,
-        [item.id]: { ...current[item.id], testing: false, message: response.message || copy('连接成功', 'Connection OK') }
-      }));
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : copy('连接测试失败', 'SSH test failed');
-      setVpsActionById((current) => ({ ...current, [item.id]: { ...current[item.id], testing: false, error: message } }));
-      setError(message);
-    }
-  };
-
-  const installVpsProbe = async (item: AssetItem, probePort?: number, overrides?: Record<string, unknown>) => {
-    if (!isVps) return;
-    setError('');
-    setVpsActionById((current) => ({ ...current, [item.id]: { ...current[item.id], installing: true, error: '' } }));
-    try {
-      const response = await api.post<VpsActionResponse>(`/api/vps/${item.id}/probe/install`, {
-        ...(overrides ?? {}),
-        probePort: probePort ?? numberValue(item.probePort) ?? 9100
-      });
-      setItems((current) => current.map((entry) => entry.id === item.id ? response.item : entry));
-      if (editing?.id === item.id) {
-        setForm((current) => ({
-          ...current,
-          probeUrl: stringValue(response.item.probeUrl) || String(current.probeUrl ?? ''),
-          probePort: response.item.probePort === null || response.item.probePort === undefined ? String(current.probePort ?? '') : String(response.item.probePort),
-          probeApiKey: ''
-        }));
-      }
-      setVpsActionById((current) => ({
-        ...current,
-        [item.id]: { ...current[item.id], installing: false, message: response.message || copy('探针已安装', 'Probe installed') }
-      }));
-      await refreshVpsMonitor(response.item, true);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : copy('安装探针失败', 'Probe install failed');
-      setVpsActionById((current) => ({ ...current, [item.id]: { ...current[item.id], installing: false, error: message } }));
-      setError(message);
-    }
-  };
-
   const load = async (nextOffset = offset, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (deferredQuery.trim()) params.set('q', deferredQuery.trim());
-    if (!isPhoneVisual && !isVps && status) params.set('status', status);
-    if (isVps && vpsType) params.set('vpsType', vpsType);
-    if (isVps && monitorStatus) params.set('monitorStatus', monitorStatus);
+    if (!isPhoneVisual && status) params.set('status', status);
     if (isSubscription && category) params.set('category', category);
     if (tag) params.set('tag', tag);
     if (!isPhoneVisual && currency) params.set('currency', currency);
@@ -265,15 +130,14 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       setLoading(false);
     });
     return () => controller.abort();
-  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, pageSize]);
+  }, [config.endpoint, deferredQuery, status, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, pageSize]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     const set = (key: string, value: string, fallback = '') => { if (value && value !== fallback) params.set(key, value); };
     set('q', query.trim());
     set('status', status);
-    set('type', isVps ? vpsType : isPhone ? phoneType : isSubscription ? purchaseType : '', isPhone ? 'domestic' : isSubscription ? 'subscription' : '');
-    set('online', monitorStatus);
+    set('type', isPhone ? phoneType : isSubscription ? purchaseType : '', isPhone ? 'domestic' : isSubscription ? 'subscription' : '');
     set('currency', currency);
     set('cycle', billingCycle);
     set('category', category);
@@ -291,7 +155,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, '', next);
     localStorage.setItem(viewStorageKey, view);
     localStorage.setItem('nomoney:page-size', String(pageSize));
-  }, [query, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, view, pageSize]);
+  }, [query, status, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, offset, view, pageSize]);
 
   useEffect(() => {
     if (!pendingEditId) return;
@@ -300,33 +164,11 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       .catch(() => setError(copy('找不到要打开的条目，可能已删除。', 'The requested entry was not found; it may have been deleted.')));
   }, [pendingEditId]);
 
-  const vpsProbeKey = useMemo(
-    () => isVps ? items.map((item) => `${item.id}:${stringValue(item.probeUrl)}`).join('|') : '',
-    [isVps, items]
-  );
-
-  useEffect(() => {
-    if (!isVps || loading || !vpsProbeKey) return;
-    const targets = items.filter((item) => stringValue(item.probeUrl));
-    const refreshWhenVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      void refreshVpsMonitors(targets, true);
-    };
-    refreshWhenVisible();
-    if (!autoRefreshVps) return;
-    const timer = window.setInterval(refreshWhenVisible, vpsMonitorRefreshIntervalMs);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-    };
-  }, [isVps, loading, vpsProbeKey, autoRefreshVps]);
-
   useEffect(() => {
     // The first run is the mount, where the page number came from the URL.
     if (!mounted.current) return;
     setOffset(0);
-  }, [config.endpoint, deferredQuery, status, vpsType, monitorStatus, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, pageSize]);
+  }, [config.endpoint, deferredQuery, status, currency, billingCycle, phoneType, purchaseType, category, tag, domainExtension, registrarAccount, displayCurrency, sort, direction, pageSize]);
 
   useEffect(() => {
     if (!mounted.current) {
@@ -335,20 +177,14 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     }
     setTag('');
     setCategory('');
-    setMonitorStatus('');
     setSort(config.endpoint === 'domains' ? 'expireDate' : 'dueDate');
     setDirection('asc');
     setDomainExtension('');
     setRegistrarAccount('');
     setBillingCycle('');
     setStatus('');
-    setVpsType('');
     setPhoneType(config.endpoint === 'phones' ? 'domestic' : '');
     setPurchaseType(config.endpoint === 'subscriptions' ? 'subscription' : '');
-    setMonitorById({});
-    setCopiedSshId(null);
-    setCopiedVpsIpId(null);
-    setVpsActionById({});
     setDuplicatingId(null);
     setDuplicatedId(null);
     setCopiedPhoneNumberId(null);
@@ -466,52 +302,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     return { registrarCount, accountCount, topSuffix, autoRenewCount, riskWithin30Days };
   }, [assetSummary, items, isDomain]);
 
-  const vpsStats = useMemo<VpsStats | null>(() => {
-    if (!isVps) return null;
-    if (assetSummary?.vps) return { total: assetSummary.total, ...assetSummary.vps };
-    let online = 0;
-    let offline = 0;
-    let configured = 0;
-    let cpuTotal = 0;
-    let cpuCount = 0;
-    let memoryTotal = 0;
-    let memoryCount = 0;
-    let totalTrafficBytes = 0;
-    for (const item of items) {
-      if (stringValue(item.probeUrl)) configured += 1;
-      const statusValue = getMonitorStatus(item, monitorById[item.id]);
-      if (statusValue === 'online') online += 1;
-      if (statusValue === 'offline') offline += 1;
-      const cpu = getMonitorNumber(item, monitorById[item.id], 'monitorCpuPercent', 'cpuPercent');
-      const memory = getMonitorNumber(item, monitorById[item.id], 'monitorMemoryPercent', 'memoryPercent');
-      const netIn = getMonitorNumber(item, monitorById[item.id], 'monitorNetTotalInBytes', 'netTotalInBytes') ?? 0;
-      const netOut = getMonitorNumber(item, monitorById[item.id], 'monitorNetTotalOutBytes', 'netTotalOutBytes') ?? 0;
-      if (cpu !== null) {
-        cpuTotal += cpu;
-        cpuCount += 1;
-      }
-      if (memory !== null) {
-        memoryTotal += memory;
-        memoryCount += 1;
-      }
-      totalTrafficBytes += netIn + netOut;
-    }
-    return {
-      total: items.length,
-      online,
-      offline,
-      configured,
-      avgCpu: cpuCount > 0 ? Math.round((cpuTotal / cpuCount) * 10) / 10 : null,
-      avgMemory: memoryCount > 0 ? Math.round((memoryTotal / memoryCount) * 10) / 10 : null,
-      totalTrafficBytes,
-      riskWithin30Days: items.filter((item) => {
-        const dueDate = String(item.nextDueDate ?? item.expireDate ?? '');
-        const left = daysLeft(dueDate || null);
-        return left !== null && left <= 30;
-      }).length
-    };
-  }, [assetSummary, items, isVps, monitorById]);
-
   const updateForm = (key: string, value: string | boolean) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
@@ -535,9 +325,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       }
       if (isDomain) {
         updateDomainLifecycleFields(current, next, key);
-      }
-      if (isVps) {
-        updateVpsSshFields(current, next, key);
       }
       if (isPhone) {
         updatePhoneCostFields(next, key);
@@ -581,31 +368,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  /** New VPS: create it, keep the drawer open on the saved entry, then run the SSH action. */
-  const saveVpsThen = async (action: 'test' | 'install') => {
-    const formElement = document.getElementById('asset-form') as HTMLFormElement | null;
-    if (formElement && !formElement.reportValidity()) return;
-    setFormError('');
-    setSubmitting(true);
-    let created: AssetItem;
-    try {
-      const response = await api.post<{ item: AssetItem }>(`/api/${config.endpoint}`, formToPayload(config, form));
-      created = response.item;
-    } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : copy('保存失败', 'Failed to save'));
-      return;
-    } finally {
-      setSubmitting(false);
-    }
-    const nextForm = assetToForm(config, created);
-    setEditing(created);
-    setForm(nextForm);
-    formSnapshot.current = JSON.stringify(nextForm);
-    void load();
-    if (action === 'test') await testVpsSsh(created);
-    else await installVpsProbe(created, numberValue(form.probePort) ?? 9100);
   };
 
   const moveToTrash = async (item: AssetItem) => {
@@ -694,18 +456,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       aria-label={copy('查询注册局到期日与 SSL 证书', 'Check registry expiry and TLS certificate')}
     >
       <ShieldCheck className={checkingDomainId === item.id ? 'animate-pulse' : ''} size={14} />
-    </button>
-  );
-  const duplicateAction = (item: AssetItem) => (
-    <button
-      type="button"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-wait ${duplicatedId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`}
-      onClick={() => duplicateEntry(item)}
-      disabled={duplicatingId === item.id}
-      title={copy('复制条目', 'Duplicate entry')}
-      aria-label={copy('复制条目', 'Duplicate entry')}
-    >
-      {duplicatedId === item.id ? <Check size={14} /> : <Copy className={duplicatingId === item.id ? 'animate-pulse' : ''} size={14} />}
     </button>
   );
   const renewAction = (item: AssetItem) => (
@@ -891,61 +641,7 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
       </div>
     ) }
   ];
-  const vpsColumns: DataTableColumn<AssetItem>[] = [
-    { key: 'node', header: copy('节点', 'Node'), render: (item) => (
-      <div className="min-w-[190px]">
-        <div className="flex items-center gap-2">
-          <MonitorDot status={getMonitorStatus(item, monitorById[item.id])} />
-          <span className="truncate font-medium text-slate-950 dark:text-white">{getText(item, 'name')}</span>
-        </div>
-        <p className="mt-1 truncate font-mono text-xs text-slate-500 dark:text-slate-400">{stringValue(item.ipAddress) || stringValue(item.sshHost) || '-'}</p>
-      </div>
-    ) },
-    { key: 'provider', header: copy('服务商 / 位置', 'Provider / region'), render: (item) => (
-      <div>
-        <span className="text-slate-700 dark:text-slate-300">{stringValue(item.provider) || '-'}</span>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stringValue(item.location) || stringValue(item.os) || '-'}</p>
-      </div>
-    ) },
-    { key: 'cpu', header: 'CPU', align: 'right', render: (item) => <span className="font-mono font-semibold">{formatPercent(getMonitorNumber(item, monitorById[item.id], 'monitorCpuPercent', 'cpuPercent'))}</span> },
-    { key: 'memory', header: copy('内存', 'Memory'), align: 'right', render: (item) => <span className="font-mono font-semibold">{formatPercent(getMonitorNumber(item, monitorById[item.id], 'monitorMemoryPercent', 'memoryPercent'))}</span> },
-    { key: 'net', header: copy('网络', 'Network'), align: 'right', render: (item) => (
-      <div className="font-mono text-xs">
-        <span className="text-success-600 dark:text-success-400">{formatBps(getMonitorNumber(item, monitorById[item.id], 'monitorNetInBps', 'netInBps'))}</span>
-        <span className="mx-1 text-slate-500 dark:text-slate-400">/</span>
-        <span className="text-brand-600 dark:text-brand-400">{formatBps(getMonitorNumber(item, monitorById[item.id], 'monitorNetOutBps', 'netOutBps'))}</span>
-      </div>
-    ) },
-    { key: 'due', header: copy('续费', 'Renewal'), align: 'right', render: (item) => {
-      const dueDate = String(item.expireDate ?? item.nextDueDate ?? '');
-      const left = daysLeft(dueDate || null);
-      return (
-        <div>
-          <span className={`font-mono font-semibold ${dueTone(left)}`}>{left === null ? '-' : `${left}d`}</span>
-          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{compactDate(dueDate)}</p>
-        </div>
-      );
-    } },
-    { key: 'actions', header: '', align: 'right', render: (item) => (
-      <div className="flex justify-end gap-1">
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-100 hover:text-success-500 dark:hover:text-success-500 dark:hover:bg-white/[0.06]" onClick={() => refreshVpsMonitor(item)} title={copy('刷新监控', 'Refresh monitor')} disabled={!stringValue(item.probeUrl)}>
-          <RefreshCw className={monitorById[item.id]?.loading ? 'animate-spin' : ''} size={14} />
-        </button>
-        <button className={`inline-flex h-8 w-8 items-center justify-center rounded-xl transition-all ${copiedSshId === item.id ? 'bg-success-500/10 text-success-500' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white'}`} onClick={() => copySshCommand(item)} title={copy('复制 SSH 命令', 'Copy SSH command')}>
-          {copiedSshId === item.id ? <Check size={14} /> : <Terminal size={14} />}
-        </button>
-        {renewAction(item)}
-        {duplicateAction(item)}
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" onClick={() => openEdit(item)} title={copy('编辑', 'Edit')}>
-          <Pencil size={14} />
-        </button>
-        <button className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-danger-500/10 hover:text-danger-500 dark:hover:text-danger-500" onClick={() => moveToTrash(item)} title={copy('移入回收站', 'Move to recycle bin')} aria-label={copy('移入回收站', 'Move to recycle bin')}>
-          <Trash2 size={14} />
-        </button>
-      </div>
-    ) }
-  ];
-  const baseColumns = isDomain ? domainColumns : isVps ? vpsColumns : isPhone ? phoneColumns : genericColumns;
+  const baseColumns = isDomain ? domainColumns : isPhone ? phoneColumns : genericColumns;
   const allSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
   const selectColumn: DataTableColumn<AssetItem> = {
     key: 'select',
@@ -971,12 +667,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   useEffect(() => {
     setTopbarActions(
       <>
-        {isVps && (
-          <Button variant="secondary" onClick={refreshAllVps} disabled={refreshingVps || items.every((item) => !stringValue(item.probeUrl))}>
-            <RefreshCw className={refreshingVps ? 'animate-spin' : ''} size={16} />
-            {copy('刷新监控', 'Refresh')}
-          </Button>
-        )}
         {isDomain && (
           <Button variant="secondary" onClick={checkAllDomains} disabled={checkingAllDomains}>
             <ShieldCheck className={checkingAllDomains ? 'animate-pulse' : ''} size={16} />
@@ -1018,17 +708,17 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
             ))}
           </div>
         )}
-        <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isVps ? copy('新增 VPS', 'Add VPS') : isPhone ? copy('新增电话卡', 'Add phone card') : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>
+        <Button onClick={openCreate}><Plus size={16} />{isDomain ? copy('新增域名', 'Add domain') : isPhone ? copy('新增电话卡', 'Add phone card') : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`)}</Button>
       </>
     );
-  }, [config.singular, copy, isDomain, isPhone, isSubscription, isVps, items, phoneType, purchaseType, refreshingVps, checkingAllDomains, setTopbarActions]);
+  }, [config.singular, copy, isDomain, isPhone, isSubscription, items, phoneType, purchaseType, checkingAllDomains, setTopbarActions]);
 
   useEffect(() => {
     return () => setTopbarActions(null);
   }, [setTopbarActions]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = [status, vpsType, monitorStatus, category, tag, currency, billingCycle, registrarAccount, domainExtension].filter(Boolean).length;
+  const activeFilterCount = [status, category, tag, currency, billingCycle, registrarAccount, domainExtension].filter(Boolean).length;
 
   // "/" focuses search and "n" opens a new entry, unless the user is typing somewhere.
   useEffect(() => {
@@ -1051,39 +741,23 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
   return (
     <div className="space-y-4">
       {isDomain && domainStats && <DomainCommandPanel stats={domainStats} renewalTotals={meta?.renewalTotals} copy={copy} />}
-      {isVps && vpsStats && <VpsCommandPanel stats={vpsStats} autoRefresh={autoRefreshVps} onAutoRefreshChange={setAutoRefreshVps} copy={copy} />}
       {isPhone && !isPhoneVisual && phoneStats && <PhoneCommandPanel stats={phoneStats} copy={copy} />}
 
       {!isPhoneVisual && <section className="card">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-[1_1_160px] sm:min-w-[200px] sm:flex-[1_1_240px]">
             <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input ref={searchRef} className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : isVps ? copy('搜索节点 / IP / 服务商 / 标签', 'Search nodes, IPs, tags') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input ref={searchRef} className={`${inputClass} pl-9`} placeholder={isDomain ? copy('搜索域名 / 标签 / 备注', 'Search domains, tags, notes') : copy(`搜索${config.singular} / 标签 / 备注`, `Search ${assetSingular(config.singular, language)}s, tags, notes`)} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           {/* Phones show only search; the filters and tools open from here. */}
           <button type="button" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 sm:hidden" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
             <SlidersHorizontal size={16} />{copy('筛选', 'Filter')}{activeFilterCount > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] leading-5 text-white">{activeFilterCount}</span>}
           </button>
           <div className={filtersOpen ? 'contents' : 'hidden sm:contents'}>
-          {isVps ? (
-            <>
-              <select className={filterClass} value={vpsType} onChange={(e) => setVpsType(e.target.value)} aria-label={copy('类型', 'Type')}>
-                <option value="">{copy('全部类型', 'All types')}</option>
-                {vpsTypes.map((option) => <option key={option.value} value={option.value}>{language === 'zh' ? option.labelZh : option.labelEn}</option>)}
-              </select>
-              <select className={filterClass} value={monitorStatus} onChange={(e) => setMonitorStatus(e.target.value)} aria-label={copy('在线状态', 'Online status')}>
-                <option value="">{copy('全部状态', 'Any status')}</option>
-                <option value="online">{copy('在线', 'Online')}</option>
-                <option value="offline">{copy('离线', 'Offline')}</option>
-                <option value="unknown">{copy('未接入探针', 'No probe')}</option>
-              </select>
-            </>
-          ) : (
-            <select className={filterClass} value={status} onChange={(e) => setStatus(e.target.value)} aria-label={copy('状态', 'Status')}>
-              <option value="">{copy('未归档', 'Not archived')}</option>
-              {statusOptions(copy)}
-            </select>
-          )}
+          <select className={filterClass} value={status} onChange={(e) => setStatus(e.target.value)} aria-label={copy('状态', 'Status')}>
+            <option value="">{copy('未归档', 'Not archived')}</option>
+            {statusOptions(copy)}
+          </select>
           {isSubscription && (meta?.categoryOptions?.length ?? 0) > 0 && (
             <select className={filterClass} value={category} onChange={(e) => setCategory(e.target.value)} aria-label={copy('分类', 'Category')}>
               <option value="">{copy('全部分类', 'All categories')}</option>
@@ -1169,8 +843,6 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         <div className="motion-list grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {items.map((item) => isDomain
             ? <DomainCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} renewing={renewals.renewingId === item.id} renewed={false} onDuplicate={duplicateEntry} onRenew={renewItem} checkAction={domainCheckAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
-            : isVps
-              ? <VpsNodeCard key={item.id} item={item} monitorState={monitorById[item.id]} actionState={vpsActionById[item.id]} copiedSsh={copiedSshId === item.id} copiedIp={copiedVpsIpId === item.id} renewing={renewals.renewingId === item.id} onRenew={renewItem} onCopySsh={copySshCommand} onCopyIp={copyVpsIpAddress} onRefresh={refreshVpsMonitor} onTest={testVpsSsh} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : isPhone
               ? <PhoneCardView key={item.id} item={item} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} copiedNumber={copiedPhoneNumberId === item.id} onCopyNumber={copyPhoneNumber} onDuplicate={duplicateEntry} renewAction={renewAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
             : <AssetCardView key={item.id} item={item} config={config} duplicated={duplicatedId === item.id} duplicating={duplicatingId === item.id} onDuplicate={duplicateEntry} renewAction={renewAction(item)} onEdit={openEdit} onDelete={moveToTrash} copy={copy} />
@@ -1233,14 +905,12 @@ export function AssetPage({ config }: { config: AssetPageConfig }) {
         onClose={() => setDrawerOpen(false)}
         error={formError}
         dirty={!submitting && JSON.stringify(form) !== formSnapshot.current}
-        title={isDomain ? (editing ? copy('编辑域名', 'Edit domain') : copy('新增域名', 'Add domain')) : isVps ? (editing ? copy('编辑 VPS', 'Edit VPS') : copy('新增 VPS', 'Add VPS')) : isPhone ? (editing ? copy('编辑电话卡', 'Edit phone card') : copy('新增电话卡', 'Add phone card')) : (editing ? copy(`编辑${config.singular}`, `Edit ${assetSingular(config.singular, language)}`) : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`))}
+        title={isDomain ? (editing ? copy('编辑域名', 'Edit domain') : copy('新增域名', 'Add domain')) : isPhone ? (editing ? copy('编辑电话卡', 'Edit phone card') : copy('新增电话卡', 'Add phone card')) : (editing ? copy(`编辑${config.singular}`, `Edit ${assetSingular(config.singular, language)}`) : copy(`新增${config.singular}`, `Add ${assetSingular(config.singular, language)}`))}
         footer={<><Button variant="secondary" onClick={() => setDrawerOpen(false)}>{copy('取消', 'Cancel')}</Button><Button type="submit" form="asset-form" disabled={submitting}>{submitting ? copy('保存中', 'Saving') : copy('保存', 'Save')}</Button></>}
       >
         <form id="asset-form" onSubmit={submit} className="motion-stack space-y-6">
           {isDomain ? (
             <DomainFormSections form={form} updateForm={updateForm} copy={copy} />
-          ) : isVps ? (
-            <VpsFormSections form={form} updateForm={updateForm} copy={copy} language={language} editing={editing} actionState={editing ? vpsActionById[editing.id] : undefined} onTest={(item) => testVpsSsh(item, formToPayload(config, form))} onInstall={(item, probePort) => installVpsProbe(item, probePort, formToPayload(config, form))} onSaveThen={saveVpsThen} />
           ) : isPhone ? (
             <PhoneFormSections form={form} updateForm={updateForm} copy={copy} language={language} />
           ) : isSubscription ? (

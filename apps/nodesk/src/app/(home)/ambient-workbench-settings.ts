@@ -14,10 +14,12 @@ export type WorkbenchNavigation = {
 export const DEFAULT_WORKBENCH_APP_ENTRIES: WorkbenchAppEntry[] = [
 	{ id: 'nomoney', label: 'NoMoney', url: '/nomoney', icon: 'wallet-cards', openInNewTab: false },
 	{ id: 'nostar', label: 'NoStar', url: '/nostar/', icon: 'star', openInNewTab: false },
-	{ id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false },
 ]
 
 const WORKBENCH_NAVIGATION_VERSION = 5
+
+/** Apps that were retired: saved shortcuts to them are dropped instead of opening a redirect. */
+const RETIRED_APP_ROUTE = /^\/(?:clipper|yumi)(?:[/?#]|$)/i
 
 function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
@@ -59,7 +61,7 @@ export function normalizeWorkbenchNavigation(settings: unknown): WorkbenchNaviga
 		const entry = record(value)
 		const label = typeof entry?.label === 'string' ? entry.label.trim().slice(0, 60) : ''
 		const url = safeLocation(entry?.url)
-		if (!label || !url || entry?.enabled === false || /^\/clipper(?:[/?#]|$)/i.test(url)) return []
+		if (!label || !url || entry?.enabled === false || RETIRED_APP_ROUTE.test(url)) return []
 		return [{
 			id: typeof entry?.id === 'string' && entry.id.trim() ? entry.id.trim().slice(0, 80) : `entry-${index + 1}`,
 			label,

@@ -5,11 +5,10 @@ import { api, ApiError } from './api';
 import { withBasePath } from './base-path';
 import { Button, DataTable, Field, PageHeader, Skeleton, StateBanner, StatusBadge, inputClass, type DataTableColumn } from './ui';
 import { readStoredLanguage, useI18n } from './i18n';
-import { product } from './product';
 import { currencies, formatShanghaiDateTime } from './format';
 import { setPreferences } from './preferences';
 
-const productBackupName = product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
+const productBackupName = 'nomoney-backup.json.enc';
 
 const defaultSettings: SettingsValue = {
   reminderDays: [30, 14, 7, 3, 1, 0],
@@ -24,9 +23,7 @@ const defaultSettings: SettingsValue = {
   webdavPath: productBackupName,
   webdavFolderPath: '',
   webdavBackupFilename: '',
-  webdavEncryptionKey: '',
-  outageAlertsEnabled: true,
-  diskAlertPercent: 90
+  webdavEncryptionKey: ''
 };
 
 export function SettingsPage() {
@@ -174,15 +171,9 @@ export function SettingsPage() {
               <Field label={copy('时区', 'Timezone')}><input className={inputClass} value={settings.timezone} onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} /></Field>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-              {copy('邮件、Telegram、Bark 和 Webhook 渠道已统一移到 NoDesk 通知中心，NoMoney 与 Yumi 共用同一套配置。', 'Email, Telegram, Bark and webhook channels now live in the NoDesk notification center, shared by NoMoney and Yumi.')}
+              {copy('邮件、Telegram、Bark 和 Webhook 渠道已统一移到 NoDesk 通知中心。', 'Email, Telegram, Bark and webhook channels now live in the NoDesk notification center.')}
               {' '}<a className="font-medium text-brand-600 hover:underline" href="/nodesk/?settings=notifications">{copy('打开通知中心', 'Open the notification center')}</a>
             </div>
-            {product === 'yumi' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label={copy('宕机告警', 'Outage alerts')} hint={copy('连续两次探测失败（约 10 分钟）时通知，恢复后再通知一次。', 'Sent after two failed checks in a row (about 10 minutes), and again on recovery.')}><select className={inputClass} value={String(settings.outageAlertsEnabled)} onChange={(e) => setSettings({ ...settings, outageAlertsEnabled: e.target.value === 'true' })}><option value="true">{copy('开启', 'Enabled')}</option><option value="false">{copy('关闭', 'Disabled')}</option></select></Field>
-                <Field label={copy('磁盘告警阈值（%）', 'Disk alert threshold (%)')} hint={copy('0 表示关闭。', '0 turns it off.')}><input className={`${inputClass} font-mono`} type="number" min="0" max="100" value={settings.diskAlertPercent} onChange={(e) => setSettings({ ...settings, diskAlertPercent: Number(e.target.value) })} /></Field>
-              </div>
-            )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button type="submit"><Save size={16} />{copy('保存设置', 'Save settings')}</Button>
               <Button type="button" variant="secondary" onClick={runReminder}><Play size={16} />{copy('手动扫描', 'Run scan')}</Button>

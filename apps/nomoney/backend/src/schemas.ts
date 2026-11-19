@@ -6,15 +6,10 @@ export const billingCycleSchema = z.enum(billingCycles);
 const domainBillingCycleSchema = z.enum(['annual', 'biennial']);
 export const statusSchema = z.enum(['active', 'paused', 'expired', 'cancelled', 'archived']);
 const phoneTypeSchema = z.enum(['domestic', 'foreign']);
-const vpsTypeSchema = z.enum(['website', 'route', 'residential']);
-const sshAuthTypeSchema = z.enum(['password', 'privateKey']);
-const sshResultStatusSchema = z.enum(['untested', 'success', 'failed']);
-const probeInstallStatusSchema = z.enum(['notInstalled', 'installed', 'failed']);
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const nullableText = z.string().trim().optional().nullable();
 const nullableNumber = z.number().optional().nullable();
-const nullableMonitorStatus = z.enum(['unknown', 'online', 'offline', 'warning']).optional().nullable();
 
 export const commonAssetSchema = z.object({
   amountMinorUnits: z.number().int().nonnegative(),
@@ -62,54 +57,6 @@ export const phoneSchema = commonAssetSchema.extend({
   expireDate: dateSchema.optional().nullable()
 });
 
-export const vpsSchema = commonAssetSchema.extend({
-  name: z.string().trim().min(1),
-  vpsType: vpsTypeSchema.optional().nullable(),
-  provider: nullableText,
-  ipAddress: nullableText,
-  ipv6Address: nullableText,
-  panelUrl: nullableText,
-  trafficQuotaGb: z.number().nonnegative().optional().nullable(),
-  trafficResetDay: z.number().int().min(1).max(28).optional().nullable(),
-  location: nullableText,
-  cpu: nullableText,
-  memory: nullableText,
-  storage: nullableText,
-  bandwidth: nullableText,
-  os: nullableText,
-  sshHost: nullableText,
-  sshPort: z.number().int().min(1).max(65535).optional().nullable(),
-  sshUser: nullableText,
-  sshAuthType: sshAuthTypeSchema.optional().nullable(),
-  sshPassword: nullableText,
-  sshPrivateKey: nullableText,
-  sshPrivateKeyPassphrase: nullableText,
-  sshHostFingerprint: nullableText,
-  sshCommand: nullableText,
-  probeUrl: nullableText,
-  probePort: z.number().int().min(1).max(65535).optional().nullable(),
-  probeApiKey: nullableText,
-  probeInstallStatus: probeInstallStatusSchema.optional().nullable(),
-  probeInstallMessage: nullableText,
-  probeInstalledAt: z.string().datetime().optional().nullable(),
-  sshLastTestStatus: sshResultStatusSchema.optional().nullable(),
-  sshLastTestMessage: nullableText,
-  sshLastTestedAt: z.string().datetime().optional().nullable(),
-  monitorStatus: nullableMonitorStatus,
-  monitorCpuPercent: nullableNumber,
-  monitorMemoryPercent: nullableNumber,
-  monitorDiskPercent: nullableNumber,
-  monitorNetInBps: nullableNumber,
-  monitorNetOutBps: nullableNumber,
-  monitorNetTotalInBytes: nullableNumber,
-  monitorNetTotalOutBytes: nullableNumber,
-  monitorLoad1: nullableNumber,
-  monitorUptimeSeconds: nullableNumber,
-  monitorUpdatedAt: z.string().datetime().optional().nullable(),
-  startDate: dateSchema.optional().nullable(),
-  expireDate: dateSchema.optional().nullable()
-});
-
 export const domainSchema = commonAssetSchema.extend({
   billingCycle: domainBillingCycleSchema,
   domainName: z.string().trim().min(1),
@@ -144,7 +91,7 @@ export const subscriptionSchema = commonAssetSchema.extend({
 });
 
 export const expenseSchema = z.object({
-  assetType: z.enum(['phone', 'vps', 'domain', 'subscription']),
+  assetType: z.enum(['phone', 'domain', 'subscription']),
   assetId: z.number().int().positive(),
   amountMinorUnits: z.number().int().nonnegative(),
   currency: currencySchema,

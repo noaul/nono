@@ -5,11 +5,19 @@ import { z } from 'zod';
 import { isBearerRequest, requireAdmin } from '../../plugins/auth.js';
 import { setAuditContext } from '../../plugins/audit.js';
 import { sendOk } from '../../plugins/responses.js';
-import { BACKUP_MODULES } from '../../services/backup-center.service.js';
+import { BACKUP_MODULES, RETIRED_BACKUP_MODULE, type BackupModule } from '../../services/backup-center.service.js';
 import type { AppServices } from '../../types.js';
 
 const moduleSchema = z.enum(BACKUP_MODULES);
-const modulesSchema = z.object({ modules: z.array(moduleSchema).min(1).max(BACKUP_MODULES.length).optional() });
+/**
+ * Module lists from older clients may still name the retired `yumi` module (its domains now live in
+ * NoMoney); it is dropped rather than rejected. A list naming nothing else is still invalid.
+ */
+const moduleListSchema = z.array(z.union([moduleSchema, z.literal(RETIRED_BACKUP_MODULE)]))
+  .max(BACKUP_MODULES.length + 1)
+  .transform((modules) => modules.filter((module): module is BackupModule => module !== RETIRED_BACKUP_MODULE))
+  .pipe(z.array(moduleSchema).min(1));
+const modulesSchema = z.object({ modules: moduleListSchema.optional() });
 
 export async function backupCenterRoutes(app: FastifyInstance, services: AppServices) {
   /**
@@ -96,7 +104,7 @@ export async function backupCenterRoutes(app: FastifyInstance, services: AppServ
   app.post('/api/admin/backup-center/webdav/restore', { bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
     const user = await admin(request, reply);
     if (!user) return;
-    const input = z.object({ batchId: z.string().regex(/^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/), modules: z.array(moduleSchema).min(1).max(BACKUP_MODULES.length).optional() }).parse(request.body);
+    const input = z.object({ batchId: z.string().regex(/^\d{8}T\d{6}Z(?:-[a-f0-9]{6})?$/), modules: moduleListSchema.optional() }).parse(request.body);
     return submit(request, reply, user.id, 'webdav-restore', input, () => services.backupCenterService.restoreWebDavBatch(user.id, input.batchId, input.modules));
   });
 

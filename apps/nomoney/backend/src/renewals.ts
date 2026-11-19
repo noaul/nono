@@ -13,7 +13,7 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const renewalSchema = z.object({
   requestId: z.string().trim().min(8).max(128),
-  // `expectedExpireDate` is the original VPS field name; both mean "the due date the client saw".
+  // `expectedExpireDate` is the older field name; both mean "the due date the client saw".
   expectedDueDate: isoDate.optional(),
   expectedExpireDate: isoDate.optional(),
   amountMinorUnits: z.number().int().nonnegative().optional(),
@@ -67,42 +67,14 @@ type AssetRow = {
 };
 
 /**
- * Which date column a renewal advances. VPS and domains track an expiry date;
+ * Which date column a renewal advances. Domains track an expiry date;
  * phone cards and subscriptions track the next charge date.
  */
 const anchorColumn: Record<AssetType, 'expire_date' | 'next_due_date'> = {
-  vps: 'expire_date',
   domain: 'expire_date',
   phone: 'next_due_date',
   subscription: 'next_due_date'
 };
-
-export function registerInternalRenewalRoutes(router: Router, context: AppContext): void {
-  router.post(
-    '/internal/vps/:id/renew',
-    requireInternalToken(context),
-    asyncHandler(async (req, res) => {
-      res.json(renewAsset(context, 'vps', Number(req.params.id), parseRenewalInput(req.body)));
-    })
-  );
-
-  router.post(
-    '/internal/vps/:id/renewals/:renewalId/undo',
-    requireInternalToken(context),
-    asyncHandler(async (req, res) => {
-      res.json(undoRenewal(context, 'vps', Number(req.params.id), Number(req.params.renewalId)));
-    })
-  );
-
-  router.put(
-    '/internal/vps/:id/renewals/:renewalId/expense',
-    requireInternalToken(context),
-    asyncHandler(async (req, res) => {
-      const body = parseBody(expenseAmountSchema, req.body);
-      res.json(updateRenewalExpense(context, 'vps', Number(req.params.id), Number(req.params.renewalId), body.amountMinorUnits));
-    })
-  );
-}
 
 export function registerRenewalRoutes(router: Router, context: AppContext, allowedTypes: AssetType[]): void {
   for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
@@ -225,9 +197,7 @@ export function renewAsset(context: AppContext, type: AssetType, assetId: number
       ]
     );
     context.db.run('UPDATE renewal_events SET expense_id = ? WHERE id = ?', [expenseId, renewalId]);
-    if (type === 'vps') {
-      context.db.run('UPDATE vps SET expire_date = ?, next_due_date = NULL, updated_at = ? WHERE id = ?', [renewedDate, now, assetId]);
-    } else if (type === 'domain') {
+    if (type === 'domain') {
       context.db.run(
         'UPDATE domains SET expire_date = ?, next_due_date = ?, last_renew_date = ?, updated_at = ? WHERE id = ?',
         [renewedDate, renewedDate, paidAt, now, assetId]
@@ -261,11 +231,6 @@ export function undoRenewal(context: AppContext, type: AssetType, assetId: numbe
       context.db.run(
         'UPDATE domains SET expire_date = ?, next_due_date = ?, last_renew_date = ?, updated_at = ? WHERE id = ?',
         [renewal.previous_expire_date, renewal.previous_next_due_date, renewal.previous_last_renew_date, now, assetId]
-      );
-    } else if (type === 'vps') {
-      context.db.run(
-        'UPDATE vps SET expire_date = ?, next_due_date = ?, updated_at = ? WHERE id = ?',
-        [renewal.previous_expire_date, renewal.previous_next_due_date, now, assetId]
       );
     } else {
       context.db.run(`UPDATE ${config.table} SET next_due_date = ?, updated_at = ? WHERE id = ?`, [renewal.previous_expire_date, now, assetId]);

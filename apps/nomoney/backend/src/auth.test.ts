@@ -4,8 +4,8 @@ import { createApp } from './app.js';
 import { adminCookie, createTestContext, describe, expect, test, userCookie } from './test-utils.js';
 
 describe('NoNo session authorisation', () => {
-  test.each(['nomoney', 'yumi'] as const)('%s rejects requests without a NoNo session', async (product) => {
-    const app = createApp(await createTestContext(product));
+  test('rejects requests without a NoNo session', async () => {
+    const app = createApp(await createTestContext());
     const response = await request(app).get('/api/auth/me').expect(401);
     expect(response.body.error.code).toBe('UNAUTHORIZED');
     await request(app).get('/api/expenses').expect(401);
@@ -40,8 +40,8 @@ describe('NoNo session authorisation', () => {
     await request(app).get('/api/auth/setup-status').expect(401);
   });
 
-  test.each(['nomoney', 'yumi'] as const)('%s requires the configured browser origin for session writes', async (product) => {
-    const context = await createTestContext(product);
+  test('requires the configured browser origin for session writes', async () => {
+    const context = await createTestContext();
     context.publicOrigin = 'https://nono.test';
     const app = createApp(context);
     await request(app).put('/api/settings').set('Cookie', adminCookie).send({}).expect(403);

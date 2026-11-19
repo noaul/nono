@@ -10,14 +10,6 @@ export const defaultNavigationEntries: NavigationEntry[] = [
     openInNewTab: true,
   },
   {
-    id: 'yumi',
-    label: 'Yumi',
-    url: '/yumi',
-    icon: 'server-cog',
-    enabled: true,
-    openInNewTab: true,
-  },
-  {
     id: 'nostar',
     label: 'NoStar',
     url: '/nostar',
@@ -30,6 +22,10 @@ export const defaultNavigationEntries: NavigationEntry[] = [
 // Version 5 drops the legacy `home` shortcut. The public navigation already is the bookmark page,
 // so sending people back to `/` from that same strip is redundant.
 export const navigationEntriesVersion = 5;
+
+// Apps that no longer exist. Saved shortcuts to them are dropped when read: clipping was retired, and
+// Yumi was folded back into NoMoney (the gateway redirects `/yumi` there).
+const RETIRED_APP_URL = /^\/(?:clipper|yumi)(?:[/?#]|$)/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -79,7 +75,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
     if (!isRecord(value)) return [];
     const label = typeof value.label === 'string' ? value.label.trim().slice(0, 60) : '';
     const url = safeLocation(value.url);
-    if (!label || !url || /^\/clipper(?:[/?#]|$)/i.test(url)) return [];
+    if (!label || !url || RETIRED_APP_URL.test(url)) return [];
     const baseId = normalizeId(value.id, index);
     let id = baseId;
     let suffix = 2;
@@ -91,7 +87,7 @@ export function getNavigationEntries(settings: unknown): NavigationEntry[] {
       url,
       icon: typeof value.icon === 'string' ? value.icon.trim().slice(0, 40) : 'link',
       enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
-      openInNewTab: id === 'nomoney' || id === 'yumi' || id === 'nostar'
+      openInNewTab: id === 'nomoney' || id === 'nostar'
         ? true
         : typeof value.openInNewTab === 'boolean' ? value.openInNewTab : false,
     }];

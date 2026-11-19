@@ -2,7 +2,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { runCli } from './run-cli.mjs';
 
-const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/yumi/api/readyz', '/yumi/', '/nostar/'];
+const REQUIRED_ROUTES = ['/readyz', '/', '/nodesk', '/nomoney/api/readyz', '/nostar/'];
+// Yumi is retired; its old URLs must keep landing in NoMoney.
+const REQUIRED_REDIRECTS = [['/yumi/', '/nomoney/'], ['/yumi/domains?edit=1', '/nomoney/domains?edit=1']];
 const REQUIRED_ASSETS = ['/nodesk/images/nodesk-ambient-wallpaper.png'];
 const REQUIRED_NOSTAR_CHUNKS = ['RepositoriesView-', 'ReadmeModal-', 'RepositoryEditModal-'];
 
@@ -54,7 +56,20 @@ export async function acceptDeployment({
     }
   }
 
-  return { routes, assets, nostarAssets };
+  const redirects = [];
+  for (const [routePath, expected] of REQUIRED_REDIRECTS) {
+    const url = `${normalizedBaseUrl}${routePath}`;
+    const response = await fetchImpl(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
+    const location = response.headers.get('location') || '';
+    const target = location ? new URL(location, url).toString() : '';
+    if (response.status !== 308 || target !== `${normalizedBaseUrl}${expected}`) {
+      throw new Error(`${routePath} returned HTTP ${response.status}${location ? ` to ${location}` : ''}, expected 308 to ${expected}`);
+    }
+    redirects.push({ path: routePath, status: response.status, location });
+    log(`accepted ${routePath} (${response.status} -> ${location})`);
+  }
+
+  return { routes, redirects, assets, nostarAssets };
 }
 
 export function extractScriptSources(html) {

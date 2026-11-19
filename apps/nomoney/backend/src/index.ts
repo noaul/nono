@@ -11,21 +11,19 @@ import { runReminderScan } from './reminders.js';
 import { getSettings } from './settings.js';
 import { assertEncryptionKey, assertRuntimeSecret } from './secret-crypto.js';
 import { migrateStoredSecrets } from './secret-migration.js';
-import type { AppContext, AssetType, ProductMode } from './types.js';
+import { productAssetTypes, type AppContext } from './types.js';
 import { runAutoRenewals } from './renewals.js';
 import { runDomainChecks } from './domain-checks.js';
-import { migrateYumiData, waitForDatabaseFile } from './yumi-migration.js';
-import { runStatusSweep } from './status.js';
+import { mergeYumiDomains } from './yumi-merge.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
-const product = (process.env.PRODUCT_MODE === 'yumi' ? 'yumi' : 'nomoney') as ProductMode;
 const port = Number(process.env.PORT ?? 3000);
 const dataDir = process.env.APP_DATA_DIR ?? path.resolve(process.cwd(), 'data');
 const internalToken = process.env.NOMONEY_INTERNAL_TOKEN;
 const nonoInternalUrl = process.env.NONO_INTERNAL_URL || `http://127.0.0.1:${process.env.NONO_INTERNAL_PORT || 3001}`;
 const defaultEncryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-const productEncryptionKeyName = product === 'yumi' ? 'YUMI_ENCRYPTION_KEY' : 'NOMONEY_ENCRYPTION_KEY';
-const encryptionKey = (product === 'yumi' ? process.env.YUMI_ENCRYPTION_KEY : process.env.NOMONEY_ENCRYPTION_KEY) || process.env.ENCRYPTION_KEY || (
+const productEncryptionKeyName = 'NOMONEY_ENCRYPTION_KEY';
+const encryptionKey = process.env.NOMONEY_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || (
   process.env.NODE_ENV === 'production' ? '' : defaultEncryptionKey
 );
 const privateOutboundHosts = (process.env.NOMONEY_PRIVATE_OUTBOUND_HOSTS || process.env.PRIVATE_OUTBOUND_HOSTS || '')
@@ -41,35 +39,26 @@ if (process.env.NODE_ENV === 'production' && (!encryptionKey || encryptionKey ==
 }
 assertEncryptionKey(encryptionKey, productEncryptionKeyName);
 
-const productTypes: AssetType[] = product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription'];
 const databasePath = path.join(dataDir, 'app.db');
-if (product === 'yumi' && !fs.existsSync(databasePath)) {
-  const sourcePath = path.join(process.env.NOMONEY_DATA_DIR || path.resolve(process.cwd(), '../nomoney-data'), 'app.db');
-  await waitForDatabaseFile(sourcePath);
-  await migrateYumiData({
-    sourcePath,
-    targetPath: databasePath,
-    sourceEncryptionKey: process.env.NOMONEY_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || '',
-    targetEncryptionKey: encryptionKey
-  });
-}
-
 const db = await createDatabase({
   persist: true,
-  filePath: databasePath,
-  product
+  filePath: databasePath
 });
+
+// One-time: take domains back from the retired Yumi database (left in place as an archive).
+const legacyYumiDataDir = process.env.LEGACY_YUMI_DATA_DIR ?? path.resolve(dataDir, '../yumi-data');
+const yumiMerge = await mergeYumiDomains(db, path.join(legacyYumiDataDir, 'app.db'));
+if (yumiMerge.merged) console.log(`Merged domains from Yumi: ${JSON.stringify(yumiMerge.counts)}`);
 
 const context: AppContext = {
   db,
-  product,
   verifySession: createNonoSessionVerifier({ baseUrl: nonoInternalUrl, internalToken: internalToken ?? '' }),
   internalToken,
   publicOrigin: resolvePublicOrigin(process.env.NONO_PUBLIC_URL),
   encryptionKey,
   privateOutboundHosts,
   now: () => new Date(),
-  notifier: createNonoNotifier({ baseUrl: nonoInternalUrl, internalToken: internalToken ?? '', product })
+  notifier: createNonoNotifier({ baseUrl: nonoInternalUrl, internalToken: internalToken ?? '' })
 };
 
 function resolvePublicOrigin(value: string | undefined): string | undefined {
@@ -87,7 +76,7 @@ function resolvePublicOrigin(value: string | undefined): string | undefined {
 migrateStoredSecrets(context);
 
 const app = createApp(context);
-const publicDir = path.resolve(dirname, product === 'yumi' ? '../public-yumi' : '../public');
+const publicDir = path.resolve(dirname, '../public');
 app.use(express.static(publicDir));
 app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
@@ -100,15 +89,13 @@ cron.schedule('7 * * * *', () => {
   const settings = getSettings(context);
   if (localHour(context.now(), settings.timezone) < 9) return;
   try {
-    runAutoRenewals(context, productTypes);
+    runAutoRenewals(context, [...productAssetTypes]);
   } catch (error) {
     console.error('Auto-renewal run failed', error);
   }
   // Domain checks only touch entries not refreshed recently, so hourly runs are cheap.
-  const domainChecks = product === 'yumi'
-    ? runDomainChecks(context).catch((error) => console.error('Domain checks failed', error))
-    : Promise.resolve();
-  domainChecks.then(() => runReminderScan(context, productTypes)).catch((error) => {
+  runDomainChecks(context).catch((error) => console.error('Domain checks failed', error))
+    .then(() => runReminderScan(context, [...productAssetTypes])).catch((error) => {
     console.error('Reminder scan failed', error);
   });
 }, { timezone: 'UTC' });
@@ -121,13 +108,6 @@ function localHour(date: Date, timeZone: string): number {
   }
 }
 
-if (product === 'yumi') {
-  cron.schedule('*/5 * * * *', () => {
-    runStatusSweep(context).catch((error) => console.error('Yumi status sweep failed', error));
-  }, { timezone: 'UTC' });
-  setTimeout(() => runStatusSweep(context).catch((error) => console.error('Initial Yumi status sweep failed', error)), 10_000).unref();
-}
-
 app.listen(port, () => {
-  console.log(`${product === 'yumi' ? 'Yumi' : 'NoMoney'} listening on port ${port}`);
+  console.log(`NoMoney listening on port ${port}`);
 });

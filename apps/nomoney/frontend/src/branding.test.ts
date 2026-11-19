@@ -46,7 +46,7 @@ describe('NoMoney branding', () => {
     expect(layout).toContain("href: '/nodesk'");
     expect(layout).toContain("href: '/nostar/'");
     expect(layout).toContain("href: '/nomoney/'");
-    expect(layout).toContain("href: '/yumi/'");
+    expect(layout).not.toContain("href: '/yumi/'");
     expect(layout).toContain("aria-current={active ? 'page' : undefined}");
   });
 });

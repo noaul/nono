@@ -50,7 +50,10 @@ class NavigationPolicy(baseUrl: String) {
     }
 
     private companion object {
-        /** Root paths that are apps or SPA pages rather than a user's navigation page. */
+        /**
+         * Root paths that are apps or SPA pages rather than a user's navigation page. Retired apps
+         * (clipper, yumi) stay reserved: the server still answers those paths with redirects.
+         */
         val reservedRootPaths = setOf("login", "setup", "privacy", "register", "admin", "api", "nodesk", "nomoney", "yumi", "nostar", "blog", "clipper")
     }
 

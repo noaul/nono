@@ -1,8 +1,7 @@
-import { product } from './product';
 
 /**
  * Every NoNo app is served from the same origin and shares one colour-mode preference, so a
- * choice made in NoNo, NoDesk, NoStar, NoMoney or Yumi carries across all of them.
+ * choice made in NoNo, NoDesk, NoStar or NoMoney carries across all of them.
  */
 export type ColorModePreference = 'system' | 'light' | 'dark';
 export type ResolvedColorMode = 'light' | 'dark';
@@ -10,7 +9,7 @@ export type ResolvedColorMode = 'light' | 'dark';
 export const COLOR_MODE_STORAGE_KEY = 'nono:color-mode';
 export const COLOR_MODE_CHANGE_EVENT = 'nono-color-mode-change';
 /** Per-app keys used before the shared preference existed, newest first. */
-export const LEGACY_COLOR_MODE_KEYS = [`${product}-theme`, 'moneypulse-theme'];
+export const LEGACY_COLOR_MODE_KEYS = ['nomoney-theme', 'moneypulse-theme'];
 
 type PreferenceStorage = Pick<Storage, 'getItem' | 'setItem'>;
 

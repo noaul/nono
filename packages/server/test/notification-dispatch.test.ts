@@ -220,16 +220,16 @@ describe('notification dispatcher', () => {
 
   it('relays product messages to the administrator, honouring severity', async () => {
     const { prisma, posts, dispatcher } = setup([]);
-    await expect(dispatcher.relay('yumi', { subject: 'S', text: 'T', severity: 'critical' })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(dispatcher.relay('nomoney', { subject: 'S', text: 'T', severity: 'critical' })).rejects.toMatchObject({ statusCode: 409 });
 
     await addChannel(prisma, { type: 'webhook', config: { url: 'https://hooks.test/x' }, minSeverity: 'critical' });
     const skipped = await dispatcher.relay('nomoney', { subject: 'S', text: 'T', severity: 'warning' });
     expect(skipped).toEqual([expect.objectContaining({ ok: true, skipped: true })]);
     expect(posts).toHaveLength(0);
 
-    await dispatcher.relay('yumi', { subject: 'Down', text: 'T', severity: 'critical' });
-    expect(posts[0].body.subject).toBe('Down');
-    expect(prisma.deliveries[0]).toMatchObject({ source: 'yumi', status: 'sent' });
+    await dispatcher.relay('nomoney', { subject: 'Due', text: 'T', severity: 'critical' });
+    expect(posts[0].body.subject).toBe('Due');
+    expect(prisma.deliveries[0]).toMatchObject({ source: 'nomoney', status: 'sent' });
   });
 
   it('fails a relay when every channel fails so the product retries later', async () => {
@@ -240,21 +240,22 @@ describe('notification dispatcher', () => {
 });
 
 describe('legacy channel import', () => {
-  it('imports NoMoney and Yumi channels once, without duplicates', async () => {
+  it('imports NoMoney channels once, without asking the retired Yumi product', async () => {
     const prisma = fakePrisma();
     const { deps } = deliveryDeps();
-    const legacy = { email: { host: 'smtp.saved', port: 587, user: '', from: '', to: 'me@x.com' }, webhook: { url: 'https://hooks.test/x' }, telegram: null, bark: { url: 'https://api.day.app/k' } };
-    const readLegacyChannels = vi.fn(async (product: string) => (product === 'nomoney' ? legacy : { ...legacy, telegram: { botToken: 't', chatId: '1' } }));
+    const legacy = { email: { host: 'smtp.saved', port: 587, user: '', from: '', to: 'me@x.com' }, webhook: { url: 'https://hooks.test/x' }, telegram: { botToken: 't', chatId: '1' }, bark: { url: 'https://api.day.app/k' } };
+    const readLegacyChannels = vi.fn(async (_product: string) => legacy);
     const dispatcher = createNotificationDispatcher({ prisma: prisma as any, notificationService: { list: vi.fn() } as any, delivery: deps, readLegacyChannels, legacySmtpEnv: { host: 'smtp.env', password: 'env-pass' } });
 
     expect(await dispatcher.importLegacyChannels()).toBe('imported');
-    expect(prisma.channels.map((row) => row.type)).toEqual(['email', 'webhook', 'bark', 'telegram']);
+    expect(prisma.channels.map((row) => row.type)).toEqual(['email', 'webhook', 'telegram', 'bark']);
+    expect(readLegacyChannels.mock.calls).toEqual([['nomoney']]);
     const email = decodeChannelConfig(prisma.channels[0], encryptionKey);
     expect(email).toMatchObject({ host: 'smtp.env', password: 'env-pass', to: 'me@x.com' });
     expect(prisma.channels.every((row) => row.minSeverity === 'info' && row.userId === admin.id)).toBe(true);
 
     expect(await dispatcher.importLegacyChannels()).toBe('skipped');
-    expect(readLegacyChannels).toHaveBeenCalledTimes(2);
+    expect(readLegacyChannels).toHaveBeenCalledTimes(1);
   });
 
   it('waits for the products to come up instead of recording an empty import', async () => {

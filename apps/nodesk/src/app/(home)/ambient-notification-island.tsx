@@ -13,7 +13,7 @@ export type NotificationItem = IslandNotification & {
 	occurredAt: string
 }
 
-export const NOTIFICATION_SOURCE_LABELS = { nodesk: 'NoDesk', nomoney: 'NoMoney', yumi: 'Yumi', nostar: 'NoStar', links: '书签', backup: '备份' } as const
+export const NOTIFICATION_SOURCE_LABELS = { nodesk: 'NoDesk', nomoney: 'NoMoney', nostar: 'NoStar', links: '书签', backup: '备份' } as const
 export type NotificationSource = keyof typeof NOTIFICATION_SOURCE_LABELS
 const ROTATE_MS = 4_000
 const FRESH_MS = 4_000

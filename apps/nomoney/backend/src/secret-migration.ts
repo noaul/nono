@@ -2,28 +2,10 @@ import type { AppContext } from './types.js';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from './secret-crypto.js';
 import { sensitiveSettingKeys } from './settings.js';
 
-const assetSecrets = [
-  { table: 'vps', columns: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] }
-] as const;
 const settingSecrets = sensitiveSettingKeys;
 
 export function migrateStoredSecrets(context: AppContext): number {
   let migrated = 0;
-
-  for (const { table, columns } of assetSecrets) {
-    const rows = context.db.all<Record<string, unknown>>(`SELECT id, ${columns.join(', ')} FROM ${table}`);
-    for (const row of rows) {
-      for (const column of columns) {
-        const value = row[column];
-        if (typeof value !== 'string' || !value || isEncryptedSecret(value)) continue;
-        context.db.run(`UPDATE ${table} SET ${column} = ? WHERE id = ?`, [
-          encryptSecret(value, context.encryptionKey),
-          Number(row.id)
-        ]);
-        migrated += 1;
-      }
-    }
-  }
 
   const subscriptions = context.db.all<{ id: number; license_key: string | null }>(
     'SELECT id, license_key FROM subscriptions'

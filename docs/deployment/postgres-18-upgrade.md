@@ -31,7 +31,7 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:postgres-18 -- \
 1. 构建新应用镜像，旧版本继续服务。
 2. 停止 `app`，用旧镜像连接 PostgreSQL 16，创建并验证完整安全快照，保存在 `/app/backups/deployment-safety`。记录输出中的快照 ID。
 3. 写入维护文件，停止并删除 PostgreSQL 16 容器。旧卷 `nono_pg_data` 不会被删除，快照之后也不再写入。
-4. 在新卷上启动 PostgreSQL 18，等它通过健康检查后，用新镜像把快照恢复进去，包括 NoDesk、NoMoney、Yumi 数据卷。
+4. 在新卷上启动 PostgreSQL 18，等它通过健康检查后，用新镜像把快照恢复进去，包括 NoDesk、NoMoney 数据卷（快照若为含 Yumi 的 v2 归档，也会恢复旧 Yumi 数据卷）。
 5. 在备用回环端口和正常端口依次做维护模式验收，然后删除维护文件、开放访问。流程和 [Compose 部署手册](compose-verified-deploy.md) 相同。
 
 ## 自动回退

@@ -19,8 +19,6 @@ export interface Settings {
   webdavFolderPath: string;
   webdavBackupFilename: string;
   webdavEncryptionKey: string;
-  outageAlertsEnabled: boolean;
-  diskAlertPercent: number;
 }
 
 /** Stored encrypted and never returned by the API. */
@@ -50,9 +48,7 @@ const settingsSchema = z.object({
   webdavPath: z.string().optional(),
   webdavFolderPath: z.string().optional(),
   webdavBackupFilename: z.string().optional(),
-  webdavEncryptionKey: z.string().optional(),
-  outageAlertsEnabled: z.boolean().optional(),
-  diskAlertPercent: z.number().int().min(0).max(100).optional()
+  webdavEncryptionKey: z.string().optional()
 });
 
 export function registerSettingsRoutes(router: Router, context: AppContext): void {
@@ -98,7 +94,7 @@ export function getSettings(context: AppContext): Settings {
     }
   }
 
-  const defaultBackupPath = context.product === 'yumi' ? 'yumi-backup.json.enc' : 'nomoney-backup.json.enc';
+  const defaultBackupPath = 'nomoney-backup.json.enc';
   const reminderDays: number[] = Array.isArray(settings.reminderDays) ? settings.reminderDays : [30, 14, 7, 3, 1, 0];
   return {
     reminderDays: reminderDays.length ? reminderDays : [30, 14, 7, 3, 1, 0],
@@ -114,9 +110,7 @@ export function getSettings(context: AppContext): Settings {
     webdavPath: !settings.webdavPath || settings.webdavPath === 'moneypulse-backup.json' ? defaultBackupPath : settings.webdavPath,
     webdavFolderPath: settings.webdavFolderPath ?? '',
     webdavBackupFilename: settings.webdavBackupFilename ?? '',
-    webdavEncryptionKey: settings.webdavEncryptionKey ?? '',
-    outageAlertsEnabled: settings.outageAlertsEnabled ?? true,
-    diskAlertPercent: Number(settings.diskAlertPercent ?? 90)
+    webdavEncryptionKey: settings.webdavEncryptionKey ?? ''
   };
 }
 

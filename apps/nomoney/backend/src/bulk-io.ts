@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import { z, ZodError } from 'zod';
-import { assetConfigs, createAsset, getAssetOrThrow, isSensitiveAssetField, mapAssetRow, type AssetConfig } from './assets.js';
+import { assetConfigs, createAsset, getAssetOrThrow, mapAssetRow, type AssetConfig } from './assets.js';
 import { asyncHandler, HttpError, parseBody } from './http.js';
 import { statusSchema } from './schemas.js';
 import type { AppContext, AssetType } from './types.js';
@@ -19,7 +19,7 @@ const importSchema = z.object({
 });
 
 // Runtime state written by monitors and checks; exporting it would only add noise.
-const runtimeFieldPattern = /^(monitor|probeInstall|sshLastTest|ssl|rdap|traffic(Used|Period))|^sshHostFingerprint$|^rarityScore$/;
+const runtimeFieldPattern = /^(ssl|rdap)|^rarityScore$/;
 
 export function registerBulkRoutes(router: Router, context: AppContext, allowedTypes: AssetType[]): void {
   for (const config of assetConfigs.filter((item) => allowedTypes.includes(item.type))) {
@@ -33,7 +33,7 @@ export function registerBulkRoutes(router: Router, context: AppContext, allowedT
         `SELECT * FROM ${config.table} ${includeArchived ? '' : 'WHERE archived_at IS NULL'} ORDER BY id`
       );
       const columns = exportColumns(config);
-      const items = rows.map((row) => mapAssetRow(config, row, { encryptionKey: context.encryptionKey }) as Record<string, unknown>);
+      const items = rows.map((row) => mapAssetRow(config, row) as Record<string, unknown>);
       sendCsv(res, `${config.route}-${toIsoDate(context.now())}.csv`, [
         columns.map((column) => column.header),
         ...items.map((item) => columns.map((column) => column.read(item)))
@@ -127,7 +127,7 @@ function exportColumns(config: AssetConfig): ExportColumn[] {
   const shape = (config.schema as z.ZodObject).shape as Record<string, z.ZodType>;
   return config.fields
     .map((field) => field.api)
-    .filter((api) => api in shape && !isSensitiveAssetField(config.type, api) && !runtimeFieldPattern.test(api))
+    .filter((api) => api in shape && !runtimeFieldPattern.test(api))
     .map((api) => {
       const kind: ExportColumn['kind'] = api === 'tags' ? 'tags'
         : api.endsWith('MinorUnits') ? 'money'

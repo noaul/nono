@@ -8,7 +8,7 @@ export interface AssetField {
 }
 
 export interface AssetPageConfig {
-  endpoint: 'phones' | 'vps' | 'domains' | 'subscriptions';
+  endpoint: 'phones' | 'domains' | 'subscriptions';
   title: string;
   singular: string;
   primaryKey: string;
@@ -54,41 +54,6 @@ export const assetPageConfigs: AssetPageConfig[] = [
       { key: 'keepaliveDays', label: '保号天数', type: 'number' },
       { key: 'billingDay', label: '扣费日', type: 'number' },
       { key: 'activateDate', label: '开卡日期', type: 'date' },
-      { key: 'expireDate', label: '到期日', type: 'date' }
-    ]
-  },
-  {
-    endpoint: 'vps',
-    title: 'VPS',
-    singular: 'VPS',
-    primaryKey: 'name',
-    secondaryKey: 'provider',
-    dueKey: 'expireDate',
-    fields: [
-      { key: 'name', label: '名称', type: 'text', required: true },
-      { key: 'vpsType', label: 'VPS 类型', type: 'text', required: true },
-      { key: 'provider', label: '供应商', type: 'text' },
-      { key: 'ipAddress', label: 'IP 地址', type: 'text' },
-      { key: 'location', label: '机房位置', type: 'text' },
-      { key: 'cpu', label: 'CPU', type: 'text' },
-      { key: 'memory', label: '内存', type: 'text' },
-      { key: 'storage', label: '硬盘', type: 'text' },
-      { key: 'bandwidth', label: '流量 / 带宽', type: 'text' },
-      { key: 'os', label: '系统', type: 'text' },
-      { key: 'sshPort', label: 'SSH 端口', type: 'number' },
-      { key: 'sshUser', label: 'SSH 用户', type: 'text' },
-      { key: 'sshAuthType', label: 'SSH 登录方式', type: 'text' },
-      { key: 'sshPassword', label: 'SSH 密码', type: 'text' },
-      { key: 'sshPrivateKey', label: 'SSH 私钥', type: 'textarea' },
-      { key: 'sshPrivateKeyPassphrase', label: '私钥口令', type: 'text' },
-      { key: 'sshCommand', label: 'SSH 命令', type: 'text' },
-      { key: 'probeUrl', label: '探针接口', type: 'text' },
-      { key: 'probePort', label: '探针端口', type: 'number' },
-      { key: 'probeApiKey', label: '探针密钥', type: 'text' },
-      { key: 'ipv6Address', label: 'IPv6 地址', type: 'text' },
-      { key: 'panelUrl', label: '控制面板', type: 'text' },
-      { key: 'trafficQuotaGb', label: '月流量额度（GB）', type: 'number' },
-      { key: 'trafficResetDay', label: '流量重置日', type: 'number' },
       { key: 'expireDate', label: '到期日', type: 'date' }
     ]
   },

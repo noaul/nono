@@ -108,7 +108,7 @@ describe('NoDesk local content API', () => {
         quickEntriesVisible: true,
         navigationEntries: [
           { id: 'docs', label: '文档', url: 'https://docs.example.com', icon: 'book-open', enabled: true, openInNewTab: true },
-          { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', enabled: true, openInNewTab: false },
+          { id: 'domains', label: '域名', url: '/nomoney/domains', icon: 'globe', enabled: true, openInNewTab: false },
         ],
       },
     });
@@ -118,7 +118,7 @@ describe('NoDesk local content API', () => {
       navigationEntriesVersion: 5,
       navigationEntries: [
         { id: 'docs', label: '文档', url: 'https://docs.example.com', icon: 'book-open', enabled: true, openInNewTab: true },
-        { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', enabled: true, openInNewTab: false },
+        { id: 'domains', label: '域名', url: '/nomoney/domains', icon: 'globe', enabled: true, openInNewTab: false },
       ],
     });
 

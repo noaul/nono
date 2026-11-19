@@ -44,7 +44,7 @@ describe('notification relay to NoNo', () => {
     const calls: { url: string; init: RequestInit }[] = [];
     let status = 200;
     const notifier = createNonoNotifier({
-      baseUrl: 'http://nono', internalToken: 'secret', product: 'yumi',
+      baseUrl: 'http://nono', internalToken: 'secret',
       fetch: (async (url: string, init: RequestInit) => {
         calls.push({ url, init });
         return new Response(JSON.stringify({ message: 'all channels failed' }), { status });
@@ -53,7 +53,7 @@ describe('notification relay to NoNo', () => {
     await notifier.send({ subject: 'S', text: 'T', severity: 'critical' });
     expect(calls[0].url).toBe('http://nono/api/internal/notifications/relay');
     expect(calls[0].init.headers).toMatchObject({ 'x-nono-internal-token': 'secret' });
-    expect(JSON.parse(String(calls[0].init.body))).toEqual({ product: 'yumi', subject: 'S', text: 'T', severity: 'critical' });
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ product: 'nomoney', subject: 'S', text: 'T', severity: 'critical' });
     expect(notifier.sent).toHaveLength(1);
     status = 502;
     await expect(notifier.send({ subject: 'S', text: 'T', severity: 'info' })).rejects.toThrow('all channels failed');
@@ -62,7 +62,7 @@ describe('notification relay to NoNo', () => {
 
   test('createNonoNotifier keeps only the latest sent messages', async () => {
     const notifier = createNonoNotifier({
-      baseUrl: 'http://nono', internalToken: 'secret', product: 'yumi',
+      baseUrl: 'http://nono', internalToken: 'secret',
       fetch: (async () => new Response('{}')) as unknown as typeof fetch
     });
     for (let index = 0; index < 200; index += 1) {
@@ -114,7 +114,7 @@ test('exports the pre-NoNo channel settings once for import and no longer accept
 });
 
 test('overview due items carry the actual domain renewal anchor through the API', async () => {
-  const { agent, context } = await setupAgent('yumi');
+  const { agent, context } = await setupAgent();
   await agent.post('/api/domains').send({ domainName: 'anchor.example', amountMinorUnits: 100, currency: 'USD', billingCycle: 'annual', expireDate: '2026-06-01', nextDueDate: '2026-05-25', status: 'active' }).expect(201);
   const { body } = await agent.get('/api/dashboard/expiring?days=30').expect(200);
   const item = body.items.find((item: { kind: string }) => item.kind === 'renewal');

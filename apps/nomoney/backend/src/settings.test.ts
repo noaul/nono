@@ -3,12 +3,10 @@ import { createTestContext } from './test-utils.js';
 import { getSettings } from './settings.js';
 
 describe('settings APIs', () => {
-  test('uses product-specific WebDAV backup filenames by default', async () => {
-    const noMoney = await createTestContext('nomoney');
-    const yumi = await createTestContext('yumi');
+  test('uses the NoMoney WebDAV backup filename by default', async () => {
+    const noMoney = await createTestContext();
 
     expect(getSettings(noMoney).webdavPath).toBe('nomoney-backup.json.enc');
-    expect(getSettings(yumi).webdavPath).toBe('yumi-backup.json.enc');
   });
 
   test('redacts stored WebDAV secrets and preserves them when secret fields are blank', async () => {

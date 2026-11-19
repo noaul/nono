@@ -11,7 +11,6 @@ import {
 	LoaderCircle,
 	RefreshCcw,
 	Save,
-	ServerCog,
 	Settings2,
 	ShieldCheck,
 	Trash2,
@@ -23,7 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { runBackupJob, type BackupJob } from './backup-job-client'
 import { tryNativeBackupDownload } from '@/lib/nodesk-mobile'
 
-type BackupModule = 'nono' | 'nodesk' | 'nostar' | 'nomoney' | 'yumi'
+type BackupModule = 'nono' | 'nodesk' | 'nostar' | 'nomoney'
 type Destination = 'webdav' | 'local'
 type WebDavPage = 'operations' | 'automatic' | 'history' | 'connection'
 type LocalPage = 'download' | 'restore'
@@ -73,8 +72,7 @@ const MODULES: Array<{ id: BackupModule; label: string; description: string; ico
 	{ id: 'nono', label: 'NoNo', description: '站点、文件夹与书签', icon: DatabaseBackup },
 	{ id: 'nodesk', label: 'NoDesk', description: '桌面内容与资源文件', icon: FolderArchive },
 	{ id: 'nostar', label: 'NoStar', description: '仓库、分类、Release 与设置', icon: Github },
-	{ id: 'nomoney', label: 'NoMoney', description: '资产、费用与账户', icon: WalletCards },
-	{ id: 'yumi', label: 'Yumi', description: 'VPS、域名、监控与提醒', icon: ServerCog }
+	{ id: 'nomoney', label: 'NoMoney', description: '手机卡、订阅、域名、费用与账户', icon: WalletCards }
 ]
 
 const DEFAULT_CONFIG: WebDavConfig = { url: '', username: '', passwordConfigured: false, rootPath: '/nono/' }
@@ -202,7 +200,7 @@ export function AmbientBackupCenter() {
 		const batch = job.result as BackupBatch
 		setBatches(current => [batch, ...current.filter(item => item.id !== batch.id)])
 		if (batch.scope === 'full') setFullRestoreId(batch.id)
-		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '五个模块已分别备份并写入同一批次清单。')
+		setMessage(modules ? `${MODULES.find(item => item.id === modules[0])?.label} 已备份到 WebDAV。` : '四个模块已分别备份并写入同一批次清单。')
 	})
 
 	const restoreWebDav = (batchId: string, modules?: BackupModule[]) => {
@@ -309,7 +307,7 @@ export function AmbientBackupCenter() {
 		{jobs.length > 0 && <details className='ambient-backup-page'><summary>任务记录（关闭页面后仍可查看）</summary>{jobs.map(job => <div key={job.id} role='status'><code>{job.id}</code> · {job.kind} · {job.status}{job.error && <p>{job.error}</p>}{job.downloadAvailable && <a href={`/api/admin/backup-center/jobs/${job.id}/download`} onClick={event => { if (tryNativeBackupDownload(job.id, window.location.origin)) event.preventDefault() }}>下载备份</a>}</div>)}</details>}
 		{loading ? <div className='ambient-backup-loading' role='status'><LoaderCircle className='is-spinning' size={20} />正在读取备份设置</div> : <>
 			{destination === 'webdav' && webDavPage === 'operations' && <div className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>备份与恢复</h3><p>完整操作覆盖当前账户的五个模块，也可以单独处理某个模块。</p></div>
+				<div className='ambient-backup-page-header'><h3>备份与恢复</h3><p>完整操作覆盖当前账户的四个模块，也可以单独处理某个模块。</p></div>
 				<section className='ambient-backup-hero'>
 					<div><span className='ambient-backup-icon'><Cloud size={21} /></span><span><strong>当前账户完整备份</strong><small>不包含其他账户、登录凭据或系统级配置。</small></span></div>
 					<div className='ambient-backup-actions'><button type='button' disabled={Boolean(busy) || !config.passwordConfigured} onClick={() => void backupWebDav()}>{busy === 'backup-all' ? <LoaderCircle className='is-spinning' size={16} /> : <Upload size={16} />}备份全部</button></div>
@@ -335,7 +333,7 @@ export function AmbientBackupCenter() {
 			</div>}
 
 			{destination === 'webdav' && webDavPage === 'automatic' && <section className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>自动备份</h3><p>按计划上传当前账户的五个模块；本地下载始终由你手动触发。</p></div>
+				<div className='ambient-backup-page-header'><h3>自动备份</h3><p>按计划上传当前账户的四个模块；本地下载始终由你手动触发。</p></div>
 				<div className='ambient-backup-policy-block'>
 					<div className='ambient-backup-policy-toolbar'>
 						<label className='ambient-policy-toggle'><input type='checkbox' checked={automation.settings.enabled} onChange={event => updateAutomation('enabled', event.target.checked)} /><span>启用自动备份</span></label>
@@ -363,7 +361,7 @@ export function AmbientBackupCenter() {
 			</section>}
 
 			{destination === 'webdav' && webDavPage === 'connection' && <section className='ambient-backup-page'>
-				<div className='ambient-backup-page-header'><h3>连接设置</h3><p>完整备份与五个模块共用这一套 WebDAV 凭据。</p></div>
+				<div className='ambient-backup-page-header'><h3>连接设置</h3><p>完整备份与四个模块共用这一套 WebDAV 凭据。</p></div>
 				<div className='ambient-webdav-grid'>
 					<label className='is-wide'><span>WebDAV 地址</span><input type='url' value={connectionForm.url} onChange={event => setConnectionForm(current => ({ ...current, url: event.target.value }))} placeholder='https://dav.example.com/remote.php/dav/files/user/' /></label>
 					<label><span>用户名</span><input value={connectionForm.username} onChange={event => setConnectionForm(current => ({ ...current, username: event.target.value }))} /></label>
@@ -375,7 +373,7 @@ export function AmbientBackupCenter() {
 
 			{destination === 'local' && localPage === 'download' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header'><h3>下载备份</h3><p>本地备份不会自动执行，也不占用服务器保留份数。</p></div>
-				<button type='button' className='ambient-local-all-download' disabled={Boolean(busy)} onClick={() => downloadLocalBackup('all')}>{busy === 'local-download-all' ? <LoaderCircle className='is-spinning' size={20} /> : <Archive size={20} />}<span><strong>下载当前账户完整备份</strong><small>一个文件内按五个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></button>
+				<button type='button' className='ambient-local-all-download' disabled={Boolean(busy)} onClick={() => downloadLocalBackup('all')}>{busy === 'local-download-all' ? <LoaderCircle className='is-spinning' size={20} /> : <Archive size={20} />}<span><strong>下载当前账户完整备份</strong><small>一个文件内按四个模块保存当前账户数据并附带校验值。</small></span><Download size={17} /></button>
 				<div className='ambient-module-backups'>{MODULES.map(module => {
 					const Icon = module.icon
 					return <div className='ambient-module-backup' key={module.id}><span className='ambient-module-icon'><Icon size={18} /></span><span><strong>{module.label}</strong><small>{module.description}</small></span><button type='button' disabled={Boolean(busy)} onClick={() => downloadLocalBackup(module.id)} title={`下载 ${module.label}`} aria-label={`下载 ${module.label} 本地备份`}>{busy === `local-download-${module.id}` ? <LoaderCircle className='is-spinning' size={16} /> : <Download size={16} />}</button></div>

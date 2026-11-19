@@ -162,7 +162,7 @@ describe('account APIs', () => {
 
 describe('accounts linked to phone cards', () => {
   test('lists the accounts registered on a card number', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     await agent.post('/api/phones').send({ cardNumber: '138 0013 8000', phoneType: 'domestic', amountMinorUnits: 800, currency: 'CNY', billingCycle: 'monthly', status: 'active' }).expect(201);
     await agent.post('/api/accounts').send({ accountType: 'telegram', phoneNumber: '13800138000', countryCallingCode: '+86', countryIso: 'CN' }).expect(201);
     await agent.post('/api/accounts').send({ accountType: 'signal', phoneNumber: '13900000000', countryCallingCode: '+86', countryIso: 'CN' }).expect(201);

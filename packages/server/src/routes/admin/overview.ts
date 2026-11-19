@@ -17,13 +17,13 @@ async function block<T>(load: () => Promise<T>): Promise<Block<T>> {
 
 /**
  * The NoDesk "today" panel: one request that gathers what needs attention across every product.
- * Each block fails on its own, so a stopped Yumi never blanks the rest of the panel.
+ * Each block fails on its own, so a stopped NoMoney never blanks the rest of the panel.
  */
 export async function overviewRoutes(app: FastifyInstance, services: AppServices) {
   app.get('/api/admin/overview', async (request, reply) => {
     const user = await requireAdminSession(request, reply, services);
     if (!user) return;
-    const [notifications, links, nostar, backup, nomoney, yumi] = await Promise.all([
+    const [notifications, links, nostar, backup, nomoney] = await Promise.all([
       block(async () => {
         const feed = await services.notificationService.list(user, { limit: 1 });
         return { unread: feed.unreadCount, urgent: feed.urgentUnreadCount };
@@ -41,8 +41,7 @@ export async function overviewRoutes(app: FastifyInstance, services: AppServices
         return { enabled: automation.settings.enabled, ...automation.status };
       }),
       block(() => services.productOverviewReader('nomoney')),
-      block(() => services.productOverviewReader('yumi')),
     ]);
-    return sendOk(reply, { generatedAt: new Date().toISOString(), notifications, links, nostar, backup, nomoney, yumi });
+    return sendOk(reply, { generatedAt: new Date().toISOString(), notifications, links, nostar, backup, nomoney });
   });
 }

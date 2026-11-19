@@ -86,7 +86,7 @@ export function tokensMatch(expected: string, supplied: string | string[] | unde
   return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer);
 }
 
-/** Guards /api/internal routes that only NoMoney and Yumi call over loopback. */
+/** Guards /api/internal routes that only NoMoney calls over loopback. */
 export function requireInternalToken(request: FastifyRequest, reply: FastifyReply, services: AppServices) {
   if (services.internalToken && tokensMatch(services.internalToken, request.headers['x-nono-internal-token'])) return true;
   sendError(reply, 401, 'Internal token required');

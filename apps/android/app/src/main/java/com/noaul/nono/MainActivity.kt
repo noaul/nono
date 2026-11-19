@@ -52,8 +52,8 @@ import org.json.JSONObject
 import java.util.UUID
 
 /**
- * NoNo for Android, version 0.1: one WebView showing the existing NoDesk, NoMoney, Yumi, NoStar and
- * bookmark pages from the NoNo server, sharing one login. The native side handles back navigation,
+ * NoNo for Android, version 0.1: one WebView showing the existing NoDesk, NoMoney, NoStar and bookmark
+ * pages from the NoNo server, sharing one login. The native side handles back navigation,
  * system insets, external links, file upload, downloads and "share to NoNo".
  */
 class MainActivity : ComponentActivity() {

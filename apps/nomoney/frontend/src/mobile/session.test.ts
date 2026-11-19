@@ -10,7 +10,7 @@ function native(capable = true) {
   return { bridge, messages };
 }
 
-describe('shared NoMoney and Yumi logout', () => {
+describe('shared NoMoney logout', () => {
   it('revokes the server session before requesting negotiated native cleanup', async () => {
     const { bridge, messages } = native();
     const fetcher = vi.fn(async () => {

@@ -11,69 +11,72 @@ describe('backup APIs', () => {
     expect(() => restoreBackupPayload(context, payload)).toThrow('different application key');
     expect(context.db.all('SELECT * FROM settings')).toEqual(before);
   });
-  test('keeps NoMoney and Yumi backup payloads inside their product boundaries', async () => {
+  test('backs up phone cards, domains, subscriptions and accounts in one NoMoney payload', async () => {
     const { context } = await setupAgent();
     context.db.run("INSERT INTO phones (id, card_number, amount_minor_units, currency, billing_cycle, status, created_at, updated_at) VALUES (10, 'phone', 1, 'CNY', 'monthly', 'active', '2026-01-01', '2026-01-01')");
-    context.db.run("INSERT INTO subscriptions (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (11, 'subscription', 1, 'CNY', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
-    context.db.run("INSERT INTO vps (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (20, 'vps', 1, 'USD', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
     context.db.run("INSERT INTO domains (id, domain_name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (21, 'example.com', 1, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
     context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (30, 'phone', 10, 1, 'CNY', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
-    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'vps', 20, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'domain', 21, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
 
-    context.product = 'nomoney';
-    const noMoney = buildBackupPayload(context);
-    expect(noMoney).toMatchObject({ version: 2, product: 'nomoney' });
-    expect(noMoney).toHaveProperty('phones');
-    expect(noMoney).toHaveProperty('subscriptions');
-    expect(noMoney).toHaveProperty('accounts');
-    expect(noMoney).not.toHaveProperty('vps');
-    expect(noMoney).not.toHaveProperty('domains');
-    expect(noMoney.expenses).toEqual([expect.objectContaining({ id: 30, asset_type: 'phone' })]);
+    const payload = buildBackupPayload(context);
 
-    context.product = 'yumi';
-    const yumi = buildBackupPayload(context);
-    expect(yumi).toMatchObject({ version: 2, product: 'yumi' });
-    expect(yumi).toHaveProperty('vps');
-    expect(yumi).toHaveProperty('domains');
-    expect(yumi).not.toHaveProperty('phones');
-    expect(yumi).not.toHaveProperty('subscriptions');
-    expect(yumi).not.toHaveProperty('accounts');
-    expect(yumi.expenses).toEqual([expect.objectContaining({ id: 31, asset_type: 'vps' })]);
+    expect(payload).toMatchObject({ version: 3, product: 'nomoney' });
+    for (const key of ['phones', 'domains', 'subscriptions', 'accounts']) expect(payload).toHaveProperty(key);
+    expect(payload).not.toHaveProperty('vps');
+    expect(payload).not.toHaveProperty('vpsStatusSamples');
+    expect(payload.expenses).toEqual([
+      expect.objectContaining({ id: 30, asset_type: 'phone' }),
+      expect.objectContaining({ id: 31, asset_type: 'domain' })
+    ]);
   });
 
-  test('restores only the current product rows in shared tables', async () => {
+  test('restoring a backup from before the merge keeps the current domains and their ledger', async () => {
     const { context } = await setupAgent();
-    context.product = 'nomoney';
-    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'vps', 20, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO domains (id, domain_name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (21, 'kept.com', 1, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO expenses (id, asset_type, asset_id, amount_minor_units, currency, paid_at, category, created_at, updated_at) VALUES (31, 'domain', 21, 1, 'USD', '2026-01-01', 'renewal', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('yumiMergeVersion', '1')");
     const payload = buildBackupPayload(context);
-    payload.expenses = [{ id: 30, asset_type: 'phone', asset_id: 10, amount_minor_units: 2, currency: 'CNY', paid_at: '2026-02-01', category: 'renewal', created_at: '2026-02-01', updated_at: '2026-02-01' }];
+    delete payload.domains;
+    payload.version = 2;
+    payload.expenses = [
+      { id: 30, asset_type: 'phone', asset_id: 10, amount_minor_units: 2, currency: 'CNY', paid_at: '2026-02-01', category: 'renewal', created_at: '2026-02-01', updated_at: '2026-02-01' }
+    ];
+    payload.settings = (payload.settings as Array<{ key: string }>).filter((row) => row.key !== 'yumiMergeVersion');
 
     restoreBackupPayload(context, payload);
 
     expect(context.db.all<{ id: number; asset_type: string }>('SELECT id, asset_type FROM expenses ORDER BY id')).toEqual([
       { id: 30, asset_type: 'phone' },
-      { id: 31, asset_type: 'vps' }
+      { id: 31, asset_type: 'domain' }
     ]);
+    expect(context.db.get('SELECT domain_name FROM domains WHERE id = 21')).toEqual({ domain_name: 'kept.com' });
+    expect(context.db.get('SELECT value FROM settings WHERE key = ?', ['yumiMergeVersion'])).toEqual({ value: '1' });
   });
 
-  test('rejects a product-scoped backup from the other product', async () => {
+  test('drops VPS rows from older backups', async () => {
     const { context } = await setupAgent();
-    context.product = 'nomoney';
+    const payload = buildBackupPayload(context);
+    delete payload.product;
+    payload.vps = [{ id: 20, name: 'old', amount_minor_units: 1, currency: 'USD', billing_cycle: 'monthly', status: 'active' }];
+    payload.expenses = [{ id: 31, asset_type: 'vps', asset_id: 20, amount_minor_units: 1, currency: 'USD', paid_at: '2026-01-01', category: 'renewal', created_at: '2026-01-01', updated_at: '2026-01-01' }];
 
-    expect(() => restoreBackupPayload(context, { version: 2, product: 'yumi' }))
-      .toThrow('Backup belongs to yumi and cannot be restored into nomoney');
+    restoreBackupPayload(context, payload);
+
+    expect(context.db.all('SELECT id FROM expenses')).toEqual([]);
   });
 
-  test('downloads backups with the active product name', async () => {
+  test('rejects a Yumi backup', async () => {
     const { context } = await setupAgent();
-    context.product = 'yumi';
-    const { createApp } = await import('./app.js');
-    const request = (await import('supertest')).default;
-    const agent = request.agent(createApp(context)).set('Cookie', adminCookie);
+
+    expect(() => restoreBackupPayload(context, { version: 2, product: 'yumi' })).toThrow('Yumi has been retired');
+  });
+
+  test('downloads backups with the NoMoney file name', async () => {
+    const { agent } = await setupAgent();
 
     const response = await agent.get('/api/export/json');
 
-    expect(response.headers['content-disposition']).toContain('filename="yumi-backup.json.enc"');
+    expect(response.headers['content-disposition']).toContain('filename="nomoney-backup.json.enc"');
   });
 
   test('backs up to WebDAV and restores data from the WebDAV backup', async () => {
@@ -241,13 +244,13 @@ describe('backup APIs', () => {
     });
   });
 
-  test('restoring a backup without renewal events clears only the current product events', async () => {
+  test('restoring a backup without renewal events clears only the asset types it carries', async () => {
     const { context } = await setupAgent();
     context.db.run(
       `INSERT INTO renewal_events (
          request_id, asset_type, asset_id, previous_expire_date, renewed_expire_date,
          amount_minor_units, currency, status, created_at
-       ) VALUES ('legacy-stale', 'vps', 1, '2026-01-01', '2027-01-01', 1000, 'USD', 'active', '2026-01-01T00:00:00.000Z')`
+       ) VALUES ('domain-kept', 'domain', 1, '2026-01-01', '2027-01-01', 1000, 'USD', 'active', '2026-01-01T00:00:00.000Z')`
     );
     context.db.run(
       `INSERT INTO renewal_events (
@@ -257,16 +260,17 @@ describe('backup APIs', () => {
     );
     const legacyPayload = buildBackupPayload(context);
     delete legacyPayload.renewalEvents;
+    delete legacyPayload.domains;
 
     restoreBackupPayload(context, legacyPayload);
 
-    expect(context.db.all('SELECT asset_type FROM renewal_events')).toEqual([{ asset_type: 'vps' }]);
+    expect(context.db.all('SELECT asset_type FROM renewal_events')).toEqual([{ asset_type: 'domain' }]);
   });
 
-  test('exposes product-scoped backup and restore only to the internal Nono service token', async () => {
-    const { context, app } = await setupAgent('yumi');
+  test('exposes backup and restore only to the internal Nono service token', async () => {
+    const { context, app } = await setupAgent();
     const request = (await import('supertest')).default;
-    context.db.run("INSERT INTO vps (id, name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (20, 'before', 1, 'USD', 'monthly', 'active', '[]', '2026-01-01', '2026-01-01')");
+    context.db.run("INSERT INTO domains (id, domain_name, amount_minor_units, currency, billing_cycle, status, tags, created_at, updated_at) VALUES (20, 'before.com', 1, 'USD', 'annual', 'active', '[]', '2026-01-01', '2026-01-01')");
 
     expect((await request(app).get('/api/internal/backup')).status).toBe(401);
 
@@ -274,21 +278,21 @@ describe('backup APIs', () => {
       .get('/api/internal/backup')
       .set('x-nono-internal-token', 'test-internal-token');
     expect(exported.status).toBe(200);
-    expect(exported.body).toMatchObject({ product: 'yumi', version: 2 });
+    expect(exported.body).toMatchObject({ product: 'nomoney', version: 3 });
 
-    context.db.run("UPDATE vps SET name = 'changed' WHERE id = 20");
+    context.db.run("UPDATE domains SET domain_name = 'changed.com' WHERE id = 20");
     const restored = await request(app)
       .post('/api/internal/backup/restore')
       .set('x-nono-internal-token', 'test-internal-token')
       .send(exported.body);
     expect(restored.status).toBe(200);
-    expect(context.db.get<{ name: string }>('SELECT name FROM vps WHERE id = 20')).toEqual({ name: 'before' });
+    expect(context.db.get('SELECT domain_name FROM domains WHERE id = 20')).toEqual({ domain_name: 'before.com' });
   });
 });
 
 describe('backup file upload', () => {
   test('restores an exported encrypted backup file', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     await agent.put('/api/settings').send({ webdavEncryptionKey: 'file-backup-key' }).expect(200);
     await agent.post('/api/subscriptions').send({ name: 'Keep me', purchaseType: 'subscription', amountMinorUnits: 100, currency: 'CNY', billingCycle: 'monthly', status: 'active' }).expect(201);
     const exported = await agent.get('/api/export/json').expect(200);
@@ -305,7 +309,7 @@ describe('backup file upload', () => {
 
   test('checks the session before reading an upload body, then accepts bodies over the default 1 MB limit', async () => {
     const request = (await import('supertest')).default;
-    const { app, agent, context } = await setupAgent('nomoney');
+    const { app, agent, context } = await setupAgent();
     let verified = 0;
     const verifySession = context.verifySession;
     context.verifySession = async (token) => {

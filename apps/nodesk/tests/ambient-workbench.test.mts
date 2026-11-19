@@ -147,7 +147,7 @@ test('normalizes the server-backed NoDesk app switcher settings', () => {
 	}).entries.map(entry => entry.id), ['nomoney', 'nostar', 'custom-home'])
 
 	assert.deepEqual(normalizeWorkbenchNavigation(null).entries.map(entry => entry.id), [
-		'nomoney', 'nostar', 'yumi'
+		'nomoney', 'nostar'
 	])
 })
 
@@ -159,7 +159,7 @@ test('replaces the legacy card canvas with an ambient dock-driven workbench', as
 
 	assert.match(page, /AmbientWorkbench/)
 	assert.doesNotMatch(page, /HiCard|ArtCard|CalendarCard|ScheduleSummaryCard|SnowfallBackground/)
-	assert.match(workbench, /书签|GitHub|Yumi|日程|任务|专注/)
+	assert.match(workbench, /书签|GitHub|日程|任务|专注/)
 	assert.match(workbench, /prefers-reduced-motion|useReducedMotion/)
 	assert.match(workbench, /requestFullscreen/)
 	assert.match(workbench, /localStorage/)
@@ -242,7 +242,7 @@ test('uses a wider lower search trigger and links integration panels to their pr
 
 	assert.match(workbench, /shortcutHref: '\/admin\/links', shortcutLabel: '打开书签管理'/)
 	assert.match(workbench, /shortcutHref: '\/nostar\/', shortcutLabel: '打开 NoStar'/)
-	assert.match(workbench, /shortcutHref: '\/yumi', shortcutLabel: '打开 Yumi'/)
+	assert.doesNotMatch(workbench, /\/yumi|Yumi/)
 	assert.match(workbench, /href=\{activeDockItem\.shortcutHref\}/)
 	assert.doesNotMatch(workbench, /返回 Nono 主页/)
 	assert.doesNotMatch(workbench, /DOCK_ITEMS\.find\(item => item\.id === activePanel\)\?\.detail/)
@@ -281,7 +281,7 @@ test('phones get a five-button dock, header search, and a 更多 panel', async (
 	const workbench = await read('src/app/(home)/ambient-workbench.tsx')
 	const styles = await read('src/styles/ambient-workbench.css')
 
-	for (const id of ['github', 'yumi', 'focus', 'settings']) {
+	for (const id of ['github', 'focus', 'settings']) {
 		assert.match(workbench, new RegExp(`id: '${id}'[^}]*placement: 'secondary'`))
 	}
 	assert.match(workbench, /\{ id: 'more', label: '更多', icon: LayoutGrid, placement: 'phone-only' \}/)
@@ -411,15 +411,15 @@ test('server bookmark hits replace the local bookmark filter once they arrive', 
 })
 
 test('the app dock adds NoNo unless a shortcut already opens it', () => {
-	const yumi = { id: 'yumi', label: 'Yumi', url: '/yumi', icon: 'server-cog', openInNewTab: false }
-	assert.deepEqual(appDockEntries([yumi]), [NONO_APP_ENTRY, yumi])
+	const nostar = { id: 'nostar', label: 'NoStar', url: '/nostar/', icon: 'star', openInNewTab: false }
+	assert.deepEqual(appDockEntries([nostar]), [NONO_APP_ENTRY, nostar])
 	assert.deepEqual(appDockEntries([]), [NONO_APP_ENTRY])
 	const home = { id: 'home', label: '我的主页', url: '/', icon: 'link', openInNewTab: false }
-	assert.deepEqual(appDockEntries([home, yumi]), [home, yumi])
+	assert.deepEqual(appDockEntries([home, nostar]), [home, nostar])
 	assert.equal(NONO_APP_ENTRY.url, '/')
 	const admin = { id: 'mine', label: '后台', url: '/admin', icon: 'link', openInNewTab: false }
 	assert.deepEqual(appDockEntries([admin]), [NONO_APP_ENTRY, admin])
-	assert.equal(appDockEntries([{ ...yumi, id: 'nono' }]).length, 1)
+	assert.equal(appDockEntries([{ ...nostar, id: 'nono' }]).length, 1)
 })
 
 test('counts focus time from the end time, so a hidden tab cannot slow it down', async () => {

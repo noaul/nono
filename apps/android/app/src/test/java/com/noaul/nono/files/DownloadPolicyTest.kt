@@ -9,9 +9,9 @@ class DownloadPolicyTest {
         assertTrue(policy.allows("https://noaul.com/api/admin/backups/a.tar.gz/download"))
         assertTrue(policy.allows("https://noaul.com:443/api/admin/bookmarks/export"))
         assertTrue(policy.allows("https://noaul.com/nomoney/api/subscriptions/export.csv"))
-        assertTrue(policy.allows("https://noaul.com/yumi/api/vps/export.csv"))
-        assertTrue(policy.allows("https://noaul.com/yumi/api/domains/export.csv"))
-        listOf("http://noaul.com/api/admin/bookmarks/export", "https://evil.example/api/admin/bookmarks/export", "https://noaul.com@login.evil/api/admin/bookmarks/export", "https://noaul.com/login", "https://noaul.com/api/admin/backups/../download", "https://noaul.com/api/admin/backups/%2e%2e/download", "https://noaul.com/api/admin/bookmarks/export?token=secret").forEach { assertFalse(it, policy.allows(it)) }
+        assertTrue(policy.allows("https://noaul.com/nomoney/api/domains/export.csv"))
+        assertTrue(policy.allows("https://noaul.com/nomoney/api/phones/export.csv"))
+        listOf("http://noaul.com/api/admin/bookmarks/export", "https://evil.example/api/admin/bookmarks/export", "https://noaul.com@login.evil/api/admin/bookmarks/export", "https://noaul.com/login", "https://noaul.com/api/admin/backups/../download", "https://noaul.com/api/admin/backups/%2e%2e/download", "https://noaul.com/api/admin/bookmarks/export?token=secret", "https://noaul.com/nomoney/api/vps/export.csv", "https://noaul.com/yumi/api/domains/export.csv").forEach { assertFalse(it, policy.allows(it)) }
     }
     @Test fun sanitizesFilenameAndRejectsHtmlLoginResponse() {
         assertEquals("backup.zip", policy.filename("../../backup.zip"))

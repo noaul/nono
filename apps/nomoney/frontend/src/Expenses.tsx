@@ -8,7 +8,6 @@ import { compactDate, currentShanghaiYear, formatMoney, shanghaiDateKey, currenc
 import { Button, DataTable, Drawer, EmptyState, Field, Skeleton, StateBanner, inputClass, type DataTableColumn } from './ui';
 import { useI18n } from './i18n';
 import { useLayoutActions } from './Layout';
-import { product } from './product';
 
 type ExpenseCategory = 'renewal' | 'monthly' | 'setup' | 'other';
 type ExpenseForm = {
@@ -22,12 +21,11 @@ type ExpenseForm = {
   notes: string;
 };
 
-const assetTypes: AssetType[] = product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription'];
+const assetTypes: AssetType[] = ['phone', 'domain', 'subscription'];
 const categories: ExpenseCategory[] = ['renewal', 'monthly', 'setup', 'other'];
 const assetTypeLabels: Record<AssetType, [string, string]> = {
   phone: ['电话卡', 'Phone card'],
   subscription: ['订阅', 'Subscription'],
-  vps: ['VPS', 'VPS'],
   domain: ['域名', 'Domain']
 };
 const categoryLabels: Record<ExpenseCategory, [string, string]> = {

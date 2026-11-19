@@ -1903,30 +1903,6 @@ a.ambient-small-icon {
 	place-items: center;
 }
 
-.ambient-severity-info {
-	color: #267da2;
-}
-
-.ambient-severity-warning {
-	color: #b36a12;
-}
-
-.ambient-severity-critical {
-	color: #c24848;
-}
-
-.ambient-panel-link {
-	align-items: center;
-	color: var(--ambient-ink);
-	display: flex;
-	font-size: 12px;
-	font-weight: 650;
-	gap: 5px;
-	justify-content: flex-end;
-	padding: 13px 3px 1px;
-	text-decoration: none;
-}
-
 .ambient-local-tool {
 	padding-top: 12px;
 }
@@ -2874,14 +2850,14 @@ a.ambient-small-icon {
  * well under AA, so the dimmed workbench swaps them for their light counterparts.
  */
 [data-dimmed='true'] :is(.ambient-now-row-icon.is-task, .ambient-today-ok, .ambient-batch-state) { color: #6ee7b7; }
-[data-dimmed='true'] :is(.ambient-now-row-icon.is-event, .ambient-severity-info, .ambient-event-row > svg) { color: #7dd3fc; }
-[data-dimmed='true'] :is(.ambient-severity-warning, .ambient-today-warning, .ambient-notification-row.is-warning .ambient-batch-state) { color: #fcd34d; }
-[data-dimmed='true'] :is(.ambient-severity-critical, .ambient-today-critical, .ambient-notification-row.is-critical .ambient-batch-state, .ambient-batch-row.is-error .ambient-batch-state) { color: #fdba74; }
+[data-dimmed='true'] :is(.ambient-now-row-icon.is-event, .ambient-event-row > svg) { color: #7dd3fc; }
+[data-dimmed='true'] :is(.ambient-today-warning, .ambient-notification-row.is-warning .ambient-batch-state) { color: #fcd34d; }
+[data-dimmed='true'] :is(.ambient-today-critical, .ambient-notification-row.is-critical .ambient-batch-state, .ambient-batch-row.is-error .ambient-batch-state) { color: #fdba74; }
 [data-dimmed='true'] :is(.ambient-quick-app-remove, .ambient-webdav-actions .is-danger, .ambient-backup-status .is-error strong) { color: #fda4af; }
 [data-dimmed='true'] .ambient-settings-message.is-success { color: #a7f3d0; }
 [data-dimmed='true'] .ambient-settings-message.is-error { color: #fecdd3; }
 
-/* Module entries (NoNo, NoMoney, Yumi, NoStar, custom shortcuts) live in a dock on the right edge. */
+/* Module entries (NoNo, NoMoney, NoStar, custom shortcuts) live in a dock on the right edge. */
 .ambient-app-dock {
 	backdrop-filter: blur(32px) saturate(1.18);
 	background: var(--ambient-glass);

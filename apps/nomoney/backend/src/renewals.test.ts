@@ -1,11 +1,9 @@
-import request from 'supertest';
 import { describe, expect, test } from 'vitest';
-import { createApp } from './app.js';
 import { runAutoRenewals } from './renewals.js';
 import { setupAgent } from './test-utils.js';
 
-const activeVps = {
-  name: 'nc48',
+const activeDomain = {
+  domainName: 'nc48.com',
   amountMinorUnits: 1299,
   currency: 'CAD',
   billingCycle: 'annual',
@@ -13,7 +11,7 @@ const activeVps = {
   status: 'active'
 };
 
-describe('VPS renewal APIs', () => {
+describe('domain renewal APIs', () => {
   test('preserves the original monthly billing day across short months', async () => {
     const { agent } = await setupAgent();
     await agent.post('/api/subscriptions').send({ name: 'Monthly', amountMinorUnits: 100, currency: 'CNY', billingCycle: 'monthly', nextDueDate: '2026-01-31', status: 'active' }).expect(201);
@@ -23,9 +21,9 @@ describe('VPS renewal APIs', () => {
   });
   test('advances one billing cycle and records the renewal expense atomically', async () => {
     const { agent, context } = await setupAgent();
-    await agent.post('/api/vps').send(activeVps).expect(201);
+    await agent.post('/api/domains').send(activeDomain).expect(201);
 
-    const response = await agent.post('/api/vps/1/renew').send({
+    const response = await agent.post('/api/domains/1/renew').send({
       requestId: 'renew-nc48-2027',
       expectedExpireDate: '2027-08-10'
     }).expect(200);
@@ -42,7 +40,7 @@ describe('VPS renewal APIs', () => {
     });
     expect(context.db.all('SELECT * FROM expenses')).toEqual([
       expect.objectContaining({
-        asset_type: 'vps',
+        asset_type: 'domain',
         asset_id: 1,
         amount_minor_units: 1299,
         currency: 'CAD',
@@ -56,11 +54,11 @@ describe('VPS renewal APIs', () => {
 
   test('returns the first result for a retried request without creating another expense', async () => {
     const { agent, context } = await setupAgent();
-    await agent.post('/api/vps').send(activeVps).expect(201);
+    await agent.post('/api/domains').send(activeDomain).expect(201);
     const payload = { requestId: 'same-request', expectedExpireDate: '2027-08-10' };
 
-    const first = await agent.post('/api/vps/1/renew').send(payload).expect(200);
-    const retry = await agent.post('/api/vps/1/renew').send(payload).expect(200);
+    const first = await agent.post('/api/domains/1/renew').send(payload).expect(200);
+    const retry = await agent.post('/api/domains/1/renew').send(payload).expect(200);
 
     expect(retry.body).toMatchObject({
       idempotent: true,
@@ -72,14 +70,14 @@ describe('VPS renewal APIs', () => {
 
   test('undo restores the previous date and removes its linked expense', async () => {
     const { agent, context } = await setupAgent();
-    await agent.post('/api/vps').send(activeVps).expect(201);
-    const renewed = await agent.post('/api/vps/1/renew').send({
+    await agent.post('/api/domains').send(activeDomain).expect(201);
+    const renewed = await agent.post('/api/domains/1/renew').send({
       requestId: 'undo-request',
       expectedExpireDate: '2027-08-10'
     }).expect(200);
 
     const undone = await agent
-      .post(`/api/vps/1/renewals/${renewed.body.renewal.id}/undo`)
+      .post(`/api/domains/1/renewals/${renewed.body.renewal.id}/undo`)
       .expect(200);
 
     expect(undone.body.item).toMatchObject({ expireDate: '2027-08-10' });
@@ -90,14 +88,14 @@ describe('VPS renewal APIs', () => {
 
   test('updates the expense amount attached to a renewal event', async () => {
     const { agent, context } = await setupAgent();
-    await agent.post('/api/vps').send(activeVps).expect(201);
-    const renewed = await agent.post('/api/vps/1/renew').send({
+    await agent.post('/api/domains').send(activeDomain).expect(201);
+    const renewed = await agent.post('/api/domains/1/renew').send({
       requestId: 'amount-request',
       expectedExpireDate: '2027-08-10'
     }).expect(200);
 
     const updated = await agent
-      .put(`/api/vps/1/renewals/${renewed.body.renewal.id}/expense`)
+      .put(`/api/domains/1/renewals/${renewed.body.renewal.id}/expense`)
       .send({ amountMinorUnits: 1499 })
       .expect(200);
 
@@ -106,57 +104,24 @@ describe('VPS renewal APIs', () => {
       .toMatchObject({ amount_minor_units: 1499 });
   });
 
-  test('requires a usable expiry date, billing cycle, and active VPS', async () => {
+  test('requires a usable expiry date, billing cycle, and active domain', async () => {
     const { agent } = await setupAgent();
-    await agent.post('/api/vps').send({ ...activeVps, name: 'Missing date', expireDate: null }).expect(201);
-    await agent.post('/api/vps').send({ ...activeVps, name: 'Cancelled', status: 'cancelled' }).expect(201);
+    await agent.post('/api/domains').send({ ...activeDomain, domainName: 'missing-date.com', expireDate: null }).expect(201);
+    await agent.post('/api/domains').send({ ...activeDomain, domainName: 'cancelled.com', status: 'cancelled' }).expect(201);
 
-    const missing = await agent.post('/api/vps/1/renew').send({
+    const missing = await agent.post('/api/domains/1/renew').send({
       requestId: 'missing-date',
       expectedExpireDate: '2027-08-10'
     });
-    const cancelled = await agent.post('/api/vps/2/renew').send({
-      requestId: 'cancelled-vps',
+    const cancelled = await agent.post('/api/domains/2/renew').send({
+      requestId: 'cancelled-domain',
       expectedExpireDate: '2027-08-10'
     });
 
     expect(missing.status).toBe(409);
-    expect(missing.body.error.code).toBe('VPS_RENEWAL_CONFIGURATION_REQUIRED');
+    expect(missing.body.error.code).toBe('DOMAIN_RENEWAL_CONFIGURATION_REQUIRED');
     expect(cancelled.status).toBe(409);
-    expect(cancelled.body.error.code).toBe('VPS_RENEWAL_NOT_ALLOWED');
-  });
-
-  test('protects the internal renewal endpoint with its service token', async () => {
-    const { agent, app, context } = await setupAgent();
-    context.internalToken = 'nono-to-nomoney-test-token';
-    await agent.post('/api/vps').send(activeVps).expect(201);
-    context.publicOrigin = 'https://nono.test';
-
-    await request(app).post('/api/internal/vps/1/renew').send({
-      requestId: 'internal-denied',
-      expectedExpireDate: '2027-08-10'
-    }).expect(401);
-
-    const allowed = await request(app)
-      .post('/api/internal/vps/1/renew')
-      .set('x-nono-internal-token', 'nono-to-nomoney-test-token')
-      .send({ requestId: 'internal-allowed', expectedExpireDate: '2027-08-10' })
-      .expect(200);
-
-    expect(allowed.body.item.expireDate).toBe('2028-08-10');
-
-    const corrected = await request(app)
-      .put(`/api/internal/vps/1/renewals/${allowed.body.renewal.id}/expense`)
-      .set('x-nono-internal-token', 'nono-to-nomoney-test-token')
-      .send({ amountMinorUnits: 1399 })
-      .expect(200);
-    expect(corrected.body.renewal.amountMinorUnits).toBe(1399);
-
-    const undone = await request(app)
-      .post(`/api/internal/vps/1/renewals/${allowed.body.renewal.id}/undo`)
-      .set('x-nono-internal-token', 'nono-to-nomoney-test-token')
-      .expect(200);
-    expect(undone.body.item.expireDate).toBe('2027-08-10');
+    expect(cancelled.body.error.code).toBe('DOMAIN_RENEWAL_NOT_ALLOWED');
   });
 });
 
@@ -173,7 +138,7 @@ describe('renewals for phone cards and subscriptions', () => {
   };
 
   test('marking a subscription paid advances the next charge and records an expense', async () => {
-    const { agent, context } = await setupAgent('nomoney');
+    const { agent, context } = await setupAgent();
     await agent.post('/api/subscriptions').send(subscription).expect(201);
 
     const response = await agent.post('/api/subscriptions/1/renew')
@@ -194,14 +159,14 @@ describe('renewals for phone cards and subscriptions', () => {
   });
 
   test('buyouts cannot be renewed', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     await agent.post('/api/subscriptions').send({ ...subscription, purchaseType: 'buyout' }).expect(201);
     const response = await agent.post('/api/subscriptions/1/renew').send({ requestId: 'buyout-renew', expectedDueDate: '2026-05-31' });
     expect(response.status).toBe(409);
   });
 
   test('auto-renew rolls overdue items forward once per elapsed cycle and is idempotent', async () => {
-    const { agent, context } = await setupAgent('nomoney');
+    const { agent, context } = await setupAgent();
     await agent.post('/api/subscriptions').send({ ...subscription, autoRenew: true, billingCycle: 'weekly', nextDueDate: '2026-05-05' }).expect(201);
     await agent.post('/api/subscriptions').send({ ...subscription, name: 'Stale', autoRenew: true, nextDueDate: '2025-12-01' }).expect(201);
     await agent.post('/api/subscriptions').send({ ...subscription, name: 'Manual', nextDueDate: '2026-05-01' }).expect(201);
@@ -223,7 +188,7 @@ describe('renewals for phone cards and subscriptions', () => {
   });
 
   test('deleting a renewal expense keeps the renewal undoable', async () => {
-    const { agent, context } = await setupAgent('nomoney');
+    const { agent, context } = await setupAgent();
     await agent.post('/api/subscriptions').send(subscription).expect(201);
     const renewed = await agent.post('/api/subscriptions/1/renew')
       .send({ requestId: 'delete-expense', expectedDueDate: '2026-05-31' })

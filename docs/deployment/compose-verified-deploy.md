@@ -16,13 +16,13 @@ flock -n /var/lock/nono-deploy.lock npm run deploy:compose -- --dir /opt/nono --
 审核待执行 SQL 与回滚计划后，显式增加 `--allow-destructive-migrations`。该选项不会跳过快照或验证。
 
 1. 记录旧容器的不可变 `sha256` 镜像 ID，并为它创建 `nono-app:rollback-<镜像 ID 前缀>` 本地标签；后续 Compose 操作只使用该标签，避免把内容 ID 误解析成远端仓库。然后拉取代码并检查实际待执行迁移。
-2. 完成新镜像构建，再停止 `app`（此 Compose 架构中网关、API、NoDesk、NoMoney、Yumi 和所有应用后台任务均在该容器中）。PostgreSQL 保持运行。外部写入者必须由操作员提前停止。
+2. 完成新镜像构建，再停止 `app`（此 Compose 架构中网关、API、NoDesk、NoMoney 和所有应用后台任务均在该容器中）。PostgreSQL 保持运行。外部写入者必须由操作员提前停止。
 3. 使用旧镜像的临时容器、覆盖入口点为 Node，直接调用备份服务创建完整安全快照，再用 CLI 验证。跳过旧 CLI 的自动保留策略，避免创建安全快照时删除更早的备份。安全快照独立存储在 `/app/backups/deployment-safety`，不会被应用的常规自动保留策略扫描。此时应用写入者已停止。记录输出中的备份 ID；不得清理这些升级前备份。
 4. 在备份卷写入 `/app/backups/.deployment-maintenance.json`，启动候选版本，仅绑定备用回环端口 `18188`（主入口本身为 18188 时用 18189）。该端口必须空闲，不得配置公开代理。
 5. 使用随机维护令牌验收候选版本，同时检查无令牌请求返回 503。然后在正常端口重建，仍保持维护状态，再检查 503 并执行完整验收。
 6. 最后删除维护文件，开放公共入口。删除一旦开始，即视为可能已开放写入；若命令结果不确定，明确报错但不自动恢复旧数据，以免丢失已被接受的新写入。
 
-维护期间公共入口可能连接失败或返回 503。`/readyz` 仅用于容器只读健康检查；其他路由需 `x-nono-maintenance-token`。令牌不会写入普通部署日志。验收覆盖应用健康、主页、NoDesk、NoMoney、Yumi、NoStar 及其必要静态资源。
+维护期间公共入口可能连接失败或返回 503。`/readyz` 仅用于容器只读健康检查；其他路由需 `x-nono-maintenance-token`。令牌不会写入普通部署日志。验收覆盖应用健康、主页、NoDesk、NoMoney、NoStar 及其必要静态资源，并确认已退役的 `/yumi/` 以 308 跳转到 `/nomoney/`。
 
 ## 自动失败恢复
 
@@ -66,4 +66,4 @@ docker image ls nono-app
 flock -n /var/lock/nono-deploy.lock npm run deploy:rollback -- --dir /opt/nono --base-url http://127.0.0.1:8188 --image nono-app:<git-commit>
 ```
 
-`deploy:rollback` 只切换应用镜像，不修改 PostgreSQL、NoDesk、NoMoney 或 Yumi 数据卷，也不会改写 Git 历史；不能作为破坏性数据库迁移后的完整回滚。必须使用部署记录中的不可变镜像 ID 和升级前快照进行配套恢复，保留事故证据与安全备份。
+`deploy:rollback` 只切换应用镜像，不修改 PostgreSQL、NoDesk、NoMoney 或旧 Yumi 数据卷，也不会改写 Git 历史；不能作为破坏性数据库迁移后的完整回滚。必须使用部署记录中的不可变镜像 ID 和升级前快照进行配套恢复，保留事故证据与安全备份。

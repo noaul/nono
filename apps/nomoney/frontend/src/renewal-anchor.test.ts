@@ -10,8 +10,10 @@ test('overview renewals use the expiry anchor while displaying a separate paymen
   expect(asset).toMatchObject({ id: 7, expireDate: '2026-06-01', nextDueDate: '2026-05-25' });
   expect(renewals.renewalDueDate('domains', asset!)).toBe('2026-06-01');
   expect(renewals.renewalDueDate('domains', renewals.renewalAssetFromDueItem({ ...due, expireDate: null }))).toBe('');
-  const source = readFileSync(new URL('./YumiOverview.tsx', import.meta.url), 'utf8');
+  // The dashboard due list renews domains from their expiry, not from the payment date it shows.
+  const source = readFileSync(new URL('./Dashboard.tsx', import.meta.url), 'utf8');
   expect(source).toContain('item={renewalAssetFromDueItem(item)}');
+  expect(source).toContain('renewals.renew(assetEndpoints[item.assetType], renewalAssetFromDueItem(item))');
 });
 
 test('notification channels are configured in the NoDesk notification center, not here', () => {

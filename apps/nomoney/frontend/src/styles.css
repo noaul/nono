@@ -325,103 +325,6 @@
     scrollbar-width: thin;
     scrollbar-color: rgb(71 85 105 / 0.8) transparent;
   }
-  /* Yumi availability overview */
-  .yumi-overall-banner {
-    overflow: hidden;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-lg);
-    background: var(--ui-surface);
-  }
-
-  .yumi-overall-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 20px 24px;
-    color: var(--ui-info);
-    background: var(--ui-info-soft);
-  }
-
-  .yumi-overall-title > svg {
-    flex: none;
-    box-sizing: content-box;
-    padding: 5px;
-    border-radius: 50%;
-    color: white;
-    background: currentColor;
-    stroke: var(--ui-surface);
-  }
-
-  .yumi-overall-title h2 { font-size: 18px; font-weight: 600; }
-  .yumi-overall-banner > p { padding: 18px 24px; color: var(--ui-text-muted); font-size: 14px; }
-  .yumi-overall-banner.is-operational { border-color: rgb(var(--ui-success-rgb) / .55); }
-  .yumi-overall-banner.is-operational .yumi-overall-title { color: var(--ui-success); background: var(--ui-success-soft); }
-  .yumi-overall-banner.is-degraded { border-color: rgb(var(--ui-warning-rgb) / .55); }
-  .yumi-overall-banner.is-degraded .yumi-overall-title { color: var(--ui-warning); background: var(--ui-warning-soft); }
-  .yumi-overall-banner.is-partial_outage,
-  .yumi-overall-banner.is-major_outage { border-color: rgb(var(--ui-danger-rgb) / .55); }
-  .yumi-overall-banner.is-partial_outage .yumi-overall-title,
-  .yumi-overall-banner.is-major_outage .yumi-overall-title { color: var(--ui-danger); background: var(--ui-danger-soft); }
-
-  .yumi-status-panel { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
-  .yumi-status-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--ui-border); }
-  .yumi-status-panel-header h2 { color: var(--ui-text); font-size: 17px; font-weight: 600; }
-  .yumi-status-panel-header p { margin-top: 2px; color: var(--ui-text-subtle); font-size: 12px; }
-  .yumi-status-header-tools { display: flex; align-items: flex-end; flex-direction: column; gap: 10px; }
-  .yumi-status-window-selector { display: inline-flex; padding: 3px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface-sunken); }
-  .yumi-status-window-selector button { width: 56px; min-width: 56px; height: 28px; padding: 0; border-radius: 5px; color: var(--ui-text-subtle); font-size: 11px; font-weight: 600; transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
-  .yumi-status-window-selector button:hover { color: var(--ui-text); }
-  .yumi-status-window-selector button.is-active { color: var(--ui-text); background: var(--ui-surface-raised); box-shadow: 0 1px 3px rgb(15 23 42 / .12); }
-  .yumi-status-window-selector button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
-  .yumi-status-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; color: var(--ui-text-subtle); font-size: 11px; }
-  .yumi-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
-  .yumi-status-legend i { width: 8px; height: 8px; border-radius: 2px; }
-  .is-operational { --status-color: var(--ui-success); }
-  .is-degraded { --status-color: var(--ui-warning); }
-  .is-outage { --status-color: var(--ui-danger); }
-  .is-no_data { --status-color: var(--ui-border-strong); }
-  .yumi-status-legend i { background: var(--status-color); }
-  .yumi-status-grid { display: grid; grid-template-columns: 1fr; background: var(--ui-surface); }
-  .yumi-status-row { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 260px); align-items: center; gap: 14px; padding: 8px 16px; border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); }
-  .yumi-status-row:last-child { border-bottom: 0; }
-  .yumi-status-row-heading { min-width: 0; line-height: 1.25; }
-  .yumi-status-row-title { display: flex; min-width: 0; align-items: center; gap: 6px; }
-  .yumi-status-row-heading h3 { overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-  .yumi-status-row-heading p { margin: 1px 0 0 22px; color: var(--ui-text-subtle); font-size: 10.5px; }
-  .yumi-status-row-meta { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 8px; margin: 1px 0 0 22px; color: var(--ui-text-subtle); font-size: 10.5px; }
-  .yumi-status-dot { display: inline-flex; width: 16px; height: 16px; flex: none; align-items: center; justify-content: center; border-radius: 50%; color: white; background: var(--status-color); }
-  .yumi-uptime { flex: none; color: var(--ui-text); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; }
-  .yumi-status-row-history { min-width: 0; }
-  .status-history-scroll { width: 100%; overflow: hidden; }
-  .status-history-strip { display: grid; width: 100%; height: 16px; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; }
-  .status-history-strip.is-loading span { height: 16px; border-radius: 3px; background: var(--ui-surface-sunken); animation: yumi-status-loading 700ms ease-in-out infinite alternate; }
-  .status-history-day { min-width: 0; height: 16px; border: 0; border-radius: 3px; background: var(--status-color); outline: none; transition: filter 120ms ease, box-shadow 120ms ease; }
-  .status-history-day:hover, .status-history-day:focus-visible { z-index: 1; filter: brightness(.9); box-shadow: inset 0 0 0 1px rgb(15 23 42 / .2); }
-  .yumi-history-axis { display: flex; justify-content: space-between; margin-top: 3px; color: var(--ui-text-subtle); font-size: 10px; line-height: 1.2; }
-  @media (min-width: 1280px) {
-    .yumi-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .yumi-status-row:nth-child(odd):nth-last-child(2) { border-bottom: 0; }
-    .yumi-status-row { padding: 8px 14px; }
-    .yumi-status-row:nth-child(odd) { border-right: 1px solid var(--ui-border); }
-  }
-  @keyframes yumi-status-loading { to { opacity: .42; } }
-  .yumi-day-detail { position: fixed; z-index: 45; right: 20px; bottom: 20px; display: flex; width: min(420px, calc(100vw - 32px)); align-items: flex-start; gap: 10px; padding: 13px 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface-raised); box-shadow: 0 18px 42px rgb(15 23 42 / .18); }
-  .yumi-day-detail strong { display: block; color: var(--ui-text); font-size: 12px; }
-  .yumi-day-detail p { margin-top: 2px; color: var(--ui-text-muted); font-size: 11px; }
-  .yumi-day-detail > button { width: 24px; height: 24px; color: var(--ui-text-subtle); font-size: 20px; line-height: 20px; }
-  .yumi-domain-panel { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
-  .yumi-domain-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border); }
-  .yumi-domain-panel > header h2 { color: var(--ui-text); font-size: 15px; font-weight: 600; }
-  .yumi-domain-panel > header p { margin-top: 2px; color: var(--ui-text-subtle); font-size: 11px; }
-  .yumi-domain-panel > header > svg { color: var(--ui-accent); }
-  .yumi-domain-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .yumi-domain-stat { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 14px 16px; border-right: 1px solid var(--ui-border); }
-  .yumi-domain-stat:last-child { border-right: 0; }
-  .yumi-domain-stat > span { display: inline-flex; width: 30px; height: 30px; flex: none; align-items: center; justify-content: center; border-radius: var(--ui-radius-sm); color: var(--ui-accent); background: var(--ui-accent-soft); }
-  .yumi-domain-stat.is-warning > span { color: var(--ui-warning); background: var(--ui-warning-soft); }
-  .yumi-domain-stat p { overflow: hidden; color: var(--ui-text-subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-  .yumi-domain-stat strong { display: block; margin-top: 2px; overflow: hidden; color: var(--ui-text); font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-
   .expense-summary-grid { display: grid; overflow: hidden; grid-template-columns: 1.2fr .65fr 1fr 1.1fr; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); background: var(--ui-surface); }
   .expense-summary-item { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 14px 16px; border-right: 1px solid var(--ui-border); }
   .expense-summary-item:last-child { border-right: 0; }
@@ -432,29 +335,15 @@
   .expense-summary-item strong.is-compact { font-size: 11px; font-weight: 500; }
 
   @media (max-width: 1099px) {
-    .yumi-domain-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .yumi-domain-stat:nth-child(3n) { border-right: 0; }
-    .yumi-domain-stat:nth-child(-n + 3) { border-bottom: 1px solid var(--ui-border); }
     .expense-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .expense-summary-item:nth-child(2n) { border-right: 0; }
     .expense-summary-item:nth-child(-n + 2) { border-bottom: 1px solid var(--ui-border); }
   }
 
   @media (max-width: 639px) {
-    .yumi-overall-title { padding: 16px; }
-    .yumi-overall-banner > p { padding: 14px 16px; }
-    .yumi-status-panel-header { align-items: flex-start; flex-direction: column; padding: 15px 16px; }
-    .yumi-status-header-tools { width: 100%; align-items: flex-start; }
-    .yumi-status-window-selector { display: grid; width: 100%; grid-template-columns: repeat(5, minmax(0, 1fr)); }
-    .yumi-status-window-selector button { width: 100%; min-width: 0; }
-    .yumi-status-legend { justify-content: flex-start; }
-    .yumi-status-grid { grid-template-columns: 1fr; }
-    .yumi-status-row { grid-template-columns: minmax(0, 1fr) minmax(0, 200px); gap: 10px; padding: 8px 12px; }
-    .status-history-scroll { width: 100%; }
-    .yumi-day-detail { right: 16px; bottom: 16px; }
-    .yumi-domain-stats, .expense-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .yumi-domain-stat, .yumi-domain-stat:nth-child(3n), .expense-summary-item { padding: 12px; border-right: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); }
-    .yumi-domain-stat:nth-child(2n), .expense-summary-item:nth-child(2n) { border-right: 0; }
-    .yumi-domain-stat:nth-last-child(-n + 2), .expense-summary-item:nth-last-child(-n + 2) { border-bottom: 0; }
+    .expense-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .expense-summary-item { padding: 12px; border-right: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); }
+    .expense-summary-item:nth-child(2n) { border-right: 0; }
+    .expense-summary-item:nth-last-child(-n + 2) { border-bottom: 0; }
   }
 }

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { migrateNodeskFriends } from './migrate-nodesk-content.mjs';
 import { spawn } from 'node:child_process';
-import { isPublicInternalPath, isRetiredNodeskPath, loginRedirectFor, targetFor } from './gateway-routing.mjs';
+import { isPublicInternalPath, isRetiredNodeskPath, loginRedirectFor, retiredYumiRedirect, targetFor } from './gateway-routing.mjs';
 import { forwardedHeaders } from './gateway-headers.mjs';
 import { maintenanceAllowed } from './gateway-maintenance.mjs';
 
@@ -9,10 +9,9 @@ const gatewayPort = numberFromEnv('PORT', 3000);
 const nonoPort = numberFromEnv('NONO_INTERNAL_PORT', 3001);
 const nodeskPort = numberFromEnv('NODESK_INTERNAL_PORT', 2025);
 const nomoneyPort = numberFromEnv('NOMONEY_INTERNAL_PORT', 2030);
-const yumiPort = numberFromEnv('YUMI_INTERNAL_PORT', 2040);
 const upstreamTimeoutMs = numberFromEnv('GATEWAY_UPSTREAM_TIMEOUT_MS', 30_000);
 const children = new Set();
-const servicePorts = { nono: nonoPort, nodesk: nodeskPort, nomoney: nomoneyPort, yumi: yumiPort };
+const servicePorts = { nono: nonoPort, nodesk: nodeskPort, nomoney: nomoneyPort };
 const trustForwardedHeaders = process.env.GATEWAY_TRUST_FORWARDED_HEADERS === 'true';
 const trustedProxyAddresses = (process.env.GATEWAY_TRUSTED_PROXY_ADDRESSES || '')
   .split(',')
@@ -57,6 +56,12 @@ function proxyRequest(request, response) {
   }
   delete request.headers['x-nono-maintenance-token'];
   const url = request.url || '/';
+  const yumiRedirect = retiredYumiRedirect(url);
+  if (yumiRedirect) {
+    response.writeHead(308, { location: yumiRedirect, 'cache-control': 'no-store' });
+    response.end();
+    return;
+  }
   if (isPublicInternalPath(url) || isRetiredNodeskPath(url)) {
     response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify({ error: 'not_found' }));
@@ -65,12 +70,6 @@ function proxyRequest(request, response) {
   const loginPath = loginRedirectFor({ method: request.method, url, headers: request.headers });
   if (loginPath) {
     response.writeHead(302, { location: loginPath, 'cache-control': 'no-store' });
-    response.end();
-    return;
-  }
-  const legacyYumiPath = legacyYumiRedirect(url);
-  if (legacyYumiPath) {
-    response.writeHead(308, { location: legacyYumiPath });
     response.end();
     return;
   }
@@ -120,6 +119,11 @@ function proxyUpgrade(request, socket, head) {
     return;
   }
   delete request.headers['x-nono-maintenance-token'];
+  const yumiRedirect = retiredYumiRedirect(request.url || '/');
+  if (yumiRedirect) {
+    socket.end(`HTTP/1.1 308 Permanent Redirect\r\nLocation: ${yumiRedirect}\r\nConnection: close\r\n\r\n`);
+    return;
+  }
   if (isPublicInternalPath(request.url || '/')) {
     socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
     return;
@@ -183,27 +187,9 @@ startService('nomoney', '/app/nomoney', 'backend/dist/index.js', nomoneyPort, {
   NOMONEY_INTERNAL_TOKEN: process.env.NOMONEY_INTERNAL_TOKEN || '',
   NONO_INTERNAL_PORT: String(nonoPort),
   NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
+  // Read once at startup to merge domains from the retired Yumi database.
+  LEGACY_YUMI_DATA_DIR: process.env.YUMI_DATA_DIR || '/app/yumi-data',
 });
-startService('yumi', '/app/nomoney', 'backend/dist/index.js', yumiPort, {
-  PRODUCT_MODE: 'yumi',
-  APP_DATA_DIR: process.env.YUMI_DATA_DIR || '/app/yumi-data',
-  NOMONEY_DATA_DIR: process.env.NOMONEY_DATA_DIR || '/app/nomoney-data',
-  NOMONEY_INTERNAL_TOKEN: process.env.NOMONEY_INTERNAL_TOKEN || '',
-  NONO_INTERNAL_PORT: String(nonoPort),
-  NONO_PUBLIC_URL: process.env.NONO_PUBLIC_URL || '',
-  YUMI_ENCRYPTION_KEY: process.env.YUMI_ENCRYPTION_KEY || '',
-  NOMONEY_ENCRYPTION_KEY: process.env.NOMONEY_ENCRYPTION_KEY || '',
-});
-
-function legacyYumiRedirect(url) {
-  for (const route of ['vps', 'domains']) {
-    const prefix = `/nomoney/${route}`;
-    if (url === prefix || url.startsWith(`${prefix}/`) || url.startsWith(`${prefix}?`)) {
-      return `/yumi/${route}${url.slice(prefix.length)}`;
-    }
-  }
-  return null;
-}
 
 server = http.createServer(proxyRequest);
 server.on('upgrade', proxyUpgrade);

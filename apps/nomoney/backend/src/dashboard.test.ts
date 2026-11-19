@@ -4,8 +4,8 @@ describe('dashboard APIs', () => {
   test('summarizes predicted and actual costs by currency', async () => {
     const { agent } = await setupAgent();
 
-    await agent.post('/api/vps').send({
-      name: 'Tokyo VPS',
+    await agent.post('/api/subscriptions').send({
+      name: 'Tokyo Plan',
       provider: 'Vultr',
       amountMinorUnits: 600,
       currency: 'USD',
@@ -35,7 +35,7 @@ describe('dashboard APIs', () => {
     });
 
     await agent.post('/api/expenses').send({
-      assetType: 'vps',
+      assetType: 'subscription',
       assetId: 1,
       amountMinorUnits: 600,
       currency: 'USD',
@@ -57,10 +57,10 @@ describe('dashboard APIs', () => {
       USD: 600
     });
     expect(summary.body.assetCounts).toMatchObject({
-      vps: 1,
       domains: 1,
-      subscriptions: 1
+      subscriptions: 2
     });
+    expect(summary.body.assetCounts).not.toHaveProperty('vps');
   });
 
   test('does not forecast one-time buyout purchases as recurring costs', async () => {
@@ -96,16 +96,6 @@ describe('dashboard APIs', () => {
       currency: 'CNY',
       billingCycle: 'monthly',
       nextDueDate: '2026-05-25',
-      status: 'active'
-    });
-
-    await agent.post('/api/vps').send({
-      name: 'Route VPS',
-      vpsType: 'route',
-      amountMinorUnits: 3000,
-      currency: 'USD',
-      billingCycle: 'quarterly',
-      nextDueDate: '2026-06-01',
       status: 'active'
     });
 
@@ -159,7 +149,7 @@ describe('dashboard APIs', () => {
     const summary = await agent.get('/api/dashboard/summary?year=2026');
 
     expect(summary.status).toBe(200);
-    expect(Object.keys(summary.body.categoryCosts)).toEqual(['phone', 'vps', 'domain', 'subscription']);
+    expect(Object.keys(summary.body.categoryCosts)).toEqual(['phone', 'domain', 'subscription']);
     expect(summary.body.categoryCosts.phone).toMatchObject({
       assetType: 'phone',
       assetCount: 1,
@@ -168,13 +158,6 @@ describe('dashboard APIs', () => {
       predictedYearly: { CNY: 22800 },
       actualYearly: { CNY: 1900 },
       oneTimeCost: {},
-      dueCount: 1
-    });
-    expect(summary.body.categoryCosts.vps).toMatchObject({
-      assetCount: 1,
-      predictedMonthly: { USD: 1000 },
-      predictedYearly: { USD: 12000 },
-      actualYearly: {},
       dueCount: 1
     });
     expect(summary.body.categoryCosts.domain).toMatchObject({
@@ -247,8 +230,8 @@ describe('dashboard APIs', () => {
       status: 'active'
     });
 
-    await agent.post('/api/vps').send({
-      name: 'Later VPS',
+    await agent.post('/api/subscriptions').send({
+      name: 'Later Plan',
       provider: 'Vultr',
       amountMinorUnits: 700,
       currency: 'USD',
@@ -269,7 +252,7 @@ describe('dashboard APIs', () => {
     expect(summary.body.nextDueItems).toEqual([
       expect.objectContaining({ name: 'urgent.dev', daysLeft: 0 }),
       expect.objectContaining({ name: 'Soon SaaS', daysLeft: 5 }),
-      expect.objectContaining({ name: 'Later VPS', daysLeft: 19 })
+      expect.objectContaining({ name: 'Later Plan', daysLeft: 19 })
     ]);
   });
 
@@ -333,7 +316,7 @@ describe('dashboard APIs', () => {
 
 describe('dashboard additions', () => {
   test('reports phone keep-alive deadlines, cycle-normalised phone rent and a 12-month trend', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     await agent.post('/api/phones').send({
       cardNumber: '+44 7700 900000', phoneType: 'foreign', amountMinorUnits: 1200, currency: 'GBP',
       billingCycle: 'annual', totalKeepaliveUntil: '2026-06-01', minimumKeepaliveAmountMinorUnits: 500, status: 'active'

@@ -86,15 +86,15 @@ describe('expense APIs', () => {
   });
 
   test('aggregates expense summary across the full filtered result, not only one page', async () => {
-    const { agent } = await setupAgent('yumi');
+    const { agent } = await setupAgent();
 
-    await agent.post('/api/vps').send({
-      name: 'VPS A', amountMinorUnits: 1000, currency: 'USD', billingCycle: 'monthly', status: 'active'
+    await agent.post('/api/subscriptions').send({
+      name: 'Plan A', amountMinorUnits: 1000, currency: 'USD', billingCycle: 'monthly', status: 'active'
     });
     await agent.post('/api/domains').send({
       domainName: 'example.ca', amountMinorUnits: 2000, currency: 'CAD', billingCycle: 'annual', status: 'active'
     });
-    await agent.post('/api/expenses').send({ assetType: 'vps', assetId: 1, amountMinorUnits: 1000, currency: 'USD', paidAt: '2026-01-02', category: 'monthly' });
+    await agent.post('/api/expenses').send({ assetType: 'subscription', assetId: 1, amountMinorUnits: 1000, currency: 'USD', paidAt: '2026-01-02', category: 'monthly' });
     await agent.post('/api/expenses').send({ assetType: 'domain', assetId: 1, amountMinorUnits: 2000, currency: 'CAD', paidAt: '2026-07-03', category: 'renewal' });
 
     const response = await agent.get('/api/expenses?year=2026&limit=1');
@@ -103,7 +103,7 @@ describe('expense APIs', () => {
     expect(response.body.items).toHaveLength(1);
     expect(response.body.meta.summary).toEqual({
       totalsByCurrency: { CAD: 2000, USD: 1000 },
-      assetTypeCounts: { domain: 1, vps: 1 },
+      assetTypeCounts: { domain: 1, subscription: 1 },
       categoryCounts: { monthly: 1, renewal: 1 },
       earliestPaidAt: '2026-01-02',
       latestPaidAt: '2026-07-03'
@@ -113,8 +113,8 @@ describe('expense APIs', () => {
   test('returns lightweight asset lookup options for expense forms', async () => {
     const { agent } = await setupAgent();
 
-    await agent.post('/api/vps').send({
-      name: 'Tokyo VPS',
+    await agent.post('/api/subscriptions').send({
+      name: 'Tokyo Plan',
       provider: 'Vultr',
       amountMinorUnits: 600,
       currency: 'USD',
@@ -128,9 +128,9 @@ describe('expense APIs', () => {
     expect(response.status).toBe(200);
     expect(response.body.items).toEqual([
       expect.objectContaining({
-        assetType: 'vps',
+        assetType: 'subscription',
         assetId: 1,
-        label: 'Tokyo VPS',
+        label: 'Tokyo Plan',
         provider: 'Vultr'
       })
     ]);

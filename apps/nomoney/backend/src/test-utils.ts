@@ -2,7 +2,7 @@ import request from 'supertest';
 import { describe, expect, test } from 'vitest';
 import { createApp } from './app.js';
 import { createDatabase } from './db.js';
-import type { AppContext, ProductMode, SessionUser } from './types.js';
+import type { AppContext, SessionUser } from './types.js';
 
 /** Session cookies the fake NoNo verifier accepts in tests. */
 export const testSessions: Record<string, SessionUser> = {
@@ -12,11 +12,10 @@ export const testSessions: Record<string, SessionUser> = {
 export const adminCookie = 'nono_session=admin-session';
 export const userCookie = 'nono_session=user-session';
 
-export async function createTestContext(product?: ProductMode): Promise<AppContext> {
-  const db = await createDatabase({ persist: false, product: product ?? 'nomoney' });
+export async function createTestContext(): Promise<AppContext> {
+  const db = await createDatabase({ persist: false });
   return {
     db,
-    ...(product ? { product } : {}),
     verifySession: async (token) => testSessions[token] ?? null,
     internalToken: 'test-internal-token',
     encryptionKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
@@ -35,8 +34,8 @@ export async function createTestContext(product?: ProductMode): Promise<AppConte
   };
 }
 
-export async function setupAgent(product?: ProductMode) {
-  const context = await createTestContext(product);
+export async function setupAgent() {
+  const context = await createTestContext();
   const app = createApp(context);
   const agent = request.agent(app).set('Cookie', adminCookie);
   return { context, app, agent };

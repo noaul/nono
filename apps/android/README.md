@@ -1,12 +1,12 @@
 # NoNo Android
 
-NoNo 的 Android 客户端（v0.1）。应用是一个只承载 `https://noaul.com` 的 WebView：NoDesk、NoMoney、Yumi、NoStar 和书签管理沿用现有网页，五个应用共用一次 NoNo 登录；原生部分负责返回手势、系统栏与键盘适配、外部链接、文件上传、下载和“分享 → 收藏到 NoNo”。
+NoNo 的 Android 客户端（v0.1）。应用是一个只承载 `https://noaul.com` 的 WebView：NoDesk、NoMoney、NoStar 和书签管理沿用现有网页，四个应用共用一次 NoNo 登录；原生部分负责返回手势、系统栏与键盘适配、外部链接、文件上传、下载和“分享 → 收藏到 NoNo”。
 
 包名 `com.noaul.nono`，最低 Android 10（API 29），目标 Android 16（API 36）。详细路线见 [Android 开发计划](../../docs/superpowers/plans/2026-10-02-android-app.md)。
 
 ## 功能（v0.1）
 
-- 启动打开 NoDesk；同一个 WebView 内切换 NoMoney、Yumi、NoStar、书签管理，登录状态持久保存。
+- 启动打开 NoDesk；同一个 WebView 内切换 NoMoney、NoStar、书签管理，登录状态持久保存。
 - 只有 NoNo 自己的地址在应用内打开；其他网页交给系统浏览器，`mailto:`/`tel:` 交给对应应用，`javascript:`/`file:`/`intent:` 等一律拒绝。证书错误直接停止连接，只信任系统 CA。
 - 在其他应用中“分享 → 收藏到 NoNo”：提取第一个网址，在应用私有存储保留 24 小时，经受信任消息桥交给 `/mobile/capture`。登录后可继续编辑，选择文件夹并明确保存；成功或明确丢弃后仅清理对应请求。网址不放入页面 query。
 - 网页的文件选择框（备份恢复、书签导入）使用系统选择器；允许列表中的 NoNo 导出链接通过系统文档选择器选择保存位置。下载逐跳检查 HTTPS 同源及路径，流式写入、显示进度并允许取消；失败时尝试删除未完成文件，文档提供者拒绝删除时明确提示。单文件上限为 256 MiB，超过请在浏览器完成。

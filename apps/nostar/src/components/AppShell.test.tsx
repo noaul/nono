@@ -197,7 +197,7 @@ describe('NoStar application shell', () => {
     const links = Array.from(apps.querySelectorAll('a')).map((a) => [a.getAttribute('href'), a.textContent]);
 
     expect(apps.getAttribute('aria-label')).toBe('NoNo 应用');
-    expect(links).toEqual([['/', 'NoNo'], ['/nodesk', 'NoDesk'], ['/nomoney/', 'NoMoney'], ['/yumi/', 'Yumi'], ['/nostar/', 'NoStar']]);
+    expect(links).toEqual([['/', 'NoNo'], ['/nodesk', 'NoDesk'], ['/nomoney/', 'NoMoney'], ['/nostar/', 'NoStar']]);
     expect(apps.querySelector('[aria-current="page"]')?.textContent).toBe('NoStar');
     expect(apps.closest('header')).toBeTruthy();
   });

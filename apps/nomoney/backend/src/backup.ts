@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
-import type { AppContext, DbValue, ProductMode } from './types.js';
+import { productAssetTypes, type AppContext, type AssetType, type DbValue } from './types.js';
 import { asyncHandler, HttpError } from './http.js';
 import { decryptSecret, isEncryptedSecret } from './secret-crypto.js';
 import { getSettings, sensitiveSettingKeys, type Settings } from './settings.js';
@@ -9,6 +9,7 @@ import { migrateStoredSecrets } from './secret-migration.js';
 import { requestOutbound } from './outbound-request.js';
 import { requireInternalToken } from './renewals.js';
 import { invalidateDatabaseGeneration } from './db.js';
+import { yumiMergeSetting } from './yumi-merge.js';
 
 type BackupRow = Record<string, unknown>;
 
@@ -16,8 +17,8 @@ interface BackupTable {
   key: string;
   table: string;
   columns: string[];
-  products?: ProductMode[];
-  assetTypes?: string[];
+  /** Rows are scoped by `asset_type`; only the types the payload carries are replaced. */
+  assetTyped?: boolean;
 }
 
 const encryptedBackupKind = 'moneypulse.webdav.encrypted';
@@ -29,7 +30,6 @@ const backupTables: BackupTable[] = [
   {
     key: 'phones',
     table: 'phones',
-    products: ['nomoney'],
     columns: [
       'id', 'phone_type', 'card_number', 'po_phone_number', 'carrier', 'plan_name', 'real_name_person',
       'is_esim',
@@ -42,29 +42,8 @@ const backupTables: BackupTable[] = [
     ]
   },
   {
-    key: 'vps',
-    table: 'vps',
-    products: ['yumi'],
-    columns: [
-      'id', 'name', 'vps_type', 'provider', 'ip_address', 'location', 'cpu', 'memory', 'storage', 'bandwidth',
-      'os', 'ssh_host', 'ssh_port', 'ssh_user', 'ssh_auth_type', 'ssh_password', 'ssh_private_key',
-      'ssh_private_key_passphrase', 'ssh_host_fingerprint', 'ssh_command', 'probe_url', 'probe_port', 'probe_api_key',
-      'probe_install_status', 'probe_install_message', 'probe_installed_at',
-      'ssh_last_test_status', 'ssh_last_test_message', 'ssh_last_tested_at',
-      'monitor_status', 'monitor_cpu_percent', 'monitor_memory_percent', 'monitor_disk_percent',
-      'monitor_net_in_bps', 'monitor_net_out_bps', 'monitor_net_total_in_bytes',
-      'monitor_net_total_out_bytes', 'monitor_load1', 'monitor_uptime_seconds', 'monitor_updated_at',
-      'panel_url', 'ipv6_address', 'traffic_quota_gb', 'traffic_reset_day', 'traffic_used_bytes',
-      'traffic_last_total_bytes', 'traffic_period_start', 'alert_traffic_period', 'alert_disk_at', 'alert_down_since',
-      'amount_minor_units', 'currency', 'billing_cycle', 'billing_day', 'start_date', 'next_due_date',
-      'expire_date', 'auto_renew', 'payment_method', 'renewal_url', 'status', 'tags', 'notes',
-      'created_at', 'updated_at', 'archived_at'
-    ]
-  },
-  {
     key: 'domains',
     table: 'domains',
-    products: ['yumi'],
     columns: [
       'id', 'domain_name', 'registrar', 'registrar_account', 'registrar_url', 'dns_provider',
       'rdap_expire_date', 'rdap_checked_at', 'rdap_error', 'ssl_expires_at', 'ssl_issuer', 'ssl_checked_at', 'ssl_error',
@@ -76,7 +55,6 @@ const backupTables: BackupTable[] = [
   {
     key: 'subscriptions',
     table: 'subscriptions',
-    products: ['nomoney'],
     columns: [
       'id', 'name', 'purchase_type', 'provider', 'account', 'category', 'email', 'phone_number',
       'license_key', 'device_limit', 'content', 'amount_minor_units', 'currency',
@@ -87,7 +65,6 @@ const backupTables: BackupTable[] = [
   {
     key: 'accounts',
     table: 'accounts',
-    products: ['nomoney'],
     columns: [
       'id', 'account_type', 'phone_number', 'phone_key', 'country_calling_code', 'country_iso',
       'bound_email', 'login_device', 'display_name', 'notes', 'created_at', 'updated_at', 'archived_at'
@@ -96,7 +73,7 @@ const backupTables: BackupTable[] = [
   {
     key: 'expenses',
     table: 'expenses',
-    assetTypes: ['phone', 'subscription', 'vps', 'domain'],
+    assetTyped: true,
     columns: [
       'id', 'asset_type', 'asset_id', 'amount_minor_units', 'currency', 'paid_at',
       'period_start', 'period_end', 'category', 'notes', 'created_at', 'updated_at'
@@ -105,7 +82,7 @@ const backupTables: BackupTable[] = [
   {
     key: 'renewalEvents',
     table: 'renewal_events',
-    assetTypes: ['phone', 'subscription', 'vps', 'domain'],
+    assetTyped: true,
     columns: [
       'id', 'request_id', 'asset_type', 'asset_id', 'previous_expire_date', 'previous_next_due_date', 'previous_last_renew_date',
       'renewed_expire_date', 'expense_id', 'amount_minor_units', 'currency', 'status', 'created_at', 'undone_at'
@@ -119,30 +96,15 @@ const backupTables: BackupTable[] = [
   {
     key: 'reminderLogs',
     table: 'reminder_logs',
-    assetTypes: ['phone', 'subscription', 'vps', 'domain'],
+    assetTyped: true,
     columns: [
       'id', 'run_id', 'asset_type', 'asset_id', 'due_date', 'days_before', 'sent_at', 'status', 'error_message', 'kind'
     ]
-  },
-  {
-    key: 'pendingStatusAlerts',
-    table: 'pending_status_alerts',
-    products: ['yumi'],
-    columns: ['id', 'vps_id', 'name', 'kind', 'detail', 'created_at']
-  },
-  {
-    key: 'vpsStatusSamples',
-    table: 'vps_status_samples',
-    products: ['yumi'],
-    columns: ['id', 'vps_id', 'sampled_at', 'state', 'latency_ms', 'detail']
-  },
-  {
-    key: 'vpsStatusDaily',
-    table: 'vps_status_daily',
-    products: ['yumi'],
-    columns: ['vps_id', 'day', 'state', 'uptime_percent', 'sample_count', 'up_count', 'degraded_count', 'down_count', 'updated_at']
   }
 ];
+
+/** The payload key that holds each asset type's rows. */
+const assetTableKeys: Record<AssetType, string> = { phone: 'phones', domain: 'domains', subscription: 'subscriptions' };
 
 export function registerBackupRoutes(router: Router, context: AppContext): void {
   router.post(
@@ -206,14 +168,13 @@ export function registerInternalBackupRoutes(router: Router, context: AppContext
 }
 
 export function buildBackupPayload(context: AppContext): Record<string, unknown> {
-  const product = context.product ?? 'nomoney';
   const payload: Record<string, unknown> = {
-    version: 2,
-    product,
+    version: 3,
+    product: 'nomoney',
     exportedAt: toIsoDateTime(context.now()),
   };
-  for (const table of tablesForProduct(product)) {
-    payload[table.key] = selectBackupTable(context, table, product);
+  for (const table of backupTables) {
+    payload[table.key] = selectBackupTable(context, table);
   }
   return payload;
 }
@@ -223,10 +184,12 @@ export function buildEncryptedBackupEnvelope(context: AppContext): Record<string
 }
 
 export function restoreBackupPayload(context: AppContext, payload: Record<string, unknown>): Record<string, number> {
-  const product = context.product ?? 'nomoney';
   const payloadProduct = payload.product;
-  if (payloadProduct !== undefined && payloadProduct !== product) {
-    throw new HttpError(400, 'BACKUP_PRODUCT_MISMATCH', `Backup belongs to ${String(payloadProduct)} and cannot be restored into ${product}`);
+  if (payloadProduct === 'yumi') {
+    throw new HttpError(400, 'BACKUP_PRODUCT_MISMATCH', 'Yumi has been retired and its domains now live in NoMoney; a Yumi backup cannot be restored here');
+  }
+  if (payloadProduct !== undefined && payloadProduct !== 'nomoney') {
+    throw new HttpError(400, 'BACKUP_PRODUCT_MISMATCH', `Backup belongs to ${String(payloadProduct)} and cannot be restored into NoMoney`);
   }
   // Validate protected columns before touching live data; ciphertext belongs to the
   // application key that created it, independently of the WebDAV envelope password.
@@ -241,28 +204,32 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
     try { value = JSON.parse(String(value)); } catch { /* Legacy settings were stored as raw text. */ }
     validateSecret(value);
   }
-  const protectedColumns = product === 'yumi'
-    ? { vps: ['ssh_password', 'ssh_private_key', 'ssh_private_key_passphrase', 'probe_api_key'] }
-    : { subscriptions: ['license_key'] };
-  for (const [table, columns] of Object.entries(protectedColumns)) {
-    for (const row of getBackupRows(payload, table) || []) for (const column of columns) validateSecret(row[column]);
-  }
+  for (const row of getBackupRows(payload, 'subscriptions') || []) validateSecret(row.license_key);
+
+  // Backups made while domains lived in Yumi carry no `domains` table. Their ledger rows
+  // only replace the asset types the payload actually contains, so restoring one keeps
+  // today's domains and their history. VPS rows from older backups are dropped: VPS is retired.
+  const restoredTypes = productAssetTypes.filter((type) => Array.isArray(payload[assetTableKeys[type]]));
+  // The Yumi merge marker describes this database, not the backup; restoring must not re-arm it.
+  const mergeMarker = context.db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [yumiMergeSetting]);
   const counts: Record<string, number> = {};
   context.db.exec('BEGIN');
   try {
-    for (const table of tablesForProduct(product)) {
-      const rows = scopedBackupRows(getBackupRows(payload, table.key), table, product, payloadProduct !== undefined);
+    for (const table of backupTables) {
+      const rows = getBackupRows(payload, table.key);
       if (!rows) {
-        if (table.key === 'renewalEvents' || table.key === 'pendingStatusAlerts') deleteBackupRows(context, table, product);
+        if (table.key === 'renewalEvents') deleteBackupRows(context, table, restoredTypes);
         continue;
       }
-      deleteBackupRows(context, table, product);
-      for (const row of rows) {
+      deleteBackupRows(context, table, restoredTypes);
+      const scoped = table.assetTyped ? rows.filter((row) => (restoredTypes as readonly string[]).includes(String(row.asset_type))) : rows;
+      for (const row of scoped) {
         insertBackupRow(context, table, row);
       }
-      counts[table.key] = rows.length;
+      counts[table.key] = scoped.length;
     }
-    context.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['productMode', JSON.stringify(product)]);
+    if (mergeMarker) context.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [yumiMergeSetting, mergeMarker.value]);
+    context.db.run("DELETE FROM settings WHERE key IN ('productMode', 'statusSampleMinutes', 'statusRetentionDays', 'yumiMigrationVersion', 'yumiSplitFinalized', 'outageAlertsEnabled', 'diskAlertPercent')");
     migrateStoredSecrets(context);
     context.db.exec('COMMIT');
     invalidateDatabaseGeneration(context.db);
@@ -273,53 +240,27 @@ export function restoreBackupPayload(context: AppContext, payload: Record<string
   return counts;
 }
 
-function selectBackupTable(context: AppContext, table: BackupTable, product: ProductMode): BackupRow[] {
-  const orderColumn = table.table === 'settings' ? 'key' : table.table === 'vps_status_daily' ? 'day' : 'id';
-  const assetTypes = productAssetTypes(table, product);
-  if (!assetTypes) return context.db.all(`SELECT * FROM ${table.table} ORDER BY ${orderColumn} ASC`);
-  return context.db.all(
-    `SELECT * FROM ${table.table} WHERE asset_type IN (${assetTypes.map(() => '?').join(', ')}) ORDER BY ${orderColumn} ASC`,
-    assetTypes
-  );
+function selectBackupTable(context: AppContext, table: BackupTable): BackupRow[] {
+  const orderColumn = table.table === 'settings' ? 'key' : 'id';
+  return context.db.all(`SELECT * FROM ${table.table} ORDER BY ${orderColumn} ASC`);
 }
 
 function tableCounts(payload: Record<string, unknown>): Record<string, number> {
-  const product = payload.product === 'yumi' ? 'yumi' : 'nomoney';
   return Object.fromEntries(
-    tablesForProduct(product).map((table) => {
+    backupTables.map((table) => {
       const rows = payload[table.key];
       return [table.key, Array.isArray(rows) ? rows.length : 0];
     })
   );
 }
 
-function tablesForProduct(product: ProductMode): BackupTable[] {
-  return backupTables.filter((table) => !table.products || table.products.includes(product));
-}
-
-function productAssetTypes(table: BackupTable, product: ProductMode): string[] | null {
-  if (!table.assetTypes) return null;
-  const allowed = product === 'yumi' ? ['vps', 'domain'] : ['phone', 'subscription'];
-  return table.assetTypes.filter((assetType) => allowed.includes(assetType));
-}
-
-function deleteBackupRows(context: AppContext, table: BackupTable, product: ProductMode): void {
-  const assetTypes = productAssetTypes(table, product);
-  if (!assetTypes) {
+function deleteBackupRows(context: AppContext, table: BackupTable, assetTypes: readonly AssetType[]): void {
+  if (!table.assetTyped) {
     context.db.run(`DELETE FROM ${table.table}`);
     return;
   }
-  context.db.run(`DELETE FROM ${table.table} WHERE asset_type IN (${assetTypes.map(() => '?').join(', ')})`, assetTypes);
-}
-
-function scopedBackupRows(rows: BackupRow[] | null, table: BackupTable, product: ProductMode, strict: boolean): BackupRow[] | null {
-  if (!rows || !table.assetTypes) return rows;
-  const allowed = new Set(productAssetTypes(table, product) ?? []);
-  const scoped = rows.filter((row) => allowed.has(String(row.asset_type)));
-  if (strict && scoped.length !== rows.length) {
-    throw new HttpError(400, 'INVALID_BACKUP', `Backup table ${table.key} contains rows outside the ${product} product boundary`);
-  }
-  return scoped;
+  if (!assetTypes.length) return;
+  context.db.run(`DELETE FROM ${table.table} WHERE asset_type IN (${assetTypes.map(() => '?').join(', ')})`, [...assetTypes]);
 }
 
 function buildWebdavTarget(settings: Settings): string {

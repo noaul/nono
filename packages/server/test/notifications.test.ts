@@ -26,11 +26,6 @@ describe('notification routes', () => {
     markAllRead: ReturnType<typeof vi.fn>;
     dismiss: ReturnType<typeof vi.fn>;
   };
-  let noMoneyClient: {
-    renewVps: ReturnType<typeof vi.fn>;
-    undoVpsRenewal: ReturnType<typeof vi.fn>;
-    updateVpsRenewalExpense: ReturnType<typeof vi.fn>;
-  };
 
   beforeEach(async () => {
     notificationService = {
@@ -39,17 +34,8 @@ describe('notification routes', () => {
       markAllRead: vi.fn(async () => 2),
       dismiss: vi.fn(async () => undefined),
     };
-    noMoneyClient = {
-      renewVps: vi.fn(async () => ({
-        idempotent: false,
-        item: { id: 10, expireDate: '2027-08-10' },
-        renewal: { id: 41, renewedExpireDate: '2027-08-10', amountMinorUnits: 1200, currency: 'USD' },
-      })),
-      undoVpsRenewal: vi.fn(async () => ({ item: { id: 10, expireDate: '2026-08-10' } })),
-      updateVpsRenewalExpense: vi.fn(async () => ({ renewal: { id: 41, amountMinorUnits: 1400, currency: 'USD' } })),
-    };
     repo = new MemoryRepository(false);
-    app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService, noMoneyClient } as any);
+    app = await buildApp({ repo, sessionSecret, encryptionKey, notificationService } as any);
     const setup = await app.inject({
       method: 'POST',
       url: '/api/auth/setup',
@@ -78,7 +64,7 @@ describe('notification routes', () => {
     };
     const prisma = { notificationState: { findMany: async () => [] } };
     try {
-      app = await buildApp({ repo: new MemoryRepository(false), prisma, sessionSecret, encryptionKey, backupCenterService: center, noMoneyClient } as any);
+      app = await buildApp({ repo: new MemoryRepository(false), prisma, sessionSecret, encryptionKey, backupCenterService: center } as any);
       const setup = await app.inject({
         method: 'POST',
         url: '/api/auth/setup',
@@ -158,12 +144,12 @@ describe('notification routes', () => {
   it('passes validated source filters to list and mark-all operations', async () => {
     const list = await app.inject({
       method: 'GET',
-      url: '/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cyumi',
+      url: '/api/admin/notifications?limit=100&sources=nodesk%2Cnomoney%2Cnostar',
       headers: { cookie },
     });
     const markAll = await app.inject({
       method: 'POST',
-      url: '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney%2Cyumi',
+      url: '/api/admin/notifications/mark-all-read?sources=nodesk%2Cnomoney%2Cnostar',
       headers: { cookie },
     });
 
@@ -172,10 +158,10 @@ describe('notification routes', () => {
     expect(notificationService.list).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
       limit: 100,
       locale: 'zh',
-      sources: ['nodesk', 'nomoney', 'yumi'],
+      sources: ['nodesk', 'nomoney', 'nostar'],
     });
     expect(notificationService.markAllRead).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), {
-      sources: ['nodesk', 'nomoney', 'yumi'],
+      sources: ['nodesk', 'nomoney', 'nostar'],
     });
   });
 
@@ -210,33 +196,17 @@ describe('notification routes', () => {
     expect(notificationService.dismiss).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 'links:abc');
   });
 
-  it('proxies authenticated VPS renewal, undo, and expense correction to Yumi', async () => {
+  it('no longer accepts the retired Yumi source or its VPS renewal routes', async () => {
+    const list = await app.inject({ method: 'GET', url: '/api/admin/notifications?sources=yumi', headers: { cookie } });
     const renew = await app.inject({
       method: 'POST',
       url: '/api/admin/yumi/vps/10/renew',
       headers: { cookie },
       payload: { requestId: 'nono-renew-2026', expectedExpireDate: '2026-08-10' },
     });
-    const undo = await app.inject({
-      method: 'POST',
-      url: '/api/admin/yumi/vps/10/renewals/41/undo',
-      headers: { cookie },
-    });
-    const amount = await app.inject({
-      method: 'PUT',
-      url: '/api/admin/yumi/vps/10/renewals/41/expense',
-      headers: { cookie },
-      payload: { amountMinorUnits: 1400 },
-    });
 
-    expect(renew.statusCode).toBe(200);
-    expect(undo.statusCode).toBe(200);
-    expect(amount.statusCode).toBe(200);
-    expect(noMoneyClient.renewVps).toHaveBeenCalledWith(10, {
-      requestId: 'nono-renew-2026',
-      expectedExpireDate: '2026-08-10',
-    });
-    expect(noMoneyClient.undoVpsRenewal).toHaveBeenCalledWith(10, 41);
-    expect(noMoneyClient.updateVpsRenewalExpense).toHaveBeenCalledWith(10, 41, 1400);
+    expect(list.statusCode).toBe(400);
+    expect(renew.statusCode).toBe(404);
+    expect(notificationService.list).not.toHaveBeenCalled();
   });
 });

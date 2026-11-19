@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import { assetConfigs, getDueDate, normalizeBillingCycle, normalizeCurrency } from './assets.js';
-import type { AppContext, AssetType, Currency } from './types.js';
+import { productAssetTypes, type AppContext, type AssetType, type Currency } from './types.js';
 import {
   addCurrencyTotal,
   daysBetween,
@@ -61,18 +61,12 @@ type CategoryCost = {
   subcategories: CostSubcategory[];
 };
 
-const assetTypes: AssetType[] = ['phone', 'vps', 'domain', 'subscription'];
+const assetTypes: AssetType[] = [...productAssetTypes];
 
 const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: string }>>> = {
   phone: [
     { key: 'domestic', label: '国内' },
     { key: 'foreign', label: '国外' }
-  ],
-  vps: [
-    { key: 'website', label: '建站机' },
-    { key: 'route', label: '线路机' },
-    { key: 'residential', label: '家宽' },
-    { key: 'other', label: '未分类' }
   ],
   subscription: [
     { key: 'subscription', label: '订阅制' },
@@ -83,15 +77,12 @@ const fixedSubcategories: Partial<Record<AssetType, Array<{ key: string; label: 
 export function registerDashboardRoutes(
   router: Router,
   context: AppContext,
-  allowedTypes: AssetType[] = assetTypes,
-  options: { summary?: boolean } = {}
+  allowedTypes: AssetType[] = assetTypes
 ): void {
   router.get('/dashboard/expiring', (req, res) => {
     const days = typeof req.query.days === 'string' ? Number(req.query.days) : 30;
     res.json({ items: collectDueItems(context, Number.isFinite(days) ? days : 30, allowedTypes) });
   });
-  if (options.summary === false) return;
-
   router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     const settings = getSettings(context);
     const currentYear = Number(toIsoDate(context.now(), settings.timezone).slice(0, 4));
@@ -115,7 +106,6 @@ export function getDashboardSummary(context: AppContext, year: number, allowedTy
   ) as Record<AssetType, CategoryCost>;
   const assetCounts: Record<string, number> = {
     phones: 0,
-    vps: 0,
     domains: 0,
     subscriptions: 0
   };
@@ -268,11 +258,6 @@ function getSubcategoryIdentity(assetType: AssetType, row: Record<string, unknow
     return row.phone_type === 'foreign'
       ? { key: 'foreign', label: '国外' }
       : { key: 'domestic', label: '国内' };
-  }
-  if (assetType === 'vps') {
-    const value = typeof row.vps_type === 'string' ? row.vps_type : '';
-    const known = fixedSubcategories.vps?.find((item) => item.key === value);
-    return known ?? { key: 'other', label: '未分类' };
   }
   if (assetType === 'subscription') {
     if (row.purchase_type === 'buyout') return { key: 'buyout', label: '买断制' };

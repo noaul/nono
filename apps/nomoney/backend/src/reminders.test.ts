@@ -128,21 +128,21 @@ describe('reminders', () => {
     expect(context.notifier.sent).toEqual([]);
   });
 
-  test('honours long Yumi lead times and catches up a missed reminder day', async () => {
-    const { agent, context } = await setupAgent('yumi');
+  test('honours long domain lead times and catches up a missed reminder day', async () => {
+    const { agent, context } = await setupAgent();
 
     await agent.put('/api/settings').send({
       reminderDays: [30, 7, 3],
       reminderEnabled: true,
       smtpTo: 'owner@example.com',
-      smtpFrom: 'yumi@example.com'
+      smtpFrom: 'nomoney@example.com'
     });
     await agent.post('/api/domains').send({
       domainName: 'twenty-days.example', registrar: 'Cloudflare', amountMinorUnits: 1299,
       currency: 'USD', billingCycle: 'annual', expireDate: '2026-06-11', status: 'active'
     });
-    await agent.post('/api/vps').send({
-      name: 'far-away', provider: 'Example', amountMinorUnits: 1200,
+    await agent.post('/api/domains').send({
+      domainName: 'far-away.example', registrar: 'Example', amountMinorUnits: 1200,
       currency: 'USD', billingCycle: 'annual', expireDate: '2026-08-26', status: 'active'
     });
 
@@ -150,7 +150,7 @@ describe('reminders', () => {
 
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['twenty-days.example']);
     expect((await agent.get('/api/settings')).body.settings.reminderDays).toEqual([30, 7, 3]);
-    expect(context.notifier.sent[0].subject).toContain('Yumi');
+    expect(context.notifier.sent[0].subject).toContain('NoMoney');
     expect(context.notifier.sent[0].text).toContain('$12.99 USD');
     expect(context.notifier.sent[0].text).toContain('域名: twenty-days.example');
 

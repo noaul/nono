@@ -7,7 +7,7 @@ import type { BackupAutomationService, BackupAutomationSnapshot } from './backup
 import { shouldSkipLinkHealthCheck } from './link-health.service.js';
 import type { ProductDueItem } from './product-due-client.js';
 
-export type NotificationSource = 'nodesk' | 'nomoney' | 'yumi' | 'nostar' | 'links' | 'backup';
+export type NotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
 
 export interface NotificationItem {
@@ -20,7 +20,7 @@ export interface NotificationItem {
   occurredAt: string;
   dueAt: string | null;
   entityId?: number | null;
-  entityType?: 'phone' | 'domain' | 'vps' | 'subscription' | null;
+  entityType?: 'phone' | 'domain' | 'subscription' | null;
   targetUrl?: string | null;
   /** The bare entity name, so clients never have to parse it back out of `title`. */
   entityLabel?: string | null;
@@ -48,7 +48,6 @@ export interface NotificationServiceOptions {
   /** NoDesk content for the user: `calendarEvents` from the planner and the legacy site file. */
   nodeskReader: (user: AuthUser) => Promise<unknown>;
   noMoneyReader: () => Promise<ProductDueItem[]>;
-  yumiReader?: () => Promise<ProductDueItem[]>;
   backupService: Pick<BackupService, 'list'>;
   backupAutomationService?: Pick<BackupAutomationService, 'get'>;
   now?: () => Date;
@@ -74,7 +73,6 @@ export function createNotificationService(options: NotificationServiceOptions): 
     if (user.role === 'admin') {
       if (includes('nodesk')) globalCollectors.push(collectNodeskNotifications(() => options.nodeskReader(user), now(), timeZone));
       if (includes('nomoney')) globalCollectors.push(collectNoMoneyNotifications(options.noMoneyReader, now(), timeZone, locale));
-      if (includes('yumi')) globalCollectors.push(collectYumiNotifications(options.yumiReader ?? (async () => []), now(), timeZone, locale));
       if (includes('backup')) globalCollectors.push(collectBackupNotifications(options.backupService, options.backupAutomationService, now(), backupStaleHours, locale));
     }
     const global = (await Promise.all(globalCollectors)).flat();
@@ -249,17 +247,13 @@ async function collectNoMoneyNotifications(reader: () => Promise<ProductDueItem[
   return collectProductNotifications('nomoney', reader, current, timeZone, locale, 30);
 }
 
-async function collectYumiNotifications(reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale): Promise<RawNotification[]> {
-  return collectProductNotifications('yumi', reader, current, timeZone, locale, 3);
-}
-
-async function collectProductNotifications(source: 'nomoney' | 'yumi', reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale, leadDays: number): Promise<RawNotification[]> {
+async function collectProductNotifications(source: 'nomoney', reader: () => Promise<ProductDueItem[]>, current: Date, timeZone: string, locale: Locale, leadDays: number): Promise<RawNotification[]> {
   const items = await reader().catch(() => []);
   const today = dateKeyInTimeZone(current, timeZone);
   const firstDay = addDateDays(today, -30);
   const lastDay = addDateDays(today, leadDays);
-  const sourceNames = { phone: locale === 'zh' ? '电话卡' : 'SIM card', domain: t(locale, 'sourceDomain'), vps: t(locale, 'sourceVps'), subscription: t(locale, 'sourceSubscription') } as const;
-  const hrefs = { phone: '/nomoney/phones', domain: '/yumi/domains', vps: '/yumi/vps', subscription: '/nomoney/subscriptions' } as const;
+  const sourceNames = { phone: locale === 'zh' ? '电话卡' : 'SIM card', domain: t(locale, 'sourceDomain'), subscription: t(locale, 'sourceSubscription') } as const;
+  const hrefs = { phone: '/nomoney/phones', domain: '/nomoney/domains', subscription: '/nomoney/subscriptions' } as const;
   return items
     .filter((item) => isDateKey(item.dueDate) && item.dueDate >= firstDay && item.dueDate <= lastDay)
     .map((item) => {
@@ -355,7 +349,8 @@ function stableKey(source: NotificationSource, identity: string) {
 }
 
 function assertNotificationKey(key: string) {
-  if (!/^(nodesk|nomoney|yumi|nostar|links|backup):[a-f0-9]{24}$/.test(key)) throw httpError(404, 'Notification not found');
+  // Stored read/dismiss state may still hold keys of retired sources (e.g. `yumi:`); they never match a live item.
+  if (!/^(nodesk|nomoney|nostar|links|backup):[a-f0-9]{24}$/.test(key)) throw httpError(404, 'Notification not found');
 }
 
 function compareNotifications(left: RawNotification, right: RawNotification) {

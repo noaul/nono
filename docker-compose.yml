@@ -76,7 +76,6 @@ services:
       NODESK_CONTENT_DIR: /app/nodesk-content
       NODESK_SEED_DIR: /app/nodesk-seed
       NOMONEY_INTERNAL_PORT: 2030
-      YUMI_INTERNAL_PORT: 2040
       NOMONEY_DATA_DIR: /app/nomoney-data
       NOMONEY_INTERNAL_TOKEN: ${NOMONEY_INTERNAL_TOKEN:?NOMONEY_INTERNAL_TOKEN is required}
       NOMONEY_ENCRYPTION_KEY: ${NOMONEY_ENCRYPTION_KEY:-}
@@ -86,11 +85,13 @@ services:
       NOMONEY_SMTP_PASS: ${NOMONEY_SMTP_PASS:-}
       NOMONEY_SMTP_FROM: ${NOMONEY_SMTP_FROM:-}
       NOMONEY_SMTP_TO: ${NOMONEY_SMTP_TO:-}
+      # Legacy: data dir of the retired Yumi product. NoMoney reads it once at startup to merge
+      # domains from the old Yumi database; removable in a later release.
       YUMI_DATA_DIR: /app/yumi-data
-      YUMI_ENCRYPTION_KEY: ${YUMI_ENCRYPTION_KEY:?YUMI_ENCRYPTION_KEY is required}
     volumes:
       - nodesk_content:/app/nodesk-content
       - nomoney_data:/app/nomoney-data
+      # Legacy Yumi data, kept only as the source of NoMoney's one-time domain merge.
       - yumi_data:/app/yumi-data
       - nono_backups:/app/backups
     healthcheck:
@@ -104,5 +105,6 @@ volumes:
   nono_pg18_data:
   nodesk_content:
   nomoney_data:
+  # Legacy (retired Yumi product); removable once every deployment has merged its domains.
   yumi_data:
   nono_backups:

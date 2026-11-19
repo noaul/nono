@@ -219,10 +219,45 @@ describe('backup center service', () => {
     const center = service();
     const download = await center.createLocalBackup(7, 'all');
     const bundle = JSON.parse(download.body.toString());
-    delete bundle.modules.yumi;
+    delete bundle.modules.nomoney;
 
     await expect(center.restoreLocalBackup(7, 'all', Buffer.from(JSON.stringify(bundle)))).rejects.toThrow('all backup modules');
     expect(restoreCalls).toEqual([]);
+  });
+
+  it('ignores the retired Yumi module in an older local full-site bundle', async () => {
+    const center = service();
+    const bundle = JSON.parse((await center.createLocalBackup(7, 'all')).body.toString());
+    const legacy = Buffer.from('snapshot:yumi');
+    bundle.modules.yumi = { module: 'yumi', encoding: 'base64', contentType: 'application/json', extension: 'json', size: legacy.length, sha256: createHash('sha256').update(legacy).digest('hex'), body: legacy.toString('base64') };
+
+    await expect(center.restoreLocalBackup(7, 'all', Buffer.from(JSON.stringify(bundle)))).resolves.toEqual({ restored: [...BACKUP_MODULES] });
+    expect(restoreCalls.map((item) => item.module)).toEqual(BACKUP_MODULES);
+  });
+
+  it('lists, restores and deletes older WebDAV batches that still carry a Yumi module', async () => {
+    const center = service();
+    await center.saveWebDavConfig({ url: 'https://dav.example/root', username: 'user', password: 'secret' });
+    const batch = await center.backupToWebDav(7, ['nono', 'nomoney']);
+    const manifestUrl = `https://dav.example/root/nono/batches/${batch.id}.json`;
+    const indexUrl = 'https://dav.example/root/nono/batches/index.json';
+    const yumiPath = `/nono/yumi/yumi-${batch.id}.json`;
+    const yumiBody = Buffer.from('snapshot:yumi');
+    const yumiRecord = { module: 'yumi', path: yumiPath, filename: `yumi-${batch.id}.json`, contentType: 'application/json', size: yumiBody.length, sha256: createHash('sha256').update(yumiBody).digest('hex'), status: 'verified' };
+    remote.set(`https://dav.example/root${yumiPath}`, yumiBody);
+    const manifest = JSON.parse(remote.get(manifestUrl)!.toString());
+    manifest.modules.yumi = yumiRecord;
+    remote.set(manifestUrl, Buffer.from(JSON.stringify(manifest)));
+    remote.set(indexUrl, Buffer.from(JSON.stringify([manifest])));
+
+    const [listed] = await center.listWebDavBatches();
+    expect(Object.keys(listed.modules)).toEqual(['nono', 'nomoney']);
+    await expect(center.restoreWebDavBatch(7, batch.id)).resolves.toEqual({ batchId: batch.id, restored: ['nono', 'nomoney'] });
+    expect(restoreCalls.map((item) => item.module)).toEqual(['nono', 'nomoney']);
+
+    await center.removeWebDavBatch(batch.id);
+    expect(remote.has(`https://dav.example/root${yumiPath}`)).toBe(false);
+    expect(remote.has(manifestUrl)).toBe(false);
   });
 
   it('rejects a local module upload when its selected module does not match the artifact', async () => {

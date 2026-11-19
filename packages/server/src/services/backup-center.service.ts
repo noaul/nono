@@ -4,8 +4,14 @@ import type { PublicFetchResult, SafeRequestOptions } from '../utils/safe-fetch.
 import { decryptSecret, encryptSecret } from '../utils/crypto.js';
 
 // Order is restore order.
-export const BACKUP_MODULES = ['nono', 'nodesk', 'nostar', 'nomoney', 'yumi'] as const;
+export const BACKUP_MODULES = ['nono', 'nodesk', 'nostar', 'nomoney'] as const;
 export type BackupModule = (typeof BACKUP_MODULES)[number];
+/**
+ * Module of the retired Yumi product. Older WebDAV batches and local bundles may still carry it; it
+ * is ignored when reading them (its domains now live in NoMoney) and its files are still cleaned up
+ * when such a batch is deleted.
+ */
+export const RETIRED_BACKUP_MODULE = 'yumi';
 
 const CONFIG_KEY = 'backupCenterWebdav';
 const BATCH_KIND = 'nono.webdav-backup-batch';
@@ -184,11 +190,16 @@ export function createBackupCenterService(options: {
   }
 
   async function loadManifest(config: StoredWebDavConfig & { password: string }, id: string) {
+    return (await loadManifestWithRetired(config, id)).manifest;
+  }
+
+  async function loadManifestWithRetired(config: StoredWebDavConfig & { password: string }, id: string) {
     assertBatchId(id);
     const body = await get(config, `/nono/batches/${id}.json`);
-    const manifest = parseManifest(parseJson(body!, 'WebDAV batch manifest'));
+    const raw = parseJson(body!, 'WebDAV batch manifest');
+    const manifest = parseManifest(raw);
     if (manifest.id !== id) throw httpError(409, 'WebDAV batch manifest identifier mismatch');
-    return manifest;
+    return { manifest, retiredPaths: retiredModulePaths(raw, id) };
   }
 
   async function cleanupUploads(config: StoredWebDavConfig & { password: string }, paths: readonly string[]) {
@@ -339,11 +350,12 @@ export function createBackupCenterService(options: {
 
     async removeWebDavBatch(batchId) {
       const config = await requiredConfig();
-      const manifest = await loadManifest(config, batchId);
-      for (const record of Object.values(manifest.modules)) {
-        if (!record) continue;
-        const response = await webDavRequest(config, record.path, 'DELETE');
-        if (![200, 204, 404].includes(response.statusCode)) throw httpError(502, `WebDAV delete failed for ${record.path}`);
+      const { manifest, retiredPaths } = await loadManifestWithRetired(config, batchId);
+      const paths = [...Object.values(manifest.modules).map((record) => record?.path), ...retiredPaths];
+      for (const path of paths) {
+        if (!path) continue;
+        const response = await webDavRequest(config, path, 'DELETE');
+        if (![200, 204, 404].includes(response.statusCode)) throw httpError(502, `WebDAV delete failed for ${path}`);
       }
       const manifestResponse = await webDavRequest(config, `/nono/batches/${batchId}.json`, 'DELETE');
       if (![200, 204, 404].includes(manifestResponse.statusCode)) throw httpError(502, 'WebDAV batch manifest could not be deleted');
@@ -486,6 +498,17 @@ function parseManifest(value: unknown): BackupBatchManifest {
     modules[module] = item;
   }
   return { ...record, modules } as BackupBatchManifest;
+}
+
+/** Paths of retired-module files in a raw batch manifest, so deleting the batch removes them too. */
+function retiredModulePaths(value: unknown, id: string): string[] {
+  const modules = value && typeof value === 'object' ? (value as { modules?: unknown }).modules : null;
+  if (!modules || typeof modules !== 'object') return [];
+  const item = (modules as Record<string, unknown>)[RETIRED_BACKUP_MODULE] as Partial<BackupBatchModuleRecord> | undefined;
+  const filename = item?.filename;
+  if (typeof filename !== 'string' || !filename.startsWith(`${RETIRED_BACKUP_MODULE}-${id}.`) || /[/\\]/.test(filename) || filename.includes('..')) return [];
+  const expectedPath = `/nono/${RETIRED_BACKUP_MODULE}/${filename}`;
+  return item?.path === expectedPath ? [expectedPath] : [];
 }
 
 function parseJson(body: Buffer, label: string): unknown {

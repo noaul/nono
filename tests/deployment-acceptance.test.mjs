@@ -4,20 +4,7 @@ import { acceptDeployment } from '../scripts/accept-deployment.mjs';
 
 test('checks all public routes and recursively verifies NoStar lazy chunks', async () => {
   const baseUrl = 'http://127.0.0.1:8188';
-  const responses = new Map([
-    [`${baseUrl}/readyz`, response('{"ok":true}', 'application/json')],
-    [`${baseUrl}/`, response('<main>Nono</main>', 'text/html')],
-    [`${baseUrl}/nodesk`, response('<main>Nodesk</main>', 'text/html')],
-    [`${baseUrl}/nodesk/images/nodesk-ambient-wallpaper.png`, pngResponse()],
-    [`${baseUrl}/nomoney/api/readyz`, response('{"ok":true}', 'application/json')],
-    [`${baseUrl}/yumi/api/readyz`, response('{"ok":true}', 'application/json')],
-    [`${baseUrl}/yumi/`, response('<main>Yumi</main>', 'text/html')],
-    [`${baseUrl}/nostar/`, response('<script type="module" src="/nostar/assets/index-test.js"></script>', 'text/html')],
-    [`${baseUrl}/nostar/assets/index-test.js`, response('import("./RepositoriesView-test.js")', 'text/javascript')],
-    [`${baseUrl}/nostar/assets/RepositoriesView-test.js`, response('import("./ReadmeModal-test.js"); import("./RepositoryEditModal-test.js")', 'text/javascript')],
-    [`${baseUrl}/nostar/assets/ReadmeModal-test.js`, response('export default {}', 'text/javascript')],
-    [`${baseUrl}/nostar/assets/RepositoryEditModal-test.js`, response('export default {}', 'text/javascript')],
-  ]);
+  const responses = healthyResponses(baseUrl);
   const requested = [];
 
   const result = await acceptDeployment({
@@ -32,7 +19,9 @@ test('checks all public routes and recursively verifies NoStar lazy chunks', asy
     log: () => {},
   });
 
-  assert.equal(result.routes.length, 7);
+  assert.equal(result.routes.length, 5);
+  assert.deepEqual(result.redirects.map(({ path, status }) => [path, status]), [['/yumi/', 308], ['/yumi/domains?edit=1', 308]]);
+  assert.equal(requested.includes(`${baseUrl}/yumi/api/readyz`), false);
   assert.deepEqual(result.assets, [{ path: '/nodesk/images/nodesk-ambient-wallpaper.png', status: 200 }]);
   assert.equal(result.nostarAssets.some((url) => url.includes('ReadmeModal-test.js')), true);
   assert.equal(result.nostarAssets.some((url) => url.includes('RepositoryEditModal-test.js')), true);
@@ -102,6 +91,40 @@ test('fails acceptance when a required route is unavailable', async () => {
     /readyz returned HTTP 503/,
   );
 });
+
+test('fails acceptance when a retired Yumi URL no longer redirects to NoMoney', async () => {
+  await assert.rejects(
+    () => acceptDeployment({
+      baseUrl: 'http://127.0.0.1:8188',
+      fetchImpl: async (url) => (new URL(String(url)).pathname === '/yumi/'
+        ? response('<main>Yumi</main>', 'text/html')
+        : healthyResponses('http://127.0.0.1:8188').get(String(url)) || response('missing', 'text/plain', 404)),
+      log: () => {},
+    }),
+    /\/yumi\/ returned HTTP 200, expected 308 to \/nomoney\//,
+  );
+});
+
+function healthyResponses(baseUrl) {
+  return new Map([
+    [`${baseUrl}/readyz`, response('{"ok":true}', 'application/json')],
+    [`${baseUrl}/`, response('<main>Nono</main>', 'text/html')],
+    [`${baseUrl}/nodesk`, response('<main>Nodesk</main>', 'text/html')],
+    [`${baseUrl}/nodesk/images/nodesk-ambient-wallpaper.png`, pngResponse()],
+    [`${baseUrl}/nomoney/api/readyz`, response('{"ok":true}', 'application/json')],
+    [`${baseUrl}/yumi/`, redirect('/nomoney/')],
+    [`${baseUrl}/yumi/domains?edit=1`, redirect('/nomoney/domains?edit=1')],
+    [`${baseUrl}/nostar/`, response('<script type="module" src="/nostar/assets/index-test.js"></script>', 'text/html')],
+    [`${baseUrl}/nostar/assets/index-test.js`, response('import("./RepositoriesView-test.js")', 'text/javascript')],
+    [`${baseUrl}/nostar/assets/RepositoriesView-test.js`, response('import("./ReadmeModal-test.js"); import("./RepositoryEditModal-test.js")', 'text/javascript')],
+    [`${baseUrl}/nostar/assets/ReadmeModal-test.js`, response('export default {}', 'text/javascript')],
+    [`${baseUrl}/nostar/assets/RepositoryEditModal-test.js`, response('export default {}', 'text/javascript')],
+  ]);
+}
+
+function redirect(location) {
+  return new Response(null, { status: 308, headers: { location } });
+}
 
 function response(body, contentType = 'text/plain', status = 200) {
   return new Response(body, { status, headers: { 'content-type': contentType } });

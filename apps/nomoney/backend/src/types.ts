@@ -3,8 +3,10 @@ import type { RequestHandler } from 'express';
 export type Currency = 'CNY' | 'USD' | 'HKD' | 'JPY' | 'GBP' | 'EUR' | 'CAD' | 'SGD' | 'AUD';
 export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'biennial';
 export type AssetStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'archived';
-export type AssetType = 'phone' | 'vps' | 'domain' | 'subscription';
-export type ProductMode = 'nomoney' | 'yumi';
+export type AssetType = 'phone' | 'domain' | 'subscription';
+
+/** Every asset type NoMoney manages, in navigation order. */
+export const productAssetTypes: readonly AssetType[] = ['phone', 'domain', 'subscription'];
 
 export type DbValue = string | number | null;
 
@@ -34,31 +36,6 @@ export interface Notifier {
   send(message: RelayMessage): Promise<void>;
 }
 
-export type SshAuthType = 'password' | 'privateKey';
-
-export interface SshExecOptions {
-  host: string;
-  port: number;
-  username: string;
-  authType: SshAuthType;
-  password?: string;
-  privateKey?: string;
-  passphrase?: string;
-  expectedHostFingerprint?: string;
-  command: string;
-  timeoutMs?: number;
-}
-
-export interface SshExecResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-  signal?: string;
-  hostFingerprint?: string;
-}
-
-export type SshRunner = (options: SshExecOptions) => Promise<SshExecResult>;
-
 export interface SessionUser {
   id: number;
   username: string;
@@ -69,7 +46,6 @@ export type SessionVerifier = (token: string) => Promise<SessionUser | null>;
 
 export interface AppContext {
   db: DbClient;
-  product?: ProductMode;
   /** Resolves a forwarded NoNo session cookie to its user, or null when it is not a live session. */
   verifySession: SessionVerifier;
   internalToken?: string;
@@ -79,7 +55,6 @@ export interface AppContext {
   notifier: Notifier;
   fetch?: typeof fetch;
   privateOutboundHosts?: string[];
-  sshRunner?: SshRunner;
   /** Reads a host's TLS certificate; injectable for tests. */
   certificateProbe?: (hostname: string) => Promise<{ validTo: string; issuer: string | null }>;
 }

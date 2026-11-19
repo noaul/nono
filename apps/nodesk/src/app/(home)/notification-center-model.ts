@@ -45,7 +45,6 @@ export const NOTIFICATION_SOURCES = [
 	{ id: 'nostar', label: 'NoStar' },
 	{ id: 'nodesk', label: '日程' },
 	{ id: 'nomoney', label: 'NoMoney' },
-	{ id: 'yumi', label: 'Yumi' },
 	{ id: 'backup', label: '备份' }
 ]
 

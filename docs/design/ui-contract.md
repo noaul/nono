@@ -113,10 +113,10 @@ and the app dock becomes a tab bar.
 
 ## Shell
 
-The NoNo admin keeps a fixed sidebar (`--ui-sidebar-w`) that becomes a drawer below `md`. NoMoney,
-Yumi and NoStar share one frame at every width instead:
+The NoNo admin keeps a fixed sidebar (`--ui-sidebar-w`) that becomes a drawer below `md`. NoMoney
+and NoStar share one frame at every width instead:
 
-- a sticky module bar, `48px`, bordered bottom: every NoNo module (NoNo, NoDesk, NoMoney, Yumi,
+- a sticky module bar, `48px`, bordered bottom: every NoNo module (NoNo, NoDesk, NoMoney,
   NoStar) on the left, **the one being viewed a solid inverted block**; theme and logout on the
   right (language too, from `sm`)
 - the page title (the page's `h1`) and page actions above the content, centred at
@@ -169,5 +169,5 @@ The browser extension cannot read the site's storage, so it follows `prefers-col
 
 ## Moving between apps
 
-NoNo's NoTab strip links out to NoMoney, Yumi and NoStar, and NoDesk has a portal back to NoNo.
-NoMoney, Yumi and NoStar list every module in their top module bar.
+NoNo's NoTab strip links out to NoMoney and NoStar, and NoDesk has a portal back to NoNo.
+NoMoney and NoStar list every module in their top module bar.

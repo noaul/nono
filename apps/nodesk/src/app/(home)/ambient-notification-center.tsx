@@ -56,7 +56,7 @@ function formatDate(value: string | null) {
 	return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Shanghai' }).format(date)
 }
 
-/** NoDesk is the one place to read notifications and decide where NoNo, NoMoney and Yumi push them. */
+/** NoDesk is the one place to read notifications and decide where NoNo and NoMoney push them. */
 export function AmbientNotificationCenter() {
 	const [page, setPage] = useState<Page>('feed')
 	const [feed, setFeed] = useState<NotificationFeedItem[]>([])
@@ -182,7 +182,7 @@ export function AmbientNotificationCenter() {
 		{loading ? <div className='ambient-backup-loading' role='status'><LoaderCircle className='is-spinning' size={20} />正在读取通知</div> : <>
 			{page === 'feed' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header ambient-backup-history-head'>
-					<span><h3>通知</h3><p>书签、NoStar、日程、NoMoney、Yumi 与备份的提醒集中在这里。</p></span>
+					<span><h3>通知</h3><p>书签、NoStar、日程、NoMoney 与备份的提醒集中在这里。</p></span>
 					<span className='ambient-notification-toolbar'>
 						<select value={source} onChange={event => setSource(event.target.value)} aria-label='按来源筛选'><option value=''>全部来源</option>{NOTIFICATION_SOURCES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
 						<button type='button' disabled={Boolean(busy) || !visibleFeed.some(item => !item.read)} onClick={() => void markAllRead()}><CheckCheck size={15} />全部已读</button>
@@ -198,7 +198,7 @@ export function AmbientNotificationCenter() {
 
 			{page === 'channels' && <section className='ambient-backup-page'>
 				<div className='ambient-backup-page-header ambient-backup-history-head'>
-					<span><h3>推送渠道</h3><p>NoNo 的新通知每 5 分钟汇总推送一次；NoMoney 到期提醒和 Yumi 宕机告警会立即推送到管理员的渠道。</p></span>
+					<span><h3>推送渠道</h3><p>NoNo 的新通知每 5 分钟汇总推送一次；NoMoney 的手机卡、订阅和域名到期提醒会立即推送到管理员的渠道。</p></span>
 					{!draft && <button type='button' onClick={() => setDraft(emptyChannelDraft('bark'))}><Plus size={15} />添加渠道</button>}
 				</div>
 

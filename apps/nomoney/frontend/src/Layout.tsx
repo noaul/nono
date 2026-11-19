@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ContactRound, Ellipsis, Globe2, Languages, LayoutDashboard, LogOut, Moon, ReceiptText, Repeat2, Server, Settings, Smartphone, Sun, Trash2 } from 'lucide-react';
+import { ContactRound, Ellipsis, Globe2, Languages, LayoutDashboard, LogOut, Moon, ReceiptText, Repeat2, Settings, Smartphone, Sun, Trash2 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import clsx from 'clsx';
 import type { User } from './types';
@@ -7,13 +7,11 @@ import { IconButton, StateBanner } from './ui';
 import { connectMobileBridge, type MobileBridge } from './mobile/bridge';
 import { logoutSharedSession } from './mobile/session';
 import { useI18n } from './i18n';
-import { product, productMeta } from './product';
 import { COLOR_MODE_CHANGE_EVENT, currentColorMode, setColorModePreference, type ResolvedColorMode } from './color-mode';
 
 const navItems = [
-  { to: '/dashboard', labelZh: product === 'yumi' ? '总览' : '控制台', labelEn: product === 'yumi' ? 'Overview' : 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', labelZh: '控制台', labelEn: 'Dashboard', icon: LayoutDashboard },
   { to: '/phones', labelZh: '电话卡', labelEn: 'SIM cards', icon: Smartphone },
-  { to: '/vps', labelZh: 'VPS', labelEn: 'VPS', icon: Server },
   { to: '/domains', labelZh: '域名', labelEn: 'Domains', icon: Globe2 },
   { to: '/subscriptions', labelZh: '订阅', labelEn: 'Subscriptions', icon: Repeat2 },
   { to: '/accounts', labelZh: '账号', labelEn: 'Accounts', icon: ContactRound },
@@ -23,9 +21,8 @@ const navItems = [
 ];
 
 // The dock lists the everyday pages first. Phones show those four and keep the rest above 更多.
-const yumiNavOrder = ['/dashboard', '/vps', '/domains', '/expenses', '/trash', '/settings'];
-const noMoneyNavOrder = ['/dashboard', '/subscriptions', '/phones', '/expenses', '/accounts', '/trash', '/settings'];
-const productNavItems = (product === 'yumi' ? yumiNavOrder : noMoneyNavOrder).map((path) => navItems.find((item) => item.to === path)!);
+const navOrder = ['/dashboard', '/subscriptions', '/phones', '/expenses', '/domains', '/accounts', '/trash', '/settings'];
+const productNavItems = navOrder.map((path) => navItems.find((item) => item.to === path)!);
 const PHONE_DOCK_SIZE = 4;
 
 // Every NoNo module shares this origin, outside this app's router base. The one being viewed is highlighted.
@@ -33,7 +30,6 @@ const nonoModules = [
   { id: 'nono', href: '/', label: 'NoNo' },
   { id: 'nodesk', href: '/nodesk', label: 'NoDesk' },
   { id: 'nomoney', href: '/nomoney/', label: 'NoMoney' },
-  { id: 'yumi', href: '/yumi/', label: 'Yumi' },
   { id: 'nostar', href: '/nostar/', label: 'NoStar' }
 ];
 
@@ -161,7 +157,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-1 px-2 sm:gap-2 sm:px-6">
           <nav aria-label={copy('NoNo 应用', 'NoNo apps')} className="nomoney-modules flex min-w-0 flex-1 items-center overflow-x-auto sm:gap-0.5">
             {nonoModules.map((module) => {
-              const active = module.id === product;
+              const active = module.id === 'nomoney';
               return (
                 <a
                   key={module.id}
@@ -197,8 +193,8 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
       <main className="nomoney-page-main mx-auto min-w-0 max-w-7xl px-4 pt-3 sm:px-6 lg:pt-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{current ? label(current) : productMeta.name}</h1>
-            <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy(productMeta.subtitleZh, productMeta.subtitleEn)}</p>
+            <h1 className="truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{current ? label(current) : 'NoMoney'}</h1>
+            <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">{copy('个人资产费用工作台', 'Personal finance workspace')}</p>
           </div>
           {topbarActions && <div className="flex min-w-0 flex-wrap items-center gap-2">{topbarActions}</div>}
         </div>

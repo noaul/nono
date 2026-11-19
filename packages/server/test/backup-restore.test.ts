@@ -19,6 +19,7 @@ describe('backup restoration', () => {
   let yumiDataDir: string;
   let extractedDir: string;
   let extractedValues: Record<string, string>;
+  let tarListing: string;
   let calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }>;
   let run: ReturnType<typeof vi.fn>;
 
@@ -34,44 +35,13 @@ describe('backup restoration', () => {
     fs.writeFileSync(path.join(nomoneyDataDir, 'app.db'), 'old sqlite');
     fs.writeFileSync(path.join(yumiDataDir, 'app.db'), 'old yumi sqlite');
 
-    extractedValues = {
-      'postgres.dump': 'postgres-dump',
-      'nodesk.tar.gz': 'nodesk-archive',
-      'nomoney.db': 'new sqlite',
-      'yumi.db': 'new yumi sqlite',
-    };
-    const innerManifest = {
-      kind: 'nono.full-backup',
-      version: 2,
-      id: backupId,
-      createdAt: '2026-07-18T14:00:00.000Z',
-      sourceCommit: 'abcdef123456',
-      components: {
-        postgres: { filename: 'postgres.dump', ...fingerprint(extractedValues['postgres.dump']) },
-        nodesk: { filename: 'nodesk.tar.gz', ...fingerprint(extractedValues['nodesk.tar.gz']) },
-        nomoney: { filename: 'nomoney.db', ...fingerprint(extractedValues['nomoney.db']) },
-        yumi: { filename: 'yumi.db', ...fingerprint(extractedValues['yumi.db']) },
-      },
-    };
-    extractedValues['manifest.json'] = `${JSON.stringify(innerManifest, null, 2)}\n`;
-
-    const archiveValue = 'full-archive';
-    const filename = `nono-backup-${backupId}.tar.gz`;
-    fs.writeFileSync(path.join(backupDir, filename), archiveValue);
-    fs.writeFileSync(path.join(backupDir, `nono-backup-${backupId}.json`), JSON.stringify({
-      ...innerManifest,
-      filename,
-      ...fingerprint(archiveValue),
-      status: 'verified',
-      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
-      componentRecords: innerManifest.components,
-    }));
+    writeFixture({ version: 2, yumi: true });
 
     calls = [];
     run = vi.fn(async (command: string, args: string[], options: { env?: NodeJS.ProcessEnv } = {}) => {
       calls.push({ command, args: [...args], env: options.env });
       if (command === 'tar' && args[0] === '-tzf') {
-        return { stdout: './manifest.json\n./postgres.dump\n./nodesk.tar.gz\n./nomoney.db\n./yumi.db\n', stderr: '' };
+        return { stdout: tarListing, stderr: '' };
       }
       if (command === 'tar' && args[0] === '-xzf' && args[1].includes(`nono-backup-${backupId}`)) {
         const destination = args[args.indexOf('-C') + 1];
@@ -88,6 +58,44 @@ describe('backup restoration', () => {
       return { stdout: '', stderr: '' };
     });
   });
+
+  /** v2 archives carried the separate Yumi database; v3 archives (Yumi retired) do not. */
+  function writeFixture(options: { version: 2 | 3; yumi: boolean }) {
+    extractedValues = {
+      'postgres.dump': 'postgres-dump',
+      'nodesk.tar.gz': 'nodesk-archive',
+      'nomoney.db': 'new sqlite',
+      ...(options.yumi ? { 'yumi.db': 'new yumi sqlite' } : {}),
+    };
+    const components: Record<string, { filename: string; size: number; sha256: string }> = {
+      postgres: { filename: 'postgres.dump', ...fingerprint(extractedValues['postgres.dump']) },
+      nodesk: { filename: 'nodesk.tar.gz', ...fingerprint(extractedValues['nodesk.tar.gz']) },
+      nomoney: { filename: 'nomoney.db', ...fingerprint(extractedValues['nomoney.db']) },
+    };
+    if (options.yumi) components.yumi = { filename: 'yumi.db', ...fingerprint(extractedValues['yumi.db']) };
+    const innerManifest = {
+      kind: 'nono.full-backup',
+      version: options.version,
+      id: backupId,
+      createdAt: '2026-07-18T14:00:00.000Z',
+      sourceCommit: 'abcdef123456',
+      components,
+    };
+    extractedValues['manifest.json'] = `${JSON.stringify(innerManifest, null, 2)}\n`;
+    tarListing = `${Object.keys(extractedValues).map((name) => `./${name}`).join('\n')}\n`;
+
+    const archiveValue = 'full-archive';
+    const filename = `nono-backup-${backupId}.tar.gz`;
+    fs.writeFileSync(path.join(backupDir, filename), archiveValue);
+    fs.writeFileSync(path.join(backupDir, `nono-backup-${backupId}.json`), JSON.stringify({
+      ...innerManifest,
+      filename,
+      ...fingerprint(archiveValue),
+      status: 'verified',
+      components: Object.keys(components),
+      componentRecords: components,
+    }));
+  }
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -114,6 +122,46 @@ describe('backup restoration', () => {
 
     extractedValues['nomoney.db'] = 'tampered sqlite';
     await expect(service.verify(backupId)).rejects.toThrow('nomoney component checksum mismatch');
+  });
+
+  it('restores a v2 archive, putting its Yumi database back for the NoMoney domain merge', async () => {
+    await expect(makeService().restore(backupId)).resolves.toMatchObject({ id: backupId, version: 2 });
+    expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('new sqlite');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('new yumi sqlite');
+  });
+
+  it('still checks the integrity of the Yumi database inside a v2 archive', async () => {
+    run.mockImplementation(async (command: string, args: string[]) => {
+      calls.push({ command, args: [...args] });
+      if (command === 'tar' && args[0] === '-tzf') return { stdout: tarListing, stderr: '' };
+      if (command === 'tar' && args[0] === '-xzf') {
+        const destination = args[args.indexOf('-C') + 1];
+        for (const [filename, value] of Object.entries(extractedValues)) fs.writeFileSync(path.join(destination, filename), value);
+        return { stdout: '', stderr: '' };
+      }
+      if (command === 'sqlite3') return { stdout: args[0].endsWith('yumi.db') ? 'corrupt\n' : 'ok\n', stderr: '' };
+      return { stdout: '', stderr: '' };
+    });
+    await expect(makeService().verify(backupId)).rejects.toThrow('Yumi SQLite integrity check failed');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('old yumi sqlite');
+  });
+
+  it('restores a v3 archive without touching the legacy Yumi data', async () => {
+    writeFixture({ version: 3, yumi: false });
+    await expect(makeService().restore(backupId)).resolves.toMatchObject({ id: backupId, version: 3, components: ['postgres', 'nodesk', 'nomoney'] });
+    expect(fs.readFileSync(path.join(nomoneyDataDir, 'app.db'), 'utf8')).toBe('new sqlite');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('old yumi sqlite');
+    expect(calls.filter((call) => call.command === 'sqlite3').map((call) => path.basename(call.args[0]))).toEqual(['nomoney.db']);
+  });
+
+  it('rejects a v3 archive that smuggles in a Yumi database or claims a Yumi component', async () => {
+    writeFixture({ version: 3, yumi: false });
+    tarListing += './yumi.db\n';
+    await expect(makeService().verify(backupId)).rejects.toThrow('unexpected file');
+
+    writeFixture({ version: 3, yumi: true });
+    await expect(makeService().verify(backupId)).rejects.toThrow('Backup not found');
+    expect(fs.readFileSync(path.join(yumiDataDir, 'app.db'), 'utf8')).toBe('old yumi sqlite');
   });
 
   it('restores PostgreSQL, NoDesk and NoMoney only after verification', async () => {

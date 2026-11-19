@@ -3,49 +3,27 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-describe('NoMoney and Yumi product surfaces', () => {
-  it('defines the approved navigation order for both products', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Layout.tsx'), 'utf8');
-    expect(source).toContain("product === 'yumi'");
-    expect(source).toContain("['/dashboard', '/vps', '/domains', '/expenses', '/trash', '/settings']");
-    expect(source).toContain("['/dashboard', '/subscriptions', '/phones', '/expenses', '/accounts', '/trash', '/settings']");
+const read = (file: string) => fs.readFileSync(path.resolve(process.cwd(), file), 'utf8');
+
+describe('NoMoney product surface', () => {
+  it('defines the approved navigation order, with domains back in NoMoney', () => {
+    const source = read('src/Layout.tsx');
+    expect(source).toContain("['/dashboard', '/subscriptions', '/phones', '/expenses', '/domains', '/accounts', '/trash', '/settings']");
+    expect(source).not.toContain("'/vps'");
+    expect(source).not.toMatch(/yumi/i);
   });
 
-  it('uses a status-first Yumi overview with no cost components', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
-    expect(source).toContain('status-history-strip');
-    expect(source).toContain('useLayoutActions');
-    expect(source).toContain('yumi-status-grid');
-    expect(source).toContain('domainStats');
-    expect(source).not.toContain('<PageHeader');
-    expect(source).toContain('overallStatus');
-    expect(source).toContain('uptimePercent');
-    expect(source).not.toContain('MoneyList');
-    expect(source).not.toContain('predictedYearly');
-    expect(source).not.toContain('actualYearly');
-  });
-
-  it('offers five status windows and defaults to the latest 24 hours', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
-
-    expect(source).toContain("useState<StatusWindow>('24h')");
-    expect(source).toContain("['2h', '24h', '7d', '30d', '90d']");
-    expect(source).toContain("/api/status/overview?window=${statusWindow}");
-    expect(source).toContain('yumi-status-window-selector');
-    expect(source).toContain("window === '2h' || window === '24h'");
-  });
-
-  it('connects the tested refresh lifecycle and ignores requests after unmount', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/YumiOverview.tsx'), 'utf8');
-
-    expect(source).toContain('startVisibleStatusRefresh');
-    expect(source).toContain('mountedRef.current = false');
-    expect(source).toContain('copyRef.current = copy');
-    expect(source).toContain('const error = refreshError || loadError;');
+  it('has no Yumi product mode, VPS pages or Status overview left', () => {
+    for (const file of ['src/product.ts', 'src/YumiOverview.tsx', 'src/asset-page/vps.tsx', 'src/vps-capacity.ts', 'src/yumi-status-display.ts', 'src/yumi-status-refresh.ts']) {
+      expect(fs.existsSync(path.resolve(process.cwd(), file)), file).toBe(false);
+    }
+    expect(read('src/assetConfig.ts')).not.toContain("endpoint: 'vps'");
+    expect(read('package.json')).not.toContain('build:yumi');
+    expect(read('vite.config.ts')).not.toMatch(/yumi/i);
   });
 
   it('moves the expense action into the shared top bar and shows summary before the ledger', () => {
-    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Expenses.tsx'), 'utf8');
+    const source = read('src/Expenses.tsx');
     expect(source).toContain('useLayoutActions');
     expect(source).toContain('expense-summary-grid');
     expect(source).toContain('meta?.summary');
@@ -53,20 +31,19 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(source.indexOf('expense-summary-grid')).toBeLessThan(source.indexOf('<DataTable'));
   });
 
-  it('scopes trash and expense asset options to the active product', () => {
-    const trash = fs.readFileSync(path.resolve(process.cwd(), 'src/TrashPage.tsx'), 'utf8');
-    const expenses = fs.readFileSync(path.resolve(process.cwd(), 'src/Expenses.tsx'), 'utf8');
-    expect(trash).toContain("product === 'yumi'");
-    expect(trash).toContain("['vps', 'domains']");
-    expect(trash).toContain("['phones', 'subscriptions']");
-    expect(expenses).toContain("['vps', 'domain']");
+  it('lists every NoMoney asset type in the trash and expense forms', () => {
+    const trash = read('src/TrashPage.tsx');
+    const expenses = read('src/Expenses.tsx');
+    expect(trash).toContain('const productAssetConfigs = assetPageConfigs;');
+    expect(trash).toContain("api.get<ListResponse<CommunicationAccount>>('/api/accounts?trashed=true')");
+    expect(expenses).toContain("['phone', 'domain', 'subscription']");
   });
 
   it('signs in through NoNo instead of a product login page', () => {
-    const app = fs.readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf8');
-    const settings = fs.readFileSync(path.resolve(process.cwd(), 'src/SettingsPage.tsx'), 'utf8');
+    const app = read('src/App.tsx');
+    const settings = read('src/SettingsPage.tsx');
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/AuthPages.tsx'))).toBe(false);
-    expect(app).toContain('productMeta.name');
+    expect(app).toContain('NoMoney 暂时无法验证登录');
     expect(app).toContain('window.location.replace(nonoLoginUrl())');
     expect(app).not.toContain('/api/auth/setup-status');
     expect(settings).toContain('productBackupName');
@@ -74,22 +51,13 @@ describe('NoMoney and Yumi product surfaces', () => {
     expect(settings).not.toContain('/api/auth/password');
   });
 
-  it('brands the generated HTML for the active product', () => {
-    const config = fs.readFileSync(path.resolve(process.cwd(), 'vite.config.ts'), 'utf8');
-    expect(config).toContain('transformIndexHtml');
-    expect(config).toContain("product === 'yumi' ? 'Yumi' : 'NoMoney'");
-  });
-
   it('uses full-result asset summaries and cancels stale filter requests', () => {
     const assetPage = readAssetPageSource();
-    const api = fs.readFileSync(path.resolve(process.cwd(), 'src/api.ts'), 'utf8');
+    const api = read('src/api.ts');
 
     expect(assetPage).toContain('meta?.assetSummary');
     expect(assetPage).toContain('new AbortController()');
     expect(assetPage).toContain('controller.abort()');
-    expect(assetPage).toContain('value={stats.total}');
-    expect(assetPage).toContain('`${stats.online}/${stats.total}`');
-    expect(assetPage).toContain('stats.riskWithin30Days');
     expect(assetPage).toContain('<PhoneVisualDashboard items={items} stats={phoneStats}');
     expect(api).toContain('signal?: AbortSignal');
   });

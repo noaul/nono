@@ -10,10 +10,10 @@ describe('GET /api/admin/overview', () => {
   let app: FastifyInstance;
   afterEach(async () => { await app?.close(); });
 
-  async function start() {
+  async function start(options: { nomoneyDown?: boolean } = {}) {
     const repo = new MemoryRepository(false);
-    const productOverviewReader = vi.fn(async (product: 'nomoney' | 'yumi') => {
-      if (product === 'yumi') throw new Error('Yumi overview is unavailable');
+    const productOverviewReader = vi.fn(async (product: 'nomoney') => {
+      if (options.nomoneyDown) throw new Error('nomoney overview is unavailable');
       return { product, due: { buckets: { overdue: 1, today: 0, week: 2, month: 0 }, next: [] } };
     });
     app = await buildApp({
@@ -30,8 +30,8 @@ describe('GET /api/admin/overview', () => {
     return { repo, cookie, productOverviewReader };
   }
 
-  it('gathers every product and isolates a failing one', async () => {
-    const { repo, cookie } = await start();
+  it('gathers every product', async () => {
+    const { repo, cookie, productOverviewReader } = await start();
     const folder = await repo.createFolder({ userId: 1, name: 'F', sortOrder: 1 } as any);
     await repo.createLink({ folderId: folder.id, name: 'Dead', url: 'https://dead.test/', sortOrder: 1, healthStatus: 'broken' } as any);
     await repo.createLink({ folderId: folder.id, name: 'Muted', url: 'https://muted.test/', sortOrder: 2, healthStatus: 'broken', healthCheckEnabled: false } as any);
@@ -45,7 +45,16 @@ describe('GET /api/admin/overview', () => {
     expect(data.nostar).toEqual({ state: 'ok', data: { unreadReleases: 4 } });
     expect(data.backup).toMatchObject({ state: 'ok', data: { enabled: true, lastSuccessAt: '2026-10-01T03:00:00.000Z' } });
     expect(data.nomoney).toMatchObject({ state: 'ok', data: { product: 'nomoney', due: { buckets: { overdue: 1 } } } });
-    expect(data.yumi).toEqual({ state: 'unavailable', error: 'Yumi overview is unavailable' });
+    // Yumi is retired: its domains are part of NoMoney's overview and it has no block of its own.
+    expect(data).not.toHaveProperty('yumi');
+    expect(productOverviewReader.mock.calls).toEqual([['nomoney']]);
+  });
+
+  it('isolates a failing product block', async () => {
+    const { cookie } = await start({ nomoneyDown: true });
+    const data = (await app.inject({ method: 'GET', url: '/api/admin/overview', headers: { cookie } })).json().data;
+    expect(data.nomoney).toEqual({ state: 'unavailable', error: 'nomoney overview is unavailable' });
+    expect(data.notifications).toEqual({ state: 'ok', data: { unread: 7, urgent: 2 } });
   });
 
   it('is limited to administrators with a browser session', async () => {

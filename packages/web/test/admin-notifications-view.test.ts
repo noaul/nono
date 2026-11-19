@@ -1,10 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import NotificationsView from '../src/views/admin/NotificationsView.vue';
-import ToastHost from '../src/components/admin/ToastHost.vue';
 import { apiRequest } from '../src/api/client';
 import { clearToasts } from '../src/composables/useToasts';
-import { closeTopLayer } from '../src/mobile/back-layers';
 
 vi.mock('../src/api/client', () => ({
   apiRequest: vi.fn(),
@@ -92,69 +90,32 @@ describe('NotificationsView', () => {
     expect(wrapper.text()).not.toContain('NoNo 访问异常');
   });
 
-  it('marks a NoMoney VPS as renewed directly from its notification', async () => {
-    const vpsFeed = {
+  it('shows NoMoney domain reminders as plain links without the retired VPS renewal action', async () => {
+    mockedApiRequest.mockResolvedValueOnce({
       generatedAt: '2026-07-18T08:00:00.000Z',
       unreadCount: 1,
       items: [{
-        key: 'yumi:vps',
-        source: 'yumi',
+        key: 'nomoney:domain',
+        source: 'nomoney',
         severity: 'warning',
-        title: 'VPS nc48 即将到期',
-        description: '到期日 2026-08-10',
-        href: '/yumi/vps',
-        occurredAt: '2026-08-10T23:59:00',
-        dueAt: '2026-08-10T23:59:00',
+        title: '域名 example.com 3 天后到期',
+        description: '到期日 2026-07-21',
+        href: '/nomoney/domains?edit=10',
+        occurredAt: '2026-07-21T23:59:00',
+        dueAt: '2026-07-21T23:59:00',
         entityId: 10,
-        entityType: 'vps',
-        entityLabel: 'nc48',
-        renewalDate: '2026-08-10',
+        entityType: 'domain',
+        entityLabel: 'example.com',
+        renewalDate: '2026-07-21',
         read: false,
       }],
-    };
-    mockedApiRequest
-      .mockResolvedValueOnce(structuredClone(vpsFeed) as any)
-      .mockResolvedValueOnce({
-        idempotent: false,
-        item: { id: 10, expireDate: '2027-08-10' },
-        renewal: { id: 41, renewedExpireDate: '2027-08-10', amountMinorUnits: 1200, currency: 'USD' },
-      } as any);
-    const wrapper = mount(NotificationsView, { attachTo: document.body, global: { stubs: { RouterLink: true } } });
+    } as any);
+    const wrapper = mount(NotificationsView, { global: { stubs: { RouterLink: true } } });
     await flushPromises();
 
-    await wrapper.get('[data-testid="mark-vps-renewed-10"]').trigger('click');
-    await flushPromises();
-
-    expect(mockedApiRequest).toHaveBeenLastCalledWith('/api/admin/yumi/vps/10/renew', expect.objectContaining({
-      method: 'POST',
-    }));
-    expect(wrapper.findAll('.notification-row')).toHaveLength(0);
-
-    const toastHost = mount(ToastHost, { attachTo: document.body });
-    expect(toastHost.text()).toContain('撤销');
-    expect(toastHost.text()).toContain('修改金额');
-
-    const openEditor = async () => {
-      const editButton = toastHost.findAll('.toast-action').find((button) => button.text() === '修改金额')!;
-      (editButton.element as HTMLElement).focus();
-      await editButton.trigger('click');
-      await flushPromises();
-    };
-    await openEditor();
-    const dialog = wrapper.get('[data-testid="renewal-amount-editor"]');
-    expect(document.activeElement).toBe(dialog.get('input').element);
-    expect(document.body.style.overflow).toBe('hidden');
-    const controls = dialog.findAll('button');
-    (controls.at(-1)!.element as HTMLElement).focus();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-    expect(document.activeElement).toBe(controls[0].element);
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(wrapper.find('[data-testid="renewal-amount-editor"]').exists()).toBe(false);
-    expect(document.body.style.overflow).toBe('');
-    expect(document.activeElement).toBe(wrapper.get('.notification-filters button').element);
-    expect(closeTopLayer()).toBe(false);
+    expect(wrapper.get('.notification-copy a').attributes('href')).toBe('/nomoney/domains?edit=10');
+    expect(wrapper.find('[data-testid="mark-vps-renewed-10"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="notification-source-yumi"]').exists()).toBe(false);
     wrapper.unmount();
-    toastHost.unmount();
   });
 });

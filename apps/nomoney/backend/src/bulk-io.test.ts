@@ -5,7 +5,7 @@ const subscription = { purchaseType: 'subscription', amountMinorUnits: 1500, cur
 
 describe('bulk actions', () => {
   test('trashes, restores, retags and changes status for many items at once', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     for (const name of ['A', 'B', 'C']) await agent.post('/api/subscriptions').send({ ...subscription, name, tags: ['x'] }).expect(201);
 
     expect((await agent.post('/api/subscriptions/bulk').send({ ids: [1, 2], action: 'addTag', tag: 'work' })).body).toEqual({ changed: 2 });
@@ -23,7 +23,7 @@ describe('bulk actions', () => {
 
 describe('CSV export and import', () => {
   test('round-trips subscriptions with decimal money and tags', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     await agent.post('/api/subscriptions').send({ ...subscription, name: 'Video, HD', tags: ['a', 'b'], notes: '=cmd' }).expect(201);
 
     const exported = await agent.get('/api/subscriptions/export.csv').expect(200);
@@ -39,7 +39,7 @@ describe('CSV export and import', () => {
   });
 
   test('imports nothing when any row is invalid and reports the row number', async () => {
-    const { agent } = await setupAgent('nomoney');
+    const { agent } = await setupAgent();
     const csv = 'name,amount,currency,billingCycle,purchaseType,status\nGood,9.90,CNY,monthly,subscription,active\nBad,1,XYZ,monthly,subscription,active\n';
 
     const response = await agent.post('/api/subscriptions/import').send({ csv }).expect(200);

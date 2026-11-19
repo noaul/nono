@@ -13,7 +13,7 @@ class DownloadPolicy(baseUrl: String) {
         return path == "/api/admin/bookmarks/export" ||
             Regex("^/api/admin/backups/[A-Za-z0-9_.-]+/download$").matches(path) ||
             Regex("^/api/admin/backup-center/jobs/[A-Za-z0-9_-]+/download$").matches(path) ||
-            Regex("^/(nomoney|yumi)/api/(phones|vps|domains|subscriptions|expenses)/export\\.csv$").matches(path)
+            Regex("^/nomoney/api/(phones|domains|subscriptions|expenses)/export\\.csv$").matches(path)
     }
 
     fun filename(raw: String): String = raw.replace('\\', '/').substringAfterLast('/')

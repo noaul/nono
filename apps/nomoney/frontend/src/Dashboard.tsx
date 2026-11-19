@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { RenewButton, RenewalToast, useRenewals, type RenewableEndpoint } from './renewals';
+import { RenewButton, RenewalToast, renewalAssetFromDueItem, useRenewals, type RenewableEndpoint } from './renewals';
 import { useI18n } from './i18n';
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   CircleDollarSign,
   Database,
   Layers3,
+  Globe2,
   Phone,
   Repeat2,
   TrendingUp
@@ -51,12 +52,12 @@ function subcategoryLabel(key: string, fallback: string, copy: Copy): string {
 
 const buildCategoryDefinitions = (copy: Copy): CategoryDefinition[] => [
   { assetType: 'phone', name: copy('电话卡', 'SIM cards'), description: copy('国内与国外号码', 'Domestic and overseas numbers'), path: '/phones', icon: <Phone size={18} />, color: '#3b82f6', tone: 'brand' },
+  { assetType: 'domain', name: copy('域名', 'Domains'), description: copy('按注册商归集', 'Grouped by registrar'), path: '/domains', icon: <Globe2 size={18} />, color: '#f59e0b', tone: 'warning' },
   { assetType: 'subscription', name: copy('订阅', 'Subscriptions'), description: copy('订阅制与买断制', 'Recurring and one-off'), path: '/subscriptions', icon: <Repeat2 size={18} />, color: '#f43f5e', tone: 'danger' }
 ];
 
 const buildAssetTypeLabels = (copy: Copy): Record<AssetType, string> => ({
   phone: copy('电话卡', 'SIM card'),
-  vps: 'VPS',
   domain: copy('域名', 'Domain'),
   subscription: copy('订阅', 'Subscription')
 });
@@ -64,22 +65,8 @@ const buildAssetTypeLabels = (copy: Copy): Record<AssetType, string> => ({
 const assetEndpoints: Record<AssetType, RenewableEndpoint> = {
   phone: 'phones',
   subscription: 'subscriptions',
-  vps: 'vps',
   domain: 'domains'
 };
-
-/** Enough of an asset for the shared renewal helpers, built from a due-list row. */
-function dueItemAsAsset(item: DueItem): AssetItem {
-  return {
-    id: item.assetId,
-    nextDueDate: item.dueDate,
-    expireDate: item.dueDate,
-    billingCycle: item.billingCycle,
-    status: item.status,
-    amountMinorUnits: item.amountMinorUnits,
-    currency: item.currency
-  } as AssetItem;
-}
 
 type DueRow = DueItem & { id: string };
 
@@ -103,7 +90,7 @@ const buildDueColumns = (
     { key: 'actions', header: '', align: 'right', render: (item) => (
       <div className="flex justify-end gap-1">
         {(item.kind ?? 'renewal') === 'renewal' && (
-          <RenewButton endpoint={assetEndpoints[item.assetType]} item={dueItemAsAsset(item)} renewing={renewal.renewingKey === item.id} onRenew={() => renewal.onRenew(item)} copy={copy} />
+          <RenewButton endpoint={assetEndpoints[item.assetType]} item={renewalAssetFromDueItem(item)} renewing={renewal.renewingKey === item.id} onRenew={() => renewal.onRenew(item)} copy={copy} />
         )}
         <Link href={`/${assetEndpoints[item.assetType]}?edit=${item.assetId}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/[0.06] dark:hover:text-white" title={copy('打开', 'Open')} aria-label={copy('打开', 'Open')}>
           <Pencil size={14} />
@@ -136,7 +123,7 @@ export function Dashboard() {
   const renewDue = async (item: DueItem) => {
     setRenewingKey(`${item.kind ?? 'renewal'}-${item.assetType}-${item.assetId}`);
     try {
-      await renewals.renew(assetEndpoints[item.assetType], dueItemAsAsset(item));
+      await renewals.renew(assetEndpoints[item.assetType], renewalAssetFromDueItem(item));
     } finally {
       setRenewingKey(null);
     }

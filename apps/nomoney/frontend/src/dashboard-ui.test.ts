@@ -3,13 +3,13 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('NoMoney dashboard cost coverage', () => {
-  it('renders complete cost cards only for NoMoney-owned asset categories', () => {
+  it('renders complete cost cards for phone cards, domains and subscriptions', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/Dashboard.tsx'), 'utf8');
 
     expect(source).toContain("assetType: 'phone'");
     expect(source).toContain("assetType: 'subscription'");
     expect(source).not.toContain("assetType: 'vps', name:");
-    expect(source).not.toContain("assetType: 'domain', name:");
+    expect(source).toContain("assetType: 'domain', name:");
     expect(source).toContain('summary.categoryCosts[definition.assetType]');
     expect(source).toContain('月度折算');
     expect(source).toContain('年度预测');

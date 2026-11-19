@@ -24,7 +24,6 @@ test('refuses to start when any required secret is unset', () => {
     'BOOTSTRAP_TOKEN',
     'ENCRYPTION_KEY',
     'NOMONEY_INTERNAL_TOKEN',
-    'YUMI_ENCRYPTION_KEY',
   ]) {
     assert.match(
       compose,
@@ -35,6 +34,8 @@ test('refuses to start when any required secret is unset', () => {
 
   // The one deliberate exception: it falls back to ENCRYPTION_KEY inside the app.
   assert.match(compose, /NOMONEY_ENCRYPTION_KEY:\s*\$\{NOMONEY_ENCRYPTION_KEY:-\}/);
+  // Yumi is retired, so its key is no longer demanded.
+  assert.doesNotMatch(compose, /YUMI_ENCRYPTION_KEY/);
 });
 
 test('binds PostgreSQL locally by default and documents required variables', () => {

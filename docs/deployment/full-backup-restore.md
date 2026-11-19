@@ -4,8 +4,9 @@
 
 - PostgreSQL：NoNo、NoStar、用户、Passkey、设备会话和加密配置。
 - Nodesk：文章、图片、站点配置与日程内容。
-- NoMoney：`app.db` SQLite 数据库。
-- Yumi：独立的 `app.db` SQLite 数据库，包括 VPS Status 历史。
+- NoMoney：`app.db` SQLite 数据库，包括电话卡、订阅和域名。
+
+Yumi 已退役：域名并回 NoMoney，VPS 管理与 Status 监控不再提供。新归档不再包含 Yumi 数据库；旧的 `yumi_data` 卷只作为 NoMoney 启动时一次性合并域名的来源保留，不参与新备份。
 
 备份文件保存在 `nono_backups` Docker 命名卷。每次创建都会生成一个 `.tar.gz` 归档和一个同名 `.json` 清单，记录来源提交、文件大小以及归档和组件的 SHA-256。创建成功前会执行 `pg_restore --list` 与 SQLite `PRAGMA integrity_check`。
 
@@ -21,7 +22,7 @@ npm run backup:verify -- --dir /opt/nono --id 20260718T140000Z
 npm run backup:drill -- --dir /opt/nono --id 20260718T140000Z
 ```
 
-`backup:drill` 会先完成归档与四个组件的校验，再创建临时 PostgreSQL 数据库并执行完整 `pg_restore`，同时把 NoDesk 内容解压到临时目录，并分别校验 NoMoney、Yumi SQLite。演练不会写入生产数据，结束后会删除临时数据库和目录。
+`backup:drill` 会先完成归档与各组件的校验，再创建临时 PostgreSQL 数据库并执行完整 `pg_restore`，同时把 NoDesk 内容解压到临时目录，并校验 NoMoney SQLite（v2 归档还会校验其中的 Yumi SQLite）。演练不会写入生产数据，结束后会删除临时数据库和目录。
 
 ## 自动备份
 
@@ -79,10 +80,10 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 恢复器按以下顺序执行：
 
-1. 深度校验目标归档、归档路径、四个组件的 SHA-256、PostgreSQL TOC 和两套 SQLite 完整性。
+1. 深度校验目标归档、归档路径、所有组件的 SHA-256、PostgreSQL TOC 和归档内 SQLite 的完整性。
 2. 锁定当前不可变应用镜像并停止业务容器，阻止继续写入。
 3. 使用临时容器创建并验证停写后的安全快照，保存至 `/app/backups/deployment-safety`，不参与常规保留策略。部署成功后只保留最近 5 份安全快照，更早的会被删除；清理失败只记录日志，不影响部署结果。
-4. 恢复 PostgreSQL、清空并恢复 NoDesk、原子替换 NoMoney 与 Yumi 数据库。
+4. 恢复 PostgreSQL、清空并恢复 NoDesk、原子替换 NoMoney 数据库（v2 归档同时把其中的 Yumi 数据库放回旧的 Yumi 数据卷）。
 5. 在隔离端口启动，使用维护凭证验收；重新绑定正常端口后仍保持维护模式，再次验收后才开放访问。
 6. 开放访问前失败时停止应用，恢复步骤 3 的安全快照并再次验收。开放操作结果不确定时不覆盖数据，应先人工确认现场。
 
@@ -90,7 +91,12 @@ flock -n /var/lock/nono-deploy.lock npm run backup:restore -- \
 
 恢复 PostgreSQL 会同时恢复备份时的账号、Passkey、API Token 和设备会话。恢复完成后应使用备份时有效的账号登录。
 
-当前四组件归档版本为 v2。恢复器仍接受旧 v1 三组件归档；恢复 v1 时只恢复 PostgreSQL、NoDesk 和 NoMoney，不会清空或覆盖当前 Yumi 数据库。升级后的首个生产备份必须使用 v2，并完成一次 `backup:verify` 或 `backup:drill`。
+当前归档版本为 v3，包含 PostgreSQL、NoDesk 和 NoMoney 三个组件。恢复器仍接受旧归档：
+
+- v1（三组件）：只恢复 PostgreSQL、NoDesk 和 NoMoney，不触碰 Yumi 数据卷。
+- v2（四组件，含 `yumi.db`）：照常校验 Yumi SQLite 完整性，并把它恢复到旧的 Yumi 数据卷，这样恢复出的合并前 NoMoney 数据库在下次启动时能重新合并 Yumi 的域名。
+
+恢复 v3 归档不会改动 Yumi 数据卷。升级后的首个生产备份即为 v3，应完成一次 `backup:verify` 或 `backup:drill`。
 
 ## 跨服务器恢复
 
@@ -102,7 +108,7 @@ docker compose cp nono-backup-20260718T140000Z.json app:/app/backups/
 npm run backup:verify -- --dir /opt/nono --id 20260718T140000Z
 ```
 
-然后运行上一节的恢复命令。新服务器必须配置原来的 `ENCRYPTION_KEY`、`NOMONEY_ENCRYPTION_KEY` 和 `YUMI_ENCRYPTION_KEY`，否则各数据库中已加密的集成、WebDAV 和 VPS 凭据无法解密。
+然后运行上一节的恢复命令。新服务器必须配置原来的 `ENCRYPTION_KEY` 和 `NOMONEY_ENCRYPTION_KEY`，否则各数据库中已加密的集成和 WebDAV 凭据无法解密。`YUMI_ENCRYPTION_KEY` 已不再需要。
 
 ## 安全边界
 

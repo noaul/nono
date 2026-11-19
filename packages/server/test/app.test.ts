@@ -76,7 +76,7 @@ describe('NoNo Fastify app', () => {
     expect(response.json()).toEqual({ code: 0, data: { ok: true }, message: '' });
   });
 
-  it('lets NoMoney and Yumi resolve a NoNo browser session through the internal token', async () => {
+  it('lets NoMoney resolve a NoNo browser session through the internal token', async () => {
     await app.close();
     app = await buildApp({ repo, sessionSecret, encryptionKey, internalToken: 'internal-secret' });
     const adminCookie = await setupAdmin();
@@ -109,7 +109,7 @@ describe('NoNo Fastify app', () => {
       repo: new MemoryRepository(false),
       sessionSecret,
       encryptionKey,
-      readinessCheck: async () => ({ postgres: true, nodesk: true, nomoney: true, yumi: true }),
+      readinessCheck: async () => ({ postgres: true, nodesk: true, nomoney: true }),
     } as any);
 
     const live = await readyApp.inject({ method: 'GET', url: '/livez' });
@@ -119,7 +119,7 @@ describe('NoNo Fastify app', () => {
     expect(ready.statusCode).toBe(200);
     expect(ready.json()).toEqual({
       code: 0,
-      data: { ok: true, checks: { postgres: true, nodesk: true, nomoney: true, yumi: true } },
+      data: { ok: true, checks: { postgres: true, nodesk: true, nomoney: true } },
       message: '',
     });
     await readyApp.close();

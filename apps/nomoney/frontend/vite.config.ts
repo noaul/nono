@@ -2,31 +2,20 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig(({ mode }) => {
-  const product = mode === 'yumi' ? 'yumi' : 'nomoney';
-  const productName = product === 'yumi' ? 'Yumi' : 'NoMoney';
+export default defineConfig(() => {
   return {
-    base: `/${product}/`,
-    plugins: [
-      react(),
-      tailwindcss(),
-      {
-        name: 'product-html-branding',
-        transformIndexHtml(html) {
-          return html.replace(/NoMoney/g, productName);
-        }
-      }
-    ],
+    base: '/nomoney/',
+    plugins: [react(), tailwindcss()],
     server: {
       proxy: {
-        [`/${product}/api`]: {
+        '/nomoney/api': {
           target: 'http://localhost:3000',
-          rewrite: (path) => path.replace(new RegExp(`^/${product}`), '')
+          rewrite: (path) => path.replace(/^\/nomoney/, '')
         }
       }
     },
     build: {
-      outDir: product === 'yumi' ? '../backend/public-yumi' : '../backend/public',
+      outDir: '../backend/public',
       emptyOutDir: true,
       rollupOptions: {
         output: {

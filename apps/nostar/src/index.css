@@ -1089,7 +1089,7 @@ textarea::-webkit-resizer {
 }
 
 /* ==========================================================================
-   Application shell — the same frame as NoMoney and Yumi: modules on top, pages in a dock.
+   Application shell — the same frame as NoMoney: modules on top, pages in a dock.
    Geometry and colour come from design-tokens.css; nothing here is NoStar-specific.
    See docs/design/ui-contract.md.
    ========================================================================== */
@@ -1155,7 +1155,7 @@ textarea::-webkit-resizer {
   color: var(--ui-text);
 }
 
-/* The module being viewed is a solid inverted block, matching NoMoney and Yumi. */
+/* The module being viewed is a solid inverted block, matching NoMoney. */
 .nostar-module.is-active {
   background: var(--ui-text);
   color: var(--ui-canvas);

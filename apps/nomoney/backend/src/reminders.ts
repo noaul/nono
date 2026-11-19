@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { Router } from 'express';
 import { z } from 'zod';
-import type { AppContext, AssetType, DbClient } from './types.js';
+import { productAssetTypes, type AppContext, type AssetType, type DbClient } from './types.js';
 import { assetConfigs } from './assets.js';
 import { collectDueItems, type DueItem } from './dashboard.js';
 import { getSettings } from './settings.js';
@@ -24,7 +24,7 @@ export function registerReminderRoutes(router: Router, context: AppContext, allo
 
   router.get('/reminders/logs', (req, res) => {
     const query = logQuerySchema.parse(req.query);
-    const types = allowedTypes ?? ['phone', 'vps', 'domain', 'subscription'];
+    const types = allowedTypes ?? [...productAssetTypes];
     const placeholders = types.map(() => '?').join(', ');
     const total = context.db.get<{ count: number }>(`SELECT COUNT(*) as count FROM reminder_logs WHERE asset_type IN (${placeholders})`, types);
     const rows = context.db.all<Record<string, unknown>>(
@@ -81,9 +81,9 @@ async function performReminderScan(context: AppContext, allowedTypes?: AssetType
   try {
     const results = await notify(context, {
       subject: settings.language === 'en'
-        ? `[${productName(context)}] ${unsent.length} renewals need attention`
-        : `[${productName(context)} 到期提醒] ${unsent.length} 个项目需要关注`,
-      text: renderDigest(unsent, settings.language, productName(context)),
+        ? `[NoMoney] ${unsent.length} renewals need attention`
+        : `[NoMoney 到期提醒] ${unsent.length} 个项目需要关注`,
+      text: renderDigest(unsent, settings.language, 'NoMoney'),
       severity: unsent.some((item) => item.daysLeft < 0) ? 'critical' : 'warning'
     });
     // Delivered if any channel got it; a dead webhook should not block email.
@@ -128,10 +128,6 @@ export function activeThreshold(daysLeft: number, thresholds: number[]): number 
   return [...thresholds].sort((a, b) => a - b).find((days) => days >= daysLeft) ?? null;
 }
 
-function productName(context: AppContext) {
-  return context.product === 'yumi' ? 'Yumi' : 'NoMoney';
-}
-
 function hasSentReminder(context: AppContext, item: ReminderItem): boolean {
   const row = context.db.get<{ count: number }>(
     `SELECT COUNT(*) as count FROM reminder_logs
@@ -160,7 +156,6 @@ function insertReminderLog(
 const typeLabels: Record<AssetType, { zh: string; en: string }> = {
   phone: { zh: '电话卡', en: 'Phone card' },
   subscription: { zh: '订阅', en: 'Subscription' },
-  vps: { zh: 'VPS', en: 'VPS' },
   domain: { zh: '域名', en: 'Domain' }
 };
 

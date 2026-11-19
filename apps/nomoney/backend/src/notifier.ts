@@ -20,7 +20,6 @@ export async function notify(context: AppContext, message: NotificationMessage):
 interface NonoNotifierOptions {
   baseUrl: string;
   internalToken: string;
-  product: 'nomoney' | 'yumi';
   fetch?: typeof fetch;
 }
 
@@ -36,7 +35,7 @@ export function createNonoNotifier(options: NonoNotifierOptions): Notifier {
       const response = await fetcher(`${options.baseUrl}/api/internal/notifications/relay`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-nono-internal-token': options.internalToken },
-        body: JSON.stringify({ product: options.product, ...message }),
+        body: JSON.stringify({ product: 'nomoney', ...message }),
         redirect: 'error',
         signal: AbortSignal.timeout(30_000)
       });

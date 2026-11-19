@@ -8,7 +8,6 @@ import type { NotificationService } from './services/notification.service.js';
 import type { NotificationDispatcher } from './services/notification-dispatch.service.js';
 import type { BackupAutomationService } from './services/backup-automation.service.js';
 import type { AuditLogService } from './services/audit.service.js';
-import type { NoMoneyClient } from './services/nomoney-client.js';
 import type { BackupCenterService } from './services/backup-center.service.js';
 import type { BackupJobService, BackupOperationGate } from './services/backup-jobs.service.js';
 import type { MobilePushOutbox } from './services/mobile-push-outbox.service.js';
@@ -33,7 +32,7 @@ export interface AppServices {
   repo: Repository;
   sessionSecret: string;
   bootstrapToken: string;
-  /** Shared secret NoMoney and Yumi present on /api/internal calls; empty disables those routes. */
+  /** Shared secret NoMoney presents on /api/internal calls; empty disables those routes. */
   internalToken: string;
   encryptionKey: string;
   nodeskContentDir: string;
@@ -55,9 +54,8 @@ export interface AppServices {
   auditLogService: AuditLogService;
   notificationService: NotificationService;
   notificationDispatcher: NotificationDispatcher;
-  /** Reads NoMoney's or Yumi's internal overview for the NoDesk "today" panel. */
-  productOverviewReader: (product: 'nomoney' | 'yumi') => Promise<Record<string, unknown>>;
-  noMoneyClient: NoMoneyClient;
+  /** Reads NoMoney's internal overview for the NoDesk "today" panel. */
+  productOverviewReader: (product: 'nomoney') => Promise<Record<string, unknown>>;
   mobileStore: MobileStore;
   mobileDevices: MobileDeviceService;
   mobilePushOutbox: MobilePushOutbox;
@@ -68,7 +66,6 @@ export type ReadinessChecks = {
   postgres: boolean;
   nodesk: boolean;
   nomoney: boolean;
-  yumi: boolean;
 };
 
 export interface LlmClient {

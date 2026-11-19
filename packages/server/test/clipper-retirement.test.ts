@@ -44,7 +44,7 @@ describe('retired clipping functionality', () => {
     expect(hasApiTokenScope(DEFAULT_API_TOKEN_SCOPES, requiredApiTokenScope({ method: 'POST', url: '/api/clipper/clips' } as never))).toBe(false);
   });
 
-  it('exports only the five supported modules in a full local backup', async () => {
+  it('exports only the four supported modules in a full local backup', async () => {
     const modules = createBackupModuleAdapters({ prisma: {} as never, encryptionKey: '1'.repeat(64), nodeskContentDir: '/unused' });
     for (const adapter of Object.values(modules)) {
       adapter.export = async () => Buffer.from('{}');
@@ -52,6 +52,6 @@ describe('retired clipping functionality', () => {
     }
     const service = createBackupCenterService({ repo: new MemoryRepository(false), encryptionKey: '1'.repeat(64), adapters: modules });
     const backup = await service.createLocalBackup(1, 'all');
-    expect(Object.keys(JSON.parse(backup.body.toString()).modules)).toEqual(['nono', 'nodesk', 'nostar', 'nomoney', 'yumi']);
+    expect(Object.keys(JSON.parse(backup.body.toString()).modules)).toEqual(['nono', 'nodesk', 'nostar', 'nomoney']);
   });
 });

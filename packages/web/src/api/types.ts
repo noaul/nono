@@ -205,7 +205,7 @@ export interface ApiTokenSummary {
   expiringSoon: number;
 }
 
-export type AdminNotificationSource = 'nodesk' | 'nomoney' | 'yumi' | 'nostar' | 'links' | 'backup';
+export type AdminNotificationSource = 'nodesk' | 'nomoney' | 'nostar' | 'links' | 'backup';
 export type AdminNotificationSeverity = 'info' | 'warning' | 'critical';
 
 export interface AdminNotification {

@@ -20,7 +20,6 @@ export function createBackupModuleAdapters(options: {
   nodeskContentDir: string;
   internalToken?: string;
   noMoneyPort?: number;
-  yumiPort?: number;
   fetch?: typeof fetch;
   run?: BackupCommandRunner;
   now?: () => Date;
@@ -33,7 +32,6 @@ export function createBackupModuleAdapters(options: {
     nodesk: createNoDeskAdapter(options.nodeskContentDir, run),
     nostar: createNoStarAdapter(options.prisma, options.encryptionKey, now),
     nomoney: createProductAdapter('nomoney', options.noMoneyPort || Number(process.env.NOMONEY_INTERNAL_PORT || 2030), options.internalToken ?? process.env.NOMONEY_INTERNAL_TOKEN ?? '', request, now),
-    yumi: createProductAdapter('yumi', options.yumiPort || Number(process.env.YUMI_INTERNAL_PORT || 2040), options.internalToken ?? process.env.NOMONEY_INTERNAL_TOKEN ?? '', request, now),
   };
 }
 
@@ -311,13 +309,13 @@ function archiveEntrySize(line: string) {
 }
 
 function createProductAdapter(
-  module: 'nomoney' | 'yumi',
+  module: 'nomoney',
   port: number,
   internalToken: string,
   request: typeof fetch,
   now: () => Date,
 ): BackupModuleAdapter {
-  const label = module === 'nomoney' ? 'NoMoney' : 'Yumi';
+  const label = 'NoMoney';
   async function internal(pathname: string, init: RequestInit) {
     if (!internalToken) throw httpError(503, `${label} internal backup authentication is not configured`);
     const response = await request(`http://127.0.0.1:${port}/api/internal/backup${pathname}`, {
@@ -373,10 +371,10 @@ function parseNoStarBackup(body: Buffer) {
   return value;
 }
 
-function parseProductBackup(body: Buffer, module: 'nomoney' | 'yumi', label: string) {
+function parseProductBackup(body: Buffer, module: 'nomoney', label: string) {
   const value = parseJsonDocument(body, `${label} backup`);
   const payload = record(value.payload);
-  if (value.kind !== PRODUCT_KIND || value.version !== 1 || value.module !== module || payload.product !== module || payload.version !== 2) {
+  if (value.kind !== PRODUCT_KIND || value.version !== 1 || value.module !== module || payload.product !== module || (payload.version !== 2 && payload.version !== 3)) {
     throw httpError(400, `${label} backup is invalid`);
   }
   return { ...value, payload };

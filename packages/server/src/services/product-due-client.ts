@@ -1,5 +1,5 @@
 export interface ProductDueItem {
-  assetType: 'phone' | 'domain' | 'vps' | 'subscription';
+  assetType: 'phone' | 'domain' | 'subscription';
   id: number;
   name: string;
   dueDate: string;
@@ -53,7 +53,7 @@ function parseDueItem(value: unknown): ProductDueItem | null {
   const name = typeof item.name === 'string' ? item.name.trim() : '';
   const dueDate = typeof item.dueDate === 'string' ? item.dueDate : '';
   const status = typeof item.status === 'string' ? item.status : '';
-  if (!['phone', 'domain', 'vps', 'subscription'].includes(String(assetType))) return null;
+  if (!['phone', 'domain', 'subscription'].includes(String(assetType))) return null;
   if (!Number.isSafeInteger(id) || id <= 0 || !name || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !status) return null;
   const kind = item.kind === 'certificate' || item.kind === 'keepalive' || item.kind === 'renewal' ? item.kind : undefined;
   return { assetType: assetType as ProductDueItem['assetType'], id, name, dueDate, status, ...(kind ? { kind } : {}) };
@@ -63,10 +63,10 @@ function serviceError(statusCode: number, message: string) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-/** Reads the channel settings NoMoney or Yumi used before notifications moved to NoNo. */
-export function createLegacyChannelReader(options: { ports: Record<'nomoney' | 'yumi', number>; token: string; fetch?: typeof fetch }) {
+/** Reads the channel settings NoMoney used before notifications moved to NoNo. */
+export function createLegacyChannelReader(options: { ports: Record<'nomoney', number>; token: string; fetch?: typeof fetch }) {
   const request = options.fetch || fetch;
-  return async (product: 'nomoney' | 'yumi') => {
+  return async (product: 'nomoney') => {
     if (!options.token) throw serviceError(503, 'Internal authentication is not configured');
     const response = await request(`http://127.0.0.1:${options.ports[product]}/api/internal/notifications/legacy-channels`, {
       headers: { 'x-nono-internal-token': options.token },
@@ -81,10 +81,10 @@ export function createLegacyChannelReader(options: { ports: Record<'nomoney' | '
   };
 }
 
-/** Reads the compact NoMoney or Yumi summary shown in the NoDesk "today" panel. */
-export function createProductOverviewReader(options: { ports: Record<'nomoney' | 'yumi', number>; token: string; fetch?: typeof fetch }) {
+/** Reads the compact NoMoney summary shown in the NoDesk "today" panel. */
+export function createProductOverviewReader(options: { ports: Record<'nomoney', number>; token: string; fetch?: typeof fetch }) {
   const request = options.fetch || fetch;
-  return async (product: 'nomoney' | 'yumi'): Promise<Record<string, unknown>> => {
+  return async (product: 'nomoney'): Promise<Record<string, unknown>> => {
     if (!options.token) throw serviceError(503, 'Internal authentication is not configured');
     const response = await request(`http://127.0.0.1:${options.ports[product]}/api/internal/overview`, {
       headers: { 'x-nono-internal-token': options.token },

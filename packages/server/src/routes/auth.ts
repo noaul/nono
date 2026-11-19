@@ -53,7 +53,7 @@ export async function authRoutes(app: FastifyInstance, services: AppServices) {
     return sendOk(reply, { ok: true });
   });
 
-  // NoMoney and Yumi have no accounts; they forward the browser's NoNo cookie here to learn who
+  // NoMoney has no accounts; it forwards the browser's NoNo cookie here to learn who
   // is signed in. Only the cookie counts: an API token must not unlock the products.
   app.get('/api/internal/auth/session', async (request, reply) => {
     if (!requireInternalToken(request, reply, services)) return;

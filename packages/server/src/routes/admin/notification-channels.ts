@@ -30,7 +30,7 @@ const updateSchema = z.object({
 });
 
 const relaySchema = z.object({
-  product: z.enum(['nomoney', 'yumi']),
+  product: z.enum(['nomoney']),
   subject: z.string().trim().min(1).max(300),
   text: z.string().max(100_000),
   severity: z.enum(NOTIFICATION_SEVERITIES).optional().default('warning'),
@@ -143,7 +143,7 @@ export async function notificationChannelRoutes(app: FastifyInstance, services: 
     });
   });
 
-  // NoMoney and Yumi hand their reminders and outage alerts to the administrator's channels here.
+  // NoMoney hands its reminders to the administrator's channels here.
   app.post('/api/internal/notifications/relay', async (request, reply) => {
     if (!requireInternalToken(request, reply, services)) return;
     const input = relaySchema.parse(request.body);

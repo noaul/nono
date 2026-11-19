@@ -1,7 +1,7 @@
 export type TodayTone = 'ok' | 'warning' | 'critical' | 'muted'
 
 export type TodayRow = {
-	id: 'notifications' | 'nomoney' | 'yumi' | 'links' | 'nostar' | 'backup'
+	id: 'notifications' | 'nomoney' | 'links' | 'nostar' | 'backup'
 	title: string
 	subtitle: string
 	href: string
@@ -56,14 +56,6 @@ function formatShanghaiDate(value: unknown) {
 	return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' }).format(new Date(value))
 }
 
-const STATUS_LABELS: Record<string, string> = {
-	operational: '全部正常',
-	degraded: '部分节点性能下降',
-	partial_outage: '部分节点宕机',
-	major_outage: '全部节点宕机',
-	no_data: '暂无探测数据'
-}
-
 /**
  * Turns /api/admin/overview into the rows of the NoDesk "today" panel, worst news first.
  * Any block NoNo could not read becomes a muted row rather than disappearing.
@@ -95,17 +87,6 @@ export function summarizeOverview(raw: unknown, basePath = ''): TodayRow[] {
 			: ''
 		rows.push({ id: 'nomoney', title: 'NoMoney', subtitle: [due.text, spend].filter(Boolean).join(' · '), href: '/nomoney/dashboard', tone: due.tone })
 	} else unavailable('nomoney', 'NoMoney', '/nomoney/dashboard')
-
-	const yumi = block(overview.yumi)
-	if (yumi.state === 'ok') {
-		const status = record(yumi.data.status)
-		const down = (Array.isArray(status.down) ? status.down : []).filter((name): name is string => typeof name === 'string')
-		const overall = typeof status.overall === 'string' ? status.overall : 'no_data'
-		const due = dueSummary(record(yumi.data.due))
-		const health = down.length ? `宕机：${down.slice(0, 3).join('、')}${down.length > 3 ? ` 等 ${down.length} 台` : ''}` : STATUS_LABELS[overall] || overall
-		const tone: TodayTone = down.length ? 'critical' : overall === 'degraded' || due.tone === 'warning' ? 'warning' : due.tone
-		rows.push({ id: 'yumi', title: 'Yumi', subtitle: `${health} · ${due.text}`, href: '/yumi/dashboard', tone })
-	} else unavailable('yumi', 'Yumi', '/yumi/dashboard')
 
 	const links = block(overview.links)
 	if (links.state === 'ok') {

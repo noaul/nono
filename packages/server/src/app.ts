@@ -47,7 +47,6 @@ import { registerTrashRetentionScheduler } from './services/trash-retention.sche
 import { createNotificationService } from './services/notification.service.js';
 import { NodeskContentStore } from './services/nodesk-content.service.js';
 import { createAuditLogService } from './services/audit.service.js';
-import { createNoMoneyClient } from './services/nomoney-client.js';
 import { createBackupCenterService, type BackupBatchManifest, type BackupCenterService } from './services/backup-center.service.js';
 import { createBackupModuleAdapters } from './services/backup-module-adapters.js';
 import { BackupOperationGate, createBackupJobService, gateBackupService } from './services/backup-jobs.service.js';
@@ -119,11 +118,6 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
       token: process.env.NOMONEY_INTERNAL_TOKEN || '',
       serviceName: 'NoMoney',
     }),
-    yumiReader: createProductDueReader({
-      port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
-      token: process.env.NOMONEY_INTERNAL_TOKEN || '',
-      serviceName: 'Yumi',
-    }),
     backupService: backupTarget,
     backupAutomationService,
   });
@@ -134,7 +128,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     delivery: { encryptionKey, safeRequester, publicAddressResolver, privateOutboundHosts },
     publicUrl: process.env.NONO_PUBLIC_URL || null,
     readLegacyChannels: createLegacyChannelReader({
-      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030), yumi: Number(process.env.YUMI_INTERNAL_PORT || 2040) },
+      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030) },
       token: process.env.NOMONEY_INTERNAL_TOKEN || '',
     }),
     legacySmtpEnv: {
@@ -176,12 +170,8 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
     notificationService,
     notificationDispatcher,
     productOverviewReader: overrides.productOverviewReader || createProductOverviewReader({
-      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030), yumi: Number(process.env.YUMI_INTERNAL_PORT || 2040) },
+      ports: { nomoney: Number(process.env.NOMONEY_INTERNAL_PORT || 2030) },
       token: process.env.NOMONEY_INTERNAL_TOKEN || '',
-    }),
-    noMoneyClient: overrides.noMoneyClient || createNoMoneyClient({
-      port: Number(process.env.YUMI_INTERNAL_PORT || 2040),
-      serviceName: 'Yumi',
     }),
     mobileStore,
     mobileDevices,
@@ -326,8 +316,7 @@ export async function buildApp(overrides: Partial<AppServices> = {}) {
 function createReadinessCheck(prisma: PrismaClient, nodeskStore: NodeskContentStore) {
   return async (): Promise<ReadinessChecks> => {
     const nomoneyPort = Number(process.env.NOMONEY_INTERNAL_PORT || 2030);
-    const yumiPort = Number(process.env.YUMI_INTERNAL_PORT || 2040);
-    const [postgres, nodesk, nomoney, yumi] = await Promise.allSettled([
+    const [postgres, nodesk, nomoney] = await Promise.allSettled([
       prisma.$queryRawUnsafe('SELECT 1'),
       nodeskStore.readPublicJson('site'),
       fetch(`http://127.0.0.1:${nomoneyPort}/api/readyz`, {
@@ -336,18 +325,11 @@ function createReadinessCheck(prisma: PrismaClient, nodeskStore: NodeskContentSt
       }).then((response) => {
         if (!response.ok) throw new Error('NoMoney is not ready');
       }),
-      fetch(`http://127.0.0.1:${yumiPort}/api/readyz`, {
-        signal: AbortSignal.timeout(2_000),
-        redirect: 'error',
-      }).then((response) => {
-        if (!response.ok) throw new Error('Yumi is not ready');
-      }),
     ]);
     return {
       postgres: postgres.status === 'fulfilled',
       nodesk: nodesk.status === 'fulfilled',
       nomoney: nomoney.status === 'fulfilled',
-      yumi: yumi.status === 'fulfilled',
     };
   };
 }
@@ -370,7 +352,7 @@ function webDavAutomationTarget(center: BackupCenterService, prisma: PrismaClien
     const serialized = JSON.stringify(batch);
     return {
       kind: 'nono.full-backup',
-      version: 2,
+      version: 3,
       id: batch.id,
       filename: `${batch.id}.json`,
       createdAt: batch.createdAt,
@@ -378,7 +360,7 @@ function webDavAutomationTarget(center: BackupCenterService, prisma: PrismaClien
       size: modules.reduce((sum, item) => sum + Number(item?.size || 0), 0),
       sha256: createHash('sha256').update(serialized).digest('hex'),
       status: 'verified',
-      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+      components: ['postgres', 'nodesk', 'nomoney'],
       componentRecords: {},
     };
   };

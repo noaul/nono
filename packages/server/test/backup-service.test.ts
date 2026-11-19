@@ -67,12 +67,16 @@ describe('backup service', () => {
     const backup = await service.create();
 
     expect(backup).toMatchObject({
+      version: 3,
       id: '20260718T123456Z',
       createdAt: '2026-07-18T12:34:56.000Z',
       sourceCommit: 'abcdef1234567890',
-      components: ['postgres', 'nodesk', 'nomoney', 'yumi'],
+      components: ['postgres', 'nodesk', 'nomoney'],
       size: Buffer.byteLength('full-archive'),
     });
+    // Yumi is retired: its database is neither copied nor checked any more.
+    expect(Object.keys(backup.componentRecords)).toEqual(['postgres', 'nodesk', 'nomoney']);
+    expect(calls.filter((call) => call.command === 'sqlite3').map((call) => path.basename(call.args[0]))).toEqual(['nomoney.db']);
     expect(backup.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(fs.existsSync(path.join(backupDir, 'nono-backup-20260718T123456Z.tar.gz'))).toBe(true);
     expect(fs.existsSync(path.join(backupDir, 'nono-backup-20260718T123456Z.json'))).toBe(true);
@@ -88,6 +92,12 @@ describe('backup service', () => {
     });
     expect(calls.some((call) => call.command === 'sqlite3' && call.args.at(-1) === 'PRAGMA integrity_check;')).toBe(true);
     expect(calls.some((call) => call.command === 'pg_restore' && call.args.includes('--list'))).toBe(true);
+  });
+
+  it('no longer needs a Yumi database to create a backup', async () => {
+    fs.rmSync(yumiDataDir, { recursive: true, force: true });
+    const service = await makeService();
+    await expect(service.create()).resolves.toMatchObject({ status: 'verified', components: ['postgres', 'nodesk', 'nomoney'] });
   });
 
   it('lists created backups newest first', async () => {

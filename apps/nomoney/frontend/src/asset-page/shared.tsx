@@ -14,12 +14,6 @@ export const domainCycles: BillingCycle[] = ['annual', 'biennial'];
 
 export const statuses: AssetStatus[] = ['active', 'paused', 'expired', 'cancelled'];
 
-export const vpsTypes = [
-  { value: 'website', labelZh: '建站机', labelEn: 'Website' },
-  { value: 'route', labelZh: '线路机', labelEn: 'Route' },
-  { value: 'residential', labelZh: '家宽', labelEn: 'Residential' }
-] as const;
-
 export const subscriptionCategorySuggestions = [
   { zh: '影音娱乐', en: 'Streaming' },
   { zh: '软件工具', en: 'Software' },
@@ -259,22 +253,6 @@ export function numberValue(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
-}
-
-export function textValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return String(value).trim();
-}
-
-export function formatPercent(value: number | null): string {
-  return value === null ? '-' : `${Math.round(value * 10) / 10}%`;
-}
-
-export function percentColor(value: number | null): string {
-  if (value === null) return 'brand';
-  if (value >= 90) return 'danger';
-  if (value >= 75) return 'warning';
-  return 'success';
 }
 
 export function addBillingCycleToDate(dateValue: string, cycle: BillingCycle): string {

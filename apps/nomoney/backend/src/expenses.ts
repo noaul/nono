@@ -10,7 +10,7 @@ import { currencySchema } from './schemas.js';
 const expenseListQuerySchema = z.object({
   year: z.coerce.number().int().min(1970).max(9999).optional(),
   currency: z.preprocess(emptyToUndefined, currencySchema.optional()),
-  assetType: z.preprocess(emptyToUndefined, z.enum(['phone', 'vps', 'domain', 'subscription']).optional()),
+  assetType: z.preprocess(emptyToUndefined, z.enum(['phone', 'domain', 'subscription']).optional()),
   category: z.preprocess(emptyToUndefined, z.enum(['renewal', 'monthly', 'setup', 'other']).optional()),
   limit: z.coerce.number().int().min(1).max(200).optional().default(50),
   offset: z.coerce.number().int().min(0).optional().default(0)

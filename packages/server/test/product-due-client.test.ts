@@ -4,24 +4,24 @@ import { createProductDueReader } from '../src/services/product-due-client.js';
 describe('product due client', () => {
   it('preserves the reminder kind through the product boundary', async () => {
     const item = { assetType: 'domain', id: 1, name: 'example.com', dueDate: '2026-08-10', status: 'active', kind: 'certificate' };
-    const reader = createProductDueReader({ token: 'internal-secret', serviceName: 'Yumi', fetch: async () => new Response(JSON.stringify({ items: [item] })) });
+    const reader = createProductDueReader({ token: 'internal-secret', serviceName: 'NoMoney', fetch: async () => new Response(JSON.stringify({ items: [item] })) });
     await expect(reader()).resolves.toEqual([item]);
   });
   it('reads product due items through the authenticated internal API', async () => {
     const request = vi.fn(async () => new Response(JSON.stringify({
-      items: [{ assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' }],
+      items: [{ assetType: 'domain', id: 10, name: 'example.com', dueDate: '2026-08-10', status: 'active' }],
     }), { status: 200, headers: { 'content-type': 'application/json' } }));
     const reader = createProductDueReader({
-      port: 2040,
+      port: 2030,
       token: 'internal-secret',
-      serviceName: 'Yumi',
+      serviceName: 'NoMoney',
       fetch: request as typeof fetch,
     });
 
     await expect(reader()).resolves.toEqual([
-      { assetType: 'vps', id: 10, name: 'nc48', dueDate: '2026-08-10', status: 'active' },
+      { assetType: 'domain', id: 10, name: 'example.com', dueDate: '2026-08-10', status: 'active' },
     ]);
-    expect(request).toHaveBeenCalledWith('http://127.0.0.1:2040/api/internal/notifications/due', expect.objectContaining({
+    expect(request).toHaveBeenCalledWith('http://127.0.0.1:2030/api/internal/notifications/due', expect.objectContaining({
       headers: { 'x-nono-internal-token': 'internal-secret' },
       redirect: 'error',
     }));
@@ -39,5 +39,13 @@ describe('product due client', () => {
       fetch: vi.fn(async () => new Response(JSON.stringify({ items: [{ assetType: 'root', id: 1 }] }), { status: 200 })) as typeof fetch,
     });
     await expect(reader()).rejects.toThrow('NoMoney returned an invalid notification feed');
+
+    // VPS management was dropped with Yumi; such an item is no longer a valid due item.
+    const vps = createProductDueReader({
+      token: 'internal-secret',
+      serviceName: 'NoMoney',
+      fetch: vi.fn(async () => new Response(JSON.stringify({ items: [{ assetType: 'vps', id: 1, name: 'nc48', dueDate: '2026-08-10', status: 'active' }] }), { status: 200 })) as typeof fetch,
+    });
+    await expect(vps()).rejects.toThrow('NoMoney returned an invalid notification feed');
   });
 });

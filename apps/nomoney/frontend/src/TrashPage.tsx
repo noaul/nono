@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ContactRound, Globe2, Repeat2, RotateCcw, Server, Smartphone, Trash2 } from 'lucide-react';
+import { ContactRound, Globe2, Repeat2, RotateCcw, Smartphone, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from './api';
 import { assetPageConfigs, type AssetPageConfig } from './assetConfig';
@@ -7,13 +7,11 @@ import { AccountAppIcon, getAccountTypeLabel } from './accountCatalog';
 import type { AssetItem, CommunicationAccount, ListResponse } from './types';
 import { useI18n } from './i18n';
 import { Button, EmptyState, PageHeader, Skeleton, StateBanner } from './ui';
-import { product } from './product';
 import { formatShanghaiDateTime } from './format';
 
 type TrashKind = AssetPageConfig['endpoint'] | 'accounts';
 
-const productAssetEndpoints = product === 'yumi' ? ['vps', 'domains'] : ['phones', 'subscriptions'];
-const productAssetConfigs = assetPageConfigs.filter((config) => productAssetEndpoints.includes(config.endpoint));
+const productAssetConfigs = assetPageConfigs;
 
 type TrashItem = {
   key: string;
@@ -27,7 +25,6 @@ type TrashItem = {
 
 const kindIcons: Record<TrashKind, LucideIcon> = {
   phones: Smartphone,
-  vps: Server,
   domains: Globe2,
   subscriptions: Repeat2,
   accounts: ContactRound
@@ -47,7 +44,7 @@ export default function TrashPage() {
     setError('');
     try {
       const [accounts, assetResponses] = await Promise.all([
-        product === 'nomoney' ? api.get<ListResponse<CommunicationAccount>>('/api/accounts?trashed=true') : Promise.resolve({ items: [] }),
+        api.get<ListResponse<CommunicationAccount>>('/api/accounts?trashed=true'),
         Promise.all(productAssetConfigs.map((config) => api.get<ListResponse<AssetItem>>(`/api/${config.endpoint}?status=archived&limit=200`)))
       ]);
       const accountItems = accounts.items.map(toAccountTrashItem);
@@ -125,14 +122,11 @@ export default function TrashPage() {
   const allFilters: Array<{ value: TrashKind | 'all'; zh: string; en: string }> = [
     { value: 'all', zh: '全部', en: 'All' },
     { value: 'phones', zh: '电话卡', en: 'SIM cards' },
-    { value: 'vps', zh: 'VPS', en: 'VPS' },
     { value: 'domains', zh: '域名', en: 'Domains' },
     { value: 'subscriptions', zh: '订阅', en: 'Subscriptions' },
     { value: 'accounts', zh: '账号', en: 'Accounts' }
   ];
-  const filters = allFilters.filter((option) => product === 'yumi'
-    ? ['all', 'vps', 'domains'].includes(option.value)
-    : ['all', 'phones', 'subscriptions', 'accounts'].includes(option.value));
+  const filters = allFilters;
 
   return (
     <div className="space-y-5">
@@ -168,7 +162,7 @@ export default function TrashPage() {
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2">{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-40" />)}</div>
       ) : visibleItems.length === 0 ? (
-        <EmptyState title={copy('回收站为空', 'Recycle bin is empty')} description={product === 'yumi' ? copy('移入回收站的 VPS 和域名会显示在这里。', 'Deleted VPS entries and domains appear here.') : copy('移入回收站的电话卡、订阅和账号会显示在这里。', 'Deleted SIM cards, subscriptions, and accounts appear here.')} />
+        <EmptyState title={copy('回收站为空', 'Recycle bin is empty')} description={copy('移入回收站的电话卡、域名、订阅和账号会显示在这里。', 'Deleted SIM cards, domains, subscriptions, and accounts appear here.')} />
       ) : (
         <div className="motion-list grid gap-3 sm:grid-cols-2">
           {visibleItems.map((item) => {
